@@ -98,6 +98,7 @@ import com.ollite.llm.server.data.ModelDownloadStatusType
 import com.ollite.llm.server.data.RuntimeType
 import com.ollite.llm.server.data.Task
 import com.ollite.llm.server.proto.ImportedModel
+import com.ollite.llm.server.ui.common.ShimmerModelCard
 import com.ollite.llm.server.ui.common.modelitem.ModelItem
 import com.ollite.llm.server.ui.theme.OlliteDeepBlue
 import com.ollite.llm.server.ui.theme.OllitePrimary
@@ -308,6 +309,13 @@ fun GlobalModelManager(
             selected = activeFilter == ModelFilter.AVAILABLE,
             onClick = { activeFilter = ModelFilter.AVAILABLE },
           )
+        }
+      }
+
+      // Shimmer loading placeholders
+      if (uiState.loadingModelAllowlist && builtInModels.isEmpty()) {
+        items(3, key = { "shimmer_$it" }) {
+          ShimmerModelCard()
         }
       }
 

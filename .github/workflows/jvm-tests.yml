@@ -1,4 +1,4 @@
-name: Android JVM Tests
+name: Ollite JVM Tests
 
 on:
   push:

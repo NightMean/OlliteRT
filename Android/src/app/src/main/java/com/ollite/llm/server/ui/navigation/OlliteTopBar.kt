@@ -1,7 +1,11 @@
 package com.ollite.llm.server.ui.navigation
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,11 +109,17 @@ fun StatusPill(
         .background(animatedDotColor)
     )
     Spacer(modifier = Modifier.width(6.dp))
-    Text(
-      text = label,
-      style = MaterialTheme.typography.labelSmall,
-      color = MaterialTheme.colorScheme.onSurface,
-      fontWeight = FontWeight.SemiBold,
-    )
+    AnimatedContent(
+      targetState = label,
+      transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+      label = "statusLabel",
+    ) { targetLabel ->
+      Text(
+        text = targetLabel,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.SemiBold,
+      )
+    }
   }
 }

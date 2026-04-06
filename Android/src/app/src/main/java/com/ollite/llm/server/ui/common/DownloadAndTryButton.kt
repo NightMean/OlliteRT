@@ -82,6 +82,8 @@ import com.ollite.llm.server.data.Task
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollite.llm.server.ui.modelmanager.TokenRequestResultType
 import com.ollite.llm.server.ui.modelmanager.TokenStatus
+import android.os.Environment
+import android.os.StatFs
 import java.net.HttpURLConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -136,6 +138,7 @@ fun DownloadAndTryButton(
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
   var showMemoryWarning by remember { mutableStateOf(false) }
+  var showStorageWarning by remember { mutableStateOf(false) }
   var showWifiWarning by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
@@ -336,7 +339,9 @@ fun DownloadAndTryButton(
   }
 
   val checkMemoryAndClickDownloadButton = {
-    if (isMemoryLow(context = context, model = model)) {
+    if (needToDownloadFirst && isStorageLow(model)) {
+      showStorageWarning = true
+    } else if (isMemoryLow(context = context, model = model)) {
       showMemoryWarning = true
     } else {
       handleClickButton()
@@ -566,6 +571,33 @@ fun DownloadAndTryButton(
     )
   }
 
+  if (showStorageWarning) {
+    AlertDialog(
+      icon = {
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
+      },
+      title = { Text("Storage Full") },
+      text = {
+        val sizeGb = model.totalBytes / (1024f * 1024 * 1024)
+        Text("Not enough storage to download this model (%.1f GB required). Free up space and try again.".format(sizeGb))
+      },
+      onDismissRequest = { showStorageWarning = false },
+      confirmButton = {
+        TextButton(onClick = {
+          showStorageWarning = false
+          handleClickButton()
+        }) { Text("Download Anyway") }
+      },
+      dismissButton = {
+        TextButton(onClick = { showStorageWarning = false }) { Text(stringResource(R.string.cancel)) }
+      },
+    )
+  }
+
   if (showWifiWarning) {
     WifiWarningAlert(
       onStartAnyway = {
@@ -576,4 +608,16 @@ fun DownloadAndTryButton(
     )
   }
 
+}
+
+/** Returns true when available storage is less than the model's total download size. */
+private fun isStorageLow(model: Model): Boolean {
+  if (model.totalBytes <= 0) return false
+  return try {
+    val stat = StatFs(Environment.getDataDirectory().path)
+    val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
+    availableBytes < model.totalBytes + SYSTEM_RESERVED_MEMORY_IN_BYTES
+  } catch (_: Exception) {
+    false
+  }
 }
