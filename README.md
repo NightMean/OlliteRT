@@ -1,26 +1,21 @@
-# gallery fork
+# Ollite -- On-Device LLM Server
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Build](https://github.com/Zyach/gallery/actions/workflows/build_android.yaml/badge.svg)](https://github.com/Zyach/gallery/actions/workflows/build_android.yaml)
-[![JVM Tests](https://github.com/Zyach/gallery/actions/workflows/jvm-tests.yml/badge.svg)](https://github.com/Zyach/gallery/actions/workflows/jvm-tests.yml)
 
-Fork de [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery) que añade un bridge HTTP local para inferencia on-device mediante una API compatible con OpenAI.
+OpenAI-compatible LLM server running on Android, powered by [LiteRT LM](https://ai.google.dev/edge/litert). Supports `.litertlm` and `.task` model formats. Exposes `/v1/chat/completions`, `/v1/responses`, and `/v1/models` on port 11434 (configurable), bound to `0.0.0.0`.
 
-## Qué añade este fork
+Ollite originated as a fork of [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery) and has since diverged into its own project.
 
-| Feature | Detalle |
+## Features
+
+| Feature | Detail |
 |---|---|
-| **HTTP bridge** (`127.0.0.1:9006`) | API compatible OpenAI: `/v1/chat/completions`, `/v1/responses`, `/v1/models`. Auth Bearer, SSE streaming real token-by-token, tool calls. |
-| **89 tests JVM** | Upstream tiene cero. 16 archivos cubriendo toda la capa del bridge. |
-| **CI completo** | Tests + lint + APK artifacts en cada push. Upstream solo hace release build. |
-| **DataStore async** | Eliminado `runBlocking` de `DataStoreRepository`. |
-| **Error handling** | Errores visibles en single-turn; reset de sesión con max retries. |
-
-## Pendiente de upstream
-
-- Agent Chat con Skills importables (`customtasks/agentchat/`)
-- Sistema de promo banners
-- Thinking tokens via SDK nativo (`message.channels["thought"]`)
+| **HTTP server** (`0.0.0.0:11434`) | OpenAI-compatible API, Bearer auth, real SSE streaming, tool calls |
+| **LiteRT LM runtime** | `.litertlm` and `.task` formats (not GGUF) |
+| **Dark theme only** | No Firebase, no analytics |
+| **5 screens** | Getting Started, Models, Status, Logs, Settings |
+| **JVM tests** | 88 unit tests across 15 files |
+| **CI** | Tests + lint + APK artifacts on every push |
 
 ## Build
 
@@ -29,12 +24,12 @@ cd Android/src
 ./gradlew assembleDebug
 ```
 
-Requiere Android Studio o JDK 21 + Android SDK. Para descarga de modelos desde HuggingFace, configurar `ProjectConfig.kt` — ver [DEVELOPMENT.md](DEVELOPMENT.md).
+Requires Android Studio or JDK 21 + Android SDK. For model downloads from HuggingFace, configure `ProjectConfig.kt`.
 
-## Documentación
+## Documentation
 
-[Estado](docs/STATE.md) · [Roadmap](docs/ROADMAP.md) · [Divergencias](docs/FORK_DIVERGENCES.md)
+[Bug Reporting](docs/Bug_Reporting_Guide.md)
 
-## Licencia
+## License
 
-Apache 2.0 — ver [LICENSE](LICENSE).
+Apache 2.0 -- see [LICENSE](LICENSE).
