@@ -174,7 +174,8 @@ fun GlobalModelManager(
       }
     }
 
-  LaunchedEffect(uiState.modelImportingUpdateTrigger) {
+  val totalModelCount = uiState.tasks.sumOf { it.models.size }
+  LaunchedEffect(uiState.modelImportingUpdateTrigger, uiState.loadingModelAllowlist, totalModelCount) {
     val allModelsSet = mutableSetOf<Model>()
     for (task in uiState.tasks) {
       for (model in task.models) {
