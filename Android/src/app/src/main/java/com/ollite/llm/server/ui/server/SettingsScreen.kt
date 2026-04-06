@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
@@ -83,15 +82,6 @@ fun SettingsScreen(
       .padding(horizontal = 20.dp, vertical = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
-    // Back button
-    IconButton(onClick = onBackClick) {
-      Icon(
-        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-        contentDescription = "Back",
-        tint = MaterialTheme.colorScheme.onSurface,
-      )
-    }
-
     // Heading
     Text(
       text = "Global Settings",

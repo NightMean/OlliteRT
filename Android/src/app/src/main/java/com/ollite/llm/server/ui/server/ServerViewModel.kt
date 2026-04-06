@@ -29,8 +29,8 @@ class ServerViewModel @Inject constructor(
   val lastLatencyMs = ServerMetrics.lastLatencyMs
   val avgLatencyMs = ServerMetrics.avgLatencyMs
 
-  fun startServer(port: Int = LlmHttpPrefs.getPort(context)) {
-    LlmHttpService.start(context, port)
+  fun startServer(port: Int = LlmHttpPrefs.getPort(context), modelName: String? = null) {
+    LlmHttpService.start(context, port, modelName)
   }
 
   fun stopServer() {

@@ -88,7 +88,7 @@ fun OlliteNavHost(
         navigateUp = { navController.navigateUp() },
         onModelSelected = { _, model ->
           // Start the server with the selected model
-          serverViewModel.startServer()
+          serverViewModel.startServer(modelName = model.name)
         },
         onBenchmarkClicked = { model ->
           navController.navigate(OlliteRoutes.benchmark(model.name))

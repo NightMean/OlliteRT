@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +65,11 @@ fun StatusScreen(
 
   if (status == ServerStatus.STOPPED) {
     EmptyStatusScreen(modifier)
+    return
+  }
+
+  if (status == ServerStatus.LOADING) {
+    LoadingStatusScreen(modelName = modelName, modifier = modifier)
     return
   }
 
@@ -217,6 +223,36 @@ fun StatusScreen(
         value = "${throughput} t/s",
         modifier = Modifier.weight(1f),
       )
+    }
+  }
+}
+
+@Composable
+private fun LoadingStatusScreen(modelName: String?, modifier: Modifier = Modifier) {
+  Box(
+    modifier = modifier.fillMaxSize(),
+    contentAlignment = Alignment.Center,
+  ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+      CircularProgressIndicator(
+        modifier = Modifier.size(48.dp),
+        color = OllitePrimary,
+        strokeWidth = 4.dp,
+      )
+      Spacer(modifier = Modifier.height(16.dp))
+      Text(
+        text = "Loading model…",
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+      if (modelName != null) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = modelName,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
     }
   }
 }
