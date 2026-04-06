@@ -1,14 +1,44 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-  <!-- Circle background with Ollite primary blue -->
-  <path
-      android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"
-      android:fillColor="#AFC6FF"/>
-  <!-- "O" letter in dark surface color -->
-  <path
-      android:pathData="M54,32c-12.15,0 -22,9.85 -22,22s9.85,22 22,22s22,-9.85 22,-22s-9.85,-22 -22,-22zM54,68c-7.73,0 -14,-6.27 -14,-14s6.27,-14 14,-14s14,6.27 14,14s-6.27,14 -14,14z"
-      android:fillColor="#131314"/>
+    android:viewportWidth="174"
+    android:viewportHeight="174">
+    <!-- Dark rounded background -->
+    <path
+        android:pathData="M0,0h174v174h-174z"
+        android:fillColor="#060e0b"/>
+    <!-- Three blades -->
+    <path
+        android:pathData="M30,133 L50,56 L72,133 Z"
+        android:fillColor="#00ffb2"
+        android:fillAlpha="0.4"/>
+    <path
+        android:pathData="M48,133 L68,50 L90,133 Z"
+        android:fillColor="#00ffb2"
+        android:fillAlpha="0.7"/>
+    <path
+        android:pathData="M66,133 L86,44 L108,133 Z"
+        android:fillColor="#00ffb2"/>
+    <!-- Arcs right side -->
+    <path
+        android:pathData="M112,80 A14,14 0 0,1 112,102"
+        android:fillColor="#00000000"
+        android:strokeColor="#00ffb2"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.9"/>
+    <path
+        android:pathData="M119,72 A22,22 0 0,1 119,110"
+        android:fillColor="#00000000"
+        android:strokeColor="#00ffb2"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.55"/>
+    <path
+        android:pathData="M126,64 A30,30 0 0,1 126,118"
+        android:fillColor="#00000000"
+        android:strokeColor="#00ffb2"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.3"/>
 </vector>

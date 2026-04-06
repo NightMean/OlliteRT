@@ -15,11 +15,11 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.ollite.llm.server.proto;
+package com.ollitert.llm.server.proto;
 
 option java_multiple_files = true;
 option java_outer_classname = "Benchmark";
-option java_package = "com.ollite.llm.server.proto";
+option java_package = "com.ollitert.llm.server.proto";
 
 message BenchmarkResults {
   repeated BenchmarkResult result = 1;

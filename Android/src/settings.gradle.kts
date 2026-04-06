@@ -44,6 +44,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Ollite LLM Server"
+rootProject.name = "OlliteRT LLM Server"
 
 include(":app")

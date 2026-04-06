@@ -15,9 +15,9 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.ollite.llm.server.proto;
+package com.ollitert.llm.server.proto;
 
-option java_package = "com.ollite.llm.server.proto";
+option java_package = "com.ollitert.llm.server.proto";
 option java_multiple_files = true;
 
 enum Theme {

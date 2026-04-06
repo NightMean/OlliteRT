@@ -1,3 +1,3 @@
-# Ollite (Android)
+# OlliteRT (Android)
 
-Android application for Ollite -- On-Device LLM Server. See the [root README](../README.md) for project overview.
+Android application for OlliteRT -- On-Device LLM Server. See the [root README](../README.md) for project overview.
