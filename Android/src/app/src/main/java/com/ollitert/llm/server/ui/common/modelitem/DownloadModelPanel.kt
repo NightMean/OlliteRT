@@ -82,6 +82,8 @@ fun DownloadModelPanel(
         if (isExpanded) {
           buttonModifier = buttonModifier.weight(1f)
         }
+        val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+        val context = androidx.compose.ui.platform.LocalContext.current
         Button(
           modifier =
             Modifier.sharedElement(
@@ -91,12 +93,20 @@ fun DownloadModelPanel(
               .then(buttonModifier),
           colors =
             ButtonDefaults.buttonColors(
-              containerColor = MaterialTheme.colorScheme.secondaryContainer
+              containerColor = if (isServerActive) MaterialTheme.colorScheme.surfaceContainerHigh
+                else MaterialTheme.colorScheme.secondaryContainer,
             ),
           contentPadding = PaddingValues(horizontal = 12.dp),
-          onClick = onBenchmarkClicked,
+          onClick = {
+            if (isServerActive) {
+              android.widget.Toast.makeText(context, "Stop the server first to run benchmarks", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+              onBenchmarkClicked()
+            }
+          },
         ) {
-          val textColor = MaterialTheme.colorScheme.onSecondaryContainer
+          val textColor = if (isServerActive) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            else MaterialTheme.colorScheme.onSecondaryContainer
           Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
