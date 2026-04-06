@@ -23,6 +23,9 @@ import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
@@ -289,7 +292,11 @@ class LlmHttpService : Service() {
         logEvent("request_tool_call id=$requestId endpoint=/v1/chat/completions tool=${toolCall.function.name}")
         return okJsonText(json.encodeToString(chatResponseWithToolCall(model.name, toolCall)))
       }
-      val text = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 30)
+
+      // Extract images for multimodal models.
+      val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
+
+      val text = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 30, images = images)
         ?: return badRequest("llm error")
       return okJsonText(json.encodeToString(chatResponseWithText(model.name, text)))
     }
@@ -343,15 +350,18 @@ class LlmHttpService : Service() {
       requestId: String,
       endpoint: String,
       timeoutSeconds: Long = 30,
+      images: List<Bitmap> = emptyList(),
     ): String? {
+      val supportImage = model.llmSupportImage && images.isNotEmpty()
+      val supportAudio = model.llmSupportAudio
       synchronized(this) {
         if (model.instance == null) {
           var err = ""
           ServerLlmModelHelper.initialize(
             context = this@LlmHttpService,
             model = model,
-            supportImage = false,
-            supportAudio = false,
+            supportImage = supportImage,
+            supportAudio = supportAudio,
             onDone = { err = it },
             systemInstruction = null,
           )
@@ -364,7 +374,7 @@ class LlmHttpService : Service() {
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
-          ServerLlmModelHelper.resetConversation(model, supportImage = false, supportAudio = false, systemInstruction = null)
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = null)
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(
@@ -373,6 +383,7 @@ class LlmHttpService : Service() {
             resultListener = { partial, done, _ -> onPartial(partial, done) },
             cleanUpListener = {},
             onError = onError,
+            images = images,
           )
         },
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
@@ -397,15 +408,18 @@ class LlmHttpService : Service() {
       requestId: String,
       endpoint: String,
       timeoutSeconds: Long = 90,
+      images: List<Bitmap> = emptyList(),
     ): Response {
+      val supportImage = model.llmSupportImage && images.isNotEmpty()
+      val supportAudio = model.llmSupportAudio
       synchronized(this) {
         if (model.instance == null) {
           var err = ""
           ServerLlmModelHelper.initialize(
             context = this@LlmHttpService,
             model = model,
-            supportImage = false,
-            supportAudio = false,
+            supportImage = supportImage,
+            supportAudio = supportAudio,
             onDone = { err = it },
             systemInstruction = null,
           )
@@ -429,7 +443,7 @@ class LlmHttpService : Service() {
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
-          ServerLlmModelHelper.resetConversation(model, supportImage = false, supportAudio = false, systemInstruction = null)
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = null)
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(
@@ -438,6 +452,7 @@ class LlmHttpService : Service() {
             resultListener = { partial, done, _ -> onPartial(partial, done) },
             cleanUpListener = {},
             onError = onError,
+            images = images,
           )
         },
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
@@ -524,13 +539,30 @@ class LlmHttpService : Service() {
     private fun payloadTooLarge() = jsonError(Response.Status.BAD_REQUEST, "payload_too_large")
   }
 
+  // ── Image helpers ──────────────────────────────────────────────────────────
+
+  private fun decodeImageDataUris(messages: List<ChatMessage>): List<Bitmap> {
+    val uris = LlmHttpRequestAdapter.extractImageDataUris(messages)
+    return uris.mapNotNull { uri ->
+      try {
+        // Expected format: data:image/jpeg;base64,/9j/4AAQ...
+        val base64Data = if (uri.contains(",")) uri.substringAfter(",") else uri
+        val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+      } catch (e: Exception) {
+        Log.w(logTag, "Failed to decode image data URI", e)
+        null
+      }
+    }
+  }
+
   // ── Payload builders ─────────────────────────────────────────────────────────
 
   private fun modelsPayload(): String {
     val allowed = allowlistLoader.load()
     val fallbackId = defaultModel?.name ?: "local"
     Log.i(logTag, "Models list size=${allowed.size} source=${allowlistLoader.lastSource} fallback=$fallbackId")
-    return LlmHttpResponseRenderer.renderModelListPayload(json, allowed.map { it.name }, fallbackId)
+    return LlmHttpResponseRenderer.renderModelListWithCapabilities(json, allowed, fallbackId)
   }
 
   private fun emptyChatResponse(modelName: String) = ChatResponse(
