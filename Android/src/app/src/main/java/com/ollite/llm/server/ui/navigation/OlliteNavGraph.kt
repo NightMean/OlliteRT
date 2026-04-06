@@ -30,6 +30,7 @@ import com.ollite.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollite.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollite.llm.server.ui.modelmanager.GlobalModelManager
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollite.llm.server.ui.server.LogsScreen
 import com.ollite.llm.server.ui.server.ServerViewModel
 import com.ollite.llm.server.ui.server.StatusScreen
 
@@ -103,9 +104,9 @@ fun OlliteNavHost(
       )
     }
 
-    // Logs tab (placeholder)
+    // Logs tab
     composable(OlliteRoutes.LOGS) {
-      PlaceholderScreen("Logs", "No requests yet.\nAPI traffic will appear here.")
+      LogsScreen()
     }
 
     // Settings screen (placeholder)

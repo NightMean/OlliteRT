@@ -190,23 +190,45 @@ class LlmHttpService : Service() {
     private val inferenceLock = Any()
 
     override fun serve(session: IHTTPSession): Response {
-      return try {
+      val startMs = SystemClock.elapsedRealtime()
+      val method = session.method.name
+      val path = session.uri
+      // Read body for logging (only for POST)
+      var requestBodySnapshot: String? = null
+      val response = try {
         if (!LlmHttpRouteResolver.isSupportedMethod(session.method)) return methodNotAllowed()
         val route = LlmHttpRouteResolver.resolve(session.method, session.uri) ?: return notFound()
         if (route.requiresAuth) requireAuth(session)?.let { return it }
         when (route.handler) {
           LlmHttpRouteHandler.PING -> okJsonText("{\"status\":\"ok\"}")
           LlmHttpRouteHandler.MODELS -> okJsonText(modelsPayload())
-          LlmHttpRouteHandler.GENERATE -> handleGenerate(session)
-          LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session)
-          LlmHttpRouteHandler.RESPONSES -> handleResponses(session)
+          LlmHttpRouteHandler.GENERATE -> handleGenerate(session) { requestBodySnapshot = it }
+          LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session) { requestBodySnapshot = it }
+          LlmHttpRouteHandler.RESPONSES -> handleResponses(session) { requestBodySnapshot = it }
         }
       } catch (t: Throwable) {
         jsonError(Response.Status.INTERNAL_ERROR, t.message ?: "internal_error")
       }
+      val elapsedMs = SystemClock.elapsedRealtime() - startMs
+      val statusCode = response.status?.requestStatus ?: 200
+      val isStreaming = response.mimeType == "text/event-stream"
+      RequestLogStore.add(
+        RequestLogEntry(
+          id = "log-${System.currentTimeMillis()}",
+          method = method,
+          path = path,
+          requestBody = requestBodySnapshot?.take(2000),
+          responseBody = null, // response body not easily extractable from NanoHTTPD Response
+          statusCode = statusCode,
+          latencyMs = elapsedMs,
+          isStreaming = isStreaming,
+          modelName = defaultModel?.name,
+        )
+      )
+      return response
     }
 
-    private fun handleGenerate(session: IHTTPSession): Response {
+    private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -216,6 +238,7 @@ class LlmHttpService : Service() {
           logEvent("request_rejected id=$requestId endpoint=/generate reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
           return payloadTooLarge()
         }
+      captureBody(parsed.body)
       logPayload("POST /generate raw", parsed.body, requestId)
       val req = json.decodeFromString<GenReq>(parsed.body)
       logPayload("POST /generate prompt", req.prompt, requestId)
@@ -225,7 +248,7 @@ class LlmHttpService : Service() {
       return okJsonText(json.encodeToString(GenRes(text = text, usage = Usage(0, 0))))
     }
 
-    private fun handleChatCompletion(session: IHTTPSession): Response {
+    private fun handleChatCompletion(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -235,6 +258,7 @@ class LlmHttpService : Service() {
           logEvent("request_rejected id=$requestId endpoint=/v1/chat/completions reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
           return payloadTooLarge()
         }
+      captureBody(parsed.body)
       logPayload("POST /v1/chat/completions raw", parsed.body, requestId)
       val req = json.decodeFromString<ChatRequest>(parsed.body)
       if (req.tools.isNullOrEmpty() && req.tool_choice == "required")
@@ -259,7 +283,7 @@ class LlmHttpService : Service() {
       return okJsonText(json.encodeToString(chatResponseWithText(model.name, text)))
     }
 
-    private fun handleResponses(session: IHTTPSession): Response {
+    private fun handleResponses(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -269,6 +293,7 @@ class LlmHttpService : Service() {
           logEvent("request_rejected id=$requestId endpoint=/v1/responses reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
           return payloadTooLarge()
         }
+      captureBody(parsed.body)
       logPayload("POST /v1/responses raw", parsed.body, requestId)
       val req = json.decodeFromString<ResponsesRequest>(parsed.body)
       if (req.tools.isNullOrEmpty() && req.tool_choice == "required")
