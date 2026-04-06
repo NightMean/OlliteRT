@@ -51,7 +51,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private val SHAPES: List<Int> =
-  listOf(R.drawable.circle, R.drawable.double_circle, R.drawable.pantegon, R.drawable.four_circle)
+  listOf(R.drawable.circle, R.drawable.double_circle, R.drawable.circle, R.drawable.four_circle)
 
 data class Shape(
   val id: Long,

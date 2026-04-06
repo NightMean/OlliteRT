@@ -97,7 +97,7 @@ fun RotationalLoader(size: Dp) {
         R.drawable.four_circle,
         R.drawable.circle,
         R.drawable.double_circle,
-        R.drawable.pantegon,
+        R.drawable.circle,
       )
     ) { index, imageResource ->
       Box(

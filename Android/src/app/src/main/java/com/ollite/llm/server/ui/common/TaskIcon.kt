@@ -50,7 +50,7 @@ private val SHAPES: List<Int> =
     // Audio scribe
     R.drawable.double_circle,
     // Prompt lab
-    R.drawable.pantegon,
+    R.drawable.circle,
     // AI chat,
     R.drawable.four_circle,
   )
