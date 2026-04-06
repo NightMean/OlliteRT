@@ -136,6 +136,7 @@ fun DownloadAndTryButton(
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
   var showMemoryWarning by remember { mutableStateOf(false) }
+  var showWifiWarning by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
@@ -321,9 +322,15 @@ fun DownloadAndTryButton(
           withContext(Dispatchers.Main) { startDownload(null) }
         }
       }
-      // No need to download. Directly open the model.
+      // No need to download. Check WiFi before starting server.
       else {
-        withContext(Dispatchers.Main) { onClicked() }
+        withContext(Dispatchers.Main) {
+          if (!com.ollite.llm.server.common.isWifiConnected(context)) {
+            showWifiWarning = true
+          } else {
+            onClicked()
+          }
+        }
       }
     }
   }
@@ -556,6 +563,16 @@ fun DownloadAndTryButton(
         showMemoryWarning = false
       },
       onDismissed = { showMemoryWarning = false },
+    )
+  }
+
+  if (showWifiWarning) {
+    WifiWarningAlert(
+      onStartAnyway = {
+        showWifiWarning = false
+        onClicked()
+      },
+      onDismissed = { showWifiWarning = false },
     )
   }
 

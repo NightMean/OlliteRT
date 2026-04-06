@@ -73,8 +73,14 @@ fun ModelNameAndStatus(
   var curDownloadProgress = 0f
 
   Column(modifier = modifier) {
-    // Show "best overall" only for the first model if it is indeed the best for this task.
-    if (task != null && model.bestForTaskIds.contains(task.id) && task.models[0] == model) {
+    // Show "best overall" badge: either when viewing within a task (original logic)
+    // or when viewing the global model list and the model has any bestForTaskIds.
+    val showBestBadge = if (task != null) {
+      model.bestForTaskIds.contains(task.id) && task.models[0] == model
+    } else {
+      model.bestForTaskIds.isNotEmpty()
+    }
+    if (showBestBadge) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

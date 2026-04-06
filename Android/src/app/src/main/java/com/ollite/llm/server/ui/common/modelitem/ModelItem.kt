@@ -87,7 +87,8 @@ fun ModelItem(
     derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
   }
 
-  val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
+  val isBestOverall = if (task != null) model.bestForTaskIds.contains(task.id)
+    else model.bestForTaskIds.isNotEmpty()
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
   var boxModifier =
