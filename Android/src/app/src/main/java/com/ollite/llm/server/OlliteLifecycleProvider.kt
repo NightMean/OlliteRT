@@ -20,7 +20,7 @@ interface AppLifecycleProvider {
   var isAppInForeground: Boolean
 }
 
-class GalleryLifecycleProvider : AppLifecycleProvider {
+class OlliteLifecycleProvider : AppLifecycleProvider {
   private var _isAppInForeground = false
 
   override var isAppInForeground: Boolean

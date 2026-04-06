@@ -23,7 +23,7 @@ import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import com.ollite.llm.server.AppLifecycleProvider
 import com.ollite.llm.server.BenchmarkResultsSerializer
-import com.ollite.llm.server.GalleryLifecycleProvider
+import com.ollite.llm.server.OlliteLifecycleProvider
 import com.ollite.llm.server.SettingsSerializer
 import com.ollite.llm.server.UserDataSerializer
 import com.ollite.llm.server.data.DataStoreRepository
@@ -101,7 +101,7 @@ internal object AppModule {
   @Provides
   @Singleton
   fun provideAppLifecycleProvider(): AppLifecycleProvider {
-    return GalleryLifecycleProvider()
+    return OlliteLifecycleProvider()
   }
 
   @Provides

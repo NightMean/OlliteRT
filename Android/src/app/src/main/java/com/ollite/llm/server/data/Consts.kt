@@ -64,7 +64,7 @@ const val SAMPLE_RATE = 16000
 val MODEL_INFO_ICON_SIZE = 18.dp
 
 // The extension of the tmp download files.
-const val TMP_FILE_EXT = "gallerytmp"
+const val TMP_FILE_EXT = "ollitetmp"
 
 // Current device's SOC in lowercase.
 val SOC =
