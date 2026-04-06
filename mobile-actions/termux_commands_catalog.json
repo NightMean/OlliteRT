@@ -1,0 +1,536 @@
+[
+  {
+    "name": "termux-am",
+    "path": "/data/data/com.termux/files/usr/bin/termux-am",
+    "help_excerpt": "termux-am is a wrapper script that converts the arguments array\npassed to a single string that can be reused as shell input with the\nbash 'printf \"%q\"' built-in and passes the string to termux-am-socket.\n\n\nUsage:\n  termux-am [command_options]\n\n\nAvailable command_options:\n  [ -h | --help ]    Display termux-am help screen.\n  [ --am-help ]      Display am command help screen.\n  [ --version ]      Display version.\n\n\ntermux-am-socket sends the converted string to\n\"/data/data/com.termux/files/apps/com.termux/termux-am/am.sock\"\nlocal unix socket server that is run by termux-app if enabled, which\nexecutes it as an android activity manager (am) command from within\ntermux-app java process via termux/termux-am-library.\n\nThe termux-am provides similar functionality to \"$PREFIX/bin/am\"\n(and \"/system/bin/am\"), but should be faster since it does not\nrequire starting a dalvik vm for every command as done by \"am\" via\ntermux/TermuxAm.\n\nThe server normally only allows termux-app user and root user to\nconnect to it. If you run termux-am with root, then the am commands\nexecuted will be run as the termux user and its permissions,\ncapabilities and selinux context instead of root.\n\nThe server is enabled \n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-am-socket",
+    "path": "/data/data/com.termux/files/usr/bin/termux-am-socket",
+    "help_excerpt": "Could not connect to socket: No such file or directory",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-api-start",
+    "path": "/data/data/com.termux/files/usr/bin/termux-api-start",
+    "help_excerpt": "Starting service: Intent { cmp=com.termux.api/.KeepAliveService }",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-api-stop",
+    "path": "/data/data/com.termux/files/usr/bin/termux-api-stop",
+    "help_excerpt": "Stopping service: Intent { cmp=com.termux.api/.KeepAliveService }\nService stopped",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-apps-info-app-version-name",
+    "path": "/data/data/com.termux/files/usr/bin/termux-apps-info-app-version-name",
+    "help_excerpt": "termux-apps-info-app-version-name.bash can be used to get/unset\nvariable values of the app version name environment variables\n`*_APP__APP_VERSION_NAME` for Termux app `TERMUX_APP__`, its plugin\napps `TERMUX_*_APP__` and external apps `*_APP__` app scoped that\nexist in the `termux-apps-info.env` file, with support for validation\nof values.\n\n\nUsage:\n  termux-apps-info-app-version-name.bash <command> <args...>\n\n\nAvailable commands:\n    get-value                    Get app version name value from\n                                 Termux scoped variable.\n    unset-value                  Unset Termux scoped variable value\n                                 for app version name.\n\n\n\nget-value:\n  termux-apps-info-app-version-name.bash get-value [<command_options>] \\\n    <output_mode> \\\n    <scoped_var_scope_mode>\n\nAvailable command options:\n  [ --skip-sourcing ]\n                     Skip sourcing of `termux-apps-info.env` file\n                     before getting value. By default, the\n                     '--skip-sourcing-if-cur-app-var' flag is passed\n                     to 'termux-apps-info-env-variable.bash' instead.\n  [ --extended-validator=<validator> ]\n                     The extended \n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-apps-info-app-version-name.bash",
+    "path": "/data/data/com.termux/files/usr/bin/termux-apps-info-app-version-name.bash",
+    "help_excerpt": "termux-apps-info-app-version-name.bash can be used to get/unset\nvariable values of the app version name environment variables\n`*_APP__APP_VERSION_NAME` for Termux app `TERMUX_APP__`, its plugin\napps `TERMUX_*_APP__` and external apps `*_APP__` app scoped that\nexist in the `termux-apps-info.env` file, with support for validation\nof values.\n\n\nUsage:\n  termux-apps-info-app-version-name.bash <command> <args...>\n\n\nAvailable commands:\n    get-value                    Get app version name value from\n                                 Termux scoped variable.\n    unset-value                  Unset Termux scoped variable value\n                                 for app version name.\n\n\n\nget-value:\n  termux-apps-info-app-version-name.bash get-value [<command_options>] \\\n    <output_mode> \\\n    <scoped_var_scope_mode>\n\nAvailable command options:\n  [ --skip-sourcing ]\n                     Skip sourcing of `termux-apps-info.env` file\n                     before getting value. By default, the\n                     '--skip-sourcing-if-cur-app-var' flag is passed\n                     to 'termux-apps-info-env-variable.bash' instead.\n  [ --extended-validator=<validator> ]\n                     The extended \n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-apps-info-app-version-name.sh",
+    "path": "/data/data/com.termux/files/usr/bin/termux-apps-info-app-version-name.sh",
+    "help_excerpt": "termux-apps-info-app-version-name.sh can be used to get/unset\nvariable values of the app version name environment variables\n`*_APP__APP_VERSION_NAME` for Termux app `TERMUX_APP__`, its plugin\napps `TERMUX_*_APP__` and external apps `*_APP__` app scoped that\nexist in the `termux-apps-info.env` file, with support for validation\nof values.\n\n\nUsage:\n  termux-apps-info-app-version-name.sh <command> <args...>\n\n\nAvailable commands:\n    get-value                    Get app version name value from\n                                 Termux scoped variable.\n    unset-value                  Unset Termux scoped variable value\n                                 for app version name.\n\n\n\nget-value:\n  termux-apps-info-app-version-name.sh get-value [<command_options>] \\\n    <output_mode> \\\n    <scoped_var_scope_mode>\n\nAvailable command options:\n  [ --skip-sourcing ]\n                     Skip sourcing of `termux-apps-info.env` file\n                     before getting value. By default, the\n                     '--skip-sourcing-if-cur-app-var' flag is passed\n                     to 'termux-apps-info-env-variable.sh' instead.\n  [ --posix-validator=<validator> ]\n                     The posix validator to p\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-apps-info-env-variable",
+    "path": "/data/data/com.termux/files/usr/bin/termux-apps-info-env-variable",
+    "help_excerpt": "termux-apps-info-env-variable.bash can be used to source the\n`termux-apps-info.env` file into the current environment or get\nvariable values of Termux app `TERMUX_APP__`, its plugin apps\n`TERMUX_*_APP__` and external apps `*_APP__` app scoped environment\nvariables that exist in the `termux-apps-info.env` file, with\nsupport for fallback values and validation of values.\n\n\nUsage:\n  termux-apps-info-env-variable.bash <command> <args...>\n\n\nAvailable commands:\n    source-env                   Source the apps info environment.\n    get-value                    Get Termux scoped variable value.\n\n\n\nsource-env:\n  termux-apps-info-env-variable.bash source-env \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nget-value:\n  termux-apps-info-env-variable.bash get-value [<command_options>] \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <extended_validator> [<default_values...>]\n\nAvailable command options:\n  [ --ensure-sourcing ]\n                     Ensure sourcing of `termux-apps-info.env` file\n                     before getting value.\n  [ --skip-sourcing ]\n                     Skip sourcing of `termux-apps-info.env` file\n                   \n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-apps-info-env-variable.bash",
+    "path": "/data/data/com.termux/files/usr/bin/termux-apps-info-env-variable.bash",
+    "help_excerpt": "termux-apps-info-env-variable.bash can be used to source the\n`termux-apps-info.env` file into the current environment or get\nvariable values of Termux app `TERMUX_APP__`, its plugin apps\n`TERMUX_*_APP__` and external apps `*_APP__` app scoped environment\nvariables that exist in the `termux-apps-info.env` file, with\nsupport for fallback values and validation of values.\n\n\nUsage:\n  termux-apps-info-env-variable.bash <command> <args...>\n\n\nAvailable commands:\n    source-env                   Source the apps info environment.\n    get-value                    Get Termux scoped variable value.\n\n\n\nsource-env:\n  termux-apps-info-env-variable.bash source-env \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nget-value:\n  termux-apps-info-env-variable.bash get-value [<command_options>] \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <extended_validator> [<default_values...>]\n\nAvailable command options:\n  [ --ensure-sourcing ]\n                     Ensure sourcing of `termux-apps-info.env` file\n                     before getting value.\n  [ --skip-sourcing ]\n                     Skip sourcing of `termux-apps-info.env` file\n                   \n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-apps-info-env-variable.sh",
+    "path": "/data/data/com.termux/files/usr/bin/termux-apps-info-env-variable.sh",
+    "help_excerpt": "termux-apps-info-env-variable.sh can be used to source the\n`termux-apps-info.env` file into the current environment or get\nvariable values of Termux app `TERMUX_APP__`, its plugin apps\n`TERMUX_*_APP__` and external apps `*_APP__` app scoped environment\nvariables that exist in the `termux-apps-info.env` file, with\nsupport for fallback values and validation of values.\n\n\nUsage:\n  termux-apps-info-env-variable.sh <command> <args...>\n\n\nAvailable commands:\n    source-env                   Source the apps info environment.\n    get-value                    Get Termux scoped variable value.\n\n\n\nsource-env:\n  termux-apps-info-env-variable.sh source-env \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nget-value:\n  termux-apps-info-env-variable.sh get-value [<command_options>] \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <posix_validator> [<default_values...>]\n\nAvailable command options:\n  [ --ensure-sourcing ]\n                     Ensure sourcing of `termux-apps-info.env` file\n                     before getting value.\n  [ --skip-sourcing ]\n                     Skip sourcing of `termux-apps-info.env` file\n                     before ge\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-audio-info",
+    "path": "/data/data/com.termux/files/usr/bin/termux-audio-info",
+    "help_excerpt": "termux-audio-info: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-backup",
+    "path": "/data/data/com.termux/files/usr/bin/termux-backup",
+    "help_excerpt": "Usage: termux-backup [options] [output file]\n\nScript for backing up Termux installation directory, $PREFIX.\nIt WILL NOT backup your home directory.\n\nOptions:\n\n -h, --help             Show this information.\n -f, --force            Force write operations.\n --ignore-read-failure  Suppress read permission denials.\n\nBackup is performed as TAR archive. Compression is determined\nby output file extension. If file name is '-', then tarball is\nwritten to stdout and is uncompressed.",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-battery-status",
+    "path": "/data/data/com.termux/files/usr/bin/termux-battery-status",
+    "help_excerpt": "termux-battery-status: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-brightness",
+    "path": "/data/data/com.termux/files/usr/bin/termux-brightness",
+    "help_excerpt": "ERROR: Arg must be a number between 0 - 255 or auto!\nUsage: termux-brightness brightness\nSet the screen brightness between 0 and 255 or auto",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-call-log",
+    "path": "/data/data/com.termux/files/usr/bin/termux-call-log",
+    "help_excerpt": "termux-call-log: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-camera-info",
+    "path": "/data/data/com.termux/files/usr/bin/termux-camera-info",
+    "help_excerpt": "termux-camera-info: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-camera-photo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-camera-photo",
+    "help_excerpt": "termux-camera-photo: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-change-repo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-change-repo",
+    "help_excerpt": "Script for choosing a group of mirrors to use.\nAll mirrors are listed at\nhttps://github.com/termux/termux-packages/wiki/Mirrors",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-chroot",
+    "path": "/data/data/com.termux/files/usr/bin/termux-chroot",
+    "help_excerpt": "termux-chroot: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-clipboard-get",
+    "path": "/data/data/com.termux/files/usr/bin/termux-clipboard-get",
+    "help_excerpt": "termux-clipboard-get: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-clipboard-set",
+    "path": "/data/data/com.termux/files/usr/bin/termux-clipboard-set",
+    "help_excerpt": "termux-clipboard-set: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-color",
+    "path": "/data/data/com.termux/files/usr/bin/termux-color",
+    "help_excerpt": "\u2717 This script must be run inside Termux",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-contact-list",
+    "path": "/data/data/com.termux/files/usr/bin/termux-contact-list",
+    "help_excerpt": "termux-contact-list: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-dialog",
+    "path": "/data/data/com.termux/files/usr/bin/termux-dialog",
+    "help_excerpt": "termux-dialog: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-download",
+    "path": "/data/data/com.termux/files/usr/bin/termux-download",
+    "help_excerpt": "termux-download: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-exec-ld-preload-lib",
+    "path": "/data/data/com.termux/files/usr/bin/termux-exec-ld-preload-lib",
+    "help_excerpt": "termux-exec-ld-preload-lib can be used to manage Termux '$LD_PRELOAD'\nlibrary.\n\n\nUsage:\n    termux-exec-ld-preload-lib [command_options] <command>\n\nAvailable commands:\n    setup                     Setup the primary Termux '$LD_PRELOAD'\n                              library in 'libtermux-exec-ld-preload.so'\n                              to direct or linker variant.\n\nAvailable command_options:\n    [ -h | --help ]           Display this help screen.\n    [ --version ]             Display version.\n    [ -q | --quiet ]          Set log level to 'OFF'.\n    [ -v ]\n                              Set log level to 'DEBUG'.",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-exec-system-linker-exec",
+    "path": "/data/data/com.termux/files/usr/bin/termux-exec-system-linker-exec",
+    "help_excerpt": "termux-exec-system-linker-exec can be used to get states of\n'system_linker_exec' in Termux.\n\n\nUsage:\n    termux-exec-system-linker-exec [command_options] <command>\n\nAvailable commands:\n    is-enabled                Get whether 'system_linker_exec'\n                              is enabled in Termux.\n\nAvailable command_options:\n    [ -h | --help ]           Display this help screen.\n    [ --version ]             Display version.\n    [ -q | --quiet ]          Set log level to 'OFF'.\n    [ -v ]\n                              Set log level to 'DEBUG'.",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-fastest-repo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-fastest-repo",
+    "help_excerpt": "/data/data/com.termux/files/usr/bin/termux-fastest-repo: line 25: /bin/termux-setup-package-manager: No such file or directory",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-fingerprint",
+    "path": "/data/data/com.termux/files/usr/bin/termux-fingerprint",
+    "help_excerpt": "termux-fingerprint: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-fix-shebang",
+    "path": "/data/data/com.termux/files/usr/bin/termux-fix-shebang",
+    "help_excerpt": "sed: can't read Usage: realpath [OPTION]... FILE...\nPrint the resolved absolute file name;\nall but the last component must exist\n\n  -e, --canonicalize-existing  all components of the path must exist\n  -m, --canonicalize-missing   no path components need exist or be a directory\n  -L, --logical                resolve '..' components before symlinks\n  -P, --physical               resolve symlinks as encountered (default)\n  -q, --quiet                  suppress most error messages\n      --relative-to=DIR        print the resolved path relative to DIR\n      --relative-base=DIR      print absolute paths unless paths below DIR\n  -s, --strip, --no-symlinks   don't expand symlinks\n  -z, --zero                   end each output line with NUL, not newline\n      --help        display this help and exit\n      --version     output version information and exit\n\nGNU coreutils online help: <https://www.gnu.org/software/coreutils/>\nReport any translation bugs to <https://translationproject.org/team/>\nFull documentation <https://www.gnu.org/software/coreutils/realpath>\nor available locally via: info '(coreutils) realpath invocation': File name too long",
+    "help_exit_code": 2
+  },
+  {
+    "name": "termux-info",
+    "path": "/data/data/com.termux/files/usr/bin/termux-info",
+    "help_excerpt": "usage: termux-info [--no-set-clipboard]\nProvides information about Termux, and the current system. Helpful for debugging.",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-infrared-frequencies",
+    "path": "/data/data/com.termux/files/usr/bin/termux-infrared-frequencies",
+    "help_excerpt": "termux-infrared-frequencies: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-infrared-transmit",
+    "path": "/data/data/com.termux/files/usr/bin/termux-infrared-transmit",
+    "help_excerpt": "termux-infrared-transmit: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-job-scheduler",
+    "path": "/data/data/com.termux/files/usr/bin/termux-job-scheduler",
+    "help_excerpt": "Usage: termux-job-scheduler [options]\nSchedule a script to run at specified intervals.\n  -p/--pending               list pending jobs and exit\n  --cancel-all               cancel all pending jobs and exit\n  --cancel                   cancel given job-id and exit\nOptions for scheduling:\n  -s/--script path           path to the script to be called\n  --job-id int               job id (will overwrite any previous job with the same id)\n  --period-ms int            schedule job approximately every period-ms milliseconds (default 0 means once).\n                             Note that since Android N, the minimum period is 900,000ms (15 minutes).\n  --network text             run only when this type of network available (default any): any|unmetered|cellular|not_roaming|none\n  --battery-not-low boolean  run only when battery is not low, default true (at least Android O)\n  --storage-not-low boolean  run only when storage is not low, default false (at least Android O)\n  --charging boolean         run only when charging, default false\n  --persisted boolean        should the job survive reboots, default false\n  --trigger-content-uri text (at least Android N)\n  --trigger-content-flag int default 1\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-keystore",
+    "path": "/data/data/com.termux/files/usr/bin/termux-keystore",
+    "help_excerpt": "Usage: termux-keystore command\nThese commands are supported:\n  list [-d]\n  delete <alias>\n  generate <alias> [-a alg] [-s size] [-u validity]\n  sign <alias> <algorithm>\n  verify <alias> <algorithm> <signature>\n\nlist: List the keys stored inside the keystore.\n  -d           Detailed results (includes key parameters).\n\ndelete: Permanently delete a given key from the keystore.\n  alias        Alias of the key to delete.\n\ngenerate: Create a new key inside the hardware keystore.\n  alias        Alias of the key.\n  -a alg       Algorithm to use (either 'RSA' or 'EC'). Defaults to RSA.\n  -s size      Key size to use. For RSA, the options are 2048, 3072\n               and 4096. For EC, the options are 256, 384 and 521.\n  -u validity  User validity duration in seconds. Omit to disable.\n               When enabled, the key can only be used for the\n               duration specified after the device unlocks. After\n               the duration has passed, the user needs to re-lock\n               and unlock the device again to be able to use this key.\n\nsign: Sign using the given key, the data is read from stdin and the\nsignature is output to stdout.\n  alias        Alias of the key to use for signin\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-location",
+    "path": "/data/data/com.termux/files/usr/bin/termux-location",
+    "help_excerpt": "termux-location: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-media-player",
+    "path": "/data/data/com.termux/files/usr/bin/termux-media-player",
+    "help_excerpt": "termux-media-player: Invalid cmd: '--help'\nUsage: termux-media-player cmd [args]\n\nhelp        Shows this help\ninfo        Displays current playback information\nplay        Resumes playback if paused\nplay <file> Plays specified media file\npause       Pauses playback\nstop        Quits playback",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-media-scan",
+    "path": "/data/data/com.termux/files/usr/bin/termux-media-scan",
+    "help_excerpt": "termux-media-scan: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-microphone-record",
+    "path": "/data/data/com.termux/files/usr/bin/termux-microphone-record",
+    "help_excerpt": "/data/data/com.termux/files/usr/bin/termux-microphone-record: illegal option -- -\n\nUsage: termux-microphone-record [args]\nRecord using microphone on your device\n\n-h           Shows this help\n-d           Start recording w/ defaults\n-f <file>    Start recording to specific file\n-l <limit>   Start recording w/ specified limit (in seconds, unlimited for 0)\n-e <encoder> Start recording w/ specified encoder (aac, amr_wb, amr_nb, opus)\n-b <bitrate> Start recording w/ specified bitrate (in kbps)\n-r <rate>    Start recording w/ specified sampling rate (in Hz)\n-c <count>   Start recording w/ specified channel count (1, 2, ...)\n-i           Get info about current recording\n-q           Quits recording",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-nf",
+    "path": "/data/data/com.termux/files/usr/bin/termux-nf",
+    "help_excerpt": "ERROR: Command '['/data/data/com.termux/files/usr/bin/termux-nf', '--help']' timed out after 3 seconds",
+    "help_exit_code": 124
+  },
+  {
+    "name": "termux-nfc",
+    "path": "/data/data/com.termux/files/usr/bin/termux-nfc",
+    "help_excerpt": "Error: unknown parameters: ? -;\nUsage: termux-nfc [-r [short|full]] [-w] [-t [text for TAG] \n read/write data from/to NDEF tag \n   -r, read tag \n     short, read short information from tag  \n     full,  read full information from tag \n   -w, write information on tag  \n   -t, text  for tag",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-notification",
+    "path": "/data/data/com.termux/files/usr/bin/termux-notification",
+    "help_excerpt": "Usage: termux-notification [options]\nDisplay a system notification. Content text is specified using -c/--content or read from stdin.\nPlease read --help-actions for help with action arguments.\n  --action action          action to execute when pressing the notification\n  --alert-once             do not alert when the notification is edited\n  --button1 text           text to show on the first notification button\n  --button1-action action  action to execute on the first notification button\n  --button2 text           text to show on the second notification button\n  --button2-action action  action to execute on the second notification button\n  --button3 text           text to show on the third notification button\n  --button3-action action  action to execute on the third notification button\n  -c/--content content     content to show in the notification. Will take\n                           precedence over stdin. If content is not passed as\n                           an argument or with stdin, then there will be a 3s delay.\n  --channel channel-id     Specifies the notification channel id this notification should be send on.\n                           On Android versions lower than 8.0 this\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-notification-channel",
+    "path": "/data/data/com.termux/files/usr/bin/termux-notification-channel",
+    "help_excerpt": "Usage: termux-notification-channel -d channel-id\n       termux-notification-channel channel-id channel-name\nCreate or delete a notification channel.\nOnly usable on Android 8.0 and higher.\nUse -d to delete a channel.\nCreating a channel requires a channel id and a channel name.\nThe name will be visible in the options, the id is used to send notifications on that specific channel.\nCreating a channel with the same id again will change the name.\nCreating a channel with the same id as a deleted channel will restore the user settings of the deleted channel.\nUse termux-notification --channel channel-id to send a notification on a custom channel.",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-notification-list",
+    "path": "/data/data/com.termux/files/usr/bin/termux-notification-list",
+    "help_excerpt": "termux-notification-list: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-notification-remove",
+    "path": "/data/data/com.termux/files/usr/bin/termux-notification-remove",
+    "help_excerpt": "termux-notification-remove: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-open",
+    "path": "/data/data/com.termux/files/usr/bin/termux-open",
+    "help_excerpt": "Usage: termux-open [options] path-or-url\nOpen a file or URL in an external app.\n  --send               if the file should be shared for sending\n  --view               if the file should be shared for viewing (default)\n  --chooser            if an app chooser should always be shown\n  --content-type type  specify the content type to use",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-open-url",
+    "path": "/data/data/com.termux/files/usr/bin/termux-open-url",
+    "help_excerpt": "Error: Activity not started, unable to resolve Intent { act=android.intent.action.VIEW dat= flg=0x10000000 }",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-reload-settings",
+    "path": "/data/data/com.termux/files/usr/bin/termux-reload-settings",
+    "help_excerpt": "usage: termux-reload-settings\nUse without arguments to reload settings after modifying any of:\n  ~/.termux/colors.properties\n  ~/.termux/font.ttf \n  ~/.termux/termux.properties",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-reset",
+    "path": "/data/data/com.termux/files/usr/bin/termux-reset",
+    "help_excerpt": "You are going to reset your Termux installation.\n\nThis script will erase everything under $PREFIX. All files in that directory will be lost, that includes packages, configuration files, databases, etc.\n\nTermux home directory as well as data in your shared or external storage will not be removed and left as-is.\n\nLeaving $PREFIX intact.",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-restore",
+    "path": "/data/data/com.termux/files/usr/bin/termux-restore",
+    "help_excerpt": "Usage: termux-restore [input file]\n\nScript for restoring Termux installation directory ($PREFIX)\nfrom the given TAR archive.\n\nIt is expected that backup file was made by 'termux-backup'.\nRestoring procedure will erase all files in $PREFIX directory\nthat are not present in the given backup file. Be careful.\n\nBackup contents may be supplied via stdin by specifying input\nfile as '-'. Note that piped TAR archive must be uncompressed.",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-saf-create",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-create",
+    "help_excerpt": "termux-saf-create: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-dirs",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-dirs",
+    "help_excerpt": "termux-saf-dirs: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-ls",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-ls",
+    "help_excerpt": "termux-saf-ls: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-managedir",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-managedir",
+    "help_excerpt": "termux-saf-managedir: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-mkdir",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-mkdir",
+    "help_excerpt": "termux-saf-mkdir: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-read",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-read",
+    "help_excerpt": "termux-saf-read: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-rm",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-rm",
+    "help_excerpt": "termux-saf-rm: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-stat",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-stat",
+    "help_excerpt": "termux-saf-stat: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-saf-write",
+    "path": "/data/data/com.termux/files/usr/bin/termux-saf-write",
+    "help_excerpt": "termux-saf-write: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-scoped-env-variable",
+    "path": "/data/data/com.termux/files/usr/bin/termux-scoped-env-variable",
+    "help_excerpt": "termux-scoped-env-variable.bash can be used to get/set/unset variable\nnames and values for `TERMUX*__` and other scoped environment\nvariables exported by different Termux runtime components, with\nsupport for fallback values and validation of values.\n\n\nUsage:\n  termux-scoped-env-variable.bash <command> <args...>\n\n\nAvailable commands:\n    get-name                     Get Termux scoped variable name.\n    get-value                    Get Termux scoped variable value.\n    set-value                    Set Termux scoped variable value.\n    unset-value                  Unset Termux scoped variable value.\n\n\n\nget-name:\n  termux-scoped-env-variable.bash get-name \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nget-value:\n  termux-scoped-env-variable.bash get-value \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <extended_validator> [<default_values...>]\n\n\n\nset-value:\n  termux-scoped-env-variable.bash set-value \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <value_to_set>\n\n\n\nunset-value:\n  termux-scoped-env-variable.bash unset-value \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nAvailable arguments:\n- `output_mode`: The\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-scoped-env-variable.bash",
+    "path": "/data/data/com.termux/files/usr/bin/termux-scoped-env-variable.bash",
+    "help_excerpt": "termux-scoped-env-variable.bash can be used to get/set/unset variable\nnames and values for `TERMUX*__` and other scoped environment\nvariables exported by different Termux runtime components, with\nsupport for fallback values and validation of values.\n\n\nUsage:\n  termux-scoped-env-variable.bash <command> <args...>\n\n\nAvailable commands:\n    get-name                     Get Termux scoped variable name.\n    get-value                    Get Termux scoped variable value.\n    set-value                    Set Termux scoped variable value.\n    unset-value                  Unset Termux scoped variable value.\n\n\n\nget-name:\n  termux-scoped-env-variable.bash get-name \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nget-value:\n  termux-scoped-env-variable.bash get-value \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <extended_validator> [<default_values...>]\n\n\n\nset-value:\n  termux-scoped-env-variable.bash set-value \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <value_to_set>\n\n\n\nunset-value:\n  termux-scoped-env-variable.bash unset-value \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nAvailable arguments:\n- `output_mode`: The\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-scoped-env-variable.sh",
+    "path": "/data/data/com.termux/files/usr/bin/termux-scoped-env-variable.sh",
+    "help_excerpt": "termux-scoped-env-variable.sh can be used to get/set/unset variable\nnames and values for `TERMUX*__` and other scoped environment\nvariables exported by different Termux runtime components, with\nsupport for fallback values and validation of values.\n\n\nUsage:\n  termux-scoped-env-variable.sh <command> <args...>\n\n\nAvailable commands:\n    get-name                     Get Termux scoped variable name.\n    get-value                    Get Termux scoped variable value.\n    set-value                    Set Termux scoped variable value.\n    unset-value                  Unset Termux scoped variable value.\n\n\n\nget-name:\n  termux-scoped-env-variable.sh get-name \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nget-value:\n  termux-scoped-env-variable.sh get-value \\\n    <output_mode> \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <posix_validator> [<default_values...>]\n\n\n\nset-value:\n  termux-scoped-env-variable.sh set-value \\\n    <scoped_var_scope_mode> <scoped_var_sub_name> \\\n    <value_to_set>\n\n\n\nunset-value:\n  termux-scoped-env-variable.sh unset-value \\\n    <scoped_var_scope_mode> <scoped_var_sub_name>\n\n\n\nAvailable arguments:\n- `output_mode`: The output mode fo\n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-sensor",
+    "path": "/data/data/com.termux/files/usr/bin/termux-sensor",
+    "help_excerpt": "termux-sensor: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-setup-package-manager",
+    "path": "/data/data/com.termux/files/usr/bin/termux-setup-package-manager",
+    "help_excerpt": "",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-setup-storage",
+    "path": "/data/data/com.termux/files/usr/bin/termux-setup-storage",
+    "help_excerpt": "usage: termux-setup-storage\nUse without arguments to ensure storage permission granted\nand symlinks to storage available in $HOME/storage",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-share",
+    "path": "/data/data/com.termux/files/usr/bin/termux-share",
+    "help_excerpt": "termux-share: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-sms-inbox",
+    "path": "/data/data/com.termux/files/usr/bin/termux-sms-inbox",
+    "help_excerpt": "termux-sms-inbox: This script has been replaced by termux-sms-list.",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-sms-list",
+    "path": "/data/data/com.termux/files/usr/bin/termux-sms-list",
+    "help_excerpt": "termux-sms-list command lists SMS conversations and messages.\n\nUsage:\n    termux-sms-list [command_options]\n\nAvailable command_options:\n    [ -h | --help ]           Display this help screen.\n#    [ --version ]             Display version.\n    [ -q | --quiet ]          Set log level to 'OFF'.\n    [ -v | -vv | -vvv | -vvvvv ]\n                              Set log level to 'DEBUG', 'VERBOSE',\n                              'VVERBOSE' and 'VVVERBOSE'.\n    [ -c | --conversation-list ]\n                              Show SMS conversations list instead of\n                              messages list.\n                              By default only one SMS message per\n                              conversation is returned unless the\n                              '--conversation-return-multiple-messages'\n                              option is passed.\n                              By default all SMS messages are returned\n                              as a single array without nesting\n                              unless the\n                              '--conversation-return-nested-view'\n                              option is passed.\n    [ --conversation-limit=<limit> ]\n                      \n...",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-sms-send",
+    "path": "/data/data/com.termux/files/usr/bin/termux-sms-send",
+    "help_excerpt": "termux-sms-send: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-speech-to-text",
+    "path": "/data/data/com.termux/files/usr/bin/termux-speech-to-text",
+    "help_excerpt": "termux-speech-to-text: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-ssh",
+    "path": "/data/data/com.termux/files/usr/bin/termux-ssh",
+    "help_excerpt": "termux-ssh start    to start ssh\n\ntermux-ssh stop     to stop ssh\n\ntermux-ssh          to set passwd and start ssh",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-storage-get",
+    "path": "/data/data/com.termux/files/usr/bin/termux-storage-get",
+    "help_excerpt": "termux-storage-get: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-sv-profile",
+    "path": "/data/data/com.termux/files/usr/bin/termux-sv-profile",
+    "help_excerpt": "Usage: termux-sv-profile <minimal|dev|status>\n\nminimal: disable desktop/X11 + ssh + printing services\ndev:     enable desktop/X11 + ssh services\nstatus:  show current service status",
+    "help_exit_code": 2
+  },
+  {
+    "name": "termux-telephony-call",
+    "path": "/data/data/com.termux/files/usr/bin/termux-telephony-call",
+    "help_excerpt": "termux-telephony-call: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-telephony-cellinfo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-telephony-cellinfo",
+    "help_excerpt": "termux-telephony-cellinfo: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-telephony-deviceinfo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-telephony-deviceinfo",
+    "help_excerpt": "termux-telephony-deviceinfo: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-toast",
+    "path": "/data/data/com.termux/files/usr/bin/termux-toast",
+    "help_excerpt": "termux-toast: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-torch",
+    "path": "/data/data/com.termux/files/usr/bin/termux-torch",
+    "help_excerpt": "Illegal parameter: --help\nUsage: termux-torch [on | off]\nToggle LED Torch on device",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-tts-engines",
+    "path": "/data/data/com.termux/files/usr/bin/termux-tts-engines",
+    "help_excerpt": "termux-tts-engines: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-tts-speak",
+    "path": "/data/data/com.termux/files/usr/bin/termux-tts-speak",
+    "help_excerpt": "termux-tts-speak: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-usb",
+    "path": "/data/data/com.termux/files/usr/bin/termux-usb",
+    "help_excerpt": "termux-usb: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-vibrate",
+    "path": "/data/data/com.termux/files/usr/bin/termux-vibrate",
+    "help_excerpt": "termux-vibrate: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-volume",
+    "path": "/data/data/com.termux/files/usr/bin/termux-volume",
+    "help_excerpt": "Invalid argument count\nUsage: termux-volume stream volume\nChange volume of audio stream\nValid audio streams are: alarm, music, notification, ring, system, call\nCall w/o arguments to show information about each audio stream",
+    "help_exit_code": 0
+  },
+  {
+    "name": "termux-wake-lock",
+    "path": "/data/data/com.termux/files/usr/bin/termux-wake-lock",
+    "help_excerpt": "usage: termux-wake-lock\nAcquire the Termux wake lock to prevent the CPU from sleeping.",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-wake-unlock",
+    "path": "/data/data/com.termux/files/usr/bin/termux-wake-unlock",
+    "help_excerpt": "usage: termux-wake-unlock\nRelease the Termux wake lock to allow the CPU to sleep.",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-wallpaper",
+    "path": "/data/data/com.termux/files/usr/bin/termux-wallpaper",
+    "help_excerpt": "termux-wallpaper: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-wifi-connectioninfo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-wifi-connectioninfo",
+    "help_excerpt": "termux-wifi-connectioninfo: illegal option --",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-wifi-enable",
+    "path": "/data/data/com.termux/files/usr/bin/termux-wifi-enable",
+    "help_excerpt": "Usage: termux-wifi-enable [true | false]\nToggle Wi-Fi On/Off",
+    "help_exit_code": 1
+  },
+  {
+    "name": "termux-wifi-scaninfo",
+    "path": "/data/data/com.termux/files/usr/bin/termux-wifi-scaninfo",
+    "help_excerpt": "termux-wifi-scaninfo: illegal option --",
+    "help_exit_code": 1
+  }
+]

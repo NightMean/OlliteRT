@@ -1,0 +1,65 @@
+name: Android JVM Tests
+
+on:
+  push:
+    paths:
+      - 'Android/src/**'
+      - '.github/workflows/jvm-tests.yml'
+  pull_request:
+    paths:
+      - 'Android/src/**'
+      - '.github/workflows/jvm-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: jvm-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-jvm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Android/src
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --licenses < /dev/null > /dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run JVM unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: jvm-test-reports-${{ github.sha }}
+          path: |
+            Android/src/app/build/reports/tests/testDebugUnitTest/
+            Android/src/app/build/test-results/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
