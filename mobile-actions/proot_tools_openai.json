@@ -1,0 +1,41 @@
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "exec_proot",
+        "description": "Run a shell command inside the default proot distro (the primary shell environment).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "description": "Shell command to run inside proot. Executed via /bin/sh -lc in the proot environment."
+            },
+            "cwd": {
+              "type": "string",
+              "description": "Working directory inside proot. If omitted, uses the default home directory."
+            },
+            "env": {
+              "type": "object",
+              "description": "Environment variables to set for the command.",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "stdin": {
+              "type": "string",
+              "description": "Optional stdin payload for the command."
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "description": "Optional timeout for the command execution.",
+              "minimum": 1
+            }
+          },
+          "required": ["cmd"]
+        }
+      }
+    }
+  ]
+}

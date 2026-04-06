@@ -1,0 +1,119 @@
+name: Upstream Watch
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # 9:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/google-ai-edge/gallery.git
+          git fetch upstream main
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          LAST_SHA=$(cat .upstream-sha 2>/dev/null || echo "")
+          if [ "$UPSTREAM_SHA" = "$LAST_SHA" ]; then
+            echo "new=false" >> $GITHUB_OUTPUT
+          else
+            echo "new=true" >> $GITHUB_OUTPUT
+            echo "upstream_sha=$UPSTREAM_SHA" >> $GITHUB_OUTPUT
+            echo "last_sha=$LAST_SHA" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate diff data
+        if: steps.check.outputs.new == 'true'
+        run: |
+          LAST_SHA="${{ steps.check.outputs.last_sha }}"
+          if [ -n "$LAST_SHA" ] && git cat-file -e "${LAST_SHA}^{commit}" 2>/dev/null; then
+            git log "${LAST_SHA}..upstream/main" --oneline > /tmp/commits.txt
+          else
+            git log upstream/main --oneline -20 > /tmp/commits.txt
+          fi
+          git diff HEAD upstream/main --stat > /tmp/stat.txt
+
+      - name: Analyze with GitHub Models
+        if: steps.check.outputs.new == 'true'
+        run: python3 .github/scripts/analyze_upstream.py > /tmp/analysis.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure upstream-sync label exists
+        if: steps.check.outputs.new == 'true'
+        run: gh label create "upstream-sync" --color "0075ca" --description "Upstream has new changes to review" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create issue
+        if: steps.check.outputs.new == 'true'
+        uses: actions/github-script@v7
+        env:
+          UPSTREAM_SHA: ${{ steps.check.outputs.upstream_sha }}
+          LAST_SHA: ${{ steps.check.outputs.last_sha }}
+        with:
+          script: |
+            const fs = require('fs');
+            const commits = fs.readFileSync('/tmp/commits.txt', 'utf8').trim();
+            const stat = fs.readFileSync('/tmp/stat.txt', 'utf8').trim();
+            const analysis = fs.readFileSync('/tmp/analysis.txt', 'utf8').trim();
+
+            const upstreamSha = process.env.UPSTREAM_SHA;
+            const lastSha = process.env.LAST_SHA || 'unknown';
+            const shortSha = upstreamSha.slice(0, 7);
+
+            const body = [
+              `## Upstream tiene cambios nuevos`,
+              ``,
+              `| | SHA |`,
+              `|---|---|`,
+              `| **upstream/main ahora** | \`${upstreamSha}\` |`,
+              `| **último sync registrado** | \`${lastSha}\` |`,
+              ``,
+              `### Commits nuevos`,
+              '```',
+              commits || '(sin commits nuevos detectados)',
+              '```',
+              ``,
+              `### Archivos afectados vs fork HEAD`,
+              '```',
+              stat || '(sin diferencias)',
+              '```',
+              ``,
+              `### Análisis`,
+              ``,
+              analysis,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `upstream sync disponible: ${shortSha}`,
+              body,
+              labels: ['upstream-sync'],
+            });
+
+      - name: Update .upstream-sha
+        if: steps.check.outputs.new == 'true'
+        run: |
+          echo "${{ steps.check.outputs.upstream_sha }}" > .upstream-sha
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .upstream-sha
+          git commit -m "chore: track upstream HEAD ${{ steps.check.outputs.upstream_sha }}"
+          git push
