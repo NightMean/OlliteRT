@@ -349,6 +349,7 @@ class LlmHttpService : Service() {
         val outputLen = result.output?.length ?: 0
         // Rough token estimate: ~4 chars per token
         ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
+        ServerMetrics.recordLatency(result.totalMs)
         logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
         result.output
       }

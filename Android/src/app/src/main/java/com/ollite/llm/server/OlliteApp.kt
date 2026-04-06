@@ -83,6 +83,7 @@ fun OlliteApp(
     OlliteNavHost(
       navController = navController,
       modelManagerViewModel = modelManagerViewModel,
+      serverViewModel = serverViewModel,
       startDestination = startDestination,
       modifier = Modifier.padding(innerPadding),
     )

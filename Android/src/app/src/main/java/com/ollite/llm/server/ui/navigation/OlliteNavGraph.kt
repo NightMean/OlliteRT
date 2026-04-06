@@ -30,6 +30,8 @@ import com.ollite.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollite.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollite.llm.server.ui.modelmanager.GlobalModelManager
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollite.llm.server.ui.server.ServerViewModel
+import com.ollite.llm.server.ui.server.StatusScreen
 
 private const val TRANSITION_DURATION_MS = 350
 
@@ -49,6 +51,7 @@ private fun AnimatedContentTransitionScope<*>.slideOutRight(): ExitTransition =
 fun OlliteNavHost(
   navController: NavHostController,
   modelManagerViewModel: ModelManagerViewModel,
+  serverViewModel: ServerViewModel,
   startDestination: String = OlliteRoutes.MODELS,
   modifier: Modifier = Modifier,
 ) {
@@ -88,9 +91,16 @@ fun OlliteNavHost(
       )
     }
 
-    // Status tab (placeholder)
+    // Status tab
     composable(OlliteRoutes.STATUS) {
-      PlaceholderScreen("Status", "No active server.\nStart a model from the Models tab.")
+      StatusScreen(
+        serverViewModel = serverViewModel,
+        onReloadModel = {
+          // Restart the server to reload the model
+          serverViewModel.stopServer()
+          serverViewModel.startServer()
+        },
+      )
     }
 
     // Logs tab (placeholder)
