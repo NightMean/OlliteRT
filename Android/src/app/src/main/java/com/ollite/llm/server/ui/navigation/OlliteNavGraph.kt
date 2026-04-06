@@ -32,6 +32,7 @@ import com.ollite.llm.server.ui.modelmanager.GlobalModelManager
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollite.llm.server.ui.server.LogsScreen
 import com.ollite.llm.server.ui.server.ServerViewModel
+import com.ollite.llm.server.ui.server.SettingsScreen
 import com.ollite.llm.server.ui.server.StatusScreen
 
 private const val TRANSITION_DURATION_MS = 350
@@ -109,13 +110,23 @@ fun OlliteNavHost(
       LogsScreen()
     }
 
-    // Settings screen (placeholder)
+    // Settings screen
     composable(
       OlliteRoutes.SETTINGS,
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) {
-      PlaceholderScreen("Settings", "Global settings coming soon.")
+      SettingsScreen(
+        onBackClick = { navController.navigateUp() },
+        onBenchmarkClick = {
+          // Navigate to benchmark with active model or first available
+          val modelName = serverViewModel.activeModelName.value
+            ?: modelManagerViewModel.getFirstDownloadedModelName()
+          if (modelName != null) {
+            navController.navigate(OlliteRoutes.benchmark(modelName))
+          }
+        },
+      )
     }
 
     // Getting Started (onboarding)
