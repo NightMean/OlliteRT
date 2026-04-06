@@ -215,6 +215,8 @@ constructor(
     }
   }
 
+  fun getFirstDownloadedModelName(): String? = getAllDownloadedModels().firstOrNull()?.name
+
   fun processTasks() {
     for (task in uiState.value.tasks) {
       for (model in task.models) {
