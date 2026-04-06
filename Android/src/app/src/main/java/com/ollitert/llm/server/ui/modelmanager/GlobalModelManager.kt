@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -71,7 +72,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -144,7 +144,10 @@ fun GlobalModelManager(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
-  val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
+  // Switch model confirmation state
+  var showSwitchModelDialog by remember { mutableStateOf(false) }
+  var pendingSwitchModel by remember { mutableStateOf<Model?>(null) }
+  var pendingSwitchTask by remember { mutableStateOf<Task?>(null) }
 
   // Search and filter state
   var searchQuery by remember { mutableStateOf("") }
@@ -233,10 +236,17 @@ fun GlobalModelManager(
   val handleClickModel: (Model) -> Unit = { model ->
     val tasks = viewModel.uiState.value.tasks
     val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
-    // Auto-select first task — skip the task selector bottom sheet entirely.
-    // In OlliteRT, tapping "Start Server" should directly start the server with the model.
     if (tasksForModel.isNotEmpty()) {
-      onModelSelected(tasksForModel[0], model)
+      val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+      val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
+      if (isServerActive && isDifferentModel) {
+        // Ask user to confirm switching models
+        pendingSwitchModel = model
+        pendingSwitchTask = tasksForModel[0]
+        showSwitchModelDialog = true
+      } else {
+        onModelSelected(tasksForModel[0], model)
+      }
     }
   }
 
@@ -333,16 +343,13 @@ fun GlobalModelManager(
 
       // Built-in models
       items(filteredBuiltInModels, key = { "builtin_${it.name}" }) { model ->
-        val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
         ModelItem(
           model = model,
           task = null,
           modelManagerViewModel = viewModel,
           onModelClicked = handleClickModel,
           onBenchmarkClicked = onBenchmarkClicked,
-          expanded = expanded,
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
-          onExpanded = { modelItemExpandedStates[model.name] = it },
           serverStatus = serverStatus,
           activeModelName = activeModelName,
           onStopServer = onStopServer,
@@ -370,7 +377,6 @@ fun GlobalModelManager(
           modelManagerViewModel = viewModel,
           onModelClicked = handleClickModel,
           onBenchmarkClicked = onBenchmarkClicked,
-          expanded = true,
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
           serverStatus = serverStatus,
           activeModelName = activeModelName,
@@ -547,6 +553,51 @@ fun GlobalModelManager(
       confirmButton = {
         Button(onClick = { showUnsupportedWebModelDialog = false }) {
           Text(stringResource(R.string.ok))
+        }
+      },
+    )
+  }
+
+  // Confirmation dialog when switching models while server is running
+  if (showSwitchModelDialog && pendingSwitchModel != null && pendingSwitchTask != null) {
+    AlertDialog(
+      onDismissRequest = {
+        showSwitchModelDialog = false
+        pendingSwitchModel = null
+        pendingSwitchTask = null
+      },
+      title = { Text("Switch model?") },
+      text = {
+        Text(
+          "This will unload \"${activeModelName ?: "current model"}\" and load \"${pendingSwitchModel!!.displayName.ifEmpty { pendingSwitchModel!!.name }}\".\n\nThe server will restart."
+        )
+      },
+      confirmButton = {
+        Button(onClick = {
+          val task = pendingSwitchTask!!
+          val model = pendingSwitchModel!!
+          showSwitchModelDialog = false
+          pendingSwitchModel = null
+          pendingSwitchTask = null
+          onStopServer()
+          onModelSelected(task, model)
+        }) {
+          Text("Switch")
+        }
+      },
+      dismissButton = {
+        Button(
+          onClick = {
+            showSwitchModelDialog = false
+            pendingSwitchModel = null
+            pendingSwitchTask = null
+          },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+          ),
+        ) {
+          Text("Cancel")
         }
       },
     )

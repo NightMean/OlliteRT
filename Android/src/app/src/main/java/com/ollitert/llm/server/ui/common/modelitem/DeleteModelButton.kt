@@ -16,11 +16,14 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,13 +32,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
+
+private val DeleteRedTint = Color(0xFFE57373)
 
 /** Composable function to display a button for deleting the downloaded model. */
 @Composable
@@ -48,23 +55,21 @@ fun DeleteModelButton(
 ) {
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
 
-  Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-    when (downloadStatus?.status) {
-      // Button to delete the download.
-      ModelDownloadStatusType.SUCCEEDED -> {
-        if (showDeleteButton) {
-          IconButton(onClick = { showConfirmDeleteDialog = true }) {
-            Icon(
-              Icons.Outlined.Delete,
-              contentDescription = stringResource(R.string.cd_delete_icon),
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.alpha(0.6f),
-            )
-          }
-        }
-      }
-
-      else -> {}
+  if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED && showDeleteButton) {
+    Box(
+      modifier = modifier
+        .size(40.dp)
+        .clip(RoundedCornerShape(10.dp))
+        .background(DeleteRedTint.copy(alpha = 0.12f))
+        .clickable { showConfirmDeleteDialog = true },
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(
+        Icons.Outlined.Delete,
+        contentDescription = stringResource(R.string.cd_delete_icon),
+        tint = DeleteRedTint,
+        modifier = Modifier.size(22.dp),
+      )
     }
   }
 

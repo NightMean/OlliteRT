@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
-import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,13 +58,11 @@ import com.ollitert.llm.server.ui.theme.labelSmallNarrow
  * - "Unzipping..." status for unzipping processes.
  * - Model size for successful downloads.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ModelNameAndStatus(
   model: Model,
   task: Task?,
   downloadStatus: ModelDownloadStatus?,
-  isExpanded: Boolean,
   modifier: Modifier = Modifier,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
@@ -103,7 +100,7 @@ fun ModelNameAndStatus(
       model.displayName.ifEmpty { model.name },
       maxLines = 1,
       overflow = TextOverflow.MiddleEllipsis,
-      style = MaterialTheme.typography.titleMedium,
+      style = MaterialTheme.typography.titleLarge,
       modifier = Modifier.padding(end = 64.dp),
     )
 
@@ -172,7 +169,7 @@ fun ModelNameAndStatus(
           }
 
           Column(
-            horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
+            horizontalAlignment = Alignment.Start
           ) {
             for ((index, line) in sizeLabel.split("\n").withIndex()) {
               Text(
