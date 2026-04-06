@@ -9,7 +9,7 @@ private const val KEY_PORT = "port"
 private const val KEY_PAYLOAD_LOGGING_ENABLED = "payload_logging_enabled"
 private const val KEY_ACCELERATOR_FALLBACK_ENABLED = "accelerator_fallback_enabled"
 private const val KEY_BEARER_TOKEN = "bearer_token"
-private const val DEFAULT_PORT = 9006
+private const val DEFAULT_PORT = 11434
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 

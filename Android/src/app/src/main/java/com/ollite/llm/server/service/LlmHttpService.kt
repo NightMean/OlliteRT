@@ -3,15 +3,18 @@ package com.ollite.llm.server.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
-import android.content.ComponentCallbacks2
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.ollite.llm.server.MainActivity
 import com.ollite.llm.server.R
+import com.ollite.llm.server.common.getWifiIpAddress
 import com.ollite.llm.server.data.LlmHttpPrefs
 import com.ollite.llm.server.data.AllowedModel
 import com.ollite.llm.server.data.Model
@@ -71,28 +74,59 @@ class LlmHttpService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    // Handle stop action from notification
+    if (intent?.action == ACTION_STOP) {
+      stopSelf()
+      return START_NOT_STICKY
+    }
+
     val port = intent?.getIntExtra(EXTRA_PORT, DEFAULT_PORT) ?: LlmHttpPrefs.getPort(this)
     currentPort = port
 
     val model = pickDefaultLlmModel()
     if (model == null) {
+      ServerMetrics.onServerError()
       stopSelf()
       return START_NOT_STICKY
     }
     defaultModel = model
     modelCache[model.name] = model
 
+    ServerMetrics.onServerStarting(port, model.name)
+
+    val wifiIp = getWifiIpAddress(this)
+    val displayAddress = wifiIp ?: "localhost"
+
+    // Content intent: tap notification → open app
+    val openAppIntent = Intent(this, MainActivity::class.java)
+    openAppIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+    val contentIntent = PendingIntent.getActivity(
+      this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    // Stop action
+    val stopIntent = PendingIntent.getService(
+      this, 1,
+      Intent(this, LlmHttpService::class.java).apply { action = ACTION_STOP },
+      PendingIntent.FLAG_IMMUTABLE,
+    )
+
     val notification: Notification =
       NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("LLM HTTP Bridge")
-        .setContentText("Serving on 127.0.0.1:$port")
+        .setContentTitle("Ollite Server")
+        .setContentText("Serving ${model.name} on $displayAddress:$port")
         .setSmallIcon(R.drawable.ic_launcher_foreground)
+        .setContentIntent(contentIntent)
+        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Server", stopIntent)
+        .setOngoing(true)
         .build()
-    startForeground(42, notification)
+    startForeground(NOTIFICATION_ID, notification)
 
     server?.stop()
     server = NanoServer(port)
     server?.start()
+
+    ServerMetrics.onServerRunning(wifiIp)
 
     Thread { server?.warmUpModel(model) }.start()
 
@@ -101,11 +135,13 @@ class LlmHttpService : Service() {
 
   override fun onTrimMemory(level: Int) {
     super.onTrimMemory(level)
-    if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) System.gc()
+    // TRIM_MEMORY_RUNNING_CRITICAL = 15
+    if (level >= 15) System.gc()
   }
 
   override fun onDestroy() {
     server?.stop()
+    ServerMetrics.onServerStopped()
     logger.shutdown()
     super.onDestroy()
   }
@@ -135,7 +171,10 @@ class LlmHttpService : Service() {
     }
   }
 
-  private fun nextRequestId(): String = "r${requestCounter.incrementAndGet()}"
+  private fun nextRequestId(): String {
+    ServerMetrics.incrementRequestCount()
+    return "r${requestCounter.incrementAndGet()}"
+  }
 
   private fun logEvent(message: String) {
     Log.i(logTag, "LLM_HTTP $message")
@@ -146,7 +185,7 @@ class LlmHttpService : Service() {
     logger.logPayload(label, body, requestId)
   }
 
-  private inner class NanoServer(port: Int) : NanoHTTPD("127.0.0.1", port) {
+  private inner class NanoServer(port: Int) : NanoHTTPD("0.0.0.0", port) {
     private val executor = Executors.newSingleThreadExecutor()
     private val inferenceLock = Any()
 
@@ -307,7 +346,10 @@ class LlmHttpService : Service() {
         logEvent("request_error id=$requestId endpoint=$endpoint error=${result.error} totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
         null
       } else {
-        logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
+        val outputLen = result.output?.length ?: 0
+        // Rough token estimate: ~4 chars per token
+        ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
+        logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
         result.output
       }
     }
@@ -486,7 +528,24 @@ class LlmHttpService : Service() {
 
   companion object {
     const val EXTRA_PORT = "extra_port"
-    const val DEFAULT_PORT = 9006
-    private const val CHANNEL_ID = "llm-http"
+    const val DEFAULT_PORT = 11434
+    const val ACTION_STOP = "com.ollite.llm.server.STOP_SERVER"
+    private const val CHANNEL_ID = "ollite-server"
+    private const val NOTIFICATION_ID = 42
+
+    fun start(context: Context, port: Int = DEFAULT_PORT) {
+      val intent = Intent(context, LlmHttpService::class.java).apply {
+        putExtra(EXTRA_PORT, port)
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+      } else {
+        context.startService(intent)
+      }
+    }
+
+    fun stop(context: Context) {
+      context.stopService(Intent(context, LlmHttpService::class.java))
+    }
   }
 }

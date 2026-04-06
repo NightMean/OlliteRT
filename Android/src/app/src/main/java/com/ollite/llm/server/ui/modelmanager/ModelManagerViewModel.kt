@@ -162,7 +162,7 @@ constructor(
   private val downloadRepository: DownloadRepository,
   val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
-  @ApplicationContext private val context: Context,
+  @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
