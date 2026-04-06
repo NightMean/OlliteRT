@@ -16,8 +16,6 @@ class TasksTest {
 
   @Test
   fun nonLegacyTaskIdsAreNotMarkedLegacy() {
-    assertFalse(isLegacyTasks(BuiltInTaskId.LLM_MOBILE_ACTIONS))
-    assertFalse(isLegacyTasks(BuiltInTaskId.LLM_TINY_GARDEN))
     assertFalse(isLegacyTasks("unknown_task"))
   }
 
@@ -36,8 +34,6 @@ class TasksTest {
 
     listOf(
       BuiltInTaskId.LLM_PROMPT_LAB,
-      BuiltInTaskId.LLM_MOBILE_ACTIONS,
-      BuiltInTaskId.LLM_TINY_GARDEN,
       "custom_task",
     ).forEach { id ->
       assertFalse(dummyTask(id).allowThinking())
