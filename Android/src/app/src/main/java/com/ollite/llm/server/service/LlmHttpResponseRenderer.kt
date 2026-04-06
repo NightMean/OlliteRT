@@ -22,7 +22,8 @@ data class LlmHttpModelItem(
 data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
 
 object LlmHttpResponseRenderer {
-  fun renderJsonError(error: String): String = """{"error":"$error"}"""
+  fun renderJsonError(error: String): String =
+    """{"error":{"message":"$error","type":"${error.replace(' ', '_')}_error","code":null}}"""
 
   fun renderModelListPayload(json: Json, modelIds: List<String>, fallbackId: String): String {
     val ids = if (modelIds.isEmpty()) listOf(fallbackId) else modelIds
@@ -93,6 +94,40 @@ object LlmHttpResponseRenderer {
     append(emitSseEvent("response.output_item.done", """{"type":"response.output_item.done","item":{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$escapedFullText"}],"role":"assistant"},"output_index":0}"""))
     append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$escapedFullText"}],"role":"assistant"}],"usage":{"input_tokens":0,"output_tokens":0,"total_tokens":0}}}"""))
     append("data: [DONE]\n\n")
+  }
+
+  // ── OpenAI Chat Completions SSE builders (chat.completion.chunk format) ───
+
+  /** First chunk: role declaration with empty content. */
+  fun buildChatStreamFirstChunk(chatId: String, modelId: String, now: Long): String =
+    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = "assistant", deltaContent = null, finishReason = null)}\n\n"
+
+  /** Token delta chunk. */
+  fun buildChatStreamDeltaChunk(chatId: String, modelId: String, now: Long, token: String): String =
+    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = token, finishReason = null)}\n\n"
+
+  /** Final chunk with finish_reason. */
+  fun buildChatStreamFinalChunk(chatId: String, modelId: String, now: Long): String =
+    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = null, finishReason = "stop")}\n\ndata: [DONE]\n\n"
+
+  private fun buildChatChunkJson(
+    chatId: String,
+    modelId: String,
+    now: Long,
+    deltaRole: String?,
+    deltaContent: String?,
+    finishReason: String?,
+  ): String {
+    val deltaFields = buildString {
+      var first = true
+      if (deltaRole != null) { append("\"role\":\"$deltaRole\""); first = false }
+      if (deltaContent != null) {
+        if (!first) append(",")
+        append("\"content\":\"${LlmHttpBridgeUtils.escapeSseText(deltaContent)}\"")
+      }
+    }
+    val fr = if (finishReason != null) "\"$finishReason\"" else "null"
+    return """{"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{$deltaFields},"finish_reason":$fr}]}"""
   }
 
   fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall): String {

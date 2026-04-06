@@ -48,6 +48,7 @@ import com.ollite.llm.server.data.RuntimeType
 import com.ollite.llm.server.data.Task
 import com.ollite.llm.server.ui.common.DownloadAndTryButton
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollite.llm.server.ui.navigation.ServerStatus
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -63,6 +64,9 @@ fun DownloadModelPanel(
   onBenchmarkClicked: () -> Unit,
   modifier: Modifier = Modifier,
   showBenchmarkButton: Boolean = false,
+  serverStatus: ServerStatus = ServerStatus.STOPPED,
+  activeModelName: String? = null,
+  onStopServer: () -> Unit = {},
 ) {
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   with(sharedTransitionScope) {
@@ -134,6 +138,9 @@ fun DownloadModelPanel(
             animatedVisibilityScope = animatedVisibilityScope,
           ),
         modifierWhenExpanded = Modifier.weight(1f),
+        serverStatus = serverStatus,
+        activeModelName = activeModelName,
+        onStopServer = onStopServer,
       )
     }
   }

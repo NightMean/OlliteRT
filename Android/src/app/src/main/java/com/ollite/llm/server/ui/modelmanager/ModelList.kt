@@ -155,7 +155,7 @@ fun ModelList(
 
   Box(
     contentAlignment = Alignment.BottomEnd,
-    modifier = Modifier.background(color = getTaskBgColor(task = task)),
+    modifier = Modifier.background(color = MaterialTheme.colorScheme.surface),
   ) {
     LazyColumn(
       modifier = modifier.padding(horizontal = 16.dp),
@@ -359,7 +359,7 @@ fun ModelList(
           .height(contentPadding.calculateBottomPadding())
           .background(
             Brush.verticalGradient(
-              colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
+              colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surface)
             )
           )
           .align(Alignment.BottomCenter)

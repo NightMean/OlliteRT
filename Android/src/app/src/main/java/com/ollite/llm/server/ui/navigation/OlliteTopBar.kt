@@ -105,7 +105,7 @@ fun StatusPill(
 ) {
   val (dotColor, label) = when (serverStatus) {
     ServerStatus.STOPPED -> MaterialTheme.colorScheme.error to "STOPPED"
-    ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to "LOADING"
+    ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to "STARTING"
     ServerStatus.RUNNING -> OlliteGreen400 to "RUNNING"
     ServerStatus.ERROR -> MaterialTheme.colorScheme.error to "ERROR"
   }

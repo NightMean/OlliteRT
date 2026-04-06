@@ -41,7 +41,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollite.llm.server.ui.navigation.ServerStatus
-import com.ollite.llm.server.ui.navigation.StatusPill
 import com.ollite.llm.server.ui.theme.OlliteGreen400
 import com.ollite.llm.server.ui.theme.OllitePrimary
 import com.ollite.llm.server.ui.theme.SpaceGroteskFontFamily
@@ -102,11 +101,6 @@ fun StatusScreen(
       .padding(horizontal = 20.dp, vertical = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
-    // Status pill centered
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-      StatusPill(serverStatus = status)
-    }
-
     // Model info card
     StatusCard {
       Row(
