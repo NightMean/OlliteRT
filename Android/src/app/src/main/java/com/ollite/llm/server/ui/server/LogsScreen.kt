@@ -1,5 +1,9 @@
 package com.ollite.llm.server.ui.server
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -11,23 +15,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -92,7 +102,17 @@ fun LogsScreen(
         }
       }
     } else {
+      val listState = rememberLazyListState()
+
+      // Auto-scroll to top when a new entry arrives
+      LaunchedEffect(entries.size) {
+        if (entries.isNotEmpty()) {
+          listState.animateScrollToItem(0)
+        }
+      }
+
       LazyColumn(
+        state = listState,
         modifier = Modifier
           .fillMaxSize()
           .padding(horizontal = 16.dp),
@@ -109,6 +129,8 @@ fun LogsScreen(
 
 @Composable
 private fun LogEntryCard(entry: RequestLogEntry) {
+  val context = LocalContext.current
+
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -116,7 +138,7 @@ private fun LogEntryCard(entry: RequestLogEntry) {
       .background(MaterialTheme.colorScheme.surfaceContainerLow)
       .padding(16.dp),
   ) {
-    // Top row: method badge + path + timestamp
+    // Top row: method badge + path + timestamp + copy button
     Row(
       verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -138,6 +160,17 @@ private fun LogEntryCard(entry: RequestLogEntry) {
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+      IconButton(
+        onClick = { copyEntryToClipboard(context, entry) },
+        modifier = Modifier.size(32.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.ContentCopy,
+          contentDescription = "Copy request",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(16.dp),
+        )
+      }
     }
 
     // Request body preview (if present)
@@ -150,25 +183,61 @@ private fun LogEntryCard(entry: RequestLogEntry) {
         fontWeight = FontWeight.SemiBold,
       )
       Spacer(modifier = Modifier.height(4.dp))
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(12.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-          .padding(12.dp)
-          .horizontalScroll(rememberScrollState()),
-      ) {
-        Text(
-          text = entry.requestBody.take(500),
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = SpaceGroteskFontFamily,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-          ),
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 8,
-          overflow = TextOverflow.Ellipsis,
-        )
+      SelectionContainer {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(12.dp)
+            .horizontalScroll(rememberScrollState()),
+        ) {
+          Text(
+            text = entry.requestBody.take(500),
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 11.sp,
+              lineHeight = 16.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 8,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+      }
+    }
+
+    // Response body preview (if present)
+    if (!entry.responseBody.isNullOrBlank()) {
+      Spacer(modifier = Modifier.height(10.dp))
+      Text(
+        text = "Response",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.SemiBold,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      SelectionContainer {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(12.dp)
+            .horizontalScroll(rememberScrollState()),
+        ) {
+          Text(
+            text = entry.responseBody.take(500),
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 11.sp,
+              lineHeight = 16.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 8,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
       }
     }
 
@@ -205,6 +274,24 @@ private fun LogEntryCard(entry: RequestLogEntry) {
       }
     }
   }
+}
+
+private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
+  val text = buildString {
+    appendLine("${entry.method} ${entry.path}")
+    appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
+    if (!entry.requestBody.isNullOrBlank()) {
+      appendLine("\n--- Request ---")
+      appendLine(entry.requestBody)
+    }
+    if (!entry.responseBody.isNullOrBlank()) {
+      appendLine("\n--- Response ---")
+      appendLine(entry.responseBody)
+    }
+  }
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+  clipboard.setPrimaryClip(ClipData.newPlainText("Ollite Log Entry", text))
+  Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
 }
 
 @Composable

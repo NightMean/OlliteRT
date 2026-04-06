@@ -17,7 +17,7 @@ data class LlmHttpRoute(
 
 object LlmHttpRouteResolver {
   fun isSupportedMethod(method: NanoHTTPD.Method): Boolean {
-    return method == NanoHTTPD.Method.GET || method == NanoHTTPD.Method.POST
+    return method == NanoHTTPD.Method.GET || method == NanoHTTPD.Method.POST || method == NanoHTTPD.Method.OPTIONS
   }
 
   fun resolve(method: NanoHTTPD.Method, uri: String): LlmHttpRoute? {

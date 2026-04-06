@@ -100,6 +100,7 @@ import com.ollite.llm.server.data.Task
 import com.ollite.llm.server.proto.ImportedModel
 import com.ollite.llm.server.ui.common.ShimmerModelCard
 import com.ollite.llm.server.ui.common.modelitem.ModelItem
+import com.ollite.llm.server.ui.navigation.ServerStatus
 import com.ollite.llm.server.ui.theme.OlliteDeepBlue
 import com.ollite.llm.server.ui.theme.OllitePrimary
 import kotlin.text.endsWith
@@ -124,6 +125,9 @@ fun GlobalModelManager(
   onModelSelected: (Task, Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
+  serverStatus: ServerStatus = ServerStatus.STOPPED,
+  activeModelName: String? = null,
+  onStopServer: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val builtInModels = remember { mutableStateListOf<Model>() }
@@ -237,7 +241,7 @@ fun GlobalModelManager(
   Box(modifier = modifier.fillMaxSize()) {
     LazyColumn(
       modifier = Modifier
-        .background(MaterialTheme.colorScheme.surfaceContainer)
+        .background(MaterialTheme.colorScheme.surface)
         .fillMaxWidth()
         .padding(horizontal = 16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -337,6 +341,9 @@ fun GlobalModelManager(
           expanded = expanded,
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
           onExpanded = { modelItemExpandedStates[model.name] = it },
+          serverStatus = serverStatus,
+          activeModelName = activeModelName,
+          onStopServer = onStopServer,
         )
       }
 
@@ -362,6 +369,9 @@ fun GlobalModelManager(
           onBenchmarkClicked = onBenchmarkClicked,
           expanded = true,
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+          serverStatus = serverStatus,
+          activeModelName = activeModelName,
+          onStopServer = onStopServer,
         )
       }
 
@@ -414,7 +424,7 @@ fun GlobalModelManager(
         .height(48.dp)
         .background(
           Brush.verticalGradient(
-            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer),
+            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surface),
           ),
         )
         .align(Alignment.BottomCenter),

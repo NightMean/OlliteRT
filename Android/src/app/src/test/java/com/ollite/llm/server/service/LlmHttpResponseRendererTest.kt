@@ -10,7 +10,9 @@ class LlmHttpResponseRendererTest {
 
   @Test
   fun rendersJsonErrorPayload() {
-    assertEquals("{\"error\":\"not_found\"}", LlmHttpResponseRenderer.renderJsonError("not_found"))
+    val result = LlmHttpResponseRenderer.renderJsonError("not_found")
+    assertTrue(result.contains("\"message\":\"not_found\""))
+    assertTrue(result.contains("\"type\":\"not_found_error\""))
   }
 
   @Test

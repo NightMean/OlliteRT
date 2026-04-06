@@ -166,6 +166,12 @@ class LlmHttpService : Service() {
 
   override fun onDestroy() {
     server?.stop()
+    // Unload the model to free memory
+    defaultModel?.let { model ->
+      model.instance = null
+      model.initializing = false
+    }
+    defaultModel = null
     ServerMetrics.onServerStopped()
     logger.shutdown()
     super.onDestroy()
@@ -226,12 +232,16 @@ class LlmHttpService : Service() {
       val startMs = SystemClock.elapsedRealtime()
       val method = session.method.name
       val path = session.uri
+      // Handle CORS preflight
+      if (session.method == NanoHTTPD.Method.OPTIONS) {
+        return corsOk()
+      }
       // Read body for logging (only for POST)
       var requestBodySnapshot: String? = null
       val response = try {
-        if (!LlmHttpRouteResolver.isSupportedMethod(session.method)) return methodNotAllowed()
-        val route = LlmHttpRouteResolver.resolve(session.method, session.uri) ?: return notFound()
-        if (route.requiresAuth) requireAuth(session)?.let { return it }
+        if (!LlmHttpRouteResolver.isSupportedMethod(session.method)) return addCorsHeaders(methodNotAllowed())
+        val route = LlmHttpRouteResolver.resolve(session.method, session.uri) ?: return addCorsHeaders(notFound())
+        if (route.requiresAuth) requireAuth(session)?.let { return addCorsHeaders(it) }
         when (route.handler) {
           LlmHttpRouteHandler.PING -> okJsonText("{\"status\":\"ok\"}")
           LlmHttpRouteHandler.MODELS -> okJsonText(modelsPayload())
@@ -258,7 +268,7 @@ class LlmHttpService : Service() {
           modelName = defaultModel?.name,
         )
       )
-      return response
+      return addCorsHeaders(response)
     }
 
     private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
@@ -315,9 +325,13 @@ class LlmHttpService : Service() {
       // Extract images for multimodal models.
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
 
-      val text = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 30, images = images)
+      val text = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
         ?: return badRequest("llm error")
-      return okJsonText(json.encodeToString(chatResponseWithText(model.name, text)))
+      return if (req.stream == true) {
+        chatSseResponse(model.name, text)
+      } else {
+        okJsonText(json.encodeToString(chatResponseWithText(model.name, text)))
+      }
     }
 
     private fun handleResponses(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
@@ -516,6 +530,18 @@ class LlmHttpService : Service() {
 
     // ── Response helpers ──────────────────────────────────────────────────────
 
+    /** Returns the full text wrapped in OpenAI chat.completion.chunk SSE events. */
+    private fun chatSseResponse(modelId: String, text: String): Response {
+      val now = System.currentTimeMillis() / 1000
+      val chatId = "chatcmpl-$now"
+      val payload = buildString {
+        append(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelId, now))
+        append(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelId, now, text))
+        append(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelId, now))
+      }
+      return chunkedSseResponse(payload)
+    }
+
     private fun sseResponse(modelId: String, text: String): Response =
       chunkedSseResponse(LlmHttpResponseRenderer.buildTextSsePayload(modelId, text))
 
@@ -556,6 +582,19 @@ class LlmHttpService : Service() {
       jsonError(Response.Status.UNAUTHORIZED, error).also { it.addHeader("WWW-Authenticate", "Bearer") }
     private fun methodNotAllowed() = jsonError(Response.Status.METHOD_NOT_ALLOWED, "method_not_allowed")
     private fun payloadTooLarge() = jsonError(Response.Status.BAD_REQUEST, "payload_too_large")
+
+    private fun addCorsHeaders(response: Response): Response {
+      response.addHeader("Access-Control-Allow-Origin", "*")
+      response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+      response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+      response.addHeader("Access-Control-Max-Age", "86400")
+      return response
+    }
+
+    private fun corsOk(): Response {
+      val resp = newFixedLengthResponse(Response.Status.OK, "text/plain", "")
+      return addCorsHeaders(resp)
+    }
   }
 
   // ── Image helpers ──────────────────────────────────────────────────────────

@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
@@ -40,7 +41,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,6 +87,7 @@ import com.ollite.llm.server.ui.modelmanager.TokenRequestResultType
 import com.ollite.llm.server.ui.modelmanager.TokenStatus
 import android.os.Environment
 import android.os.StatFs
+import com.ollite.llm.server.ui.navigation.ServerStatus
 import java.net.HttpURLConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -131,7 +135,14 @@ fun DownloadAndTryButton(
   modifierWhenExpanded: Modifier = Modifier,
   compact: Boolean = false,
   canShowTryIt: Boolean = true,
+  serverStatus: ServerStatus = ServerStatus.STOPPED,
+  activeModelName: String? = null,
+  onStopServer: () -> Unit = {},
 ) {
+  val isThisModelActive = activeModelName != null &&
+    activeModelName.equals(model.name, ignoreCase = true)
+  val isThisModelLoading = isThisModelActive && serverStatus == ServerStatus.LOADING
+  val isThisModelRunning = isThisModelActive && serverStatus == ServerStatus.RUNNING
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   var checkingToken by remember { mutableStateOf(false) }
@@ -275,9 +286,30 @@ fun DownloadAndTryButton(
             showErrorDialog = true
             return@launch
           }
-          Log.d(TAG, "Model '${model.name}' needs auth. Start token exchange process...")
+          Log.d(TAG, "Model '${model.name}' needs auth.")
 
-          // Get current token status
+          // First, try with the HuggingFace token from Settings.
+          val storedHfToken = com.ollite.llm.server.data.LlmHttpPrefs.getHfToken(context)
+          if (storedHfToken.isNotBlank()) {
+            Log.d(TAG, "Trying stored HF token from Settings...")
+            val hfResponse = modelManagerViewModel.getModelUrlResponse(
+              model = model,
+              accessToken = storedHfToken,
+            )
+            if (hfResponse == HttpURLConnection.HTTP_OK) {
+              Log.d(TAG, "Stored HF token works. Start downloading...")
+              withContext(Dispatchers.Main) { startDownload(storedHfToken) }
+              return@launch
+            } else if (hfResponse == HttpURLConnection.HTTP_FORBIDDEN) {
+              Log.d(TAG, "Model needs license agreement. Opening agreement page...")
+              showAgreementAckSheet = true
+              return@launch
+            }
+            Log.d(TAG, "Stored HF token didn't work (response=$hfResponse). Trying OAuth...")
+          }
+
+          // Fall back to OAuth token exchange.
+          Log.d(TAG, "Start token exchange process...")
           val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
 
           when (tokenStatusAndData.status) {
@@ -353,6 +385,68 @@ fun DownloadAndTryButton(
     if (!compact) {
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
+
+    // Show loading state when this model is being loaded
+    if (isThisModelLoading) {
+      Button(
+        modifier = buttonModifier,
+        colors = ButtonDefaults.buttonColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        enabled = false,
+        onClick = {},
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            strokeWidth = 2.dp,
+          )
+          if (!compact) {
+            Text(
+              "Loading Model",
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              style = MaterialTheme.typography.titleMedium,
+            )
+          }
+        }
+      }
+    }
+    // Show stop button when this model is running
+    else if (isThisModelRunning) {
+      Button(
+        modifier = buttonModifier,
+        colors = ButtonDefaults.buttonColors(
+          containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        onClick = onStopServer,
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(
+            Icons.Outlined.Stop,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+          )
+          if (!compact) {
+            Text(
+              "Stop Server",
+              color = MaterialTheme.colorScheme.error,
+              style = MaterialTheme.typography.titleMedium,
+            )
+          }
+        }
+      }
+    }
+    // Normal state: download or start server
+    else {
     Button(
       modifier = buttonModifier,
       colors =
@@ -423,6 +517,7 @@ fun DownloadAndTryButton(
           }
         }
       }
+    }
     }
   }
   // Download progress.

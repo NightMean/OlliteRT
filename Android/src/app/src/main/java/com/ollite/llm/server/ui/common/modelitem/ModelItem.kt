@@ -63,6 +63,7 @@ import com.ollite.llm.server.data.RuntimeType
 import com.ollite.llm.server.data.Task
 import com.ollite.llm.server.ui.common.MarkdownText
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollite.llm.server.ui.navigation.ServerStatus
 import com.ollite.llm.server.ui.theme.customColors
 
 /**
@@ -86,6 +87,9 @@ fun ModelItem(
   canExpand: Boolean = true,
   showBenchmarkButton: Boolean = false,
   onExpanded: (Boolean) -> Unit = {},
+  serverStatus: ServerStatus = ServerStatus.STOPPED,
+  activeModelName: String? = null,
+  onStopServer: () -> Unit = {},
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
@@ -202,6 +206,9 @@ fun ModelItem(
             onTryItClicked = { onModelClicked(model) },
             onBenchmarkClicked = { onBenchmarkClicked(model) },
             showBenchmarkButton = showBenchmarkButton,
+            serverStatus = serverStatus,
+            activeModelName = activeModelName,
+            onStopServer = onStopServer,
           )
         }
       }

@@ -15,6 +15,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
@@ -83,6 +85,8 @@ fun OlliteNavHost(
   ) {
     // Models tab (main screen, reusing GlobalModelManager)
     composable(OlliteRoutes.MODELS) {
+      val serverStatus by serverViewModel.status.collectAsState()
+      val activeModelName by serverViewModel.activeModelName.collectAsState()
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
@@ -93,6 +97,9 @@ fun OlliteNavHost(
         onBenchmarkClicked = { model ->
           navController.navigate(OlliteRoutes.benchmark(model.name))
         },
+        serverStatus = serverStatus,
+        activeModelName = activeModelName,
+        onStopServer = { serverViewModel.stopServer() },
       )
     }
 
