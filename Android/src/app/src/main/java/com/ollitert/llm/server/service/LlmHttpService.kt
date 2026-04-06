@@ -667,7 +667,7 @@ class LlmHttpService : Service() {
   companion object {
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
-    const val DEFAULT_PORT = 11434
+    const val DEFAULT_PORT = 8000
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     private const val CHANNEL_ID = "ollitert-server"
     private const val NOTIFICATION_ID = 42
