@@ -95,6 +95,11 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Clipboard copy receiver for notification "Copy URL" action -->
+        <receiver
+            android:name="com.ollite.llm.server.service.CopyUrlReceiver"
+            android:exported="false" />
+
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
