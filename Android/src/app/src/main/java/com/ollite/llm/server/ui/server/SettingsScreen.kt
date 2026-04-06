@@ -24,9 +24,13 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -46,20 +50,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollite.llm.server.data.LlmHttpPrefs
-import com.ollite.llm.server.ui.theme.OlliteDeepBlue
 import com.ollite.llm.server.ui.theme.OllitePrimary
 
 @Composable
 fun SettingsScreen(
   onBackClick: () -> Unit,
-  onBenchmarkClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -70,6 +71,10 @@ fun SettingsScreen(
   // Bearer token state
   var bearerEnabled by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context).isNotBlank()) }
   var bearerToken by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context)) }
+
+  // HuggingFace token state
+  var hfToken by remember { mutableStateOf(LlmHttpPrefs.getHfToken(context)) }
+  var hfTokenVisible by remember { mutableStateOf(false) }
 
   Column(
     modifier = modifier
@@ -220,35 +225,56 @@ fun SettingsScreen(
       title = "Hugging Face Token",
     ) {
       Text(
-        text = "Authentication for gated models is handled via OAuth when you first download a model that requires it. No manual token entry needed.",
+        text = "Required for downloading gated models and private repositories.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
-    }
-
-    // System Benchmark card
-    SettingsCard(
-      icon = Icons.Outlined.Speed,
-      title = "System Benchmark",
-    ) {
-      Text(
-        text = "Run comprehensive latency and TFLOPS analysis to evaluate your device's inference performance.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-      Spacer(modifier = Modifier.height(12.dp))
-      Button(
-        onClick = onBenchmarkClick,
+      Spacer(modifier = Modifier.height(8.dp))
+      OutlinedTextField(
+        value = hfToken,
+        onValueChange = { hfToken = it },
+        singleLine = true,
+        placeholder = {
+          Text(
+            "hf_...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          )
+        },
+        visualTransformation = if (hfTokenVisible) {
+          VisualTransformation.None
+        } else {
+          PasswordVisualTransformation()
+        },
+        trailingIcon = {
+          Row {
+            IconButton(onClick = { hfTokenVisible = !hfTokenVisible }) {
+              Icon(
+                imageVector = if (hfTokenVisible) Icons.Outlined.VisibilityOff
+                else Icons.Outlined.Visibility,
+                contentDescription = if (hfTokenVisible) "Hide token" else "Show token",
+                tint = OllitePrimary,
+                modifier = Modifier.size(20.dp),
+              )
+            }
+            if (hfToken.isNotEmpty()) {
+              IconButton(onClick = { hfToken = "" }) {
+                Icon(
+                  imageVector = Icons.Outlined.Close,
+                  contentDescription = "Clear token",
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.size(20.dp),
+                )
+              }
+            }
+          }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = OllitePrimary,
+          unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
         modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = OllitePrimary),
-        shape = RoundedCornerShape(50),
-      ) {
-        Text(
-          text = "RUN BENCHMARK",
-          style = MaterialTheme.typography.labelLarge,
-          fontWeight = FontWeight.Bold,
-        )
-      }
+      )
     }
 
     // Save button
@@ -258,6 +284,7 @@ fun SettingsScreen(
         if (bearerEnabled) {
           LlmHttpPrefs.setBearerToken(context, bearerToken)
         }
+        LlmHttpPrefs.setHfToken(context, hfToken)
         Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
       },
       modifier = Modifier

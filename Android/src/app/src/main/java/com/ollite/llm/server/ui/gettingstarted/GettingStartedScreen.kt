@@ -1,5 +1,9 @@
 package com.ollite.llm.server.ui.gettingstarted
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +52,14 @@ fun GettingStartedScreen(
 ) {
   val scrollState = rememberScrollState()
 
+  // Request notification permission on "Get Started" tap (Android 13+)
+  val notificationPermissionLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.RequestPermission(),
+  ) { _ ->
+    // Proceed regardless of whether permission was granted
+    onGetStartedClick()
+  }
+
   Column(
     modifier = modifier
       .fillMaxSize()
@@ -83,10 +95,16 @@ fun GettingStartedScreen(
     Spacer(modifier = Modifier.height(32.dp))
 
     Button(
-      onClick = onGetStartedClick,
+      onClick = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+          onGetStartedClick()
+        }
+      },
       modifier = Modifier
         .fillMaxWidth()
-        .height(56.dp),
+        .height(64.dp),
       shape = RoundedCornerShape(50),
       colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
     ) {
@@ -103,7 +121,7 @@ fun GettingStartedScreen(
         Text(
           text = "Get Started",
           style = MaterialTheme.typography.labelLarge.copy(
-            fontSize = 16.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold,
           ),
           color = Color.White,
@@ -117,13 +135,13 @@ fun GettingStartedScreen(
       onClick = { /* Learn More — no-op for now */ },
       modifier = Modifier
         .fillMaxWidth()
-        .height(56.dp),
+        .height(48.dp),
       shape = RoundedCornerShape(50),
       border = ButtonDefaults.outlinedButtonBorder(true),
     ) {
       Text(
         text = "Learn More",
-        style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp),
+        style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }

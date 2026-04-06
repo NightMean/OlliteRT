@@ -490,6 +490,8 @@ constructor(
     try {
       val url = URL(model.url)
       val connection = url.openConnection() as HttpURLConnection
+      connection.requestMethod = "HEAD"
+      connection.instanceFollowRedirects = true
       if (accessToken != null) {
         connection.setRequestProperty("Authorization", "Bearer $accessToken")
       }

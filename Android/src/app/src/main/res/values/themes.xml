@@ -5,7 +5,7 @@
   <style name="Theme.Ollite.SplashScreen" parent="Theme.SplashScreen">
       <!-- Match surface color #131314 -->
       <item name="windowSplashScreenBackground">#FF131314</item>
-      <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen_animated_icon</item>
+      <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen_icon</item>
       <item name="postSplashScreenTheme">@style/Theme.Ollite</item>
   </style>
   <style name="Theme.Ollite.OssLicenses" parent="Theme.AppCompat">

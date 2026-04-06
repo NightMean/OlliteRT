@@ -86,7 +86,10 @@ fun OlliteNavHost(
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
-        onModelSelected = { _, _ -> },
+        onModelSelected = { _, model ->
+          // Start the server with the selected model
+          serverViewModel.startServer()
+        },
         onBenchmarkClicked = { model ->
           navController.navigate(OlliteRoutes.benchmark(model.name))
         },
@@ -118,14 +121,6 @@ fun OlliteNavHost(
     ) {
       SettingsScreen(
         onBackClick = { navController.navigateUp() },
-        onBenchmarkClick = {
-          // Navigate to benchmark with active model or first available
-          val modelName = serverViewModel.activeModelName.value
-            ?: modelManagerViewModel.getFirstDownloadedModelName()
-          if (modelName != null) {
-            navController.navigate(OlliteRoutes.benchmark(modelName))
-          }
-        },
       )
     }
 
