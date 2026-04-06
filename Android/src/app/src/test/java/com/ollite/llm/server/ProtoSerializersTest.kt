@@ -2,7 +2,6 @@ package com.ollite.llm.server
 
 import androidx.datastore.core.CorruptionException
 import com.ollite.llm.server.proto.BenchmarkResults
-import com.ollite.llm.server.proto.CutoutCollection
 import com.ollite.llm.server.proto.Settings
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -66,24 +65,4 @@ class ProtoSerializersTest {
     }
   }
 
-  @Test
-  fun cutoutsSerializerRoundTripsProto() = runBlocking {
-    val original = CutoutCollection.getDefaultInstance()
-
-    val output = ByteArrayOutputStream()
-    CutoutsSerializer.writeTo(original, output)
-
-    val decoded = CutoutsSerializer.readFrom(ByteArrayInputStream(output.toByteArray()))
-    assertEquals(original, decoded)
-  }
-
-  @Test
-  fun cutoutsSerializerRejectsInvalidBytes() = runBlocking {
-    try {
-      CutoutsSerializer.readFrom(ByteArrayInputStream(byteArrayOf(9, 9, 9)))
-      fail("Expected invalid proto bytes to fail")
-    } catch (e: Exception) {
-      assertTrue(e is CorruptionException)
-    }
-  }
 }

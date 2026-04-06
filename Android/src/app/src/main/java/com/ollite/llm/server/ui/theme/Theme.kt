@@ -130,6 +130,3 @@ fun OlliteTheme(content: @Composable () -> Unit) {
   }
 }
 
-// Keep old name as alias during migration so commented-out previews don't break imports
-@Composable
-fun GalleryTheme(content: @Composable () -> Unit) = OlliteTheme(content)

@@ -2,13 +2,10 @@ package com.ollite.llm.server.data
 
 import androidx.datastore.core.DataStoreFactory
 import com.ollite.llm.server.BenchmarkResultsSerializer
-import com.ollite.llm.server.CutoutsSerializer
 import com.ollite.llm.server.SettingsSerializer
-import com.ollite.llm.server.SkillsSerializer
 import com.ollite.llm.server.UserDataSerializer
 import com.ollite.llm.server.proto.BenchmarkResult
 import com.ollite.llm.server.proto.ImportedModel
-import com.ollite.llm.server.proto.Theme
 import java.io.FileOutputStream
 import java.nio.file.Path
 import kotlin.io.path.createTempDirectory
@@ -26,12 +23,8 @@ class DataStoreRepositoryTest {
       val repository = createRepository(tempDir.toString())
 
       repository.saveTextInputHistory(listOf("hello", "world"))
-      repository.saveTheme(Theme.THEME_DARK)
-      repository.setHasRunTinyGarden(true)
 
       assertEquals(listOf("hello", "world"), repository.readTextInputHistory())
-      assertEquals(Theme.THEME_DARK, repository.readTheme())
-      assertTrue(repository.getHasRunTinyGarden())
     } finally {
       tempDir.toFile().deleteRecursively()
     }
@@ -96,9 +89,7 @@ class DataStoreRepositoryTest {
         SettingsSerializer.writeTo(
           SettingsSerializer.defaultValue
             .toBuilder()
-            .setTheme(Theme.THEME_DARK)
             .setIsTosAccepted(true)
-            .setHasRunTinyGarden(true)
             .addTextInputHistory("persisted")
             .build(),
           output,
@@ -129,12 +120,24 @@ class DataStoreRepositoryTest {
 
       val repository = createRepository(tempDir.toString())
 
-      assertEquals(Theme.THEME_DARK, repository.readTheme())
-      assertTrue(repository.isTosAccepted())
-      assertTrue(repository.getHasRunTinyGarden())
+      assertTrue(repository.isOnboardingCompleted()) // reuses isTosAccepted
       assertEquals(listOf("persisted"), repository.readTextInputHistory())
       assertEquals("stored", repository.readAccessTokenData()?.accessToken)
       assertEquals(1, repository.getAllBenchmarkResults().size)
+    } finally {
+      tempDir.toFile().deleteRecursively()
+    }
+  }
+
+  @Test
+  fun onboardingCompletedPersists() = runBlocking {
+    val tempDir = createTempDirectory(prefix = "datastore-repo-test")
+    try {
+      val repository = createRepository(tempDir.toString())
+
+      assertFalse(repository.isOnboardingCompleted())
+      repository.setOnboardingCompleted()
+      assertTrue(repository.isOnboardingCompleted())
     } finally {
       tempDir.toFile().deleteRecursively()
     }
@@ -144,21 +147,16 @@ class DataStoreRepositoryTest {
     val basePath = Path.of(tempDir)
     val settingsPath = basePath.resolve("settings.pb")
     val userDataPath = basePath.resolve("user-data.pb")
-    val cutoutsPath = basePath.resolve("cutouts.pb")
     val benchmarkResultsPath = basePath.resolve("benchmark-results.pb")
-    val skillsPath = basePath.resolve("skills.pb")
 
     return DefaultDataStoreRepository(
       dataStore = DataStoreFactory.create(serializer = SettingsSerializer) { settingsPath.toFile() },
       userDataDataStore =
         DataStoreFactory.create(serializer = UserDataSerializer) { userDataPath.toFile() },
-      cutoutDataStore = DataStoreFactory.create(serializer = CutoutsSerializer) { cutoutsPath.toFile() },
       benchmarkResultsDataStore =
         DataStoreFactory.create(serializer = BenchmarkResultsSerializer) {
           benchmarkResultsPath.toFile()
         },
-      skillsDataStore =
-        DataStoreFactory.create(serializer = SkillsSerializer) { skillsPath.toFile() },
     )
   }
 }

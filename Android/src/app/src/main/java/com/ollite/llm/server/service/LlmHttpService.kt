@@ -56,7 +56,7 @@ class LlmHttpService : Service() {
   override fun onCreate() {
     super.onCreate()
     logger = LlmHttpLogger(
-      logDir = { getExternalFilesDir(null)?.let { File(it, "edgegallery") } },
+      logDir = { getExternalFilesDir(null)?.let { File(it, "ollite") } },
       isEnabled = { LlmHttpPrefs.isPayloadLoggingEnabled(this) },
     )
     allowlistLoader = LlmHttpAllowlistLoader(
