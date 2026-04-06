@@ -9,13 +9,27 @@ import com.ollite.llm.server.proto.ImportedModel
 import java.io.FileOutputStream
 import java.nio.file.Path
 import kotlin.io.path.createTempDirectory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 
 class DataStoreRepositoryTest {
+
+  /** DataStore atomic rename fails on Windows — skip multi-write tests there. */
+  private fun assumeNotWindows() {
+    assumeFalse(
+      "DataStore File.renameTo() fails on Windows (NTFS file locking)",
+      System.getProperty("os.name")?.lowercase()?.contains("win") == true,
+    )
+  }
+
   @Test
   fun writeOperationsUpdateSnapshotsImmediately() = runBlocking {
     val tempDir = createTempDirectory(prefix = "datastore-repo-test")
@@ -31,52 +45,59 @@ class DataStoreRepositoryTest {
   }
 
   @Test
-  fun importedModelsAndTokenWritesRemainReadableFromSnapshots() = runBlocking {
-    val tempDir = createTempDirectory(prefix = "datastore-repo-test")
-    try {
-      val repository = createRepository(tempDir.toString())
-      val importedModel = ImportedModel.newBuilder().setFileName("demo.task").setFileSize(42L).build()
+  fun importedModelsAndTokenWritesRemainReadableFromSnapshots() {
+    assumeNotWindows()
+    runBlocking {
+      val tempDir = createTempDirectory(prefix = "datastore-repo-test")
+      try {
+        val repository = createRepository(tempDir.toString())
+        val importedModel =
+          ImportedModel.newBuilder().setFileName("demo.task").setFileSize(42L).build()
 
-      repository.saveImportedModels(listOf(importedModel))
-      repository.saveAccessTokenData(
-        accessToken = "access",
-        refreshToken = "refresh",
-        expiresAt = 1234L,
-      )
+        repository.saveImportedModels(listOf(importedModel))
+        repository.saveAccessTokenData(
+          accessToken = "access",
+          refreshToken = "refresh",
+          expiresAt = 1234L,
+        )
 
-      assertEquals(listOf(importedModel), repository.readImportedModels())
-      assertEquals("access", repository.readAccessTokenData()?.accessToken)
+        assertEquals(listOf(importedModel), repository.readImportedModels())
+        assertEquals("access", repository.readAccessTokenData()?.accessToken)
 
-      repository.clearAccessTokenData()
+        repository.clearAccessTokenData()
 
-      assertTrue(repository.readAccessTokenData()?.accessToken.orEmpty().isEmpty())
-    } finally {
-      tempDir.toFile().deleteRecursively()
+        assertTrue(repository.readAccessTokenData()?.accessToken.orEmpty().isEmpty())
+      } finally {
+        tempDir.toFile().deleteRecursively()
+      }
     }
   }
 
   @Test
-  fun benchmarkWritesAndDeletesUpdateSnapshotList() = runBlocking {
-    val tempDir = createTempDirectory(prefix = "datastore-repo-test")
-    try {
-      val repository = createRepository(tempDir.toString())
-      val firstResult = BenchmarkResult.newBuilder().build()
-      val secondResult = BenchmarkResult.newBuilder().build()
+  fun benchmarkWritesAndDeletesUpdateSnapshotList() {
+    assumeNotWindows()
+    runBlocking {
+      val tempDir = createTempDirectory(prefix = "datastore-repo-test")
+      try {
+        val repository = createRepository(tempDir.toString())
+        val firstResult = BenchmarkResult.newBuilder().build()
+        val secondResult = BenchmarkResult.newBuilder().build()
 
-      repository.addBenchmarkResult(firstResult)
-      repository.addBenchmarkResult(secondResult)
+        repository.addBenchmarkResult(firstResult)
+        repository.addBenchmarkResult(secondResult)
 
-      assertEquals(listOf(secondResult, firstResult), repository.getAllBenchmarkResults())
+        assertEquals(listOf(secondResult, firstResult), repository.getAllBenchmarkResults())
 
-      repository.deleteBenchmarkResult(index = 0)
+        repository.deleteBenchmarkResult(index = 0)
 
-      assertEquals(listOf(firstResult), repository.getAllBenchmarkResults())
+        assertEquals(listOf(firstResult), repository.getAllBenchmarkResults())
 
-      repository.setBenchmarkResults(listOf(secondResult))
+        repository.setBenchmarkResults(listOf(secondResult))
 
-      assertEquals(listOf(secondResult), repository.getAllBenchmarkResults())
-    } finally {
-      tempDir.toFile().deleteRecursively()
+        assertEquals(listOf(secondResult), repository.getAllBenchmarkResults())
+      } finally {
+        tempDir.toFile().deleteRecursively()
+      }
     }
   }
 

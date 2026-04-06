@@ -153,6 +153,11 @@ class LlmHttpService : Service() {
     if (level >= 15) System.gc()
   }
 
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    super.onTaskRemoved(rootIntent)
+    stopSelf()
+  }
+
   override fun onDestroy() {
     server?.stop()
     ServerMetrics.onServerStopped()

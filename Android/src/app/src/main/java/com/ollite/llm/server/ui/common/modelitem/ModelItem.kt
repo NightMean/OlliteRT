@@ -19,9 +19,13 @@ package com.ollite.llm.server.ui.common.modelitem
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
@@ -91,9 +96,21 @@ fun ModelItem(
     else model.bestForTaskIds.isNotEmpty()
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
+  val interactionSource = remember { MutableInteractionSource() }
+  val isPressed by interactionSource.collectIsPressedAsState()
+  val scale by animateFloatAsState(
+    targetValue = if (isPressed) 0.97f else 1f,
+    animationSpec = tween(durationMillis = 100),
+    label = "cardScale",
+  )
+
   var boxModifier =
     modifier
       .fillMaxWidth()
+      .graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+      }
       .clip(RoundedCornerShape(size = 12.dp))
       .background(color = MaterialTheme.customColors.taskCardBgColor)
   boxModifier =
@@ -107,7 +124,7 @@ fun ModelItem(
             onModelClicked(model)
           }
         },
-        interactionSource = remember { MutableInteractionSource() },
+        interactionSource = interactionSource,
         indication = ripple(bounded = true, radius = 1000.dp),
       )
     } else {
