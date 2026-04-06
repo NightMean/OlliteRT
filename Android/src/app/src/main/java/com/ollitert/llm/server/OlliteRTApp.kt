@@ -2,6 +2,7 @@ package com.ollitert.llm.server
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -51,6 +52,7 @@ fun OlliteRTApp(
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
+    containerColor = MaterialTheme.colorScheme.surface,
     topBar = {
       if (showTopBar) {
         val isSettings = currentRoute == OlliteRTRoutes.SETTINGS

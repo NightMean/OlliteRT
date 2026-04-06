@@ -490,18 +490,6 @@ fun GlobalModelManager(
         .padding(bottom = 32.dp),
     )
 
-    // Gradient overlay at the bottom
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .height(48.dp)
-        .background(
-          Brush.verticalGradient(
-            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surface),
-          ),
-        )
-        .align(Alignment.BottomCenter),
-    )
   }
 
   // Import model bottom sheet
