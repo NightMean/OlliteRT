@@ -60,7 +60,7 @@ import kotlin.math.ln
 import kotlin.math.pow
 import kotlinx.coroutines.delay
 
-private const val TAG = "AGUtils"
+private const val TAG = "OlliteUiUtils"
 
 val SMALL_BUTTON_CONTENT_PADDING =
   PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)

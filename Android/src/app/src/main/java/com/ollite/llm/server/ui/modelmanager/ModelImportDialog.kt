@@ -90,7 +90,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-private const val TAG = "AGModelImportDialog"
+private const val TAG = "OlliteModelImportDialog"
 
 private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   if (isPixel10()) {

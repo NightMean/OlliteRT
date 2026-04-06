@@ -50,7 +50,7 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private const val TAG = "AGUtils"
+private const val TAG = "OlliteUtils"
 
 const val LOCAL_URL_BASE = "https://appassets.androidplatform.net"
 

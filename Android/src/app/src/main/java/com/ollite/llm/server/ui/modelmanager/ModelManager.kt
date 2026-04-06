@@ -16,11 +16,6 @@
 
 package com.ollite.llm.server.ui.modelmanager
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.ollite.llm.server.ui.preview.PreviewModelManagerViewModel
-// import com.ollite.llm.server.ui.preview.TASK_TEST1
-// import com.ollite.llm.server.ui.theme.GalleryTheme
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -100,17 +95,3 @@ fun ModelManager(
   }
 }
 
-// @Preview
-// @Composable
-// fun ModelManagerPreview() {
-//   val context = LocalContext.current
-
-//   GalleryTheme {
-//     ModelManager(
-//       viewModel = PreviewModelManagerViewModel(context = context),
-//       onModelClicked = {},
-//       task = TASK_TEST1,
-//       navigateUp = {},
-//     )
-//   }
-// }
