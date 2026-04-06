@@ -23,19 +23,15 @@ import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import com.ollite.llm.server.AppLifecycleProvider
 import com.ollite.llm.server.BenchmarkResultsSerializer
-import com.ollite.llm.server.CutoutsSerializer
 import com.ollite.llm.server.GalleryLifecycleProvider
 import com.ollite.llm.server.SettingsSerializer
-import com.ollite.llm.server.SkillsSerializer
 import com.ollite.llm.server.UserDataSerializer
 import com.ollite.llm.server.data.DataStoreRepository
 import com.ollite.llm.server.data.DefaultDataStoreRepository
 import com.ollite.llm.server.data.DefaultDownloadRepository
 import com.ollite.llm.server.data.DownloadRepository
 import com.ollite.llm.server.proto.BenchmarkResults
-import com.ollite.llm.server.proto.CutoutCollection
 import com.ollite.llm.server.proto.Settings
-import com.ollite.llm.server.proto.Skills
 import com.ollite.llm.server.proto.UserData
 import dagger.Module
 import dagger.Provides
@@ -48,42 +44,24 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 internal object AppModule {
 
-  // Provides the SettingsSerializer
   @Provides
   @Singleton
   fun provideSettingsSerializer(): Serializer<Settings> {
     return SettingsSerializer
   }
 
-  // Provides the CutoutSerializer
-  @Provides
-  @Singleton
-  fun provideCutoutSerializer(): Serializer<CutoutCollection> {
-    return CutoutsSerializer
-  }
-
-  // Provides the UserDataSerializer
   @Provides
   @Singleton
   fun provideUserDataSerializer(): Serializer<UserData> {
     return UserDataSerializer
   }
 
-  // Provides the BenchmarkResultsSerializer
   @Provides
   @Singleton
   fun provideBenchmarkResultsSerializer(): Serializer<BenchmarkResults> {
     return BenchmarkResultsSerializer
   }
 
-  // Provides the SkillsSerializer
-  @Provides
-  @Singleton
-  fun provideSkillsSerializer(): Serializer<Skills> {
-    return SkillsSerializer
-  }
-
-  // Provides DataStore<Settings>
   @Provides
   @Singleton
   fun provideSettingsDataStore(
@@ -96,20 +74,6 @@ internal object AppModule {
     )
   }
 
-  // Provides DataStore<CutoutCollection>
-  @Provides
-  @Singleton
-  fun provideCutoutsDataStore(
-    @ApplicationContext context: Context,
-    cutoutsSerializer: Serializer<CutoutCollection>,
-  ): DataStore<CutoutCollection> {
-    return DataStoreFactory.create(
-      serializer = cutoutsSerializer,
-      produceFile = { context.dataStoreFile("cutouts.pb") },
-    )
-  }
-
-  // Provides DataStore<UserData>
   @Provides
   @Singleton
   fun provideUserDataDataStore(
@@ -122,7 +86,6 @@ internal object AppModule {
     )
   }
 
-  // Provides DataStore<BenchmarkResults>
   @Provides
   @Singleton
   fun provideBenchmarkResultsDataStore(
@@ -135,46 +98,26 @@ internal object AppModule {
     )
   }
 
-  // Provides DataStore<Skills>
-  @Provides
-  @Singleton
-  fun provideSkillsDataStore(
-    @ApplicationContext context: Context,
-    skillsSerializer: Serializer<Skills>,
-  ): DataStore<Skills> {
-    return DataStoreFactory.create(
-      serializer = skillsSerializer,
-      produceFile = { context.dataStoreFile("skills.pb") },
-    )
-  }
-
-  // Provides AppLifecycleProvider
   @Provides
   @Singleton
   fun provideAppLifecycleProvider(): AppLifecycleProvider {
     return GalleryLifecycleProvider()
   }
 
-  // Provides DataStoreRepository
   @Provides
   @Singleton
   fun provideDataStoreRepository(
     dataStore: DataStore<Settings>,
     userDataDataStore: DataStore<UserData>,
-    cutoutsDataStore: DataStore<CutoutCollection>,
     benchmarkResultsStore: DataStore<BenchmarkResults>,
-    skillsDataStore: DataStore<Skills>,
   ): DataStoreRepository {
     return DefaultDataStoreRepository(
       dataStore,
       userDataDataStore,
-      cutoutsDataStore,
       benchmarkResultsStore,
-      skillsDataStore,
     )
   }
 
-  // Provides DownloadRepository
   @Provides
   @Singleton
   fun provideDownloadRepository(

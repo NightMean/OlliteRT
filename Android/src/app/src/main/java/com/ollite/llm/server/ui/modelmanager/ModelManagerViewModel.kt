@@ -27,10 +27,7 @@ import com.ollite.llm.server.BuildConfig
 import com.ollite.llm.server.R
 import com.ollite.llm.server.common.ProjectConfig
 import com.ollite.llm.server.common.getJsonResponse
-import com.ollite.llm.server.customtasks.common.CustomTask
 import com.ollite.llm.server.data.Accelerator
-import com.ollite.llm.server.data.BuiltInTaskId
-import com.ollite.llm.server.data.Category
 import com.ollite.llm.server.data.CategoryInfo
 import com.ollite.llm.server.data.Config
 import com.ollite.llm.server.data.ConfigKeys
@@ -42,16 +39,13 @@ import com.ollite.llm.server.data.Model
 import com.ollite.llm.server.data.ModelAllowlist
 import com.ollite.llm.server.data.ModelDownloadStatus
 import com.ollite.llm.server.data.ModelDownloadStatusType
-import com.ollite.llm.server.data.NumberSliderConfig
 import com.ollite.llm.server.data.RuntimeType
 import com.ollite.llm.server.data.SOC
 import com.ollite.llm.server.data.TMP_FILE_EXT
 import com.ollite.llm.server.data.Task
-import com.ollite.llm.server.data.ValueType
 import com.ollite.llm.server.data.createLlmChatConfigs
 import com.ollite.llm.server.proto.AccessTokenData
 import com.ollite.llm.server.proto.ImportedModel
-import com.ollite.llm.server.proto.Theme
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -60,7 +54,6 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
-import kotlin.collections.sortedWith
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -155,26 +148,6 @@ data class ModelManagerUiState(
   }
 }
 
-private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
-  NumberSliderConfig(
-    key = ConfigKeys.RESET_CONVERSATION_TURN_COUNT,
-    sliderMin = 1f,
-    sliderMax = 30f,
-    defaultValue = 3f,
-    valueType = ValueType.INT,
-  )
-
-private val PREDEFINED_LLM_TASK_ORDER =
-  listOf(
-    BuiltInTaskId.LLM_ASK_IMAGE,
-    BuiltInTaskId.LLM_ASK_AUDIO,
-    BuiltInTaskId.LLM_CHAT,
-    BuiltInTaskId.LLM_AGENT_CHAT,
-    BuiltInTaskId.LLM_PROMPT_LAB,
-    BuiltInTaskId.LLM_TINY_GARDEN,
-    BuiltInTaskId.LLM_MOBILE_ACTIONS,
-  )
-
 /**
  * ViewModel responsible for managing models, their download status, and initialization.
  *
@@ -189,7 +162,6 @@ constructor(
   private val downloadRepository: DownloadRepository,
   val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
-  private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
@@ -209,14 +181,6 @@ constructor(
 
   fun getTasksByIds(ids: Set<String>): List<Task> {
     return uiState.value.tasks.filter { ids.contains(it.id) }
-  }
-
-  fun getCustomTaskByTaskId(id: String): CustomTask? {
-    return getActiveCustomTasks().find { it.task.id == id }
-  }
-
-  fun getActiveCustomTasks(): List<CustomTask> {
-    return customTasks.toList()
   }
 
   fun getSelectedModel(): Model? {
@@ -252,8 +216,7 @@ constructor(
   }
 
   fun processTasks() {
-    val curTasks = getActiveCustomTasks().map { it.task }
-    for (task in curTasks) {
+    for (task in uiState.value.tasks) {
       for (model in task.models) {
         model.preProcess()
       }
@@ -398,14 +361,8 @@ constructor(
         }
       }
 
-      // Call the model initialization function.
-      getCustomTaskByTaskId(id = task.id)
-        ?.initializeModelFn(
-          context = context,
-          coroutineScope = viewModelScope,
-          model = model,
-          onDone = onDoneFn,
-        )
+      Log.d(TAG, "Benchmark requested for model '${model.name}'")
+      onDoneFn("")
     }
   }
 
@@ -435,13 +392,7 @@ constructor(
         Log.d(TAG, "Clean up model '${model.name}' done")
         onDone()
       }
-      getCustomTaskByTaskId(id = task.id)
-        ?.cleanUpModelFn(
-          context = context,
-          coroutineScope = viewModelScope,
-          model = model,
-          onDone = onDoneFn,
-        )
+      onDoneFn()
     } else {
       // When model is being initialized and we are trying to clean it up at same time, we mark it
       // to clean up and it will be cleaned up after initialization is done.
@@ -532,14 +483,6 @@ constructor(
     dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
   }
 
-  fun readThemeOverride(): Theme {
-    return dataStoreRepository.readTheme()
-  }
-
-  fun saveThemeOverride(theme: Theme) {
-    dataStoreRepository.saveTheme(theme = theme)
-  }
-
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
     try {
       val url = URL(model.url)
@@ -563,41 +506,14 @@ constructor(
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
-    val setOfTasks =
-      mutableSetOf(
-        BuiltInTaskId.LLM_CHAT,
-        BuiltInTaskId.LLM_ASK_IMAGE,
-        BuiltInTaskId.LLM_ASK_AUDIO,
-        BuiltInTaskId.LLM_PROMPT_LAB,
-        BuiltInTaskId.LLM_TINY_GARDEN,
-        BuiltInTaskId.LLM_MOBILE_ACTIONS,
-        BuiltInTaskId.LLM_AGENT_CHAT,
-      )
-    for (task in getTasksByIds(ids = setOfTasks)) {
+    for (task in uiState.value.tasks) {
       // Remove duplicated imported model if existed.
       val modelIndex = task.models.indexOfFirst { info.fileName == it.name && it.imported }
       if (modelIndex >= 0) {
         Log.d(TAG, "duplicated imported model found in task. Removing it first")
         task.models.removeAt(modelIndex)
       }
-      if (
-        (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
-          (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
-          (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportTinyGarden) ||
-          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportMobileActions) ||
-          (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
-            task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
-            task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
-            task.id != BuiltInTaskId.LLM_MOBILE_ACTIONS)
-      ) {
-        task.models.add(model)
-        if (task.id == BuiltInTaskId.LLM_TINY_GARDEN) {
-          val newConfigs = model.configs.toMutableList()
-          newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
-          model.configs = newConfigs
-          model.preProcess()
-        }
-      }
+      task.models.add(model)
       task.updateTrigger.value = System.currentTimeMillis()
     }
 
@@ -854,7 +770,7 @@ constructor(
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         // Convert models in the allowlist.
-        val curTasks = getActiveCustomTasks().map { it.task }
+        val curTasks = uiState.value.tasks
         val nameToModel = mutableMapOf<String, Model>()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
@@ -881,12 +797,6 @@ constructor(
           for (taskType in allowedModel.taskTypes) {
             val task = curTasks.find { it.id == taskType }
             task?.models?.add(model)
-
-            if (task?.id == BuiltInTaskId.LLM_TINY_GARDEN) {
-              val newConfigs = model.configs.toMutableList()
-              newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
-              model.configs = newConfigs
-            }
           }
         }
 
@@ -926,13 +836,12 @@ constructor(
   }
 
   fun clearLoadModelAllowlistError() {
-    val curTasks = getActiveCustomTasks().map { it.task }
     processTasks()
     _uiState.update {
       createUiState()
         .copy(
           loadingModelAllowlist = false,
-          tasks = curTasks,
+          tasks = uiState.value.tasks,
           loadingModelAllowlistError = "",
           tasksByCategory = groupTasksByCategory(),
         )
@@ -1000,11 +909,8 @@ constructor(
   private fun createUiState(): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
-    val tasks: MutableMap<String, Task> = mutableMapOf()
     val checkedModelNames = mutableSetOf<String>()
-    for (customTask in getActiveCustomTasks()) {
-      val task = customTask.task
-      tasks.put(key = task.id, value = task)
+    for (task in uiState.value.tasks) {
       for (model in task.models) {
         if (checkedModelNames.contains(model.name)) {
           continue
@@ -1023,25 +929,9 @@ constructor(
       // Create model.
       val model = createModelFromImportedModelInfo(info = importedModel)
 
-      // Add to task.
-      tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_AGENT_CHAT)?.models?.add(model)
-      if (model.llmSupportImage) {
-        tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
-      }
-      if (model.llmSupportAudio) {
-        tasks.get(key = BuiltInTaskId.LLM_ASK_AUDIO)?.models?.add(model)
-      }
-      if (model.llmSupportTinyGarden) {
-        tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
-        val newConfigs = model.configs.toMutableList()
-        newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
-        model.configs = newConfigs
-        model.preProcess()
-      }
-      if (model.llmSupportMobileActions) {
-        tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
+      // Add to all tasks.
+      for (task in uiState.value.tasks) {
+        task.models.add(model)
       }
 
       // Update status.
@@ -1058,7 +948,7 @@ constructor(
 
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
-      tasks = getActiveCustomTasks().map { it.task }.toList(),
+      tasks = uiState.value.tasks,
       tasksByCategory = mapOf(),
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
@@ -1081,8 +971,6 @@ constructor(
     val llmMaxToken = info.llmConfig.defaultMaxTokens
     val llmSupportImage = info.llmConfig.supportImage
     val llmSupportAudio = info.llmConfig.supportAudio
-    val llmSupportTinyGarden = info.llmConfig.supportTinyGarden
-    val llmSupportMobileActions = info.llmConfig.supportMobileActions
     val llmSupportThinking = info.llmConfig.supportThinking
     val configs: MutableList<Config> =
       createLlmChatConfigs(
@@ -1106,8 +994,6 @@ constructor(
         imported = true,
         llmSupportImage = llmSupportImage,
         llmSupportAudio = llmSupportAudio,
-        llmSupportTinyGarden = llmSupportTinyGarden,
-        llmSupportMobileActions = llmSupportMobileActions,
         llmSupportThinking = llmSupportThinking,
         llmMaxToken = llmMaxToken,
         accelerators = accelerators,
@@ -1121,42 +1007,13 @@ constructor(
   }
 
   private fun groupTasksByCategory(): Map<String, List<Task>> {
-    val tasks = getActiveCustomTasks().map { it.task }
-
-    val categoryMap: Map<String, CategoryInfo> =
-      tasks.associateBy { it.category.id }.mapValues { it.value.category }
+    val tasks = uiState.value.tasks
 
     val groupedTasks = tasks.groupBy { it.category.id }
     val groupedSortedTasks: MutableMap<String, List<Task>> = mutableMapOf()
-    // Sort the tasks in categories by pre-defined order. Sort other tasks by label.
+    // Sort tasks by label.
     for (categoryId in groupedTasks.keys) {
-      val sortedTasks =
-        groupedTasks[categoryId]!!.sortedWith { a, b ->
-          if (categoryId == Category.LLM.id) {
-            val order: List<String> =
-              when (categoryId) {
-                Category.LLM.id -> PREDEFINED_LLM_TASK_ORDER
-                else -> listOf()
-              }
-            val indexA = order.indexOf(a.id)
-            val indexB = order.indexOf(b.id)
-            if (indexA != -1 && indexB != -1) {
-              indexA.compareTo(indexB)
-            } else if (indexA != -1) {
-              -1
-            } else if (indexB != -1) {
-              1
-            } else {
-              val ca = categoryMap[a.id]!!
-              val cb = categoryMap[b.id]!!
-              val caLabel = getCategoryLabel(context = context, category = ca)
-              val cbLabel = getCategoryLabel(context = context, category = cb)
-              caLabel.compareTo(cbLabel)
-            }
-          } else {
-            a.label.compareTo(b.label)
-          }
-        }
+      val sortedTasks = groupedTasks[categoryId]!!.sortedBy { it.label }
       for ((index, task) in sortedTasks.withIndex()) {
         task.index = index
       }
