@@ -1,4 +1,61 @@
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# IDE — Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+misc.xml
+deploymentTargetDropDown.xml
+render.experimental.xml
+
+# IDE — VS Code
+.vscode/
+*.code-workspace
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Android
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+captures/
+.externalNativeBuild/
+.cxx/
+output.json
+
+# Keystore
+*.jks
+*.keystore
+
+# Google Services (Firebase, APIs)
+google-services.json
+
+# Logs
+*.log
+
+
+# Working directories
 .code/
 .tmp/
 research/
