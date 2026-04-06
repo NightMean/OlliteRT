@@ -84,9 +84,14 @@ class LlmHttpService : Service() {
     }
 
     val port = intent?.getIntExtra(EXTRA_PORT, DEFAULT_PORT) ?: LlmHttpPrefs.getPort(this)
+    val requestedModelName = intent?.getStringExtra(EXTRA_MODEL_NAME)
     currentPort = port
 
-    val model = pickDefaultLlmModel()
+    val model = if (requestedModelName != null) {
+      pickModelByName(requestedModelName) ?: pickDefaultLlmModel()
+    } else {
+      pickDefaultLlmModel()
+    }
     if (model == null) {
       ServerMetrics.onServerError()
       stopSelf()
@@ -140,9 +145,10 @@ class LlmHttpService : Service() {
     server = NanoServer(port)
     server?.start()
 
-    ServerMetrics.onServerRunning(wifiIp)
-
-    Thread { server?.warmUpModel(model) }.start()
+    Thread {
+      server?.warmUpModel(model)
+      ServerMetrics.onServerRunning(wifiIp)
+    }.start()
 
     return START_STICKY
   }
@@ -172,6 +178,14 @@ class LlmHttpService : Service() {
       allowlist = allowlistLoader.load(),
       importsDir = File(getExternalFilesDir(null), "__imports"),
     )
+
+  private fun pickModelByName(name: String): Model? {
+    val allowlist = allowlistLoader.load()
+    val importsDir = File(getExternalFilesDir(null), "__imports")
+    val match = allowlist.firstOrNull { it.name.equals(name, ignoreCase = true) }
+      ?: return null
+    return LlmHttpModelFactory.buildAllowedModel(match, importsDir)
+  }
 
   private fun selectModel(requestedModel: String?): Model? {
     val requested = requestedModel?.trim().orEmpty()
@@ -564,10 +578,21 @@ class LlmHttpService : Service() {
   // ── Payload builders ─────────────────────────────────────────────────────────
 
   private fun modelsPayload(): String {
-    val allowed = allowlistLoader.load()
-    val fallbackId = defaultModel?.name ?: "local"
-    Log.i(logTag, "Models list size=${allowed.size} source=${allowlistLoader.lastSource} fallback=$fallbackId")
-    return LlmHttpResponseRenderer.renderModelListWithCapabilities(json, allowed, fallbackId)
+    val model = defaultModel
+    if (model == null) {
+      Log.i(logTag, "Models list: no model loaded")
+      return json.encodeToString(LlmHttpModelList(data = emptyList()))
+    }
+    Log.i(logTag, "Models list: active model=${model.name}")
+    val item = LlmHttpModelItem(
+      id = model.name,
+      capabilities = LlmHttpModelCapabilities(
+        image = model.llmSupportImage,
+        audio = model.llmSupportAudio,
+        thinking = model.llmSupportThinking,
+      ),
+    )
+    return json.encodeToString(LlmHttpModelList(data = listOf(item)))
   }
 
   private fun emptyChatResponse(modelName: String) = ChatResponse(
@@ -602,14 +627,16 @@ class LlmHttpService : Service() {
 
   companion object {
     const val EXTRA_PORT = "extra_port"
+    const val EXTRA_MODEL_NAME = "extra_model_name"
     const val DEFAULT_PORT = 11434
     const val ACTION_STOP = "com.ollite.llm.server.STOP_SERVER"
     private const val CHANNEL_ID = "ollite-server"
     private const val NOTIFICATION_ID = 42
 
-    fun start(context: Context, port: Int = DEFAULT_PORT) {
+    fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null) {
       val intent = Intent(context, LlmHttpService::class.java).apply {
         putExtra(EXTRA_PORT, port)
+        if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
       }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         context.startForegroundService(intent)

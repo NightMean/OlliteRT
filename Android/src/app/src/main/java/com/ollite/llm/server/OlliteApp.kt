@@ -53,12 +53,18 @@ fun OlliteApp(
     modifier = Modifier.fillMaxSize(),
     topBar = {
       if (showTopBar) {
+        val isSettings = currentRoute == OlliteRoutes.SETTINGS
         OlliteTopBar(
           serverStatus = serverStatus,
           onSettingsClick = {
             navController.navigate(OlliteRoutes.SETTINGS) {
               launchSingleTop = true
             }
+          },
+          onBackClick = if (isSettings) {
+            { navController.navigateUp() }
+          } else {
+            null
           },
         )
       }

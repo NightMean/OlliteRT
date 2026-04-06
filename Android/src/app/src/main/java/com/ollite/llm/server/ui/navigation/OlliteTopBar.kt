@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +45,7 @@ enum class ServerStatus { STOPPED, LOADING, RUNNING, ERROR }
 fun OlliteTopBar(
   serverStatus: ServerStatus,
   onSettingsClick: () -> Unit,
+  onBackClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
 ) {
   Row(
@@ -53,26 +57,43 @@ fun OlliteTopBar(
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.SpaceBetween,
   ) {
-    // Left: Ollite brand
-    Text(
-      text = "Ollite",
-      color = OllitePrimary,
-      fontFamily = SpaceGroteskFontFamily,
-      fontWeight = FontWeight.Bold,
-      fontSize = 22.sp,
-    )
+    // Left: Back arrow (if applicable) + Ollite brand
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      if (onBackClick != null) {
+        IconButton(onClick = onBackClick) {
+          Icon(
+            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+            contentDescription = "Back",
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(24.dp),
+          )
+        }
+      }
+      Text(
+        text = "Ollite",
+        color = OllitePrimary,
+        fontFamily = SpaceGroteskFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 22.sp,
+      )
+    }
 
     // Center: Status pill
     StatusPill(serverStatus = serverStatus)
 
-    // Right: Settings gear
-    IconButton(onClick = onSettingsClick) {
-      Icon(
-        imageVector = Icons.Outlined.Settings,
-        contentDescription = "Settings",
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.size(24.dp),
-      )
+    // Right: Settings gear (hidden when already on Settings)
+    if (onBackClick == null) {
+      IconButton(onClick = onSettingsClick) {
+        Icon(
+          imageVector = Icons.Outlined.Settings,
+          contentDescription = "Settings",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(24.dp),
+        )
+      }
+    } else {
+      // Placeholder for layout balance
+      Spacer(modifier = Modifier.size(48.dp))
     }
   }
 }
@@ -102,12 +123,20 @@ fun StatusPill(
       .padding(horizontal = 12.dp, vertical = 6.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Box(
-      modifier = Modifier
-        .size(8.dp)
-        .clip(RoundedCornerShape(50))
-        .background(animatedDotColor)
-    )
+    if (serverStatus == ServerStatus.LOADING) {
+      CircularProgressIndicator(
+        modifier = Modifier.size(12.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        strokeWidth = 2.dp,
+      )
+    } else {
+      Box(
+        modifier = Modifier
+          .size(8.dp)
+          .clip(RoundedCornerShape(50))
+          .background(animatedDotColor)
+      )
+    }
     Spacer(modifier = Modifier.width(6.dp))
     AnimatedContent(
       targetState = label,
