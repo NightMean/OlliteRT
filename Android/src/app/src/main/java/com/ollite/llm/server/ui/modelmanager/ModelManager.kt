@@ -30,10 +30,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.Modifier
-import com.ollite.llm.server.GalleryTopAppBar
-import com.ollite.llm.server.data.AppBarAction
-import com.ollite.llm.server.data.AppBarActionType
 import com.ollite.llm.server.data.Model
 import com.ollite.llm.server.data.Task
 
@@ -75,9 +78,13 @@ fun ModelManager(
   Scaffold(
     modifier = modifier,
     topBar = {
-      GalleryTopAppBar(
-        title = title,
-        leftAction = AppBarAction(actionType = AppBarActionType.NAVIGATE_UP, actionFn = navigateUp),
+      TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+          IconButton(onClick = navigateUp) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Navigate up")
+          }
+        },
       )
     },
   ) { innerPadding ->

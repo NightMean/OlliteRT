@@ -17,21 +17,13 @@
 package com.ollite.llm.server
 
 import android.app.Application
-import com.ollite.llm.server.data.DataStoreRepository
-import com.ollite.llm.server.ui.theme.ThemeSettings
 import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
 
 @HiltAndroidApp
 class OlliteApplication : Application() {
 
-  @Inject lateinit var dataStoreRepository: DataStoreRepository
-
   override fun onCreate() {
     super.onCreate()
-
-    // Load saved theme.
-    ThemeSettings.themeOverride.value = dataStoreRepository.readTheme()
-
+    // Dark-only theme — no theme persistence needed.
   }
 }
