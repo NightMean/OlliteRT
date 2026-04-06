@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- Circle background with Ollite primary blue -->
+  <path
+      android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"
+      android:fillColor="#AFC6FF"/>
+  <!-- "O" letter in dark surface color -->
+  <path
+      android:pathData="M54,32c-12.15,0 -22,9.85 -22,22s9.85,22 22,22s22,-9.85 22,-22s-9.85,-22 -22,-22zM54,68c-7.73,0 -14,-6.27 -14,-14s6.27,-14 14,-14s14,6.27 14,14s-6.27,14 -14,14z"
+      android:fillColor="#131314"/>
+</vector>

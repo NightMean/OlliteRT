@@ -9,6 +9,7 @@ private const val KEY_PORT = "port"
 private const val KEY_PAYLOAD_LOGGING_ENABLED = "payload_logging_enabled"
 private const val KEY_ACCELERATOR_FALLBACK_ENABLED = "accelerator_fallback_enabled"
 private const val KEY_BEARER_TOKEN = "bearer_token"
+private const val KEY_HF_TOKEN = "hf_token"
 private const val DEFAULT_PORT = 11434
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -27,6 +28,17 @@ object LlmHttpPrefs {
   fun isAcceleratorFallbackEnabled(context: Context): Boolean =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .getBoolean(KEY_ACCELERATOR_FALLBACK_ENABLED, DEFAULT_ACCELERATOR_FALLBACK_ENABLED)
+
+  fun getHfToken(context: Context): String =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_HF_TOKEN, "")
+      ?: ""
+
+  fun setHfToken(context: Context, token: String) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_HF_TOKEN, token.trim())
+      .apply()
+  }
 
   fun getBearerToken(context: Context): String =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_BEARER_TOKEN, "")

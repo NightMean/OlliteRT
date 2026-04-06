@@ -60,7 +60,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -128,9 +128,6 @@ fun GlobalModelManager(
   val uiState by viewModel.uiState.collectAsState()
   val builtInModels = remember { mutableStateListOf<Model>() }
   val importedModels = remember { mutableStateListOf<Model>() }
-  val taskCandidates = remember { mutableStateListOf<Task>() }
-  var modelForTaskCandidate by remember { mutableStateOf<Model?>(null) }
-  var showTaskSelectorBottomSheet by remember { mutableStateOf(false) }
   var showImportModelSheet by remember { mutableStateOf(false) }
   var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
   var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
@@ -179,7 +176,19 @@ fun GlobalModelManager(
         allModelsSet.add(model)
       }
     }
-    val sortedModels = allModelsSet.toList().sortedBy { it.displayName.ifEmpty { it.name } }
+    // Sort priority: Gemma 4 (Best Overall) → Downloaded → Available, then alphabetical
+    val sortedModels = allModelsSet.toList().sortedWith(
+      compareBy<Model> { model ->
+        val name = model.displayName.ifEmpty { model.name }
+        val isGemma4 = name.contains("gemma-4", ignoreCase = true) || name.contains("gemma 4", ignoreCase = true)
+        val isDownloaded = uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
+        when {
+          isGemma4 -> 0
+          isDownloaded -> 1
+          else -> 2
+        }
+      }.thenBy { it.displayName.ifEmpty { it.name } }
+    )
     builtInModels.clear()
     builtInModels.addAll(sortedModels.filter { !it.imported })
     importedModels.clear()
@@ -218,13 +227,10 @@ fun GlobalModelManager(
   val handleClickModel: (Model) -> Unit = { model ->
     val tasks = viewModel.uiState.value.tasks
     val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
-    if (tasksForModel.size == 1) {
+    // Auto-select first task — skip the task selector bottom sheet entirely.
+    // In Ollite, tapping "Start Server" should directly start the server with the model.
+    if (tasksForModel.isNotEmpty()) {
       onModelSelected(tasksForModel[0], model)
-    } else if (tasksForModel.size > 1) {
-      taskCandidates.clear()
-      taskCandidates.addAll(tasksForModel)
-      modelForTaskCandidate = model
-      showTaskSelectorBottomSheet = true
     }
   }
 
@@ -381,7 +387,7 @@ fun GlobalModelManager(
 
     // Import FAB
     val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-    SmallFloatingActionButton(
+    FloatingActionButton(
       onClick = { showImportModelSheet = true },
       containerColor = MaterialTheme.colorScheme.secondaryContainer,
       contentColor = MaterialTheme.colorScheme.secondary,
@@ -413,53 +419,6 @@ fun GlobalModelManager(
         )
         .align(Alignment.BottomCenter),
     )
-  }
-
-  // Task selector bottom sheet
-  if (showTaskSelectorBottomSheet) {
-    ModalBottomSheet(
-      onDismissRequest = { showTaskSelectorBottomSheet = false },
-      sheetState = sheetState,
-    ) {
-      Column(
-        modifier = Modifier.padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-      ) {
-        Text(
-          stringResource(R.string.model_manager_select_task_title),
-          color = MaterialTheme.colorScheme.onSurface,
-          style = MaterialTheme.typography.titleLarge,
-          modifier = Modifier
-            .padding(bottom = 8.dp)
-            .padding(start = 16.dp),
-        )
-        for (task in taskCandidates) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier
-              .fillMaxWidth()
-              .clickable {
-                val model = modelForTaskCandidate
-                if (model != null) {
-                  onModelSelected(task, model)
-                }
-                scope.launch {
-                  sheetState.hide()
-                  showTaskSelectorBottomSheet = false
-                }
-              }
-              .padding(horizontal = 16.dp, vertical = 4.dp),
-          ) {
-            Text(
-              task.label,
-              color = MaterialTheme.colorScheme.onSurface,
-              style = MaterialTheme.typography.titleMedium,
-            )
-          }
-        }
-      }
-    }
   }
 
   // Import model bottom sheet

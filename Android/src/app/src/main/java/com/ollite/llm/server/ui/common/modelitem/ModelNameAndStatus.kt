@@ -73,13 +73,10 @@ fun ModelNameAndStatus(
   var curDownloadProgress = 0f
 
   Column(modifier = modifier) {
-    // Show "best overall" badge: either when viewing within a task (original logic)
-    // or when viewing the global model list and the model has any bestForTaskIds.
-    val showBestBadge = if (task != null) {
-      model.bestForTaskIds.contains(task.id) && task.models[0] == model
-    } else {
-      model.bestForTaskIds.isNotEmpty()
-    }
+    // Show "Best Overall" badge only for Gemma 4 models.
+    val isGemma4 = (model.displayName.ifEmpty { model.name }).contains("gemma-4", ignoreCase = true)
+        || (model.displayName.ifEmpty { model.name }).contains("gemma 4", ignoreCase = true)
+    val showBestBadge = isGemma4 && model.bestForTaskIds.isNotEmpty()
     if (showBestBadge) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
