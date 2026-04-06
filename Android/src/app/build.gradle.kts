@@ -40,7 +40,7 @@ android {
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
     manifestPlaceholders["appAuthRedirectScheme"] = "com.ollite.llm.server"
-    manifestPlaceholders["applicationName"] = "com.ollite.llm.server.GalleryApplication"
+    manifestPlaceholders["applicationName"] = "com.ollite.llm.server.OlliteApplication"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

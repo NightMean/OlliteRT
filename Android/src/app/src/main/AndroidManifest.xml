@@ -41,13 +41,13 @@
         android:label="Ollite"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Gallery"
+        android:theme="@style/Theme.Ollite"
         tools:targetApi="31">
 
         <activity
             android:name="com.ollite.llm.server.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Gallery.SplashScreen"
+            android:theme="@style/Theme.Ollite.SplashScreen"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="uiMode"
@@ -67,11 +67,11 @@
         <activity
             android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
             android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
+            android:theme="@style/Theme.Ollite.OssLicenses" />
         <activity
             android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
             android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
+            android:theme="@style/Theme.Ollite.OssLicenses" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

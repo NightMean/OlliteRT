@@ -23,7 +23,7 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 @HiltAndroidApp
-class GalleryApplication : Application() {
+class OlliteApplication : Application() {
 
   @Inject lateinit var dataStoreRepository: DataStoreRepository
 
