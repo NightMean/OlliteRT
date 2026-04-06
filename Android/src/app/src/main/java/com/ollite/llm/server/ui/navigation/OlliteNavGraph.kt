@@ -27,6 +27,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.ollite.llm.server.ui.benchmark.BenchmarkScreen
+import com.ollite.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollite.llm.server.ui.modelmanager.GlobalModelManager
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
 
@@ -48,6 +49,7 @@ private fun AnimatedContentTransitionScope<*>.slideOutRight(): ExitTransition =
 fun OlliteNavHost(
   navController: NavHostController,
   modelManagerViewModel: ModelManagerViewModel,
+  startDestination: String = OlliteRoutes.MODELS,
   modifier: Modifier = Modifier,
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -69,7 +71,7 @@ fun OlliteNavHost(
 
   NavHost(
     navController = navController,
-    startDestination = OlliteRoutes.MODELS,
+    startDestination = startDestination,
     modifier = modifier,
     enterTransition = { fadeIn(tween(200)) },
     exitTransition = { fadeOut(tween(200)) },
@@ -105,9 +107,16 @@ fun OlliteNavHost(
       PlaceholderScreen("Settings", "Global settings coming soon.")
     }
 
-    // Getting Started (placeholder)
+    // Getting Started (onboarding)
     composable(OlliteRoutes.GETTING_STARTED) {
-      PlaceholderScreen("Getting Started", "Welcome to Ollite!")
+      GettingStartedScreen(
+        onGetStartedClick = {
+          modelManagerViewModel.dataStoreRepository.setOnboardingCompleted()
+          navController.navigate(OlliteRoutes.MODELS) {
+            popUpTo(OlliteRoutes.GETTING_STARTED) { inclusive = true }
+          }
+        },
+      )
     }
 
     // Benchmark screen (existing)

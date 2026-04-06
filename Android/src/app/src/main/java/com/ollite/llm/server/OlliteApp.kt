@@ -27,13 +27,20 @@ fun OlliteApp(
   val backStackEntry by navController.currentBackStackEntryAsState()
   val currentRoute = backStackEntry?.destination?.route
 
+  // Determine start destination based on onboarding state
+  val startDestination = if (modelManagerViewModel.dataStoreRepository.isOnboardingCompleted()) {
+    OlliteRoutes.MODELS
+  } else {
+    OlliteRoutes.GETTING_STARTED
+  }
+
   // Determine which screens show the bottom nav and top bar
   val showBottomBar = currentRoute in listOf(
     OlliteRoutes.MODELS,
     OlliteRoutes.STATUS,
     OlliteRoutes.LOGS,
   )
-  val showTopBar = currentRoute !in listOf(
+  val showTopBar = currentRoute != null && currentRoute !in listOf(
     OlliteRoutes.GETTING_STARTED,
     OlliteRoutes.BENCHMARK,
   )
@@ -75,6 +82,7 @@ fun OlliteApp(
     OlliteNavHost(
       navController = navController,
       modelManagerViewModel = modelManagerViewModel,
+      startDestination = startDestination,
       modifier = Modifier.padding(innerPadding),
     )
   }
