@@ -1,22 +1,37 @@
 package com.ollitert.llm.server.ui.server
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -31,10 +46,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 
@@ -46,9 +71,8 @@ fun InferenceSettingsSheet(
   onApply: (Map<String, Any>) -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-  // Read current values from model configValues
   val configValues = model.configValues
+  val focusManager = LocalFocusManager.current
 
   var temperature by remember {
     mutableFloatStateOf(
@@ -92,126 +116,144 @@ fun InferenceSettingsSheet(
         .fillMaxWidth()
         .padding(horizontal = 24.dp, vertical = 8.dp)
         .padding(bottom = 32.dp),
-      verticalArrangement = Arrangement.spacedBy(20.dp),
+      verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      // Header
-      Text(
-        text = "Inference Settings",
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-      Text(
-        text = "Parameters for ${model.name}",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-
-      // Temperature slider
-      ParameterRow(label = "Temperature", value = "%.1f".format(temperature)) {
-        Slider(
-          value = temperature,
-          onValueChange = { temperature = it },
-          valueRange = 0f..2f,
-          steps = 19,
-          colors = SliderDefaults.colors(
-            thumbColor = OlliteRTPrimary,
-            activeTrackColor = OlliteRTPrimary,
-          ),
-        )
-      }
-
-      // Max Tokens slider
-      ParameterRow(label = "Max Tokens", value = maxTokens.toString()) {
-        Slider(
-          value = maxTokens.toFloat(),
-          onValueChange = { maxTokens = it.toInt() },
-          valueRange = 64f..4096f,
-          steps = 62,
-          colors = SliderDefaults.colors(
-            thumbColor = OlliteRTPrimary,
-            activeTrackColor = OlliteRTPrimary,
-          ),
-        )
-      }
-
-      // Top-K slider
-      ParameterRow(label = "Top-K", value = topK.toString()) {
-        Slider(
-          value = topK.toFloat(),
-          onValueChange = { topK = it.toInt() },
-          valueRange = 1f..100f,
-          steps = 98,
-          colors = SliderDefaults.colors(
-            thumbColor = OlliteRTPrimary,
-            activeTrackColor = OlliteRTPrimary,
-          ),
-        )
-      }
-
-      // Top-P slider
-      ParameterRow(label = "Top-P", value = "%.2f".format(topP)) {
-        Slider(
-          value = topP,
-          onValueChange = { topP = it },
-          valueRange = 0f..1f,
-          steps = 19,
-          colors = SliderDefaults.colors(
-            thumbColor = OlliteRTPrimary,
-            activeTrackColor = OlliteRTPrimary,
-          ),
-        )
-      }
-
-      // Enable Thinking toggle
+      // Header row
       Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
       ) {
-        Column {
-          Text(
-            text = "Enable Thinking",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Text(
-            text = "Allow the model to reason step-by-step",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
+        Text(
+          text = "Inference Settings",
+          style = MaterialTheme.typography.headlineSmall,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Icon(
+          Icons.Outlined.Tune,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(24.dp),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(4.dp))
+
+      // Temperature & Max Tokens row
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        ParameterInputBox(
+          label = "TEMPERATURE",
+          value = "%.1f".format(temperature),
+          onValueChange = { text ->
+            text.toFloatOrNull()?.let { v ->
+              temperature = v.coerceIn(0f, 2f)
+            }
+          },
+          keyboardType = KeyboardType.Decimal,
+          modifier = Modifier.weight(1f),
+        )
+        ParameterInputBox(
+          label = "MAX TOKENS",
+          value = maxTokens.toString(),
+          onValueChange = { text ->
+            text.toIntOrNull()?.let { v ->
+              maxTokens = v.coerceIn(1, 8192)
+            }
+          },
+          keyboardType = KeyboardType.Number,
+          modifier = Modifier.weight(1f),
+        )
+      }
+
+      // Top-K & Top-P row
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        ParameterInputBox(
+          label = "TOP-K",
+          value = topK.toString(),
+          onValueChange = { text ->
+            text.toIntOrNull()?.let { v ->
+              topK = v.coerceIn(1, 100)
+            }
+          },
+          keyboardType = KeyboardType.Number,
+          modifier = Modifier.weight(1f),
+        )
+        ParameterInputBox(
+          label = "TOP-P",
+          value = "%.1f".format(topP),
+          onValueChange = { text ->
+            text.toFloatOrNull()?.let { v ->
+              topP = v.coerceIn(0f, 1f)
+            }
+          },
+          keyboardType = KeyboardType.Decimal,
+          modifier = Modifier.weight(1f),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(4.dp))
+
+      // Enable Thinking toggle in a container
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(16.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+          .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Icon(
+          Icons.Outlined.Psychology,
+          contentDescription = null,
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(24.dp),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+          text = "Enable Thinking",
+          style = MaterialTheme.typography.bodyLarge,
+          fontWeight = FontWeight.Medium,
+          color = MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.weight(1f),
+        )
         Switch(
           checked = enableThinking,
           onCheckedChange = { enableThinking = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+          colors = SwitchDefaults.colors(
+            checkedTrackColor = OlliteRTDeepBlue,
+            checkedThumbColor = Color.White,
+          ),
         )
       }
 
-      // Accelerator selector
-      Column {
+      // Accelerator toggle in a container
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(16.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+          .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
         Text(
           text = "Accelerator",
-          style = MaterialTheme.typography.bodyMedium,
+          style = MaterialTheme.typography.bodyLarge,
+          fontWeight = FontWeight.Medium,
           color = MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.weight(1f),
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          AcceleratorChip(
-            label = "GPU",
-            selected = useGpu,
-            onClick = { useGpu = true },
-            modifier = Modifier.weight(1f),
-          )
-          AcceleratorChip(
-            label = "CPU",
-            selected = !useGpu,
-            onClick = { useGpu = false },
-            modifier = Modifier.weight(1f),
-          )
-        }
+        // Segmented toggle: GPU | CPU
+        AcceleratorToggle(
+          useGpu = useGpu,
+          onToggle = { useGpu = it },
+        )
       }
 
       Spacer(modifier = Modifier.height(4.dp))
@@ -219,6 +261,7 @@ fun InferenceSettingsSheet(
       // Apply button
       Button(
         onClick = {
+          focusManager.clearFocus()
           val newValues = mutableMapOf<String, Any>()
           newValues.putAll(configValues)
           newValues[ConfigKeys.TEMPERATURE.label] = temperature
@@ -246,56 +289,148 @@ fun InferenceSettingsSheet(
 }
 
 @Composable
-private fun ParameterRow(
+private fun ParameterInputBox(
   label: String,
   value: String,
-  slider: @Composable () -> Unit,
+  onValueChange: (String) -> Unit,
+  keyboardType: KeyboardType,
+  modifier: Modifier = Modifier,
 ) {
-  Column {
+  val focusRequester = remember { FocusRequester() }
+  val focusManager = LocalFocusManager.current
+  var textValue by remember(value) { mutableStateOf(value) }
+
+  Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      fontWeight = FontWeight.Bold,
+      color = OlliteRTPrimary,
+      letterSpacing = 1.sp,
+    )
     Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.SpaceBetween,
+      modifier = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        .clickable { focusRequester.requestFocus() }
+        .padding(horizontal = 14.dp, vertical = 14.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      Text(
-        text = label,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
+      BasicTextField(
+        value = textValue,
+        onValueChange = { newText ->
+          textValue = newText
+          onValueChange(newText)
+        },
+        singleLine = true,
+        textStyle = TextStyle(
+          color = MaterialTheme.colorScheme.onSurface,
+          fontSize = 18.sp,
+          fontWeight = FontWeight.SemiBold,
+          fontFamily = SpaceGroteskFontFamily,
+        ),
+        cursorBrush = SolidColor(OlliteRTPrimary),
+        keyboardOptions = KeyboardOptions(
+          keyboardType = keyboardType,
+          imeAction = ImeAction.Done,
+        ),
+        keyboardActions = KeyboardActions(
+          onDone = { focusManager.clearFocus() },
+        ),
+        modifier = Modifier
+          .weight(1f)
+          .focusRequester(focusRequester),
       )
-      Text(
-        text = value,
-        style = MaterialTheme.typography.bodyMedium,
-        color = OlliteRTPrimary,
-        fontFamily = SpaceGroteskFontFamily,
-        fontWeight = FontWeight.SemiBold,
+      Icon(
+        Icons.Outlined.Edit,
+        contentDescription = "Edit $label",
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(18.dp),
       )
     }
-    slider()
   }
 }
 
 @Composable
-private fun AcceleratorChip(
-  label: String,
-  selected: Boolean,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier,
+private fun AcceleratorToggle(
+  useGpu: Boolean,
+  onToggle: (Boolean) -> Unit,
 ) {
-  val bgColor = if (selected) OlliteRTPrimary.copy(alpha = 0.15f)
-  else MaterialTheme.colorScheme.surfaceContainerHighest
-  val textColor = if (selected) OlliteRTPrimary
-  else MaterialTheme.colorScheme.onSurfaceVariant
+  val toggleWidth = 140.dp
+  val halfWidth = toggleWidth / 2
 
-  Button(
-    onClick = onClick,
-    modifier = modifier.height(44.dp),
-    shape = RoundedCornerShape(50),
-    colors = ButtonDefaults.buttonColors(containerColor = bgColor),
+  val offsetX by animateDpAsState(
+    targetValue = if (useGpu) 0.dp else halfWidth,
+    animationSpec = tween(200),
+    label = "toggle_offset",
+  )
+
+  Box(
+    modifier = Modifier
+      .width(toggleWidth)
+      .height(36.dp)
+      .clip(RoundedCornerShape(50))
+      .background(MaterialTheme.colorScheme.surfaceContainerHighest),
   ) {
-    Text(
-      text = label,
-      color = textColor,
-      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+    // Sliding indicator
+    Box(
+      modifier = Modifier
+        .offset(x = offsetX)
+        .width(halfWidth)
+        .height(36.dp)
+        .clip(RoundedCornerShape(50))
+        .background(OlliteRTPrimary),
     )
+
+    // Labels
+    Row(modifier = Modifier.matchParentSize()) {
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .height(36.dp)
+          .clip(RoundedCornerShape(50))
+          .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+          ) { onToggle(true) },
+        contentAlignment = Alignment.Center,
+      ) {
+        val gpuTextColor by animateColorAsState(
+          targetValue = if (useGpu) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+          animationSpec = tween(200),
+          label = "gpu_text",
+        )
+        Text(
+          text = "GPU",
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.Bold,
+          color = gpuTextColor,
+        )
+      }
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .height(36.dp)
+          .clip(RoundedCornerShape(50))
+          .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+          ) { onToggle(false) },
+        contentAlignment = Alignment.Center,
+      ) {
+        val cpuTextColor by animateColorAsState(
+          targetValue = if (!useGpu) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+          animationSpec = tween(200),
+          label = "cpu_text",
+        )
+        Text(
+          text = "CPU",
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.Bold,
+          color = cpuTextColor,
+        )
+      }
+    }
   }
 }

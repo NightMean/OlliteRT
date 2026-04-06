@@ -43,7 +43,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Key
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
@@ -443,7 +443,7 @@ fun DownloadAndTryButton(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Icon(
-            Icons.Outlined.Stop,
+            Icons.Outlined.StopCircle,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
           )

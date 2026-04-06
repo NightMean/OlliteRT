@@ -42,9 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -151,8 +149,6 @@ fun ModelList(
         animationDurationMs = DEFAULT_ANIMATION_DURATION,
         animationLabel = "model_list",
       )
-  val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
-
   Box(
     contentAlignment = Alignment.BottomEnd,
     modifier = Modifier.background(color = MaterialTheme.colorScheme.surface),
@@ -298,15 +294,12 @@ fun ModelList(
 
       // List of models within a task.
       items(items = models) { model ->
-        val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
         ModelItem(
           model = model,
           task = task,
           modelManagerViewModel = modelManagerViewModel,
           onModelClicked = onModelClicked,
           onBenchmarkClicked = onBenchmarkClicked,
-          expanded = expanded,
-          onExpanded = { modelItemExpandedStates[model.name] = it },
           modifier =
             Modifier.graphicsLayer {
               alpha = modelListProgress

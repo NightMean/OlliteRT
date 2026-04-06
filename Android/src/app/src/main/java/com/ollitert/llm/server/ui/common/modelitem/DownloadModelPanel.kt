@@ -16,9 +16,6 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -50,16 +47,12 @@ import com.ollitert.llm.server.ui.common.DownloadAndTryButton
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun DownloadModelPanel(
   model: Model,
   task: Task?,
   modelManagerViewModel: ModelManagerViewModel,
   downloadStatus: ModelDownloadStatus?,
-  isExpanded: Boolean,
-  sharedTransitionScope: SharedTransitionScope,
-  animatedVisibilityScope: AnimatedVisibilityScope,
   onTryItClicked: () -> Unit,
   onBenchmarkClicked: () -> Unit,
   onNavigateToSettings: () -> Unit = {},
@@ -70,90 +63,73 @@ fun DownloadModelPanel(
   onStopServer: () -> Unit = {},
 ) {
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-  with(sharedTransitionScope) {
-    Row(
-      modifier = modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.End,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      if (showBenchmarkButton && downloadSucceeded) {
-        // Benchmark button.
-        var buttonModifier: Modifier = Modifier.height(42.dp)
-        if (isExpanded) {
-          buttonModifier = buttonModifier.weight(1f)
-        }
-        val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
-        val context = androidx.compose.ui.platform.LocalContext.current
-        Button(
-          modifier =
-            Modifier.sharedElement(
-                sharedContentState = rememberSharedContentState(key = "benchmark_button"),
-                animatedVisibilityScope = animatedVisibilityScope,
-              )
-              .then(buttonModifier),
-          colors =
-            ButtonDefaults.buttonColors(
-              containerColor = if (isServerActive) MaterialTheme.colorScheme.surfaceContainerHigh
-                else MaterialTheme.colorScheme.secondaryContainer,
-            ),
-          contentPadding = PaddingValues(horizontal = 12.dp),
-          onClick = {
-            if (isServerActive) {
-              android.widget.Toast.makeText(context, "Stop the server first to run benchmarks", android.widget.Toast.LENGTH_SHORT).show()
-            } else {
-              onBenchmarkClicked()
-            }
-          },
-        ) {
-          val textColor = if (isServerActive) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-            else MaterialTheme.colorScheme.onSecondaryContainer
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            Icon(Icons.Rounded.BarChart, contentDescription = null, tint = textColor)
-
-            if (isExpanded) {
-              Text(
-                stringResource(R.string.benchmark),
-                color = textColor,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                autoSize =
-                  TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
-              )
-            }
-          }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-      }
-
-      fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatus?, model: Model): Boolean {
-        val downloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
-        val isLitertLm = model.runtimeType == RuntimeType.LITERT_LM
-        return !downloadFailed || isLitertLm
-      }
-
-      DownloadAndTryButton(
-        task = task,
-        model = model,
-        downloadStatus = downloadStatus,
-        enabled = isDownloadButtonEnabled(downloadStatus, model),
-        modelManagerViewModel = modelManagerViewModel,
-        onClicked = onTryItClicked,
-        onNavigateToSettings = onNavigateToSettings,
-        compact = !isExpanded,
-        modifier =
-          Modifier.sharedElement(
-            sharedContentState = rememberSharedContentState(key = "download_button"),
-            animatedVisibilityScope = animatedVisibilityScope,
+  Row(
+    modifier = modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.End,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    if (showBenchmarkButton && downloadSucceeded) {
+      // Benchmark button.
+      val buttonModifier: Modifier = Modifier.height(42.dp).weight(1f)
+      val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+      val context = androidx.compose.ui.platform.LocalContext.current
+      Button(
+        modifier = buttonModifier,
+        colors =
+          ButtonDefaults.buttonColors(
+            containerColor = if (isServerActive) MaterialTheme.colorScheme.surfaceContainerHigh
+              else MaterialTheme.colorScheme.secondaryContainer,
           ),
-        modifierWhenExpanded = Modifier.weight(1f),
-        serverStatus = serverStatus,
-        activeModelName = activeModelName,
-        onStopServer = onStopServer,
-      )
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        onClick = {
+          if (isServerActive) {
+            android.widget.Toast.makeText(context, "Stop the server first to run benchmarks", android.widget.Toast.LENGTH_SHORT).show()
+          } else {
+            onBenchmarkClicked()
+          }
+        },
+      ) {
+        val textColor = if (isServerActive) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+          else MaterialTheme.colorScheme.onSecondaryContainer
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(Icons.Rounded.BarChart, contentDescription = null, tint = textColor)
+          Text(
+            stringResource(R.string.benchmark),
+            color = textColor,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            autoSize =
+              TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.width(8.dp))
     }
+
+    fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatus?, model: Model): Boolean {
+      val downloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
+      val isLitertLm = model.runtimeType == RuntimeType.LITERT_LM
+      return !downloadFailed || isLitertLm
+    }
+
+    DownloadAndTryButton(
+      task = task,
+      model = model,
+      downloadStatus = downloadStatus,
+      enabled = isDownloadButtonEnabled(downloadStatus, model),
+      modelManagerViewModel = modelManagerViewModel,
+      onClicked = onTryItClicked,
+      onNavigateToSettings = onNavigateToSettings,
+      compact = false,
+      modifier = Modifier,
+      modifierWhenExpanded = Modifier.weight(1f),
+      serverStatus = serverStatus,
+      activeModelName = activeModelName,
+      onStopServer = onStopServer,
+    )
   }
 }
