@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
   <!-- Dark-only base theme -->
-  <style name="Theme.Gallery" parent="android:Theme.Material.NoActionBar" />
-  <style name="Theme.Gallery.SplashScreen" parent="Theme.SplashScreen">
+  <style name="Theme.Ollite" parent="android:Theme.Material.NoActionBar" />
+  <style name="Theme.Ollite.SplashScreen" parent="Theme.SplashScreen">
       <!-- Match surface color #131314 -->
       <item name="windowSplashScreenBackground">#FF131314</item>
       <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen_animated_icon</item>
-      <item name="postSplashScreenTheme">@style/Theme.Gallery</item>
+      <item name="postSplashScreenTheme">@style/Theme.Ollite</item>
   </style>
-  <style name="Theme.Gallery.OssLicenses" parent="Theme.AppCompat">
+  <style name="Theme.Ollite.OssLicenses" parent="Theme.AppCompat">
       <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
   </style>
 </resources>

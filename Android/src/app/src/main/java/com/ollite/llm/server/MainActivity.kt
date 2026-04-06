@@ -47,7 +47,7 @@ import androidx.core.animation.doOnEnd
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollite.llm.server.ui.theme.GalleryTheme
+import com.ollite.llm.server.ui.theme.OlliteTheme
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import dagger.hilt.android.AndroidEntryPoint
@@ -70,9 +70,9 @@ class MainActivity : ComponentActivity() {
       }
 
       setContent {
-        GalleryTheme {
+        OlliteTheme {
           Surface(modifier = Modifier.fillMaxSize()) {
-            GalleryApp(modelManagerViewModel = modelManagerViewModel)
+            OlliteApp(modelManagerViewModel = modelManagerViewModel)
 
             // Fade out a "mask" that has the same color as the background of the splash screen
             // to reveal the actual app content.
@@ -157,6 +157,6 @@ class MainActivity : ComponentActivity() {
   }
 
   companion object {
-    private const val TAG = "AGMainActivity"
+    private const val TAG = "OlliteMainActivity"
   }
 }
