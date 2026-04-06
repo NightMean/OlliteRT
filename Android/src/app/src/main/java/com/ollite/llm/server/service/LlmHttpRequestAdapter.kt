@@ -32,10 +32,19 @@ object LlmHttpRequestAdapter {
    */
   fun buildChatPrompt(msgs: List<ChatMessage>): String {
     if (msgs.isEmpty()) return ""
-    if (msgs.size == 1) return msgs.first().content
+    if (msgs.size == 1) return msgs.first().content.text
     return msgs
-      .filter { it.content.isNotBlank() }
-      .joinToString("\n\n") { "${formatRole(it.role)}: ${it.content}" }
+      .filter { it.content.text.isNotBlank() }
+      .joinToString("\n\n") { "${formatRole(it.role)}: ${it.content.text}" }
+  }
+
+  /** Extracts base64-encoded image data URIs from multimodal chat messages. */
+  fun extractImageDataUris(msgs: List<ChatMessage>): List<String> {
+    return msgs.flatMap { msg ->
+      msg.content.parts
+        .filter { it.type == "image_url" && it.image_url != null }
+        .map { it.image_url!!.url }
+    }
   }
 
   fun synthesizeToolCall(tool: ToolSpec, prompt: String, callId: String): ToolCall {

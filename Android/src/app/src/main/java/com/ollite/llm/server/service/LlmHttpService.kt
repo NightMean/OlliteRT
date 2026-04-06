@@ -535,19 +535,19 @@ class LlmHttpService : Service() {
 
   private fun emptyChatResponse(modelName: String) = ChatResponse(
     id = "chatcmpl-local", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", "Hola desde Edge (fallback)"), "stop")),
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("Hola desde Edge (fallback)")), "stop")),
     usage = Usage(0, 0),
   )
 
   private fun chatResponseWithText(modelName: String, text: String) = ChatResponse(
     id = "chatcmpl-local", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", text), "stop")),
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), "stop")),
     usage = Usage(0, 0),
   )
 
   private fun chatResponseWithToolCall(modelName: String, toolCall: ToolCall) = ChatResponse(
     id = "chatcmpl-local", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", "", tool_calls = listOf(toolCall)), "tool_calls")),
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = listOf(toolCall)), "tool_calls")),
     usage = Usage(0, 0),
   )
 
