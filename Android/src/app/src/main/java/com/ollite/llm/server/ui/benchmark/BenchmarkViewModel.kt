@@ -76,7 +76,7 @@ data class BenchmarkUiState(
 class BenchmarkViewModel
 @Inject
 constructor(
-  @ApplicationContext private val appContext: Context,
+  @param:ApplicationContext private val appContext: Context,
   val dataStoreRepository: DataStoreRepository,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())

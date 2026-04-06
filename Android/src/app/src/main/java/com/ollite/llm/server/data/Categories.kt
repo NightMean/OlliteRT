@@ -30,7 +30,7 @@ data class CategoryInfo(
   val id: String,
 
   // The string resource id of the label of the resource, for display purpose.
-  @StringRes val labelStringRes: Int? = null,
+  @param:StringRes val labelStringRes: Int? = null,
 
   // The string label. It takes precedence over labelStringRes above.
   val label: String? = null,

@@ -35,7 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 data class EmptyStateButtonConfig(
-  @StringRes val buttonLabelResId: Int,
+  @param:StringRes val buttonLabelResId: Int,
   val buttonIcon: ImageVector? = null,
   val onButtonClick: () -> Unit = {},
   val extraContent: @Composable () -> Unit = {},

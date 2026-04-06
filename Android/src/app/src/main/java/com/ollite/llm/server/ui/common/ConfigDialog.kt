@@ -107,7 +107,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGConfigDialog"
 
-private data class Tab(@StringRes val labelResId: Int)
+private data class Tab(@param:StringRes val labelResId: Int)
 
 private val TABS =
   listOf(

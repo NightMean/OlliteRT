@@ -410,7 +410,7 @@
   <string name="cd_add_icon">Add</string>
 
   <!-- Fork: LLM HTTP foreground service notification channel -->
-  <string name="llm_http_channel_name" translatable="false">LLM HTTP</string>
+  <string name="llm_http_channel_name" translatable="false">Ollite Server</string>
 
   <!-- Fork: TosDialog strings (used by SettingsDialog) -->
   <string name="tos_dialog_title" translatable="false">Terms of Service</string>

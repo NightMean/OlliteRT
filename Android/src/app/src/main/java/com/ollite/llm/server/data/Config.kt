@@ -161,7 +161,7 @@ class BottomSheetSelectorConfig(
   override val key: ConfigKey,
   override val defaultValue: String,
   val options: List<BottomSheetSelectorItem>,
-  @StringRes val bottomSheetTitleResId: Int? = null,
+  @param:StringRes val bottomSheetTitleResId: Int? = null,
 ) :
   Config(
     type = ConfigEditorType.BOTTOMSHEET_SELECTOR,

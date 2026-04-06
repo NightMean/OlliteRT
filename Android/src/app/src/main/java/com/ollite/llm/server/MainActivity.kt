@@ -47,6 +47,7 @@ import androidx.core.animation.doOnEnd
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.ollite.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollite.llm.server.ui.server.ServerViewModel
 import com.ollite.llm.server.ui.theme.OlliteTheme
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
@@ -58,6 +59,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
   private val modelManagerViewModel: ModelManagerViewModel by viewModels()
+  private val serverViewModel: ServerViewModel by viewModels()
   private var splashScreenAboutToExit: Boolean = false
   private var contentSet: Boolean = false
 
@@ -72,7 +74,10 @@ class MainActivity : ComponentActivity() {
       setContent {
         OlliteTheme {
           Surface(modifier = Modifier.fillMaxSize()) {
-            OlliteApp(modelManagerViewModel = modelManagerViewModel)
+            OlliteApp(
+              modelManagerViewModel = modelManagerViewModel,
+              serverViewModel = serverViewModel,
+            )
 
             // Fade out a "mask" that has the same color as the background of the splash screen
             // to reveal the actual app content.

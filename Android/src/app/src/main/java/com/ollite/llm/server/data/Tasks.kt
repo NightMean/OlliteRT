@@ -117,10 +117,10 @@ data class Task(
   //
 
   /** Placeholder text for the name of the agent shown above chat messages. */
-  @StringRes val agentNameRes: Int = R.string.chat_generic_agent_name,
+  @param:StringRes val agentNameRes: Int = R.string.chat_generic_agent_name,
 
   /** Placeholder text for the text input field. */
-  @StringRes val textInputPlaceHolderRes: Int = R.string.chat_textinput_placeholder,
+  @param:StringRes val textInputPlaceHolderRes: Int = R.string.chat_textinput_placeholder,
 
   // The following fields are managed by the app. Don't need to set manually.
   //

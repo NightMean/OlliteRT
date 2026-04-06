@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -16,12 +17,13 @@ import com.ollite.llm.server.ui.navigation.OlliteNavHost
 import com.ollite.llm.server.ui.navigation.OlliteRoutes
 import com.ollite.llm.server.ui.navigation.OlliteTab
 import com.ollite.llm.server.ui.navigation.OlliteTopBar
-import com.ollite.llm.server.ui.navigation.ServerStatus
+import com.ollite.llm.server.ui.server.ServerViewModel
 
 /** Root composable for the Ollite app. */
 @Composable
 fun OlliteApp(
   modelManagerViewModel: ModelManagerViewModel,
+  serverViewModel: ServerViewModel,
   navController: NavHostController = rememberNavController(),
 ) {
   val backStackEntry by navController.currentBackStackEntryAsState()
@@ -45,8 +47,7 @@ fun OlliteApp(
     OlliteRoutes.BENCHMARK,
   )
 
-  // TODO: Wire to actual server state
-  val serverStatus = ServerStatus.STOPPED
+  val serverStatus by serverViewModel.status.collectAsState()
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
