@@ -21,10 +21,11 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,27 +33,33 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
-import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -61,6 +68,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -73,26 +81,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollite.llm.server.R
 import com.ollite.llm.server.data.Model
+import com.ollite.llm.server.data.ModelDownloadStatusType
 import com.ollite.llm.server.data.RuntimeType
 import com.ollite.llm.server.data.Task
 import com.ollite.llm.server.proto.ImportedModel
-import com.ollite.llm.server.ui.common.TaskIcon
 import com.ollite.llm.server.ui.common.modelitem.ModelItem
+import com.ollite.llm.server.ui.theme.OlliteDeepBlue
+import com.ollite.llm.server.ui.theme.OllitePrimary
 import kotlin.text.endsWith
 import kotlin.text.lowercase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGlobalMM"
+
+/** Filter mode for the models list. */
+enum class ModelFilter {
+  ALL,
+  DOWNLOADED,
+  AVAILABLE,
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,7 +143,11 @@ fun GlobalModelManager(
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
-  // Promo banner removed in Ollite transformation
+  // Search and filter state
+  var searchQuery by remember { mutableStateOf("") }
+  var activeFilter by remember { mutableStateOf(ModelFilter.ALL) }
+  val keyboardController = LocalSoftwareKeyboardController.current
+  val focusManager = LocalFocusManager.current
 
   val filePickerLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
@@ -132,12 +157,9 @@ fun GlobalModelManager(
         result.data?.data?.let { uri ->
           val fileName = getFileName(context = context, uri = uri)
           Log.d(TAG, "Selected file: $fileName")
-          // Show warning for model file types other than .task and .litertlm.
           if (fileName != null && !fileName.endsWith(".task") && !fileName.endsWith(".litertlm")) {
             showUnsupportedFileTypeDialog = true
-          }
-          // Show warning for web-only model (by checking if the file name has "-web" in it).
-          else if (fileName != null && fileName.lowercase().contains("-web")) {
+          } else if (fileName != null && fileName.lowercase().contains("-web")) {
             showUnsupportedWebModelDialog = true
           } else {
             selectedLocalModelFileUri.value = uri
@@ -163,16 +185,41 @@ fun GlobalModelManager(
     importedModels.addAll(sortedModels.filter { it.imported })
   }
 
+  // Filtered models based on search query and active filter
+  val filteredBuiltInModels by remember(searchQuery, activeFilter, builtInModels.toList()) {
+    derivedStateOf {
+      builtInModels.filter { model ->
+        val matchesSearch = searchQuery.isEmpty() ||
+          model.displayName.contains(searchQuery, ignoreCase = true) ||
+          model.name.contains(searchQuery, ignoreCase = true)
+        val matchesFilter = when (activeFilter) {
+          ModelFilter.ALL -> true
+          ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
+          ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
+        }
+        matchesSearch && matchesFilter
+      }
+    }
+  }
+
+  val filteredImportedModels by remember(searchQuery, activeFilter, importedModels.toList()) {
+    derivedStateOf {
+      importedModels.filter { model ->
+        val matchesSearch = searchQuery.isEmpty() ||
+          model.displayName.contains(searchQuery, ignoreCase = true) ||
+          model.name.contains(searchQuery, ignoreCase = true)
+        // Imported models are always downloaded
+        activeFilter != ModelFilter.AVAILABLE
+      }
+    }
+  }
+
   val handleClickModel: (Model) -> Unit = { model ->
     val tasks = viewModel.uiState.value.tasks
     val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
-    // If there is only one task for the model, navigate to the model directly.
     if (tasksForModel.size == 1) {
       onModelSelected(tasksForModel[0], model)
-    }
-    // If there are multiple tasks for the model, show a bottom sheet for the user to choose which
-    // task to use.
-    else if (tasksForModel.size > 1) {
+    } else if (tasksForModel.size > 1) {
       taskCandidates.clear()
       taskCandidates.addAll(tasksForModel)
       modelForTaskCandidate = model
@@ -180,129 +227,187 @@ fun GlobalModelManager(
     }
   }
 
-  // Handle system's edge swipe.
-  BackHandler { navigateUp() }
-
-  Scaffold(
-    modifier = modifier,
-    topBar = {
-      CenterAlignedTopAppBar(
-        title = {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-              Icon(
-                Icons.AutoMirrored.Rounded.ListAlt,
-                modifier = Modifier.size(20.dp),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-              )
-              Text(
-                text =
-                  "${stringResource(R.string.drawer_models_label)} (${builtInModels.size + importedModels.size})",
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleMedium,
-              )
-            }
-          }
-        },
-        // The "action" component at the right.
-        actions = {
-          IconButton(onClick = { navigateUp() }) {
-            Icon(
-              imageVector = Icons.Rounded.Close,
-              contentDescription = stringResource(R.string.cd_close_icon),
-              tint = MaterialTheme.colorScheme.onSurface,
-            )
-          }
-        },
-        modifier = modifier,
-      )
-    },
-    floatingActionButton = {
-      // A floating action button to show "import model" bottom sheet.
-      val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-      SmallFloatingActionButton(
-        onClick = { showImportModelSheet = true },
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.secondary,
-        modifier = Modifier.semantics { contentDescription = cdImportModelFab },
-      ) {
-        Icon(Icons.Filled.Add, contentDescription = null)
-      }
-    },
-  ) { innerPadding ->
-    Box() {
-      LazyColumn(
-        modifier =
-          Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+  Box(modifier = modifier.fillMaxSize()) {
+    LazyColumn(
+      modifier = Modifier
+        .background(MaterialTheme.colorScheme.surfaceContainer)
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+      contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
+    ) {
+      // Search bar
+      item(key = "search_bar") {
+        OutlinedTextField(
+          value = searchQuery,
+          onValueChange = { searchQuery = it },
+          modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = innerPadding.calculateTopPadding()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding =
-          PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
-      ) {
-        items(builtInModels) { model ->
-          val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
-          ModelItem(
-            model = model,
-            task = null,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = expanded,
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
-            onExpanded = { modelItemExpandedStates[model.name] = it },
-          )
-        }
-
-        // Imported models.
-        if (importedModels.isNotEmpty()) {
-          item(key = "imported_models_label") {
+            .padding(bottom = 4.dp),
+          placeholder = {
             Text(
-              stringResource(R.string.model_list_imported_models_title),
-              color = MaterialTheme.colorScheme.onSurface,
-              style = MaterialTheme.typography.labelLarge,
-              modifier = Modifier.padding(horizontal = 16.dp).padding(top = 32.dp, bottom = 8.dp),
+              stringResource(R.string.search_models),
+              style = MaterialTheme.typography.bodyLarge,
             )
-          }
-        }
-        items(importedModels) { model ->
-          ModelItem(
-            model = model,
-            task = null,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = true,
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+          },
+          leadingIcon = {
+            Icon(
+              Icons.Outlined.Search,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          },
+          trailingIcon = {
+            if (searchQuery.isNotEmpty()) {
+              IconButton(onClick = { searchQuery = "" }) {
+                Icon(
+                  Icons.Outlined.Close,
+                  contentDescription = "Clear search",
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+            }
+          },
+          singleLine = true,
+          shape = RoundedCornerShape(16.dp),
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedBorderColor = OllitePrimary,
+            unfocusedBorderColor = Color.Transparent,
+            cursorColor = OllitePrimary,
+          ),
+          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+          keyboardActions = KeyboardActions(
+            onSearch = {
+              keyboardController?.hide()
+              focusManager.clearFocus()
+            },
+          ),
+        )
+      }
+
+      // Filter chips
+      item(key = "filter_chips") {
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          modifier = Modifier.padding(bottom = 8.dp),
+        ) {
+          ModelFilterChip(
+            label = stringResource(R.string.filter_all),
+            selected = activeFilter == ModelFilter.ALL,
+            onClick = { activeFilter = ModelFilter.ALL },
+          )
+          ModelFilterChip(
+            label = stringResource(R.string.filter_downloaded),
+            selected = activeFilter == ModelFilter.DOWNLOADED,
+            onClick = { activeFilter = ModelFilter.DOWNLOADED },
+          )
+          ModelFilterChip(
+            label = stringResource(R.string.filter_available),
+            selected = activeFilter == ModelFilter.AVAILABLE,
+            onClick = { activeFilter = ModelFilter.AVAILABLE },
           )
         }
       }
 
-      SnackbarHost(
-        hostState = snackbarHostState,
-        modifier = Modifier.align(alignment = Alignment.BottomCenter).padding(bottom = 32.dp),
-      )
+      // Built-in models
+      items(filteredBuiltInModels, key = { "builtin_${it.name}" }) { model ->
+        val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
+        ModelItem(
+          model = model,
+          task = null,
+          modelManagerViewModel = viewModel,
+          onModelClicked = handleClickModel,
+          onBenchmarkClicked = onBenchmarkClicked,
+          expanded = expanded,
+          showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+          onExpanded = { modelItemExpandedStates[model.name] = it },
+        )
+      }
 
-      // Gradient overlay at the bottom.
-      Box(
-        modifier =
-          Modifier.fillMaxWidth()
-            .height(innerPadding.calculateBottomPadding())
-            .background(
-              Brush.verticalGradient(
-                colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
-              )
+      // Imported models section
+      if (filteredImportedModels.isNotEmpty()) {
+        item(key = "imported_models_label") {
+          Text(
+            stringResource(R.string.model_list_imported_models_title),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier
+              .padding(horizontal = 16.dp)
+              .padding(top = 32.dp, bottom = 8.dp),
+          )
+        }
+      }
+      items(filteredImportedModels, key = { "imported_${it.name}" }) { model ->
+        ModelItem(
+          model = model,
+          task = null,
+          modelManagerViewModel = viewModel,
+          onModelClicked = handleClickModel,
+          onBenchmarkClicked = onBenchmarkClicked,
+          expanded = true,
+          showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+        )
+      }
+
+      // Empty state when filters yield no results
+      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && !uiState.loadingModelAllowlist) {
+        item(key = "empty_state") {
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(vertical = 64.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              text = stringResource(R.string.no_models_match_search),
+              style = MaterialTheme.typography.bodyLarge,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              textAlign = TextAlign.Center,
             )
-            .align(Alignment.BottomCenter)
-      )
+          }
+        }
+      }
     }
+
+    // Import FAB
+    val cdImportModelFab = stringResource(R.string.cd_import_model_button)
+    SmallFloatingActionButton(
+      onClick = { showImportModelSheet = true },
+      containerColor = MaterialTheme.colorScheme.secondaryContainer,
+      contentColor = MaterialTheme.colorScheme.secondary,
+      modifier = Modifier
+        .align(Alignment.BottomEnd)
+        .padding(end = 16.dp, bottom = 16.dp)
+        .semantics { contentDescription = cdImportModelFab },
+    ) {
+      Icon(Icons.Filled.Add, contentDescription = null)
+    }
+
+    // Snackbar
+    SnackbarHost(
+      hostState = snackbarHostState,
+      modifier = Modifier
+        .align(alignment = Alignment.BottomCenter)
+        .padding(bottom = 32.dp),
+    )
+
+    // Gradient overlay at the bottom
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(48.dp)
+        .background(
+          Brush.verticalGradient(
+            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer),
+          ),
+        )
+        .align(Alignment.BottomCenter),
+    )
   }
 
+  // Task selector bottom sheet
   if (showTaskSelectorBottomSheet) {
     ModalBottomSheet(
       onDismissRequest = { showTaskSelectorBottomSheet = false },
@@ -316,39 +421,40 @@ fun GlobalModelManager(
           stringResource(R.string.model_manager_select_task_title),
           color = MaterialTheme.colorScheme.onSurface,
           style = MaterialTheme.typography.titleLarge,
-          modifier = Modifier.padding(bottom = 8.dp).padding(start = 16.dp),
+          modifier = Modifier
+            .padding(bottom = 8.dp)
+            .padding(start = 16.dp),
         )
         for (task in taskCandidates) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier =
-              Modifier.fillMaxWidth()
-                .clickable {
-                  val model = modelForTaskCandidate
-                  if (model != null) {
-                    onModelSelected(task, model)
-                  }
-                  scope.launch {
-                    sheetState.hide()
-                    showTaskSelectorBottomSheet = false
-                  }
+            modifier = Modifier
+              .fillMaxWidth()
+              .clickable {
+                val model = modelForTaskCandidate
+                if (model != null) {
+                  onModelSelected(task, model)
                 }
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                scope.launch {
+                  sheetState.hide()
+                  showTaskSelectorBottomSheet = false
+                }
+              }
+              .padding(horizontal = 16.dp, vertical = 4.dp),
           ) {
             Text(
               task.label,
               color = MaterialTheme.colorScheme.onSurface,
               style = MaterialTheme.typography.titleMedium,
             )
-            TaskIcon(task = task, width = 40.dp)
           }
         }
       }
     }
   }
 
-  // Import model bottom sheet.
+  // Import model bottom sheet
   if (showImportModelSheet) {
     ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {
       Text(
@@ -358,33 +464,30 @@ fun GlobalModelManager(
       )
       val cbImportFromLocalFile = stringResource(R.string.cd_import_model_from_local_file_button)
       Box(
-        modifier =
-          Modifier.clickable {
-              scope.launch {
-                // Give it sometime to show the click effect.
-                delay(200)
-                showImportModelSheet = false
-
-                // Show file picker.
-                val intent =
-                  Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    // Single select.
-                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-                  }
-                filePickerLauncher.launch(intent)
+        modifier = Modifier
+          .clickable {
+            scope.launch {
+              delay(200)
+              showImportModelSheet = false
+              val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
               }
+              filePickerLauncher.launch(intent)
             }
-            .semantics {
-              role = Role.Button
-              contentDescription = cbImportFromLocalFile
-            }
+          }
+          .semantics {
+            role = Role.Button
+            contentDescription = cbImportFromLocalFile
+          },
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp),
-          modifier = Modifier.fillMaxWidth().padding(16.dp),
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         ) {
           Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
           Text("From local model file", modifier = Modifier.clearAndSetSemantics {})
@@ -408,7 +511,7 @@ fun GlobalModelManager(
     }
   }
 
-  // Importing in progress dialog.
+  // Importing in progress dialog
   if (showImportingDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
       selectedImportedModelInfo.value?.let { info ->
@@ -419,8 +522,6 @@ fun GlobalModelManager(
           onDone = {
             viewModel.addImportedLlmModel(info = it)
             showImportingDialog = false
-
-            // Show a snack bar for successful import.
             scope.launch { snackbarHostState.showSnackbar("Model imported successfully") }
           },
         )
@@ -428,7 +529,7 @@ fun GlobalModelManager(
     }
   }
 
-  // Alert dialog for unsupported file type.
+  // Alert dialog for unsupported file type
   if (showUnsupportedFileTypeDialog) {
     AlertDialog(
       icon = {
@@ -449,7 +550,7 @@ fun GlobalModelManager(
     )
   }
 
-  // Alert dialog for unsupported web model.
+  // Alert dialog for unsupported web model
   if (showUnsupportedWebModelDialog) {
     AlertDialog(
       icon = {
@@ -469,6 +570,49 @@ fun GlobalModelManager(
       },
     )
   }
+}
+
+@Composable
+private fun ModelFilterChip(
+  label: String,
+  selected: Boolean,
+  onClick: () -> Unit,
+) {
+  val chipBgColor by animateColorAsState(
+    targetValue = if (selected) OllitePrimary.copy(alpha = 0.15f)
+    else Color.Transparent,
+    animationSpec = tween(200),
+    label = "chip_bg",
+  )
+  val chipBorderColor by animateColorAsState(
+    targetValue = if (selected) OllitePrimary
+    else MaterialTheme.colorScheme.outlineVariant,
+    animationSpec = tween(200),
+    label = "chip_border",
+  )
+
+  FilterChip(
+    selected = selected,
+    onClick = onClick,
+    label = {
+      Text(
+        label,
+        style = MaterialTheme.typography.labelLarge,
+        color = if (selected) OllitePrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    },
+    colors = FilterChipDefaults.filterChipColors(
+      selectedContainerColor = chipBgColor,
+      containerColor = chipBgColor,
+    ),
+    border = FilterChipDefaults.filterChipBorder(
+      enabled = true,
+      selected = selected,
+      borderColor = chipBorderColor,
+      selectedBorderColor = chipBorderColor,
+    ),
+    shape = RoundedCornerShape(12.dp),
+  )
 }
 
 // Helper function to get the file name from a URI

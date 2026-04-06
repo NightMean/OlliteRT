@@ -175,7 +175,15 @@
   <string name="tos_dialog_title_gemma" translatable="false">Gemma Terms of Use</string>
   <string name="tos_dialog_accept_and_continue_button_label" translatable="false">Accept &amp; continue</string>
   <string name="tos_dialog_agree_and_continue_button_label" translatable="false">Agree &amp; continue</string>
-  <string name="try_it" translatable="false">Try it</string>
+  <string name="try_it" translatable="false">Start Server</string>
+  <string name="search_models" translatable="false">Search models…</string>
+  <string name="filter_all" translatable="false">All</string>
+  <string name="filter_downloaded" translatable="false">Downloaded</string>
+  <string name="filter_available" translatable="false">Available</string>
+  <string name="no_models_match_search" translatable="false">No models match your search</string>
+  <string name="wifi_warning_title" translatable="false">No Wi-Fi Connection</string>
+  <string name="wifi_warning_content" translatable="false">The server needs Wi-Fi to accept connections from other devices. You can still start the server, but it will only be reachable via localhost.</string>
+  <string name="wifi_warning_start_anyway" translatable="false">Start anyway</string>
   <string name="turn_on_all" translatable="false">Turn on all</string>
   <string name="turn_off_all" translatable="false">Turn off all</string>
   <string name="undo" translatable="false">Undo</string>
