@@ -38,16 +38,16 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="Ollite"
+        android:label="OlliteRT"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Ollite"
+        android:theme="@style/Theme.OlliteRT"
         tools:targetApi="31">
 
         <activity
-            android:name="com.ollite.llm.server.MainActivity"
+            android:name="com.ollitert.llm.server.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Ollite.SplashScreen"
+            android:theme="@style/Theme.OlliteRT.SplashScreen"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="uiMode"
@@ -60,18 +60,18 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.ollite.llm.server" />
+                <data android:scheme="com.ollitert.llm.server" />
             </intent-filter>
         </activity>
 
         <activity
             android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
             android:exported="true"
-            android:theme="@style/Theme.Ollite.OssLicenses" />
+            android:theme="@style/Theme.OlliteRT.OssLicenses" />
         <activity
             android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
             android:exported="true"
-            android:theme="@style/Theme.Ollite.OssLicenses" />
+            android:theme="@style/Theme.OlliteRT.OssLicenses" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -89,15 +89,15 @@
             android:exported="false"
             tools:node="merge" />
 
-        <!-- Ollite HTTP API service -->
+        <!-- OlliteRT HTTP API service -->
         <service
-            android:name="com.ollite.llm.server.service.LlmHttpService"
+            android:name="com.ollitert.llm.server.service.LlmHttpService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <!-- Clipboard copy receiver for notification "Copy URL" action -->
         <receiver
-            android:name="com.ollite.llm.server.service.CopyUrlReceiver"
+            android:name="com.ollitert.llm.server.service.CopyUrlReceiver"
             android:exported="false" />
 
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>

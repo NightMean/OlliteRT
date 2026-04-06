@@ -27,11 +27,11 @@ plugins {
 }
 
 android {
-  namespace = "com.ollite.llm.server"
+  namespace = "com.ollitert.llm.server"
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.ollite.llm.server"
+    applicationId = "com.ollitert.llm.server"
     minSdk = 31
     targetSdk = 35
     versionCode = 23
@@ -39,8 +39,8 @@ android {
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
-    manifestPlaceholders["appAuthRedirectScheme"] = "com.ollite.llm.server"
-    manifestPlaceholders["applicationName"] = "com.ollite.llm.server.OlliteApplication"
+    manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server"
+    manifestPlaceholders["applicationName"] = "com.ollitert.llm.server.OlliteRTApplication"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -110,6 +110,10 @@ dependencies {
   androidTestImplementation(libs.hilt.android.testing)
   debugImplementation(libs.androidx.ui.tooling)
   debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+kapt {
+  correctErrorTypes = true
 }
 
 protobuf {

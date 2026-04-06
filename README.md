@@ -1,10 +1,10 @@
-# Ollite -- On-Device LLM Server
+# OlliteRT -- On-Device LLM Server
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 OpenAI-compatible LLM server running on Android, powered by [LiteRT LM](https://ai.google.dev/edge/litert). Supports `.litertlm` and `.task` model formats. Exposes `/v1/chat/completions`, `/v1/responses`, and `/v1/models` on port 11434 (configurable), bound to `0.0.0.0`.
 
-Ollite originated as a fork of [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery) and has since diverged into its own project.
+OlliteRT originated as a fork of [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery) and has since diverged into its own project.
 
 ## Features
 
