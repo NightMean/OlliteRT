@@ -35,6 +35,14 @@ object ServerMetrics {
   private val _tokensGeneratedFlow = MutableStateFlow(0L)
   val tokensGenerated: StateFlow<Long> = _tokensGeneratedFlow.asStateFlow()
 
+  private val _lastLatencyMs = MutableStateFlow(0L)
+  val lastLatencyMs: StateFlow<Long> = _lastLatencyMs.asStateFlow()
+
+  private val _totalLatencyMs = AtomicLong(0)
+  private val _latencyCount = AtomicLong(0)
+  private val _avgLatencyMs = MutableStateFlow(0L)
+  val avgLatencyMs: StateFlow<Long> = _avgLatencyMs.asStateFlow()
+
   fun onServerStarting(port: Int, modelName: String?) {
     _status.value = ServerStatus.LOADING
     _port.value = port
@@ -56,6 +64,10 @@ object ServerMetrics {
     _requestCountFlow.value = 0L
     _tokensGenerated.set(0)
     _tokensGeneratedFlow.value = 0L
+    _lastLatencyMs.value = 0L
+    _totalLatencyMs.set(0)
+    _latencyCount.set(0)
+    _avgLatencyMs.value = 0L
   }
 
   fun onServerError() {
@@ -69,5 +81,12 @@ object ServerMetrics {
 
   fun addTokens(count: Long) {
     _tokensGeneratedFlow.value = _tokensGenerated.addAndGet(count)
+  }
+
+  fun recordLatency(ms: Long) {
+    _lastLatencyMs.value = ms
+    val totalMs = _totalLatencyMs.addAndGet(ms)
+    val count = _latencyCount.incrementAndGet()
+    _avgLatencyMs.value = totalMs / count
   }
 }
