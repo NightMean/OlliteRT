@@ -16,9 +16,6 @@
 
 package com.ollite.llm.server.ui.common
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.ollite.llm.server.ui.preview.MODEL_TEST1
-// import com.ollite.llm.server.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.foundation.border
@@ -105,7 +102,7 @@ import com.ollite.llm.server.ui.theme.labelSmallNarrow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val TAG = "AGConfigDialog"
+private const val TAG = "OlliteConfigDialog"
 
 private data class Tab(@param:StringRes val labelResId: Int)
 

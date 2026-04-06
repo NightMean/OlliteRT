@@ -16,8 +16,6 @@
 
 package com.ollite.llm.server.ui.common.modelitem
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.ollite.llm.server.ui.theme.GalleryTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -108,22 +106,3 @@ fun StatusIcon(
   }
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun StatusIconPreview() {
-//   GalleryTheme {
-//     Column {
-//       for (downloadStatus in
-//         listOf(
-//           ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED),
-//           ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
-//           ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED),
-//           ModelDownloadStatus(status = ModelDownloadStatusType.FAILED),
-//           ModelDownloadStatus(status = ModelDownloadStatusType.UNZIPPING),
-//           ModelDownloadStatus(status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED),
-//         )) {
-//         StatusIcon(downloadStatus = downloadStatus)
-//       }
-//     }
-//   }
-// }

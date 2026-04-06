@@ -87,7 +87,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val TAG = "AGDownloadAndTryButton"
+private const val TAG = "OlliteDownloadAndTryButton"
 private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 
 /**

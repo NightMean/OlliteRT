@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val TAG = "AGBenchmarkVM"
+private const val TAG = "OlliteBenchmarkVM"
 
 enum class Aggregation(val label: String) {
   AVG(label = "avg"),

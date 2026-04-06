@@ -43,6 +43,7 @@ import com.ollite.llm.server.data.RuntimeType
 import com.ollite.llm.server.data.SOC
 import com.ollite.llm.server.data.TMP_FILE_EXT
 import com.ollite.llm.server.data.Task
+import com.ollite.llm.server.data.createBuiltInTasks
 import com.ollite.llm.server.data.createLlmChatConfigs
 import com.ollite.llm.server.proto.AccessTokenData
 import com.ollite.llm.server.proto.ImportedModel
@@ -65,7 +66,7 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.ResponseTypeValues
 
-private const val TAG = "AGModelManagerViewModel"
+private const val TAG = "OlliteModelManagerVM"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
@@ -756,6 +757,12 @@ constructor(
           if (modelAllowlist == null) {
             Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
             modelAllowlist = readModelAllowlistFromDisk()
+          }
+
+          // Fallback to bundled asset (guarantees models on fresh install).
+          if (modelAllowlist == null) {
+            Log.w(TAG, "Disk cache empty. Falling back to bundled asset allowlist")
+            modelAllowlist = readModelAllowlistFromAssets()
           } else {
             Log.d(TAG, "Done: loading model allowlist from internet")
             saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
@@ -888,6 +895,17 @@ constructor(
     return null
   }
 
+  private fun readModelAllowlistFromAssets(): ModelAllowlist? {
+    return try {
+      val content = context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }
+      Log.d(TAG, "Loaded bundled model allowlist from assets")
+      Gson().fromJson(content, ModelAllowlist::class.java)
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to read bundled model allowlist from assets", e)
+      null
+    }
+  }
+
   private fun isModelPartiallyDownloaded(model: Model): Boolean {
     if (model.localModelFilePathOverride.isNotEmpty()) {
       return false
@@ -901,7 +919,7 @@ constructor(
 
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState(
-      tasks = listOf(),
+      tasks = createBuiltInTasks(),
       tasksByCategory = mapOf(),
       modelDownloadStatus = mapOf(),
       modelInitializationStatus = mapOf(),

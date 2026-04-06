@@ -17,10 +17,6 @@
 package com.ollite.llm.server.ui.modelmanager
 
 // import androidx.compose.ui.tooling.preview.Preview
-// import com.ollite.llm.server.ui.preview.PreviewModelManagerViewModel
-// import com.ollite.llm.server.ui.preview.TASK_TEST1
-// import com.ollite.llm.server.ui.theme.GalleryTheme
-
 import androidx.compose.ui.platform.LocalContext
 
 import androidx.compose.foundation.background
@@ -74,7 +70,7 @@ import com.ollite.llm.server.ui.common.rememberDelayedAnimationProgress
 import com.ollite.llm.server.ui.theme.bodyLargeNarrow
 import com.ollite.llm.server.ui.theme.headlineLargeMedium
 
-private const val TAG = "AGModelList"
+private const val TAG = "OlliteModelList"
 private val CONTENT_ANIMATION_OFFSET = 16.dp
 private const val ANIMATION_INIT_DELAY = 80L
 private const val TASK_DESCRIPTION_SECTION_ANIMATION_START = 400
@@ -371,17 +367,3 @@ fun ModelList(
   }
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun ModelListPreview() {
-//   val context = LocalContext.current
-
-//   GalleryTheme {
-//     ModelList(
-//       task = TASK_TEST1,
-//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//       onModelClicked = {},
-//       contentPadding = PaddingValues(all = 16.dp),
-//     )
-//   }
-// }

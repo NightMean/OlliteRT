@@ -28,7 +28,7 @@ import androidx.compose.ui.res.stringResource
 import com.ollite.llm.server.R
 import com.ollite.llm.server.data.Model
 
-private const val TAG = "AGMemoryWarning"
+private const val TAG = "OlliteMemoryWarning"
 private const val BYTES_IN_GB = 1024f * 1024 * 1024
 
 /** Composable function to display a memory warning alert dialog. */

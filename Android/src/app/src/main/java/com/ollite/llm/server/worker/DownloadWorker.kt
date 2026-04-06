@@ -57,7 +57,7 @@ import java.util.zip.ZipInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val TAG = "AGDownloadWorker"
+private const val TAG = "OlliteDownloadWorker"
 
 data class UrlAndFileName(val url: String, val fileName: String)
 

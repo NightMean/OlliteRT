@@ -117,16 +117,3 @@ private fun getTaskIconBgShape(task: Task): Painter {
   return painterResource(SHAPES[colorIndex])
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun TaskIconPreview() {
-//   for ((index, task) in TASKS.withIndex()) {
-//     task.index = index
-//   }
-//
-//   GalleryTheme {
-//     Column(modifier = Modifier.background(Color.Gray)) {
-//       TaskIcon(task = TASK_LLM_CHAT, width = 80.dp)
-//     }
-//   }
-// }

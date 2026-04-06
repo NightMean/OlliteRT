@@ -106,7 +106,7 @@ import kotlin.text.lowercase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val TAG = "AGGlobalMM"
+private const val TAG = "OlliteGlobalMM"
 
 /** Filter mode for the models list. */
 enum class ModelFilter {

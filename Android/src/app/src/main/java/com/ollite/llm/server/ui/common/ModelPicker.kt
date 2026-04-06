@@ -16,11 +16,6 @@
 
 package com.ollite.llm.server.ui.common
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.ollite.llm.server.ui.preview.PreviewModelManagerViewModel
-// import com.ollite.llm.server.ui.preview.TASK_TEST1
-// import com.ollite.llm.server.ui.theme.GalleryTheme
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -166,16 +161,3 @@ fun ModelPicker(
   }
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun ModelPickerPreview() {
-//   val context = LocalContext.current
-
-//   GalleryTheme {
-//     ModelPicker(
-//       task = TASK_TEST1,
-//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//       onModelSelected = {},
-//     )
-//   }
-// }

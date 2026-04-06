@@ -41,11 +41,11 @@ import com.ollite.llm.server.worker.DownloadWorker
 import java.util.UUID
 import java.util.concurrent.Executors
 
-private const val TAG = "AGDownloadRepository"
+private const val TAG = "OlliteDownloadRepository"
 private const val MODEL_NAME_TAG = "modelName"
 private const val TASK_ID_TAG = "taskId"
 
-data class AGWorkInfo(val taskId: String, val modelName: String, val workId: String)
+data class DownloadWorkInfo(val taskId: String, val modelName: String, val workId: String)
 
 interface DownloadRepository {
   fun downloadModel(

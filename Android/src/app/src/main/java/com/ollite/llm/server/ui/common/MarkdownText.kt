@@ -79,10 +79,3 @@ fun MarkdownText(
   }
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun MarkdownTextPreview() {
-//   GalleryTheme {
-//     MarkdownText(text = "*Hello World*\n**Good morning!!**")
-//   }
-// }
