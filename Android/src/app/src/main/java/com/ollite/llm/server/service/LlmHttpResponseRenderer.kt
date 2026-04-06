@@ -5,7 +5,18 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class LlmHttpModelItem(val id: String, val `object`: String = "model")
+data class LlmHttpModelCapabilities(
+  val image: Boolean = false,
+  val audio: Boolean = false,
+  val thinking: Boolean = false,
+)
+
+@Serializable
+data class LlmHttpModelItem(
+  val id: String,
+  val `object`: String = "model",
+  val capabilities: LlmHttpModelCapabilities = LlmHttpModelCapabilities(),
+)
 
 @Serializable
 data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
@@ -16,6 +27,27 @@ object LlmHttpResponseRenderer {
   fun renderModelListPayload(json: Json, modelIds: List<String>, fallbackId: String): String {
     val ids = if (modelIds.isEmpty()) listOf(fallbackId) else modelIds
     return json.encodeToString(LlmHttpModelList(data = ids.map { id -> LlmHttpModelItem(id = id) }))
+  }
+
+  fun renderModelListWithCapabilities(
+    json: Json,
+    models: List<com.ollite.llm.server.data.AllowedModel>,
+    fallbackId: String,
+  ): String {
+    if (models.isEmpty()) {
+      return json.encodeToString(LlmHttpModelList(data = listOf(LlmHttpModelItem(id = fallbackId))))
+    }
+    val items = models.map { m ->
+      LlmHttpModelItem(
+        id = m.name,
+        capabilities = LlmHttpModelCapabilities(
+          image = m.llmSupportImage == true,
+          audio = m.llmSupportAudio == true,
+          thinking = m.llmSupportThinking == true,
+        ),
+      )
+    }
+    return json.encodeToString(LlmHttpModelList(data = items))
   }
 
   fun emitSseEvent(event: String, payload: String): String = "event: $event\n" + "data: $payload\n\n"
