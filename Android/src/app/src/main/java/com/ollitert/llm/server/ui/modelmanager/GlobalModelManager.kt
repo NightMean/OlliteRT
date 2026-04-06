@@ -28,13 +28,16 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,13 +48,19 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -78,6 +87,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -117,6 +128,13 @@ enum class ModelFilter {
   AVAILABLE,
 }
 
+/** Sort mode for the models list. */
+enum class ModelSort(val label: String) {
+  DEFAULT("Default"),
+  ALPHABETICAL("Name"),
+  SIZE("Size"),
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlobalModelManager(
@@ -149,9 +167,12 @@ fun GlobalModelManager(
   var pendingSwitchModel by remember { mutableStateOf<Model?>(null) }
   var pendingSwitchTask by remember { mutableStateOf<Task?>(null) }
 
-  // Search and filter state
+  // Search, filter, and sort state
   var searchQuery by remember { mutableStateOf("") }
   var activeFilter by remember { mutableStateOf(ModelFilter.ALL) }
+  var activeSort by remember { mutableStateOf(ModelSort.DEFAULT) }
+  var sortAscending by remember { mutableStateOf(true) }
+  var showSortDropdown by remember { mutableStateOf(false) }
   val keyboardController = LocalSoftwareKeyboardController.current
   val focusManager = LocalFocusManager.current
 
@@ -204,8 +225,8 @@ fun GlobalModelManager(
     importedModels.addAll(sortedModels.filter { it.imported })
   }
 
-  // Filtered models based on search query and active filter
-  val filteredBuiltInModels by remember(searchQuery, activeFilter, builtInModels.toList()) {
+  // Filtered and sorted models
+  val filteredBuiltInModels by remember(searchQuery, activeFilter, activeSort, sortAscending, builtInModels.toList()) {
     derivedStateOf {
       builtInModels.filter { model ->
         val matchesSearch = searchQuery.isEmpty() ||
@@ -217,11 +238,19 @@ fun GlobalModelManager(
           ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
         }
         matchesSearch && matchesFilter
+      }.let { filtered ->
+        when (activeSort) {
+          ModelSort.DEFAULT -> filtered // preserve original order
+          ModelSort.ALPHABETICAL -> if (sortAscending) filtered.sortedBy { it.displayName.ifEmpty { it.name }.lowercase() }
+            else filtered.sortedByDescending { it.displayName.ifEmpty { it.name }.lowercase() }
+          ModelSort.SIZE -> if (sortAscending) filtered.sortedBy { it.totalBytes }
+            else filtered.sortedByDescending { it.totalBytes }
+        }
       }
     }
   }
 
-  val filteredImportedModels by remember(searchQuery, activeFilter, importedModels.toList()) {
+  val filteredImportedModels by remember(searchQuery, activeFilter, activeSort, sortAscending, importedModels.toList()) {
     derivedStateOf {
       importedModels.filter { model ->
         val matchesSearch = searchQuery.isEmpty() ||
@@ -229,6 +258,14 @@ fun GlobalModelManager(
           model.name.contains(searchQuery, ignoreCase = true)
         // Imported models are always downloaded
         activeFilter != ModelFilter.AVAILABLE
+      }.let { filtered ->
+        when (activeSort) {
+          ModelSort.DEFAULT -> filtered
+          ModelSort.ALPHABETICAL -> if (sortAscending) filtered.sortedBy { it.displayName.ifEmpty { it.name }.lowercase() }
+            else filtered.sortedByDescending { it.displayName.ifEmpty { it.name }.lowercase() }
+          ModelSort.SIZE -> if (sortAscending) filtered.sortedBy { it.totalBytes }
+            else filtered.sortedByDescending { it.totalBytes }
+        }
       }
     }
   }
@@ -250,7 +287,13 @@ fun GlobalModelManager(
     }
   }
 
-  Box(modifier = modifier.fillMaxSize()) {
+  Box(
+    modifier = modifier
+      .fillMaxSize()
+      .pointerInput(Unit) {
+        detectTapGestures { focusManager.clearFocus() }
+      },
+  ) {
     LazyColumn(
       modifier = Modifier
         .background(MaterialTheme.colorScheme.surface)
@@ -310,10 +353,11 @@ fun GlobalModelManager(
         )
       }
 
-      // Filter chips
+      // Filter chips + sort button
       item(key = "filter_chips") {
         Row(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically,
           modifier = Modifier.padding(bottom = 8.dp),
         ) {
           ModelFilterChip(
@@ -330,6 +374,25 @@ fun GlobalModelManager(
             label = stringResource(R.string.filter_available),
             selected = activeFilter == ModelFilter.AVAILABLE,
             onClick = { activeFilter = ModelFilter.AVAILABLE },
+          )
+          Spacer(modifier = Modifier.weight(1f))
+          SortButton(
+            activeSort = activeSort,
+            sortAscending = sortAscending,
+            showDropdown = showSortDropdown,
+            onToggleDropdown = { showSortDropdown = !showSortDropdown },
+            onDismissDropdown = { showSortDropdown = false },
+            onSortSelected = { sort ->
+              if (sort == ModelSort.DEFAULT) {
+                activeSort = sort
+              } else if (activeSort == sort) {
+                sortAscending = !sortAscending
+              } else {
+                activeSort = sort
+                sortAscending = true
+              }
+              showSortDropdown = false
+            },
           )
         }
       }
@@ -611,7 +674,7 @@ private fun ModelFilterChip(
   onClick: () -> Unit,
 ) {
   val chipBgColor by animateColorAsState(
-    targetValue = if (selected) OlliteRTPrimary.copy(alpha = 0.15f)
+    targetValue = if (selected) OlliteRTPrimary
     else Color.Transparent,
     animationSpec = tween(200),
     label = "chip_bg",
@@ -630,7 +693,7 @@ private fun ModelFilterChip(
       Text(
         label,
         style = MaterialTheme.typography.labelLarge,
-        color = if (selected) OlliteRTPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
       )
     },
     colors = FilterChipDefaults.filterChipColors(
@@ -643,8 +706,72 @@ private fun ModelFilterChip(
       borderColor = chipBorderColor,
       selectedBorderColor = chipBorderColor,
     ),
-    shape = RoundedCornerShape(12.dp),
+    shape = if (selected) RoundedCornerShape(12.dp) else RoundedCornerShape(50),
   )
+}
+
+@Composable
+private fun SortButton(
+  activeSort: ModelSort,
+  sortAscending: Boolean,
+  showDropdown: Boolean,
+  onToggleDropdown: () -> Unit,
+  onDismissDropdown: () -> Unit,
+  onSortSelected: (ModelSort) -> Unit,
+) {
+  Box {
+    Box(
+      modifier = Modifier
+        .size(40.dp)
+        .clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        .clickable { onToggleDropdown() },
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(
+        Icons.AutoMirrored.Outlined.Sort,
+        contentDescription = "Sort",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.size(20.dp),
+      )
+    }
+    DropdownMenu(
+      expanded = showDropdown,
+      onDismissRequest = onDismissDropdown,
+      containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+      shape = RoundedCornerShape(12.dp),
+    ) {
+      ModelSort.entries.forEach { sort ->
+        val isActive = activeSort == sort
+        DropdownMenuItem(
+          text = {
+            Text(
+              sort.label,
+              color = if (isActive) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+            )
+          },
+          onClick = { onSortSelected(sort) },
+          trailingIcon = {
+            if (isActive && sort != ModelSort.DEFAULT) {
+              Icon(
+                if (sortAscending) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward,
+                contentDescription = null,
+                tint = OlliteRTPrimary,
+                modifier = Modifier.size(18.dp),
+              )
+            } else if (isActive) {
+              Icon(
+                Icons.Outlined.Check,
+                contentDescription = null,
+                tint = OlliteRTPrimary,
+                modifier = Modifier.size(18.dp),
+              )
+            }
+          },
+        )
+      }
+    }
+  }
 }
 
 // Helper function to get the file name from a URI
