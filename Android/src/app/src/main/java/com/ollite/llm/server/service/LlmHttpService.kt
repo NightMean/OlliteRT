@@ -111,13 +111,24 @@ class LlmHttpService : Service() {
       PendingIntent.FLAG_IMMUTABLE,
     )
 
+    // Copy URL action
+    val endpointUrl = "http://$displayAddress:$port/v1"
+    val copyIntent = PendingIntent.getBroadcast(
+      this, 2,
+      Intent(this, CopyUrlReceiver::class.java).apply {
+        putExtra(CopyUrlReceiver.EXTRA_URL, endpointUrl)
+      },
+      PendingIntent.FLAG_IMMUTABLE,
+    )
+
     val notification: Notification =
       NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Ollite Server")
-        .setContentText("Serving ${model.name} on $displayAddress:$port")
+        .setContentTitle("Ollite Server Running")
+        .setContentText("${model.name} • $endpointUrl")
         .setSmallIcon(R.drawable.ic_launcher_foreground)
         .setContentIntent(contentIntent)
         .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Server", stopIntent)
+        .addAction(android.R.drawable.ic_menu_share, "Copy URL", copyIntent)
         .setOngoing(true)
         .build()
     startForeground(NOTIFICATION_ID, notification)
