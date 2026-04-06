@@ -52,7 +52,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
@@ -124,7 +131,7 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = "Default: 11434. Requires server restart to take effect.",
+        text = "Default: 8000. Requires server restart to take effect.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -218,6 +225,23 @@ fun SettingsScreen(
     ) {
       Text(
         text = "Required for downloading gated models and private repositories.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = buildAnnotatedString {
+          append("Generate a token with ")
+          withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Read") }
+          append(" permissions from ")
+          withLink(LinkAnnotation.Url(
+            url = "https://huggingface.co/settings/tokens",
+            styles = TextLinkStyles(style = SpanStyle(color = OlliteRTPrimary, textDecoration = TextDecoration.Underline)),
+          )) {
+            append("HuggingFace token settings")
+          }
+          append(".")
+        },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
