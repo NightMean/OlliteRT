@@ -15,6 +15,7 @@ private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
 private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
 private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 private const val KEY_AUTO_EXPAND_LOGS = "auto_expand_logs"
+private const val KEY_NOTIF_SHOW_REQUEST_COUNT = "notif_show_request_count"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -137,6 +138,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_AUTO_EXPAND_LOGS, enabled)
+      .apply()
+  }
+
+  fun isNotifShowRequestCount(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
+
+  fun setNotifShowRequestCount(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, enabled)
       .apply()
   }
 

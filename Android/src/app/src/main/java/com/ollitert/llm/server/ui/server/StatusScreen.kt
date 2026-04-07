@@ -27,7 +27,8 @@ import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -459,15 +460,21 @@ fun StatusScreen(
         )
       },
       confirmButton = {
-        TextButton(onClick = {
+        Button(onClick = {
           showReloadDialog = false
           onReloadModel()
         }) {
-          Text("Reload", color = OlliteRTPrimary)
+          Text("Reload")
         }
       },
       dismissButton = {
-        TextButton(onClick = { showReloadDialog = false }) {
+        Button(
+          onClick = { showReloadDialog = false },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+          ),
+        ) {
           Text("Cancel")
         }
       },

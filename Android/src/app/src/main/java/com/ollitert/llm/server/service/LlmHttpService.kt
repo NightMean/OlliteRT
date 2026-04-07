@@ -56,6 +56,13 @@ class LlmHttpService : Service() {
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
 
+  // Notification state — saved after warmup so we can refresh the notification with live request count
+  private var notifContentIntent: PendingIntent? = null
+  private var notifStopIntent: PendingIntent? = null
+  private var notifCopyIntent: PendingIntent? = null
+  private var notifEndpointUrl: String? = null
+  private var notifModelName: String? = null
+
   private lateinit var logger: LlmHttpLogger
   private lateinit var allowlistLoader: LlmHttpAllowlistLoader
 
@@ -205,10 +212,16 @@ class LlmHttpService : Service() {
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name)
+        // Save notification state for live updates on each request
+        notifContentIntent = contentIntent
+        notifStopIntent = stopIntent
+        notifCopyIntent = copyIntent
+        notifEndpointUrl = endpointUrl
+        notifModelName = model.name
         // Update notification to show running state with full actions
         updateNotification(
           title = "OlliteRT Server Running",
-          text = "${model.name} • $endpointUrl",
+          text = "Model: ${model.name}\nAPI URL: $endpointUrl",
           contentIntent = contentIntent,
           stopIntent = stopIntent,
           copyIntent = copyIntent,
@@ -258,6 +271,11 @@ class LlmHttpService : Service() {
       model.initializing = false
     }
     defaultModel = null
+    notifContentIntent = null
+    notifStopIntent = null
+    notifCopyIntent = null
+    notifEndpointUrl = null
+    notifModelName = null
     ServerMetrics.onServerStopped()
     if (modelName != null) {
       RequestLogStore.addEvent("Server stopped", modelName = modelName)
@@ -297,7 +315,26 @@ class LlmHttpService : Service() {
 
   private fun nextRequestId(): String {
     ServerMetrics.incrementRequestCount()
+    if (LlmHttpPrefs.isNotifShowRequestCount(this)) {
+      refreshRunningNotification()
+    }
     return "r${requestCounter.incrementAndGet()}"
+  }
+
+  /** Update the foreground notification with the current request count. */
+  private fun refreshRunningNotification() {
+    val ci = notifContentIntent ?: return
+    val name = notifModelName ?: return
+    val url = notifEndpointUrl ?: return
+    val count = ServerMetrics.requestCount.value
+    val reqLabel = if (count == 1L) "1 request" else "$count requests"
+    updateNotification(
+      title = "OlliteRT Server Running",
+      text = "Model: $name\nRequests: $reqLabel\nAPI URL: $url",
+      contentIntent = ci,
+      stopIntent = notifStopIntent,
+      copyIntent = notifCopyIntent,
+    )
   }
 
   private fun logEvent(message: String) {
@@ -317,6 +354,7 @@ class LlmHttpService : Service() {
       val startMs = SystemClock.elapsedRealtime()
       val method = session.method.name
       val path = session.uri
+      val clientIp = session.remoteIpAddress
       // Handle CORS preflight (no logging needed)
       if (session.method == NanoHTTPD.Method.OPTIONS) {
         return corsOk()
@@ -330,6 +368,7 @@ class LlmHttpService : Service() {
           method = method,
           path = path,
           modelName = defaultModel?.name,
+          clientIp = clientIp,
           isPending = true,
         )
       )
@@ -793,6 +832,7 @@ class LlmHttpService : Service() {
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setContentTitle(title)
       .setContentText(text)
+      .setStyle(NotificationCompat.BigTextStyle().bigText(text))
       .setSmallIcon(R.mipmap.ic_launcher_foreground)
       .setContentIntent(contentIntent)
       .setOngoing(true)

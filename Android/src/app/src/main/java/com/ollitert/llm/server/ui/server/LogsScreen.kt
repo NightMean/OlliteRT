@@ -468,7 +468,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       .background(cardBg)
       .padding(16.dp),
   ) {
-    // Top row: method badge + path + timestamp + copy button
+    // Method badge + path + client IP pill + copy button
     Row(
       verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -484,12 +484,21 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f),
       )
-      Spacer(modifier = Modifier.width(8.dp))
-      Text(
-        text = formatTimestamp(entry.timestamp),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
+      if (entry.clientIp != null) {
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = entry.clientIp,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          fontFamily = SpaceGroteskFontFamily,
+          maxLines = 1,
+          modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        )
+      }
+      Spacer(modifier = Modifier.width(4.dp))
       IconButton(
         onClick = { copyEntryToClipboard(context, entry) },
         modifier = Modifier.size(32.dp),
@@ -585,16 +594,17 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             fontWeight = FontWeight.SemiBold,
           )
         }
-        if (entry.modelName != null) {
-          Spacer(modifier = Modifier.weight(1f))
-          Text(
-            text = entry.modelName,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-        }
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+          text = listOfNotNull(
+            entry.modelName,
+            formatTimestamp(entry.timestamp),
+          ).joinToString(" · "),
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
       }
     }
   }
@@ -711,6 +721,7 @@ private fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEnt
         appendLine("[${formatTimestamp(entry.timestamp)}] ${entry.method} ${entry.path}")
         appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
         if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
+        if (entry.clientIp != null) appendLine("Client: ${entry.clientIp}")
         if (!entry.requestBody.isNullOrBlank()) {
           appendLine("--- Request ---")
           appendLine(entry.requestBody)
@@ -732,6 +743,7 @@ private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
     appendLine("[${formatTimestamp(entry.timestamp)}] ${entry.method} ${entry.path}")
     appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
     if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
+    if (entry.clientIp != null) appendLine("Client: ${entry.clientIp}")
     if (entry.isStreaming) appendLine("Streaming: SSE")
     if (!entry.requestBody.isNullOrBlank()) {
       appendLine("\n--- Request ---")

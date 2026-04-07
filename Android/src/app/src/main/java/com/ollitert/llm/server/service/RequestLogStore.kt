@@ -22,6 +22,7 @@ data class RequestLogEntry(
   val latencyMs: Long = 0,
   val isStreaming: Boolean = false,
   val modelName: String? = null,
+  val clientIp: String? = null,
   val level: LogLevel = LogLevel.INFO,
   val isPending: Boolean = false,
 )
