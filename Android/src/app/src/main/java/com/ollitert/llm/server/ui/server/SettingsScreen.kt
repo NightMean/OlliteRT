@@ -275,10 +275,13 @@ fun SettingsScreen(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+    }
 
+    // General card
+    SettingsCard(
+      icon = Icons.Outlined.PhoneAndroid,
+      title = "General",
+    ) {
       // Auto-expand logs toggle
       Row(
         modifier = Modifier.fillMaxWidth(),

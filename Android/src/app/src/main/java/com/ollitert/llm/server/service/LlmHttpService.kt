@@ -175,17 +175,14 @@ class LlmHttpService : Service() {
       PendingIntent.FLAG_IMMUTABLE,
     )
 
-    val notification: Notification =
-      NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("OlliteRT Server Running")
-        .setContentText("${model.name} • $endpointUrl")
-        .setSmallIcon(R.mipmap.ic_launcher_foreground)
-        .setContentIntent(contentIntent)
-        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Server", stopIntent)
-        .addAction(android.R.drawable.ic_menu_share, "Copy URL", copyIntent)
-        .setOngoing(true)
-        .build()
-    startForeground(NOTIFICATION_ID, notification)
+    // Show loading notification — no stop button since loading can't be interrupted
+    val loadingNotification = buildNotification(
+      title = "Loading model: ${model.name}",
+      text = "Please wait, this may take a moment...",
+      contentIntent = contentIntent,
+      showProgress = true,
+    )
+    startForeground(NOTIFICATION_ID, loadingNotification)
 
     server?.stop()
     server = NanoServer(port)
@@ -207,6 +204,14 @@ class LlmHttpService : Service() {
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name)
+        // Update notification to show running state with full actions
+        updateNotification(
+          title = "OlliteRT Server Running",
+          text = "${model.name} • $endpointUrl",
+          contentIntent = contentIntent,
+          stopIntent = stopIntent,
+          copyIntent = copyIntent,
+        )
       } catch (e: Exception) {
         // Only report error if this is still the current load
         if (loadGeneration.get() != thisGeneration) {
@@ -217,6 +222,13 @@ class LlmHttpService : Service() {
         val msg = e.message?.take(120) ?: "Unknown error during model initialization"
         ServerMetrics.onServerError(msg)
         RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name)
+        // Update notification to show error state
+        updateNotification(
+          title = "Model Load Failed",
+          text = msg,
+          contentIntent = contentIntent,
+          stopIntent = stopIntent,
+        )
       }
     }.start()
 
@@ -235,6 +247,8 @@ class LlmHttpService : Service() {
   }
 
   override fun onDestroy() {
+    // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
+    loadGeneration.incrementAndGet()
     server?.stop()
     val modelName = defaultModel?.name
     // Unload the model to free memory
@@ -501,7 +515,7 @@ class LlmHttpService : Service() {
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
       val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
       RequestLogStore.addEvent(
-        "Warmup: \"Hola\" → \"$snippet\" (${elapsedMs}ms)",
+        "Sending a warmup message: \"Hola\" → \"$snippet\" (${elapsedMs}ms)",
         modelName = model.name,
       )
     }
@@ -764,6 +778,47 @@ class LlmHttpService : Service() {
       val resp = newFixedLengthResponse(Response.Status.OK, "text/plain", "")
       return addCorsHeaders(resp)
     }
+  }
+
+  // ── Notification helpers ────────────────────────────────────────────────────
+
+  private fun buildNotification(
+    title: String,
+    text: String,
+    contentIntent: PendingIntent,
+    stopIntent: PendingIntent? = null,
+    copyIntent: PendingIntent? = null,
+    showProgress: Boolean = false,
+  ): Notification {
+    val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+      .setContentTitle(title)
+      .setContentText(text)
+      .setSmallIcon(R.mipmap.ic_launcher_foreground)
+      .setContentIntent(contentIntent)
+      .setOngoing(true)
+    if (stopIntent != null) {
+      builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Server", stopIntent)
+    }
+    if (copyIntent != null) {
+      builder.addAction(android.R.drawable.ic_menu_share, "Copy URL", copyIntent)
+    }
+    if (showProgress) {
+      builder.setProgress(0, 0, true) // indeterminate progress bar
+    }
+    return builder.build()
+  }
+
+  private fun updateNotification(
+    title: String,
+    text: String,
+    contentIntent: PendingIntent,
+    stopIntent: PendingIntent? = null,
+    copyIntent: PendingIntent? = null,
+    showProgress: Boolean = false,
+  ) {
+    val notification = buildNotification(title, text, contentIntent, stopIntent, copyIntent, showProgress)
+    val mgr = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+    mgr.notify(NOTIFICATION_ID, notification)
   }
 
   // ── Image helpers ──────────────────────────────────────────────────────────
