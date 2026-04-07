@@ -76,6 +76,10 @@ object ServerMetrics {
   private val _loadingStartedAtMs = MutableStateFlow(0L)
   val loadingStartedAtMs: StateFlow<Long> = _loadingStartedAtMs.asStateFlow()
 
+  /** Size of the active model in bytes, or 0 if none. */
+  private val _activeModelSize = MutableStateFlow(0L)
+  val activeModelSize: StateFlow<Long> = _activeModelSize.asStateFlow()
+
   /** Human-readable error message when status is ERROR, or null. */
   private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
@@ -104,6 +108,7 @@ object ServerMetrics {
   fun onServerStopped() {
     _status.value = ServerStatus.STOPPED
     _activeModelName.value = null
+    _activeModelSize.value = 0L
     _bindAddress.value = null
     _startedAtMs.value = 0L
     _requestCount.set(0)
@@ -171,6 +176,10 @@ object ServerMetrics {
 
   fun incrementErrorCount() {
     _errorCountFlow.value = _errorCount.incrementAndGet()
+  }
+
+  fun setActiveModelSize(bytes: Long) {
+    _activeModelSize.value = bytes
   }
 
   fun recordModelLoadTime(ms: Long) {

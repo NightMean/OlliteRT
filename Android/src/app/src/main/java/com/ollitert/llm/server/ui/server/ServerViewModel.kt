@@ -21,6 +21,7 @@ class ServerViewModel @Inject constructor(
 
   val status = ServerMetrics.status
   val activeModelName = ServerMetrics.activeModelName
+  val activeModelSize = ServerMetrics.activeModelSize
   val port = ServerMetrics.port
   val bindAddress = ServerMetrics.bindAddress
   val startedAtMs = ServerMetrics.startedAtMs
