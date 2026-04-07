@@ -77,7 +77,7 @@ fun DeleteModelButton(
     ConfirmDeleteModelDialog(
       model = model,
       onConfirm = {
-        modelManagerViewModel.deleteModel(model = model)
+        modelManagerViewModel.deleteModelAndRefreshStorage(model = model)
         showConfirmDeleteDialog = false
       },
       onDismiss = { showConfirmDeleteDialog = false },

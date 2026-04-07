@@ -57,6 +57,7 @@ fun OlliteRTBottomNavBar(
   currentRoute: String?,
   onTabSelected: (OlliteRTTab) -> Unit,
   modifier: Modifier = Modifier,
+  storageUpdateTrigger: Long = 0L,
 ) {
   val showStorageBar = currentRoute == OlliteRTRoutes.MODELS
 
@@ -68,7 +69,7 @@ fun OlliteRTBottomNavBar(
   ) {
     // Storage bar - only on Models page
     if (showStorageBar) {
-      StorageBar()
+      StorageBar(storageUpdateTrigger = storageUpdateTrigger)
     }
 
     // Navigation tabs
@@ -94,8 +95,8 @@ fun OlliteRTBottomNavBar(
 }
 
 @Composable
-private fun StorageBar() {
-  val storageInfo = remember { getStorageInfo() }
+private fun StorageBar(storageUpdateTrigger: Long = 0L) {
+  val storageInfo = remember(storageUpdateTrigger) { getStorageInfo() }
   val barColor = OlliteRTPrimary
   val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
 
