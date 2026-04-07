@@ -385,7 +385,7 @@ fun DownloadAndTryButton(
   val checkMemoryAndClickDownloadButton = {
     if (needToDownloadFirst && isStorageLow(model)) {
       showStorageWarning = true
-    } else if (isMemoryLow(context = context, model = model)) {
+    } else if (isMemoryLow(context = context, model = model) && !isMemoryWarningSuppressed(context, model.name)) {
       showMemoryWarning = true
     } else {
       handleClickButton()
@@ -694,7 +694,11 @@ fun DownloadAndTryButton(
 
   if (showMemoryWarning) {
     MemoryWarningAlert(
-      onProceeded = {
+      modelName = model.name,
+      onProceeded = { dontAskAgain ->
+        if (dontAskAgain) {
+          suppressMemoryWarning(context, model.name)
+        }
         handleClickButton()
         showMemoryWarning = false
       },

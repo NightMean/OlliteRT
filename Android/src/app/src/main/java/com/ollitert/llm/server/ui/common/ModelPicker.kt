@@ -96,7 +96,7 @@ fun ModelPicker(
           Modifier.fillMaxWidth()
             .clickable {
               // Show memory warning before proceeding.
-              if (isMemoryLow(context = context, model = model)) {
+              if (isMemoryLow(context = context, model = model) && !isMemoryWarningSuppressed(context, model.name)) {
                 modelToPick = model
                 showMemoryWarning = true
               } else {
@@ -149,7 +149,11 @@ fun ModelPicker(
 
   if (showMemoryWarning) {
     MemoryWarningAlert(
-      onProceeded = {
+      modelName = modelToPick?.name ?: "",
+      onProceeded = { dontAskAgain ->
+        if (dontAskAgain && modelToPick != null) {
+          suppressMemoryWarning(context, modelToPick!!.name)
+        }
         val curModelToPick = modelToPick
         if (curModelToPick != null) {
           onModelSelected(curModelToPick)

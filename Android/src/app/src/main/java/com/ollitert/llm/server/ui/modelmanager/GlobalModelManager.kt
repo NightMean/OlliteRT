@@ -528,7 +528,7 @@ fun GlobalModelManager(
             .padding(16.dp),
         ) {
           Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
-          Text("From local model file", modifier = Modifier.clearAndSetSemantics {})
+          Text("From local model file (.task, .litertlm)", modifier = Modifier.clearAndSetSemantics {})
         }
       }
     }

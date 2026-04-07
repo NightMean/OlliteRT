@@ -10,6 +10,7 @@ private const val KEY_PAYLOAD_LOGGING_ENABLED = "payload_logging_enabled"
 private const val KEY_ACCELERATOR_FALLBACK_ENABLED = "accelerator_fallback_enabled"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
+private const val KEY_LAST_MODEL_NAME = "last_model_name"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -72,6 +73,20 @@ object LlmHttpPrefs {
     val generated = UUID.randomUUID().toString().replace("-", "")
     setBearerToken(context, generated)
     return generated
+  }
+
+  fun getLastModelName(context: Context): String? =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_LAST_MODEL_NAME, null)
+
+  fun setLastModelName(context: Context, modelName: String?) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .apply {
+        if (modelName != null) putString(KEY_LAST_MODEL_NAME, modelName)
+        else remove(KEY_LAST_MODEL_NAME)
+      }
+      .apply()
   }
 
   fun save(context: Context, enabled: Boolean, port: Int) {
