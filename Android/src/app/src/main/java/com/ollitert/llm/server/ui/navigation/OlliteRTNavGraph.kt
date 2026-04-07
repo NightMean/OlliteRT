@@ -127,8 +127,16 @@ fun OlliteRTNavHost(
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) {
+      val settingsServerStatus by serverViewModel.status.collectAsState()
+      val settingsActiveModel by serverViewModel.activeModelName.collectAsState()
       SettingsScreen(
         onBackClick = { navController.navigateUp() },
+        serverStatus = settingsServerStatus,
+        onRestartServer = {
+          val currentModel = settingsActiveModel
+          serverViewModel.stopServer()
+          serverViewModel.startServer(modelName = currentModel)
+        },
       )
     }
 

@@ -678,7 +678,7 @@ fun DownloadAndTryButton(
         )
       },
       title = { Text("HuggingFace Token Required") },
-      text = { Text("This model is gated and requires a HuggingFace access token to download. Please add your token in Settings.") },
+      text = { Text("This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Settings.") },
       onDismissRequest = { showHfTokenRequired = false },
       confirmButton = {
         TextButton(onClick = {

@@ -272,7 +272,7 @@ fun createLlmChatConfigs(
       .toMutableList()
 
   if (supportThinking) {
-    configs.add(BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = false))
+    configs.add(BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = true))
   }
   return configs
 }

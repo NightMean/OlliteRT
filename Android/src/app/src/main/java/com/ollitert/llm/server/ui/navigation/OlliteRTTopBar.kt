@@ -57,18 +57,17 @@ fun OlliteRTTopBar(
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.SpaceBetween,
   ) {
-    // Left: Back arrow (if applicable) + OlliteRT brand
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      if (onBackClick != null) {
-        IconButton(onClick = onBackClick) {
-          Icon(
-            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-            contentDescription = "Back",
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(24.dp),
-          )
-        }
+    // Left: Back arrow OR OlliteRT brand (not both)
+    if (onBackClick != null) {
+      IconButton(onClick = onBackClick) {
+        Icon(
+          imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+          contentDescription = "Back",
+          tint = MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.size(24.dp),
+        )
       }
+    } else {
       Text(
         text = "OlliteRT",
         color = OlliteRTPrimary,

@@ -133,7 +133,7 @@ class LlmHttpService : Service() {
       NotificationCompat.Builder(this, CHANNEL_ID)
         .setContentTitle("OlliteRT Server Running")
         .setContentText("${model.name} • $endpointUrl")
-        .setSmallIcon(R.drawable.ic_launcher_foreground)
+        .setSmallIcon(R.mipmap.ic_launcher_foreground)
         .setContentIntent(contentIntent)
         .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Server", stopIntent)
         .addAction(android.R.drawable.ic_menu_share, "Copy URL", copyIntent)
@@ -628,7 +628,7 @@ class LlmHttpService : Service() {
       capabilities = LlmHttpModelCapabilities(
         image = model.llmSupportImage,
         audio = model.llmSupportAudio,
-        thinking = model.llmSupportThinking,
+        thinking = model.llmSupportThinking && (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false,
       ),
     )
     return json.encodeToString(LlmHttpModelList(data = listOf(item)))
