@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -101,6 +102,7 @@ fun SettingsScreen(
   var savedKeepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
   var savedAutoExpandLogs by remember { mutableStateOf(LlmHttpPrefs.isAutoExpandLogs(context)) }
   var savedNotifShowRequestCount by remember { mutableStateOf(LlmHttpPrefs.isNotifShowRequestCount(context)) }
+  var savedWarmupEnabled by remember { mutableStateOf(LlmHttpPrefs.isWarmupEnabled(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -116,6 +118,7 @@ fun SettingsScreen(
   var keepScreenOn by remember { mutableStateOf(savedKeepScreenOn) }
   var autoExpandLogs by remember { mutableStateOf(savedAutoExpandLogs) }
   var notifShowRequestCount by remember { mutableStateOf(savedNotifShowRequestCount) }
+  var warmupEnabled by remember { mutableStateOf(savedWarmupEnabled) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -126,7 +129,8 @@ fun SettingsScreen(
     autoStartOnBoot != savedAutoStartOnBoot ||
     keepScreenOn != savedKeepScreenOn ||
     autoExpandLogs != savedAutoExpandLogs ||
-    notifShowRequestCount != savedNotifShowRequestCount
+    notifShowRequestCount != savedNotifShowRequestCount ||
+    warmupEnabled != savedWarmupEnabled
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -162,6 +166,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
         LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
         LlmHttpPrefs.setNotifShowRequestCount(context, notifShowRequestCount)
+        LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -180,6 +185,7 @@ fun SettingsScreen(
         savedKeepScreenOn = keepScreenOn
         savedAutoExpandLogs = autoExpandLogs
         savedNotifShowRequestCount = notifShowRequestCount
+        savedWarmupEnabled = warmupEnabled
 
         if (isPortChanged && isServerRunning) {
           showRestartDialog = true
@@ -707,6 +713,36 @@ fun SettingsScreen(
           }
         },
       )
+    }
+
+    // Advanced Settings card
+    SettingsCard(
+      icon = Icons.Outlined.Science,
+      title = "Advanced",
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Warmup Message",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = warmupEnabled,
+          onCheckedChange = { warmupEnabled = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
     }
 
     // Footer
