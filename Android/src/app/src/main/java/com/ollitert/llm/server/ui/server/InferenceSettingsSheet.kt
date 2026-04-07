@@ -96,7 +96,7 @@ fun InferenceSettingsSheet(
   }
   var enableThinking by remember {
     mutableStateOf(
-      (configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
+      (configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: true
     )
   }
   var useGpu by remember {
@@ -216,13 +216,19 @@ fun InferenceSettingsSheet(
           modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
-          text = "Enable Thinking",
-          style = MaterialTheme.typography.bodyLarge,
-          fontWeight = FontWeight.Medium,
-          color = MaterialTheme.colorScheme.onSurface,
-          modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Allow Reasoning",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "When off, the API reports reasoning as unavailable and clients won't use it",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
         Switch(
           checked = enableThinking,
           onCheckedChange = { enableThinking = it },

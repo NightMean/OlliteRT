@@ -62,15 +62,12 @@ fun StatusScreen(
   val lastLatencyMs by serverViewModel.lastLatencyMs.collectAsState()
   val avgLatencyMs by serverViewModel.avgLatencyMs.collectAsState()
 
-  if (status == ServerStatus.STOPPED) {
-    EmptyStatusScreen(modifier)
-    return
-  }
-
   if (status == ServerStatus.LOADING) {
     LoadingStatusScreen(modelName = modelName, modifier = modifier)
     return
   }
+
+  val isStopped = status == ServerStatus.STOPPED
 
   // Live uptime ticker
   var uptimeSeconds by remember { mutableLongStateOf(0L) }
@@ -101,6 +98,33 @@ fun StatusScreen(
       .padding(horizontal = 20.dp, vertical = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
+    // Server not running banner
+    if (isStopped) {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(16.dp))
+          .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
+          .padding(16.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+          Text(
+            text = "Server not running",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = "Start a model from the Models tab to begin serving requests.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+    }
+
     // Model info card
     StatusCard {
       Row(
@@ -116,17 +140,19 @@ fun StatusScreen(
           )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = modelName ?: "Loading…",
+            text = if (isStopped) "None" else (modelName ?: "Loading…"),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
           )
         }
-        IconButton(onClick = onReloadModel) {
-          Icon(
-            imageVector = Icons.Outlined.Refresh,
-            contentDescription = "Reload model",
-            tint = OlliteRTPrimary,
-          )
+        if (!isStopped) {
+          IconButton(onClick = onReloadModel) {
+            Icon(
+              imageVector = Icons.Outlined.Refresh,
+              contentDescription = "Reload model",
+              tint = OlliteRTPrimary,
+            )
+          }
         }
       }
     }
@@ -147,18 +173,20 @@ fun StatusScreen(
           )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = endpointUrl,
+            text = if (isStopped) "—" else endpointUrl,
             style = MaterialTheme.typography.bodyMedium,
-            color = OlliteRTPrimary,
+            color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else OlliteRTPrimary,
             fontFamily = SpaceGroteskFontFamily,
           )
         }
-        IconButton(onClick = { copyToClipboard(context, endpointUrl) }) {
-          Icon(
-            imageVector = Icons.Outlined.ContentCopy,
-            contentDescription = "Copy endpoint URL",
-            tint = OlliteRTPrimary,
-          )
+        if (!isStopped) {
+          IconButton(onClick = { copyToClipboard(context, endpointUrl) }) {
+            Icon(
+              imageVector = Icons.Outlined.ContentCopy,
+              contentDescription = "Copy endpoint URL",
+              tint = OlliteRTPrimary,
+            )
+          }
         }
       }
     }
@@ -247,28 +275,6 @@ private fun LoadingStatusScreen(modelName: String?, modifier: Modifier = Modifie
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
-    }
-  }
-}
-
-@Composable
-private fun EmptyStatusScreen(modifier: Modifier = Modifier) {
-  Box(
-    modifier = modifier.fillMaxSize(),
-    contentAlignment = Alignment.Center,
-  ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      Text(
-        text = "No active server",
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-      Spacer(modifier = Modifier.height(8.dp))
-      Text(
-        text = "Start a model from the Models tab.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
     }
   }
 }
