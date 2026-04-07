@@ -52,22 +52,24 @@ fun DeleteModelButton(
   downloadStatus: ModelDownloadStatus?,
   modifier: Modifier = Modifier,
   showDeleteButton: Boolean = true,
+  isModelInUse: Boolean = false,
 ) {
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
 
   if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED && showDeleteButton) {
+    val tint = if (isModelInUse) DeleteRedTint.copy(alpha = 0.3f) else DeleteRedTint
     Box(
       modifier = modifier
         .size(40.dp)
         .clip(RoundedCornerShape(10.dp))
-        .background(DeleteRedTint.copy(alpha = 0.12f))
-        .clickable { showConfirmDeleteDialog = true },
+        .background(tint.copy(alpha = 0.12f))
+        .then(if (!isModelInUse) Modifier.clickable { showConfirmDeleteDialog = true } else Modifier),
       contentAlignment = Alignment.Center,
     ) {
       Icon(
         Icons.Outlined.Delete,
         contentDescription = stringResource(R.string.cd_delete_icon),
-        tint = DeleteRedTint,
+        tint = tint,
         modifier = Modifier.size(22.dp),
       )
     }

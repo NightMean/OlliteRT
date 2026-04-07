@@ -6,6 +6,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -112,12 +115,17 @@ fun SettingsScreen(
   // Keep screen awake state
   var keepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
 
-  Column(
+  Box(
     modifier = modifier
       .fillMaxSize()
-      .imePadding()
+      .imePadding(),
+  ) {
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
       .verticalScroll(rememberScrollState())
-      .padding(horizontal = 20.dp, vertical = 16.dp),
+      .padding(horizontal = 20.dp, vertical = 16.dp)
+      .padding(bottom = 72.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     // Heading
@@ -485,56 +493,6 @@ fun SettingsScreen(
       )
     }
 
-    // Save button
-    Button(
-      onClick = {
-        if (serverStatus == ServerStatus.LOADING) {
-          Toast.makeText(context, "Please wait for the server to finish starting before changing settings", Toast.LENGTH_SHORT).show()
-          return@Button
-        }
-        if (portText.isBlank()) {
-          portError = true
-          Toast.makeText(context, "A port number is required", Toast.LENGTH_SHORT).show()
-          return@Button
-        }
-        val port = portText.toIntOrNull()
-        if (port == null || port !in 1024..65535) {
-          portError = true
-          Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
-          return@Button
-        }
-
-        val portChanged = port != savedPort
-        val isServerRunning = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
-
-        LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
-        if (bearerEnabled) {
-          LlmHttpPrefs.setBearerToken(context, bearerToken)
-        }
-        LlmHttpPrefs.setHfToken(context, hfToken)
-        LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
-        LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
-        LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
-
-        if (portChanged && isServerRunning) {
-          showRestartDialog = true
-        } else {
-          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
-        }
-      },
-      modifier = Modifier
-        .fillMaxWidth()
-        .height(52.dp),
-      shape = RoundedCornerShape(50),
-      colors = ButtonDefaults.buttonColors(containerColor = OlliteRTPrimary),
-    ) {
-      Text(
-        text = "SAVE",
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-      )
-    }
-
     // Restart server dialog when port changed
     if (showRestartDialog) {
       AlertDialog(
@@ -580,7 +538,56 @@ fun SettingsScreen(
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.align(Alignment.CenterHorizontally),
     )
-    Spacer(modifier = Modifier.height(24.dp))
+  }
+
+    // Floating save button
+    FloatingActionButton(
+      onClick = {
+        if (serverStatus == ServerStatus.LOADING) {
+          Toast.makeText(context, "Please wait for the server to finish starting before changing settings", Toast.LENGTH_SHORT).show()
+          return@FloatingActionButton
+        }
+        if (portText.isBlank()) {
+          portError = true
+          Toast.makeText(context, "A port number is required", Toast.LENGTH_SHORT).show()
+          return@FloatingActionButton
+        }
+        val port = portText.toIntOrNull()
+        if (port == null || port !in 1024..65535) {
+          portError = true
+          Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
+          return@FloatingActionButton
+        }
+
+        val portChanged = port != savedPort
+        val isServerRunning = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+
+        LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
+        if (bearerEnabled) {
+          LlmHttpPrefs.setBearerToken(context, bearerToken)
+        }
+        LlmHttpPrefs.setHfToken(context, hfToken)
+        LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
+        LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
+        LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
+
+        if (portChanged && isServerRunning) {
+          showRestartDialog = true
+        } else {
+          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+        }
+      },
+      containerColor = OlliteRTPrimary,
+      contentColor = MaterialTheme.colorScheme.onPrimary,
+      modifier = Modifier
+        .align(Alignment.BottomEnd)
+        .padding(end = 16.dp, bottom = 16.dp),
+    ) {
+      Icon(
+        imageVector = Icons.Outlined.Save,
+        contentDescription = "Save settings",
+      )
+    }
   }
 }
 

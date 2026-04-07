@@ -174,6 +174,7 @@ fun ModelItem(
           modelManagerViewModel = modelManagerViewModel,
           downloadStatus = downloadStatus,
           showDeleteButton = showDeleteButton,
+          isModelInUse = isActiveModel || isModelLoading,
         )
       }
       // Settings cog - only for running model

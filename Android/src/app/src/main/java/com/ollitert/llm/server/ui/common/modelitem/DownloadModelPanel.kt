@@ -16,7 +16,10 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.remember
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -70,39 +74,48 @@ fun DownloadModelPanel(
   ) {
     if (showBenchmarkButton && downloadSucceeded) {
       // Benchmark button.
-      val buttonModifier: Modifier = Modifier.height(42.dp).weight(1f)
       val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
       val context = androidx.compose.ui.platform.LocalContext.current
-      Button(
-        modifier = buttonModifier,
-        colors =
-          ButtonDefaults.buttonColors(
-            containerColor = if (isServerActive) MaterialTheme.colorScheme.surfaceContainerHigh
-              else MaterialTheme.colorScheme.secondaryContainer,
-          ),
-        contentPadding = PaddingValues(horizontal = 12.dp),
-        onClick = {
-          if (isServerActive) {
-            android.widget.Toast.makeText(context, "Stop the server first to run benchmarks", android.widget.Toast.LENGTH_SHORT).show()
-          } else {
-            onBenchmarkClicked()
-          }
-        },
-      ) {
-        val textColor = if (isServerActive) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-          else MaterialTheme.colorScheme.onSecondaryContainer
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
+      Box(modifier = Modifier.weight(1f)) {
+        Button(
+          modifier = Modifier.height(42.dp).fillMaxWidth(),
+          enabled = !isServerActive,
+          colors =
+            ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer,
+              disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+          contentPadding = PaddingValues(horizontal = 12.dp),
+          onClick = { onBenchmarkClicked() },
         ) {
-          Icon(Icons.Rounded.BarChart, contentDescription = null, tint = textColor)
-          Text(
-            stringResource(R.string.benchmark),
-            color = textColor,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            autoSize =
-              TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+          val textColor = if (isServerActive) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            else MaterialTheme.colorScheme.onSecondaryContainer
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(Icons.Rounded.BarChart, contentDescription = null, tint = textColor)
+            Text(
+              stringResource(R.string.benchmark),
+              color = textColor,
+              style = MaterialTheme.typography.titleMedium,
+              maxLines = 1,
+              autoSize =
+                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+            )
+          }
+        }
+        // Invisible overlay to show toast when disabled
+        if (isServerActive) {
+          Box(
+            modifier = Modifier
+              .matchParentSize()
+              .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+              ) {
+                android.widget.Toast.makeText(context, "Stop the server first to run benchmarks", android.widget.Toast.LENGTH_SHORT).show()
+              },
           )
         }
       }
