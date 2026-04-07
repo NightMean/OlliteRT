@@ -716,6 +716,7 @@ class LlmHttpService : Service() {
       var thinkingTagOpened = false
       var lastLogUpdateMs = 0L
       val streamPreview = LlmHttpPrefs.isStreamLogsPreview(this@LlmHttpService)
+      val keepPartial = LlmHttpPrefs.isKeepPartialResponse(this@LlmHttpService)
 
       val stream = BlockingQueueInputStream()
 
@@ -745,8 +746,9 @@ class LlmHttpService : Service() {
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
             if (logId != null) {
+              val cancelledPartial = if (keepPartial && fullText.isNotEmpty()) fullText.toString() else null
               RequestLogStore.update(logId) {
-                it.copy(partialText = null, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
+                it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
               }
             }
             logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
@@ -901,6 +903,7 @@ class LlmHttpService : Service() {
       var thinkingTagOpened = false
       var lastLogUpdateMs = 0L
       val streamPreview = LlmHttpPrefs.isStreamLogsPreview(this@LlmHttpService)
+      val keepPartial = LlmHttpPrefs.isKeepPartialResponse(this@LlmHttpService)
 
       val stream = BlockingQueueInputStream()
 
@@ -930,8 +933,9 @@ class LlmHttpService : Service() {
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
             if (logId != null) {
+              val cancelledPartial = if (keepPartial && fullText.isNotEmpty()) fullText.toString() else null
               RequestLogStore.update(logId) {
-                it.copy(partialText = null, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
+                it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
               }
             }
             logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
