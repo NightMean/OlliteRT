@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 
 data class InferenceResult(
   val output: String?,
+  val thinking: String?,
   val error: String?,
   val totalMs: Long,
   val ttfbMs: Long,
@@ -13,7 +14,7 @@ data class InferenceResult(
 
 typealias InferenceRunner = (
   prompt: String,
-  onPartial: (partial: String, done: Boolean) -> Unit,
+  onPartial: (partial: String, done: Boolean, thought: String?) -> Unit,
   onError: (message: String) -> Unit,
 ) -> Unit
 
@@ -34,7 +35,7 @@ object LlmHttpInferenceGateway {
     runInference: InferenceRunner,
     cancelInference: () -> Unit,
     elapsedMs: () -> Long,
-    onToken: (partial: String, done: Boolean) -> Unit,
+    onToken: (partial: String, done: Boolean, thought: String?) -> Unit,
     onError: (error: String) -> Unit,
   ) {
     executor.execute {
@@ -45,8 +46,8 @@ object LlmHttpInferenceGateway {
           resetConversation()
           runInference(
             prompt,
-            { partial, done ->
-              onToken(partial, done)
+            { partial, done, thought ->
+              onToken(partial, done, thought)
               if (done) latch.countDown()
             },
             { e ->
@@ -83,6 +84,7 @@ object LlmHttpInferenceGateway {
     elapsedMs: () -> Long,
   ): InferenceResult {
     val sb = StringBuilder()
+    val thinkingSb = StringBuilder()
     val inferenceLatch = CountDownLatch(1)
     val lifecycleLatch = CountDownLatch(1)
     var error: String? = null
@@ -95,12 +97,15 @@ object LlmHttpInferenceGateway {
           resetConversation()
           runInference(
             prompt,
-            { partial, done ->
+            { partial, done, thought ->
               if (partial.isNotEmpty()) {
                 if (firstTokenMs == null) {
                   firstTokenMs = elapsedMs() - startMs
                 }
                 sb.append(partial)
+              }
+              if (!thought.isNullOrEmpty()) {
+                thinkingSb.append(thought)
               }
               if (done) inferenceLatch.countDown()
             },
@@ -128,8 +133,10 @@ object LlmHttpInferenceGateway {
       error = "timeout"
     }
     val totalMs = elapsedMs() - startMs
+    val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
     return InferenceResult(
       output = if (error != null) null else sb.toString(),
+      thinking = if (error != null) null else thinkingResult,
       error = error,
       totalMs = totalMs,
       ttfbMs = firstTokenMs ?: -1,

@@ -88,6 +88,7 @@ import java.util.Locale
 
 private val DeleteRedTint = Color(0xFFE57373)
 private val EventColor = Color(0xFF90A4AE) // blue-grey for internal events
+private val ThinkingColor = Color(0xFFCE93D8) // soft purple for thinking mode
 
 /**
  * Easter-egg "Generating" messages with rarity tiers.
@@ -516,9 +517,10 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     if (!entry.requestBody.isNullOrBlank()) {
       val formatted = remember(entry.requestBody) { prettyPrintJson(entry.requestBody) }
       val isLong = formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES
+      val requestSize = remember(entry.requestBody) { formatByteSize(entry.requestBody.toByteArray(Charsets.UTF_8).size) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
-        label = "Request",
+        label = "Request · $requestSize",
         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         body = formatted,
         expanded = requestExpanded,
@@ -561,9 +563,10 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     } else if (!entry.responseBody.isNullOrBlank()) {
       val formatted = remember(entry.responseBody) { prettyPrintJson(entry.responseBody) }
       val isLong = formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES
+      val responseSize = remember(entry.responseBody) { formatByteSize(entry.responseBody.toByteArray(Charsets.UTF_8).size) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
-        label = "Response",
+        label = "Response · $responseSize",
         labelColor = OlliteRTPrimary,
         body = formatted,
         expanded = responseExpanded,
@@ -572,25 +575,36 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       )
     }
 
-    // Footer: status + latency + streaming indicator (hidden while pending)
+    // Footer: status · latency · SSE · Thinking  ···  model · time
     if (!entry.isPending) {
       Spacer(modifier = Modifier.height(10.dp))
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
       ) {
         StatusBadge(statusCode = entry.statusCode)
+        FooterDot()
         Text(
           text = "${entry.latencyMs}ms",
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (entry.isStreaming) {
+          FooterDot()
           Text(
             text = "SSE",
             style = MaterialTheme.typography.labelSmall,
             color = OlliteRTPrimary,
+            fontWeight = FontWeight.SemiBold,
+          )
+        }
+        if (entry.isThinking) {
+          FooterDot()
+          Text(
+            text = "Thinking",
+            style = MaterialTheme.typography.labelSmall,
+            color = ThinkingColor,
             fontWeight = FontWeight.SemiBold,
           )
         }
@@ -745,6 +759,7 @@ private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
     if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
     if (entry.clientIp != null) appendLine("Client: ${entry.clientIp}")
     if (entry.isStreaming) appendLine("Streaming: SSE")
+    if (entry.isThinking) appendLine("Thinking: Yes")
     if (!entry.requestBody.isNullOrBlank()) {
       appendLine("\n--- Request ---")
       appendLine(entry.requestBody)
@@ -793,9 +808,24 @@ private fun StatusBadge(statusCode: Int) {
   )
 }
 
+@Composable
+private fun FooterDot() {
+  Text(
+    text = "·",
+    style = MaterialTheme.typography.labelSmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+}
+
 private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
 private fun formatTimestamp(millis: Long): String = timeFormat.format(Date(millis))
+
+private fun formatByteSize(bytes: Int): String = when {
+  bytes < 1024 -> "$bytes B"
+  bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
+  else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+}
 
 // JSON syntax highlighting colors
 private val JsonKeyColor = Color(0xFF82AAFF)      // blue — object keys
