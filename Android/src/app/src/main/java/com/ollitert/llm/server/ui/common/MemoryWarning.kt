@@ -27,9 +27,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,6 +65,13 @@ fun MemoryWarningAlert(
   var dontAskAgain by remember { mutableStateOf(false) }
 
   AlertDialog(
+    icon = {
+      Icon(
+        Icons.Rounded.Warning,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.error,
+      )
+    },
     title = { Text(stringResource(R.string.memory_warning_title)) },
     text = {
       Column {
@@ -88,7 +99,7 @@ fun MemoryWarningAlert(
     },
     onDismissRequest = onDismissed,
     confirmButton = {
-      TextButton(onClick = { onProceeded(dontAskAgain) }) {
+      Button(onClick = { onProceeded(dontAskAgain) }) {
         Text(stringResource(R.string.memory_warning_proceed_anyway))
       }
     },
