@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -52,18 +51,19 @@ fun OlliteRTTopBar(
   modifier: Modifier = Modifier,
   trailingContent: @Composable (() -> Unit)? = null,
 ) {
-  Row(
+  Box(
     modifier = modifier
       .fillMaxWidth()
       .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
       .statusBarsPadding()
       .padding(horizontal = 16.dp, vertical = 12.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.SpaceBetween,
   ) {
     // Left: Back arrow OR OlliteRT brand (not both)
     if (onBackClick != null) {
-      IconButton(onClick = onBackClick) {
+      IconButton(
+        onClick = onBackClick,
+        modifier = Modifier.align(Alignment.CenterStart),
+      ) {
         Icon(
           imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
           contentDescription = "Back",
@@ -72,7 +72,10 @@ fun OlliteRTTopBar(
         )
       }
     } else {
-      Row(verticalAlignment = Alignment.CenterVertically) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.align(Alignment.CenterStart),
+      ) {
         Image(
           painter = painterResource(id = R.drawable.ic_brand),
           contentDescription = null,
@@ -91,12 +94,18 @@ fun OlliteRTTopBar(
       }
     }
 
-    // Center: Status pill
-    StatusPill(serverStatus = serverStatus)
+    // Center: Status pill — always truly centered on screen
+    StatusPill(
+      serverStatus = serverStatus,
+      modifier = Modifier.align(Alignment.Center),
+    )
 
     // Right: Settings gear (hidden when already on Settings)
     if (onBackClick == null) {
-      IconButton(onClick = onSettingsClick) {
+      IconButton(
+        onClick = onSettingsClick,
+        modifier = Modifier.align(Alignment.CenterEnd),
+      ) {
         Icon(
           imageVector = Icons.Outlined.Settings,
           contentDescription = "Settings",
@@ -105,10 +114,9 @@ fun OlliteRTTopBar(
         )
       }
     } else if (trailingContent != null) {
-      trailingContent()
-    } else {
-      // Placeholder for layout balance
-      Spacer(modifier = Modifier.size(48.dp))
+      Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+        trailingContent()
+      }
     }
   }
 }

@@ -209,7 +209,14 @@ class LlmHttpService : Service() {
     Thread {
       try {
         val loadStart = SystemClock.elapsedRealtime()
-        server?.warmUpModel(model)
+        if (LlmHttpPrefs.isWarmupEnabled(this@LlmHttpService)) {
+          server?.warmUpModel(model)
+        } else {
+          RequestLogStore.addEvent(
+            "Warmup skipped (disabled in Advanced Settings)",
+            modelName = model.name,
+          )
+        }
         // If another model load was initiated while we were warming up, discard this result
         if (loadGeneration.get() != thisGeneration) {
           Log.w(logTag, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
