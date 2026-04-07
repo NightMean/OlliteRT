@@ -87,16 +87,31 @@ class LlmHttpService : Service() {
     val requestedModelName = intent?.getStringExtra(EXTRA_MODEL_NAME)
     currentPort = port
 
-    val model = if (requestedModelName != null) {
-      pickModelByName(requestedModelName) ?: pickDefaultLlmModel()
+    // Resolve the model: explicit request → persisted last model → fail.
+    // No hardcoded default — user must explicitly choose a model.
+    val resolvedModelName = requestedModelName
+      ?: LlmHttpPrefs.getLastModelName(this)
+    val model = if (resolvedModelName != null) {
+      pickModelByName(resolvedModelName)
     } else {
-      pickDefaultLlmModel()
+      null
     }
     if (model == null) {
+      Log.e(logTag, "No model specified or model '${resolvedModelName}' not found — cannot start server")
       ServerMetrics.onServerError()
       stopSelf()
       return START_NOT_STICKY
     }
+    // Verify model files actually exist on disk.
+    val modelPath = model.getPath(context = this)
+    if (!java.io.File(modelPath).exists()) {
+      Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server")
+      ServerMetrics.onServerError()
+      stopSelf()
+      return START_NOT_STICKY
+    }
+    // Persist for recovery after process death.
+    LlmHttpPrefs.setLastModelName(this, model.name)
     defaultModel = model
     modelCache[model.name] = model
 
@@ -178,12 +193,6 @@ class LlmHttpService : Service() {
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
-
-  private fun pickDefaultLlmModel(): Model? =
-    LlmHttpModelFactory.buildDefaultModel(
-      allowlist = allowlistLoader.load(),
-      importsDir = File(getExternalFilesDir(null), "__imports"),
-    )
 
   private fun pickModelByName(name: String): Model? {
     val allowlist = allowlistLoader.load()

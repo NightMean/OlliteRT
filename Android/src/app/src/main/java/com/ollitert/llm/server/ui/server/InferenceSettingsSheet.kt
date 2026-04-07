@@ -59,7 +59,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 
@@ -232,10 +231,7 @@ fun InferenceSettingsSheet(
         Switch(
           checked = enableThinking,
           onCheckedChange = { enableThinking = it },
-          colors = SwitchDefaults.colors(
-            checkedTrackColor = OlliteRTDeepBlue,
-            checkedThumbColor = Color.White,
-          ),
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
 
