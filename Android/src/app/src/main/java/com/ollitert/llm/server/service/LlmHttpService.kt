@@ -388,7 +388,14 @@ class LlmHttpService : Service() {
       val supportImage = model.llmSupportImage && images.isNotEmpty()
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
-        if (model.instance == null) {
+        // Re-initialize if images are requested but engine lacks vision support.
+        val needsReinit = model.instance == null ||
+          (supportImage && !model.initializedWithVision)
+        if (needsReinit) {
+          if (model.instance != null) {
+            Log.i(logTag, "Re-initializing model with vision support")
+            ServerLlmModelHelper.cleanUp(model) {}
+          }
           var err = ""
           ServerLlmModelHelper.initialize(
             context = this@LlmHttpService,
@@ -399,6 +406,7 @@ class LlmHttpService : Service() {
             systemInstruction = null,
           )
           if (err.isNotEmpty()) return null
+          model.initializedWithVision = supportImage
         }
       }
       val result = LlmHttpInferenceGateway.execute(
@@ -446,7 +454,13 @@ class LlmHttpService : Service() {
       val supportImage = model.llmSupportImage && images.isNotEmpty()
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
-        if (model.instance == null) {
+        val needsReinit = model.instance == null ||
+          (supportImage && !model.initializedWithVision)
+        if (needsReinit) {
+          if (model.instance != null) {
+            Log.i(logTag, "Re-initializing model with vision support (stream)")
+            ServerLlmModelHelper.cleanUp(model) {}
+          }
           var err = ""
           ServerLlmModelHelper.initialize(
             context = this@LlmHttpService,
@@ -457,6 +471,7 @@ class LlmHttpService : Service() {
             systemInstruction = null,
           )
           if (err.isNotEmpty()) return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
+          model.initializedWithVision = supportImage
         }
       }
 

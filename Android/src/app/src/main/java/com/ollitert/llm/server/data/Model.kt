@@ -242,6 +242,7 @@ data class Model(
   //
   var normalizedName: String = "",
   var instance: Any? = null,
+  var initializedWithVision: Boolean = false,
   var initializing: Boolean = false,
   // TODO(jingjin): use a "queue" system to manage model init and cleanup.
   var cleanUpAfterInit: Boolean = false,
