@@ -146,6 +146,7 @@ class LlmHttpService : Service() {
     modelCache[model.name] = model
 
     ServerMetrics.onServerStarting(port, model.name)
+    ServerMetrics.setActiveModelSize(model.totalBytes)
     RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name)
 
     val wifiIp = getWifiIpAddress(this)
@@ -272,7 +273,9 @@ class LlmHttpService : Service() {
     val importsDir = File(getExternalFilesDir(null), "__imports")
     val match = allowlist.firstOrNull { it.name.equals(name, ignoreCase = true) }
       ?: return null
-    return LlmHttpModelFactory.buildAllowedModel(match, importsDir)
+    val model = LlmHttpModelFactory.buildAllowedModel(match, importsDir)
+    model.preProcess()
+    return model
   }
 
   private fun selectModel(requestedModel: String?): Model? {
@@ -407,9 +410,9 @@ class LlmHttpService : Service() {
       val model = selectModel(null) ?: return badRequest("llm error")
       logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${req.prompt.length} model=default")
       ServerMetrics.onInferenceStarted()
-      val text = runLlm(model, req.prompt, requestId, "/generate")
+      val (text, llmError) = runLlm(model, req.prompt, requestId, "/generate")
       ServerMetrics.onInferenceCompleted()
-      if (text == null) return badRequest("llm error")
+      if (text == null) return badRequest(llmError ?: "llm error")
       val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(0, 0)))
       captureResponse(responseJson)
       return okJsonText(responseJson)
@@ -450,9 +453,9 @@ class LlmHttpService : Service() {
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
 
       ServerMetrics.onInferenceStarted()
-      val text = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
+      val (text, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
       ServerMetrics.onInferenceCompleted()
-      if (text == null) return badRequest("llm error")
+      if (text == null) return badRequest(llmError ?: "llm error")
       return if (req.stream == true) {
         captureResponse(json.encodeToString(chatResponseWithText(model.name, text)))
         chatSseResponse(model.name, text)
@@ -500,9 +503,9 @@ class LlmHttpService : Service() {
         resp
       } else {
         ServerMetrics.onInferenceStarted()
-        val text = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
+        val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
         ServerMetrics.onInferenceCompleted()
-        if (text == null) return badRequest("llm error")
+        if (text == null) return badRequest(llmError ?: "llm error")
         val responseJson = json.encodeToString(responsesResponseWithText(model.name, text))
         captureResponse(responseJson)
         okJsonText(responseJson)
@@ -511,7 +514,7 @@ class LlmHttpService : Service() {
 
     fun warmUpModel(model: Model) {
       val startMs = SystemClock.elapsedRealtime()
-      val result = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10)
+      val (result, _) = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10)
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
       val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
       RequestLogStore.addEvent(
@@ -527,7 +530,7 @@ class LlmHttpService : Service() {
       endpoint: String,
       timeoutSeconds: Long = 30,
       images: List<Bitmap> = emptyList(),
-    ): String? {
+    ): Pair<String?, String?> {
       // Track input tokens (rough estimate: ~4 chars per token)
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
       // Track request modality
@@ -553,7 +556,7 @@ class LlmHttpService : Service() {
             onDone = { err = it },
             systemInstruction = null,
           )
-          if (err.isNotEmpty()) return null
+          if (err.isNotEmpty()) return null to "Model initialization failed: $err"
           model.initializedWithVision = supportImage
         }
       }
@@ -581,17 +584,14 @@ class LlmHttpService : Service() {
       return if (result.error != null) {
         ServerMetrics.incrementErrorCount()
         logEvent("request_error id=$requestId endpoint=$endpoint error=${result.error} totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
-        if (endpoint != "warmup") {
-          RequestLogStore.addEvent("Inference error: ${result.error}", level = LogLevel.ERROR, modelName = model.name)
-        }
-        null
+        null to result.error
       } else {
         val outputLen = result.output?.length ?: 0
         // Rough token estimate: ~4 chars per token
         ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
         ServerMetrics.recordLatency(result.totalMs)
         logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
-        result.output
+        result.output to null
       }
     }
 

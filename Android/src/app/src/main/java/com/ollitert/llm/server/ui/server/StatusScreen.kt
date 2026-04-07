@@ -21,9 +21,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -56,6 +62,7 @@ fun StatusScreen(
 ) {
   val status by serverViewModel.status.collectAsState()
   val modelName by serverViewModel.activeModelName.collectAsState()
+  val modelSizeBytes by serverViewModel.activeModelSize.collectAsState()
   val port by serverViewModel.port.collectAsState()
   val bindAddress by serverViewModel.bindAddress.collectAsState()
   val startedAtMs by serverViewModel.startedAtMs.collectAsState()
@@ -102,6 +109,8 @@ fun StatusScreen(
       loadingElapsedSeconds = 0L
     }
   }
+
+  var showReloadDialog by remember { mutableStateOf(false) }
 
   val endpointUrl = "http://${bindAddress ?: "localhost"}:$port/v1"
 
@@ -151,22 +160,31 @@ fun StatusScreen(
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
       ) {
+        // Model icon box
+        Box(
+          modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.ViewInAr,
+            contentDescription = null,
+            tint = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else OlliteRTPrimary,
+            modifier = Modifier.size(26.dp),
+          )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Active Model",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-            text = if (isStopped) "None" else (modelName ?: "Loading…"),
+            text = if (isStopped) "No model loaded" else (modelName ?: "Loading…"),
             style = MaterialTheme.typography.titleMedium,
             color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
           )
+          Spacer(modifier = Modifier.height(2.dp))
           if (status == ServerStatus.ERROR) {
-            Spacer(modifier = Modifier.height(2.dp))
             val errorText = if (!lastError.isNullOrBlank()) {
               if (lastError!!.length > 80) "Failed to load — check Logs for details"
               else "Failed: $lastError"
@@ -180,18 +198,28 @@ fun StatusScreen(
               maxLines = 2,
             )
           } else if (isLoading) {
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
-              text = "Loading… ${loadingElapsedSeconds}s",
+              text = buildString {
+                if (modelSizeBytes > 0) append("${modelSizeBytes.humanReadableSize()} · ")
+                append("Loading… ${loadingElapsedSeconds}s")
+              },
               style = MaterialTheme.typography.labelSmall,
               color = OlliteRTPrimary.copy(alpha = 0.7f),
             )
           } else if (!isStopped && modelLoadTimeMs > 0) {
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
-              text = "Loaded in ${formatLoadTime(modelLoadTimeMs)}",
+              text = buildString {
+                if (modelSizeBytes > 0) append("${modelSizeBytes.humanReadableSize()} · ")
+                append("Loaded in ${formatLoadTime(modelLoadTimeMs)}")
+              },
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+          } else if (isStopped) {
+            Text(
+              text = "Start a model from the Models tab",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             )
           }
         }
@@ -216,7 +244,7 @@ fun StatusScreen(
                 .size(40.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable { onReloadModel() },
+                .clickable { showReloadDialog = true },
               contentAlignment = Alignment.Center,
             ) {
               Icon(
@@ -238,15 +266,30 @@ fun StatusScreen(
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
       ) {
+        // LAN icon box
+        Box(
+          modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.Lan,
+            contentDescription = null,
+            tint = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else OlliteRTPrimary,
+            modifier = Modifier.size(26.dp),
+          )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Endpoint",
-            style = MaterialTheme.typography.labelMedium,
+            text = "Active API Endpoint",
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
-          Spacer(modifier = Modifier.height(4.dp))
+          Spacer(modifier = Modifier.height(2.dp))
           Text(
             text = if (isStopped) "—" else endpointUrl,
             style = MaterialTheme.typography.bodyMedium,
@@ -397,6 +440,38 @@ fun StatusScreen(
         )
       }
     }
+  }
+
+  // Reload model confirmation dialog
+  if (showReloadDialog) {
+    AlertDialog(
+      onDismissRequest = { showReloadDialog = false },
+      title = {
+        Text(
+          text = "Reload Model",
+          style = MaterialTheme.typography.titleMedium,
+        )
+      },
+      text = {
+        Text(
+          text = "This will restart the server and reload ${modelName ?: "the model"}. Any in-flight requests will be interrupted.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        TextButton(onClick = {
+          showReloadDialog = false
+          onReloadModel()
+        }) {
+          Text("Reload", color = OlliteRTPrimary)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showReloadDialog = false }) {
+          Text("Cancel")
+        }
+      },
+    )
   }
 }
 
