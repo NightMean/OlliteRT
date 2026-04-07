@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,9 +32,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
@@ -69,13 +72,23 @@ fun OlliteRTTopBar(
         )
       }
     } else {
-      Text(
-        text = "OlliteRT",
-        color = OlliteRTPrimary,
-        fontFamily = SpaceGroteskFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-      )
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Image(
+          painter = painterResource(id = R.drawable.ic_brand),
+          contentDescription = null,
+          modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(6.dp)),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = "OlliteRT",
+          color = OlliteRTPrimary,
+          fontFamily = SpaceGroteskFontFamily,
+          fontWeight = FontWeight.Bold,
+          fontSize = 22.sp,
+        )
+      }
     }
 
     // Center: Status pill
