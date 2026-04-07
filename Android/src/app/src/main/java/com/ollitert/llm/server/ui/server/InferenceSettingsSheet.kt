@@ -256,18 +256,22 @@ fun InferenceSettingsSheet(
       Spacer(modifier = Modifier.height(4.dp))
 
       // Enable Thinking toggle in a container
+      val supportsThinking = model.llmSupportThinking
       Row(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(16.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+          .background(
+            if (supportsThinking) MaterialTheme.colorScheme.surfaceContainerHigh
+            else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
+          )
           .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Icon(
           Icons.Outlined.Psychology,
           contentDescription = null,
-          tint = OlliteRTPrimary,
+          tint = if (supportsThinking) OlliteRTPrimary else MaterialTheme.colorScheme.outline,
           modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(12.dp))
@@ -276,17 +280,21 @@ fun InferenceSettingsSheet(
             text = "Allow Thinking",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = if (supportsThinking) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
           )
           Text(
-            text = "Enables the model's thinking mode for step-by-step reasoning",
+            text = if (supportsThinking) "Enables the model's thinking mode for step-by-step reasoning"
+                   else "This model does not support thinking mode",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (supportsThinking) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
           )
         }
         Switch(
-          checked = enableThinking,
+          checked = enableThinking && supportsThinking,
           onCheckedChange = { enableThinking = it },
+          enabled = supportsThinking,
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

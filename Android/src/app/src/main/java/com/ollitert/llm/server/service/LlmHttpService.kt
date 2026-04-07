@@ -24,6 +24,9 @@ import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -409,6 +412,11 @@ class LlmHttpService : Service() {
               LlmHttpRouteHandler.PING -> {
                 responseBodySnapshot = "{\"status\":\"ok\"}"
                 okJsonText(responseBodySnapshot!!)
+              }
+              LlmHttpRouteHandler.SERVER_INFO -> {
+                val body = serverInfoPayload()
+                responseBodySnapshot = body
+                okJsonText(body)
               }
               LlmHttpRouteHandler.MODELS -> {
                 val body = modelsPayload()
@@ -1162,6 +1170,26 @@ class LlmHttpService : Service() {
   }
 
   // ── Payload builders ─────────────────────────────────────────────────────────
+
+  private fun serverInfoPayload(): String {
+    val status = ServerMetrics.status.value
+    val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
+      (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
+    val info = buildMap {
+      put("name", JsonPrimitive("OlliteRT"))
+      put("version", JsonPrimitive(com.ollitert.llm.server.BuildConfig.VERSION_NAME))
+      put("status", JsonPrimitive(status.name.lowercase()))
+      defaultModel?.let { put("model", JsonPrimitive(it.name)) }
+      uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      put("compatibility", JsonPrimitive("openai"))
+      put("endpoints", JsonArray(listOf(
+        JsonPrimitive("/v1/models"),
+        JsonPrimitive("/v1/chat/completions"),
+        JsonPrimitive("/v1/responses"),
+      )))
+    }
+    return JsonObject(info).toString()
+  }
 
   private fun modelsPayload(): String {
     val model = defaultModel

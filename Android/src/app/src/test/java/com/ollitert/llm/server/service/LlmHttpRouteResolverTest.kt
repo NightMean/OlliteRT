@@ -33,6 +33,18 @@ class LlmHttpRouteResolverTest {
   }
 
   @Test
+  fun resolvesServerInfoRoutes() {
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/"),
+    )
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1"),
+    )
+  }
+
+  @Test
   fun returnsNullForUnknownRouteOrWrongMethod() {
     assertNull(LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/generate"))
     assertNull(LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/models"))

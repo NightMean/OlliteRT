@@ -4,6 +4,7 @@ import fi.iki.elonen.NanoHTTPD
 
 enum class LlmHttpRouteHandler {
   PING,
+  SERVER_INFO,
   MODELS,
   GENERATE,
   CHAT_COMPLETIONS,
@@ -25,6 +26,7 @@ object LlmHttpRouteResolver {
       NanoHTTPD.Method.GET ->
         when (uri) {
           "/ping" -> LlmHttpRoute(handler = LlmHttpRouteHandler.PING, requiresAuth = false)
+          "/", "/v1" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false)
           "/v1/models", "/debug/models" ->
             LlmHttpRoute(handler = LlmHttpRouteHandler.MODELS, requiresAuth = true)
           else -> null
