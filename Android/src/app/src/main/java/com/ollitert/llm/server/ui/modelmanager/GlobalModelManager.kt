@@ -146,6 +146,7 @@ fun GlobalModelManager(
   modifier: Modifier = Modifier,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  lastError: String? = null,
   onStopServer: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
@@ -415,6 +416,7 @@ fun GlobalModelManager(
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
           serverStatus = serverStatus,
           activeModelName = activeModelName,
+          lastError = lastError,
           onStopServer = onStopServer,
           onNavigateToSettings = onNavigateToSettings,
         )
@@ -443,6 +445,7 @@ fun GlobalModelManager(
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
           serverStatus = serverStatus,
           activeModelName = activeModelName,
+          lastError = lastError,
           onStopServer = onStopServer,
           onNavigateToSettings = onNavigateToSettings,
         )
@@ -472,8 +475,8 @@ fun GlobalModelManager(
     val cdImportModelFab = stringResource(R.string.cd_import_model_button)
     FloatingActionButton(
       onClick = { showImportModelSheet = true },
-      containerColor = MaterialTheme.colorScheme.secondaryContainer,
-      contentColor = MaterialTheme.colorScheme.secondary,
+      containerColor = OlliteRTPrimary,
+      contentColor = MaterialTheme.colorScheme.onPrimary,
       modifier = Modifier
         .align(Alignment.BottomEnd)
         .padding(end = 16.dp, bottom = 16.dp)

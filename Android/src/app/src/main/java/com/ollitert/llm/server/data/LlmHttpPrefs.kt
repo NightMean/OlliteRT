@@ -11,6 +11,9 @@ private const val KEY_ACCELERATOR_FALLBACK_ENABLED = "accelerator_fallback_enabl
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
 private const val KEY_LAST_MODEL_NAME = "last_model_name"
+private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
+private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
+private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -86,6 +89,42 @@ object LlmHttpPrefs {
         if (modelName != null) putString(KEY_LAST_MODEL_NAME, modelName)
         else remove(KEY_LAST_MODEL_NAME)
       }
+      .apply()
+  }
+
+  fun getDefaultModelName(context: Context): String? =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_DEFAULT_MODEL_NAME, null)
+
+  fun setDefaultModelName(context: Context, modelName: String?) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .apply {
+        if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
+        else remove(KEY_DEFAULT_MODEL_NAME)
+      }
+      .apply()
+  }
+
+  fun isAutoStartOnBoot(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_AUTO_START_ON_BOOT, false)
+
+  fun setAutoStartOnBoot(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_AUTO_START_ON_BOOT, enabled)
+      .apply()
+  }
+
+  fun isKeepScreenOn(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_KEEP_SCREEN_ON, true)
+
+  fun setKeepScreenOn(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_KEEP_SCREEN_ON, enabled)
       .apply()
   }
 

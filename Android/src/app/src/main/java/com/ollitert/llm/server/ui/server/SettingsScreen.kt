@@ -25,10 +25,18 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import android.view.WindowManager
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.AlertDialog
@@ -72,6 +80,7 @@ fun SettingsScreen(
   modifier: Modifier = Modifier,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   onRestartServer: () -> Unit = {},
+  downloadedModelNames: List<String> = emptyList(),
 ) {
   val context = LocalContext.current
 
@@ -92,6 +101,16 @@ fun SettingsScreen(
   // HuggingFace token state
   var hfToken by remember { mutableStateOf(LlmHttpPrefs.getHfToken(context)) }
   var hfTokenVisible by remember { mutableStateOf(false) }
+
+  // Auto-launch model state
+  var defaultModelName by remember { mutableStateOf(LlmHttpPrefs.getDefaultModelName(context)) }
+  var showModelDropdown by remember { mutableStateOf(false) }
+
+  // Auto-start on boot state
+  var autoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
+
+  // Keep screen awake state
+  var keepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
 
   Column(
     modifier = modifier
@@ -155,6 +174,159 @@ fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+    }
+
+    // Auto-Launch & Behavior card
+    SettingsCard(
+      icon = Icons.Outlined.PlayArrow,
+      title = "Auto-Launch & Behavior",
+    ) {
+      // Default model picker
+      Text(
+        text = "Default Model",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      if (downloadedModelNames.isEmpty()) {
+        Text(
+          text = "No downloaded models. Download a model first from the Models tab.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
+      } else {
+        // Dropdown trigger
+        Column {
+          OutlinedTextField(
+            value = defaultModelName ?: "None (manual start)",
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            modifier = Modifier
+              .fillMaxWidth()
+              .clickable { showModelDropdown = true },
+            enabled = false,
+            colors = OutlinedTextFieldDefaults.colors(
+              disabledTextColor = MaterialTheme.colorScheme.onSurface,
+              disabledBorderColor = MaterialTheme.colorScheme.outline,
+              disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+          )
+          DropdownMenu(
+            expanded = showModelDropdown,
+            onDismissRequest = { showModelDropdown = false },
+          ) {
+            DropdownMenuItem(
+              text = {
+                Text(
+                  "None (manual start)",
+                  color = if (defaultModelName == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+                )
+              },
+              onClick = {
+                defaultModelName = null
+                showModelDropdown = false
+              },
+            )
+            HorizontalDivider()
+            downloadedModelNames.forEach { modelName ->
+              DropdownMenuItem(
+                text = {
+                  Text(
+                    modelName,
+                    color = if (modelName == defaultModelName) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+                  )
+                },
+                onClick = {
+                  defaultModelName = modelName
+                  showModelDropdown = false
+                },
+              )
+            }
+          }
+        }
+      }
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = "Automatically load this model when the app is launched.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Auto-start on boot toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Start on Boot",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Launch server automatically when device starts.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = autoStartOnBoot,
+          onCheckedChange = { enabled ->
+            if (enabled && defaultModelName == null) {
+              Toast.makeText(context, "Select a default model first", Toast.LENGTH_SHORT).show()
+            } else {
+              autoStartOnBoot = enabled
+            }
+          },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Keep screen awake toggle
+      val view = LocalView.current
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Keep Screen Awake",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Prevent screen from turning off while app is open.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = keepScreenOn,
+          onCheckedChange = { enabled ->
+            keepScreenOn = enabled
+            LlmHttpPrefs.setKeepScreenOn(context, enabled)
+            // Apply immediately without requiring app restart
+            val window = (view.context as? android.app.Activity)?.window
+            if (enabled) {
+              window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+              window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+          },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
     }
 
     // API Authentication card
@@ -340,6 +512,9 @@ fun SettingsScreen(
           LlmHttpPrefs.setBearerToken(context, bearerToken)
         }
         LlmHttpPrefs.setHfToken(context, hfToken)
+        LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
+        LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
+        LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
 
         if (portChanged && isServerRunning) {
           showRestartDialog = true

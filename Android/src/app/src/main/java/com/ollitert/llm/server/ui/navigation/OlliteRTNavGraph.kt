@@ -87,6 +87,7 @@ fun OlliteRTNavHost(
     composable(OlliteRTRoutes.MODELS) {
       val serverStatus by serverViewModel.status.collectAsState()
       val activeModelName by serverViewModel.activeModelName.collectAsState()
+      val lastError by serverViewModel.lastError.collectAsState()
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
@@ -99,6 +100,7 @@ fun OlliteRTNavHost(
         },
         serverStatus = serverStatus,
         activeModelName = activeModelName,
+        lastError = lastError,
         onStopServer = { serverViewModel.stopServer() },
         onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) },
       )
@@ -109,9 +111,8 @@ fun OlliteRTNavHost(
       StatusScreen(
         serverViewModel = serverViewModel,
         onReloadModel = {
-          // Restart the server to reload the model
-          serverViewModel.stopServer()
-          serverViewModel.startServer()
+          // Reload the model atomically within the service (clean up old model, then re-init)
+          serverViewModel.reloadServer()
         },
       )
     }
@@ -129,6 +130,7 @@ fun OlliteRTNavHost(
     ) {
       val settingsServerStatus by serverViewModel.status.collectAsState()
       val settingsActiveModel by serverViewModel.activeModelName.collectAsState()
+      val downloadedModelNames = modelManagerViewModel.getAllDownloadedModels().map { it.name }
       SettingsScreen(
         onBackClick = { navController.navigateUp() },
         serverStatus = settingsServerStatus,
@@ -137,6 +139,7 @@ fun OlliteRTNavHost(
           serverViewModel.stopServer()
           serverViewModel.startServer(modelName = currentModel)
         },
+        downloadedModelNames = downloadedModelNames,
       )
     }
 

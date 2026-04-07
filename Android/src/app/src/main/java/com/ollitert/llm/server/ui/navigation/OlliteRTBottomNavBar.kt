@@ -41,7 +41,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.ui.common.humanReadableSize
-import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTSurfaceContainerLowest
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
@@ -200,7 +199,7 @@ private fun OlliteRTNavItem(
           .width(80.dp)
           .height(48.dp)
           .clip(RoundedCornerShape(14.dp))
-          .background(OlliteRTDeepBlue.copy(alpha = 0.30f))
+          .background(OlliteRTPrimary.copy(alpha = 0.20f))
       )
     }
 

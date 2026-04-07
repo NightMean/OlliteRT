@@ -83,6 +83,25 @@ class LlmHttpService : Service() {
       return START_NOT_STICKY
     }
 
+    // Handle reload action: clean up current model first, then proceed with normal start
+    if (intent?.action == ACTION_RELOAD) {
+      Log.i(logTag, "Reload requested — cleaning up current model before restart")
+      server?.stop()
+      defaultModel?.let { model ->
+        try {
+          ServerLlmModelHelper.cleanUp(model) {}
+        } catch (e: Exception) {
+          Log.w(logTag, "Error cleaning up model during reload: ${e.message}")
+        }
+        model.instance = null
+        model.initializing = false
+      }
+      defaultModel = null
+      modelCache.clear()
+      ServerMetrics.onServerStopped()
+      // Fall through to normal start logic below
+    }
+
     val port = intent?.getIntExtra(EXTRA_PORT, DEFAULT_PORT) ?: LlmHttpPrefs.getPort(this)
     val requestedModelName = intent?.getStringExtra(EXTRA_MODEL_NAME)
     currentPort = port
@@ -98,7 +117,7 @@ class LlmHttpService : Service() {
     }
     if (model == null) {
       Log.e(logTag, "No model specified or model '${resolvedModelName}' not found — cannot start server")
-      ServerMetrics.onServerError()
+      ServerMetrics.onServerError("Model '${resolvedModelName ?: "unknown"}' not found")
       stopSelf()
       return START_NOT_STICKY
     }
@@ -106,7 +125,7 @@ class LlmHttpService : Service() {
     val modelPath = model.getPath(context = this)
     if (!java.io.File(modelPath).exists()) {
       Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server")
-      ServerMetrics.onServerError()
+      ServerMetrics.onServerError("Model files not found on disk")
       stopSelf()
       return START_NOT_STICKY
     }
@@ -161,8 +180,16 @@ class LlmHttpService : Service() {
     server?.start()
 
     Thread {
-      server?.warmUpModel(model)
-      ServerMetrics.onServerRunning(wifiIp)
+      try {
+        val loadStart = SystemClock.elapsedRealtime()
+        server?.warmUpModel(model)
+        ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
+        ServerMetrics.onServerRunning(wifiIp)
+      } catch (e: Exception) {
+        Log.e(logTag, "Failed to load model ${model.name}", e)
+        val msg = e.message?.take(120) ?: "Unknown error during model initialization"
+        ServerMetrics.onServerError(msg)
+      }
     }.start()
 
     return START_STICKY
@@ -394,6 +421,11 @@ class LlmHttpService : Service() {
       timeoutSeconds: Long = 30,
       images: List<Bitmap> = emptyList(),
     ): String? {
+      // Track input tokens (rough estimate: ~4 chars per token)
+      ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
+      // Track request modality
+      ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
+
       val supportImage = model.llmSupportImage && images.isNotEmpty()
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
@@ -440,6 +472,7 @@ class LlmHttpService : Service() {
         elapsedMs = { SystemClock.elapsedRealtime() },
       )
       return if (result.error != null) {
+        ServerMetrics.incrementErrorCount()
         logEvent("request_error id=$requestId endpoint=$endpoint error=${result.error} totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
         null
       } else {
@@ -460,6 +493,11 @@ class LlmHttpService : Service() {
       timeoutSeconds: Long = 90,
       images: List<Bitmap> = emptyList(),
     ): Response {
+      // Track input tokens (rough estimate: ~4 chars per token)
+      ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
+      // Track request modality
+      ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
+
       val supportImage = model.llmSupportImage && images.isNotEmpty()
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
@@ -528,11 +566,13 @@ class LlmHttpService : Service() {
               writer.flush()
             }
             if (done) {
+              val outputLen = fullText.length
+              ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
               val esc = LlmHttpBridgeUtils.escapeSseText(fullText.toString())
               writer.write(LlmHttpResponseRenderer.buildStreamingFooter(model.name, respId, msgId, now, esc))
               writer.flush()
               writer.close()
-              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
+              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
             }
           } catch (e: Exception) {
             logEvent("request_error id=$requestId endpoint=$endpoint error=pipe_write_failed streaming=true")
@@ -540,6 +580,7 @@ class LlmHttpService : Service() {
           }
         },
         onError = { error ->
+          ServerMetrics.incrementErrorCount()
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
           try {
             writer.write("data: {\"error\":\"$error\"}\n\n")
@@ -693,6 +734,7 @@ class LlmHttpService : Service() {
     const val EXTRA_MODEL_NAME = "extra_model_name"
     const val DEFAULT_PORT = 8000
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
+    const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     private const val CHANNEL_ID = "ollitert-server"
     private const val NOTIFICATION_ID = 42
 
@@ -710,6 +752,19 @@ class LlmHttpService : Service() {
 
     fun stop(context: Context) {
       context.stopService(Intent(context, LlmHttpService::class.java))
+    }
+
+    fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null) {
+      val intent = Intent(context, LlmHttpService::class.java).apply {
+        action = ACTION_RELOAD
+        putExtra(EXTRA_PORT, port)
+        if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+      } else {
+        context.startService(intent)
+      }
     }
   }
 }

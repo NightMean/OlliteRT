@@ -4,7 +4,7 @@
   <style name="Theme.OlliteRT" parent="android:Theme.Material.NoActionBar" />
   <style name="Theme.OlliteRT.SplashScreen" parent="Theme.SplashScreen">
       <!-- Match surface color #131314 -->
-      <item name="windowSplashScreenBackground">#FF060e0b</item>
+      <item name="windowSplashScreenBackground">#FF131314</item>
       <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen_icon</item>
       <item name="postSplashScreenTheme">@style/Theme.OlliteRT</item>
   </style>

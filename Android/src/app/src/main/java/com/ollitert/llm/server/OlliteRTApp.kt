@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -16,6 +19,7 @@ import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar
 import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
 import com.ollitert.llm.server.ui.navigation.OlliteRTRoutes
+import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.navigation.OlliteRTTab
 import com.ollitert.llm.server.ui.navigation.OlliteRTTopBar
 import com.ollitert.llm.server.ui.server.ServerViewModel
@@ -37,6 +41,18 @@ fun OlliteRTApp(
     OlliteRTRoutes.GETTING_STARTED
   }
 
+  // Auto-load default model on app launch (if configured and server isn't already running)
+  val context = LocalContext.current
+  val serverStatus by serverViewModel.status.collectAsState()
+  LaunchedEffect(Unit) {
+    if (startDestination == OlliteRTRoutes.MODELS) {
+      val defaultModel = LlmHttpPrefs.getDefaultModelName(context)
+      if (!defaultModel.isNullOrBlank() && serverStatus == ServerStatus.STOPPED) {
+        serverViewModel.startServer(modelName = defaultModel)
+      }
+    }
+  }
+
   // Determine which screens show the bottom nav and top bar
   val showBottomBar = currentRoute in listOf(
     OlliteRTRoutes.MODELS,
@@ -47,8 +63,6 @@ fun OlliteRTApp(
     OlliteRTRoutes.GETTING_STARTED,
     OlliteRTRoutes.BENCHMARK,
   )
-
-  val serverStatus by serverViewModel.status.collectAsState()
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
