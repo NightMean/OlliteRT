@@ -103,6 +103,7 @@ fun SettingsScreen(
   var savedAutoExpandLogs by remember { mutableStateOf(LlmHttpPrefs.isAutoExpandLogs(context)) }
   var savedNotifShowRequestCount by remember { mutableStateOf(LlmHttpPrefs.isNotifShowRequestCount(context)) }
   var savedWarmupEnabled by remember { mutableStateOf(LlmHttpPrefs.isWarmupEnabled(context)) }
+  var savedStreamLogsPreview by remember { mutableStateOf(LlmHttpPrefs.isStreamLogsPreview(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -119,6 +120,7 @@ fun SettingsScreen(
   var autoExpandLogs by remember { mutableStateOf(savedAutoExpandLogs) }
   var notifShowRequestCount by remember { mutableStateOf(savedNotifShowRequestCount) }
   var warmupEnabled by remember { mutableStateOf(savedWarmupEnabled) }
+  var streamLogsPreview by remember { mutableStateOf(savedStreamLogsPreview) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -130,7 +132,8 @@ fun SettingsScreen(
     keepScreenOn != savedKeepScreenOn ||
     autoExpandLogs != savedAutoExpandLogs ||
     notifShowRequestCount != savedNotifShowRequestCount ||
-    warmupEnabled != savedWarmupEnabled
+    warmupEnabled != savedWarmupEnabled ||
+    streamLogsPreview != savedStreamLogsPreview
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -167,6 +170,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
         LlmHttpPrefs.setNotifShowRequestCount(context, notifShowRequestCount)
         LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
+        LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -186,6 +190,7 @@ fun SettingsScreen(
         savedAutoExpandLogs = autoExpandLogs
         savedNotifShowRequestCount = notifShowRequestCount
         savedWarmupEnabled = warmupEnabled
+        savedStreamLogsPreview = streamLogsPreview
 
         if (isPortChanged && isServerRunning) {
           showRestartDialog = true
@@ -315,6 +320,31 @@ fun SettingsScreen(
         Switch(
           checked = autoExpandLogs,
           onCheckedChange = { autoExpandLogs = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Stream response preview toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Stream Response Preview",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Show model output as it generates in the Logs tab for streaming requests.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = streamLogsPreview,
+          onCheckedChange = { streamLogsPreview = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

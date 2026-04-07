@@ -17,6 +17,7 @@ private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 private const val KEY_AUTO_EXPAND_LOGS = "auto_expand_logs"
 private const val KEY_NOTIF_SHOW_REQUEST_COUNT = "notif_show_request_count"
 private const val KEY_WARMUP_ENABLED = "warmup_enabled"
+private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -139,6 +140,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_AUTO_EXPAND_LOGS, enabled)
+      .apply()
+  }
+
+  fun isStreamLogsPreview(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_STREAM_LOGS_PREVIEW, true)
+
+  fun setStreamLogsPreview(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_STREAM_LOGS_PREVIEW, enabled)
       .apply()
   }
 
