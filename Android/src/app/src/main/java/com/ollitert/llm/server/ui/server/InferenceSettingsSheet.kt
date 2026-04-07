@@ -25,7 +25,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +36,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,8 +59,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 
@@ -95,12 +100,68 @@ fun InferenceSettingsSheet(
   }
   var enableThinking by remember {
     mutableStateOf(
-      (configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: true
+      (configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
     )
   }
   var useGpu by remember {
     mutableStateOf(
       configValues[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
+    )
+  }
+
+  // Extract per-model min/max limits from NumberSliderConfig objects
+  val limits = remember(model) {
+    fun range(key: com.ollitert.llm.server.data.ConfigKey): Pair<Float, Float>? {
+      val c = model.configs.find { it.key == key }
+      return if (c is NumberSliderConfig) c.sliderMin to c.sliderMax else null
+    }
+    mapOf(
+      "temp" to (range(ConfigKeys.TEMPERATURE) ?: (0f to 2f)),
+      "maxTokens" to (range(ConfigKeys.MAX_TOKENS) ?: (1f to 4096f)),
+      "topK" to (range(ConfigKeys.TOPK) ?: (1f to 100f)),
+      "topP" to (range(ConfigKeys.TOPP) ?: (0f to 1f)),
+    )
+  }
+  val tempRange = limits["temp"]!!
+  val maxTokensRange = limits["maxTokens"]!!
+  val topKRange = limits["topK"]!!
+  val topPRange = limits["topP"]!!
+
+  // Build default values map from model's config definitions
+  val defaults = remember(model) {
+    model.configs.associate { it.key.label to it.defaultValue }
+  }
+
+  val context = LocalContext.current
+  var showResetDialog by remember { mutableStateOf(false) }
+
+  // Reset confirmation dialog
+  if (showResetDialog) {
+    AlertDialog(
+      onDismissRequest = { showResetDialog = false },
+      title = { Text("Reset to Defaults") },
+      text = { Text("This will reset all inference settings to their default values for this model. The model will reload to apply the changes.") },
+      confirmButton = {
+        Button(onClick = {
+          showResetDialog = false
+          temperature = (defaults[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat() ?: 1.0f
+          maxTokens = (defaults[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+            ?: defaults[ConfigKeys.MAX_TOKENS.label]?.toString()?.toIntOrNull()
+            ?: 1024
+          topK = (defaults[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 40
+          topP = (defaults[ConfigKeys.TOPP.label] as? Number)?.toFloat() ?: 0.95f
+          enableThinking = (defaults[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
+          useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
+          Toast.makeText(context, "Model settings reset to default", Toast.LENGTH_SHORT).show()
+        }) {
+          Text("Reset")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showResetDialog = false }) {
+          Text("Cancel")
+        }
+      },
     )
   }
 
@@ -129,12 +190,21 @@ fun InferenceSettingsSheet(
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurface,
         )
-        Icon(
-          Icons.Outlined.Tune,
-          contentDescription = null,
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(24.dp),
-        )
+        Box(
+          modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .clickable { showResetDialog = true },
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            Icons.Outlined.RestartAlt,
+            contentDescription = "Reset to defaults",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp),
+          )
+        }
       }
 
       Spacer(modifier = Modifier.height(4.dp))
@@ -147,22 +217,20 @@ fun InferenceSettingsSheet(
         ParameterInputBox(
           label = "TEMPERATURE",
           value = "%.1f".format(temperature),
-          onValueChange = { text ->
-            text.toFloatOrNull()?.let { v ->
-              temperature = v.coerceIn(0f, 2f)
-            }
-          },
+          onValueChange = { temperature = it.toFloat() },
+          min = tempRange.first,
+          max = tempRange.second,
+          isFloat = true,
           keyboardType = KeyboardType.Decimal,
           modifier = Modifier.weight(1f),
         )
         ParameterInputBox(
           label = "MAX TOKENS",
           value = maxTokens.toString(),
-          onValueChange = { text ->
-            text.toIntOrNull()?.let { v ->
-              maxTokens = v.coerceIn(1, 8192)
-            }
-          },
+          onValueChange = { maxTokens = it.toInt() },
+          min = maxTokensRange.first,
+          max = maxTokensRange.second,
+          isFloat = false,
           keyboardType = KeyboardType.Number,
           modifier = Modifier.weight(1f),
         )
@@ -176,22 +244,20 @@ fun InferenceSettingsSheet(
         ParameterInputBox(
           label = "TOP-K",
           value = topK.toString(),
-          onValueChange = { text ->
-            text.toIntOrNull()?.let { v ->
-              topK = v.coerceIn(1, 100)
-            }
-          },
+          onValueChange = { topK = it.toInt() },
+          min = topKRange.first,
+          max = topKRange.second,
+          isFloat = false,
           keyboardType = KeyboardType.Number,
           modifier = Modifier.weight(1f),
         )
         ParameterInputBox(
           label = "TOP-P",
-          value = "%.1f".format(topP),
-          onValueChange = { text ->
-            text.toFloatOrNull()?.let { v ->
-              topP = v.coerceIn(0f, 1f)
-            }
-          },
+          value = "%.2f".format(topP),
+          onValueChange = { topP = it.toFloat() },
+          min = topPRange.first,
+          max = topPRange.second,
+          isFloat = true,
           keyboardType = KeyboardType.Decimal,
           modifier = Modifier.weight(1f),
         )
@@ -217,13 +283,13 @@ fun InferenceSettingsSheet(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Allow Reasoning",
+            text = "Allow Thinking",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
           )
           Text(
-            text = "When off, the API reports reasoning as unavailable and clients won't use it",
+            text = "Enables the model's thinking mode for step-by-step reasoning",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -260,6 +326,14 @@ fun InferenceSettingsSheet(
 
       Spacer(modifier = Modifier.height(4.dp))
 
+      Text(
+        text = "Applying changes will reload the model",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+      )
+
       // Apply button
       Button(
         onClick = {
@@ -294,7 +368,10 @@ fun InferenceSettingsSheet(
 private fun ParameterInputBox(
   label: String,
   value: String,
-  onValueChange: (String) -> Unit,
+  onValueChange: (Number) -> Unit,
+  min: Float,
+  max: Float,
+  isFloat: Boolean,
   keyboardType: KeyboardType,
   modifier: Modifier = Modifier,
 ) {
@@ -302,14 +379,31 @@ private fun ParameterInputBox(
   val focusManager = LocalFocusManager.current
   var textValue by remember(value) { mutableStateOf(value) }
 
-  Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.labelSmall,
-      fontWeight = FontWeight.Bold,
-      color = OlliteRTPrimary,
-      letterSpacing = 1.sp,
-    )
+  val hint = if (isFloat) {
+    "${if (min == min.toInt().toFloat()) min.toInt() else min}–${if (max == max.toInt().toFloat()) max.toInt() else max}"
+  } else {
+    "${min.toInt()}–${max.toInt()}"
+  }
+
+  Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = OlliteRTPrimary,
+        letterSpacing = 1.sp,
+      )
+      Text(
+        text = hint,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -321,14 +415,40 @@ private fun ParameterInputBox(
     ) {
       BasicTextField(
         value = textValue,
-        onValueChange = { newText ->
-          textValue = newText
-          onValueChange(newText)
+        onValueChange = { raw ->
+          // Strip non-numeric characters (keep digits, dot, minus)
+          val allowed = if (isFloat) raw.filter { it.isDigit() || it == '.' || it == '-' }
+            else raw.filter { it.isDigit() }
+          if (allowed.isEmpty() || allowed == "." || allowed == "-") {
+            textValue = allowed
+            return@BasicTextField
+          }
+          if (isFloat) {
+            val parsed = allowed.toFloatOrNull() ?: return@BasicTextField
+            val clamped = parsed.coerceIn(min, max)
+            if (clamped != parsed) {
+              // Value exceeded range — show clamped value
+              textValue = if (clamped == clamped.toInt().toFloat()) clamped.toInt().toString()
+                else "%.2f".format(clamped)
+            } else {
+              textValue = allowed
+            }
+            onValueChange(clamped)
+          } else {
+            val parsed = allowed.toLongOrNull() ?: return@BasicTextField
+            val clamped = parsed.coerceIn(min.toLong(), max.toLong()).toInt()
+            if (clamped.toLong() != parsed) {
+              textValue = clamped.toString()
+            } else {
+              textValue = allowed
+            }
+            onValueChange(clamped)
+          }
         },
         singleLine = true,
         textStyle = TextStyle(
           color = MaterialTheme.colorScheme.onSurface,
-          fontSize = 18.sp,
+          fontSize = 14.sp,
           fontWeight = FontWeight.SemiBold,
           fontFamily = SpaceGroteskFontFamily,
         ),

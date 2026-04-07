@@ -68,6 +68,7 @@ class LlmHttpService : Service() {
 
   override fun onCreate() {
     super.onCreate()
+    activeInstance = this
     logger = LlmHttpLogger(
       logDir = { getExternalFilesDir(null)?.let { File(it, "ollitert") } },
       isEnabled = { LlmHttpPrefs.isPayloadLoggingEnabled(this) },
@@ -134,8 +135,15 @@ class LlmHttpService : Service() {
     if (model == null) {
       Log.e(logTag, "No model specified or model '${resolvedModelName}' not found — cannot start server")
       ServerMetrics.onServerError("Model '${resolvedModelName ?: "unknown"}' not found")
+      pendingConfigOverrides = null
       stopSelf()
       return START_NOT_STICKY
+    }
+    // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
+    pendingConfigOverrides?.let { overrides ->
+      model.configValues = overrides.toMutableMap()
+      Log.i(logTag, "Applied ${overrides.size} config overrides from reload caller")
+      pendingConfigOverrides = null
     }
     // Verify model files actually exist on disk.
     val modelPath = model.getPath(context = this)
@@ -261,6 +269,7 @@ class LlmHttpService : Service() {
   }
 
   override fun onDestroy() {
+    activeInstance = null
     // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
     loadGeneration.incrementAndGet()
     server?.stop()
@@ -416,6 +425,7 @@ class LlmHttpService : Service() {
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
       val statusCode = response.status?.requestStatus ?: 200
       val isStreaming = response.mimeType == "text/event-stream"
+      val isThinking = responseBodySnapshot?.contains("<think>") == true
       val level = if (statusCode in 200..299) LogLevel.INFO else LogLevel.ERROR
       RequestLogStore.update(logId) {
         it.copy(
@@ -424,6 +434,7 @@ class LlmHttpService : Service() {
           statusCode = statusCode,
           latencyMs = elapsedMs,
           isStreaming = isStreaming,
+          isThinking = isThinking,
           modelName = defaultModel?.name,
           level = level,
           isPending = false,
@@ -599,6 +610,10 @@ class LlmHttpService : Service() {
           model.initializedWithVision = supportImage
         }
       }
+      val enableThinking = model.llmSupportThinking &&
+        (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+      val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
+
       val result = LlmHttpInferenceGateway.execute(
         prompt = prompt,
         timeoutSeconds = timeoutSeconds,
@@ -611,10 +626,11 @@ class LlmHttpService : Service() {
           ServerLlmModelHelper.runInference(
             model = model,
             input = input,
-            resultListener = { partial, done, _ -> onPartial(partial, done) },
+            resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
             cleanUpListener = {},
             onError = onError,
             images = images,
+            extraContext = extraContext,
           )
         },
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
@@ -630,7 +646,13 @@ class LlmHttpService : Service() {
         ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
         ServerMetrics.recordLatency(result.totalMs)
         logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
-        result.output to null
+        // Prepend thinking content wrapped in <think> tags if present
+        val output = if (!result.thinking.isNullOrEmpty()) {
+          "<think>${result.thinking}</think>${result.output.orEmpty()}"
+        } else {
+          result.output
+        }
+        output to null
       }
     }
 
@@ -672,11 +694,17 @@ class LlmHttpService : Service() {
         }
       }
 
+      val enableThinking = model.llmSupportThinking &&
+        (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+      val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
+
       val now = System.currentTimeMillis() / 1000
       val respId = "resp-$now"
       val msgId = "msg-$now"
       val fullText = StringBuilder()
+      val fullThinking = StringBuilder()
       var headerWritten = false
+      var thinkingTagOpened = false
 
       val pipedOut = PipedOutputStream()
       val pipedIn = PipedInputStream(pipedOut, 16 * 1024)
@@ -694,37 +722,71 @@ class LlmHttpService : Service() {
           ServerLlmModelHelper.runInference(
             model = model,
             input = input,
-            resultListener = { partial, done, _ -> onPartial(partial, done) },
+            resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
             cleanUpListener = {},
             onError = onError,
             images = images,
+            extraContext = extraContext,
           )
         },
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
         elapsedMs = { SystemClock.elapsedRealtime() },
-        onToken = { partial, done ->
+        onToken = { partial, done, thought ->
           try {
             if (!headerWritten) {
               headerWritten = true
               writer.write(LlmHttpResponseRenderer.buildStreamingHeader(model.name, respId, msgId, now))
               writer.flush()
             }
+            // Emit thinking content wrapped in <think> tags
+            if (!thought.isNullOrEmpty()) {
+              fullThinking.append(thought)
+              val thinkText = if (!thinkingTagOpened) {
+                thinkingTagOpened = true
+                "<think>$thought"
+              } else {
+                thought
+              }
+              val esc = LlmHttpBridgeUtils.escapeSseText(thinkText)
+              writer.write(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
+              writer.flush()
+            }
             if (partial.isNotEmpty()) {
+              // Close thinking tag before first regular content
+              val text = if (thinkingTagOpened) {
+                thinkingTagOpened = false
+                "</think>$partial"
+              } else {
+                partial
+              }
               fullText.append(partial)
-              val esc = LlmHttpBridgeUtils.escapeSseText(partial)
+              val esc = LlmHttpBridgeUtils.escapeSseText(text)
               writer.write(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
               writer.flush()
             }
             if (done) {
+              // Close thinking tag if still open (thinking-only response with no regular content)
+              if (thinkingTagOpened) {
+                thinkingTagOpened = false
+                val esc = LlmHttpBridgeUtils.escapeSseText("</think>")
+                writer.write(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
+                writer.flush()
+              }
               val outputLen = fullText.length
               ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
               ServerMetrics.onInferenceCompleted()
-              val esc = LlmHttpBridgeUtils.escapeSseText(fullText.toString())
+              // Include thinking in the full output for footer/log
+              val combinedText = if (fullThinking.isNotEmpty()) {
+                "<think>${fullThinking}</think>${fullText}"
+              } else {
+                fullText.toString()
+              }
+              val esc = LlmHttpBridgeUtils.escapeSseText(combinedText)
               writer.write(LlmHttpResponseRenderer.buildStreamingFooter(model.name, respId, msgId, now, esc))
               writer.flush()
               writer.close()
               if (logId != null) {
-                val responseJson = json.encodeToString(responsesResponseWithText(model.name, fullText.toString()))
+                val responseJson = json.encodeToString(responsesResponseWithText(model.name, combinedText))
                 RequestLogStore.update(logId) { it.copy(responseBody = responseJson, isPending = false) }
               }
               logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
@@ -953,7 +1015,15 @@ class LlmHttpService : Service() {
       context.stopService(Intent(context, LlmHttpService::class.java))
     }
 
-    fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null) {
+    /**
+     * Pending config values to apply after the next reload creates a fresh model.
+     * Set by [reload] before sending the intent, consumed in [onStartCommand].
+     */
+    @Volatile
+    private var pendingConfigOverrides: Map<String, Any>? = null
+
+    fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null) {
+      pendingConfigOverrides = configValues
       val intent = Intent(context, LlmHttpService::class.java).apply {
         action = ACTION_RELOAD
         putExtra(EXTRA_PORT, port)
@@ -963,6 +1033,19 @@ class LlmHttpService : Service() {
         context.startForegroundService(intent)
       } else {
         context.startService(intent)
+      }
+    }
+
+    /**
+     * Update config values on the running service's model without reloading.
+     * Used for non-reinitialization config changes (temperature, topK, topP, etc.).
+     */
+    @Volatile
+    private var activeInstance: LlmHttpService? = null
+
+    fun updateConfigValues(configValues: Map<String, Any>) {
+      activeInstance?.defaultModel?.let { model ->
+        model.configValues = configValues.toMutableMap()
       }
     }
   }

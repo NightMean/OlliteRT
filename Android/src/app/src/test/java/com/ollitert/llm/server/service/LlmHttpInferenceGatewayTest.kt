@@ -24,8 +24,8 @@ class LlmHttpInferenceGatewayTest {
       inferenceLock = lock,
       resetConversation = {},
       runInference = { _, onPartial, _ ->
-        onPartial("world", false)
-        onPartial("", true)
+        onPartial("world", false, null)
+        onPartial("", true, null)
       },
       cancelInference = {},
       elapsedMs = { tick() },
@@ -44,10 +44,10 @@ class LlmHttpInferenceGatewayTest {
       inferenceLock = lock,
       resetConversation = {},
       runInference = { _, onPartial, _ ->
-        onPartial("a", false)
-        onPartial("b", false)
-        onPartial("c", false)
-        onPartial("", true)
+        onPartial("a", false, null)
+        onPartial("b", false, null)
+        onPartial("c", false, null)
+        onPartial("", true, null)
       },
       cancelInference = {},
       elapsedMs = { tick() },
@@ -116,9 +116,9 @@ class LlmHttpInferenceGatewayTest {
       inferenceLock = lock,
       resetConversation = {},
       runInference = { _, onPartial, _ ->
-        onPartial("", false)
-        onPartial("tok", false)
-        onPartial("", true)
+        onPartial("", false, null)
+        onPartial("tok", false, null)
+        onPartial("", true, null)
       },
       cancelInference = {},
       elapsedMs = { tick() },
@@ -137,8 +137,8 @@ class LlmHttpInferenceGatewayTest {
       inferenceLock = lock,
       resetConversation = {},
       runInference = { _, onPartial, _ ->
-        onPartial("ok", false)
-        onPartial("", true)
+        onPartial("ok", false, null)
+        onPartial("", true, null)
       },
       cancelInference = {},
       elapsedMs = { tick() },
@@ -146,12 +146,52 @@ class LlmHttpInferenceGatewayTest {
     assertTrue(result.totalMs > 0)
   }
 
+  @Test
+  fun thinkingContentAccumulates() {
+    val result = LlmHttpInferenceGateway.execute(
+      prompt = "think",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, onPartial, _ ->
+        onPartial("", false, "step1 ")
+        onPartial("", false, "step2")
+        onPartial("answer", false, null)
+        onPartial("", true, null)
+      },
+      cancelInference = {},
+      elapsedMs = { tick() },
+    )
+    assertEquals("answer", result.output)
+    assertEquals("step1 step2", result.thinking)
+  }
+
+  @Test
+  fun noThinkingReturnsNull() {
+    val result = LlmHttpInferenceGateway.execute(
+      prompt = "no-think",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, onPartial, _ ->
+        onPartial("plain", false, null)
+        onPartial("", true, null)
+      },
+      cancelInference = {},
+      elapsedMs = { tick() },
+    )
+    assertEquals("plain", result.output)
+    assertNull(result.thinking)
+  }
+
   // ── executeStreaming tests ────────────────────────────────────────────────
 
   private fun streaming(
     runInference: InferenceRunner,
     cancelInference: () -> Unit = {},
-    onToken: (String, Boolean) -> Unit,
+    onToken: (String, Boolean, String?) -> Unit,
     onError: (String) -> Unit = { fail("unexpected error: $it") },
   ) {
     LlmHttpInferenceGateway.executeStreaming(
@@ -174,11 +214,11 @@ class LlmHttpInferenceGatewayTest {
     var doneReceived = false
     streaming(
       runInference = { _, onPartial, _ ->
-        onPartial("foo", false)
-        onPartial("bar", false)
-        onPartial("", true)
+        onPartial("foo", false, null)
+        onPartial("bar", false, null)
+        onPartial("", true, null)
       },
-      onToken = { partial, done ->
+      onToken = { partial, done, _ ->
         if (partial.isNotEmpty()) tokens.add(partial)
         if (done) doneReceived = true
       },
@@ -192,9 +232,9 @@ class LlmHttpInferenceGatewayTest {
     var lastTokenWasDone = false
     streaming(
       runInference = { _, onPartial, _ ->
-        onPartial("tok", true)
+        onPartial("tok", true, null)
       },
-      onToken = { partial, done ->
+      onToken = { partial, done, _ ->
         if (partial == "tok" && done) lastTokenWasDone = true
       },
     )
@@ -208,7 +248,7 @@ class LlmHttpInferenceGatewayTest {
     streaming(
       runInference = { _, _, onError -> onError("boom") },
       cancelInference = { cancelled = true },
-      onToken = { _, _ -> fail("should not receive tokens on error") },
+      onToken = { _, _, _ -> fail("should not receive tokens on error") },
       onError = { errorMsg = it },
     )
     assertEquals("boom", errorMsg)
@@ -220,10 +260,29 @@ class LlmHttpInferenceGatewayTest {
     var errorMsg: String? = null
     streaming(
       runInference = { _, _, _ -> throw RuntimeException("crash") },
-      onToken = { _, _ -> fail("should not receive tokens") },
+      onToken = { _, _, _ -> fail("should not receive tokens") },
       onError = { errorMsg = it },
     )
     assertNotNull(errorMsg)
     assertTrue(errorMsg!!.contains("crash"))
+  }
+
+  @Test
+  fun streamingThinkingTokensAreForwarded() {
+    val thoughts = mutableListOf<String>()
+    val tokens = mutableListOf<String>()
+    streaming(
+      runInference = { _, onPartial, _ ->
+        onPartial("", false, "thinking...")
+        onPartial("answer", false, null)
+        onPartial("", true, null)
+      },
+      onToken = { partial, _, thought ->
+        if (!thought.isNullOrEmpty()) thoughts.add(thought)
+        if (partial.isNotEmpty()) tokens.add(partial)
+      },
+    )
+    assertEquals(listOf("thinking..."), thoughts)
+    assertEquals(listOf("answer"), tokens)
   }
 }

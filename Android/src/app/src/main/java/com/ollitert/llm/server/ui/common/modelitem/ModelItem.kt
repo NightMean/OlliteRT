@@ -49,6 +49,11 @@ import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.ServerStatus
+import androidx.compose.ui.platform.LocalContext
+import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.LlmHttpService
+import android.widget.Toast
+import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.server.InferenceSettingsSheet
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.customColors
@@ -200,13 +205,51 @@ fun ModelItem(
 
   // Inference Settings bottom sheet
   if (showInferenceSettings) {
+    val context = LocalContext.current
     InferenceSettingsSheet(
       model = model,
       onDismiss = { showInferenceSettings = false },
       onApply = { newConfigValues ->
+        // Detect changed configs and whether reinitialization is needed
+        var needReinitialization = false
+        val changes = mutableListOf<String>()
+        for (config in model.configs) {
+          val key = config.key.label
+          val oldValue = model.configValues[key]
+          val newValue = newConfigValues[key]
+          if (oldValue != newValue) {
+            changes.add("${config.key.label}: $oldValue → $newValue")
+            if (config.needReinitialization) {
+              needReinitialization = true
+            }
+          }
+        }
+
         model.prevConfigValues = model.configValues
         model.configValues = newConfigValues
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
+
+        // Log config changes and trigger model reload if needed
+        if (changes.isNotEmpty() && isActiveModel) {
+          val changesSummary = changes.joinToString(", ")
+          RequestLogStore.addEvent(
+            "Inference settings changed: $changesSummary" +
+              if (needReinitialization) " — reloading model" else "",
+            modelName = model.name,
+          )
+          if (needReinitialization) {
+            val port = LlmHttpPrefs.getPort(context)
+            LlmHttpService.reload(context, port, model.name, configValues = newConfigValues)
+            Toast.makeText(context, "Settings saved — model is reloading", Toast.LENGTH_SHORT).show()
+          } else {
+            // Push config changes to the running service model without reloading
+            LlmHttpService.updateConfigValues(newConfigValues)
+            Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+          }
+        } else if (changes.isNotEmpty()) {
+          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+        }
+
         showInferenceSettings = false
       },
     )

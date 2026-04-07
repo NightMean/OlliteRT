@@ -258,7 +258,9 @@ data class Model(
   fun preProcess() {
     val configValues: MutableMap<String, Any> = mutableMapOf()
     for (config in this.configs) {
-      configValues[config.key.label] = config.defaultValue
+      // Normalize to the target type so e.g. Float 4000.0 becomes Int 4000 for INT configs.
+      // This prevents phantom "changed" detection when comparing with values from the UI.
+      configValues[config.key.label] = convertValueToTargetType(config.defaultValue, config.valueType)
     }
     this.configValues = configValues
     this.totalBytes = this.sizeInBytes + this.extraDataFiles.sumOf { it.sizeInBytes }
