@@ -25,7 +25,10 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -459,10 +462,17 @@ fun DownloadAndTryButton(
     }
     // Normal state: download or start server
     else {
+    // Disable "Start Server" on all models while any model is loading
+    val isAnyModelLoading = serverStatus == ServerStatus.LOADING
+    val isStartDisabled = isAnyModelLoading && downloadSucceeded
+    val effectiveEnabled = enabled && !isStartDisabled
+    Box(modifier = buttonModifier) {
     Button(
-      modifier = buttonModifier,
+      modifier = Modifier.height(42.dp).fillMaxWidth(),
+      enabled = effectiveEnabled,
       colors =
         ButtonDefaults.buttonColors(
+          disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
           containerColor =
             if (
               (!downloadSucceeded || !canShowTryIt) &&
@@ -478,7 +488,7 @@ fun DownloadAndTryButton(
         ),
       contentPadding = PaddingValues(horizontal = 12.dp),
       onClick = {
-        if (!enabled || checkingToken) {
+        if (checkingToken) {
           return@Button
         }
 
@@ -486,7 +496,7 @@ fun DownloadAndTryButton(
       },
     ) {
       val textColor =
-        if (!enabled) {
+        if (!effectiveEnabled) {
           // Define the color for disabled button.
           MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         } else if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
@@ -529,6 +539,24 @@ fun DownloadAndTryButton(
           }
         }
       }
+    }
+    // Invisible overlay to show toast when disabled
+    if (isStartDisabled) {
+      Box(
+        modifier = Modifier
+          .matchParentSize()
+          .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+          ) {
+            android.widget.Toast.makeText(
+              context,
+              "Please wait for the current model to finish loading",
+              android.widget.Toast.LENGTH_SHORT,
+            ).show()
+          },
+      )
+    }
     }
     }
   }

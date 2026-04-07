@@ -52,6 +52,8 @@ class LlmHttpService : Service() {
   private val logTag = "LlmHttpService"
   private val maxBodyBytes = 512 * 1024
   private val requestCounter = AtomicLong(0)
+  /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
+  private val loadGeneration = AtomicLong(0)
 
   private lateinit var logger: LlmHttpLogger
   private lateinit var allowlistLoader: LlmHttpAllowlistLoader
@@ -106,10 +108,16 @@ class LlmHttpService : Service() {
     val requestedModelName = intent?.getStringExtra(EXTRA_MODEL_NAME)
     currentPort = port
 
-    // Resolve the model: explicit request → persisted last model → fail.
-    // No hardcoded default — user must explicitly choose a model.
+    // If no explicit model was requested, this is likely a system restart after a crash.
+    // Don't auto-load the last model to avoid crash loops (e.g. from OOM).
+    // Auto-start on boot is handled separately by BootReceiver which passes EXTRA_MODEL_NAME.
+    if (requestedModelName == null) {
+      Log.i(logTag, "No model specified in intent — not auto-loading to avoid potential crash loop")
+      stopSelf()
+      return START_NOT_STICKY
+    }
+
     val resolvedModelName = requestedModelName
-      ?: LlmHttpPrefs.getLastModelName(this)
     val model = if (resolvedModelName != null) {
       pickModelByName(resolvedModelName)
     } else {
@@ -129,9 +137,11 @@ class LlmHttpService : Service() {
       stopSelf()
       return START_NOT_STICKY
     }
+    // Cancel any in-flight warmup by bumping the generation counter
+    val thisGeneration = loadGeneration.incrementAndGet()
+
     // Persist for recovery after process death.
     LlmHttpPrefs.setLastModelName(this, model.name)
-    defaultModel = model
     modelCache[model.name] = model
 
     ServerMetrics.onServerStarting(port, model.name)
@@ -179,13 +189,27 @@ class LlmHttpService : Service() {
     server = NanoServer(port)
     server?.start()
 
+    defaultModel = model
+
     Thread {
       try {
         val loadStart = SystemClock.elapsedRealtime()
         server?.warmUpModel(model)
+        // If another model load was initiated while we were warming up, discard this result
+        if (loadGeneration.get() != thisGeneration) {
+          Log.w(logTag, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
+          try { ServerLlmModelHelper.cleanUp(model) {} } catch (_: Exception) {}
+          model.instance = null
+          return@Thread
+        }
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
       } catch (e: Exception) {
+        // Only report error if this is still the current load
+        if (loadGeneration.get() != thisGeneration) {
+          Log.w(logTag, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
+          return@Thread
+        }
         Log.e(logTag, "Failed to load model ${model.name}", e)
         val msg = e.message?.take(120) ?: "Unknown error during model initialization"
         ServerMetrics.onServerError(msg)

@@ -272,18 +272,27 @@ fun GlobalModelManager(
   }
 
   val handleClickModel: (Model) -> Unit = { model ->
-    val tasks = viewModel.uiState.value.tasks
-    val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
-    if (tasksForModel.isNotEmpty()) {
-      val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
-      val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
-      if (isServerActive && isDifferentModel) {
-        // Ask user to confirm switching models
-        pendingSwitchModel = model
-        pendingSwitchTask = tasksForModel[0]
-        showSwitchModelDialog = true
-      } else {
-        onModelSelected(tasksForModel[0], model)
+    if (serverStatus == ServerStatus.LOADING) {
+      // Block model selection while a model is loading to prevent OOM from concurrent warmups
+      android.widget.Toast.makeText(
+        context,
+        "Please wait for the current model to finish loading",
+        android.widget.Toast.LENGTH_SHORT,
+      ).show()
+    } else {
+      val tasks = viewModel.uiState.value.tasks
+      val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
+      if (tasksForModel.isNotEmpty()) {
+        val isServerActive = serverStatus == ServerStatus.RUNNING
+        val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
+        if (isServerActive && isDifferentModel) {
+          // Ask user to confirm switching models
+          pendingSwitchModel = model
+          pendingSwitchTask = tasksForModel[0]
+          showSwitchModelDialog = true
+        } else {
+          onModelSelected(tasksForModel[0], model)
+        }
       }
     }
   }
@@ -613,7 +622,9 @@ fun GlobalModelManager(
   }
 
   // Confirmation dialog when switching models while server is running
-  if (showSwitchModelDialog && pendingSwitchModel != null && pendingSwitchTask != null) {
+  val switchModel = pendingSwitchModel
+  val switchTask = pendingSwitchTask
+  if (showSwitchModelDialog && switchModel != null && switchTask != null) {
     AlertDialog(
       onDismissRequest = {
         showSwitchModelDialog = false
@@ -623,18 +634,16 @@ fun GlobalModelManager(
       title = { Text("Switch model?") },
       text = {
         Text(
-          "This will unload \"${activeModelName ?: "current model"}\" and load \"${pendingSwitchModel!!.displayName.ifEmpty { pendingSwitchModel!!.name }}\".\n\nThe server will restart."
+          "This will unload \"${activeModelName ?: "current model"}\" and load \"${switchModel.displayName.ifEmpty { switchModel.name }}\".\n\nThe server will restart."
         )
       },
       confirmButton = {
         Button(onClick = {
-          val task = pendingSwitchTask!!
-          val model = pendingSwitchModel!!
           showSwitchModelDialog = false
           pendingSwitchModel = null
           pendingSwitchTask = null
           onStopServer()
-          onModelSelected(task, model)
+          onModelSelected(switchTask, switchModel)
         }) {
           Text("Switch")
         }
