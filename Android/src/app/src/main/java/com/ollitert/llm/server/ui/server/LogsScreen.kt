@@ -89,6 +89,7 @@ import java.util.Locale
 private val DeleteRedTint = Color(0xFFE57373)
 private val EventColor = Color(0xFF90A4AE) // blue-grey for internal events
 private val ThinkingColor = Color(0xFFCE93D8) // soft purple for thinking mode
+private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
 
 /**
  * Easter-egg "Generating" messages with rarity tiers.
@@ -453,10 +454,10 @@ private const val COLLAPSED_MAX_CHARS = 600
 private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
-  val cardBg = if (isError) {
-    DeleteRedTint.copy(alpha = 0.06f)
-  } else {
-    MaterialTheme.colorScheme.surfaceContainerLow
+  val cardBg = when {
+    entry.isCancelled -> CancelledColor.copy(alpha = 0.06f)
+    isError -> DeleteRedTint.copy(alpha = 0.06f)
+    else -> MaterialTheme.colorScheme.surfaceContainerLow
   }
 
   var requestExpanded by remember { mutableStateOf(autoExpand) }
@@ -529,7 +530,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       )
     }
 
-    // Response area: typing indicator while pending, body when available
+    // Response area: streaming partial text while pending, full JSON when done
     if (entry.isPending) {
       val generatingText = remember(entry.id) { GeneratingMessages.pick() }
       Spacer(modifier = Modifier.height(10.dp))
@@ -540,25 +541,62 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         fontWeight = FontWeight.SemiBold,
       )
       Spacer(modifier = Modifier.height(4.dp))
-      Row(
+      Column(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(12.dp))
           .background(MaterialTheme.colorScheme.surfaceContainerLowest)
           .padding(horizontal = 12.dp, vertical = 14.dp),
+      ) {
+        // Show partial text if tokens have started arriving
+        if (!entry.partialText.isNullOrEmpty()) {
+          Text(
+            text = entry.partialText,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 11.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(10.dp))
+        }
+        // Generating indicator at the bottom
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Text(
+            text = generatingText,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 11.sp,
+            ),
+            color = OlliteRTPrimary,
+            fontWeight = FontWeight.SemiBold,
+          )
+          BouncingDots()
+        }
+      }
+    } else if (entry.isCancelled) {
+      Spacer(modifier = Modifier.height(10.dp))
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .background(CancelledColor.copy(alpha = 0.08f))
+          .padding(horizontal = 12.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         Text(
-          text = generatingText,
+          text = "Client disconnected — generation stopped",
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
             fontSize = 11.sp,
           ),
-          color = OlliteRTPrimary,
+          color = CancelledColor,
           fontWeight = FontWeight.SemiBold,
         )
-        BouncingDots()
       }
     } else if (!entry.responseBody.isNullOrBlank()) {
       val formatted = remember(entry.responseBody) { prettyPrintJson(entry.responseBody) }
@@ -605,6 +643,15 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             text = "Thinking",
             style = MaterialTheme.typography.labelSmall,
             color = ThinkingColor,
+            fontWeight = FontWeight.SemiBold,
+          )
+        }
+        if (entry.isCancelled) {
+          FooterDot()
+          Text(
+            text = "Cancelled",
+            style = MaterialTheme.typography.labelSmall,
+            color = CancelledColor,
             fontWeight = FontWeight.SemiBold,
           )
         }

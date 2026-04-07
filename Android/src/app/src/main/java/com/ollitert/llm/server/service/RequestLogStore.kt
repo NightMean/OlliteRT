@@ -26,6 +26,8 @@ data class RequestLogEntry(
   val level: LogLevel = LogLevel.INFO,
   val isPending: Boolean = false,
   val isThinking: Boolean = false,
+  val isCancelled: Boolean = false,
+  val partialText: String? = null,
 )
 
 /**
