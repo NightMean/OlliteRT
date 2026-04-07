@@ -210,13 +210,19 @@ fun ModelItem(
       model = model,
       onDismiss = { showInferenceSettings = false },
       onApply = { newConfigValues ->
-        // Detect changed configs and whether reinitialization is needed
+        // Detect changed configs and whether reinitialization is needed.
+        // Normalize both sides to the config's target type before comparing,
+        // so that e.g. String "4096" vs Int 4096 are not flagged as phantom changes.
         var needReinitialization = false
         val changes = mutableListOf<String>()
         for (config in model.configs) {
           val key = config.key.label
-          val oldValue = model.configValues[key]
-          val newValue = newConfigValues[key]
+          val oldValue = model.configValues[key]?.let {
+            com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+          }
+          val newValue = newConfigValues[key]?.let {
+            com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+          }
           if (oldValue != newValue) {
             changes.add("${config.key.label}: $oldValue → $newValue")
             if (config.needReinitialization) {
@@ -229,8 +235,12 @@ fun ModelItem(
         model.configValues = newConfigValues
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
-        // Log config changes and trigger model reload if needed
-        if (changes.isNotEmpty() && isActiveModel) {
+        // Log config changes and trigger model reload if needed.
+        // Treat the model as "active" if it's running, loading, or in error state —
+        // in all cases the server has this model loaded (or is loading it) and needs a reload.
+        val isServerActiveForModel = activeModelName == model.name &&
+          serverStatus != ServerStatus.STOPPED
+        if (changes.isNotEmpty() && isServerActiveForModel) {
           val changesSummary = changes.joinToString(", ")
           RequestLogStore.addEvent(
             "Inference settings changed: $changesSummary" +

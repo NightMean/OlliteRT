@@ -79,24 +79,16 @@ fun InferenceSettingsSheet(
   val focusManager = LocalFocusManager.current
 
   var temperature by remember {
-    mutableFloatStateOf(
-      (configValues[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat() ?: 1.0f
-    )
+    mutableFloatStateOf(configValues[ConfigKeys.TEMPERATURE.label].toFloatSafe() ?: 1.0f)
   }
   var maxTokens by remember {
-    mutableIntStateOf(
-      (configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 1024
-    )
+    mutableIntStateOf(configValues[ConfigKeys.MAX_TOKENS.label].toIntSafe() ?: 1024)
   }
   var topK by remember {
-    mutableIntStateOf(
-      (configValues[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 40
-    )
+    mutableIntStateOf(configValues[ConfigKeys.TOPK.label].toIntSafe() ?: 40)
   }
   var topP by remember {
-    mutableFloatStateOf(
-      (configValues[ConfigKeys.TOPP.label] as? Number)?.toFloat() ?: 0.95f
-    )
+    mutableFloatStateOf(configValues[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f)
   }
   var enableThinking by remember {
     mutableStateOf(
@@ -144,12 +136,10 @@ fun InferenceSettingsSheet(
       confirmButton = {
         Button(onClick = {
           showResetDialog = false
-          temperature = (defaults[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat() ?: 1.0f
-          maxTokens = (defaults[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-            ?: defaults[ConfigKeys.MAX_TOKENS.label]?.toString()?.toIntOrNull()
-            ?: 1024
-          topK = (defaults[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 40
-          topP = (defaults[ConfigKeys.TOPP.label] as? Number)?.toFloat() ?: 0.95f
+          temperature = defaults[ConfigKeys.TEMPERATURE.label].toFloatSafe() ?: 1.0f
+          maxTokens = defaults[ConfigKeys.MAX_TOKENS.label].toIntSafe() ?: 1024
+          topK = defaults[ConfigKeys.TOPK.label].toIntSafe() ?: 40
+          topP = defaults[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f
           enableThinking = (defaults[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
           useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
           Toast.makeText(context, "Model settings reset to default", Toast.LENGTH_SHORT).show()
@@ -555,4 +545,18 @@ private fun AcceleratorToggle(
       }
     }
   }
+}
+
+/** Safely extract an Int from a config value that may be Number or String. */
+private fun Any?.toIntSafe(): Int? = when (this) {
+  is Number -> toInt()
+  is String -> toIntOrNull()
+  else -> null
+}
+
+/** Safely extract a Float from a config value that may be Number or String. */
+private fun Any?.toFloatSafe(): Float? = when (this) {
+  is Number -> toFloat()
+  is String -> toFloatOrNull()
+  else -> null
 }
