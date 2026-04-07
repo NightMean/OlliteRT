@@ -47,6 +47,7 @@ fun OlliteRTTopBar(
   onSettingsClick: () -> Unit,
   onBackClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
+  trailingContent: @Composable (() -> Unit)? = null,
 ) {
   Row(
     modifier = modifier
@@ -90,6 +91,8 @@ fun OlliteRTTopBar(
           modifier = Modifier.size(24.dp),
         )
       }
+    } else if (trailingContent != null) {
+      trailingContent()
     } else {
       // Placeholder for layout balance
       Spacer(modifier = Modifier.size(48.dp))
