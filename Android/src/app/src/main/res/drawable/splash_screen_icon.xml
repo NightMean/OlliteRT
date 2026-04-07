@@ -1,44 +1,51 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
+    android:width="240dp"
+    android:height="240dp"
     android:viewportWidth="174"
     android:viewportHeight="174">
+
     <!-- Dark rounded background -->
     <path
-        android:pathData="M0,0h174v174h-174z"
-        android:fillColor="#060e0b"/>
-    <!-- Three blades -->
+        android:pathData="M32,0 L142,0 C159.67,0 174,14.33 174,32 L174,142 C174,159.67 159.67,174 142,174 L32,174 C14.33,174 0,159.67 0,142 L0,32 C0,14.33 14.33,0 32,0 Z"
+        android:fillColor="#131314" />
+
+    <!-- Three blades (mountain shapes) -->
     <path
         android:pathData="M30,133 L50,56 L72,133 Z"
         android:fillColor="#00ffb2"
-        android:fillAlpha="0.4"/>
+        android:fillAlpha="0.4" />
+
     <path
         android:pathData="M48,133 L68,50 L90,133 Z"
         android:fillColor="#00ffb2"
-        android:fillAlpha="0.7"/>
+        android:fillAlpha="0.7" />
+
     <path
         android:pathData="M66,133 L86,44 L108,133 Z"
-        android:fillColor="#00ffb2"/>
-    <!-- Arcs right side -->
+        android:fillColor="#00ffb2" />
+
+    <!-- Signal arcs (right side) -->
     <path
         android:pathData="M112,80 A14,14 0 0,1 112,102"
-        android:fillColor="#00000000"
         android:strokeColor="#00ffb2"
         android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:strokeAlpha="0.9"/>
+        android:strokeAlpha="0.9"
+        android:fillColor="@android:color/transparent" />
+
     <path
         android:pathData="M119,72 A22,22 0 0,1 119,110"
-        android:fillColor="#00000000"
         android:strokeColor="#00ffb2"
         android:strokeWidth="1.5"
         android:strokeLineCap="round"
-        android:strokeAlpha="0.55"/>
+        android:strokeAlpha="0.55"
+        android:fillColor="@android:color/transparent" />
+
     <path
         android:pathData="M126,64 A30,30 0 0,1 126,118"
-        android:fillColor="#00000000"
         android:strokeColor="#00ffb2"
         android:strokeWidth="1"
         android:strokeLineCap="round"
-        android:strokeAlpha="0.3"/>
+        android:strokeAlpha="0.3"
+        android:fillColor="@android:color/transparent" />
 </vector>

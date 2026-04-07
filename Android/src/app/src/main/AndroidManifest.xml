@@ -100,6 +100,15 @@
             android:name="com.ollitert.llm.server.service.CopyUrlReceiver"
             android:exported="false" />
 
+        <!-- Auto-start server on device boot -->
+        <receiver
+            android:name="com.ollitert.llm.server.service.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />

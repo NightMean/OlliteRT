@@ -24,11 +24,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +53,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val DeleteRedTint = Color(0xFFE57373)
+
 @Composable
 fun LogsScreen(
   modifier: Modifier = Modifier,
@@ -72,12 +76,40 @@ fun LogsScreen(
         color = MaterialTheme.colorScheme.onSurface,
       )
       if (entries.isNotEmpty()) {
-        IconButton(onClick = { RequestLogStore.clear() }) {
-          Icon(
-            imageVector = Icons.Outlined.DeleteSweep,
-            contentDescription = "Clear logs",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
+        val context = LocalContext.current
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          // Copy all logs
+          Box(
+            modifier = Modifier
+              .size(40.dp)
+              .clip(RoundedCornerShape(10.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .clickable { copyAllLogsToClipboard(context, entries) },
+            contentAlignment = Alignment.Center,
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.ContentCopy,
+              contentDescription = "Copy all logs",
+              tint = OlliteRTPrimary,
+              modifier = Modifier.size(22.dp),
+            )
+          }
+          // Clear all logs
+          Box(
+            modifier = Modifier
+              .size(40.dp)
+              .clip(RoundedCornerShape(10.dp))
+              .background(DeleteRedTint.copy(alpha = 0.12f))
+              .clickable { RequestLogStore.clear() },
+            contentAlignment = Alignment.Center,
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.DeleteSweep,
+              contentDescription = "Clear logs",
+              tint = DeleteRedTint,
+              modifier = Modifier.size(22.dp),
+            )
+          }
         }
       }
     }
@@ -274,6 +306,27 @@ private fun LogEntryCard(entry: RequestLogEntry) {
       }
     }
   }
+}
+
+private fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
+  val text = entries.joinToString("\n${"=".repeat(60)}\n") { entry ->
+    buildString {
+      appendLine("[${formatTimestamp(entry.timestamp)}] ${entry.method} ${entry.path}")
+      appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
+      if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
+      if (!entry.requestBody.isNullOrBlank()) {
+        appendLine("--- Request ---")
+        appendLine(entry.requestBody)
+      }
+      if (!entry.responseBody.isNullOrBlank()) {
+        appendLine("--- Response ---")
+        appendLine(entry.responseBody)
+      }
+    }.trimEnd()
+  }
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", text))
+  Toast.makeText(context, "All logs copied (${entries.size} entries)", Toast.LENGTH_SHORT).show()
 }
 
 private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {

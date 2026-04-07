@@ -71,6 +71,7 @@ fun ModelItem(
   showBenchmarkButton: Boolean = false,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  lastError: String? = null,
   onStopServer: () -> Unit = {},
   onNavigateToSettings: () -> Unit = {},
 ) {
@@ -81,6 +82,7 @@ fun ModelItem(
 
   val isServerRunning = serverStatus == ServerStatus.RUNNING
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
+  val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
 
   var showInferenceSettings by remember { mutableStateOf(false) }
@@ -132,8 +134,23 @@ fun ModelItem(
         onStopServer = onStopServer,
       )
 
-      // Loading hint text
-      if (isModelLoading) {
+      // Loading hint / error text
+      if (isModelError) {
+        val errorText = if (!lastError.isNullOrBlank()) {
+          if (lastError.length > 80) "Failed to load model — check Logs for details"
+          else "Failed to load: $lastError"
+        } else {
+          "Failed to load model"
+        }
+        Text(
+          text = errorText,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          textAlign = TextAlign.Center,
+          maxLines = 2,
+          modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        )
+      } else if (isModelLoading) {
         Text(
           text = "Sit tight — this may take a couple of minutes depending on your device",
           style = MaterialTheme.typography.bodySmall,

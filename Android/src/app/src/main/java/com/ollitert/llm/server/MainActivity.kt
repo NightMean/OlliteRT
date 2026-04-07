@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.animation.doOnEnd
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.ServerViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTTheme
@@ -157,8 +158,13 @@ class MainActivity : ComponentActivity() {
       // See: https://issuetracker.google.com/issues/298296168
       window.isNavigationBarContrastEnforced = false
     }
-    // Keep the screen on while the app is running for better demo experience.
-    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    // Keep-screen-on is handled dynamically via Compose (KeepScreenOn effect in OlliteRTApp).
+    // Read the initial pref and set the flag so it's active before Compose renders.
+    if (LlmHttpPrefs.isKeepScreenOn(this)) {
+      window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    } else {
+      window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
   }
 
   companion object {

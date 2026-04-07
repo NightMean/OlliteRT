@@ -26,8 +26,17 @@ class ServerViewModel @Inject constructor(
   val startedAtMs = ServerMetrics.startedAtMs
   val requestCount = ServerMetrics.requestCount
   val tokensGenerated = ServerMetrics.tokensGenerated
+  val tokensIn = ServerMetrics.tokensIn
   val lastLatencyMs = ServerMetrics.lastLatencyMs
+  val peakLatencyMs = ServerMetrics.peakLatencyMs
   val avgLatencyMs = ServerMetrics.avgLatencyMs
+  val textRequests = ServerMetrics.textRequests
+  val imageRequests = ServerMetrics.imageRequests
+  val audioRequests = ServerMetrics.audioRequests
+  val errorCount = ServerMetrics.errorCount
+  val modelLoadTimeMs = ServerMetrics.modelLoadTimeMs
+  val loadingStartedAtMs = ServerMetrics.loadingStartedAtMs
+  val lastError = ServerMetrics.lastError
 
   fun startServer(port: Int = LlmHttpPrefs.getPort(context), modelName: String? = null) {
     LlmHttpService.start(context, port, modelName)
@@ -35,6 +44,11 @@ class ServerViewModel @Inject constructor(
 
   fun stopServer() {
     LlmHttpService.stop(context)
+  }
+
+  fun reloadServer(port: Int = LlmHttpPrefs.getPort(context)) {
+    val currentModel = activeModelName.value
+    LlmHttpService.reload(context, port, currentModel)
   }
 
   fun isRunning(): Boolean = status.value == ServerStatus.RUNNING
