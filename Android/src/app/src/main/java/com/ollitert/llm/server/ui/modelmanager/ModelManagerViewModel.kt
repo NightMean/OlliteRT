@@ -137,6 +137,8 @@ data class ModelManagerUiState(
   val configValuesUpdateTrigger: Long = 0L,
   // Updated when model is imported of an imported model is deleted.
   val modelImportingUpdateTrigger: Long = 0L,
+  // Bumped when storage changes (download complete, model deleted).
+  val storageUpdateTrigger: Long = 0L,
 ) {
   fun isModelInitialized(model: Model): Boolean {
     return modelInitializationStatus[model.name]?.status ==
@@ -236,6 +238,10 @@ constructor(
     _uiState.update { _uiState.value.copy(configValuesUpdateTrigger = System.currentTimeMillis()) }
   }
 
+  fun notifyStorageChanged() {
+    _uiState.update { _uiState.value.copy(storageUpdateTrigger = System.currentTimeMillis()) }
+  }
+
   fun selectModel(model: Model) {
     if (_uiState.value.selectedModel.name != model.name) {
       _uiState.update { _uiState.value.copy(selectedModel = model) }
@@ -303,6 +309,12 @@ constructor(
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     _uiState.update { newUiState }
+  }
+
+  /** Delete model and notify storage change (for user-initiated deletions). */
+  fun deleteModelAndRefreshStorage(model: Model) {
+    deleteModel(model = model)
+    notifyStorageChanged()
   }
 
   fun initializeModel(
@@ -413,7 +425,7 @@ constructor(
     // Update model download progress.
     val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
     curModelDownloadStatus[curModel.name] = status
-    val newUiState = uiState.value.copy(modelDownloadStatus = curModelDownloadStatus)
+    var newUiState = uiState.value.copy(modelDownloadStatus = curModelDownloadStatus)
 
     // Delete downloaded file if status is failed or not_downloaded.
     if (
@@ -421,6 +433,11 @@ constructor(
         status.status == ModelDownloadStatusType.NOT_DOWNLOADED
     ) {
       deleteFileFromExternalFilesDir(curModel.downloadFileName)
+    }
+
+    // Trigger storage refresh on download completion.
+    if (status.status == ModelDownloadStatusType.SUCCEEDED) {
+      newUiState = newUiState.copy(storageUpdateTrigger = System.currentTimeMillis())
     }
 
     _uiState.update { newUiState }

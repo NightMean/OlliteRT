@@ -73,6 +73,7 @@ fun OlliteRTApp(
     },
     bottomBar = {
       if (showBottomBar) {
+        val mmUiState by modelManagerViewModel.uiState.collectAsState()
         OlliteRTBottomNavBar(
           currentRoute = currentRoute,
           onTabSelected = { tab ->
@@ -84,6 +85,7 @@ fun OlliteRTApp(
               restoreState = true
             }
           },
+          storageUpdateTrigger = mmUiState.storageUpdateTrigger,
         )
       }
     },
