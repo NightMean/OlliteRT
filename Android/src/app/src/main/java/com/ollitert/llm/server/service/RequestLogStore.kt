@@ -1,8 +1,11 @@
 package com.ollitert.llm.server.service
 
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
+enum class LogLevel { INFO, ERROR }
 
 /**
  * A single API request/response pair displayed in the Logs screen.
@@ -19,6 +22,8 @@ data class RequestLogEntry(
   val latencyMs: Long = 0,
   val isStreaming: Boolean = false,
   val modelName: String? = null,
+  val level: LogLevel = LogLevel.INFO,
+  val isPending: Boolean = false,
 )
 
 /**
@@ -28,6 +33,7 @@ data class RequestLogEntry(
 object RequestLogStore {
 
   private const val MAX_ENTRIES = 100
+  private val idCounter = AtomicLong(0)
 
   private val _entries = MutableStateFlow<List<RequestLogEntry>>(emptyList())
   val entries: StateFlow<List<RequestLogEntry>> = _entries.asStateFlow()
@@ -41,7 +47,30 @@ object RequestLogStore {
     _entries.value = current
   }
 
+  /** Update an existing entry by ID. */
+  fun update(id: String, transform: (RequestLogEntry) -> RequestLogEntry) {
+    val current = _entries.value.toMutableList()
+    val index = current.indexOfFirst { it.id == id }
+    if (index >= 0) {
+      current[index] = transform(current[index])
+      _entries.value = current
+    }
+  }
+
   fun clear() {
     _entries.value = emptyList()
+  }
+
+  /** Add an internal event (model load, error, etc.) visible in the Logs tab. */
+  fun addEvent(message: String, level: LogLevel = LogLevel.INFO, modelName: String? = null) {
+    add(
+      RequestLogEntry(
+        id = "event-${System.currentTimeMillis()}-${idCounter.incrementAndGet()}",
+        method = "EVENT",
+        path = message,
+        level = level,
+        modelName = modelName,
+      )
+    )
   }
 }

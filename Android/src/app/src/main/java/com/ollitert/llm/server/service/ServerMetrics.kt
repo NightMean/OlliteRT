@@ -80,6 +80,10 @@ object ServerMetrics {
   private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
+  /** True while the model is actively generating a response. */
+  private val _isInferring = MutableStateFlow(false)
+  val isInferring: StateFlow<Boolean> = _isInferring.asStateFlow()
+
   fun onServerStarting(port: Int, modelName: String?) {
     _status.value = ServerStatus.LOADING
     _port.value = port
@@ -94,6 +98,7 @@ object ServerMetrics {
     _startedAtMs.value = System.currentTimeMillis()
     _loadingStartedAtMs.value = 0L
     _lastError.value = null
+    _isInferring.value = false
   }
 
   fun onServerStopped() {
@@ -123,6 +128,7 @@ object ServerMetrics {
     _modelLoadTimeMs.value = 0L
     _loadingStartedAtMs.value = 0L
     _lastError.value = null
+    _isInferring.value = false
   }
 
   fun onServerError(message: String? = null) {
@@ -169,5 +175,13 @@ object ServerMetrics {
 
   fun recordModelLoadTime(ms: Long) {
     _modelLoadTimeMs.value = ms
+  }
+
+  fun onInferenceStarted() {
+    _isInferring.value = true
+  }
+
+  fun onInferenceCompleted() {
+    _isInferring.value = false
   }
 }

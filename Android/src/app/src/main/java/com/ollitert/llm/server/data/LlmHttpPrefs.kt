@@ -14,6 +14,7 @@ private const val KEY_LAST_MODEL_NAME = "last_model_name"
 private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
 private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
 private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+private const val KEY_AUTO_EXPAND_LOGS = "auto_expand_logs"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -125,6 +126,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_KEEP_SCREEN_ON, enabled)
+      .apply()
+  }
+
+  fun isAutoExpandLogs(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_AUTO_EXPAND_LOGS, false)
+
+  fun setAutoExpandLogs(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_AUTO_EXPAND_LOGS, enabled)
       .apply()
   }
 
