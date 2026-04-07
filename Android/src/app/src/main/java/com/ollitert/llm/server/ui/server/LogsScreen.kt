@@ -642,8 +642,10 @@ private fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEnt
 
 private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
   val text = buildString {
-    appendLine("${entry.method} ${entry.path}")
+    appendLine("[${formatTimestamp(entry.timestamp)}] ${entry.method} ${entry.path}")
     appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
+    if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
+    if (entry.isStreaming) appendLine("Streaming: SSE")
     if (!entry.requestBody.isNullOrBlank()) {
       appendLine("\n--- Request ---")
       appendLine(entry.requestBody)
