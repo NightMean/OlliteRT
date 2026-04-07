@@ -19,6 +19,7 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
+import com.ollitert.llm.server.service.LogLevel
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -145,6 +146,7 @@ class LlmHttpService : Service() {
     modelCache[model.name] = model
 
     ServerMetrics.onServerStarting(port, model.name)
+    RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name)
 
     val wifiIp = getWifiIpAddress(this)
     val displayAddress = wifiIp ?: "localhost"
@@ -204,6 +206,7 @@ class LlmHttpService : Service() {
         }
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
+        RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name)
       } catch (e: Exception) {
         // Only report error if this is still the current load
         if (loadGeneration.get() != thisGeneration) {
@@ -213,6 +216,7 @@ class LlmHttpService : Service() {
         Log.e(logTag, "Failed to load model ${model.name}", e)
         val msg = e.message?.take(120) ?: "Unknown error during model initialization"
         ServerMetrics.onServerError(msg)
+        RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name)
       }
     }.start()
 
@@ -232,6 +236,7 @@ class LlmHttpService : Service() {
 
   override fun onDestroy() {
     server?.stop()
+    val modelName = defaultModel?.name
     // Unload the model to free memory
     defaultModel?.let { model ->
       model.instance = null
@@ -239,6 +244,9 @@ class LlmHttpService : Service() {
     }
     defaultModel = null
     ServerMetrics.onServerStopped()
+    if (modelName != null) {
+      RequestLogStore.addEvent("Server stopped", modelName = modelName)
+    }
     logger.shutdown()
     super.onDestroy()
   }
@@ -292,46 +300,83 @@ class LlmHttpService : Service() {
       val startMs = SystemClock.elapsedRealtime()
       val method = session.method.name
       val path = session.uri
-      // Handle CORS preflight
+      // Handle CORS preflight (no logging needed)
       if (session.method == NanoHTTPD.Method.OPTIONS) {
         return corsOk()
       }
-      // Read body for logging (only for POST)
+
+      // Add a pending log entry immediately so it appears in the Logs tab
+      val logId = "log-${System.currentTimeMillis()}-${requestCounter.get()}"
+      RequestLogStore.add(
+        RequestLogEntry(
+          id = logId,
+          method = method,
+          path = path,
+          modelName = defaultModel?.name,
+          isPending = true,
+        )
+      )
+
       var requestBodySnapshot: String? = null
+      var responseBodySnapshot: String? = null
       val response = try {
-        if (!LlmHttpRouteResolver.isSupportedMethod(session.method)) return addCorsHeaders(methodNotAllowed())
-        val route = LlmHttpRouteResolver.resolve(session.method, session.uri) ?: return addCorsHeaders(notFound())
-        if (route.requiresAuth) requireAuth(session)?.let { return addCorsHeaders(it) }
-        when (route.handler) {
-          LlmHttpRouteHandler.PING -> okJsonText("{\"status\":\"ok\"}")
-          LlmHttpRouteHandler.MODELS -> okJsonText(modelsPayload())
-          LlmHttpRouteHandler.GENERATE -> handleGenerate(session) { requestBodySnapshot = it }
-          LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session) { requestBodySnapshot = it }
-          LlmHttpRouteHandler.RESPONSES -> handleResponses(session) { requestBodySnapshot = it }
+        if (!LlmHttpRouteResolver.isSupportedMethod(session.method)) {
+          methodNotAllowed()
+        } else {
+          val route = LlmHttpRouteResolver.resolve(session.method, session.uri)
+          val authError = if (route?.requiresAuth == true) requireAuth(session) else null
+          if (route == null) {
+            notFound()
+          } else if (authError != null) {
+            authError
+          } else {
+            // Update the pending entry with the request body once parsed
+            val captureBody = { body: String ->
+              requestBodySnapshot = body
+              RequestLogStore.update(logId) { it.copy(requestBody = body) }
+            }
+            when (route.handler) {
+              LlmHttpRouteHandler.PING -> {
+                responseBodySnapshot = "{\"status\":\"ok\"}"
+                okJsonText(responseBodySnapshot!!)
+              }
+              LlmHttpRouteHandler.MODELS -> {
+                val body = modelsPayload()
+                responseBodySnapshot = body
+                okJsonText(body)
+              }
+              LlmHttpRouteHandler.GENERATE -> handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it })
+              LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it })
+              LlmHttpRouteHandler.RESPONSES -> handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+            }
+          }
         }
       } catch (t: Throwable) {
+        responseBodySnapshot = t.message
         jsonError(Response.Status.INTERNAL_ERROR, t.message ?: "internal_error")
       }
+
+      // Finalize the log entry with response data
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
       val statusCode = response.status?.requestStatus ?: 200
       val isStreaming = response.mimeType == "text/event-stream"
-      RequestLogStore.add(
-        RequestLogEntry(
-          id = "log-${System.currentTimeMillis()}",
-          method = method,
-          path = path,
-          requestBody = requestBodySnapshot?.take(2000),
-          responseBody = null, // response body not easily extractable from NanoHTTPD Response
+      val level = if (statusCode in 200..299) LogLevel.INFO else LogLevel.ERROR
+      RequestLogStore.update(logId) {
+        it.copy(
+          requestBody = requestBodySnapshot ?: it.requestBody,
+          responseBody = responseBodySnapshot,
           statusCode = statusCode,
           latencyMs = elapsedMs,
           isStreaming = isStreaming,
           modelName = defaultModel?.name,
+          level = level,
+          isPending = false,
         )
-      )
+      }
       return addCorsHeaders(response)
     }
 
-    private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
+    private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -347,11 +392,16 @@ class LlmHttpService : Service() {
       logPayload("POST /generate prompt", req.prompt, requestId)
       val model = selectModel(null) ?: return badRequest("llm error")
       logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${req.prompt.length} model=default")
-      val text = runLlm(model, req.prompt, requestId, "/generate") ?: return badRequest("llm error")
-      return okJsonText(json.encodeToString(GenRes(text = text, usage = Usage(0, 0))))
+      ServerMetrics.onInferenceStarted()
+      val text = runLlm(model, req.prompt, requestId, "/generate")
+      ServerMetrics.onInferenceCompleted()
+      if (text == null) return badRequest("llm error")
+      val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(0, 0)))
+      captureResponse(responseJson)
+      return okJsonText(responseJson)
     }
 
-    private fun handleChatCompletion(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
+    private fun handleChatCompletion(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -385,16 +435,21 @@ class LlmHttpService : Service() {
       // Extract images for multimodal models.
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
 
+      ServerMetrics.onInferenceStarted()
       val text = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
-        ?: return badRequest("llm error")
+      ServerMetrics.onInferenceCompleted()
+      if (text == null) return badRequest("llm error")
       return if (req.stream == true) {
+        captureResponse(json.encodeToString(chatResponseWithText(model.name, text)))
         chatSseResponse(model.name, text)
       } else {
-        okJsonText(json.encodeToString(chatResponseWithText(model.name, text)))
+        val responseJson = json.encodeToString(chatResponseWithText(model.name, text))
+        captureResponse(responseJson)
+        okJsonText(responseJson)
       }
     }
 
-    private fun handleResponses(session: IHTTPSession, captureBody: (String) -> Unit = {}): Response {
+    private fun handleResponses(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}, logId: String? = null): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -425,16 +480,30 @@ class LlmHttpService : Service() {
         else okJsonText(json.encodeToString(responsesResponseWithToolCall(model.name, toolCall)))
       }
       return if (req.stream == true) {
-        streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
+        ServerMetrics.onInferenceStarted()
+        val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId)
+        // Note: for streaming, inference completion is signaled inside streamLlm's onToken(done=true)
+        resp
       } else {
+        ServerMetrics.onInferenceStarted()
         val text = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
-          ?: return badRequest("llm error")
-        okJsonText(json.encodeToString(responsesResponseWithText(model.name, text)))
+        ServerMetrics.onInferenceCompleted()
+        if (text == null) return badRequest("llm error")
+        val responseJson = json.encodeToString(responsesResponseWithText(model.name, text))
+        captureResponse(responseJson)
+        okJsonText(responseJson)
       }
     }
 
     fun warmUpModel(model: Model) {
-      runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10)
+      val startMs = SystemClock.elapsedRealtime()
+      val result = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10)
+      val elapsedMs = SystemClock.elapsedRealtime() - startMs
+      val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
+      RequestLogStore.addEvent(
+        "Warmup: \"Hola\" → \"$snippet\" (${elapsedMs}ms)",
+        modelName = model.name,
+      )
     }
 
     private fun runLlm(
@@ -498,6 +567,9 @@ class LlmHttpService : Service() {
       return if (result.error != null) {
         ServerMetrics.incrementErrorCount()
         logEvent("request_error id=$requestId endpoint=$endpoint error=${result.error} totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
+        if (endpoint != "warmup") {
+          RequestLogStore.addEvent("Inference error: ${result.error}", level = LogLevel.ERROR, modelName = model.name)
+        }
         null
       } else {
         val outputLen = result.output?.length ?: 0
@@ -516,6 +588,7 @@ class LlmHttpService : Service() {
       endpoint: String,
       timeoutSeconds: Long = 90,
       images: List<Bitmap> = emptyList(),
+      logId: String? = null,
     ): Response {
       // Track input tokens (rough estimate: ~4 chars per token)
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
@@ -592,18 +665,25 @@ class LlmHttpService : Service() {
             if (done) {
               val outputLen = fullText.length
               ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
+              ServerMetrics.onInferenceCompleted()
               val esc = LlmHttpBridgeUtils.escapeSseText(fullText.toString())
               writer.write(LlmHttpResponseRenderer.buildStreamingFooter(model.name, respId, msgId, now, esc))
               writer.flush()
               writer.close()
+              if (logId != null) {
+                val responseJson = json.encodeToString(responsesResponseWithText(model.name, fullText.toString()))
+                RequestLogStore.update(logId) { it.copy(responseBody = responseJson, isPending = false) }
+              }
               logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
             }
           } catch (e: Exception) {
+            ServerMetrics.onInferenceCompleted()
             logEvent("request_error id=$requestId endpoint=$endpoint error=pipe_write_failed streaming=true")
             try { writer.close() } catch (_: Exception) {}
           }
         },
         onError = { error ->
+          ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
           try {

@@ -98,6 +98,7 @@ fun SettingsScreen(
   var savedDefaultModelName by remember { mutableStateOf(LlmHttpPrefs.getDefaultModelName(context)) }
   var savedAutoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
   var savedKeepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
+  var savedAutoExpandLogs by remember { mutableStateOf(LlmHttpPrefs.isAutoExpandLogs(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -111,6 +112,7 @@ fun SettingsScreen(
   var showModelDropdown by remember { mutableStateOf(false) }
   var autoStartOnBoot by remember { mutableStateOf(savedAutoStartOnBoot) }
   var keepScreenOn by remember { mutableStateOf(savedKeepScreenOn) }
+  var autoExpandLogs by remember { mutableStateOf(savedAutoExpandLogs) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -119,7 +121,8 @@ fun SettingsScreen(
     hfToken != savedHfToken ||
     defaultModelName != savedDefaultModelName ||
     autoStartOnBoot != savedAutoStartOnBoot ||
-    keepScreenOn != savedKeepScreenOn
+    keepScreenOn != savedKeepScreenOn ||
+    autoExpandLogs != savedAutoExpandLogs
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -153,6 +156,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
         LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
         LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
+        LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -169,6 +173,7 @@ fun SettingsScreen(
         savedDefaultModelName = defaultModelName
         savedAutoStartOnBoot = autoStartOnBoot
         savedKeepScreenOn = keepScreenOn
+        savedAutoExpandLogs = autoExpandLogs
 
         if (isPortChanged && isServerRunning) {
           showRestartDialog = true
@@ -269,6 +274,35 @@ fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Auto-expand logs toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Auto-Expand Logs",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Show full request and response bodies in the Logs tab.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = autoExpandLogs,
+          onCheckedChange = { autoExpandLogs = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
     }
 
     // Auto-Launch & Behavior card
