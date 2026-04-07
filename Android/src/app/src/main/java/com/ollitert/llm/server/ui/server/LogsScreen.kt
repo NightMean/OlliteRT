@@ -579,15 +579,24 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       }
     } else if (entry.isCancelled) {
       Spacer(modifier = Modifier.height(10.dp))
-      Row(
+      Column(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(12.dp))
           .background(CancelledColor.copy(alpha = 0.08f))
           .padding(horizontal = 12.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
+        if (!entry.partialText.isNullOrEmpty()) {
+          Text(
+            text = entry.partialText,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 11.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(10.dp))
+        }
         Text(
           text = "Client disconnected — generation stopped",
           style = MaterialTheme.typography.bodySmall.copy(

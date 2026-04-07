@@ -104,6 +104,7 @@ fun SettingsScreen(
   var savedNotifShowRequestCount by remember { mutableStateOf(LlmHttpPrefs.isNotifShowRequestCount(context)) }
   var savedWarmupEnabled by remember { mutableStateOf(LlmHttpPrefs.isWarmupEnabled(context)) }
   var savedStreamLogsPreview by remember { mutableStateOf(LlmHttpPrefs.isStreamLogsPreview(context)) }
+  var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -121,6 +122,7 @@ fun SettingsScreen(
   var notifShowRequestCount by remember { mutableStateOf(savedNotifShowRequestCount) }
   var warmupEnabled by remember { mutableStateOf(savedWarmupEnabled) }
   var streamLogsPreview by remember { mutableStateOf(savedStreamLogsPreview) }
+  var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -133,7 +135,8 @@ fun SettingsScreen(
     autoExpandLogs != savedAutoExpandLogs ||
     notifShowRequestCount != savedNotifShowRequestCount ||
     warmupEnabled != savedWarmupEnabled ||
-    streamLogsPreview != savedStreamLogsPreview
+    streamLogsPreview != savedStreamLogsPreview ||
+    keepPartialResponse != savedKeepPartialResponse
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -171,6 +174,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setNotifShowRequestCount(context, notifShowRequestCount)
         LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
         LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
+        LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -191,6 +195,7 @@ fun SettingsScreen(
         savedNotifShowRequestCount = notifShowRequestCount
         savedWarmupEnabled = warmupEnabled
         savedStreamLogsPreview = streamLogsPreview
+        savedKeepPartialResponse = keepPartialResponse
 
         if (isPortChanged && isServerRunning) {
           showRestartDialog = true
@@ -770,6 +775,35 @@ fun SettingsScreen(
         Switch(
           checked = warmupEnabled,
           onCheckedChange = { warmupEnabled = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Keep partial response toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Keep Partial Response",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Preserve incomplete response text in logs when a streaming request is cancelled by the client.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = keepPartialResponse,
+          onCheckedChange = { keepPartialResponse = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
