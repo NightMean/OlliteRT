@@ -4,7 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Shield
@@ -37,14 +40,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Save
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,9 +55,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,36 +87,120 @@ fun SettingsScreen(
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   onRestartServer: () -> Unit = {},
   downloadedModelNames: List<String> = emptyList(),
+  onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
   val context = LocalContext.current
 
-  // Port state — use String for text field, track original for change detection
-  val savedPort = remember { LlmHttpPrefs.getPort(context) }
+  // Saved (persisted) values — used for change detection; updated after successful save
+  var savedPort by remember { mutableStateOf(LlmHttpPrefs.getPort(context)) }
+  var savedBearerToken by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context)) }
+  var savedHfToken by remember { mutableStateOf(LlmHttpPrefs.getHfToken(context)) }
+  var savedDefaultModelName by remember { mutableStateOf(LlmHttpPrefs.getDefaultModelName(context)) }
+  var savedAutoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
+  var savedKeepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
+
+  // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
-
-  // Port error state
   var portError by remember { mutableStateOf(false) }
-
-  // Restart dialog state
   var showRestartDialog by remember { mutableStateOf(false) }
-
-  // Bearer token state
-  var bearerEnabled by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context).isNotBlank()) }
-  var bearerToken by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context)) }
-
-  // HuggingFace token state
-  var hfToken by remember { mutableStateOf(LlmHttpPrefs.getHfToken(context)) }
+  var bearerEnabled by remember { mutableStateOf(savedBearerToken.isNotBlank()) }
+  var bearerToken by remember { mutableStateOf(savedBearerToken) }
+  var hfToken by remember { mutableStateOf(savedHfToken) }
   var hfTokenVisible by remember { mutableStateOf(false) }
-
-  // Auto-launch model state
-  var defaultModelName by remember { mutableStateOf(LlmHttpPrefs.getDefaultModelName(context)) }
+  var defaultModelName by remember { mutableStateOf(savedDefaultModelName) }
   var showModelDropdown by remember { mutableStateOf(false) }
+  var autoStartOnBoot by remember { mutableStateOf(savedAutoStartOnBoot) }
+  var keepScreenOn by remember { mutableStateOf(savedKeepScreenOn) }
 
-  // Auto-start on boot state
-  var autoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
+  // Unsaved changes detection — compare current vs persisted
+  val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
+  val hasUnsavedChanges = portText != savedPort.toString() ||
+    effectiveBearerToken != savedBearerToken ||
+    hfToken != savedHfToken ||
+    defaultModelName != savedDefaultModelName ||
+    autoStartOnBoot != savedAutoStartOnBoot ||
+    keepScreenOn != savedKeepScreenOn
 
-  // Keep screen awake state
-  var keepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
+  // Discard confirmation dialog
+  var showDiscardDialog by remember { mutableStateOf(false) }
+
+  // Intercept back navigation when there are unsaved changes
+  BackHandler(enabled = hasUnsavedChanges) {
+    showDiscardDialog = true
+  }
+
+  // Save action — shared between top bar button and internal logic
+  val saveSettings: () -> Unit = {
+    if (portText.isBlank()) {
+      portError = true
+      Toast.makeText(context, "A port number is required", Toast.LENGTH_SHORT).show()
+    } else {
+      val port = portText.toIntOrNull()
+      if (port == null || port !in 1024..65535) {
+        portError = true
+        Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
+      } else {
+        val isPortChanged = port != savedPort
+        val isServerRunning = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+
+        LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
+        if (bearerEnabled) {
+          LlmHttpPrefs.setBearerToken(context, bearerToken)
+        } else {
+          LlmHttpPrefs.setBearerToken(context, "")
+        }
+        LlmHttpPrefs.setHfToken(context, hfToken)
+        LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
+        LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
+        LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
+
+        // Apply keep-screen-on immediately
+        val window = (context as? android.app.Activity)?.window
+        if (keepScreenOn) {
+          window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+          window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+
+        // Update saved state so change detection resets
+        savedPort = port
+        savedBearerToken = if (bearerEnabled) bearerToken else ""
+        savedHfToken = hfToken
+        savedDefaultModelName = defaultModelName
+        savedAutoStartOnBoot = autoStartOnBoot
+        savedKeepScreenOn = keepScreenOn
+
+        if (isPortChanged && isServerRunning) {
+          showRestartDialog = true
+        } else {
+          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+        }
+      }
+    }
+  }
+
+  // Inject save button into the top bar
+  val currentSaveSettings by rememberUpdatedState(saveSettings)
+  DisposableEffect(Unit) {
+    onSetTopBarTrailingContent {
+      Box(
+        modifier = Modifier
+          .size(40.dp)
+          .clip(RoundedCornerShape(10.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .clickable { currentSaveSettings() },
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Save,
+          contentDescription = "Save settings",
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(22.dp),
+        )
+      }
+    }
+    onDispose { onSetTopBarTrailingContent(null) }
+  }
 
   Box(
     modifier = modifier
@@ -125,7 +212,7 @@ fun SettingsScreen(
       .fillMaxSize()
       .verticalScroll(rememberScrollState())
       .padding(horizontal = 20.dp, vertical = 16.dp)
-      .padding(bottom = 72.dp),
+      .padding(bottom = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     // Heading
@@ -301,7 +388,6 @@ fun SettingsScreen(
       Spacer(modifier = Modifier.height(16.dp))
 
       // Keep screen awake toggle
-      val view = LocalView.current
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -323,14 +409,6 @@ fun SettingsScreen(
           checked = keepScreenOn,
           onCheckedChange = { enabled ->
             keepScreenOn = enabled
-            LlmHttpPrefs.setKeepScreenOn(context, enabled)
-            // Apply immediately without requiring app restart
-            val window = (view.context as? android.app.Activity)?.window
-            if (enabled) {
-              window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            } else {
-              window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
           },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
@@ -359,7 +437,6 @@ fun SettingsScreen(
             if (enabled && bearerToken.isBlank()) {
               bearerToken = LlmHttpPrefs.ensureBearerToken(context)
             } else if (!enabled) {
-              LlmHttpPrefs.setBearerToken(context, "")
               bearerToken = ""
             }
           },
@@ -493,6 +570,35 @@ fun SettingsScreen(
       )
     }
 
+    // Discard unsaved changes dialog
+    if (showDiscardDialog) {
+      AlertDialog(
+        onDismissRequest = { showDiscardDialog = false },
+        title = { Text("Unsaved Changes") },
+        text = { Text("You have unsaved changes. Would you like to save or discard them?") },
+        confirmButton = {
+          Button(onClick = {
+            showDiscardDialog = false
+            saveSettings()
+            onBackClick()
+          }) {
+            Text("Save")
+          }
+        },
+        dismissButton = {
+          Button(onClick = {
+            showDiscardDialog = false
+            onBackClick()
+          },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+          )) {
+            Text("Discard")
+          }
+        },
+      )
+    }
+
     // Restart server dialog when port changed
     if (showRestartDialog) {
       AlertDialog(
@@ -540,53 +646,42 @@ fun SettingsScreen(
     )
   }
 
-    // Floating save button
-    FloatingActionButton(
-      onClick = {
-        if (serverStatus == ServerStatus.LOADING) {
-          Toast.makeText(context, "Please wait for the server to finish starting before changing settings", Toast.LENGTH_SHORT).show()
-          return@FloatingActionButton
-        }
-        if (portText.isBlank()) {
-          portError = true
-          Toast.makeText(context, "A port number is required", Toast.LENGTH_SHORT).show()
-          return@FloatingActionButton
-        }
-        val port = portText.toIntOrNull()
-        if (port == null || port !in 1024..65535) {
-          portError = true
-          Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
-          return@FloatingActionButton
-        }
-
-        val portChanged = port != savedPort
-        val isServerRunning = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
-
-        LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
-        if (bearerEnabled) {
-          LlmHttpPrefs.setBearerToken(context, bearerToken)
-        }
-        LlmHttpPrefs.setHfToken(context, hfToken)
-        LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
-        LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
-        LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
-
-        if (portChanged && isServerRunning) {
-          showRestartDialog = true
-        } else {
-          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
-        }
-      },
-      containerColor = OlliteRTPrimary,
-      contentColor = MaterialTheme.colorScheme.onPrimary,
+    // Unsaved changes banner
+    androidx.compose.animation.AnimatedVisibility(
+      visible = hasUnsavedChanges,
+      enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) +
+        androidx.compose.animation.fadeIn(),
+      exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) +
+        androidx.compose.animation.fadeOut(),
       modifier = Modifier
-        .align(Alignment.BottomEnd)
-        .padding(end = 16.dp, bottom = 16.dp),
+        .align(Alignment.BottomCenter)
+        .padding(bottom = 16.dp),
     ) {
-      Icon(
-        imageVector = Icons.Outlined.Save,
-        contentDescription = "Save settings",
-      )
+      Row(
+        modifier = Modifier
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .border(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant,
+            shape = RoundedCornerShape(12.dp),
+          )
+          .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Info,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(16.dp),
+        )
+        Text(
+          text = "You have unsaved changes",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
     }
   }
 }

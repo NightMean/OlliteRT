@@ -8,6 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.data.LlmHttpPrefs
@@ -53,6 +56,9 @@ fun OlliteRTApp(
     }
   }
 
+  // Top bar trailing content (e.g. save button on Settings screen)
+  var topBarTrailingContent: (@Composable () -> Unit)? by remember { mutableStateOf(null) }
+
   // Determine which screens show the bottom nav and top bar
   val showBottomBar = currentRoute in listOf(
     OlliteRTRoutes.MODELS,
@@ -78,10 +84,17 @@ fun OlliteRTApp(
             }
           },
           onBackClick = if (isSettings) {
-            { navController.navigateUp() }
+            {
+              // Dispatch back press so BackHandler in child screens can intercept
+              // (e.g. SettingsScreen unsaved changes guard)
+              val dispatcher = navController.context as? androidx.activity.OnBackPressedDispatcherOwner
+              dispatcher?.onBackPressedDispatcher?.onBackPressed()
+                ?: navController.navigateUp()
+            }
           } else {
             null
           },
+          trailingContent = if (isSettings) topBarTrailingContent else null,
         )
       }
     },
@@ -110,6 +123,7 @@ fun OlliteRTApp(
       serverViewModel = serverViewModel,
       startDestination = startDestination,
       modifier = Modifier.padding(innerPadding),
+      onSetTopBarTrailingContent = { topBarTrailingContent = it },
     )
   }
 }
