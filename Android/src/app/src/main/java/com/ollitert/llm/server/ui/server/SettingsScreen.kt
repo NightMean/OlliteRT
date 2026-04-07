@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Shield
@@ -99,6 +100,7 @@ fun SettingsScreen(
   var savedAutoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
   var savedKeepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
   var savedAutoExpandLogs by remember { mutableStateOf(LlmHttpPrefs.isAutoExpandLogs(context)) }
+  var savedNotifShowRequestCount by remember { mutableStateOf(LlmHttpPrefs.isNotifShowRequestCount(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -113,6 +115,7 @@ fun SettingsScreen(
   var autoStartOnBoot by remember { mutableStateOf(savedAutoStartOnBoot) }
   var keepScreenOn by remember { mutableStateOf(savedKeepScreenOn) }
   var autoExpandLogs by remember { mutableStateOf(savedAutoExpandLogs) }
+  var notifShowRequestCount by remember { mutableStateOf(savedNotifShowRequestCount) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -122,7 +125,8 @@ fun SettingsScreen(
     defaultModelName != savedDefaultModelName ||
     autoStartOnBoot != savedAutoStartOnBoot ||
     keepScreenOn != savedKeepScreenOn ||
-    autoExpandLogs != savedAutoExpandLogs
+    autoExpandLogs != savedAutoExpandLogs ||
+    notifShowRequestCount != savedNotifShowRequestCount
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -157,6 +161,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
         LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
         LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
+        LlmHttpPrefs.setNotifShowRequestCount(context, notifShowRequestCount)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -174,6 +179,7 @@ fun SettingsScreen(
         savedAutoStartOnBoot = autoStartOnBoot
         savedKeepScreenOn = keepScreenOn
         savedAutoExpandLogs = autoExpandLogs
+        savedNotifShowRequestCount = notifShowRequestCount
 
         if (isPortChanged && isServerRunning) {
           showRestartDialog = true
@@ -303,6 +309,36 @@ fun SettingsScreen(
         Switch(
           checked = autoExpandLogs,
           onCheckedChange = { autoExpandLogs = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+    }
+
+    // Notification card
+    SettingsCard(
+      icon = Icons.Outlined.Notifications,
+      title = "Notification",
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Show Request Count",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Display live request count in the notification. Updates on every request.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = notifShowRequestCount,
+          onCheckedChange = { notifShowRequestCount = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
