@@ -251,13 +251,62 @@ fun ModelItem(
         if (changes.isNotEmpty() && isServerActiveForModel) {
           val changesSummary = changes.joinToString(", ")
           val isLoading = serverStatus == ServerStatus.LOADING
+          // Build structured JSON body for the log card.
+          // Schema: {"type":"inference_settings","changes":[{"param":"TopK","old":"14","new":"15"},...],
+          //          "prompt_diffs":{"system_prompt":{"old":"...","new":"..."},...},
+          //          "status":"reloading model"}
+          val eventBody = org.json.JSONObject().apply {
+            put("type", "inference_settings")
+            // Structured changes array for each parameter
+            val changesArray = org.json.JSONArray()
+            for (config in model.configs) {
+              val key = config.key.label
+              val oldValue = model.prevConfigValues[key]?.let {
+                com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+              }
+              val newValue = newConfigValues[key]?.let {
+                com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+              }
+              if (oldValue != newValue) {
+                changesArray.put(org.json.JSONObject().apply {
+                  put("param", config.key.label)
+                  put("old", oldValue?.toString() ?: "")
+                  put("new", newValue?.toString() ?: "")
+                })
+              }
+            }
+            put("changes", changesArray)
+            // Prompt diffs (full text before/after)
+            val promptDiffsObj = org.json.JSONObject()
+            if (systemPrompt != oldSystemPrompt) {
+              promptDiffsObj.put("system_prompt", org.json.JSONObject().apply {
+                put("old", oldSystemPrompt ?: "")
+                put("new", systemPrompt)
+              })
+            }
+            if (chatTemplate != oldChatTemplate) {
+              promptDiffsObj.put("chat_template", org.json.JSONObject().apply {
+                put("old", oldChatTemplate ?: "")
+                put("new", chatTemplate)
+              })
+            }
+            if (promptDiffsObj.length() > 0) put("prompt_diffs", promptDiffsObj)
+            // Status suffix (reload state)
+            val status = when {
+              needReinitialization && isLoading -> "reload queued after loading"
+              needReinitialization -> "reloading model"
+              else -> null
+            }
+            if (status != null) put("status", status)
+          }
           RequestLogStore.addEvent(
             "Inference settings changed: $changesSummary" +
               if (needReinitialization && isLoading) " — reload queued after loading"
               else if (needReinitialization) " — reloading model"
               else "",
             modelName = model.name,
-            category = EventCategory.SETTINGS,
+            category = EventCategory.MODEL,
+            body = eventBody.toString(),
           )
           if (needReinitialization) {
             val port = LlmHttpPrefs.getPort(context)

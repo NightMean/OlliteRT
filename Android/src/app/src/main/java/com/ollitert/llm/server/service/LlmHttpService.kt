@@ -296,6 +296,13 @@ class LlmHttpService : Service() {
             "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
             modelName = model.name,
             category = EventCategory.PROMPT,
+            // Structured JSON body — full prompt text for the log card's expandable text box.
+            // Schema: {"type":"prompt_active","prompt_type":"system_prompt","text":"..."}
+            body = org.json.JSONObject().apply {
+              put("type", "prompt_active")
+              put("prompt_type", "system_prompt")
+              put("text", sysPrompt)
+            }.toString(),
           )
         }
         if (chatTpl.isNotBlank()) {
@@ -303,6 +310,13 @@ class LlmHttpService : Service() {
             "Chat template active: \"${chatTpl.take(120)}\"${if (chatTpl.length > 120) "…" else ""}",
             modelName = model.name,
             category = EventCategory.PROMPT,
+            // Structured JSON body — full prompt text for the log card's expandable text box.
+            // Schema: {"type":"prompt_active","prompt_type":"chat_template","text":"..."}
+            body = org.json.JSONObject().apply {
+              put("type", "prompt_active")
+              put("prompt_type", "chat_template")
+              put("text", chatTpl)
+            }.toString(),
           )
         }
         // Save notification state for live updates on each request

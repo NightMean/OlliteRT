@@ -72,18 +72,50 @@ object RequestLogStore {
     _entries.value = emptyList()
   }
 
-  /** Add an internal event (model load, error, etc.) visible in the Logs tab. */
+  /**
+   * Add an internal event (model load, error, etc.) visible in the Logs tab.
+   *
+   * @param body optional structured JSON stored in [RequestLogEntry.requestBody].
+   *   All event bodies MUST be valid JSON with a `"type"` discriminator field.
+   *   Exported under `"data"` in the log JSON output.
+   *
+   *   Schemas by type:
+   *
+   *   **inference_settings** — parameter changes from the Inference Settings sheet.
+   *   ```json
+   *   {
+   *     "type": "inference_settings",
+   *     "changes": [{"param": "TopK", "old": "14", "new": "15"}, ...],
+   *     "prompt_diffs": {                           // optional
+   *       "system_prompt": {"old": "...", "new": "..."},
+   *       "chat_template": {"old": "...", "new": "..."}
+   *     },
+   *     "status": "reloading model"                 // optional
+   *   }
+   *   ```
+   *
+   *   **prompt_active** — system prompt or chat template active on server start.
+   *   ```json
+   *   {
+   *     "type": "prompt_active",
+   *     "prompt_type": "system_prompt" | "chat_template",
+   *     "text": "full prompt text..."
+   *   }
+   *   ```
+   */
   fun addEvent(
     message: String,
     level: LogLevel = LogLevel.INFO,
     modelName: String? = null,
     category: EventCategory = EventCategory.GENERAL,
+    body: String? = null,
   ) {
     add(
       RequestLogEntry(
         id = "event-${System.currentTimeMillis()}-${idCounter.incrementAndGet()}",
         method = "EVENT",
         path = message,
+        requestBody = body,
         level = level,
         modelName = modelName,
         eventCategory = category,
