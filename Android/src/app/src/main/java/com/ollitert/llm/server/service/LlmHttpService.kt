@@ -22,6 +22,7 @@ import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.service.LogLevel
+import com.ollitert.llm.server.ui.navigation.ServerStatus
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -459,7 +460,10 @@ class LlmHttpService : Service() {
           val route = LlmHttpRouteResolver.resolve(session.method, session.uri)
           val authError = if (route?.requiresAuth == true) requireAuth(session) else null
           if (route == null) {
-            notFound()
+            // Check if it's a known OpenAI endpoint we don't support
+            val unsupportedMsg = LlmHttpRouteResolver.getUnsupportedEndpointMessage(session.uri)
+            if (unsupportedMsg != null) jsonError(Response.Status.NOT_FOUND, unsupportedMsg)
+            else notFound()
           } else if (authError != null) {
             authError
           } else {
@@ -473,6 +477,10 @@ class LlmHttpService : Service() {
                 responseBodySnapshot = "{\"status\":\"ok\"}"
                 okJsonText(responseBodySnapshot!!)
               }
+              LlmHttpRouteHandler.HEALTH -> {
+                responseBodySnapshot = healthPayload()
+                okJsonText(responseBodySnapshot!!)
+              }
               LlmHttpRouteHandler.SERVER_INFO -> {
                 val body = serverInfoPayload()
                 responseBodySnapshot = body
@@ -483,7 +491,17 @@ class LlmHttpService : Service() {
                 responseBodySnapshot = body
                 okJsonText(body)
               }
+              LlmHttpRouteHandler.MODEL_DETAIL -> {
+                val body = modelDetailPayload(session.uri)
+                if (body != null) {
+                  responseBodySnapshot = body
+                  okJsonText(body)
+                } else {
+                  notFound("model_not_found")
+                }
+              }
               LlmHttpRouteHandler.GENERATE -> handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it })
+              LlmHttpRouteHandler.COMPLETIONS -> handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.RESPONSES -> handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
             }
@@ -594,6 +612,54 @@ class LlmHttpService : Service() {
         captureResponse(responseJson)
         okJsonText(responseJson)
       }
+    }
+
+    private fun handleCompletions(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}, logId: String? = null): Response {
+      val requestId = nextRequestId()
+      val payload = HashMap<String, String>()
+      session.parseBody(payload)
+      val raw = payload["postData"] ?: return badRequest("empty body")
+      val parsed = LlmHttpBodyParser.parse(raw, maxBodyBytes)
+        ?: run {
+          logEvent("request_rejected id=$requestId endpoint=/v1/completions reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
+          return payloadTooLarge()
+        }
+      captureBody(parsed.body)
+      logPayload("POST /v1/completions raw", parsed.body, requestId)
+      val req = json.decodeFromString<CompletionRequest>(parsed.body)
+      val model = selectModel(req.model) ?: return notFound("model_not_found")
+      val prompt = req.prompt
+      logEvent("request_start id=$requestId endpoint=/v1/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=${model.name}")
+
+      if (prompt.isBlank()) {
+        val responseJson = json.encodeToString(CompletionResponse(
+          id = "cmpl-${java.util.UUID.randomUUID()}",
+          created = System.currentTimeMillis() / 1000,
+          model = model.name,
+          choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = "stop")),
+          usage = Usage(0, 0),
+        ))
+        captureResponse(responseJson)
+        return okJsonText(responseJson)
+      }
+
+      // Streaming completions: fall through to non-streaming for now (TODO: implement streaming)
+      ServerMetrics.onInferenceStarted()
+      val (text, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120)
+      ServerMetrics.onInferenceCompleted()
+      if (text == null) return badRequest(llmError ?: "llm error")
+
+      val promptTokens = (prompt.length / 4).coerceAtLeast(1)
+      val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+      val responseJson = json.encodeToString(CompletionResponse(
+        id = "cmpl-${java.util.UUID.randomUUID()}",
+        created = System.currentTimeMillis() / 1000,
+        model = model.name,
+        choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
+        usage = Usage(promptTokens, completionTokens),
+      ))
+      captureResponse(responseJson)
+      return okJsonText(responseJson)
     }
 
     private fun handleResponses(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}, logId: String? = null): Response {
@@ -1270,11 +1336,42 @@ class LlmHttpService : Service() {
       put("compatibility", JsonPrimitive("openai"))
       put("endpoints", JsonArray(listOf(
         JsonPrimitive("/v1/models"),
+        JsonPrimitive("/v1/completions"),
         JsonPrimitive("/v1/chat/completions"),
         JsonPrimitive("/v1/responses"),
+        JsonPrimitive("/health"),
       )))
     }
     return JsonObject(info).toString()
+  }
+
+  private fun healthPayload(): String {
+    val status = ServerMetrics.status.value
+    val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
+      (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
+    val info = buildMap {
+      put("status", JsonPrimitive(if (status == ServerStatus.RUNNING) "ok" else status.name.lowercase()))
+      defaultModel?.let { put("model", JsonPrimitive(it.name)) }
+      uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+    }
+    return JsonObject(info).toString()
+  }
+
+  private fun modelDetailPayload(uri: String): String? {
+    val modelId = uri.removePrefix("/v1/models/")
+    if (modelId.isBlank()) return null
+    val model = defaultModel ?: return null
+    // Match against the currently loaded model
+    if (!model.name.equals(modelId, ignoreCase = true)) return null
+    val item = LlmHttpModelItem(
+      id = model.name,
+      capabilities = LlmHttpModelCapabilities(
+        image = model.llmSupportImage,
+        audio = model.llmSupportAudio,
+        thinking = model.llmSupportThinking && (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false,
+      ),
+    )
+    return json.encodeToString(LlmHttpModelItem.serializer(), item)
   }
 
   private fun modelsPayload(): String {

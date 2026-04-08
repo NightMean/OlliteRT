@@ -169,3 +169,43 @@ object ChatContentSerializer : KSerializer<ChatContent> {
 )
 
 @Serializable data class GenReq(val prompt: String)
+
+// ── Legacy /v1/completions endpoint models ───────────────────────────────────
+
+@Serializable data class CompletionRequest(
+  val model: String? = null,
+  val prompt: String = "",
+  val max_tokens: Int? = null,
+  val temperature: Double? = null,
+  val top_p: Double? = null,
+  val stream: Boolean? = null,
+  val stream_options: StreamOptions? = null,
+  val stop: JsonElement? = null,  // String or List<String>, handled at runtime
+  val suffix: String? = null,
+  val echo: Boolean? = null,
+  val seed: Int? = null,
+  val user: String? = null,
+  val frequency_penalty: Double? = null,
+  val presence_penalty: Double? = null,
+  val logit_bias: JsonElement? = null,
+  val logprobs: Int? = null,
+  val best_of: Int? = null,
+  val n: Int? = null,
+)
+
+@Serializable data class CompletionChoice(
+  val text: String,
+  val index: Int,
+  val logprobs: JsonElement? = null,
+  val finish_reason: String,
+)
+
+@Serializable data class CompletionResponse(
+  val id: String,
+  val `object`: String = "text_completion",
+  val created: Long,
+  val model: String,
+  val choices: List<CompletionChoice>,
+  val usage: Usage,
+  val system_fingerprint: String? = null,
+)
