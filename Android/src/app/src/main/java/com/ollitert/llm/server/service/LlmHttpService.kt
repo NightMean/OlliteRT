@@ -144,8 +144,10 @@ class LlmHttpService : Service() {
       null
     }
     if (model == null) {
+      val msg = "Model '${resolvedModelName ?: "unknown"}' not found"
       Log.e(logTag, "No model specified or model '${resolvedModelName}' not found — cannot start server")
-      ServerMetrics.onServerError("Model '${resolvedModelName ?: "unknown"}' not found")
+      ServerMetrics.onServerError(msg)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName)
       pendingConfigOverrides = null
       stopSelf()
       return START_NOT_STICKY
@@ -159,8 +161,10 @@ class LlmHttpService : Service() {
     // Verify model files actually exist on disk.
     val modelPath = model.getPath(context = this)
     if (!java.io.File(modelPath).exists()) {
+      val msg = "Model files not found on disk"
       Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server")
-      ServerMetrics.onServerError("Model files not found on disk")
+      ServerMetrics.onServerError(msg)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name)
       stopSelf()
       return START_NOT_STICKY
     }
@@ -213,7 +217,16 @@ class LlmHttpService : Service() {
 
     server?.stop()
     server = NanoServer(port)
-    server?.start()
+    try {
+      server?.start()
+    } catch (e: Exception) {
+      val msg = "Server failed to start on port $port: ${e.message?.take(120) ?: "Unknown error"}"
+      Log.e(logTag, msg, e)
+      ServerMetrics.onServerError(msg)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name)
+      stopSelf()
+      return START_NOT_STICKY
+    }
 
     defaultModel = model
 
@@ -1216,6 +1229,11 @@ class LlmHttpService : Service() {
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
       } catch (e: Exception) {
         Log.w(logTag, "Failed to decode image data URI", e)
+        RequestLogStore.addEvent(
+          "Failed to decode image: ${e.message?.take(80) ?: "Unknown error"}",
+          level = LogLevel.ERROR,
+          modelName = defaultModel?.name,
+        )
         null
       }
     }
