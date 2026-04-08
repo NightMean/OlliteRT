@@ -2,6 +2,7 @@ package com.ollitert.llm.server.service
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -110,5 +111,171 @@ class LlmHttpResponseRendererTest {
     assertTrue(!footer.contains("response.created"))
     assertTrue(!footer.contains("response.in_progress"))
     assertTrue(!footer.contains("output_item.added"))
+  }
+
+  // ── Model list enrichment──────────────────────────────────
+
+  @Test
+  fun modelItemHasCreatedAndOwnedBy() {
+    val item = LlmHttpModelItem(id = "test-model")
+    assertEquals("ollitert", item.owned_by)
+    assertTrue("created should be a recent epoch", item.created > 0)
+  }
+
+  @Test
+  fun modelItemSerializesCreatedAndOwnedBy() {
+    val item = LlmHttpModelItem(id = "test-model")
+    val serialized = json.encodeToString(LlmHttpModelItem.serializer(), item)
+    assertTrue(serialized.contains("\"owned_by\":\"ollitert\""))
+    assertTrue(serialized.contains("\"created\":"))
+  }
+
+  @Test
+  fun modelListPayloadContainsCreatedAndOwnedBy() {
+    val payload = LlmHttpResponseRenderer.renderModelListPayload(json, listOf("m1"), "fallback")
+    assertTrue(payload.contains("\"owned_by\":\"ollitert\""))
+    assertTrue(payload.contains("\"created\":"))
+  }
+
+  // ── Chat stream first chunk sends content=""───────────────
+
+  @Test
+  fun chatStreamFirstChunkHasEmptyContent() {
+    val chunk = LlmHttpResponseRenderer.buildChatStreamFirstChunk("c1", "m", 1000L)
+    // Should have content:"" (empty string), not omit content entirely
+    assertTrue("First chunk should have content:\"\"", chunk.contains("\"content\":\"\""))
+    assertTrue("First chunk should have role:assistant", chunk.contains("\"role\":\"assistant\""))
+  }
+
+  // ── [DONE] separated from final chunk──────────────────────
+
+  @Test
+  fun chatStreamFinalChunkDoesNotContainDone() {
+    val chunk = LlmHttpResponseRenderer.buildChatStreamFinalChunk("c1", "m", 1000L)
+    assertTrue("Final chunk should NOT contain [DONE]", !chunk.contains("[DONE]"))
+    assertTrue("Final chunk should have finish_reason:stop", chunk.contains("\"finish_reason\":\"stop\""))
+  }
+
+  @Test
+  fun sseDoneConstant() {
+    assertEquals("data: [DONE]\n\n", LlmHttpResponseRenderer.SSE_DONE)
+  }
+
+  // ── Dynamic finish_reason──────────────────────────────────
+
+  @Test
+  fun chatStreamFinalChunkAcceptsCustomFinishReason() {
+    val chunk = LlmHttpResponseRenderer.buildChatStreamFinalChunk("c1", "m", 1000L, finishReason = "length")
+    assertTrue(chunk.contains("\"finish_reason\":\"length\""))
+    assertTrue(!chunk.contains("\"finish_reason\":\"stop\""))
+  }
+
+  @Test
+  fun chatStreamFinalChunkDefaultsToStop() {
+    val chunk = LlmHttpResponseRenderer.buildChatStreamFinalChunk("c1", "m", 1000L)
+    assertTrue(chunk.contains("\"finish_reason\":\"stop\""))
+  }
+
+  // ── Usage chunk for streaming──────────────────────────────
+
+  @Test
+  fun chatStreamUsageChunkFormat() {
+    val chunk = LlmHttpResponseRenderer.buildChatStreamUsageChunk("c1", "m", 1000L, 10, 20)
+    assertTrue("Should start with data:", chunk.startsWith("data: "))
+    assertTrue("Should have empty choices", chunk.contains("\"choices\":[]"))
+    assertTrue("Should have prompt_tokens", chunk.contains("\"prompt_tokens\":10"))
+    assertTrue("Should have completion_tokens", chunk.contains("\"completion_tokens\":20"))
+    assertTrue("Should have total_tokens", chunk.contains("\"total_tokens\":30"))
+    assertTrue("Should have chat.completion.chunk object", chunk.contains("\"object\":\"chat.completion.chunk\""))
+  }
+
+  @Test
+  fun chatStreamUsageChunkPreservesIds() {
+    val chunk = LlmHttpResponseRenderer.buildChatStreamUsageChunk("my-chat-id", "my-model", 999L, 5, 10)
+    assertTrue(chunk.contains("\"id\":\"my-chat-id\""))
+    assertTrue(chunk.contains("\"model\":\"my-model\""))
+    assertTrue(chunk.contains("\"created\":999"))
+  }
+
+  // ── Streaming footer token counts────────────────────────────────
+
+  @Test
+  fun streamingFooterIncludesTokenCounts() {
+    val footer = LlmHttpResponseRenderer.buildStreamingFooter("m", "r", "g", 1000L, "text", inputTokens = 8, outputTokens = 12)
+    assertTrue("Should have input_tokens", footer.contains("\"input_tokens\":8"))
+    assertTrue("Should have output_tokens", footer.contains("\"output_tokens\":12"))
+    assertTrue("Should have total_tokens", footer.contains("\"total_tokens\":20"))
+  }
+
+  @Test
+  fun streamingFooterDefaultsToZeroTokens() {
+    val footer = LlmHttpResponseRenderer.buildStreamingFooter("m", "r", "g", 1000L, "text")
+    assertTrue(footer.contains("\"input_tokens\":0"))
+    assertTrue(footer.contains("\"output_tokens\":0"))
+    assertTrue(footer.contains("\"total_tokens\":0"))
+  }
+
+  // ── Text SSE payload token counts────────────────────────────────
+
+  @Test
+  fun textSsePayloadIncludesTokenCounts() {
+    val payload = LlmHttpResponseRenderer.buildTextSsePayload("m", "hello", inputTokens = 5, outputTokens = 3)
+    assertTrue(payload.contains("\"input_tokens\":5"))
+    assertTrue(payload.contains("\"output_tokens\":3"))
+    assertTrue(payload.contains("\"total_tokens\":8"))
+  }
+
+  // ── UUID-based IDs in SSE payloads─────────────────────────
+
+  @Test
+  fun textSsePayloadUsesUuidIds() {
+    val payload = LlmHttpResponseRenderer.buildTextSsePayload("m", "hello")
+    // Should NOT contain timestamp-based IDs like "resp-12345"
+    assertTrue("Should have UUID-based resp ID", payload.contains("\"id\":\"resp-"))
+    // UUID format: 8-4-4-4-12 hex chars = 36 chars
+    val respIdMatch = Regex("\"id\":\"resp-([a-f0-9\\-]{36})\"").find(payload)
+    assertNotNull("resp ID should be UUID format", respIdMatch)
+  }
+
+  @Test
+  fun toolCallSsePayloadUsesUuidIds() {
+    val toolCall = ToolCall(id = "call-1", function = ToolCallFunction(name = "test", arguments = "{}"))
+    val payload = LlmHttpResponseRenderer.buildToolCallSsePayload("m", toolCall)
+    val respIdMatch = Regex("\"id\":\"resp-([a-f0-9\\-]{36})\"").find(payload)
+    assertNotNull("resp ID should be UUID format", respIdMatch)
+  }
+
+  // ── Full streaming sequence test ──────────────────────────────────────────
+
+  @Test
+  fun fullChatStreamingSequenceIsCorrect() {
+    val chatId = "chatcmpl-test"
+    val model = "test-model"
+    val now = 1000L
+
+    // 1. First chunk: role + empty content
+    val first = LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, model, now)
+    assertTrue(first.contains("\"role\":\"assistant\""))
+    assertTrue(first.contains("\"content\":\"\""))
+    assertTrue(first.contains("\"finish_reason\":null"))
+
+    // 2. Content chunks: content with tokens
+    val delta = LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model, now, "Hello")
+    assertTrue(delta.contains("\"content\":\"Hello\""))
+    assertTrue(delta.contains("\"finish_reason\":null"))
+    assertTrue(!delta.contains("\"role\""))
+
+    // 3. Final chunk: finish_reason, no content
+    val final_ = LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model, now)
+    assertTrue(final_.contains("\"finish_reason\":\"stop\""))
+    assertTrue(!final_.contains("[DONE]"))
+
+    // 4. Usage chunk (optional)
+    val usage = LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, model, now, 10, 5)
+    assertTrue(usage.contains("\"choices\":[]"))
+    assertTrue(usage.contains("\"total_tokens\":15"))
+
+    // 5. [DONE]
+    assertEquals("data: [DONE]\n\n", LlmHttpResponseRenderer.SSE_DONE)
   }
 }
