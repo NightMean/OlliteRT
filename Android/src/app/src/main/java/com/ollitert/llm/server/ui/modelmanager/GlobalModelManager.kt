@@ -71,6 +71,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -482,16 +486,22 @@ fun GlobalModelManager(
 
     // Import FAB
     val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-    FloatingActionButton(
-      onClick = { showImportModelSheet = true },
-      containerColor = OlliteRTPrimary,
-      contentColor = MaterialTheme.colorScheme.onPrimary,
-      modifier = Modifier
-        .align(Alignment.BottomEnd)
-        .padding(end = 16.dp, bottom = 16.dp)
-        .semantics { contentDescription = cdImportModelFab },
+    TooltipBox(
+      positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+      tooltip = { PlainTooltip { Text("Import model") } },
+      state = rememberTooltipState(),
     ) {
-      Icon(Icons.Filled.Add, contentDescription = null)
+      FloatingActionButton(
+        onClick = { showImportModelSheet = true },
+        containerColor = OlliteRTPrimary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        modifier = Modifier
+          .align(Alignment.BottomEnd)
+          .padding(end = 16.dp, bottom = 16.dp)
+          .semantics { contentDescription = cdImportModelFab },
+      ) {
+        Icon(Icons.Filled.Add, contentDescription = null)
+      }
     }
 
     // Snackbar
