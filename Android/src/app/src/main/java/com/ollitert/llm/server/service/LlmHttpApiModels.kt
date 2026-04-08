@@ -31,7 +31,7 @@ import kotlinx.serialization.json.jsonPrimitive
   val top_k: Int? = null,
   val max_output_tokens: Int? = null,      // Responses API uses max_output_tokens
   val tools: List<ToolSpec>? = null,
-  val tool_choice: String? = null,
+  val tool_choice: JsonElement? = null,    // String or Object, same as ChatRequest
 )
 
 @Serializable data class InputMsg(
@@ -125,6 +125,8 @@ object ChatContentSerializer : KSerializer<ChatContent> {
   @Serializable(with = ChatContentSerializer::class)
   val content: ChatContent = ChatContent(""),
   val tool_calls: List<ToolCall>? = null,
+  val tool_call_id: String? = null,   // For role="tool" messages: references the tool call this result is for
+  val name: String? = null,           // Function name for role="tool" or deprecated role="function" messages
 )
 
 @Serializable data class ToolCallFunction(val name: String, val arguments: String)
@@ -190,7 +192,8 @@ object StopDeserializer : KSerializer<List<String>> {
   val presence_penalty: Double? = null,    // Accepted, silently ignored (LiteRT limitation)
   val response_format: ResponseFormat? = null,
   val tools: List<ToolSpec>? = null,
-  val tool_choice: String? = null,
+  val tool_choice: JsonElement? = null,    // String ("auto"/"none"/"required") or Object {"type":"function","function":{"name":"..."}}
+  val parallel_tool_calls: Boolean? = null, // Accepted, ignored (sequential inference only)
   val user: String? = null,                // Accepted, ignored
   val n: Int? = null,                      // Accepted, ignored (always 1)
   val logprobs: Boolean? = null,           // Accepted, ignored

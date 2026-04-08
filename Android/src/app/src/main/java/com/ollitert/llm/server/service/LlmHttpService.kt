@@ -641,13 +641,21 @@ class LlmHttpService : Service() {
       captureBody(parsed.body)
       logPayload("POST /v1/chat/completions raw", parsed.body, requestId)
       val req = json.decodeFromString<ChatRequest>(parsed.body)
-      if (req.tools.isNullOrEmpty() && req.tool_choice == "required")
+      val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
+      if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
         return badRequest("tool_choice required but tools empty")
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
       val chatTemplate = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
-      var prompt = LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
+
+      // Build prompt: inject tool schemas if tools are present and tool_choice != "none"
+      val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
+      var prompt = if (hasTools) {
+        LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate)
+      } else {
+        LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
+      }
       // Apply response_format JSON mode prompt injection
       prompt = applyResponseFormat(prompt, req.response_format)
       logPayload("POST /v1/chat/completions prompt", prompt, requestId)
@@ -660,11 +668,6 @@ class LlmHttpService : Service() {
         logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
         return okJsonText(json.encodeToString(emptyChatResponse(model.name)))
       }
-      if (!req.tools.isNullOrEmpty() && req.tool_choice != "none") {
-        val toolCall = LlmHttpRequestAdapter.synthesizeToolCall(req.tools!!.first(), prompt, "call_${System.currentTimeMillis()}")
-        logEvent("request_tool_call id=$requestId endpoint=/v1/chat/completions tool=${toolCall.function.name}")
-        return okJsonText(json.encodeToString(chatResponseWithToolCall(model.name, toolCall, promptLen = prompt.length)))
-      }
 
       val includeUsage = req.stream_options?.include_usage == true
       val effectiveMaxTokens = req.max_completion_tokens ?: req.max_tokens
@@ -674,13 +677,25 @@ class LlmHttpService : Service() {
       return withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens) {
         if (req.stream == true) {
           ServerMetrics.onInferenceStarted()
-          streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = req.stop.ifEmpty { null })
+          streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = req.stop.ifEmpty { null }, tools = if (hasTools) req.tools else null)
         } else {
           ServerMetrics.onInferenceStarted()
           val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
           ServerMetrics.onInferenceCompleted()
           if (rawText == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
           val (text, _) = applyStopSequences(rawText, req.stop.ifEmpty { null })
+
+          // Check if the model output contains a tool call
+          if (hasTools) {
+            val toolCall = LlmHttpToolCallParser.parse(text, req.tools!!)
+            if (toolCall != null) {
+              logEvent("request_tool_call id=$requestId endpoint=/v1/chat/completions tool=${toolCall.function.name}")
+              val responseJson = json.encodeToString(chatResponseWithToolCall(model.name, toolCall, promptLen = prompt.length))
+              captureResponse(responseJson)
+              return@withPerRequestConfig okJsonText(responseJson)
+            }
+          }
+
           val responseJson = json.encodeToString(chatResponseWithText(model.name, text, promptLen = prompt.length))
           captureResponse(responseJson)
           okJsonText(responseJson)
@@ -760,7 +775,8 @@ class LlmHttpService : Service() {
       captureBody(parsed.body)
       logPayload("POST /v1/responses raw", parsed.body, requestId)
       val req = json.decodeFromString<ResponsesRequest>(parsed.body)
-      if (req.tools.isNullOrEmpty() && req.tool_choice == "required")
+      val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
+      if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
         return badRequest("tool_choice required but tools empty")
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
@@ -774,24 +790,31 @@ class LlmHttpService : Service() {
         logEvent("request_empty id=$requestId endpoint=/v1/responses")
         return emptyResponse(model.name, stream = req.stream == true)
       }
-      if (!req.tools.isNullOrEmpty() && req.tool_choice != "none") {
-        val toolCall = LlmHttpRequestAdapter.synthesizeToolCall(req.tools!!.first(), prompt, "call_${System.currentTimeMillis()}")
-        return if (req.stream == true) sseResponseToolCall(model.name, toolCall)
-        else okJsonText(json.encodeToString(responsesResponseWithToolCall(model.name, toolCall, promptLen = prompt.length)))
-      }
+
+      val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
 
       // Apply per-request sampler overrides
       return withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens) {
         if (req.stream == true) {
           ServerMetrics.onInferenceStarted()
           val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length)
-          // Note: for streaming, inference completion is signaled inside streamLlm's onToken(done=true)
           resp
         } else {
           ServerMetrics.onInferenceStarted()
           val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
           ServerMetrics.onInferenceCompleted()
           if (text == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+
+          // Check if the model output contains a tool call
+          if (hasTools) {
+            val toolCall = LlmHttpToolCallParser.parse(text, req.tools!!)
+            if (toolCall != null) {
+              val responseJson = json.encodeToString(responsesResponseWithToolCall(model.name, toolCall, promptLen = prompt.length))
+              captureResponse(responseJson)
+              return@withPerRequestConfig okJsonText(responseJson)
+            }
+          }
+
           val responseJson = json.encodeToString(responsesResponseWithText(model.name, text, promptLen = prompt.length))
           captureResponse(responseJson)
           okJsonText(responseJson)
@@ -1099,6 +1122,7 @@ class LlmHttpService : Service() {
       logId: String? = null,
       includeUsage: Boolean = false,
       stopSequences: List<String>? = null,
+      tools: List<ToolSpec>? = null,
     ): Response {
       val streamStartMs = SystemClock.elapsedRealtime()
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
@@ -1240,7 +1264,9 @@ class LlmHttpService : Service() {
               ServerMetrics.onInferenceCompleted()
               val promptTokens = (prompt.length / 4).coerceAtLeast(1)
               val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
-              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now))
+              // Detect tool calls in the completed output to set finish_reason appropriately
+              val finishReason = if (tools != null && LlmHttpToolCallParser.parse(fullText.toString(), tools) != null) "tool_calls" else "stop"
+              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now, finishReason))
               if (includeUsage) {
                 stream.enqueue(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, model.name, now, promptTokens, completionTokens))
               }

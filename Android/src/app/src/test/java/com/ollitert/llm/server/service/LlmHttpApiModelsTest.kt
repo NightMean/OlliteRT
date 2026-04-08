@@ -190,4 +190,70 @@ class LlmHttpApiModelsTest {
     assertTrue(id.startsWith("cmpl-"))
     assertTrue(id.length > "cmpl-".length + 30)
   }
+
+  // ── ChatMessage with tool_call_id and name ──────────────────────
+
+  @Test
+  fun chatMessageDeserializesToolCallId() {
+    val input = """{"role":"tool","content":"result","tool_call_id":"call_abc","name":"get_weather"}"""
+    val msg = json.decodeFromString<ChatMessage>(input)
+    assertEquals("tool", msg.role)
+    assertEquals("call_abc", msg.tool_call_id)
+    assertEquals("get_weather", msg.name)
+    assertEquals("result", msg.content.text)
+  }
+
+  @Test
+  fun chatMessageToolCallIdDefaultsToNull() {
+    val input = """{"role":"user","content":"hello"}"""
+    val msg = json.decodeFromString<ChatMessage>(input)
+    assertNull(msg.tool_call_id)
+    assertNull(msg.name)
+  }
+
+  @Test
+  fun chatMessageSerializesToolCallId() {
+    val msg = ChatMessage(
+      role = "tool",
+      content = ChatContent("{\"temp\":72}"),
+      tool_call_id = "call_xyz",
+      name = "get_weather",
+    )
+    val serialized = json.encodeToString(msg)
+    assertTrue(serialized.contains("\"tool_call_id\":\"call_xyz\""))
+    assertTrue(serialized.contains("\"name\":\"get_weather\""))
+  }
+
+  // ── Polymorphic tool_choice─────────────────────────────────────
+
+  @Test
+  fun chatRequestToolChoiceAsString() {
+    val input = """{"messages":[],"tool_choice":"auto"}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertNotNull(req.tool_choice)
+  }
+
+  @Test
+  fun chatRequestToolChoiceAsObject() {
+    val input = """{"messages":[],"tool_choice":{"type":"function","function":{"name":"get_weather"}}}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertNotNull(req.tool_choice)
+    // Verify it's a JsonObject by checking it contains the expected structure
+    val obj = req.tool_choice!!.jsonObject
+    assertEquals("function", obj["type"]!!.jsonPrimitive.content)
+  }
+
+  @Test
+  fun chatRequestToolChoiceDefaultsToNull() {
+    val input = """{"messages":[]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertNull(req.tool_choice)
+  }
+
+  @Test
+  fun chatRequestParallelToolCallsAccepted() {
+    val input = """{"messages":[],"parallel_tool_calls":true}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertEquals(true, req.parallel_tool_calls)
+  }
 }
