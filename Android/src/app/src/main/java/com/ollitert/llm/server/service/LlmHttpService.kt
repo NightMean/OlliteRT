@@ -392,6 +392,22 @@ class LlmHttpService : Service() {
       ?: return null
     val model = LlmHttpModelFactory.buildAllowedModel(match, importsDir)
     model.preProcess()
+    // Restore persisted inference config so settings survive app/service restarts
+    val savedConfig = com.ollitert.llm.server.data.LlmHttpPrefs.getInferenceConfig(this, model.name)
+    if (savedConfig != null) {
+      val restored = model.configValues.toMutableMap()
+      for ((key, savedValue) in savedConfig) {
+        if (key in restored) {
+          val config = model.configs.find { it.key.label == key }
+          if (config != null) {
+            restored[key] = com.ollitert.llm.server.data.convertValueToTargetType(savedValue, config.valueType)
+          } else {
+            restored[key] = savedValue
+          }
+        }
+      }
+      model.configValues = restored
+    }
     return model
   }
 
@@ -613,7 +629,7 @@ class LlmHttpService : Service() {
                   notFound("model_not_found")
                 }
               }
-              LlmHttpRouteHandler.GENERATE -> handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it })
+              LlmHttpRouteHandler.GENERATE -> handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.COMPLETIONS -> handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.RESPONSES -> handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
@@ -654,7 +670,7 @@ class LlmHttpService : Service() {
       return addCorsHeaders(response)
     }
 
-    private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}): Response {
+    private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}, logId: String? = null): Response {
       val requestId = nextRequestId()
       val payload = HashMap<String, String>()
       session.parseBody(payload)
@@ -669,11 +685,15 @@ class LlmHttpService : Service() {
       val req = json.decodeFromString<GenReq>(parsed.body)
       val model = selectModel(null) ?: return badRequest("llm error")
       // Apply prompt compaction for raw prompts (only trimming is possible)
-      val autoCompactGen = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val trimPromptsGen = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
       val maxContextGen = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-      val compactionResultGen = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextGen, autoCompactGen)
+      val compactionResultGen = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
       if (compactionResultGen.compacted) {
-        logEvent("prompt_compacted id=$requestId endpoint=/generate strategies=[${compactionResultGen.strategies.joinToString(", ")}]")
+        val details = compactionResultGen.strategies.joinToString(", ")
+        logEvent("prompt_compacted id=$requestId endpoint=/generate strategies=[$details]")
+        if (logId != null) {
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultGen.prompt) }
+        }
       }
       val prompt = compactionResultGen.prompt
       logPayload("POST /generate prompt", prompt, requestId)
@@ -709,11 +729,13 @@ class LlmHttpService : Service() {
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
 
       // Build prompt with progressive compaction if context window is exceeded.
-      // Two independent toggles: "Auto-compact Prompts" (history truncation + prompt trim)
-      // and "Compact Tool Schemas" (tool schema reduction, useful for Home Assistant).
+      // Three independent toggles for progressive prompt compaction:
+      // "Truncate History" (drop older messages), "Compact Tool Schemas" (reduce tool definitions,
+      // useful for Home Assistant), "Trim Prompt" (hard-cut as last resort).
       val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
-      val autoCompact = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val truncateHistory = LlmHttpPrefs.isAutoTruncateHistory(this@LlmHttpService)
       val compactToolSchemas = LlmHttpPrefs.isCompactToolSchemas(this@LlmHttpService)
+      val trimPrompts = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
       val maxContext = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
 
       val compactionResult = LlmHttpPromptCompactor.compactChatPrompt(
@@ -722,15 +744,16 @@ class LlmHttpService : Service() {
         toolChoice = toolChoiceStr,
         chatTemplate = chatTemplate,
         maxContext = maxContext,
-        autoCompact = autoCompact,
+        truncateHistory = truncateHistory,
         compactToolSchemas = compactToolSchemas,
+        trimPrompts = trimPrompts,
       )
 
       if (compactionResult.compacted) {
         val details = compactionResult.strategies.joinToString(", ")
         logEvent("prompt_compacted id=$requestId endpoint=/v1/chat/completions strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResult.prompt)} maxContext=$maxContext")
         if (logId != null) {
-          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details) }
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResult.prompt) }
         }
       }
 
@@ -808,14 +831,14 @@ class LlmHttpService : Service() {
       val req = json.decodeFromString<CompletionRequest>(parsed.body)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
       // Apply prompt compaction for raw prompts (only trimming is possible)
-      val autoCompactCompl = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val trimPromptsCompl = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
       val maxContextCompl = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-      val compactionResultCompl = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, autoCompactCompl)
+      val compactionResultCompl = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
       if (compactionResultCompl.compacted) {
         val details = compactionResultCompl.strategies.joinToString(", ")
         logEvent("prompt_compacted id=$requestId endpoint=/v1/completions strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResultCompl.prompt)} maxContext=$maxContextCompl")
         if (logId != null) {
-          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details) }
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultCompl.prompt) }
         }
       }
       val prompt = compactionResultCompl.prompt
@@ -892,19 +915,21 @@ class LlmHttpService : Service() {
       val chatTemplateResp = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
       // Build prompt with progressive compaction if context window is exceeded
-      val autoCompactResp = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val truncateHistoryResp = LlmHttpPrefs.isAutoTruncateHistory(this@LlmHttpService)
+      val trimPromptsResp = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
       val maxContextResp = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
       val compactionResultResp = LlmHttpPromptCompactor.compactConversationPrompt(
         messages = req.messages ?: req.input,
         chatTemplate = chatTemplateResp,
         maxContext = maxContextResp,
-        autoCompact = autoCompactResp,
+        truncateHistory = truncateHistoryResp,
+        trimPrompts = trimPromptsResp,
       )
       if (compactionResultResp.compacted) {
         val details = compactionResultResp.strategies.joinToString(", ")
         logEvent("prompt_compacted id=$requestId endpoint=/v1/responses strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResultResp.prompt)} maxContext=$maxContextResp")
         if (logId != null) {
-          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details) }
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultResp.prompt) }
         }
       }
       val prompt = compactionResultResp.prompt

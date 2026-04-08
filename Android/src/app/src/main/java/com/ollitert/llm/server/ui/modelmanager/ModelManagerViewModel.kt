@@ -31,6 +31,8 @@ import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.CategoryInfo
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
@@ -224,6 +226,25 @@ constructor(
     for (task in uiState.value.tasks) {
       for (model in task.models) {
         model.preProcess()
+        // Restore persisted inference config (temperature, max tokens, etc.) so settings
+        // survive app restarts. Overlays saved values on top of model defaults.
+        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
+        if (savedConfig != null) {
+          val restored = model.configValues.toMutableMap()
+          for ((key, savedValue) in savedConfig) {
+            // Only restore keys that exist in the model's config definitions
+            if (key in restored) {
+              // Normalize to the target type expected by the model config
+              val config = model.configs.find { it.key.label == key }
+              if (config != null) {
+                restored[key] = convertValueToTargetType(savedValue, config.valueType)
+              } else {
+                restored[key] = savedValue
+              }
+            }
+          }
+          model.configValues = restored
+        }
       }
       // Move the model that is best for this task to the front.
       val bestModel = task.models.find { it.bestForTaskIds.contains(task.id) }
@@ -1041,6 +1062,22 @@ constructor(
         runtimeType = RuntimeType.LITERT_LM,
       )
     model.preProcess()
+    // Restore persisted inference config for imported models too
+    val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
+    if (savedConfig != null) {
+      val restored = model.configValues.toMutableMap()
+      for ((key, savedValue) in savedConfig) {
+        if (key in restored) {
+          val config = model.configs.find { it.key.label == key }
+          if (config != null) {
+            restored[key] = convertValueToTargetType(savedValue, config.valueType)
+          } else {
+            restored[key] = savedValue
+          }
+        }
+      }
+      model.configValues = restored
+    }
 
     return model
   }

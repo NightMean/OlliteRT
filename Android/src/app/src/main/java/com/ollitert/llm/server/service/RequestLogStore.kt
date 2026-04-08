@@ -30,6 +30,8 @@ data class RequestLogEntry(
   val isPending: Boolean = false,
   val isThinking: Boolean = false,
   val isCompacted: Boolean = false,
+  val compactionDetails: String? = null,
+  val compactedPrompt: String? = null,
   val isCancelled: Boolean = false,
   val partialText: String? = null,
   val eventCategory: EventCategory = EventCategory.GENERAL,

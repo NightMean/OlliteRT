@@ -50,9 +50,10 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.geometry.Offset
+// TODO: F72 — Uncomment these imports when model-based compaction is implemented (CompactingIcon)
+// import androidx.compose.foundation.Canvas
+// import androidx.compose.ui.graphics.StrokeCap
+// import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -114,6 +115,26 @@ private val EventColor = Color(0xFF90A4AE) // blue-grey for internal events
 private val ThinkingColor = Color(0xFFCE93D8) // soft purple for thinking mode
 private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
 private val WarningColor = Color(0xFFFFF176) // yellow for warnings (e.g. compacted tool schemas)
+private val TruncatedColor = Color(0xFFFFB74D) // amber for history truncation
+private val ContextOverflowColor = Color(0xFFEF5350) // red for context window exceeded errors
+
+/** Patterns that indicate a context window overflow error in the response body. */
+private val CONTEXT_OVERFLOW_PATTERNS = listOf(
+  "context", "token", "exceed", "too long", "too many tokens", ">=",
+)
+
+/**
+ * Checks if a response body contains a context window overflow error.
+ * Detects patterns like "1031 >= 1024", "exceeds context", "token limit exceeded", etc.
+ */
+private fun isContextOverflowError(responseBody: String?): Boolean {
+  if (responseBody.isNullOrBlank()) return false
+  val lower = responseBody.lowercase()
+  // Must contain "error" (indicating it's an error response) plus a context-overflow keyword
+  val hasError = lower.contains("error") || lower.contains("fail")
+  val hasOverflow = CONTEXT_OVERFLOW_PATTERNS.any { lower.contains(it) }
+  return hasError && hasOverflow
+}
 
 /**
  * Easter-egg "Generating" messages with rarity tiers.
@@ -467,57 +488,52 @@ private fun BouncingDots() {
   }
 }
 
-/**
- * Animated compaction icon — two inward-pointing chevrons squeezing a box between them.
- * The box shrinks horizontally as the chevrons compress, visually representing
- * content being compacted to fit the context window.
- */
-@Composable
-private fun CompactingIcon() {
-  val transition = rememberInfiniteTransition(label = "compact")
-  // 1f = spread apart, 0f = fully squeezed
-  val spread by transition.animateFloat(
-    initialValue = 1f,
-    targetValue = 0.15f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 1000),
-      repeatMode = RepeatMode.Reverse,
-    ),
-    label = "squeeze",
-  )
-  Canvas(modifier = Modifier.size(width = 22.dp, height = 16.dp)) {
-    val midY = size.height / 2f
-    val midX = size.width / 2f
-    val chevronH = size.height * 0.32f
-    val strokeW = 1.8f.dp.toPx()
-    val color = WarningColor
-
-    // Box — taller and wider, shrinks horizontally with animation
-    val boxHalfW = spread * 3.5f.dp.toPx()
-    val boxHalfH = 4.dp.toPx()
-    drawRect(
-      color = color,
-      topLeft = Offset(midX - boxHalfW, midY - boxHalfH),
-      size = androidx.compose.ui.geometry.Size(boxHalfW * 2f, boxHalfH * 2f),
-    )
-
-    // Gap between chevron tips and box edges — stays constant so the
-    // chevrons visually "push" the box as they move inward with it
-    val gap = 2.dp.toPx()
-
-    // Left chevron ">" pushing inward
-    val leftTip = midX - boxHalfW - gap
-    val leftBack = leftTip - 4.dp.toPx()
-    drawLine(color, Offset(leftBack, midY - chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
-    drawLine(color, Offset(leftBack, midY + chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
-
-    // Right chevron "<" pushing inward
-    val rightTip = midX + boxHalfW + gap
-    val rightBack = rightTip + 4.dp.toPx()
-    drawLine(color, Offset(rightBack, midY - chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
-    drawLine(color, Offset(rightBack, midY + chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
-  }
-}
+// TODO: F72 — Model-based prompt compaction. When implemented, this animation will be used
+// in the pending state to indicate the model is actively compacting/summarizing the prompt.
+// Currently unused because compaction is instant (string manipulation, not model inference).
+// See CLAUDE.md F72 for the full design concept.
+//
+// /**
+//  * Animated compaction icon — two inward-pointing chevrons squeezing a box between them.
+//  * The box shrinks horizontally as the chevrons compress, visually representing
+//  * content being compacted to fit the context window.
+//  */
+// @Composable
+// private fun CompactingIcon() {
+//   val transition = rememberInfiniteTransition(label = "compact")
+//   val spread by transition.animateFloat(
+//     initialValue = 1f,
+//     targetValue = 0.15f,
+//     animationSpec = infiniteRepeatable(
+//       animation = tween(durationMillis = 1000),
+//       repeatMode = RepeatMode.Reverse,
+//     ),
+//     label = "squeeze",
+//   )
+//   Canvas(modifier = Modifier.size(width = 22.dp, height = 16.dp)) {
+//     val midY = size.height / 2f
+//     val midX = size.width / 2f
+//     val chevronH = size.height * 0.32f
+//     val strokeW = 1.8f.dp.toPx()
+//     val color = WarningColor
+//     val boxHalfW = spread * 3.5f.dp.toPx()
+//     val boxHalfH = 4.dp.toPx()
+//     drawRect(
+//       color = color,
+//       topLeft = Offset(midX - boxHalfW, midY - boxHalfH),
+//       size = androidx.compose.ui.geometry.Size(boxHalfW * 2f, boxHalfH * 2f),
+//     )
+//     val gap = 2.dp.toPx()
+//     val leftTip = midX - boxHalfW - gap
+//     val leftBack = leftTip - 4.dp.toPx()
+//     drawLine(color, Offset(leftBack, midY - chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
+//     drawLine(color, Offset(leftBack, midY + chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
+//     val rightTip = midX + boxHalfW + gap
+//     val rightBack = rightTip + 4.dp.toPx()
+//     drawLine(color, Offset(rightBack, midY - chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
+//     drawLine(color, Offset(rightBack, midY + chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
+//   }
+// }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -695,6 +711,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
   }
 
   var requestExpanded by remember { mutableStateOf(autoExpand) }
+  var compactedExpanded by remember { mutableStateOf(autoExpand) }
   var responseExpanded by remember { mutableStateOf(autoExpand) }
 
   Column(
@@ -771,12 +788,47 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       )
     }
 
+    // Compacted prompt preview — shown between Request and Response when compaction was applied.
+    // This is the actual prompt that was sent to inference after compaction strategies were applied.
+    if (!entry.compactedPrompt.isNullOrBlank()) {
+      val compactedSize = remember(entry.compactedPrompt) { formatByteSize(entry.compactedPrompt.toByteArray(Charsets.UTF_8).size) }
+      val isLong = entry.compactedPrompt.length > COLLAPSED_MAX_CHARS || entry.compactedPrompt.count { it == '\n' } > COLLAPSED_MAX_LINES
+      val badges = remember(entry.compactionDetails) { parseCompactionBadges(entry.compactionDetails) }
+      Spacer(modifier = Modifier.height(10.dp))
+      ExpandableBodySection(
+        label = "Compacted Prompt · $compactedSize",
+        labelColor = WarningColor,
+        body = entry.compactedPrompt,
+        expanded = compactedExpanded,
+        showToggle = isLong,
+        onToggle = { compactedExpanded = !compactedExpanded },
+      )
+      // Strategy badges below the text box, above the Response section
+      if (badges.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          badges.forEachIndexed { index, (badgeLabel, badgeColor) ->
+            if (index > 0) FooterDot()
+            Text(
+              text = badgeLabel,
+              style = MaterialTheme.typography.labelSmall,
+              color = badgeColor,
+              fontWeight = FontWeight.SemiBold,
+            )
+          }
+        }
+      }
+    }
+
     // Response area: streaming partial text while pending, full JSON when done
+    // NOTE: Compaction is instant (string manipulation before inference), so the pending state
+    // always shows normal generating text. If model-based compaction is added (F72), this should
+    // show CompactingIcon + "Compacting prompt" text while the model summarizes.
     if (entry.isPending) {
       val generatingText = remember(entry.id) { GeneratingMessages.pick() }
-      // Show compaction notice when context window was exceeded, otherwise fun generating text
-      val pendingText = if (entry.isCompacted) "Context window exceeded, compacting" else generatingText
-      val pendingColor = if (entry.isCompacted) WarningColor else OlliteRTPrimary
       Spacer(modifier = Modifier.height(10.dp))
       Text(
         text = "Response",
@@ -804,26 +856,20 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
           )
           Spacer(modifier = Modifier.height(10.dp))
         }
-        // Generating indicator at the bottom — bouncing dots for normal, pulsing warning for compacting
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-          if (entry.isCompacted) {
-            CompactingIcon()
-          }
           Text(
-            text = pendingText,
+            text = generatingText,
             style = MaterialTheme.typography.bodySmall.copy(
               fontFamily = SpaceGroteskFontFamily,
               fontSize = 11.sp,
             ),
-            color = pendingColor,
+            color = OlliteRTPrimary,
             fontWeight = FontWeight.SemiBold,
           )
-          if (!entry.isCompacted) {
-            BouncingDots()
-          }
+          BouncingDots()
         }
       }
     } else if (entry.isCancelled) {
@@ -871,9 +917,29 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       )
     }
 
-    // Footer: status · latency · SSE · Thinking  ···  model · time
+    // Footer area: badges (compaction/overflow) are placed inline when they fit,
+    // or on a separate row above when they'd overflow. Measured dynamically via
+    // SubcomposeLayout so the layout scales correctly across phones and tablets.
     if (!entry.isPending) {
+      val contextOverflow = remember(entry.responseBody) { isContextOverflowError(entry.responseBody) }
+
       Spacer(modifier = Modifier.height(10.dp))
+
+      // Context overflow badge on its own line above footer when model returned an error
+      // despite compaction attempts (compaction was insufficient)
+      if (contextOverflow) {
+        Text(
+          text = "Context window exceeded",
+          style = MaterialTheme.typography.labelSmall,
+          color = ContextOverflowColor,
+          fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+      }
+
+      // Footer: status · latency · SSE · Thinking · Cancelled  ···  model · time
+      // Compaction badges (Compacted, Truncated, Trimmed) are shown below the
+      // Compacted Prompt text box instead of here.
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -901,15 +967,6 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             text = "Thinking",
             style = MaterialTheme.typography.labelSmall,
             color = ThinkingColor,
-            fontWeight = FontWeight.SemiBold,
-          )
-        }
-        if (entry.isCompacted) {
-          FooterDot()
-          Text(
-            text = "Compacted",
-            style = MaterialTheme.typography.labelSmall,
-            color = WarningColor,
             fontWeight = FontWeight.SemiBold,
           )
         }
@@ -946,13 +1003,23 @@ private fun ExpandableBodySection(
   expanded: Boolean,
   showToggle: Boolean,
   onToggle: () -> Unit,
+  /** Optional annotated label — takes precedence over plain [label] when provided. */
+  annotatedLabel: AnnotatedString? = null,
 ) {
-  Text(
-    text = label,
-    style = MaterialTheme.typography.labelSmall,
-    color = labelColor,
-    fontWeight = FontWeight.SemiBold,
-  )
+  if (annotatedLabel != null) {
+    Text(
+      text = annotatedLabel,
+      style = MaterialTheme.typography.labelSmall,
+      fontWeight = FontWeight.SemiBold,
+    )
+  } else if (label.isNotBlank()) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      color = labelColor,
+      fontWeight = FontWeight.SemiBold,
+    )
+  }
   Spacer(modifier = Modifier.height(4.dp))
   val highlighted = remember(body) { highlightJson(body) }
   if (expanded) {
@@ -1059,13 +1126,19 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
     obj.put("tokens", entry.tokens)
     obj.put("streaming", entry.isStreaming)
     if (entry.isThinking) obj.put("thinking", true)
-    if (entry.isCompacted) obj.put("compacted", true)
+    if (entry.isCompacted) {
+      obj.put("compacted", true)
+      if (!entry.compactionDetails.isNullOrBlank()) obj.put("compaction_details", entry.compactionDetails)
+    }
     if (entry.isCancelled) obj.put("cancelled", true)
     if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
 
     // Parse request/response bodies as JSON if possible, otherwise keep as string
     if (!entry.requestBody.isNullOrBlank()) {
       obj.put("request_body", tryParseJson(entry.requestBody))
+    }
+    if (!entry.compactedPrompt.isNullOrBlank()) {
+      obj.put("compacted_prompt", entry.compactedPrompt)
     }
     if (!entry.responseBody.isNullOrBlank()) {
       obj.put("response_body", tryParseJson(entry.responseBody))
@@ -1182,6 +1255,50 @@ private fun FooterDot() {
     style = MaterialTheme.typography.labelSmall,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
+}
+
+/**
+ * Parses compactionDetails string (comma-separated strategy tags from [LlmHttpPromptCompactor])
+ * into short badge labels with colors. Strategy tag format:
+ *   "tools:compacted" → "Compacted: Tools"
+ *   "tools:removed"   → "Compacted: Tools removed"
+ *   "truncated:-4 msgs" → "Truncated: -4 msgs"
+ *   "trimmed"         → "Trimmed"
+ */
+/**
+ * @param short When true, produces short labels for the footer (e.g. "Compacted" instead of
+ *   "Compacted: Tools"). The detailed variant is used in the Compacted Prompt section header.
+ */
+private fun parseCompactionBadges(details: String?, short: Boolean = false): List<Pair<String, Color>> {
+  if (details.isNullOrBlank()) return emptyList()
+  return details.split(", ").mapNotNull { tag ->
+    when {
+      tag.startsWith("tools:") -> {
+        if (short) {
+          "Compacted" to WarningColor
+        } else {
+          val suffix = tag.removePrefix("tools:")
+          val label = when (suffix) {
+            "compacted" -> "Compacted: Tools"
+            "removed" -> "Compacted: Tools removed"
+            else -> "Compacted: Tools"
+          }
+          label to WarningColor
+        }
+      }
+      tag.startsWith("truncated:") -> {
+        if (short) {
+          "Truncated" to TruncatedColor
+        } else {
+          val suffix = tag.removePrefix("truncated:")
+          "Truncated: $suffix" to TruncatedColor
+        }
+      }
+      tag == "trimmed" -> "Trimmed" to WarningColor
+      // Fallback for any unrecognized tag — show as-is in yellow
+      else -> tag to WarningColor
+    }
+  }
 }
 
 private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())

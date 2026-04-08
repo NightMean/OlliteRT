@@ -85,6 +85,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.EventCategory
+import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -114,6 +116,8 @@ fun SettingsScreen(
   var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
   var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
   var savedCustomPromptsEnabled by remember { mutableStateOf(LlmHttpPrefs.isCustomPromptsEnabled(context)) }
+  var savedAutoTruncateHistory by remember { mutableStateOf(LlmHttpPrefs.isAutoTruncateHistory(context)) }
+  var savedAutoTrimPrompts by remember { mutableStateOf(LlmHttpPrefs.isAutoTrimPrompts(context)) }
   var savedCompactToolSchemas by remember { mutableStateOf(LlmHttpPrefs.isCompactToolSchemas(context)) }
   var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
   var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
@@ -137,6 +141,8 @@ fun SettingsScreen(
   var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
   var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
   var customPromptsEnabled by remember { mutableStateOf(savedCustomPromptsEnabled) }
+  var autoTruncateHistory by remember { mutableStateOf(savedAutoTruncateHistory) }
+  var autoTrimPrompts by remember { mutableStateOf(savedAutoTrimPrompts) }
   var compactToolSchemas by remember { mutableStateOf(savedCompactToolSchemas) }
   var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
@@ -156,6 +162,8 @@ fun SettingsScreen(
     keepPartialResponse != savedKeepPartialResponse ||
     eagerVisionInit != savedEagerVisionInit ||
     customPromptsEnabled != savedCustomPromptsEnabled ||
+    autoTruncateHistory != savedAutoTruncateHistory ||
+    autoTrimPrompts != savedAutoTrimPrompts ||
     compactToolSchemas != savedCompactToolSchemas ||
     clearLogsOnStop != savedClearLogsOnStop ||
     confirmClearLogs != savedConfirmClearLogs
@@ -203,7 +211,30 @@ fun SettingsScreen(
         LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
         LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
         LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
+        LlmHttpPrefs.setAutoTruncateHistory(context, autoTruncateHistory)
+        LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPrompts)
         LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemas)
+
+        // Log compaction toggle changes as SETTINGS events so they appear in the Logs tab
+        if (autoTruncateHistory != savedAutoTruncateHistory) {
+          RequestLogStore.addEvent(
+            "Truncate Conversation History ${if (autoTruncateHistory) "enabled" else "disabled"}",
+            category = EventCategory.SETTINGS,
+          )
+        }
+        if (compactToolSchemas != savedCompactToolSchemas) {
+          RequestLogStore.addEvent(
+            "Compact Tool Schemas ${if (compactToolSchemas) "enabled" else "disabled"}",
+            category = EventCategory.SETTINGS,
+          )
+        }
+        if (autoTrimPrompts != savedAutoTrimPrompts) {
+          RequestLogStore.addEvent(
+            "Trim Prompt ${if (autoTrimPrompts) "enabled" else "disabled"}",
+            category = EventCategory.SETTINGS,
+          )
+        }
+
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
 
@@ -229,6 +260,8 @@ fun SettingsScreen(
         savedKeepPartialResponse = keepPartialResponse
         savedEagerVisionInit = eagerVisionInit
         savedCustomPromptsEnabled = customPromptsEnabled
+        savedAutoTruncateHistory = autoTruncateHistory
+        savedAutoTrimPrompts = autoTrimPrompts
         savedCompactToolSchemas = compactToolSchemas
         savedClearLogsOnStop = clearLogsOnStop
         savedConfirmClearLogs = confirmClearLogs
@@ -976,7 +1009,36 @@ fun SettingsScreen(
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
       Spacer(modifier = Modifier.height(16.dp))
 
-      // Compact tool schemas toggle
+      // Truncate conversation history toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Truncate Conversation History",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "When a request exceeds the model's context window, drop older messages from the conversation while keeping system prompts and the most recent messages.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = autoTruncateHistory,
+          onCheckedChange = { autoTruncateHistory = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Compact tool schemas toggle (especially useful for Home Assistant)
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -989,7 +1051,7 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurface,
           )
           Text(
-            text = "When a request with tools exceeds the model's context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Without this, tool requests that exceed context will fail with an error.",
+            text = "When a request with tools exceeds the model's context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for Home Assistant integration which sends many tool definitions.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -997,6 +1059,35 @@ fun SettingsScreen(
         Switch(
           checked = compactToolSchemas,
           onCheckedChange = { compactToolSchemas = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Trim prompt toggle (last resort)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Trim Prompt",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Last resort when other strategies aren't enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = autoTrimPrompts,
+          onCheckedChange = { autoTrimPrompts = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

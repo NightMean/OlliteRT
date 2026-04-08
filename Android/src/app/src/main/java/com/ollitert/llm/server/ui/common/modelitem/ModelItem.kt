@@ -239,6 +239,8 @@ fun ModelItem(
 
         model.prevConfigValues = model.configValues
         model.configValues = newConfigValues
+        // Persist inference config so it survives app restarts
+        LlmHttpPrefs.setInferenceConfig(context, model.name, newConfigValues)
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
         // Log config changes and trigger model reload if needed.
