@@ -112,7 +112,7 @@ import java.util.Date
 import java.util.Locale
 
 private val DeleteRedTint = Color(0xFFE57373)
-private val EventColor = Color(0xFF90A4AE) // blue-grey for internal events
+private val EventColor = OlliteRTPrimary // matches the app's blue accent
 private val ThinkingColor = Color(0xFFCE93D8) // soft purple for thinking mode
 private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
 private val WarningColor = Color(0xFFFFF176) // yellow for warnings (e.g. compacted tool schemas)
