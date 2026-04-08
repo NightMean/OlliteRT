@@ -1339,7 +1339,13 @@ class LlmHttpService : Service() {
               ServerMetrics.onInferenceCompleted()
               val promptTokens = (prompt.length / 4).coerceAtLeast(1)
               val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
-              // Detect tool calls in the completed output to set finish_reason appropriately
+              // Streaming tool calls: we detect tool calls post-completion and only set
+              // finish_reason="tool_calls" — the raw text is streamed as-is during generation.
+              // OpenAI's full spec streams tool_calls as structured deltas in each SSE chunk
+              // (delta.tool_calls[].function.arguments streamed incrementally), but that requires
+              // buffering the entire response before emitting any chunks (to know whether the
+              // output is a tool call vs plain text). Intentionally deferred for simplicity.
+
               val finishReason = if (tools != null && LlmHttpToolCallParser.parse(fullText.toString(), tools) != null) "tool_calls" else "stop"
               stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now, finishReason))
               if (includeUsage) {
