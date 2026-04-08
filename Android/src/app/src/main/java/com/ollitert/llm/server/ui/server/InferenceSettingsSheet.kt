@@ -60,8 +60,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -72,11 +81,22 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 fun InferenceSettingsSheet(
   model: Model,
   onDismiss: () -> Unit,
-  onApply: (Map<String, Any>) -> Unit,
+  onApply: (configValues: Map<String, Any>, systemPrompt: String, chatTemplate: String) -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val configValues = model.configValues
   val focusManager = LocalFocusManager.current
+  val context = LocalContext.current
+
+  val customPromptsEnabled = remember { LlmHttpPrefs.isCustomPromptsEnabled(context) }
+
+  var systemPrompt by remember {
+    mutableStateOf(LlmHttpPrefs.getSystemPrompt(context, model.name))
+  }
+  var chatTemplate by remember {
+    mutableStateOf(LlmHttpPrefs.getChatTemplate(context, model.name))
+  }
+  var advancedExpanded by remember { mutableStateOf(false) }
 
   var temperature by remember {
     mutableFloatStateOf(configValues[ConfigKeys.TEMPERATURE.label].toFloatSafe() ?: 1.0f)
@@ -124,7 +144,6 @@ fun InferenceSettingsSheet(
     model.configs.associate { it.key.label to it.defaultValue }
   }
 
-  val context = LocalContext.current
   var showResetDialog by remember { mutableStateOf(false) }
 
   // Reset confirmation dialog
@@ -142,6 +161,8 @@ fun InferenceSettingsSheet(
           topP = defaults[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f
           enableThinking = (defaults[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
           useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
+          systemPrompt = ""
+          chatTemplate = ""
           Toast.makeText(context, "Model settings reset to default", Toast.LENGTH_SHORT).show()
         }) {
           Text("Reset")
@@ -164,6 +185,7 @@ fun InferenceSettingsSheet(
     Column(
       modifier = Modifier
         .fillMaxWidth()
+        .verticalScroll(rememberScrollState())
         .padding(horizontal = 24.dp, vertical = 8.dp)
         .padding(bottom = 32.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -322,6 +344,78 @@ fun InferenceSettingsSheet(
         )
       }
 
+      // Advanced section — system prompt & chat template (gated by Settings toggle)
+      if (customPromptsEnabled) {
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Collapsible header
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable { advancedExpanded = !advancedExpanded }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Icon(
+            Icons.Outlined.Terminal,
+            contentDescription = null,
+            tint = OlliteRTPrimary,
+            modifier = Modifier.size(24.dp),
+          )
+          Spacer(modifier = Modifier.width(12.dp))
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text = "Advanced Prompt Settings",
+              style = MaterialTheme.typography.bodyLarge,
+              fontWeight = FontWeight.Medium,
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+              text = "Custom system prompt and chat template",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          Icon(
+            if (advancedExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+            contentDescription = if (advancedExpanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp),
+          )
+        }
+
+        AnimatedVisibility(
+          visible = advancedExpanded,
+          enter = expandVertically(),
+          exit = shrinkVertically(),
+        ) {
+          Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(top = 12.dp),
+          ) {
+            // System Prompt
+            PromptTextArea(
+              label = "SYSTEM PROMPT",
+              hint = "Prepended to every conversation as a system instruction",
+              value = systemPrompt,
+              onValueChange = { systemPrompt = it },
+              placeholder = "e.g. You are a helpful coding assistant...",
+            )
+
+            // Chat Template
+            PromptTextArea(
+              label = "CHAT TEMPLATE",
+              hint = "Use {role} and {content} placeholders. Leave empty for default format.",
+              value = chatTemplate,
+              onValueChange = { chatTemplate = it },
+              placeholder = "e.g. <|{role}|>\n{content}\n<|end|>",
+            )
+          }
+        }
+      }
+
       Spacer(modifier = Modifier.height(4.dp))
 
       Text(
@@ -344,7 +438,7 @@ fun InferenceSettingsSheet(
           newValues[ConfigKeys.TOPP.label] = topP
           newValues[ConfigKeys.ENABLE_THINKING.label] = enableThinking
           newValues[ConfigKeys.ACCELERATOR.label] = if (useGpu) "GPU" else "CPU"
-          onApply(newValues)
+          onApply(newValues, systemPrompt, chatTemplate)
         },
         modifier = Modifier
           .fillMaxWidth()
@@ -552,6 +646,62 @@ private fun AcceleratorToggle(
         )
       }
     }
+  }
+}
+
+@Composable
+private fun PromptTextArea(
+  label: String,
+  hint: String,
+  value: String,
+  onValueChange: (String) -> Unit,
+  placeholder: String,
+  modifier: Modifier = Modifier,
+) {
+  Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      fontWeight = FontWeight.Bold,
+      color = OlliteRTPrimary,
+      letterSpacing = 1.sp,
+    )
+    Text(
+      text = hint,
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    BasicTextField(
+      value = value,
+      onValueChange = onValueChange,
+      textStyle = TextStyle(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 13.sp,
+        fontFamily = SpaceGroteskFontFamily,
+      ),
+      cursorBrush = SolidColor(OlliteRTPrimary),
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(100.dp)
+        .clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        .padding(12.dp),
+      decorationBox = { innerTextField ->
+        Box {
+          if (value.isEmpty()) {
+            Text(
+              text = placeholder,
+              style = TextStyle(
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                fontSize = 13.sp,
+                fontFamily = SpaceGroteskFontFamily,
+              ),
+            )
+          }
+          innerTextField()
+        }
+      },
+    )
   }
 }
 

@@ -13,29 +13,37 @@ object LlmHttpRequestAdapter {
    * A single-message list returns the text without role decoration (backward-compatible).
    * Multi-turn lists are formatted as "Role: text" paragraphs so the model sees the
    * full conversation history instead of just the last user turn.
+   *
+   * @param chatTemplate optional per-model template with {role} and {content} placeholders.
+   *   When blank/null, uses the default "Role: text" format.
    */
-  fun buildConversationPrompt(msgs: List<InputMsg>?): String {
+  fun buildConversationPrompt(msgs: List<InputMsg>?, chatTemplate: String? = null): String {
     if (msgs == null) return ""
-    if (msgs.size == 1) return extractTextFromMsg(msgs.first())
+    if (msgs.size == 1 && chatTemplate.isNullOrBlank()) return extractTextFromMsg(msgs.first())
     return msgs
       .mapNotNull { msg ->
         val text = extractTextFromMsg(msg)
-        if (text.isBlank()) null else "${formatRole(msg.role)}: $text"
+        if (text.isBlank()) null else formatMessage(msg.role, text, chatTemplate)
       }
-      .joinToString("\n\n")
+      .joinToString(if (chatTemplate.isNullOrBlank()) "\n\n" else "\n")
   }
 
   /**
    * Builds a prompt from a Chat Completions message list.
    * A single-message list returns the content directly.
    * Multi-turn lists are formatted as "Role: content" paragraphs.
+   *
+   * @param chatTemplate optional per-model template with {role} and {content} placeholders.
+   *   When blank/null, uses the default "Role: content" format.
    */
-  fun buildChatPrompt(msgs: List<ChatMessage>): String {
+  fun buildChatPrompt(msgs: List<ChatMessage>, chatTemplate: String? = null): String {
     if (msgs.isEmpty()) return ""
-    if (msgs.size == 1) return msgs.first().content.text
+    if (msgs.size == 1 && chatTemplate.isNullOrBlank()) return msgs.first().content.text
     return msgs
       .filter { it.content.text.isNotBlank() }
-      .joinToString("\n\n") { "${formatRole(it.role)}: ${it.content.text}" }
+      .joinToString(if (chatTemplate.isNullOrBlank()) "\n\n" else "\n") {
+        formatMessage(it.role, it.content.text, chatTemplate)
+      }
   }
 
   /** Extracts base64-encoded image data URIs from multimodal chat messages. */
@@ -63,6 +71,15 @@ object LlmHttpRequestAdapter {
       .filter { it.type == "text" || it.type == "input_text" || it.type == "output_text" }
       .joinToString(" ") { it.text }
       .trim()
+
+  private fun formatMessage(role: String, content: String, template: String?): String {
+    if (template.isNullOrBlank()) return "${formatRole(role)}: $content"
+    return template
+      .replace("{role}", role)
+      .replace("{Role}", formatRole(role))
+      .replace("{ROLE}", role.uppercase())
+      .replace("{content}", content)
+  }
 
   private fun formatRole(role: String): String = when (role.lowercase()) {
     "user" -> "User"

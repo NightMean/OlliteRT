@@ -106,6 +106,7 @@ fun SettingsScreen(
   var savedStreamLogsPreview by remember { mutableStateOf(LlmHttpPrefs.isStreamLogsPreview(context)) }
   var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
   var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
+  var savedCustomPromptsEnabled by remember { mutableStateOf(LlmHttpPrefs.isCustomPromptsEnabled(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -125,6 +126,7 @@ fun SettingsScreen(
   var streamLogsPreview by remember { mutableStateOf(savedStreamLogsPreview) }
   var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
   var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
+  var customPromptsEnabled by remember { mutableStateOf(savedCustomPromptsEnabled) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -139,7 +141,8 @@ fun SettingsScreen(
     warmupEnabled != savedWarmupEnabled ||
     streamLogsPreview != savedStreamLogsPreview ||
     keepPartialResponse != savedKeepPartialResponse ||
-    eagerVisionInit != savedEagerVisionInit
+    eagerVisionInit != savedEagerVisionInit ||
+    customPromptsEnabled != savedCustomPromptsEnabled
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -182,6 +185,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
         LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
         LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
+        LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -204,6 +208,7 @@ fun SettingsScreen(
         savedStreamLogsPreview = streamLogsPreview
         savedKeepPartialResponse = keepPartialResponse
         savedEagerVisionInit = eagerVisionInit
+        savedCustomPromptsEnabled = customPromptsEnabled
 
         if (needsRestart && isServerRunning) {
           showRestartDialog = true
@@ -843,6 +848,35 @@ fun SettingsScreen(
         Switch(
           checked = eagerVisionInit,
           onCheckedChange = { eagerVisionInit = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Custom system prompt & chat template toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Custom System Prompt & Chat Template",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Enable per-model system prompt and chat template fields in Inference Settings. Useful for models with non-standard prompt formats.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = customPromptsEnabled,
+          onCheckedChange = { customPromptsEnabled = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

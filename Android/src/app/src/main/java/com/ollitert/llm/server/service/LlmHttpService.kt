@@ -19,6 +19,8 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.service.LogLevel
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
@@ -63,6 +65,14 @@ class LlmHttpService : Service() {
   private var notifCopyIntent: PendingIntent? = null
   private var notifEndpointUrl: String? = null
   private var notifModelName: String? = null
+
+  /** Builds the LiteRT systemInstruction from the per-model system prompt stored in prefs. */
+  private fun buildSystemInstruction(modelName: String): Contents? {
+    if (!LlmHttpPrefs.isCustomPromptsEnabled(this)) return null
+    val prompt = LlmHttpPrefs.getSystemPrompt(this, modelName)
+    if (prompt.isBlank()) return null
+    return Contents.of(listOf(Content.Text(prompt)))
+  }
 
   private lateinit var logger: LlmHttpLogger
   private lateinit var allowlistLoader: LlmHttpAllowlistLoader
@@ -225,7 +235,7 @@ class LlmHttpService : Service() {
             supportImage = supportImage,
             supportAudio = supportAudio,
             onDone = { initErr = it },
-            systemInstruction = null,
+            systemInstruction = buildSystemInstruction(model.name),
           )
           if (initErr.isNotEmpty()) {
             throw RuntimeException("Model initialization failed: $initErr")
@@ -246,6 +256,22 @@ class LlmHttpService : Service() {
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name)
+        val sysPrompt = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
+          LlmHttpPrefs.getSystemPrompt(this@LlmHttpService, model.name) else ""
+        val chatTpl = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
+          LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name) else ""
+        if (sysPrompt.isNotBlank()) {
+          RequestLogStore.addEvent(
+            "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
+            modelName = model.name,
+          )
+        }
+        if (chatTpl.isNotBlank()) {
+          RequestLogStore.addEvent(
+            "Chat template active: \"${chatTpl.take(120)}\"${if (chatTpl.length > 120) "…" else ""}",
+            modelName = model.name,
+          )
+        }
         // Save notification state for live updates on each request
         notifContentIntent = contentIntent
         notifStopIntent = stopIntent
@@ -517,10 +543,12 @@ class LlmHttpService : Service() {
       val req = json.decodeFromString<ChatRequest>(parsed.body)
       if (req.tools.isNullOrEmpty() && req.tool_choice == "required")
         return badRequest("tool_choice required but tools empty")
-      val prompt = LlmHttpRequestAdapter.buildChatPrompt(req.messages)
-      logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
+      val chatTemplate = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
+        LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
+      val prompt = LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
+      logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       // Extract images for multimodal models (before blank-prompt check so image-only requests work).
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
 
@@ -567,7 +595,9 @@ class LlmHttpService : Service() {
         return badRequest("tool_choice required but tools empty")
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
-      val prompt = LlmHttpRequestAdapter.buildConversationPrompt(req.messages ?: req.input)
+      val chatTemplateResp = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
+        LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
+      val prompt = LlmHttpRequestAdapter.buildConversationPrompt(req.messages ?: req.input, chatTemplateResp)
       logPayload("POST /v1/responses prompt", prompt, requestId)
       logEvent("request_start id=$requestId endpoint=/v1/responses bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
@@ -640,7 +670,7 @@ class LlmHttpService : Service() {
             supportImage = supportImage,
             supportAudio = supportAudio,
             onDone = { err = it },
-            systemInstruction = null,
+            systemInstruction = buildSystemInstruction(model.name),
           )
           if (err.isNotEmpty()) return null to "Model initialization failed: $err"
           model.initializedWithVision = supportImage
@@ -656,7 +686,7 @@ class LlmHttpService : Service() {
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
-          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = null)
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(
@@ -725,7 +755,7 @@ class LlmHttpService : Service() {
             supportImage = supportImage,
             supportAudio = supportAudio,
             onDone = { err = it },
-            systemInstruction = null,
+            systemInstruction = buildSystemInstruction(model.name),
           )
           if (err.isNotEmpty()) return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
           model.initializedWithVision = supportImage
@@ -755,7 +785,7 @@ class LlmHttpService : Service() {
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
-          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = null)
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(
@@ -914,7 +944,7 @@ class LlmHttpService : Service() {
             supportImage = supportImage,
             supportAudio = supportAudio,
             onDone = { err = it },
-            systemInstruction = null,
+            systemInstruction = buildSystemInstruction(model.name),
           )
           if (err.isNotEmpty()) return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
           model.initializedWithVision = supportImage
@@ -943,7 +973,7 @@ class LlmHttpService : Service() {
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
-          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = null)
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(
