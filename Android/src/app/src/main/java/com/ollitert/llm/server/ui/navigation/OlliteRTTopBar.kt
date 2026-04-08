@@ -108,19 +108,20 @@ fun OlliteRTTopBar(
 
     // Right: Settings gear (hidden when already on Settings)
     if (onBackClick == null) {
-      TooltipBox(
-        positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text("Settings") } },
-        state = rememberTooltipState(),
-        modifier = Modifier.align(Alignment.CenterEnd),
-      ) {
-        IconButton(onClick = onSettingsClick) {
-          Icon(
-            imageVector = Icons.Outlined.Settings,
-            contentDescription = "Settings",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp),
-          )
+      Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+        TooltipBox(
+          positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+          tooltip = { PlainTooltip { Text("Settings") } },
+          state = rememberTooltipState(),
+        ) {
+          IconButton(onClick = onSettingsClick) {
+            Icon(
+              imageVector = Icons.Outlined.Settings,
+              contentDescription = "Settings",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(24.dp),
+            )
+          }
         }
       }
     } else if (trailingContent != null) {
