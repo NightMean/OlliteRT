@@ -2,8 +2,13 @@ package com.ollitert.llm.server
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -13,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -54,6 +61,52 @@ fun OlliteRTApp(
         serverViewModel.startServer(modelName = defaultModel)
       }
     }
+  }
+
+  // ── Server error dialog ──────────────────────────────────────────────────
+  val lastError by serverViewModel.lastError.collectAsState()
+  var showErrorDialog by remember { mutableStateOf(false) }
+  var errorDialogMessage by remember { mutableStateOf("") }
+
+  LaunchedEffect(serverStatus, lastError) {
+    if (serverStatus == ServerStatus.ERROR && !lastError.isNullOrBlank()) {
+      errorDialogMessage = lastError!!
+      showErrorDialog = true
+    }
+  }
+
+  if (showErrorDialog) {
+    AlertDialog(
+      onDismissRequest = { showErrorDialog = false },
+      shape = RoundedCornerShape(32.dp),
+      containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+      title = {
+        Text(
+          text = "Server Error",
+          style = MaterialTheme.typography.titleLarge,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.error,
+        )
+      },
+      text = {
+        Text(
+          text = errorDialogMessage,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      },
+      confirmButton = {
+        Button(
+          onClick = { showErrorDialog = false },
+          shape = RoundedCornerShape(50),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+          ),
+        ) {
+          Text("OK")
+        }
+      },
+    )
   }
 
   // Top bar trailing content (e.g. save button on Settings screen)

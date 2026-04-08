@@ -28,6 +28,8 @@ import com.ollitert.llm.server.data.DEFAULT_TOPK
 import com.ollitert.llm.server.data.DEFAULT_TOPP
 import com.ollitert.llm.server.data.DEFAULT_VISION_ACCELERATOR
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.service.LogLevel
+import com.ollitert.llm.server.service.RequestLogStore
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -192,6 +194,11 @@ object ServerLlmModelHelper : LlmModelHelper {
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
       Log.d(TAG, "Failed to reset conversation", e)
+      RequestLogStore.addEvent(
+        "Failed to reset conversation: ${e.message?.take(80) ?: "Unknown error"}",
+        level = LogLevel.ERROR,
+        modelName = model.name,
+      )
     }
   }
 
