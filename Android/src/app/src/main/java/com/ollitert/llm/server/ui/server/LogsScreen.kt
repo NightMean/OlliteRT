@@ -1060,9 +1060,9 @@ private fun SettingsChangeRows(
   accentColor: Color,
   newValueColorOverride: Color? = null,
 ) {
-  // 4-column table layout: [Name (flex)] [Old (fixed)] [→] [New (fixed)]
-  // weight() gives each value column a proportional share of the remaining space
-  // after the param name, so arrows stay vertically aligned across all rows.
+  // Two-column diff layout: [Param: old]  →  [Param: new]
+  // Both sides are equal weight(1f), arrow is fixed-width centered between them.
+  // This guarantees vertical arrow alignment regardless of value text widths.
   if (parsed.changes.isNotEmpty()) {
     Column(
       modifier = Modifier.fillMaxWidth(),
@@ -1077,47 +1077,39 @@ private fun SettingsChangeRows(
             .padding(horizontal = 10.dp, vertical = 5.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          // Column 1: param name — left side
-          Text(
-            text = change.paramName,
-            style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(3f),
-          )
           if (change.oldValue.isEmpty()) {
+            // No old value — just show param: new (e.g. initial set)
             Text(
-              text = change.newValue,
+              text = "${change.paramName}: ${change.newValue}",
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
               color = newValueColorOverride ?: OlliteRTPrimary,
               fontWeight = FontWeight.SemiBold,
             )
           } else {
-            // Column 2: old value — left-aligned in its column, close to param name
+            // Left column: "Param: oldValue" — muted
             Text(
-              text = change.oldValue,
+              text = "${change.paramName}: ${change.oldValue}",
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-              textAlign = TextAlign.Start,
-              modifier = Modifier.weight(2f),
+              modifier = Modifier.weight(1f),
             )
-            // Column 3: arrow — centered in the box
+            // Center: arrow
             Text(
               text = "→",
               style = MaterialTheme.typography.labelSmall,
               color = ValueArrowColor,
               fontWeight = FontWeight.Bold,
               textAlign = TextAlign.Center,
-              modifier = Modifier.weight(2f),
+              modifier = Modifier.width(28.dp),
             )
-            // Column 4: new value — right-aligned, at the end
+            // Right column: "Param: newValue" — bold/bright
             Text(
-              text = change.newValue,
+              text = "${change.paramName}: ${change.newValue}",
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
               color = newValueColorOverride ?: MaterialTheme.colorScheme.onSurface,
               fontWeight = FontWeight.SemiBold,
               textAlign = TextAlign.End,
-              modifier = Modifier.weight(2f),
+              modifier = Modifier.weight(1f),
             )
           }
         }
