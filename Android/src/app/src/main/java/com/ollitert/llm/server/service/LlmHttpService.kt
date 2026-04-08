@@ -577,18 +577,20 @@ class LlmHttpService : Service() {
       if (!req.tools.isNullOrEmpty() && req.tool_choice != "none") {
         val toolCall = LlmHttpRequestAdapter.synthesizeToolCall(req.tools!!.first(), prompt, "call_${System.currentTimeMillis()}")
         logEvent("request_tool_call id=$requestId endpoint=/v1/chat/completions tool=${toolCall.function.name}")
-        return okJsonText(json.encodeToString(chatResponseWithToolCall(model.name, toolCall)))
+        return okJsonText(json.encodeToString(chatResponseWithToolCall(model.name, toolCall, promptLen = prompt.length)))
       }
+
+      val includeUsage = req.stream_options?.include_usage == true
 
       return if (req.stream == true) {
         ServerMetrics.onInferenceStarted()
-        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId)
+        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage)
       } else {
         ServerMetrics.onInferenceStarted()
         val (text, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
         ServerMetrics.onInferenceCompleted()
         if (text == null) return badRequest(llmError ?: "llm error")
-        val responseJson = json.encodeToString(chatResponseWithText(model.name, text))
+        val responseJson = json.encodeToString(chatResponseWithText(model.name, text, promptLen = prompt.length))
         captureResponse(responseJson)
         okJsonText(responseJson)
       }
@@ -624,11 +626,11 @@ class LlmHttpService : Service() {
       if (!req.tools.isNullOrEmpty() && req.tool_choice != "none") {
         val toolCall = LlmHttpRequestAdapter.synthesizeToolCall(req.tools!!.first(), prompt, "call_${System.currentTimeMillis()}")
         return if (req.stream == true) sseResponseToolCall(model.name, toolCall)
-        else okJsonText(json.encodeToString(responsesResponseWithToolCall(model.name, toolCall)))
+        else okJsonText(json.encodeToString(responsesResponseWithToolCall(model.name, toolCall, promptLen = prompt.length)))
       }
       return if (req.stream == true) {
         ServerMetrics.onInferenceStarted()
-        val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId)
+        val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length)
         // Note: for streaming, inference completion is signaled inside streamLlm's onToken(done=true)
         resp
       } else {
@@ -636,7 +638,7 @@ class LlmHttpService : Service() {
         val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
         ServerMetrics.onInferenceCompleted()
         if (text == null) return badRequest(llmError ?: "llm error")
-        val responseJson = json.encodeToString(responsesResponseWithText(model.name, text))
+        val responseJson = json.encodeToString(responsesResponseWithText(model.name, text, promptLen = prompt.length))
         captureResponse(responseJson)
         okJsonText(responseJson)
       }
@@ -746,6 +748,7 @@ class LlmHttpService : Service() {
       timeoutSeconds: Long = 90,
       images: List<Bitmap> = emptyList(),
       logId: String? = null,
+      promptLen: Int = 0,
     ): Response {
       val streamStartMs = SystemClock.elapsedRealtime()
       // Track input tokens (rough estimate: ~4 chars per token)
@@ -783,8 +786,8 @@ class LlmHttpService : Service() {
       val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
       val now = System.currentTimeMillis() / 1000
-      val respId = "resp-$now"
-      val msgId = "msg-$now"
+      val respId = "resp-${java.util.UUID.randomUUID()}"
+      val msgId = "msg-${java.util.UUID.randomUUID()}"
       val fullText = StringBuilder()
       val fullThinking = StringBuilder()
       var headerWritten = false
@@ -883,11 +886,13 @@ class LlmHttpService : Service() {
               } else {
                 fullText.toString()
               }
+              val promptTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
+              val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
               val esc = LlmHttpBridgeUtils.escapeSseText(combinedText)
-              stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(model.name, respId, msgId, now, esc))
+              stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(model.name, respId, msgId, now, esc, inputTokens = promptTokens, outputTokens = completionTokens))
               stream.finish()
               if (logId != null) {
-                val responseJson = json.encodeToString(responsesResponseWithText(model.name, combinedText))
+                val responseJson = json.encodeToString(responsesResponseWithText(model.name, combinedText, promptLen = promptLen))
                 RequestLogStore.update(logId) {
                   it.copy(
                     responseBody = responseJson,
@@ -937,6 +942,7 @@ class LlmHttpService : Service() {
       timeoutSeconds: Long = 120,
       images: List<Bitmap> = emptyList(),
       logId: String? = null,
+      includeUsage: Boolean = false,
     ): Response {
       val streamStartMs = SystemClock.elapsedRealtime()
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
@@ -972,7 +978,7 @@ class LlmHttpService : Service() {
       val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
       val now = System.currentTimeMillis() / 1000
-      val chatId = "chatcmpl-$now"
+      val chatId = "chatcmpl-${java.util.UUID.randomUUID()}"
       val fullText = StringBuilder()
       val fullThinking = StringBuilder()
       var headerWritten = false
@@ -1060,7 +1066,13 @@ class LlmHttpService : Service() {
               val outputLen = fullText.length
               ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
               ServerMetrics.onInferenceCompleted()
+              val promptTokens = (prompt.length / 4).coerceAtLeast(1)
+              val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
               stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now))
+              if (includeUsage) {
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, model.name, now, promptTokens, completionTokens))
+              }
+              stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
               stream.finish()
               if (logId != null) {
                 val combinedText = if (fullThinking.isNotEmpty()) {
@@ -1068,7 +1080,7 @@ class LlmHttpService : Service() {
                 } else {
                   fullText.toString()
                 }
-                val responseJson = json.encodeToString(chatResponseWithText(model.name, combinedText))
+                val responseJson = json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length))
                 RequestLogStore.update(logId) {
                   it.copy(
                     responseBody = responseJson,
@@ -1114,11 +1126,12 @@ class LlmHttpService : Service() {
     /** Returns the full text wrapped in OpenAI chat.completion.chunk SSE events. */
     private fun chatSseResponse(modelId: String, text: String): Response {
       val now = System.currentTimeMillis() / 1000
-      val chatId = "chatcmpl-$now"
+      val chatId = "chatcmpl-${java.util.UUID.randomUUID()}"
       val payload = buildString {
         append(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelId, now))
         append(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelId, now, text))
         append(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelId, now))
+        append(LlmHttpResponseRenderer.SSE_DONE)
       }
       return chunkedSseResponse(payload)
     }
@@ -1283,33 +1296,45 @@ class LlmHttpService : Service() {
   }
 
   private fun emptyChatResponse(modelName: String) = ChatResponse(
-    id = "chatcmpl-local", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("Hola desde Edge (fallback)")), "stop")),
+    id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), "stop")),
     usage = Usage(0, 0),
   )
 
-  private fun chatResponseWithText(modelName: String, text: String) = ChatResponse(
-    id = "chatcmpl-local", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), "stop")),
-    usage = Usage(0, 0),
+  private fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = "stop") = ChatResponse(
+    id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finishReason)),
+    usage = Usage(
+      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
+      completion_tokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0),
+    ),
   )
 
-  private fun chatResponseWithToolCall(modelName: String, toolCall: ToolCall) = ChatResponse(
-    id = "chatcmpl-local", created = System.currentTimeMillis() / 1000, model = modelName,
+  private fun chatResponseWithToolCall(modelName: String, toolCall: ToolCall, promptLen: Int = 0) = ChatResponse(
+    id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
     choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = listOf(toolCall)), "tool_calls")),
-    usage = Usage(0, 0),
+    usage = Usage(
+      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
+      completion_tokens = (toolCall.function.arguments.length / 4).coerceAtLeast(1),
+    ),
   )
 
-  private fun responsesResponseWithText(modelName: String, text: String) = ResponsesResponse(
-    id = "resp-local", created = System.currentTimeMillis() / 1000, model = modelName,
+  private fun responsesResponseWithText(modelName: String, text: String, promptLen: Int = 0) = ResponsesResponse(
+    id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(text = text)))),
-    usage = Usage(0, 0),
+    usage = Usage(
+      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
+      completion_tokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0),
+    ),
   )
 
-  private fun responsesResponseWithToolCall(modelName: String, toolCall: ToolCall) = ResponsesResponse(
-    id = "resp-local", created = System.currentTimeMillis() / 1000, model = modelName,
+  private fun responsesResponseWithToolCall(modelName: String, toolCall: ToolCall, promptLen: Int = 0) = ResponsesResponse(
+    id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(type = "output_tool_call", text = json.encodeToString(toolCall))), finish_reason = "tool_calls")),
-    usage = Usage(0, 0),
+    usage = Usage(
+      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
+      completion_tokens = (toolCall.function.arguments.length / 4).coerceAtLeast(1),
+    ),
   )
 
   companion object {

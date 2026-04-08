@@ -15,7 +15,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-@Serializable data class Usage(val prompt_tokens: Int, val completion_tokens: Int)
+@Serializable data class Usage(
+  val prompt_tokens: Int,
+  val completion_tokens: Int,
+  val total_tokens: Int = prompt_tokens + completion_tokens,
+)
 
 @Serializable data class ResponsesRequest(
   val model: String? = null,
@@ -135,10 +139,15 @@ object ChatContentSerializer : KSerializer<ChatContent> {
 
 @Serializable data class ToolSpec(val type: String = "function", val function: ToolFunctionDef)
 
+@Serializable data class StreamOptions(
+  val include_usage: Boolean = false,
+)
+
 @Serializable data class ChatRequest(
   val model: String? = null,
   val messages: List<ChatMessage> = emptyList(),
   val stream: Boolean? = null,
+  val stream_options: StreamOptions? = null,
   val tools: List<ToolSpec>? = null,
   val tool_choice: String? = null,
 )
@@ -151,10 +160,12 @@ object ChatContentSerializer : KSerializer<ChatContent> {
 
 @Serializable data class ChatResponse(
   val id: String,
+  val `object`: String = "chat.completion",
   val created: Long,
   val model: String,
   val choices: List<ChatChoice>,
   val usage: Usage,
+  val system_fingerprint: String? = null,
 )
 
 @Serializable data class GenReq(val prompt: String)

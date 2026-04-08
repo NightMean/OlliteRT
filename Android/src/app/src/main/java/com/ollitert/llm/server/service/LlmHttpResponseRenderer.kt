@@ -15,6 +15,8 @@ data class LlmHttpModelCapabilities(
 data class LlmHttpModelItem(
   val id: String,
   val `object`: String = "model",
+  val created: Long = System.currentTimeMillis() / 1000,
+  val owned_by: String = "ollitert",
   val capabilities: LlmHttpModelCapabilities = LlmHttpModelCapabilities(),
 )
 
@@ -53,11 +55,12 @@ object LlmHttpResponseRenderer {
 
   fun emitSseEvent(event: String, payload: String): String = "event: $event\n" + "data: $payload\n\n"
 
-  fun buildTextSsePayload(modelId: String, text: String): String {
+  fun buildTextSsePayload(modelId: String, text: String, inputTokens: Int = 0, outputTokens: Int = 0): String {
     val now = System.currentTimeMillis() / 1000
-    val respId = "resp-$now"
-    val msgId = "msg-$now"
+    val respId = "resp-${java.util.UUID.randomUUID()}"
+    val msgId = "msg-${java.util.UUID.randomUUID()}"
     val esc = LlmHttpBridgeUtils.escapeSseText(text)
+    val totalTokens = inputTokens + outputTokens
 
     return buildString {
       append(emitSseEvent("response.created", """{"type":"response.created","response":{"id":"$respId","object":"response","created_at":$now,"status":"in_progress","model":"$modelId","output":[]}}"""))
@@ -68,7 +71,7 @@ object LlmHttpResponseRenderer {
       append(emitSseEvent("response.output_text.done", """{"type":"response.output_text.done","content_index":0,"item_id":"$msgId","output_index":0,"text":"$esc"}"""))
       append(emitSseEvent("response.content_part.done", """{"type":"response.content_part.done","content_index":0,"item_id":"$msgId","output_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"$esc"}}"""))
       append(emitSseEvent("response.output_item.done", """{"type":"response.output_item.done","item":{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$esc"}],"role":"assistant"},"output_index":0}"""))
-      append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$esc"}],"role":"assistant"}],"usage":{"input_tokens":0,"output_tokens":0,"total_tokens":0}}}"""))
+      append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$esc"}],"role":"assistant"}],"usage":{"input_tokens":$inputTokens,"output_tokens":$outputTokens,"total_tokens":$totalTokens}}}"""))
       append("data: [DONE]\n\n")
     }
   }
@@ -88,34 +91,46 @@ object LlmHttpResponseRenderer {
     emitSseEvent("response.output_text.delta", """{"type":"response.output_text.delta","content_index":0,"delta":"$escapedDelta","item_id":"$msgId","output_index":0}""")
 
   /** Emits the closing events after all delta tokens. [escapedFullText] must already be SSE-safe. */
-  fun buildStreamingFooter(modelId: String, respId: String, msgId: String, now: Long, escapedFullText: String): String = buildString {
+  fun buildStreamingFooter(modelId: String, respId: String, msgId: String, now: Long, escapedFullText: String, inputTokens: Int = 0, outputTokens: Int = 0): String = buildString {
+    val totalTokens = inputTokens + outputTokens
     append(emitSseEvent("response.output_text.done", """{"type":"response.output_text.done","content_index":0,"item_id":"$msgId","output_index":0,"text":"$escapedFullText"}"""))
     append(emitSseEvent("response.content_part.done", """{"type":"response.content_part.done","content_index":0,"item_id":"$msgId","output_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"$escapedFullText"}}"""))
     append(emitSseEvent("response.output_item.done", """{"type":"response.output_item.done","item":{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$escapedFullText"}],"role":"assistant"},"output_index":0}"""))
-    append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$escapedFullText"}],"role":"assistant"}],"usage":{"input_tokens":0,"output_tokens":0,"total_tokens":0}}}"""))
+    append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"id":"$msgId","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"$escapedFullText"}],"role":"assistant"}],"usage":{"input_tokens":$inputTokens,"output_tokens":$outputTokens,"total_tokens":$totalTokens}}}"""))
     append("data: [DONE]\n\n")
   }
 
   // ── OpenAI Chat Completions SSE builders (chat.completion.chunk format) ───
 
-  /** First chunk: role declaration with empty content. */
+  const val SSE_DONE = "data: [DONE]\n\n"
+
+  /** First chunk: role declaration with empty content (OpenAI sends content="" in first chunk). */
   fun buildChatStreamFirstChunk(chatId: String, modelId: String, now: Long): String =
-    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = "assistant", deltaContent = null, finishReason = null)}\n\n"
+    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = "assistant", deltaContent = "", finishReason = null)}\n\n"
 
   /** Token delta chunk. */
   fun buildChatStreamDeltaChunk(chatId: String, modelId: String, now: Long, token: String): String =
     "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = token, finishReason = null)}\n\n"
 
-  /** Final chunk with finish_reason. */
-  fun buildChatStreamFinalChunk(chatId: String, modelId: String, now: Long): String =
-    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = null, finishReason = "stop")}\n\ndata: [DONE]\n\n"
+  /** Final chunk with finish_reason (does NOT include [DONE] — emit SSE_DONE separately). */
+  fun buildChatStreamFinalChunk(chatId: String, modelId: String, now: Long, finishReason: String = "stop"): String =
+    "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = null, finishReason = finishReason)}\n\n"
+
+  /** Usage chunk sent before [DONE] when stream_options.include_usage = true. */
+  fun buildChatStreamUsageChunk(
+    chatId: String, modelId: String, now: Long,
+    promptTokens: Int, completionTokens: Int,
+  ): String {
+    val total = promptTokens + completionTokens
+    return """data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[],"usage":{"prompt_tokens":$promptTokens,"completion_tokens":$completionTokens,"total_tokens":$total}}""" + "\n\n"
+  }
 
   private fun buildChatChunkJson(
     chatId: String,
     modelId: String,
     now: Long,
     deltaRole: String?,
-    deltaContent: String?,
+    deltaContent: String?,  // null = omit field, "" = include as empty string
     finishReason: String?,
   ): String {
     val deltaFields = buildString {
@@ -132,8 +147,8 @@ object LlmHttpResponseRenderer {
 
   fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall): String {
     val now = System.currentTimeMillis() / 1000
-    val respId = "resp-$now"
-    val fcId = "fc-$now"
+    val respId = "resp-${java.util.UUID.randomUUID()}"
+    val fcId = "fc-${java.util.UUID.randomUUID()}"
     val callId = toolCall.id
     val name = toolCall.function.name
     val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)
