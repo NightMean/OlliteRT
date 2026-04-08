@@ -115,6 +115,7 @@ fun SettingsScreen(
   var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
   var savedCustomPromptsEnabled by remember { mutableStateOf(LlmHttpPrefs.isCustomPromptsEnabled(context)) }
   var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
+  var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -136,6 +137,7 @@ fun SettingsScreen(
   var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
   var customPromptsEnabled by remember { mutableStateOf(savedCustomPromptsEnabled) }
   var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
+  var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -152,7 +154,8 @@ fun SettingsScreen(
     keepPartialResponse != savedKeepPartialResponse ||
     eagerVisionInit != savedEagerVisionInit ||
     customPromptsEnabled != savedCustomPromptsEnabled ||
-    clearLogsOnStop != savedClearLogsOnStop
+    clearLogsOnStop != savedClearLogsOnStop ||
+    confirmClearLogs != savedConfirmClearLogs
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -198,6 +201,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
         LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
+        LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -222,6 +226,7 @@ fun SettingsScreen(
         savedEagerVisionInit = eagerVisionInit
         savedCustomPromptsEnabled = customPromptsEnabled
         savedClearLogsOnStop = clearLogsOnStop
+        savedConfirmClearLogs = confirmClearLogs
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -392,6 +397,31 @@ fun SettingsScreen(
         Switch(
           checked = clearLogsOnStop,
           onCheckedChange = { clearLogsOnStop = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Confirm before clearing logs
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Confirm Before Clearing Logs",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Show a confirmation dialog before clearing logs.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = confirmClearLogs,
+          onCheckedChange = { confirmClearLogs = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

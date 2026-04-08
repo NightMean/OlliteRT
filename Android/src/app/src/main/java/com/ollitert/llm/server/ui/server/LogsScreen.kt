@@ -3,7 +3,9 @@ package com.ollitert.llm.server.ui.server
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -47,10 +49,15 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.automirrored.outlined.Notes
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
@@ -94,6 +101,7 @@ import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import org.json.JSONObject
 import org.json.JSONArray
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -218,6 +226,44 @@ fun LogsScreen(
   val entries by RequestLogStore.entries.collectAsState()
   val context = LocalContext.current
   val autoExpand = remember { LlmHttpPrefs.isAutoExpandLogs(context) }
+  var showClearConfirmDialog by remember { mutableStateOf(false) }
+
+  // Clear logs confirmation dialog
+  if (showClearConfirmDialog) {
+    AlertDialog(
+      onDismissRequest = { showClearConfirmDialog = false },
+      title = {
+        Text(
+          text = "Clear All Logs",
+          style = MaterialTheme.typography.titleMedium,
+        )
+      },
+      text = {
+        Text(
+          text = "This will delete all ${entries.size} log entries. This action cannot be undone.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            RequestLogStore.clear()
+            showClearConfirmDialog = false
+          },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+          ),
+        ) {
+          Text("Clear")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showClearConfirmDialog = false }) {
+          Text("Cancel")
+        }
+      },
+    )
+  }
 
   Column(modifier = modifier.fillMaxSize()) {
     // Header with clear button
@@ -236,19 +282,32 @@ fun LogsScreen(
       if (entries.isNotEmpty()) {
         val context = LocalContext.current
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          // Clear all logs
+          // Clear all logs (with optional confirmation)
           TooltipIconButton(
             icon = Icons.Outlined.DeleteSweep,
             tooltip = "Clear all logs",
-            onClick = { RequestLogStore.clear() },
+            onClick = {
+              if (LlmHttpPrefs.isConfirmClearLogs(context)) {
+                showClearConfirmDialog = true
+              } else {
+                RequestLogStore.clear()
+              }
+            },
             tint = DeleteRedTint,
             backgroundColor = DeleteRedTint.copy(alpha = 0.12f),
           )
-          // Copy all logs
+          // Copy all logs (JSON)
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
-            tooltip = "Copy all logs",
+            tooltip = "Copy all logs (JSON)",
             onClick = { copyAllLogsToClipboard(context, entries) },
+            tint = OlliteRTPrimary,
+          )
+          // Export/share logs as JSON file
+          TooltipIconButton(
+            icon = Icons.Outlined.Share,
+            tooltip = "Export logs as JSON",
+            onClick = { exportLogsAsJson(context, entries) },
             tint = OlliteRTPrimary,
           )
         }
@@ -547,14 +606,10 @@ private fun InternalEventCard(entry: RequestLogEntry) {
 }
 
 private fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
-  val text = buildString {
-    appendLine("[${formatTimestamp(entry.timestamp)}] EVENT: ${entry.path}")
-    if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
-    appendLine("Category: ${entry.eventCategory.name}")
-  }.trimEnd()
+  val json = entryToJson(entry).toString(2)
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Event", text))
-  Toast.makeText(context, "Event copied", Toast.LENGTH_SHORT).show()
+  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Event", json))
+  Toast.makeText(context, "Event copied (JSON)", Toast.LENGTH_SHORT).show()
 }
 
 private const val COLLAPSED_MAX_LINES = 8
@@ -898,53 +953,105 @@ private fun ExpandableBodySection(
   }
 }
 
-private fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
-  val text = entries.joinToString("\n${"=".repeat(60)}\n") { entry ->
-    buildString {
-      if (entry.method == "EVENT") {
-        appendLine("[${formatTimestamp(entry.timestamp)}] EVENT: ${entry.path}")
-        if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
-      } else {
-        appendLine("[${formatTimestamp(entry.timestamp)}] ${entry.method} ${entry.path}")
-        appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
-        if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
-        if (entry.clientIp != null) appendLine("Client: ${entry.clientIp}")
-        if (!entry.requestBody.isNullOrBlank()) {
-          appendLine("--- Request ---")
-          appendLine(entry.requestBody)
-        }
-        if (!entry.responseBody.isNullOrBlank()) {
-          appendLine("--- Response ---")
-          appendLine(entry.responseBody)
-        }
-      }
-    }.trimEnd()
+/** Convert a single log entry to a JSONObject for structured export. */
+private fun entryToJson(entry: RequestLogEntry): JSONObject {
+  val obj = JSONObject()
+  obj.put("id", entry.id)
+  obj.put("timestamp", formatTimestamp(entry.timestamp))
+  obj.put("timestamp_ms", entry.timestamp)
+  obj.put("type", if (entry.method == "EVENT") "event" else "request")
+
+  if (entry.method == "EVENT") {
+    obj.put("message", entry.path)
+    obj.put("category", entry.eventCategory.name.lowercase())
+    obj.put("level", entry.level.name.lowercase())
+  } else {
+    obj.put("method", entry.method)
+    obj.put("path", entry.path)
+    obj.put("status_code", entry.statusCode)
+    obj.put("latency_ms", entry.latencyMs)
+    obj.put("tokens", entry.tokens)
+    obj.put("streaming", entry.isStreaming)
+    if (entry.isThinking) obj.put("thinking", true)
+    if (entry.isCancelled) obj.put("cancelled", true)
+    if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
+
+    // Parse request/response bodies as JSON if possible, otherwise keep as string
+    if (!entry.requestBody.isNullOrBlank()) {
+      obj.put("request_body", tryParseJson(entry.requestBody))
+    }
+    if (!entry.responseBody.isNullOrBlank()) {
+      obj.put("response_body", tryParseJson(entry.responseBody))
+    }
   }
+
+  if (entry.modelName != null) obj.put("model", entry.modelName)
+  return obj
+}
+
+/** Try to parse a string as JSON (object or array); return the string as-is on failure. */
+private fun tryParseJson(text: String): Any {
+  val trimmed = text.trim()
+  return try {
+    if (trimmed.startsWith("{")) JSONObject(trimmed)
+    else if (trimmed.startsWith("[")) JSONArray(trimmed)
+    else text
+  } catch (_: Exception) {
+    text
+  }
+}
+
+/** Build the full JSON export as a formatted string. */
+private fun buildLogsJson(entries: List<RequestLogEntry>): String {
+  val root = JSONObject()
+  root.put("exported_at", formatTimestamp(System.currentTimeMillis()))
+  root.put("app", "OlliteRT")
+  root.put("entry_count", entries.size)
+  val array = JSONArray()
+  for (entry in entries) {
+    array.put(entryToJson(entry))
+  }
+  root.put("entries", array)
+  return root.toString(2)
+}
+
+private fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
+  val json = buildLogsJson(entries)
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", text))
-  Toast.makeText(context, "All logs copied (${entries.size} entries)", Toast.LENGTH_SHORT).show()
+  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
+  Toast.makeText(context, "All logs copied as JSON (${entries.size} entries)", Toast.LENGTH_SHORT).show()
+}
+
+private fun exportLogsAsJson(context: Context, entries: List<RequestLogEntry>) {
+  try {
+    val json = buildLogsJson(entries)
+    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    val cacheDir = File(context.cacheDir, "log_exports")
+    cacheDir.mkdirs()
+    val file = File(cacheDir, "ollitert_logs_$timestamp.json")
+    file.writeText(json, Charsets.UTF_8)
+
+    val uri = FileProvider.getUriForFile(
+      context,
+      "${context.packageName}.fileprovider",
+      file,
+    )
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+      type = "application/json"
+      putExtra(Intent.EXTRA_STREAM, uri)
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(shareIntent, "Export OlliteRT Logs"))
+  } catch (e: Exception) {
+    Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+  }
 }
 
 private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
-  val text = buildString {
-    appendLine("[${formatTimestamp(entry.timestamp)}] ${entry.method} ${entry.path}")
-    appendLine("Status: ${entry.statusCode} | Latency: ${entry.latencyMs}ms")
-    if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
-    if (entry.clientIp != null) appendLine("Client: ${entry.clientIp}")
-    if (entry.isStreaming) appendLine("Streaming: SSE")
-    if (entry.isThinking) appendLine("Thinking: Yes")
-    if (!entry.requestBody.isNullOrBlank()) {
-      appendLine("\n--- Request ---")
-      appendLine(entry.requestBody)
-    }
-    if (!entry.responseBody.isNullOrBlank()) {
-      appendLine("\n--- Response ---")
-      appendLine(entry.responseBody)
-    }
-  }
+  val json = entryToJson(entry).toString(2)
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Log Entry", text))
-  Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Log Entry", json))
+  Toast.makeText(context, "Copied to clipboard (JSON)", Toast.LENGTH_SHORT).show()
 }
 
 @Composable
