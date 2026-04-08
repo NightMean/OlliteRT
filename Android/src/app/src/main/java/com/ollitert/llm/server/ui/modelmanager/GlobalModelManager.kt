@@ -486,21 +486,25 @@ fun GlobalModelManager(
 
     // Import FAB
     val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-    TooltipBox(
-      positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
-      tooltip = { PlainTooltip { Text("Import model") } },
-      state = rememberTooltipState(),
+    Box(
+      modifier = Modifier
+        .align(Alignment.BottomEnd)
+        .padding(end = 16.dp, bottom = 16.dp),
     ) {
-      FloatingActionButton(
-        onClick = { showImportModelSheet = true },
-        containerColor = OlliteRTPrimary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        modifier = Modifier
-          .align(Alignment.BottomEnd)
-          .padding(end = 16.dp, bottom = 16.dp)
-          .semantics { contentDescription = cdImportModelFab },
+      TooltipBox(
+        positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text("Import model") } },
+        state = rememberTooltipState(),
       ) {
-        Icon(Icons.Filled.Add, contentDescription = null)
+        FloatingActionButton(
+          onClick = { showImportModelSheet = true },
+          containerColor = OlliteRTPrimary,
+          contentColor = MaterialTheme.colorScheme.onPrimary,
+          modifier = Modifier
+            .semantics { contentDescription = cdImportModelFab },
+        ) {
+          Icon(Icons.Filled.Add, contentDescription = null)
+        }
       }
     }
 
