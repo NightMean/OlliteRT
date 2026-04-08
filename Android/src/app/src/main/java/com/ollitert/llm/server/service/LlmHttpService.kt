@@ -272,6 +272,19 @@ class LlmHttpService : Service() {
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name)
+        // Check for queued reload (user changed reinit settings while model was loading)
+        val queued = pendingReloadAfterLoad
+        if (queued != null) {
+          pendingReloadAfterLoad = null
+          if (queued.modelName == model.name) {
+            Log.i(logTag, "Executing queued reload for ${queued.modelName}")
+            RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName)
+            reload(this@LlmHttpService, queued.port, queued.modelName, queued.configValues)
+            return@Thread
+          } else {
+            Log.w(logTag, "Discarding stale queued reload for ${queued.modelName} — loaded model is ${model.name}")
+          }
+        }
         val sysPrompt = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
           LlmHttpPrefs.getSystemPrompt(this@LlmHttpService, model.name) else ""
         val chatTpl = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
@@ -309,6 +322,7 @@ class LlmHttpService : Service() {
           return@Thread
         }
         Log.e(logTag, "Failed to load model ${model.name}", e)
+        pendingReloadAfterLoad = null  // Clear queued reload — don't apply stale config to a future model
         val msg = e.message?.take(120) ?: "Unknown error during model initialization"
         ServerMetrics.onServerError(msg)
         RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name)
@@ -353,6 +367,7 @@ class LlmHttpService : Service() {
     notifCopyIntent = null
     notifEndpointUrl = null
     notifModelName = null
+    pendingReloadAfterLoad = null
     ServerMetrics.onServerStopped()
     if (modelName != null) {
       RequestLogStore.addEvent("Server stopped", modelName = modelName)
@@ -1597,6 +1612,23 @@ class LlmHttpService : Service() {
      */
     @Volatile
     private var pendingConfigOverrides: Map<String, Any>? = null
+
+    /**
+     * Queued reload request to execute after the current model finishes loading.
+     * Set by [queueReloadAfterLoad] when the user changes reinit-requiring settings
+     * while a model is still loading. Consumed in the warmup thread after [onServerRunning].
+     */
+    private data class PendingReload(val port: Int, val modelName: String, val configValues: Map<String, Any>?)
+    @Volatile
+    private var pendingReloadAfterLoad: PendingReload? = null
+
+    /**
+     * Queue a reload to execute automatically after the current model finishes loading.
+     * If the model is not currently loading, this is a no-op — use [reload] instead.
+     */
+    fun queueReloadAfterLoad(port: Int, modelName: String, configValues: Map<String, Any>?) {
+      pendingReloadAfterLoad = PendingReload(port, modelName, configValues)
+    }
 
     fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null) {
       pendingConfigOverrides = configValues

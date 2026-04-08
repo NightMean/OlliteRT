@@ -178,6 +178,7 @@ fun SettingsScreen(
         val needsRestart = isPortChanged || isEagerVisionChanged
         val isServerRunning = serverStatus == ServerStatus.RUNNING
         val isServerLoading = serverStatus == ServerStatus.LOADING
+        val isServerActive = isServerRunning || isServerLoading
 
         LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
         if (bearerEnabled) {
@@ -222,10 +223,8 @@ fun SettingsScreen(
         savedCustomPromptsEnabled = customPromptsEnabled
         savedClearLogsOnStop = clearLogsOnStop
 
-        if (needsRestart && isServerRunning) {
+        if (needsRestart && isServerActive) {
           showRestartDialog = true
-        } else if (needsRestart && isServerLoading) {
-          Toast.makeText(context, "Settings saved. The server is still starting — restart it manually for changes to take effect.", Toast.LENGTH_LONG).show()
         } else {
           Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
         }

@@ -247,15 +247,23 @@ fun ModelItem(
           serverStatus != ServerStatus.STOPPED
         if (changes.isNotEmpty() && isServerActiveForModel) {
           val changesSummary = changes.joinToString(", ")
+          val isLoading = serverStatus == ServerStatus.LOADING
           RequestLogStore.addEvent(
             "Inference settings changed: $changesSummary" +
-              if (needReinitialization) " — reloading model" else "",
+              if (needReinitialization && isLoading) " — reload queued after loading"
+              else if (needReinitialization) " — reloading model"
+              else "",
             modelName = model.name,
           )
           if (needReinitialization) {
             val port = LlmHttpPrefs.getPort(context)
-            LlmHttpService.reload(context, port, model.name, configValues = newConfigValues)
-            Toast.makeText(context, "Settings saved — model is reloading", Toast.LENGTH_SHORT).show()
+            if (isLoading) {
+              LlmHttpService.queueReloadAfterLoad(port, model.name, newConfigValues)
+              Toast.makeText(context, "Settings saved — model will reload after loading finishes", Toast.LENGTH_SHORT).show()
+            } else {
+              LlmHttpService.reload(context, port, model.name, configValues = newConfigValues)
+              Toast.makeText(context, "Settings saved — model is reloading", Toast.LENGTH_SHORT).show()
+            }
           } else {
             // Push config changes to the running service model without reloading
             LlmHttpService.updateConfigValues(newConfigValues)
