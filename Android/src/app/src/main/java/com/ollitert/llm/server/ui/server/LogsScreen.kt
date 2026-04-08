@@ -44,6 +44,10 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -83,6 +87,7 @@ import kotlinx.coroutines.launch
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -414,12 +419,27 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Icon(
-      imageVector = Icons.Outlined.Info,
+      imageVector = when (entry.eventCategory) {
+        EventCategory.MODEL -> Icons.Outlined.Memory
+        EventCategory.SETTINGS -> Icons.Outlined.Settings
+        EventCategory.SERVER -> Icons.Outlined.Dns
+        EventCategory.PROMPT -> Icons.AutoMirrored.Outlined.Notes
+        EventCategory.GENERAL -> Icons.Outlined.Info
+      },
       contentDescription = null,
       tint = accentColor,
       modifier = Modifier.size(16.dp),
     )
     Column(modifier = Modifier.weight(1f)) {
+      if (!entry.modelName.isNullOrEmpty()) {
+        Text(
+          text = entry.modelName,
+          style = MaterialTheme.typography.labelSmall,
+          color = accentColor.copy(alpha = 0.7f),
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
       Text(
         text = entry.path, // message is stored in path field
         style = MaterialTheme.typography.bodySmall,

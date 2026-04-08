@@ -151,7 +151,7 @@ class LlmHttpService : Service() {
       val msg = "Model '${resolvedModelName ?: "unknown"}' not found"
       Log.e(logTag, "No model specified or model '${resolvedModelName}' not found — cannot start server")
       ServerMetrics.onServerError(msg)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
       pendingConfigOverrides = null
       stopSelf()
       return START_NOT_STICKY
@@ -168,7 +168,7 @@ class LlmHttpService : Service() {
       val msg = "Model files not found on disk"
       Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server")
       ServerMetrics.onServerError(msg)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
       stopSelf()
       return START_NOT_STICKY
     }
@@ -181,7 +181,7 @@ class LlmHttpService : Service() {
 
     ServerMetrics.onServerStarting(port, model.name)
     ServerMetrics.setActiveModelSize(model.totalBytes)
-    RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name)
+    RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
 
     val wifiIp = getWifiIpAddress(this)
     val displayAddress = wifiIp ?: "localhost"
@@ -227,7 +227,7 @@ class LlmHttpService : Service() {
       val msg = "Server failed to start on port $port: ${e.message?.take(120) ?: "Unknown error"}"
       Log.e(logTag, msg, e)
       ServerMetrics.onServerError(msg)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.SERVER)
       stopSelf()
       return START_NOT_STICKY
     }
@@ -261,6 +261,7 @@ class LlmHttpService : Service() {
           RequestLogStore.addEvent(
             "Warmup skipped (disabled in Advanced Settings) — model loaded without test inference",
             modelName = model.name,
+            category = EventCategory.MODEL,
           )
         }
         // If another model load was initiated while we were warming up, discard this result
@@ -272,14 +273,14 @@ class LlmHttpService : Service() {
         }
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
         ServerMetrics.onServerRunning(wifiIp)
-        RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name)
+        RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
         // Check for queued reload (user changed reinit settings while model was loading)
         val queued = pendingReloadAfterLoad
         if (queued != null) {
           pendingReloadAfterLoad = null
           if (queued.modelName == model.name) {
             Log.i(logTag, "Executing queued reload for ${queued.modelName}")
-            RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName)
+            RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName, category = EventCategory.SETTINGS)
             reload(this@LlmHttpService, queued.port, queued.modelName, queued.configValues)
             return@Thread
           } else {
@@ -294,12 +295,14 @@ class LlmHttpService : Service() {
           RequestLogStore.addEvent(
             "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
             modelName = model.name,
+            category = EventCategory.PROMPT,
           )
         }
         if (chatTpl.isNotBlank()) {
           RequestLogStore.addEvent(
             "Chat template active: \"${chatTpl.take(120)}\"${if (chatTpl.length > 120) "…" else ""}",
             modelName = model.name,
+            category = EventCategory.PROMPT,
           )
         }
         // Save notification state for live updates on each request
@@ -326,7 +329,7 @@ class LlmHttpService : Service() {
         pendingReloadAfterLoad = null  // Clear queued reload — don't apply stale config to a future model
         val msg = e.message?.take(120) ?: "Unknown error during model initialization"
         ServerMetrics.onServerError(msg)
-        RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name)
+        RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
         // Update notification to show error state
         updateNotification(
           title = "Model Load Failed",
@@ -371,7 +374,7 @@ class LlmHttpService : Service() {
     pendingReloadAfterLoad = null
     ServerMetrics.onServerStopped()
     if (modelName != null) {
-      RequestLogStore.addEvent("Server stopped", modelName = modelName)
+      RequestLogStore.addEvent("Server stopped", modelName = modelName, category = EventCategory.SERVER)
     }
     if (LlmHttpPrefs.isClearLogsOnStop(this)) {
       RequestLogStore.clear()
@@ -884,6 +887,7 @@ class LlmHttpService : Service() {
       RequestLogStore.addEvent(
         "Sending a warmup message: \"Hola\" → \"$snippet\" (${elapsedMs}ms)",
         modelName = model.name,
+        category = EventCategory.MODEL,
       )
     }
 
@@ -1520,6 +1524,7 @@ class LlmHttpService : Service() {
           "Failed to decode image: ${e.message?.take(80) ?: "Unknown error"}",
           level = LogLevel.ERROR,
           modelName = defaultModel?.name,
+          category = EventCategory.SERVER,
         )
         null
       }

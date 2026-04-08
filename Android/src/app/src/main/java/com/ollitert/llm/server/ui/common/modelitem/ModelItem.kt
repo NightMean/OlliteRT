@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LlmHttpService
 import android.widget.Toast
+import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.server.InferenceSettingsSheet
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -254,6 +255,7 @@ fun ModelItem(
               else if (needReinitialization) " — reloading model"
               else "",
             modelName = model.name,
+            category = EventCategory.SETTINGS,
           )
           if (needReinitialization) {
             val port = LlmHttpPrefs.getPort(context)
