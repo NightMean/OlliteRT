@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class LogLevel { INFO, ERROR }
+enum class LogLevel { INFO, WARNING, ERROR }
 
 /** Category for EVENT-type log entries — drives the icon shown in the Logs tab. */
 enum class EventCategory { GENERAL, MODEL, SETTINGS, SERVER, PROMPT }
@@ -29,6 +29,7 @@ data class RequestLogEntry(
   val level: LogLevel = LogLevel.INFO,
   val isPending: Boolean = false,
   val isThinking: Boolean = false,
+  val isCompacted: Boolean = false,
   val isCancelled: Boolean = false,
   val partialText: String? = null,
   val eventCategory: EventCategory = EventCategory.GENERAL,

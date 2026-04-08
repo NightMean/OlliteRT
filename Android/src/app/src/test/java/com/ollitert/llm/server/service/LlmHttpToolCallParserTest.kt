@@ -50,7 +50,45 @@ class LlmHttpToolCallParserTest {
     assertEquals("search_docs", result!!.function.name)
   }
 
-  // ── Pattern 3: {"function": {"name": "...", "arguments": {...}}} ─────────
+  // ── Pattern 3: <|tool_call>call:FunctionName{args}<tool_call|> ────────────
+
+  @Test
+  fun parsesNativeGemmaToolCallEmptyArgs() {
+    val output = "<|tool_call>call:get_weather{}<tool_call|>"
+    val result = LlmHttpToolCallParser.parse(output, tools)
+    assertNotNull(result)
+    assertEquals("get_weather", result!!.function.name)
+    assertEquals("{}", result.function.arguments)
+    assertTrue(result.id.startsWith("call_"))
+  }
+
+  @Test
+  fun parsesNativeGemmaToolCallWithArgs() {
+    val output = """<|tool_call>call:get_weather{"location": "Boston"}<tool_call|>"""
+    val result = LlmHttpToolCallParser.parse(output, tools)
+    assertNotNull(result)
+    assertEquals("get_weather", result!!.function.name)
+    assertTrue(result.function.arguments.contains("Boston"))
+  }
+
+  @Test
+  fun parsesNativeGemmaToolCallWithSurroundingText() {
+    val output = """Let me check that for you.
+<|tool_call>call:search_docs{"query": "API reference"}<tool_call|>"""
+    val result = LlmHttpToolCallParser.parse(output, tools)
+    assertNotNull(result)
+    assertEquals("search_docs", result!!.function.name)
+    assertTrue(result.function.arguments.contains("API reference"))
+  }
+
+  @Test
+  fun returnsNullForNativeGemmaUnknownTool() {
+    val output = "<|tool_call>call:unknown_func{}<tool_call|>"
+    val result = LlmHttpToolCallParser.parse(output, tools)
+    assertNull(result)
+  }
+
+  // ── Pattern 4/5: {"function": {"name": "...", "arguments": {...}}} ──────
 
   @Test
   fun parsesFunctionWrapperPattern() {

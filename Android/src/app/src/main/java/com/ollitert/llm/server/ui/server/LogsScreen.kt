@@ -50,6 +50,9 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -110,6 +113,7 @@ private val DeleteRedTint = Color(0xFFE57373)
 private val EventColor = Color(0xFF90A4AE) // blue-grey for internal events
 private val ThinkingColor = Color(0xFFCE93D8) // soft purple for thinking mode
 private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
+private val WarningColor = Color(0xFFFFF176) // yellow for warnings (e.g. compacted tool schemas)
 
 /**
  * Easter-egg "Generating" messages with rarity tiers.
@@ -463,12 +467,69 @@ private fun BouncingDots() {
   }
 }
 
+/**
+ * Animated compaction icon — two inward-pointing chevrons squeezing a box between them.
+ * The box shrinks horizontally as the chevrons compress, visually representing
+ * content being compacted to fit the context window.
+ */
+@Composable
+private fun CompactingIcon() {
+  val transition = rememberInfiniteTransition(label = "compact")
+  // 1f = spread apart, 0f = fully squeezed
+  val spread by transition.animateFloat(
+    initialValue = 1f,
+    targetValue = 0.15f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 1000),
+      repeatMode = RepeatMode.Reverse,
+    ),
+    label = "squeeze",
+  )
+  Canvas(modifier = Modifier.size(width = 22.dp, height = 16.dp)) {
+    val midY = size.height / 2f
+    val midX = size.width / 2f
+    val chevronH = size.height * 0.32f
+    val strokeW = 1.8f.dp.toPx()
+    val color = WarningColor
+
+    // Box — taller and wider, shrinks horizontally with animation
+    val boxHalfW = spread * 3.5f.dp.toPx()
+    val boxHalfH = 4.dp.toPx()
+    drawRect(
+      color = color,
+      topLeft = Offset(midX - boxHalfW, midY - boxHalfH),
+      size = androidx.compose.ui.geometry.Size(boxHalfW * 2f, boxHalfH * 2f),
+    )
+
+    // Gap between chevron tips and box edges — stays constant so the
+    // chevrons visually "push" the box as they move inward with it
+    val gap = 2.dp.toPx()
+
+    // Left chevron ">" pushing inward
+    val leftTip = midX - boxHalfW - gap
+    val leftBack = leftTip - 4.dp.toPx()
+    drawLine(color, Offset(leftBack, midY - chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
+    drawLine(color, Offset(leftBack, midY + chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
+
+    // Right chevron "<" pushing inward
+    val rightTip = midX + boxHalfW + gap
+    val rightBack = rightTip + 4.dp.toPx()
+    drawLine(color, Offset(rightBack, midY - chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
+    drawLine(color, Offset(rightBack, midY + chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
+  }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InternalEventCard(entry: RequestLogEntry) {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
-  val accentColor = if (isError) DeleteRedTint else EventColor
+  val isWarning = entry.level == LogLevel.WARNING
+  val accentColor = when {
+    isError -> DeleteRedTint
+    isWarning -> WarningColor
+    else -> EventColor
+  }
   val message = entry.path // message is stored in path field
   val isLong = message.length > 120 || message.count { it == '\n' } > 2
   var expanded by remember { mutableStateOf(false) }
@@ -488,11 +549,17 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     EventCategory.GENERAL -> Icons.Outlined.Info
   }
 
+  val cardBg = when {
+    isError -> DeleteRedTint.copy(alpha = 0.06f)
+    isWarning -> WarningColor.copy(alpha = 0.06f)
+    else -> MaterialTheme.colorScheme.surfaceContainerLow
+  }
+
   Column(
     modifier = Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(20.dp))
-      .background(if (isError) DeleteRedTint.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surfaceContainerLow)
+      .background(cardBg)
       .padding(16.dp),
   ) {
     // Header: category badge + message preview + copy button
@@ -619,9 +686,11 @@ private const val COLLAPSED_MAX_CHARS = 600
 private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
+  val isWarning = entry.level == LogLevel.WARNING
   val cardBg = when {
     entry.isCancelled -> CancelledColor.copy(alpha = 0.06f)
     isError -> DeleteRedTint.copy(alpha = 0.06f)
+    isWarning -> WarningColor.copy(alpha = 0.06f)
     else -> MaterialTheme.colorScheme.surfaceContainerLow
   }
 
@@ -705,6 +774,9 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     // Response area: streaming partial text while pending, full JSON when done
     if (entry.isPending) {
       val generatingText = remember(entry.id) { GeneratingMessages.pick() }
+      // Show compaction notice when context window was exceeded, otherwise fun generating text
+      val pendingText = if (entry.isCompacted) "Context window exceeded, compacting" else generatingText
+      val pendingColor = if (entry.isCompacted) WarningColor else OlliteRTPrimary
       Spacer(modifier = Modifier.height(10.dp))
       Text(
         text = "Response",
@@ -732,21 +804,26 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
           )
           Spacer(modifier = Modifier.height(10.dp))
         }
-        // Generating indicator at the bottom
+        // Generating indicator at the bottom — bouncing dots for normal, pulsing warning for compacting
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+          if (entry.isCompacted) {
+            CompactingIcon()
+          }
           Text(
-            text = generatingText,
+            text = pendingText,
             style = MaterialTheme.typography.bodySmall.copy(
               fontFamily = SpaceGroteskFontFamily,
               fontSize = 11.sp,
             ),
-            color = OlliteRTPrimary,
+            color = pendingColor,
             fontWeight = FontWeight.SemiBold,
           )
-          BouncingDots()
+          if (!entry.isCompacted) {
+            BouncingDots()
+          }
         }
       }
     } else if (entry.isCancelled) {
@@ -824,6 +901,15 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             text = "Thinking",
             style = MaterialTheme.typography.labelSmall,
             color = ThinkingColor,
+            fontWeight = FontWeight.SemiBold,
+          )
+        }
+        if (entry.isCompacted) {
+          FooterDot()
+          Text(
+            text = "Compacted",
+            style = MaterialTheme.typography.labelSmall,
+            color = WarningColor,
             fontWeight = FontWeight.SemiBold,
           )
         }
@@ -973,6 +1059,7 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
     obj.put("tokens", entry.tokens)
     obj.put("streaming", entry.isStreaming)
     if (entry.isThinking) obj.put("thinking", true)
+    if (entry.isCompacted) obj.put("compacted", true)
     if (entry.isCancelled) obj.put("cancelled", true)
     if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
 

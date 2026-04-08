@@ -633,8 +633,12 @@ class LlmHttpService : Service() {
       val statusCode = response.status?.requestStatus ?: 200
       val isStreaming = response.mimeType == "text/event-stream"
       val isThinking = responseBodySnapshot?.contains("<think>") == true
-      val level = if (statusCode in 200..299) LogLevel.INFO else LogLevel.ERROR
       RequestLogStore.update(logId) {
+        val level = when {
+          statusCode !in 200..299 -> LogLevel.ERROR
+          it.isCompacted -> LogLevel.WARNING
+          else -> LogLevel.INFO
+        }
         it.copy(
           requestBody = requestBodySnapshot ?: it.requestBody,
           responseBody = if (isStreaming) it.responseBody else responseBodySnapshot,
@@ -698,8 +702,30 @@ class LlmHttpService : Service() {
 
       // Build prompt: inject tool schemas if tools are present and tool_choice != "none"
       val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
+      val compactToolSchemas = LlmHttpPrefs.isCompactToolSchemas(this@LlmHttpService)
+      var toolsCompacted = false
       var prompt = if (hasTools) {
-        LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate)
+        if (compactToolSchemas) {
+          // Compact mode enabled: try full first, fall back to compact if context overflow
+          val maxContext = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+          val fullPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate)
+          if (maxContext != null && fullPrompt.length / 4 > maxContext) {
+            val compactPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate, compact = true)
+            if (compactPrompt.length / 4 > maxContext) {
+              logEvent("tool_schemas_skipped id=$requestId reason=prompt_exceeds_context estimatedTokens=${compactPrompt.length / 4} maxContext=$maxContext")
+              LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
+            } else {
+              toolsCompacted = true
+              logEvent("tool_schemas_compacted id=$requestId reason=prompt_exceeds_context fullTokens=${fullPrompt.length / 4} compactTokens=${compactPrompt.length / 4} maxContext=$maxContext")
+              compactPrompt
+            }
+          } else {
+            fullPrompt
+          }
+        } else {
+          // Compact mode disabled: inject full schemas, let model error if context overflows
+          LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate)
+        }
       } else {
         LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
       }
@@ -708,6 +734,11 @@ class LlmHttpService : Service() {
       logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       // Extract images for multimodal models (before blank-prompt check so image-only requests work).
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
+
+      // Mark log entry as compacted if tool schemas were reduced
+      if (toolsCompacted && logId != null) {
+        RequestLogStore.update(logId) { it.copy(isCompacted = true) }
+      }
 
       logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} images=${images.size} model=$requestedId resolved=${model.name}")
 
@@ -734,7 +765,14 @@ class LlmHttpService : Service() {
           ServerMetrics.onInferenceStarted()
           val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
           ServerMetrics.onInferenceCompleted()
-          if (rawText == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+          if (rawText == null) {
+            val errorMsg = llmError ?: "llm error"
+            if (logId != null) {
+              val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
+              RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
+            }
+            return@withPerRequestConfig badRequest(errorMsg)
+          }
           val (text, _) = applyStopSequences(rawText, stopSeqs)
 
           // Check if the model output contains a tool call
@@ -798,7 +836,14 @@ class LlmHttpService : Service() {
         ServerMetrics.onInferenceStarted()
         val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120)
         ServerMetrics.onInferenceCompleted()
-        if (rawText == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+        if (rawText == null) {
+          val errorMsg = llmError ?: "llm error"
+          if (logId != null) {
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
+            RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
+          }
+          return@withPerRequestConfig badRequest(errorMsg)
+        }
 
         val (text, _) = applyStopSequences(rawText, stopSequences?.ifEmpty { null })
         val promptTokens = (prompt.length / 4).coerceAtLeast(1)
@@ -859,7 +904,14 @@ class LlmHttpService : Service() {
           ServerMetrics.onInferenceStarted()
           val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
           ServerMetrics.onInferenceCompleted()
-          if (text == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+          if (text == null) {
+            val errorMsg = llmError ?: "llm error"
+            if (logId != null) {
+              val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
+              RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
+            }
+            return@withPerRequestConfig badRequest(errorMsg)
+          }
 
           // Check if the model output contains a tool call
           if (hasTools) {
@@ -1012,7 +1064,13 @@ class LlmHttpService : Service() {
             onDone = { err = it },
             systemInstruction = buildSystemInstruction(model.name),
           )
-          if (err.isNotEmpty()) return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
+          if (err.isNotEmpty()) {
+            if (logId != null) {
+              val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $err")
+              RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
+            }
+            return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
+          }
           model.initializedWithVision = supportImage
         }
       }
@@ -1150,9 +1208,10 @@ class LlmHttpService : Service() {
           } catch (e: Exception) {
             if (originalConfig != null) model.configValues = originalConfig
             ServerMetrics.onInferenceCompleted()
-            logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed streaming=true")
+            logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
             if (logId != null) {
-              RequestLogStore.update(logId) { it.copy(partialText = null, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs) }
+              val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
+              RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
             }
             try { stream.finish() } catch (_: Exception) {}
           }
@@ -1163,12 +1222,14 @@ class LlmHttpService : Service() {
           ServerMetrics.incrementErrorCount()
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
           if (logId != null) {
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(error)
             RequestLogStore.update(logId) {
-              it.copy(partialText = null, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR)
+              it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR)
             }
           }
           try {
-            stream.enqueue("data: {\"error\":\"$error\"}\n\n")
+            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(error)}\n\n")
+            stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
             stream.finish()
           } catch (_: Exception) {}
         },
@@ -1215,7 +1276,13 @@ class LlmHttpService : Service() {
             onDone = { err = it },
             systemInstruction = buildSystemInstruction(model.name),
           )
-          if (err.isNotEmpty()) return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
+          if (err.isNotEmpty()) {
+            if (logId != null) {
+              val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $err")
+              RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
+            }
+            return jsonError(Response.Status.INTERNAL_ERROR, "model_init_failed")
+          }
           model.initializedWithVision = supportImage
         }
       }
@@ -1235,6 +1302,10 @@ class LlmHttpService : Service() {
       val keepPartial = LlmHttpPrefs.isKeepPartialResponse(this@LlmHttpService)
 
       val stream = BlockingQueueInputStream()
+      // When tools are present, buffer all tokens instead of streaming them.
+      // We can't know if the output is a tool call until generation completes,
+      // so we must buffer first, then emit either tool_calls or content.
+      val bufferForTools = tools != null
 
       // Capture original config so we can restore after streaming completes.
       // configSnapshot (if non-null) is applied in resetConversation on the executor thread
@@ -1278,20 +1349,25 @@ class LlmHttpService : Service() {
             return@executeStreaming
           }
           try {
-            if (!headerWritten) {
-              headerWritten = true
-              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, model.name, now))
-            }
-            // Emit thinking content wrapped in <think> tags
-            if (!thought.isNullOrEmpty()) {
-              fullThinking.append(thought)
-              val thinkText = if (!thinkingTagOpened) {
-                thinkingTagOpened = true
-                "<think>$thought"
-              } else {
-                thought
+            if (!bufferForTools) {
+              if (!headerWritten) {
+                headerWritten = true
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, model.name, now))
               }
-              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, thinkText))
+              // Emit thinking content wrapped in <think> tags
+              if (!thought.isNullOrEmpty()) {
+                fullThinking.append(thought)
+                val thinkText = if (!thinkingTagOpened) {
+                  thinkingTagOpened = true
+                  "<think>$thought"
+                } else {
+                  thought
+                }
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, thinkText))
+              }
+            } else {
+              // Still accumulate thinking text when buffering for tools
+              if (!thought.isNullOrEmpty()) fullThinking.append(thought)
             }
             if (partial.isNotEmpty()) {
               fullText.append(partial)
@@ -1311,13 +1387,15 @@ class LlmHttpService : Service() {
                   // Don't emit the stop-triggering token; fall through to done block below
                 }
               }
-              val text = if (thinkingTagOpened) {
-                thinkingTagOpened = false
-                "</think>$partial"
-              } else {
-                partial
+              if (!bufferForTools) {
+                val text = if (thinkingTagOpened) {
+                  thinkingTagOpened = false
+                  "</think>$partial"
+                } else {
+                  partial
+                }
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, text))
               }
-              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, text))
             }
             // Update log with partial text (debounced to ~150ms)
             if (streamPreview && logId != null && !done) {
@@ -1330,24 +1408,37 @@ class LlmHttpService : Service() {
             }
             if (done) {
               if (originalConfig != null) model.configValues = originalConfig
-              if (thinkingTagOpened) {
-                thinkingTagOpened = false
-                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, "</think>"))
-              }
               val outputLen = fullText.length
               ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
               ServerMetrics.onInferenceCompleted()
               val promptTokens = (prompt.length / 4).coerceAtLeast(1)
               val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
-              // Streaming tool calls: we detect tool calls post-completion and only set
-              // finish_reason="tool_calls" — the raw text is streamed as-is during generation.
-              // OpenAI's full spec streams tool_calls as structured deltas in each SSE chunk
-              // (delta.tool_calls[].function.arguments streamed incrementally), but that requires
-              // buffering the entire response before emitting any chunks (to know whether the
-              // output is a tool call vs plain text). Intentionally deferred for simplicity.
 
-              val finishReason = if (tools != null && LlmHttpToolCallParser.parse(fullText.toString(), tools) != null) "tool_calls" else "stop"
-              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now, finishReason))
+              // Check for tool calls in completed output
+              val parsedToolCall = if (tools != null) LlmHttpToolCallParser.parse(fullText.toString(), tools) else null
+
+              if (bufferForTools && parsedToolCall != null) {
+                // Emit proper OpenAI streaming tool_calls format
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamToolCallChunks(chatId, model.name, now, parsedToolCall))
+              } else {
+                // Emit buffered content (if we were buffering) or close the stream normally
+                if (bufferForTools) {
+                  // Was buffering but no tool call — emit all content at once
+                  stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, model.name, now))
+                  if (fullThinking.isNotEmpty()) {
+                    stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, "<think>${fullThinking}</think>"))
+                  }
+                  if (fullText.isNotEmpty()) {
+                    stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, fullText.toString()))
+                  }
+                } else {
+                  if (thinkingTagOpened) {
+                    thinkingTagOpened = false
+                    stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, "</think>"))
+                  }
+                }
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now, "stop"))
+              }
               if (includeUsage) {
                 stream.enqueue(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, model.name, now, promptTokens, completionTokens))
               }
@@ -1359,7 +1450,11 @@ class LlmHttpService : Service() {
                 } else {
                   fullText.toString()
                 }
-                val responseJson = json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length))
+                val responseJson = if (parsedToolCall != null) {
+                  json.encodeToString(chatResponseWithToolCall(model.name, parsedToolCall, promptLen = prompt.length))
+                } else {
+                  json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length))
+                }
                 RequestLogStore.update(logId) {
                   it.copy(
                     responseBody = responseJson,
@@ -1370,14 +1465,15 @@ class LlmHttpService : Service() {
                   )
                 }
               }
-              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
+              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen${if (parsedToolCall != null) " tool_call=${parsedToolCall.function.name}" else ""}")
             }
           } catch (e: Exception) {
             if (originalConfig != null) model.configValues = originalConfig
             ServerMetrics.onInferenceCompleted()
-            logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed streaming=true")
+            logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
             if (logId != null) {
-              RequestLogStore.update(logId) { it.copy(partialText = null, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs) }
+              val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
+              RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
             }
             try { stream.finish() } catch (_: Exception) {}
           }
@@ -1388,12 +1484,14 @@ class LlmHttpService : Service() {
           ServerMetrics.incrementErrorCount()
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
           if (logId != null) {
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(error)
             RequestLogStore.update(logId) {
-              it.copy(partialText = null, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR)
+              it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR)
             }
           }
           try {
-            stream.enqueue("data: {\"error\":\"$error\"}\n\n")
+            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(error)}\n\n")
+            stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
             stream.finish()
           } catch (_: Exception) {}
         },

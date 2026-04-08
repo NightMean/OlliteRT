@@ -74,13 +74,21 @@ object LlmHttpRequestAdapter {
     tools: List<ToolSpec>,
     toolChoice: String?,
     chatTemplate: String?,
+    compact: Boolean = false,
   ): String {
-    val toolSchemas = tools.joinToString("\n\n") { tool ->
-      val params = tool.function.parameters?.let { formatJsonElement(it) } ?: "{}"
-      buildString {
-        append("Function: ${tool.function.name}")
-        tool.function.description?.let { append("\nDescription: $it") }
-        append("\nParameters: $params")
+    val toolSchemas = if (compact) {
+      tools.joinToString("\n") { tool ->
+        val desc = tool.function.description?.let { " — $it" } ?: ""
+        "${tool.function.name}$desc"
+      }
+    } else {
+      tools.joinToString("\n\n") { tool ->
+        val params = tool.function.parameters?.let { formatJsonElement(it) } ?: "{}"
+        buildString {
+          append("Function: ${tool.function.name}")
+          tool.function.description?.let { append("\nDescription: $it") }
+          append("\nParameters: $params")
+        }
       }
     }
 
