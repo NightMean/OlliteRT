@@ -21,6 +21,7 @@ private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
 private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
+private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_CHAT_TEMPLATE = "chat_template_"
 private const val DEFAULT_PORT = 8000
@@ -211,6 +212,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_CUSTOM_PROMPTS_ENABLED, enabled)
+      .apply()
+  }
+
+  fun isClearLogsOnStop(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_CLEAR_LOGS_ON_STOP, false)
+
+  fun setClearLogsOnStop(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_CLEAR_LOGS_ON_STOP, enabled)
       .apply()
   }
 
