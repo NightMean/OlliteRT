@@ -104,6 +104,14 @@ fun ModelNameAndStatus(
       modifier = Modifier.padding(end = 64.dp),
     )
 
+    // Capability chips (Text, Vision, Audio, Thinking)
+    if (model.isLlm) {
+      CapabilityChips(
+        model = model,
+        modifier = Modifier.padding(top = 2.dp),
+      )
+    }
+
     // Status icon + size + download progress details.
     var showDownloadStatusUI = true
 

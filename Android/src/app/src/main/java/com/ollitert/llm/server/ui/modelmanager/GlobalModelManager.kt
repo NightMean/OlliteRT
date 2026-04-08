@@ -24,8 +24,11 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,6 +57,7 @@ import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
@@ -134,6 +138,13 @@ enum class ModelFilter {
   AVAILABLE,
 }
 
+/** Capability filter for models. */
+enum class CapabilityFilter(val label: String) {
+  VISION("Vision"),
+  AUDIO("Audio"),
+  THINKING("Thinking"),
+}
+
 /** Sort mode for the models list. */
 enum class ModelSort(val label: String) {
   DEFAULT("Default"),
@@ -177,6 +188,8 @@ fun GlobalModelManager(
   // Search, filter, and sort state
   var searchQuery by remember { mutableStateOf("") }
   var activeFilter by remember { mutableStateOf(ModelFilter.ALL) }
+  var activeCapabilities by remember { mutableStateOf(emptySet<CapabilityFilter>()) }
+  var showMoreFilters by remember { mutableStateOf(false) }
   var activeSort by remember { mutableStateOf(ModelSort.DEFAULT) }
   var sortAscending by remember { mutableStateOf(true) }
   var showSortDropdown by remember { mutableStateOf(false) }
@@ -233,18 +246,20 @@ fun GlobalModelManager(
   }
 
   // Filtered and sorted models
-  val filteredBuiltInModels by remember(searchQuery, activeFilter, activeSort, sortAscending, builtInModels.toList()) {
+  val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels.toList()) {
     derivedStateOf {
       builtInModels.filter { model ->
         val matchesSearch = searchQuery.isEmpty() ||
           model.displayName.contains(searchQuery, ignoreCase = true) ||
-          model.name.contains(searchQuery, ignoreCase = true)
+          model.name.contains(searchQuery, ignoreCase = true) ||
+          modelMatchesCapabilitySearch(model, searchQuery)
         val matchesFilter = when (activeFilter) {
           ModelFilter.ALL -> true
           ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
           ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
         }
-        matchesSearch && matchesFilter
+        val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
+        matchesSearch && matchesFilter && matchesCaps
       }.let { filtered ->
         when (activeSort) {
           ModelSort.DEFAULT -> filtered // preserve original order
@@ -257,14 +272,16 @@ fun GlobalModelManager(
     }
   }
 
-  val filteredImportedModels by remember(searchQuery, activeFilter, activeSort, sortAscending, importedModels.toList()) {
+  val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels.toList()) {
     derivedStateOf {
       importedModels.filter { model ->
         val matchesSearch = searchQuery.isEmpty() ||
           model.displayName.contains(searchQuery, ignoreCase = true) ||
-          model.name.contains(searchQuery, ignoreCase = true)
+          model.name.contains(searchQuery, ignoreCase = true) ||
+          modelMatchesCapabilitySearch(model, searchQuery)
+        val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
         // Imported models are always downloaded
-        activeFilter != ModelFilter.AVAILABLE
+        activeFilter != ModelFilter.AVAILABLE && matchesSearch && matchesCaps
       }.let { filtered ->
         when (activeSort) {
           ModelSort.DEFAULT -> filtered
@@ -371,45 +388,82 @@ fun GlobalModelManager(
 
       // Filter chips + sort button
       item(key = "filter_chips") {
-        Row(
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.padding(bottom = 8.dp),
-        ) {
-          ModelFilterChip(
-            label = stringResource(R.string.filter_all),
-            selected = activeFilter == ModelFilter.ALL,
-            onClick = { activeFilter = ModelFilter.ALL },
-          )
-          ModelFilterChip(
-            label = stringResource(R.string.filter_downloaded),
-            selected = activeFilter == ModelFilter.DOWNLOADED,
-            onClick = { activeFilter = ModelFilter.DOWNLOADED },
-          )
-          ModelFilterChip(
-            label = stringResource(R.string.filter_available),
-            selected = activeFilter == ModelFilter.AVAILABLE,
-            onClick = { activeFilter = ModelFilter.AVAILABLE },
-          )
-          Spacer(modifier = Modifier.weight(1f))
-          SortButton(
-            activeSort = activeSort,
-            sortAscending = sortAscending,
-            showDropdown = showSortDropdown,
-            onToggleDropdown = { showSortDropdown = !showSortDropdown },
-            onDismissDropdown = { showSortDropdown = false },
-            onSortSelected = { sort ->
-              if (sort == ModelSort.DEFAULT) {
-                activeSort = sort
-              } else if (activeSort == sort) {
-                sortAscending = !sortAscending
-              } else {
-                activeSort = sort
-                sortAscending = true
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            ModelFilterChip(
+              label = stringResource(R.string.filter_all),
+              selected = activeFilter == ModelFilter.ALL,
+              onClick = { activeFilter = ModelFilter.ALL },
+            )
+            ModelFilterChip(
+              label = stringResource(R.string.filter_downloaded),
+              selected = activeFilter == ModelFilter.DOWNLOADED,
+              onClick = { activeFilter = ModelFilter.DOWNLOADED },
+            )
+            ModelFilterChip(
+              label = stringResource(R.string.filter_available),
+              selected = activeFilter == ModelFilter.AVAILABLE,
+              onClick = { activeFilter = ModelFilter.AVAILABLE },
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            // "More Filters" toggle
+            MoreFiltersButton(
+              active = showMoreFilters || activeCapabilities.isNotEmpty(),
+              onClick = { showMoreFilters = !showMoreFilters },
+            )
+            SortButton(
+              activeSort = activeSort,
+              sortAscending = sortAscending,
+              showDropdown = showSortDropdown,
+              onToggleDropdown = { showSortDropdown = !showSortDropdown },
+              onDismissDropdown = { showSortDropdown = false },
+              onSortSelected = { sort ->
+                if (sort == ModelSort.DEFAULT) {
+                  activeSort = sort
+                } else if (activeSort == sort) {
+                  sortAscending = !sortAscending
+                } else {
+                  activeSort = sort
+                  sortAscending = true
+                }
+                showSortDropdown = false
+              },
+            )
+          }
+          // Expandable capability filters
+          AnimatedVisibility(
+            visible = showMoreFilters,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+          ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+              // Capability section
+              Text(
+                "Capabilities",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                CapabilityFilter.entries.forEach { cap ->
+                  val isSelected = cap in activeCapabilities
+                  ModelFilterChip(
+                    label = cap.label,
+                    selected = isSelected,
+                    onClick = {
+                      activeCapabilities = if (isSelected) activeCapabilities - cap
+                      else activeCapabilities + cap
+                    },
+                  )
+                }
               }
-              showSortDropdown = false
-            },
-          )
+            }
+          }
         }
       }
 
@@ -727,6 +781,20 @@ private fun ModelFilterChip(
 }
 
 @Composable
+private fun MoreFiltersButton(
+  active: Boolean,
+  onClick: () -> Unit,
+) {
+  TooltipIconButton(
+    icon = Icons.Outlined.FilterList,
+    tooltip = "More filters",
+    onClick = onClick,
+    backgroundColor = if (active) OlliteRTPrimary else MaterialTheme.colorScheme.surfaceContainerHigh,
+    tint = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+}
+
+@Composable
 private fun SortButton(
   activeSort: ModelSort,
   sortAscending: Boolean,
@@ -777,6 +845,27 @@ private fun SortButton(
           },
         )
       }
+    }
+  }
+}
+
+/** Returns true if the model's capabilities match any keyword in the search query. */
+private fun modelMatchesCapabilitySearch(model: Model, query: String): Boolean {
+  val q = query.lowercase()
+  return (model.llmSupportImage && "vision" in q) ||
+    (model.llmSupportAudio && "audio" in q) ||
+    (model.llmSupportThinking && "thinking" in q) ||
+    (model.isLlm && "text" in q)
+}
+
+/** Returns true if the model has all of the selected capability filters. */
+private fun modelMatchesCapabilityFilters(model: Model, caps: Set<CapabilityFilter>): Boolean {
+  if (caps.isEmpty()) return true
+  return caps.all { cap ->
+    when (cap) {
+      CapabilityFilter.VISION -> model.llmSupportImage
+      CapabilityFilter.AUDIO -> model.llmSupportAudio
+      CapabilityFilter.THINKING -> model.llmSupportThinking
     }
   }
 }
