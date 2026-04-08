@@ -1033,7 +1033,7 @@ private fun exportLogsAsJson(context: Context, entries: List<RequestLogEntry>) {
 
     val uri = FileProvider.getUriForFile(
       context,
-      "${context.packageName}.fileprovider",
+      "${context.packageName}.provider",
       file,
     )
     val shareIntent = Intent(Intent.ACTION_SEND).apply {
