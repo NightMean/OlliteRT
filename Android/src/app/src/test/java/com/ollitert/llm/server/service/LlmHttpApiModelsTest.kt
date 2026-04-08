@@ -121,4 +121,73 @@ class LlmHttpApiModelsTest {
     val id2 = "chatcmpl-${java.util.UUID.randomUUID()}"
     assertTrue("IDs should be unique", id1 != id2)
   }
+
+  // ── CompletionRequest deserialization────────────────────────────
+
+  @Test
+  fun completionRequestDeserializesMinimal() {
+    val input = """{"prompt":"Hello"}"""
+    val req = json.decodeFromString<CompletionRequest>(input)
+    assertEquals("Hello", req.prompt)
+    assertNull(req.model)
+    assertNull(req.stream)
+    assertNull(req.max_tokens)
+  }
+
+  @Test
+  fun completionRequestDeserializesFullFields() {
+    val input = """{"model":"test","prompt":"Hi","max_tokens":100,"temperature":0.5,"top_p":0.9,"stream":false,"seed":42}"""
+    val req = json.decodeFromString<CompletionRequest>(input)
+    assertEquals("test", req.model)
+    assertEquals("Hi", req.prompt)
+    assertEquals(100, req.max_tokens)
+    assertEquals(0.5, req.temperature!!, 0.001)
+    assertEquals(0.9, req.top_p!!, 0.001)
+    assertEquals(false, req.stream)
+    assertEquals(42, req.seed)
+  }
+
+  @Test
+  fun completionRequestIgnoresUnknownFields() {
+    val input = """{"prompt":"test","some_future_field":"value","extra":123}"""
+    val req = json.decodeFromString<CompletionRequest>(input)
+    assertEquals("test", req.prompt)
+  }
+
+  // ── CompletionResponse serialization─────────────────────────────
+
+  @Test
+  fun completionResponseSerializesCorrectly() {
+    val resp = CompletionResponse(
+      id = "cmpl-test", created = 1000, model = "m",
+      choices = listOf(CompletionChoice(text = "world", index = 0, finish_reason = "stop")),
+      usage = Usage(5, 10),
+    )
+    val serialized = json.encodeToString(resp)
+    assertTrue(serialized.contains("\"object\":\"text_completion\""))
+    assertTrue(serialized.contains("\"id\":\"cmpl-test\""))
+    assertTrue(serialized.contains("\"text\":\"world\""))
+    assertTrue(serialized.contains("\"finish_reason\":\"stop\""))
+    assertTrue(serialized.contains("\"total_tokens\":15"))
+    assertTrue(serialized.contains("\"system_fingerprint\":null"))
+  }
+
+  @Test
+  fun completionResponseEmptyPrompt() {
+    val resp = CompletionResponse(
+      id = "cmpl-empty", created = 1000, model = "m",
+      choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = "stop")),
+      usage = Usage(0, 0),
+    )
+    val serialized = json.encodeToString(resp)
+    assertTrue(serialized.contains("\"text\":\"\""))
+    assertTrue(serialized.contains("\"total_tokens\":0"))
+  }
+
+  @Test
+  fun completionIdPrefixFormat() {
+    val id = "cmpl-${java.util.UUID.randomUUID()}"
+    assertTrue(id.startsWith("cmpl-"))
+    assertTrue(id.length > "cmpl-".length + 30)
+  }
 }
