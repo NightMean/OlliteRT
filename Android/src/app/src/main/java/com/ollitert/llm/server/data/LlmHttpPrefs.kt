@@ -20,6 +20,9 @@ private const val KEY_WARMUP_ENABLED = "warmup_enabled"
 private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
+private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
+private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
+private const val KEY_PREFIX_CHAT_TEMPLATE = "chat_template_"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -197,6 +200,39 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_EAGER_VISION_INIT, enabled)
+      .apply()
+  }
+
+  fun isCustomPromptsEnabled(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_CUSTOM_PROMPTS_ENABLED, false)
+
+  fun setCustomPromptsEnabled(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_CUSTOM_PROMPTS_ENABLED, enabled)
+      .apply()
+  }
+
+  fun getSystemPrompt(context: Context, modelName: String): String =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_PREFIX_SYSTEM_PROMPT + modelName, "") ?: ""
+
+  fun setSystemPrompt(context: Context, modelName: String, prompt: String) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_PREFIX_SYSTEM_PROMPT + modelName, prompt)
+      .apply()
+  }
+
+  fun getChatTemplate(context: Context, modelName: String): String =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_PREFIX_CHAT_TEMPLATE + modelName, "") ?: ""
+
+  fun setChatTemplate(context: Context, modelName: String, template: String) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_PREFIX_CHAT_TEMPLATE + modelName, template)
       .apply()
   }
 

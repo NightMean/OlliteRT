@@ -209,7 +209,14 @@ fun ModelItem(
     InferenceSettingsSheet(
       model = model,
       onDismiss = { showInferenceSettings = false },
-      onApply = { newConfigValues ->
+      onApply = { newConfigValues, systemPrompt, chatTemplate ->
+        // Persist system prompt and chat template for this model
+        val oldSystemPrompt = LlmHttpPrefs.getSystemPrompt(context, model.name)
+        val oldChatTemplate = LlmHttpPrefs.getChatTemplate(context, model.name)
+        LlmHttpPrefs.setSystemPrompt(context, model.name, systemPrompt)
+        LlmHttpPrefs.setChatTemplate(context, model.name, chatTemplate)
+        val promptsChanged = systemPrompt != oldSystemPrompt || chatTemplate != oldChatTemplate
+
         // Detect changed configs and whether reinitialization is needed.
         // Normalize both sides to the config's target type before comparing,
         // so that e.g. String "4096" vs Int 4096 are not flagged as phantom changes.
@@ -229,6 +236,12 @@ fun ModelItem(
               needReinitialization = true
             }
           }
+        }
+        // System prompt change requires conversation reset (treated as reinitialization)
+        if (promptsChanged) {
+          if (systemPrompt != oldSystemPrompt) changes.add("system_prompt: changed")
+          if (chatTemplate != oldChatTemplate) changes.add("chat_template: changed")
+          needReinitialization = true
         }
 
         model.prevConfigValues = model.configValues
