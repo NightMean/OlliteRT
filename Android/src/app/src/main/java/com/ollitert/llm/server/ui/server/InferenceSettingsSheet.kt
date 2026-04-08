@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -421,12 +422,22 @@ fun InferenceSettingsSheet(
       Button(
         onClick = {
           focusManager.clearFocus()
+          // Clamp all values to valid ranges before saving — can't rely on blur/commitValue
+          // completing synchronously before this handler reads the state vars.
+          val clampedTemp = temperature.coerceIn(tempRange.first, tempRange.second)
+          val clampedMaxTokens = maxTokens.coerceIn(maxTokensRange.first.toInt(), maxTokensRange.second.toInt())
+          val clampedTopK = topK.coerceIn(topKRange.first.toInt(), topKRange.second.toInt())
+          val clampedTopP = topP.coerceIn(topPRange.first, topPRange.second)
+          temperature = clampedTemp
+          maxTokens = clampedMaxTokens
+          topK = clampedTopK
+          topP = clampedTopP
           val newValues = mutableMapOf<String, Any>()
           newValues.putAll(configValues)
-          newValues[ConfigKeys.TEMPERATURE.label] = temperature
-          newValues[ConfigKeys.MAX_TOKENS.label] = maxTokens
-          newValues[ConfigKeys.TOPK.label] = topK
-          newValues[ConfigKeys.TOPP.label] = topP
+          newValues[ConfigKeys.TEMPERATURE.label] = clampedTemp
+          newValues[ConfigKeys.MAX_TOKENS.label] = clampedMaxTokens
+          newValues[ConfigKeys.TOPK.label] = clampedTopK
+          newValues[ConfigKeys.TOPP.label] = clampedTopP
           newValues[ConfigKeys.ENABLE_THINKING.label] = enableThinking
           newValues[ConfigKeys.ACCELERATOR.label] = if (useGpu) "GPU" else "CPU"
           onApply(newValues, systemPrompt, chatTemplate)
@@ -460,7 +471,34 @@ private fun ParameterInputBox(
 ) {
   val focusRequester = remember { FocusRequester() }
   val focusManager = LocalFocusManager.current
-  var textValue by remember(value) { mutableStateOf(value) }
+  var textValue by remember { mutableStateOf(value) }
+  // Track focus state to avoid resetting the text field while the user is typing.
+  // When focused, the text field owns its content. When not focused, sync from parent
+  // (e.g. after reset to defaults).
+  var isFocused by remember { mutableStateOf(false) }
+  if (!isFocused && textValue != value) {
+    textValue = value
+  }
+
+  // Clamp and commit the current text value — called on blur and keyboard Done.
+  // Clamping only happens here, NOT during typing, so the user can freely type
+  // without seeing numbers snap to min/max mid-keystroke.
+  fun commitValue() {
+    val raw = textValue
+    if (isFloat) {
+      val parsed = raw.toFloatOrNull() ?: return
+      val clamped = parsed.coerceIn(min, max)
+      val formatted = if (clamped == clamped.toInt().toFloat()) clamped.toInt().toString()
+        else "%.2f".format(clamped).trimEnd('0').trimEnd('.')
+      textValue = formatted
+      onValueChange(clamped)
+    } else {
+      val parsed = raw.toLongOrNull() ?: return
+      val clamped = parsed.coerceIn(min.toLong(), max.toLong()).toInt()
+      textValue = clamped.toString()
+      onValueChange(clamped)
+    }
+  }
 
   val hint = if (isFloat) {
     "${if (min == min.toInt().toFloat()) min.toInt() else min}–${if (max == max.toInt().toFloat()) max.toInt() else max}"
@@ -499,33 +537,17 @@ private fun ParameterInputBox(
       BasicTextField(
         value = textValue,
         onValueChange = { raw ->
-          // Strip non-numeric characters (keep digits, dot, minus)
+          // Strip non-numeric characters (keep digits, dot, minus).
+          // No clamping here — let the user type freely. Clamping happens on commit (blur/done).
           val allowed = if (isFloat) raw.filter { it.isDigit() || it == '.' || it == '-' }
             else raw.filter { it.isDigit() }
-          if (allowed.isEmpty() || allowed == "." || allowed == "-") {
-            textValue = allowed
-            return@BasicTextField
-          }
+          textValue = allowed
+          // Push unclamped value to parent so state stays in sync for intermediate display,
+          // but only if it's a valid number (incomplete inputs like "" or "." are ignored)
           if (isFloat) {
-            val parsed = allowed.toFloatOrNull() ?: return@BasicTextField
-            val clamped = parsed.coerceIn(min, max)
-            if (clamped != parsed) {
-              // Value exceeded range — show clamped value
-              textValue = if (clamped == clamped.toInt().toFloat()) clamped.toInt().toString()
-                else "%.2f".format(clamped)
-            } else {
-              textValue = allowed
-            }
-            onValueChange(clamped)
+            allowed.toFloatOrNull()?.let { onValueChange(it) }
           } else {
-            val parsed = allowed.toLongOrNull() ?: return@BasicTextField
-            val clamped = parsed.coerceIn(min.toLong(), max.toLong()).toInt()
-            if (clamped.toLong() != parsed) {
-              textValue = clamped.toString()
-            } else {
-              textValue = allowed
-            }
-            onValueChange(clamped)
+            allowed.toIntOrNull()?.let { onValueChange(it) }
           }
         },
         singleLine = true,
@@ -541,11 +563,18 @@ private fun ParameterInputBox(
           imeAction = ImeAction.Done,
         ),
         keyboardActions = KeyboardActions(
-          onDone = { focusManager.clearFocus() },
+          onDone = {
+            commitValue()
+            focusManager.clearFocus()
+          },
         ),
         modifier = Modifier
           .weight(1f)
-          .focusRequester(focusRequester),
+          .focusRequester(focusRequester)
+          .onFocusChanged { state ->
+            isFocused = state.isFocused
+            if (!state.isFocused) commitValue()
+          },
       )
       Icon(
         Icons.Outlined.Edit,

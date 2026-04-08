@@ -22,10 +22,13 @@ private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
 private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
 private const val KEY_COMPACT_TOOL_SCHEMAS = "compact_tool_schemas"
+private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
+private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_CHAT_TEMPLATE = "chat_template_"
+private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -228,6 +231,28 @@ object LlmHttpPrefs {
       .apply()
   }
 
+  fun isAutoTruncateHistory(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_AUTO_TRUNCATE_HISTORY, false)
+
+  fun setAutoTruncateHistory(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_AUTO_TRUNCATE_HISTORY, enabled)
+      .apply()
+  }
+
+  fun isAutoTrimPrompts(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_AUTO_TRIM_PROMPTS, false)
+
+  fun setAutoTrimPrompts(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_AUTO_TRIM_PROMPTS, enabled)
+      .apply()
+  }
+
   fun isClearLogsOnStop(context: Context): Boolean =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .getBoolean(KEY_CLEAR_LOGS_ON_STOP, false)
@@ -270,6 +295,50 @@ object LlmHttpPrefs {
       .edit()
       .putString(KEY_PREFIX_CHAT_TEMPLATE + modelName, template)
       .apply()
+  }
+
+  /**
+   * Persist inference config values (temperature, max tokens, etc.) for a specific model.
+   * Stored as a JSON string so it survives app restarts. Values are keyed by ConfigKey label.
+   */
+  fun setInferenceConfig(context: Context, modelName: String, configValues: Map<String, Any>) {
+    val json = org.json.JSONObject()
+    for ((key, value) in configValues) {
+      when (value) {
+        is Boolean -> json.put(key, value)
+        is Int -> json.put(key, value)
+        is Long -> json.put(key, value)
+        is Float -> json.put(key, value.toDouble())
+        is Double -> json.put(key, value)
+        is String -> json.put(key, value)
+        else -> json.put(key, value.toString())
+      }
+    }
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, json.toString())
+      .apply()
+  }
+
+  /**
+   * Load saved inference config values for a model. Returns null if no config was saved.
+   * Values are returned as their JSON-native types (Int, Double, Boolean, String).
+   */
+  fun getInferenceConfig(context: Context, modelName: String): Map<String, Any>? {
+    val jsonStr = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_PREFIX_INFERENCE_CONFIG + modelName, null) ?: return null
+    return try {
+      val json = org.json.JSONObject(jsonStr)
+      val result = mutableMapOf<String, Any>()
+      for (key in json.keys()) {
+        val value = json.get(key)
+        // JSONObject returns Integer for small ints, Long for large — normalize
+        result[key] = value
+      }
+      result
+    } catch (_: Exception) {
+      null
+    }
   }
 
   fun save(context: Context, enabled: Boolean, port: Int) {
