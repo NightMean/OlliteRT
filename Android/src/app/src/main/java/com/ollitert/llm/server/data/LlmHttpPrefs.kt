@@ -19,6 +19,7 @@ private const val KEY_NOTIF_SHOW_REQUEST_COUNT = "notif_show_request_count"
 private const val KEY_WARMUP_ENABLED = "warmup_enabled"
 private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
+private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
@@ -185,6 +186,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_WARMUP_ENABLED, enabled)
+      .apply()
+  }
+
+  fun isEagerVisionInit(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_EAGER_VISION_INIT, false)
+
+  fun setEagerVisionInit(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_EAGER_VISION_INIT, enabled)
       .apply()
   }
 
