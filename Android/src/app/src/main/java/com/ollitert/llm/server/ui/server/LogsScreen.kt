@@ -50,6 +50,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.ui.graphics.Color
@@ -492,7 +493,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       Spacer(modifier = Modifier.width(4.dp))
       @OptIn(ExperimentalMaterial3Api::class)
       TooltipBox(
-        positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
         tooltip = { PlainTooltip { Text("Copy log entry") } },
         state = rememberTooltipState(),
       ) {

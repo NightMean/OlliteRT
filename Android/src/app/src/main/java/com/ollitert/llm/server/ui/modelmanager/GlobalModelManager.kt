@@ -73,6 +73,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.SnackbarHost
@@ -493,7 +494,7 @@ fun GlobalModelManager(
         .padding(end = 16.dp, bottom = 16.dp),
     ) {
       TooltipBox(
-        positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
         tooltip = { PlainTooltip { Text("Import model") } },
         state = rememberTooltipState(),
       ) {

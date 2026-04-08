@@ -53,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.MaterialTheme
@@ -584,7 +585,7 @@ fun SettingsScreen(
             Row {
               @OptIn(ExperimentalMaterial3Api::class)
               TooltipBox(
-                positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
                 tooltip = { PlainTooltip { Text("Copy token") } },
                 state = rememberTooltipState(),
               ) {
@@ -603,7 +604,7 @@ fun SettingsScreen(
               }
               @OptIn(ExperimentalMaterial3Api::class)
               TooltipBox(
-                positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
                 tooltip = { PlainTooltip { Text("Regenerate token") } },
                 state = rememberTooltipState(),
               ) {
@@ -684,7 +685,7 @@ fun SettingsScreen(
             val eyeTooltip = if (hfTokenVisible) "Hide token" else "Show token"
             @OptIn(ExperimentalMaterial3Api::class)
             TooltipBox(
-              positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+              positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
               tooltip = { PlainTooltip { Text(eyeTooltip) } },
               state = rememberTooltipState(),
             ) {
@@ -701,7 +702,7 @@ fun SettingsScreen(
             if (hfToken.isNotEmpty()) {
               @OptIn(ExperimentalMaterial3Api::class)
               TooltipBox(
-                positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
                 tooltip = { PlainTooltip { Text("Clear token") } },
                 state = rememberTooltipState(),
               ) {
