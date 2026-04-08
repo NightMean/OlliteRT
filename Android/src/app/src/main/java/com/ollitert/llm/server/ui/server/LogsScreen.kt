@@ -404,57 +404,157 @@ private fun BouncingDots() {
   }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InternalEventCard(entry: RequestLogEntry) {
+  val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
   val accentColor = if (isError) DeleteRedTint else EventColor
+  val message = entry.path // message is stored in path field
+  val isLong = message.length > 120 || message.count { it == '\n' } > 2
+  var expanded by remember { mutableStateOf(false) }
 
-  Row(
+  val categoryLabel = when (entry.eventCategory) {
+    EventCategory.MODEL -> "MODEL"
+    EventCategory.SETTINGS -> "SETTINGS"
+    EventCategory.SERVER -> "SERVER"
+    EventCategory.PROMPT -> "PROMPT"
+    EventCategory.GENERAL -> "EVENT"
+  }
+  val categoryIcon = when (entry.eventCategory) {
+    EventCategory.MODEL -> Icons.Outlined.Memory
+    EventCategory.SETTINGS -> Icons.Outlined.Settings
+    EventCategory.SERVER -> Icons.Outlined.Dns
+    EventCategory.PROMPT -> Icons.AutoMirrored.Outlined.Notes
+    EventCategory.GENERAL -> Icons.Outlined.Info
+  }
+
+  Column(
     modifier = Modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(14.dp))
-      .background(accentColor.copy(alpha = 0.08f))
-      .padding(horizontal = 14.dp, vertical = 10.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(8.dp),
+      .clip(RoundedCornerShape(20.dp))
+      .background(if (isError) DeleteRedTint.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surfaceContainerLow)
+      .padding(16.dp),
   ) {
-    Icon(
-      imageVector = when (entry.eventCategory) {
-        EventCategory.MODEL -> Icons.Outlined.Memory
-        EventCategory.SETTINGS -> Icons.Outlined.Settings
-        EventCategory.SERVER -> Icons.Outlined.Dns
-        EventCategory.PROMPT -> Icons.AutoMirrored.Outlined.Notes
-        EventCategory.GENERAL -> Icons.Outlined.Info
-      },
-      contentDescription = null,
-      tint = accentColor,
-      modifier = Modifier.size(16.dp),
-    )
-    Column(modifier = Modifier.weight(1f)) {
-      if (!entry.modelName.isNullOrEmpty()) {
+    // Header: category badge + message preview + copy button
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      // Category pill badge
+      Row(
+        modifier = Modifier
+          .clip(RoundedCornerShape(6.dp))
+          .background(accentColor.copy(alpha = 0.15f))
+          .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        Icon(
+          imageVector = categoryIcon,
+          contentDescription = null,
+          tint = accentColor,
+          modifier = Modifier.size(12.dp),
+        )
         Text(
-          text = entry.modelName,
+          text = categoryLabel,
           style = MaterialTheme.typography.labelSmall,
-          color = accentColor.copy(alpha = 0.7f),
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
+          color = accentColor,
+          fontWeight = FontWeight.Bold,
+          fontFamily = SpaceGroteskFontFamily,
         )
       }
+      Spacer(modifier = Modifier.weight(1f))
+      // Copy button
+      TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = { PlainTooltip { Text("Copy event") } },
+        state = rememberTooltipState(),
+      ) {
+        IconButton(
+          onClick = { copyEventToClipboard(context, entry) },
+          modifier = Modifier.size(32.dp),
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.ContentCopy,
+            contentDescription = "Copy event",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+          )
+        }
+      }
+    }
+
+    // Message body
+    Spacer(modifier = Modifier.height(8.dp))
+    if (expanded) {
+      SelectionContainer {
+        Text(
+          text = message,
+          style = MaterialTheme.typography.bodySmall.copy(
+            fontFamily = SpaceGroteskFontFamily,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+          ),
+          color = if (isError) accentColor else MaterialTheme.colorScheme.onSurface,
+          fontWeight = if (isError) FontWeight.SemiBold else FontWeight.Normal,
+        )
+      }
+    } else {
       Text(
-        text = entry.path, // message is stored in path field
-        style = MaterialTheme.typography.bodySmall,
-        color = accentColor,
+        text = message,
+        style = MaterialTheme.typography.bodySmall.copy(
+          fontFamily = SpaceGroteskFontFamily,
+          fontSize = 12.sp,
+          lineHeight = 17.sp,
+        ),
+        color = if (isError) accentColor else MaterialTheme.colorScheme.onSurface,
         fontWeight = if (isError) FontWeight.SemiBold else FontWeight.Normal,
         maxLines = 3,
         overflow = TextOverflow.Ellipsis,
       )
     }
-    Text(
-      text = formatTimestamp(entry.timestamp),
-      style = MaterialTheme.typography.labelSmall,
-      color = accentColor.copy(alpha = 0.7f),
-    )
+    if (isLong) {
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = if (expanded) "Show less" else "Show more",
+        style = MaterialTheme.typography.labelSmall,
+        color = accentColor,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+          .clip(RoundedCornerShape(4.dp))
+          .clickable { expanded = !expanded }
+          .padding(vertical = 2.dp),
+      )
+    }
+
+    // Footer: model · timestamp
+    Spacer(modifier = Modifier.height(8.dp))
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Spacer(modifier = Modifier.weight(1f))
+      Text(
+        text = listOfNotNull(
+          entry.modelName,
+          formatTimestamp(entry.timestamp),
+        ).joinToString(" · "),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+    }
   }
+}
+
+private fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
+  val text = buildString {
+    appendLine("[${formatTimestamp(entry.timestamp)}] EVENT: ${entry.path}")
+    if (entry.modelName != null) appendLine("Model: ${entry.modelName}")
+    appendLine("Category: ${entry.eventCategory.name}")
+  }.trimEnd()
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Event", text))
+  Toast.makeText(context, "Event copied", Toast.LENGTH_SHORT).show()
 }
 
 private const val COLLAPSED_MAX_LINES = 8
