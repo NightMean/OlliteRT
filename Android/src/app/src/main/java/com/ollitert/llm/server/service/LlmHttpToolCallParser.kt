@@ -1,6 +1,7 @@
 package com.ollitert.llm.server.service
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -40,16 +41,39 @@ object LlmHttpToolCallParser {
    * Returns null if no tool call pattern is detected or the function name
    * doesn't match any of the available tools.
    */
-  fun parse(output: String, availableTools: List<ToolSpec>): ToolCall? {
+  fun parse(output: String, availableTools: List<ToolSpec>): ToolCall? =
+    parseAll(output, availableTools).firstOrNull()
+
+  /**
+   * Parses ALL tool calls from the model's raw text output.
+   * Models may output multiple tool calls for parallel execution — e.g. when
+   * Home Assistant asks to turn on two lights at once, the model may output
+   * two separate JSON tool calls. Returns an empty list if no calls detected.
+   *
+   * Supported multi-call formats:
+   * - Multiple `<tool_call>...</tool_call>` XML blocks
+   * - Multiple `<|tool_call>call:Fn{...}<tool_call|>` native Gemma blocks
+   * - JSON array of calls: `[{"name":"fn1","arguments":{...}},{"name":"fn2","arguments":{...}}]`
+   * - Multiple bare JSON objects on separate lines
+   *
+   * Falls back to single-call detection if no multi-call pattern matches.
+   */
+  fun parseAll(output: String, availableTools: List<ToolSpec>): List<ToolCall> {
     val trimmed = output.trim()
     val toolNames = availableTools.map { it.function.name }.toSet()
 
-    // Try each pattern in priority order
-    return tryToolCallWrapper(trimmed, toolNames)
+    // Try multi-call patterns first (order matters — more structured patterns first)
+    tryAllXmlWrapped(trimmed, toolNames).let { if (it.isNotEmpty()) return it }
+    tryAllNativeGemmaCalls(trimmed, toolNames).let { if (it.isNotEmpty()) return it }
+    tryJsonArray(trimmed, toolNames).let { if (it.isNotEmpty()) return it }
+
+    // Fall back to single-call patterns (return as single-element list)
+    val single = tryToolCallWrapper(trimmed, toolNames)
       ?: tryXmlWrapped(trimmed, toolNames)
       ?: tryNativeGemmaCall(trimmed, toolNames)
       ?: tryFunctionWrapper(trimmed, toolNames)
       ?: tryBareCall(trimmed, toolNames)
+    return listOfNotNull(single)
   }
 
   /** Pattern 1: `{"tool_call": {"name": "fn", "arguments": {...}}}` */
@@ -99,6 +123,70 @@ object LlmHttpToolCallParser {
     // Must have both "name" and "arguments" to be treated as a tool call
     if ("name" !in obj || "arguments" !in obj) return null
     return extractCall(obj, toolNames)
+  }
+
+  // ── Multi-call parsers ───────────────────────────────────────────────────
+
+  /** Finds ALL `<tool_call>...</tool_call>` XML blocks in the output.
+   *  Returns empty list if fewer than 2 matches (single match handled by tryXmlWrapped). */
+  private fun tryAllXmlWrapped(text: String, toolNames: Set<String>): List<ToolCall> {
+    val matches = xmlToolCallRegex.findAll(text).toList()
+    if (matches.size < 2) return emptyList()
+    return matches.mapNotNull { match ->
+      val innerJson = match.groupValues[1]
+      val obj = parseJsonObjectSafe(innerJson) ?: return@mapNotNull null
+      extractCall(obj, toolNames)
+    }
+  }
+
+  /** Finds ALL `<|tool_call>call:Fn{...}<tool_call|>` native Gemma blocks.
+   *  Returns empty list if fewer than 2 matches. */
+  private fun tryAllNativeGemmaCalls(text: String, toolNames: Set<String>): List<ToolCall> {
+    val matches = nativeToolCallRegex.findAll(text).toList()
+    if (matches.size < 2) return emptyList()
+    return matches.mapNotNull { match ->
+      val name = match.groupValues[1]
+      if (name !in toolNames) return@mapNotNull null
+      val argsStr = match.groupValues[2]
+      if (argsStr != "{}") {
+        parseJsonObjectSafe(argsStr) ?: return@mapNotNull null
+      }
+      ToolCall(
+        id = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}",
+        function = ToolCallFunction(name = name, arguments = argsStr),
+      )
+    }
+  }
+
+  /** Parses a JSON array of tool call objects: `[{"name":"fn","arguments":{...}}, ...]`.
+   *  Models may output an array when prompted for parallel tool calls. */
+  private fun tryJsonArray(text: String, toolNames: Set<String>): List<ToolCall> {
+    // Find first [ ... ] balanced bracket pair
+    val start = text.indexOf('[')
+    if (start == -1) return emptyList()
+    var depth = 0; var inString = false; var escape = false
+    var end = -1
+    for (i in start until text.length) {
+      val c = text[i]
+      if (escape) { escape = false; continue }
+      if (c == '\\' && inString) { escape = true; continue }
+      if (c == '"') { inString = !inString; continue }
+      if (inString) continue
+      when (c) {
+        '[' -> depth++
+        ']' -> { depth--; if (depth == 0) { end = i; break } }
+      }
+    }
+    if (end == -1) return emptyList()
+    val arrayStr = text.substring(start, end + 1)
+    val array = try { json.parseToJsonElement(arrayStr) } catch (_: Exception) { return emptyList() }
+    if (array !is kotlinx.serialization.json.JsonArray) return emptyList()
+    val calls = array.mapNotNull { element ->
+      if (element !is JsonObject) return@mapNotNull null
+      extractCall(element, toolNames)
+    }
+    // Only return if we got 2+ valid calls (single element arrays fall through to single-call parsing)
+    return if (calls.size >= 2) calls else emptyList()
   }
 
   /**

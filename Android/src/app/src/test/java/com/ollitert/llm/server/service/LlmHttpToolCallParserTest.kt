@@ -219,4 +219,90 @@ Let me know if you need more."""
     assertNotNull(result)
     assertEquals("get_weather", result!!.function.name)
   }
+
+  // ── parseAll: Multiple tool calls (parallel calling) ─────────────────────
+
+  @Test
+  fun parseAllReturnsMultipleXmlWrappedCalls() {
+    val output = """I'll do both for you.
+<tool_call>{"name": "get_weather", "arguments": {"location": "Boston"}}</tool_call>
+<tool_call>{"name": "search_docs", "arguments": {"query": "forecast"}}</tool_call>"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    assertEquals(2, results.size)
+    assertEquals("get_weather", results[0].function.name)
+    assertEquals("search_docs", results[1].function.name)
+    assertTrue("IDs should be unique", results[0].id != results[1].id)
+  }
+
+  @Test
+  fun parseAllReturnsMultipleNativeGemmaCalls() {
+    val output = """<|tool_call>call:get_weather{"location": "NYC"}<tool_call|><|tool_call>call:search_docs{"query": "rain"}<tool_call|>"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    assertEquals(2, results.size)
+    assertEquals("get_weather", results[0].function.name)
+    assertEquals("search_docs", results[1].function.name)
+  }
+
+  @Test
+  fun parseAllReturnsJsonArray() {
+    val output = """[{"name": "get_weather", "arguments": {"location": "Boston"}}, {"name": "search_docs", "arguments": {"query": "weather"}}]"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    assertEquals(2, results.size)
+    assertEquals("get_weather", results[0].function.name)
+    assertEquals("search_docs", results[1].function.name)
+  }
+
+  @Test
+  fun parseAllJsonArrayWithSurroundingText() {
+    val output = """Sure, I'll call both:
+[{"name": "get_weather", "arguments": {"location": "LA"}}, {"name": "search_docs", "arguments": {"query": "sun"}}]
+Done!"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    assertEquals(2, results.size)
+  }
+
+  @Test
+  fun parseAllFallsBackToSingleCall() {
+    // Single call should still work via parseAll
+    val output = """{"name": "get_weather", "arguments": {"location": "Boston"}}"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    assertEquals(1, results.size)
+    assertEquals("get_weather", results[0].function.name)
+  }
+
+  @Test
+  fun parseAllReturnsEmptyForPlainText() {
+    val results = LlmHttpToolCallParser.parseAll("The weather is nice today.", tools)
+    assertTrue(results.isEmpty())
+  }
+
+  @Test
+  fun parseAllJsonArrayIgnoresSingleElement() {
+    // Single-element arrays should fall through to single-call parsing (not multi-call path)
+    val output = """[{"name": "get_weather", "arguments": {"location": "Boston"}}]"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    // Should still find 1 via the fallback bare-call parser (extracts the inner JSON object)
+    assertEquals(1, results.size)
+  }
+
+  @Test
+  fun parseAllJsonArraySkipsInvalidEntries() {
+    // One valid, one with unknown function name — only valid one returned
+    val output = """[{"name": "get_weather", "arguments": {}}, {"name": "unknown_fn", "arguments": {}}]"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    // Array has 2 entries but only 1 is valid → falls back to single-call (array needs 2+ valid)
+    assertEquals(1, results.size)
+    assertEquals("get_weather", results[0].function.name)
+  }
+
+  @Test
+  fun parseAllMultipleXmlSkipsInvalid() {
+    val output = """<tool_call>{"name": "get_weather", "arguments": {"location": "NYC"}}</tool_call>
+<tool_call>{"name": "unknown", "arguments": {}}</tool_call>
+<tool_call>{"name": "search_docs", "arguments": {"query": "test"}}</tool_call>"""
+    val results = LlmHttpToolCallParser.parseAll(output, tools)
+    assertEquals(2, results.size)
+    assertEquals("get_weather", results[0].function.name)
+    assertEquals("search_docs", results[1].function.name)
+  }
 }

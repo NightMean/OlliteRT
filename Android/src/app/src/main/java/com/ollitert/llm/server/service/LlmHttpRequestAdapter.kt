@@ -42,7 +42,7 @@ object LlmHttpRequestAdapter {
    */
   fun buildChatPrompt(msgs: List<ChatMessage>, chatTemplate: String? = null): String {
     if (msgs.isEmpty()) return ""
-    if (msgs.size == 1 && msgs.first().role != "tool" && chatTemplate.isNullOrBlank()) return msgs.first().content.text
+    if (msgs.size == 1 && msgs.first().role != "tool" && msgs.first().tool_calls.isNullOrEmpty() && chatTemplate.isNullOrBlank()) return msgs.first().content.text
     return msgs
       .mapNotNull { msg ->
         when (msg.role) {
@@ -52,7 +52,18 @@ object LlmHttpRequestAdapter {
             "Tool Result$name$callId: ${msg.content.text}"
           }
           else -> {
-            if (msg.content.text.isNotBlank()) formatMessage(msg.role, msg.content.text, chatTemplate)
+            // Build text from content + any tool_calls on assistant messages.
+            // HA sends multi-turn tool conversations as:
+            //   {role:"assistant", content:null, tool_calls:[{id:"call_xyz", function:{name:"HassTurnOn", arguments:"{...}"}}]}
+            //   {role:"tool", tool_call_id:"call_xyz", content:"{\"success\":true}"}
+            // Without preserving the assistant's tool_calls, the model can't see what it
+            // previously called and can't correlate tool results with its own decisions.
+            val toolCallsText = msg.tool_calls?.takeIf { it.isNotEmpty() }?.joinToString("\n") { tc ->
+              "Tool Call [${tc.function.name}] (call_id: ${tc.id}): ${tc.function.arguments}"
+            }
+            val contentText = msg.content.text.takeIf { it.isNotBlank() }
+            val combined = listOfNotNull(contentText, toolCallsText).joinToString("\n")
+            if (combined.isNotBlank()) formatMessage(msg.role, combined, chatTemplate)
             else null
           }
         }
@@ -100,6 +111,9 @@ object LlmHttpRequestAdapter {
 
     val toolInstruction = """You have access to the following tools/functions. To call a tool, respond ONLY with a JSON object in this exact format (no other text before or after):
 {"name": "function_name", "arguments": {"param1": "value1"}}
+
+To call multiple tools at once, respond with a JSON array:
+[{"name": "function1", "arguments": {...}}, {"name": "function2", "arguments": {...}}]
 $choiceInstruction
 
 Available tools:
