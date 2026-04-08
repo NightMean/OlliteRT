@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -184,21 +185,11 @@ fun ModelItem(
       }
       // Settings cog - only for running model
       if (isActiveModel) {
-        Box(
-          modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .clickable { showInferenceSettings = true },
-          contentAlignment = Alignment.Center,
-        ) {
-          Icon(
-            Icons.Outlined.Settings,
-            contentDescription = "Inference settings",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
-          )
-        }
+        TooltipIconButton(
+          icon = Icons.Outlined.Settings,
+          tooltip = "Inference settings",
+          onClick = { showInferenceSettings = true },
+        )
       }
     }
   }

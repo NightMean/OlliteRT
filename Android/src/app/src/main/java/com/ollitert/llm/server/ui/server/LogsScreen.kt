@@ -38,6 +38,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.ContentCopy
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -225,37 +226,20 @@ fun LogsScreen(
         val context = LocalContext.current
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           // Clear all logs
-          Box(
-            modifier = Modifier
-              .size(40.dp)
-              .clip(RoundedCornerShape(10.dp))
-              .background(DeleteRedTint.copy(alpha = 0.12f))
-              .clickable { RequestLogStore.clear() },
-            contentAlignment = Alignment.Center,
-          ) {
-            Icon(
-              imageVector = Icons.Outlined.DeleteSweep,
-              contentDescription = "Clear logs",
-              tint = DeleteRedTint,
-              modifier = Modifier.size(22.dp),
-            )
-          }
+          TooltipIconButton(
+            icon = Icons.Outlined.DeleteSweep,
+            tooltip = "Clear all logs",
+            onClick = { RequestLogStore.clear() },
+            tint = DeleteRedTint,
+            backgroundColor = DeleteRedTint.copy(alpha = 0.12f),
+          )
           // Copy all logs
-          Box(
-            modifier = Modifier
-              .size(40.dp)
-              .clip(RoundedCornerShape(10.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .clickable { copyAllLogsToClipboard(context, entries) },
-            contentAlignment = Alignment.Center,
-          ) {
-            Icon(
-              imageVector = Icons.Outlined.ContentCopy,
-              contentDescription = "Copy all logs",
-              tint = OlliteRTPrimary,
-              modifier = Modifier.size(22.dp),
-            )
-          }
+          TooltipIconButton(
+            icon = Icons.Outlined.ContentCopy,
+            tooltip = "Copy all logs",
+            onClick = { copyAllLogsToClipboard(context, entries) },
+            tint = OlliteRTPrimary,
+          )
         }
       }
     }

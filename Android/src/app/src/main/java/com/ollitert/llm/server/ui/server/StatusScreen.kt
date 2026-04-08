@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ViewInAr
@@ -240,21 +241,12 @@ fun StatusScreen(
               )
             }
           } else {
-            Box(
-              modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable { showReloadDialog = true },
-              contentAlignment = Alignment.Center,
-            ) {
-              Icon(
-                imageVector = Icons.Outlined.Refresh,
-                contentDescription = "Reload model",
-                tint = OlliteRTPrimary,
-                modifier = Modifier.size(22.dp),
-              )
-            }
+            TooltipIconButton(
+              icon = Icons.Outlined.Refresh,
+              tooltip = "Reload model",
+              onClick = { showReloadDialog = true },
+              tint = OlliteRTPrimary,
+            )
           }
         }
       }
@@ -301,21 +293,12 @@ fun StatusScreen(
           )
         }
         if (!isStopped) {
-          Box(
-            modifier = Modifier
-              .size(40.dp)
-              .clip(RoundedCornerShape(10.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .clickable { copyToClipboard(context, endpointUrl) },
-            contentAlignment = Alignment.Center,
-          ) {
-            Icon(
-              imageVector = Icons.Outlined.ContentCopy,
-              contentDescription = "Copy endpoint URL",
-              tint = OlliteRTPrimary,
-              modifier = Modifier.size(22.dp),
-            )
-          }
+          TooltipIconButton(
+            icon = Icons.Outlined.ContentCopy,
+            tooltip = "Copy endpoint URL",
+            onClick = { copyToClipboard(context, endpointUrl) },
+            tint = OlliteRTPrimary,
+          )
         }
       }
     }
