@@ -105,6 +105,7 @@ fun SettingsScreen(
   var savedWarmupEnabled by remember { mutableStateOf(LlmHttpPrefs.isWarmupEnabled(context)) }
   var savedStreamLogsPreview by remember { mutableStateOf(LlmHttpPrefs.isStreamLogsPreview(context)) }
   var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
+  var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -123,6 +124,7 @@ fun SettingsScreen(
   var warmupEnabled by remember { mutableStateOf(savedWarmupEnabled) }
   var streamLogsPreview by remember { mutableStateOf(savedStreamLogsPreview) }
   var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
+  var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -136,7 +138,8 @@ fun SettingsScreen(
     notifShowRequestCount != savedNotifShowRequestCount ||
     warmupEnabled != savedWarmupEnabled ||
     streamLogsPreview != savedStreamLogsPreview ||
-    keepPartialResponse != savedKeepPartialResponse
+    keepPartialResponse != savedKeepPartialResponse ||
+    eagerVisionInit != savedEagerVisionInit
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -158,7 +161,10 @@ fun SettingsScreen(
         Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
       } else {
         val isPortChanged = port != savedPort
-        val isServerRunning = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+        val isEagerVisionChanged = eagerVisionInit != savedEagerVisionInit
+        val needsRestart = isPortChanged || isEagerVisionChanged
+        val isServerRunning = serverStatus == ServerStatus.RUNNING
+        val isServerLoading = serverStatus == ServerStatus.LOADING
 
         LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
         if (bearerEnabled) {
@@ -175,6 +181,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
         LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
         LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
+        LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -196,9 +203,12 @@ fun SettingsScreen(
         savedWarmupEnabled = warmupEnabled
         savedStreamLogsPreview = streamLogsPreview
         savedKeepPartialResponse = keepPartialResponse
+        savedEagerVisionInit = eagerVisionInit
 
-        if (isPortChanged && isServerRunning) {
+        if (needsRestart && isServerRunning) {
           showRestartDialog = true
+        } else if (needsRestart && isServerLoading) {
+          Toast.makeText(context, "Settings saved. The server is still starting — restart it manually for changes to take effect.", Toast.LENGTH_LONG).show()
         } else {
           Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
         }
@@ -713,22 +723,22 @@ fun SettingsScreen(
       )
     }
 
-    // Restart server dialog when port changed
+    // Restart server dialog when settings that require a restart are changed
     if (showRestartDialog) {
       AlertDialog(
         onDismissRequest = {
           showRestartDialog = false
-          Toast.makeText(context, "Settings saved. Restart server manually to apply port change.", Toast.LENGTH_LONG).show()
+          Toast.makeText(context, "Settings saved. Restart the server manually for changes to take effect.", Toast.LENGTH_LONG).show()
         },
         title = { Text("Restart server?") },
         text = {
-          Text("The port has been changed. The server needs to restart for the new port to take effect.")
+          Text("Some of the changed settings require a server restart to take effect.")
         },
         confirmButton = {
           Button(onClick = {
             showRestartDialog = false
             onRestartServer()
-            Toast.makeText(context, "Server restarting with new port", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Server restarting with updated settings", Toast.LENGTH_SHORT).show()
           }) {
             Text("Restart")
           }
@@ -737,7 +747,7 @@ fun SettingsScreen(
           Button(
             onClick = {
               showRestartDialog = false
-              Toast.makeText(context, "Settings saved. Restart server manually to apply port change.", Toast.LENGTH_LONG).show()
+              Toast.makeText(context, "Settings saved. Restart the server manually for changes to take effect.", Toast.LENGTH_LONG).show()
             },
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -804,6 +814,35 @@ fun SettingsScreen(
         Switch(
           checked = keepPartialResponse,
           onCheckedChange = { keepPartialResponse = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Eager vision initialization toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Pre-initialize Vision",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = eagerVisionInit,
+          onCheckedChange = { eagerVisionInit = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

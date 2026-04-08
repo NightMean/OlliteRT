@@ -210,11 +210,29 @@ class LlmHttpService : Service() {
     Thread {
       try {
         val loadStart = SystemClock.elapsedRealtime()
+        val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
+        val supportImage = model.llmSupportImage && eagerVision
+        val supportAudio = model.llmSupportAudio
         if (LlmHttpPrefs.isWarmupEnabled(this@LlmHttpService)) {
           server?.warmUpModel(model)
         } else {
+          // Still initialize the model engine so it's ready for requests;
+          // only the test inference message ("Hola") is skipped.
+          var initErr = ""
+          ServerLlmModelHelper.initialize(
+            context = this@LlmHttpService,
+            model = model,
+            supportImage = supportImage,
+            supportAudio = supportAudio,
+            onDone = { initErr = it },
+            systemInstruction = null,
+          )
+          if (initErr.isNotEmpty()) {
+            throw RuntimeException("Model initialization failed: $initErr")
+          }
+          model.initializedWithVision = supportImage
           RequestLogStore.addEvent(
-            "Warmup skipped (disabled in Advanced Settings)",
+            "Warmup skipped (disabled in Advanced Settings) — model loaded without test inference",
             modelName = model.name,
           )
         }
@@ -503,9 +521,12 @@ class LlmHttpService : Service() {
       logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
-      logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
+      // Extract images for multimodal models (before blank-prompt check so image-only requests work).
+      val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
 
-      if (prompt.isBlank()) {
+      logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} images=${images.size} model=$requestedId resolved=${model.name}")
+
+      if (prompt.isBlank() && images.isEmpty()) {
         logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
         return okJsonText(json.encodeToString(emptyChatResponse(model.name)))
       }
@@ -514,9 +535,6 @@ class LlmHttpService : Service() {
         logEvent("request_tool_call id=$requestId endpoint=/v1/chat/completions tool=${toolCall.function.name}")
         return okJsonText(json.encodeToString(chatResponseWithToolCall(model.name, toolCall)))
       }
-
-      // Extract images for multimodal models.
-      val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
 
       return if (req.stream == true) {
         ServerMetrics.onInferenceStarted()
@@ -580,7 +598,8 @@ class LlmHttpService : Service() {
 
     fun warmUpModel(model: Model) {
       val startMs = SystemClock.elapsedRealtime()
-      val (result, _) = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10)
+      val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
+      val (result, _) = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10, eagerVisionInit = eagerVision)
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
       val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
       RequestLogStore.addEvent(
@@ -596,13 +615,14 @@ class LlmHttpService : Service() {
       endpoint: String,
       timeoutSeconds: Long = 30,
       images: List<Bitmap> = emptyList(),
+      eagerVisionInit: Boolean = false,
     ): Pair<String?, String?> {
       // Track input tokens (rough estimate: ~4 chars per token)
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
       // Track request modality
       ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
 
-      val supportImage = model.llmSupportImage && images.isNotEmpty()
+      val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
         // Re-initialize if images are requested but engine lacks vision support.
@@ -687,7 +707,8 @@ class LlmHttpService : Service() {
       // Track request modality
       ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
 
-      val supportImage = model.llmSupportImage && images.isNotEmpty()
+      val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
+      val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
         val needsReinit = model.instance == null ||
@@ -875,7 +896,8 @@ class LlmHttpService : Service() {
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
       ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
 
-      val supportImage = model.llmSupportImage && images.isNotEmpty()
+      val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
+      val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
       val supportAudio = model.llmSupportAudio
       synchronized(this) {
         val needsReinit = model.instance == null ||
