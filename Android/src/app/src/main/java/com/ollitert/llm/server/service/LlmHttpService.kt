@@ -28,6 +28,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -446,9 +447,37 @@ class LlmHttpService : Service() {
     private val inferenceLock = Any()
 
     /**
-     * Temporarily overrides model sampler config for the duration of a request.
-     * These values are picked up by resetConversation() which runs before every inference.
-     * Thread-safe because requests are serialized through [inferenceLock].
+     * Builds a config snapshot with per-request overrides applied.
+     * Returns null if no overrides are needed. Used for streaming requests
+     * where the config must be applied on the executor thread, not the NanoHTTPD thread.
+     */
+    private fun buildPerRequestConfig(
+      model: Model,
+      temperature: Double? = null,
+      topP: Double? = null,
+      topK: Int? = null,
+      maxTokens: Int? = null,
+    ): Map<String, Any>? {
+      if (temperature == null && topP == null && topK == null && maxTokens == null) return null
+      val overridden = model.configValues.toMutableMap()
+      temperature?.let { overridden[com.ollitert.llm.server.data.ConfigKeys.TEMPERATURE.label] = it.toFloat() }
+      topP?.let { overridden[com.ollitert.llm.server.data.ConfigKeys.TOPP.label] = it.toFloat() }
+      topK?.let { overridden[com.ollitert.llm.server.data.ConfigKeys.TOPK.label] = it }
+      maxTokens?.let {
+        val engineMax = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+        if (engineMax != null) {
+          overridden[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] = it.coerceAtMost(engineMax)
+        } else {
+          overridden[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] = it
+        }
+      }
+      return overridden
+    }
+
+    /**
+     * Temporarily overrides model sampler config for the duration of a BLOCKING request.
+     * For streaming requests, use [buildPerRequestConfig] + configSnapshot parameter instead,
+     * since the config must be applied on the executor thread (not the NanoHTTPD thread).
      */
     private inline fun <R> withPerRequestConfig(
       model: Model,
@@ -689,16 +718,21 @@ class LlmHttpService : Service() {
 
       // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
       // These are picked up by resetConversation() before inference — no model reload needed.
-      return withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens) {
-        if (req.stream == true) {
-          ServerMetrics.onInferenceStarted()
-          streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = req.stop.ifEmpty { null }, tools = if (hasTools) req.tools else null)
-        } else {
+      // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
+      // a race where the NanoHTTPD thread restores config before the executor reads it.
+      // For non-streaming: withPerRequestConfig wraps the blocking call safely.
+      val stopSeqs = req.stop.ifEmpty { null }
+      return if (req.stream == true) {
+        val configSnapshot = buildPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens)
+        ServerMetrics.onInferenceStarted()
+        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) req.tools else null, configSnapshot = configSnapshot)
+      } else {
+        withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens) {
           ServerMetrics.onInferenceStarted()
           val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
           ServerMetrics.onInferenceCompleted()
           if (rawText == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
-          val (text, _) = applyStopSequences(rawText, req.stop.ifEmpty { null })
+          val (text, _) = applyStopSequences(rawText, stopSeqs)
 
           // Check if the model output contains a tool call
           if (hasTools) {
@@ -749,6 +783,7 @@ class LlmHttpService : Service() {
 
       // Parse stop sequences from JsonElement (can be String or List<String>)
       val stopSequences: List<String>? = when (req.stop) {
+        is JsonNull -> null
         is JsonPrimitive -> req.stop.jsonPrimitive.content.takeIf { it.isNotBlank() }?.let { listOf(it) }
         is JsonArray -> req.stop.jsonArray.map { it.jsonPrimitive.content }
         else -> null
@@ -808,13 +843,16 @@ class LlmHttpService : Service() {
 
       val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
 
-      // Apply per-request sampler overrides
-      return withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens) {
-        if (req.stream == true) {
-          ServerMetrics.onInferenceStarted()
-          val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length)
-          resp
-        } else {
+      // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
+      // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
+      // a race where the NanoHTTPD thread restores config before the executor reads it.
+      // For non-streaming: withPerRequestConfig wraps the blocking call safely.
+      return if (req.stream == true) {
+        val configSnapshot = buildPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens)
+        ServerMetrics.onInferenceStarted()
+        streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot)
+      } else {
+        withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens) {
           ServerMetrics.onInferenceStarted()
           val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
           ServerMetrics.onInferenceCompleted()
@@ -942,6 +980,7 @@ class LlmHttpService : Service() {
       images: List<Bitmap> = emptyList(),
       logId: String? = null,
       promptLen: Int = 0,
+      configSnapshot: Map<String, Any>? = null,
     ): Response {
       val streamStartMs = SystemClock.elapsedRealtime()
       // Track input tokens (rough estimate: ~4 chars per token)
@@ -991,12 +1030,16 @@ class LlmHttpService : Service() {
 
       val stream = BlockingQueueInputStream()
 
+      // Capture original config so we can restore after streaming completes.
+      val originalConfig = if (configSnapshot != null) model.configValues else null
+
       LlmHttpInferenceGateway.executeStreaming(
         prompt = prompt,
         timeoutSeconds = timeoutSeconds,
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
+          if (configSnapshot != null) model.configValues = configSnapshot
           ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
         },
         runInference = { input, onPartial, onError ->
@@ -1014,6 +1057,7 @@ class LlmHttpService : Service() {
         elapsedMs = { SystemClock.elapsedRealtime() },
         onToken = { partial, done, thought ->
           if (stream.isCancelled) {
+            if (originalConfig != null) model.configValues = originalConfig
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
             if (logId != null) {
@@ -1064,6 +1108,7 @@ class LlmHttpService : Service() {
               }
             }
             if (done) {
+              if (originalConfig != null) model.configValues = originalConfig
               // Close thinking tag if still open (thinking-only response with no regular content)
               if (thinkingTagOpened) {
                 thinkingTagOpened = false
@@ -1099,6 +1144,7 @@ class LlmHttpService : Service() {
               logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
             }
           } catch (e: Exception) {
+            if (originalConfig != null) model.configValues = originalConfig
             ServerMetrics.onInferenceCompleted()
             logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed streaming=true")
             if (logId != null) {
@@ -1108,6 +1154,7 @@ class LlmHttpService : Service() {
           }
         },
         onError = { error ->
+          if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
@@ -1138,6 +1185,7 @@ class LlmHttpService : Service() {
       includeUsage: Boolean = false,
       stopSequences: List<String>? = null,
       tools: List<ToolSpec>? = null,
+      configSnapshot: Map<String, Any>? = null,
     ): Response {
       val streamStartMs = SystemClock.elapsedRealtime()
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
@@ -1184,12 +1232,18 @@ class LlmHttpService : Service() {
 
       val stream = BlockingQueueInputStream()
 
+      // Capture original config so we can restore after streaming completes.
+      // configSnapshot (if non-null) is applied in resetConversation on the executor thread
+      // to avoid a race where config is restored before inference reads it.
+      val originalConfig = if (configSnapshot != null) model.configValues else null
+
       LlmHttpInferenceGateway.executeStreaming(
         prompt = prompt,
         timeoutSeconds = timeoutSeconds,
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
+          if (configSnapshot != null) model.configValues = configSnapshot
           ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
         },
         runInference = { input, onPartial, onError ->
@@ -1207,6 +1261,7 @@ class LlmHttpService : Service() {
         elapsedMs = { SystemClock.elapsedRealtime() },
         onToken = { partial, done, thought ->
           if (stream.isCancelled) {
+            if (originalConfig != null) model.configValues = originalConfig
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
             if (logId != null) {
@@ -1270,6 +1325,7 @@ class LlmHttpService : Service() {
               }
             }
             if (done) {
+              if (originalConfig != null) model.configValues = originalConfig
               if (thinkingTagOpened) {
                 thinkingTagOpened = false
                 stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, "</think>"))
@@ -1307,6 +1363,7 @@ class LlmHttpService : Service() {
               logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
             }
           } catch (e: Exception) {
+            if (originalConfig != null) model.configValues = originalConfig
             ServerMetrics.onInferenceCompleted()
             logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed streaming=true")
             if (logId != null) {
@@ -1316,6 +1373,7 @@ class LlmHttpService : Service() {
           }
         },
         onError = { error ->
+          if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")

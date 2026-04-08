@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -163,8 +164,9 @@ object StopDeserializer : KSerializer<List<String>> {
   override fun deserialize(decoder: Decoder): List<String> {
     val jsonDecoder = decoder as JsonDecoder
     return when (val element = jsonDecoder.decodeJsonElement()) {
+      is JsonNull -> emptyList()
       is JsonPrimitive -> if (element.content.isNotBlank()) listOf(element.content) else emptyList()
-      is JsonArray -> element.map { it.jsonPrimitive.content }
+      is JsonArray -> element.mapNotNull { el -> if (el is JsonNull) null else el.jsonPrimitive.content.takeIf { it.isNotBlank() } }
       else -> emptyList()
     }
   }
