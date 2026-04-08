@@ -114,6 +114,7 @@ import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.modelitem.ModelItem
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
@@ -734,21 +735,12 @@ private fun SortButton(
   onSortSelected: (ModelSort) -> Unit,
 ) {
   Box {
-    Box(
-      modifier = Modifier
-        .size(40.dp)
-        .clip(RoundedCornerShape(12.dp))
-        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-        .clickable { onToggleDropdown() },
-      contentAlignment = Alignment.Center,
-    ) {
-      Icon(
-        Icons.AutoMirrored.Outlined.Sort,
-        contentDescription = "Sort",
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.size(20.dp),
-      )
-    }
+    TooltipIconButton(
+      icon = Icons.AutoMirrored.Outlined.Sort,
+      tooltip = "Sort models",
+      onClick = { onToggleDropdown() },
+      backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    )
     DropdownMenu(
       expanded = showDropdown,
       onDismissRequest = onDismissDropdown,

@@ -22,10 +22,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -43,6 +48,7 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 /** Server running state for the status pill in the top bar. */
 enum class ServerStatus { STOPPED, LOADING, RUNNING, ERROR }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OlliteRTTopBar(
   serverStatus: ServerStatus,
@@ -102,16 +108,20 @@ fun OlliteRTTopBar(
 
     // Right: Settings gear (hidden when already on Settings)
     if (onBackClick == null) {
-      IconButton(
-        onClick = onSettingsClick,
+      TooltipBox(
+        positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text("Settings") } },
+        state = rememberTooltipState(),
         modifier = Modifier.align(Alignment.CenterEnd),
       ) {
-        Icon(
-          imageVector = Icons.Outlined.Settings,
-          contentDescription = "Settings",
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(24.dp),
-        )
+        IconButton(onClick = onSettingsClick) {
+          Icon(
+            imageVector = Icons.Outlined.Settings,
+            contentDescription = "Settings",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp),
+          )
+        }
       }
     } else if (trailingContent != null) {
       Box(modifier = Modifier.align(Alignment.CenterEnd)) {
