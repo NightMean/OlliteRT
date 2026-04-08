@@ -24,8 +24,11 @@ data class LlmHttpModelItem(
 data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
 
 object LlmHttpResponseRenderer {
-  fun renderJsonError(error: String): String =
-    """{"error":{"message":"$error","type":"${error.replace(' ', '_')}_error","code":null}}"""
+  fun renderJsonError(error: String): String {
+    val escaped = LlmHttpBridgeUtils.escapeSseText(error)
+    val typeSlug = error.replace(' ', '_').replace(Regex("[^a-zA-Z0-9_]"), "").take(40)
+    return """{"error":{"message":"$escaped","type":"${typeSlug}_error","code":null}}"""
+  }
 
   fun renderModelListPayload(json: Json, modelIds: List<String>, fallbackId: String): String {
     val ids = if (modelIds.isEmpty()) listOf(fallbackId) else modelIds
@@ -143,6 +146,28 @@ object LlmHttpResponseRenderer {
     }
     val fr = if (finishReason != null) "\"$finishReason\"" else "null"
     return """{"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{$deltaFields},"finish_reason":$fr}]}"""
+  }
+
+  /**
+   * Builds streaming SSE chunks for a tool call in chat.completion.chunk format.
+   * Emits: (1) role + tool_calls header, (2) arguments delta, (3) finish_reason chunk.
+   * Does NOT include [DONE] — caller should emit SSE_DONE separately.
+   */
+  fun buildChatStreamToolCallChunks(chatId: String, modelId: String, now: Long, toolCall: ToolCall): String {
+    val escapedName = LlmHttpBridgeUtils.escapeSseText(toolCall.function.name)
+    val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)
+    val callId = toolCall.id
+    return buildString {
+      // Chunk 1: role + tool_calls with name and empty arguments
+      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"$callId","type":"function","function":{"name":"$escapedName","arguments":""}}]},"finish_reason":null}]}""")
+      append("\n\n")
+      // Chunk 2: arguments delta
+      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"$escapedArgs"}}]},"finish_reason":null}]}""")
+      append("\n\n")
+      // Chunk 3: finish_reason
+      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}""")
+      append("\n\n")
+    }
   }
 
   fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall): String {

@@ -114,6 +114,7 @@ fun SettingsScreen(
   var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
   var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
   var savedCustomPromptsEnabled by remember { mutableStateOf(LlmHttpPrefs.isCustomPromptsEnabled(context)) }
+  var savedCompactToolSchemas by remember { mutableStateOf(LlmHttpPrefs.isCompactToolSchemas(context)) }
   var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
   var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
 
@@ -136,6 +137,7 @@ fun SettingsScreen(
   var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
   var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
   var customPromptsEnabled by remember { mutableStateOf(savedCustomPromptsEnabled) }
+  var compactToolSchemas by remember { mutableStateOf(savedCompactToolSchemas) }
   var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
 
@@ -154,6 +156,7 @@ fun SettingsScreen(
     keepPartialResponse != savedKeepPartialResponse ||
     eagerVisionInit != savedEagerVisionInit ||
     customPromptsEnabled != savedCustomPromptsEnabled ||
+    compactToolSchemas != savedCompactToolSchemas ||
     clearLogsOnStop != savedClearLogsOnStop ||
     confirmClearLogs != savedConfirmClearLogs
 
@@ -200,6 +203,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
         LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
         LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
+        LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemas)
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
 
@@ -225,6 +229,7 @@ fun SettingsScreen(
         savedKeepPartialResponse = keepPartialResponse
         savedEagerVisionInit = eagerVisionInit
         savedCustomPromptsEnabled = customPromptsEnabled
+        savedCompactToolSchemas = compactToolSchemas
         savedClearLogsOnStop = clearLogsOnStop
         savedConfirmClearLogs = confirmClearLogs
 
@@ -963,6 +968,35 @@ fun SettingsScreen(
         Switch(
           checked = customPromptsEnabled,
           onCheckedChange = { customPromptsEnabled = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Compact tool schemas toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Compact Tool Schemas",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "When a request with tools exceeds the model's context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Without this, tool requests that exceed context will fail with an error.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = compactToolSchemas,
+          onCheckedChange = { compactToolSchemas = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

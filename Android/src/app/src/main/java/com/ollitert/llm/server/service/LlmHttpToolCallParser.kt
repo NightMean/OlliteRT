@@ -16,15 +16,24 @@ import kotlinx.serialization.json.jsonPrimitive
  * Recognized patterns (in priority order):
  * 1. `{"tool_call": {"name": "...", "arguments": {...}}}`
  * 2. `<tool_call>{"name": "...", "arguments": {...}}</tool_call>`
- * 3. `{"name": "...", "arguments": {...}}` — bare function call (validated against tool list)
- * 4. `{"function": {"name": "...", "arguments": {...}}}` — alternative wrapper
+ * 3. `<|tool_call>call:FunctionName{...}<tool_call|>` — native Gemma/LiteRT format
+ * 4. `{"name": "...", "arguments": {...}}` — bare function call (validated against tool list)
+ * 5. `{"function": {"name": "...", "arguments": {...}}}` — alternative wrapper
  */
 object LlmHttpToolCallParser {
 
   private val json = Json { ignoreUnknownKeys = true }
 
-  /** Regex to extract JSON between `<tool_call>` XML tags. */
-  private val xmlToolCallRegex = Regex("""<tool_call>\s*(\{.*?})\s*</tool_call>""", RegexOption.DOT_MATCHES_ALL)
+  /** Regex to extract JSON between `<tool_call>` XML tags.
+   *  Note: `\}` must be escaped — Android's ICU regex engine (unlike standard Java) treats
+   *  unescaped `}` as a syntax error (PatternSyntaxException). */
+  private val xmlToolCallRegex = Regex("""<tool_call>\s*(\{.*?\})\s*</tool_call>""", RegexOption.DOT_MATCHES_ALL)
+
+  /** Regex for native Gemma/LiteRT tool call format: `<|tool_call>call:FunctionName{args}<tool_call|>`
+   *  Gemma models trained with native tool calling emit this format instead of JSON wrappers.
+   *  Group 1 = function name, Group 2 = JSON arguments (may be empty `{}`).
+   *  Note: `\|` escapes the pipe, `\}` escapes the brace for ICU regex. */
+  private val nativeToolCallRegex = Regex("""<\|tool_call>call:(\w+)(\{.*?\})<tool_call\|>""", RegexOption.DOT_MATCHES_ALL)
 
   /**
    * Attempts to parse a tool call from the model's raw text output.
@@ -38,6 +47,7 @@ object LlmHttpToolCallParser {
     // Try each pattern in priority order
     return tryToolCallWrapper(trimmed, toolNames)
       ?: tryXmlWrapped(trimmed, toolNames)
+      ?: tryNativeGemmaCall(trimmed, toolNames)
       ?: tryFunctionWrapper(trimmed, toolNames)
       ?: tryBareCall(trimmed, toolNames)
   }
@@ -58,7 +68,23 @@ object LlmHttpToolCallParser {
     return extractCall(obj, toolNames)
   }
 
-  /** Pattern 3: `{"function": {"name": "fn", "arguments": {...}}}` */
+  /** Pattern 3: `<|tool_call>call:FunctionName{args}<tool_call|>` — native Gemma/LiteRT format */
+  private fun tryNativeGemmaCall(text: String, toolNames: Set<String>): ToolCall? {
+    val match = nativeToolCallRegex.find(text) ?: return null
+    val name = match.groupValues[1]
+    if (name !in toolNames) return null
+    val argsStr = match.groupValues[2]
+    // Validate the args JSON is parseable (or accept empty {})
+    if (argsStr != "{}") {
+      parseJsonObjectSafe(argsStr) ?: return null
+    }
+    return ToolCall(
+      id = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}",
+      function = ToolCallFunction(name = name, arguments = argsStr),
+    )
+  }
+
+  /** Pattern 5: `{"function": {"name": "fn", "arguments": {...}}}` */
   private fun tryFunctionWrapper(text: String, toolNames: Set<String>): ToolCall? {
     val jsonStr = extractFirstJsonObject(text) ?: return null
     val obj = parseJsonObjectSafe(jsonStr) ?: return null
@@ -66,7 +92,7 @@ object LlmHttpToolCallParser {
     return extractCall(inner, toolNames)
   }
 
-  /** Pattern 4: `{"name": "fn", "arguments": {...}}` — bare call, validated against tool list */
+  /** Pattern 4 (renumbered): `{"name": "fn", "arguments": {...}}` — bare call, validated against tool list */
   private fun tryBareCall(text: String, toolNames: Set<String>): ToolCall? {
     val jsonStr = extractFirstJsonObject(text) ?: return null
     val obj = parseJsonObjectSafe(jsonStr) ?: return null

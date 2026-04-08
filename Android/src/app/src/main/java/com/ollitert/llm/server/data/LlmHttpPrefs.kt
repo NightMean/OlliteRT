@@ -21,6 +21,7 @@ private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
 private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
+private const val KEY_COMPACT_TOOL_SCHEMAS = "compact_tool_schemas"
 private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
@@ -213,6 +214,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_CUSTOM_PROMPTS_ENABLED, enabled)
+      .apply()
+  }
+
+  fun isCompactToolSchemas(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_COMPACT_TOOL_SCHEMAS, false)
+
+  fun setCompactToolSchemas(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_COMPACT_TOOL_SCHEMAS, enabled)
       .apply()
   }
 
