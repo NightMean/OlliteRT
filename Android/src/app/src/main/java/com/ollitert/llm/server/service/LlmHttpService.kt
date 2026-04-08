@@ -354,6 +354,9 @@ class LlmHttpService : Service() {
     if (modelName != null) {
       RequestLogStore.addEvent("Server stopped", modelName = modelName)
     }
+    if (LlmHttpPrefs.isClearLogsOnStop(this)) {
+      RequestLogStore.clear()
+    }
     logger.shutdown()
     super.onDestroy()
   }

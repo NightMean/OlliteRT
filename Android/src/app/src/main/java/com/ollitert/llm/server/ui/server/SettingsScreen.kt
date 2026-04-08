@@ -114,6 +114,7 @@ fun SettingsScreen(
   var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
   var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
   var savedCustomPromptsEnabled by remember { mutableStateOf(LlmHttpPrefs.isCustomPromptsEnabled(context)) }
+  var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -134,6 +135,7 @@ fun SettingsScreen(
   var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
   var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
   var customPromptsEnabled by remember { mutableStateOf(savedCustomPromptsEnabled) }
+  var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -149,7 +151,8 @@ fun SettingsScreen(
     streamLogsPreview != savedStreamLogsPreview ||
     keepPartialResponse != savedKeepPartialResponse ||
     eagerVisionInit != savedEagerVisionInit ||
-    customPromptsEnabled != savedCustomPromptsEnabled
+    customPromptsEnabled != savedCustomPromptsEnabled ||
+    clearLogsOnStop != savedClearLogsOnStop
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -193,6 +196,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
         LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
         LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
+        LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -216,6 +220,7 @@ fun SettingsScreen(
         savedKeepPartialResponse = keepPartialResponse
         savedEagerVisionInit = eagerVisionInit
         savedCustomPromptsEnabled = customPromptsEnabled
+        savedClearLogsOnStop = clearLogsOnStop
 
         if (needsRestart && isServerRunning) {
           showRestartDialog = true
@@ -363,6 +368,31 @@ fun SettingsScreen(
         Switch(
           checked = streamLogsPreview,
           onCheckedChange = { streamLogsPreview = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Clear logs on stop toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Clear Logs on Stop",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Automatically clear in-memory logs when the server stops.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = clearLogsOnStop,
+          onCheckedChange = { clearLogsOnStop = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
