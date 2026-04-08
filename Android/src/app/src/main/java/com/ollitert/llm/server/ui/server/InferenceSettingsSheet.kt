@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.RestartAlt
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -67,6 +68,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Terminal
@@ -537,10 +539,20 @@ private fun ParameterInputBox(
       BasicTextField(
         value = textValue,
         onValueChange = { raw ->
-          // Strip non-numeric characters (keep digits, dot, minus).
+          // Strip non-numeric characters (keep digits, dot, comma, minus).
+          // Normalize comma to dot (some locales use comma as decimal separator).
           // No clamping here — let the user type freely. Clamping happens on commit (blur/done).
-          val allowed = if (isFloat) raw.filter { it.isDigit() || it == '.' || it == '-' }
-            else raw.filter { it.isDigit() }
+          val allowed = if (isFloat) {
+            val normalized = raw.replace(',', '.')
+            val filtered = normalized.filter { it.isDigit() || it == '.' || it == '-' }
+            // Enforce single decimal point — keep only the first dot
+            val dotIndex = filtered.indexOf('.')
+            if (dotIndex >= 0) {
+              filtered.substring(0, dotIndex + 1) + filtered.substring(dotIndex + 1).replace(".", "")
+            } else filtered
+          } else {
+            raw.filter { it.isDigit() }
+          }
           textValue = allowed
           // Push unclamped value to parent so state stays in sync for intermediate display,
           // but only if it's a valid number (incomplete inputs like "" or "." are ignored)
@@ -719,6 +731,22 @@ private fun PromptTextArea(
             )
           }
           innerTextField()
+          // Clear button inside the text box — no container background to blend in
+          if (value.isNotEmpty()) {
+            IconButton(
+              onClick = { onValueChange("") },
+              modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(24.dp),
+            ) {
+              Icon(
+                Icons.Outlined.Close,
+                contentDescription = "Clear",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+              )
+            }
+          }
         }
       },
     )
