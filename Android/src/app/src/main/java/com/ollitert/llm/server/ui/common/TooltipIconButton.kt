@@ -10,6 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
@@ -22,7 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 /**
- * 40dp icon action button with a long-press tooltip.
+ * 40dp icon action button with a long-press tooltip shown below the button.
  * Drop-in replacement for the bare Box+Icon pattern used across the app.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +38,7 @@ fun TooltipIconButton(
   enabled: Boolean = true,
 ) {
   TooltipBox(
-    positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
     tooltip = {
       PlainTooltip {
         Text(tooltip)
