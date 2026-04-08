@@ -681,23 +681,38 @@ fun SettingsScreen(
         },
         trailingIcon = {
           Row {
-            IconButton(onClick = { hfTokenVisible = !hfTokenVisible }) {
-              Icon(
-                imageVector = if (hfTokenVisible) Icons.Outlined.VisibilityOff
-                else Icons.Outlined.Visibility,
-                contentDescription = if (hfTokenVisible) "Hide token" else "Show token",
-                tint = OlliteRTPrimary,
-                modifier = Modifier.size(20.dp),
-              )
-            }
-            if (hfToken.isNotEmpty()) {
-              IconButton(onClick = { hfToken = "" }) {
+            val eyeTooltip = if (hfTokenVisible) "Hide token" else "Show token"
+            @OptIn(ExperimentalMaterial3Api::class)
+            TooltipBox(
+              positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+              tooltip = { PlainTooltip { Text(eyeTooltip) } },
+              state = rememberTooltipState(),
+            ) {
+              IconButton(onClick = { hfTokenVisible = !hfTokenVisible }) {
                 Icon(
-                  imageVector = Icons.Outlined.Close,
-                  contentDescription = "Clear token",
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  imageVector = if (hfTokenVisible) Icons.Outlined.VisibilityOff
+                  else Icons.Outlined.Visibility,
+                  contentDescription = eyeTooltip,
+                  tint = OlliteRTPrimary,
                   modifier = Modifier.size(20.dp),
                 )
+              }
+            }
+            if (hfToken.isNotEmpty()) {
+              @OptIn(ExperimentalMaterial3Api::class)
+              TooltipBox(
+                positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+                tooltip = { PlainTooltip { Text("Clear token") } },
+                state = rememberTooltipState(),
+              ) {
+                IconButton(onClick = { hfToken = "" }) {
+                  Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "Clear token",
+                    tint = OlliteRTPrimary,
+                    modifier = Modifier.size(20.dp),
+                  )
+                }
               }
             }
           }
