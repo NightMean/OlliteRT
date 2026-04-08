@@ -19,4 +19,7 @@
     <cache-path
         name="cache_pictures"
         path="images/" />
+    <cache-path
+        name="log_exports"
+        path="log_exports/" />
 </paths>
