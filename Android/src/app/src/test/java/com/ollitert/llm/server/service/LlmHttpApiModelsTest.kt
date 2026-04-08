@@ -256,4 +256,41 @@ class LlmHttpApiModelsTest {
     val req = json.decodeFromString<ChatRequest>(input)
     assertEquals(true, req.parallel_tool_calls)
   }
+
+  // ── StopDeserializer edge cases ──────────────────────────────────────────
+
+  @Test
+  fun stopDeserializerHandlesNull() {
+    val input = """{"messages":[],"stop":null}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertTrue("stop should be empty for null, got: ${req.stop}", req.stop.isEmpty())
+  }
+
+  @Test
+  fun stopDeserializerHandlesString() {
+    val input = """{"messages":[],"stop":"END"}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertEquals(listOf("END"), req.stop)
+  }
+
+  @Test
+  fun stopDeserializerHandlesArray() {
+    val input = """{"messages":[],"stop":["END","STOP"]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertEquals(listOf("END", "STOP"), req.stop)
+  }
+
+  @Test
+  fun stopDeserializerHandlesEmptyArray() {
+    val input = """{"messages":[],"stop":[]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertTrue(req.stop.isEmpty())
+  }
+
+  @Test
+  fun stopDeserializerHandlesAbsent() {
+    val input = """{"messages":[]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertTrue(req.stop.isEmpty())
+  }
 }
