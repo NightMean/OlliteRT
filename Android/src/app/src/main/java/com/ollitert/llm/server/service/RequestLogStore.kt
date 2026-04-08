@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class LogLevel { INFO, ERROR }
 
+/** Category for EVENT-type log entries — drives the icon shown in the Logs tab. */
+enum class EventCategory { GENERAL, MODEL, SETTINGS, SERVER, PROMPT }
+
 /**
  * A single API request/response pair displayed in the Logs screen.
  */
@@ -28,6 +31,7 @@ data class RequestLogEntry(
   val isThinking: Boolean = false,
   val isCancelled: Boolean = false,
   val partialText: String? = null,
+  val eventCategory: EventCategory = EventCategory.GENERAL,
 )
 
 /**
@@ -66,7 +70,12 @@ object RequestLogStore {
   }
 
   /** Add an internal event (model load, error, etc.) visible in the Logs tab. */
-  fun addEvent(message: String, level: LogLevel = LogLevel.INFO, modelName: String? = null) {
+  fun addEvent(
+    message: String,
+    level: LogLevel = LogLevel.INFO,
+    modelName: String? = null,
+    category: EventCategory = EventCategory.GENERAL,
+  ) {
     add(
       RequestLogEntry(
         id = "event-${System.currentTimeMillis()}-${idCounter.incrementAndGet()}",
@@ -74,6 +83,7 @@ object RequestLogStore {
         path = message,
         level = level,
         modelName = modelName,
+        eventCategory = category,
       )
     )
   }
