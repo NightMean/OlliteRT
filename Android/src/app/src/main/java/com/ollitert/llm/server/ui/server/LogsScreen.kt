@@ -88,6 +88,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
@@ -535,6 +536,217 @@ private fun BouncingDots() {
 //   }
 // }
 
+// ── Event message parsing ────────────────────────────────────────────────────
+
+/** A single parameter change in an inference settings event. */
+private data class InferenceSettingsChange(
+  val paramName: String,
+  val oldValue: String,
+  val newValue: String,
+)
+
+/** A before/after diff for a prompt (system prompt or chat template). */
+private data class PromptDiff(
+  val paramName: String,
+  val oldText: String,
+  val newText: String,
+)
+
+/** Parsed inference settings change with optional reload status and prompt diffs. */
+private data class ParsedInferenceEvent(
+  val changes: List<InferenceSettingsChange>,
+  val statusSuffix: String?,
+  val promptDiffs: List<PromptDiff> = emptyList(),
+)
+
+/** Parsed event — enables specialised card rendering for known message patterns. */
+private sealed class ParsedEventType {
+  data class Loading(val modelName: String) : ParsedEventType()
+  data class Ready(val modelName: String, val timeMs: String) : ParsedEventType()
+  data class Warmup(val input: String, val output: String, val timeMs: String) : ParsedEventType()
+  data class InferenceSettings(val parsed: ParsedInferenceEvent) : ParsedEventType()
+  /** A settings toggle like "Compact Tool Schemas enabled/disabled". */
+  data class SettingsToggle(val settingName: String, val enabled: Boolean) : ParsedEventType()
+  /** System prompt or chat template active on server start. */
+  data class PromptActive(val promptType: String, val promptText: String) : ParsedEventType()
+}
+
+private val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
+
+/**
+ * Parses an inference settings change event.
+ *
+ * Structured JSON body schema (preferred):
+ * ```json
+ * {
+ *   "type": "inference_settings",
+ *   "changes": [{"param": "TopK", "old": "14", "new": "15"}, ...],
+ *   "prompt_diffs": {
+ *     "system_prompt": {"old": "...", "new": "..."},
+ *     "chat_template": {"old": "...", "new": "..."}
+ *   },
+ *   "status": "reloading model"
+ * }
+ * ```
+ *
+ */
+private fun parseInferenceSettingsMessage(message: String, eventBody: String? = null): ParsedInferenceEvent? {
+  if (!message.startsWith(INFERENCE_CHANGE_PREFIX)) return null
+  if (eventBody.isNullOrBlank()) return null
+
+  return try {
+    val json = JSONObject(eventBody)
+    val changes = mutableListOf<InferenceSettingsChange>()
+    val promptDiffs = mutableListOf<PromptDiff>()
+
+    // Parse changes array
+    val changesArr = json.optJSONArray("changes")
+    if (changesArr != null) {
+      for (i in 0 until changesArr.length()) {
+        val c = changesArr.getJSONObject(i)
+        changes.add(InferenceSettingsChange(
+          paramName = c.getString("param"),
+          oldValue = c.optString("old", ""),
+          newValue = c.optString("new", ""),
+        ))
+      }
+    }
+    // Parse prompt diffs
+    val diffs = json.optJSONObject("prompt_diffs")
+    if (diffs != null) {
+      for (key in diffs.keys()) {
+        val diff = diffs.getJSONObject(key)
+        promptDiffs.add(PromptDiff(key, diff.optString("old", ""), diff.optString("new", "")))
+      }
+    }
+    val statusSuffix = json.optString("status", "").ifBlank { null }
+    if (changes.isNotEmpty() || promptDiffs.isNotEmpty()) {
+      ParsedInferenceEvent(changes, statusSuffix, promptDiffs)
+    } else null
+  } catch (_: Exception) { null }
+}
+
+/**
+ * Parses well-known event messages into structured types.
+ * Returns null for messages that don't match any known pattern (rendered as styled text).
+ */
+private fun parseEventType(message: String, eventBody: String? = null): ParsedEventType? {
+  // Inference settings: "Inference settings changed: TopK: 100 → 64, ..."
+  parseInferenceSettingsMessage(message, eventBody)?.let { return ParsedEventType.InferenceSettings(it) }
+
+  // Loading model: ModelName
+  if (message.startsWith("Loading model: ")) {
+    return ParsedEventType.Loading(message.removePrefix("Loading model: "))
+  }
+
+  // Model ready: ModelName (Xms)
+  Regex("""^Model ready: (.+?) \((\d+)ms\)$""").find(message)?.let {
+    return ParsedEventType.Ready(it.groupValues[1], it.groupValues[2])
+  }
+
+  // Sending a warmup message: "input" → "output" (Xms)
+  // Greedy match on output to handle response text that might contain quotes
+  Regex("""^Sending a warmup message: "(.+?)" → "(.*)" \((\d+)ms\)$""").find(message)?.let {
+    return ParsedEventType.Warmup(it.groupValues[1], it.groupValues[2], it.groupValues[3])
+  }
+
+  // Prompt active on server start: "System prompt active: \"...\""
+  // Body JSON schema: {"type":"prompt_active","prompt_type":"system_prompt|chat_template","text":"..."}
+  if (message.startsWith("System prompt active: ") || message.startsWith("Chat template active: ")) {
+    val isSystem = message.startsWith("System prompt")
+    val text = if (!eventBody.isNullOrBlank()) {
+      try { JSONObject(eventBody).optString("text", "") } catch (_: Exception) { "" }
+    } else ""
+    return ParsedEventType.PromptActive(
+      promptType = if (isSystem) "System prompt" else "Chat template",
+      promptText = text,
+    )
+  }
+
+  // Settings toggle: "SettingName enabled" / "SettingName disabled"
+  if (message.endsWith(" enabled") || message.endsWith(" disabled")) {
+    val enabled = message.endsWith(" enabled")
+    val name = message.removeSuffix(if (enabled) " enabled" else " disabled")
+    // Sanity check: the name shouldn't be empty or overly long (avoid false matches)
+    if (name.isNotBlank() && name.length < 80) {
+      return ParsedEventType.SettingsToggle(name, enabled)
+    }
+  }
+
+  return null
+}
+
+// ── Event text highlighting ──────────────────────────────────────────────────
+
+/** Accent color for arrows in settings/event values. */
+private val ValueArrowColor = Color(0xFF64B5F6) // light blue
+/** Color for quoted text in event messages. */
+private val QuotedTextColor = Color(0xFFCE93D8) // soft purple
+
+/**
+ * Highlights key values in event messages using AnnotatedString.
+ * Styles: timing "(Xms)", quoted strings, arrows "→", and model names after known prefixes.
+ */
+private fun highlightEventMessage(
+  message: String,
+  isError: Boolean,
+  errorColor: Color,
+): AnnotatedString {
+  if (isError) {
+    return buildAnnotatedString {
+      withStyle(SpanStyle(color = errorColor, fontWeight = FontWeight.SemiBold)) { append(message) }
+    }
+  }
+
+  data class StyledSpan(val start: Int, val end: Int, val style: SpanStyle)
+  val spans = mutableListOf<StyledSpan>()
+  val primaryColor = Color(0xFFAFC6FF)
+  val greenColor = Color(0xFF4ADE80)
+  val defaultText = Color(0xFFE5E2E3)
+
+  Regex("""\(\d+ms\)""").findAll(message).forEach {
+    spans.add(StyledSpan(it.range.first, it.range.last + 1,
+      SpanStyle(color = greenColor, fontWeight = FontWeight.SemiBold)))
+  }
+  Regex("""→""").findAll(message).forEach {
+    spans.add(StyledSpan(it.range.first, it.range.last + 1,
+      SpanStyle(color = ValueArrowColor, fontWeight = FontWeight.Bold)))
+  }
+  Regex(""""[^"]*"""").findAll(message).forEach {
+    spans.add(StyledSpan(it.range.first, it.range.last + 1,
+      SpanStyle(color = QuotedTextColor)))
+  }
+  val modelPrefixes = listOf("Loading model: ", "Model ready: ", "Model load failed: ")
+  for (prefix in modelPrefixes) {
+    val idx = message.indexOf(prefix)
+    if (idx >= 0) {
+      val nameStart = idx + prefix.length
+      val nameEnd = message.indexOf(" (", nameStart).let { if (it < 0) message.length else it }
+      if (nameEnd > nameStart) {
+        spans.add(StyledSpan(nameStart, nameEnd,
+          SpanStyle(color = primaryColor, fontWeight = FontWeight.SemiBold)))
+      }
+    }
+  }
+
+  val nonOverlapping = mutableListOf<StyledSpan>()
+  var lastEnd = 0
+  for (span in spans.sortedBy { it.start }) {
+    if (span.start >= lastEnd) { nonOverlapping.add(span); lastEnd = span.end }
+  }
+  return buildAnnotatedString {
+    var pos = 0
+    for (span in nonOverlapping) {
+      if (span.start > pos) withStyle(SpanStyle(color = defaultText)) { append(message.substring(pos, span.start)) }
+      withStyle(span.style) { append(message.substring(span.start, span.end)) }
+      pos = span.end
+    }
+    if (pos < message.length) withStyle(SpanStyle(color = defaultText)) { append(message.substring(pos)) }
+  }
+}
+
+// ── Internal event card ──────────────────────────────────────────────────────
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InternalEventCard(entry: RequestLogEntry) {
@@ -546,9 +758,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     isWarning -> WarningColor
     else -> EventColor
   }
-  val message = entry.path // message is stored in path field
-  val isLong = message.length > 120 || message.count { it == '\n' } > 2
-  var expanded by remember { mutableStateOf(false) }
+  val message = entry.path
 
   val categoryLabel = when (entry.eventCategory) {
     EventCategory.MODEL -> "MODEL"
@@ -571,6 +781,19 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     else -> MaterialTheme.colorScheme.surfaceContainerLow
   }
 
+  val parsedEvent = remember(message, entry.requestBody) { parseEventType(message, entry.requestBody) }
+
+  // Headline text shown next to the category badge
+  val headline = when (parsedEvent) {
+    is ParsedEventType.Loading -> "Model Loading"
+    is ParsedEventType.Ready -> "Model Loaded"
+    is ParsedEventType.Warmup -> "Internal Warmup Message"
+    is ParsedEventType.InferenceSettings -> "Settings changed"
+    is ParsedEventType.SettingsToggle -> "Settings changed"
+    is ParsedEventType.PromptActive -> "${parsedEvent.promptType} active"
+    null -> null
+  }
+
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -578,7 +801,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
       .background(cardBg)
       .padding(16.dp),
   ) {
-    // Header: category badge + message preview + copy button
+    // ── Header: [BADGE] [headline] ... [copy] ──
     Row(verticalAlignment = Alignment.CenterVertically) {
       // Category pill badge
       Row(
@@ -603,6 +826,21 @@ private fun InternalEventCard(entry: RequestLogEntry) {
           fontFamily = SpaceGroteskFontFamily,
         )
       }
+
+      // Headline next to badge
+      if (headline != null) {
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = headline,
+          style = MaterialTheme.typography.bodySmall.copy(
+            fontFamily = SpaceGroteskFontFamily,
+            fontSize = 12.sp,
+          ),
+          color = MaterialTheme.colorScheme.onSurface,
+          fontWeight = FontWeight.SemiBold,
+        )
+      }
+
       Spacer(modifier = Modifier.weight(1f))
       // Copy button
       TooltipBox(
@@ -624,55 +862,175 @@ private fun InternalEventCard(entry: RequestLogEntry) {
       }
     }
 
-    // Message body
     Spacer(modifier = Modifier.height(8.dp))
-    if (expanded) {
-      SelectionContainer {
+
+    // ── Body — specialised per event type ──
+    when (parsedEvent) {
+      is ParsedEventType.Loading -> {
         Text(
-          text = message,
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = SpaceGroteskFontFamily,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-          ),
-          color = if (isError) accentColor else MaterialTheme.colorScheme.onSurface,
-          fontWeight = if (isError) FontWeight.SemiBold else FontWeight.Normal,
+          text = parsedEvent.modelName,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = OlliteRTPrimary,
+          fontWeight = FontWeight.SemiBold,
         )
       }
-    } else {
-      Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall.copy(
-          fontFamily = SpaceGroteskFontFamily,
-          fontSize = 12.sp,
-          lineHeight = 17.sp,
-        ),
-        color = if (isError) accentColor else MaterialTheme.colorScheme.onSurface,
-        fontWeight = if (isError) FontWeight.SemiBold else FontWeight.Normal,
-        maxLines = 3,
-        overflow = TextOverflow.Ellipsis,
-      )
-    }
-    if (isLong) {
-      Spacer(modifier = Modifier.height(4.dp))
-      Text(
-        text = if (expanded) "Show less" else "Show more",
-        style = MaterialTheme.typography.labelSmall,
-        color = accentColor,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-          .clip(RoundedCornerShape(4.dp))
-          .clickable { expanded = !expanded }
-          .padding(vertical = 2.dp),
-      )
+
+      is ParsedEventType.Ready -> {
+        Text(
+          text = parsedEvent.modelName,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = OlliteRTPrimary,
+          fontWeight = FontWeight.SemiBold,
+        )
+      }
+
+      is ParsedEventType.Warmup -> {
+        // Request/response style — mirrors LogEntryCard sections
+        Text(
+          text = "Request",
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(12.dp),
+        ) {
+          Text(
+            text = parsedEvent.input,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+          text = "Response",
+          style = MaterialTheme.typography.labelSmall,
+          color = OlliteRTPrimary,
+          fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(12.dp),
+        ) {
+          Text(
+            text = parsedEvent.output,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+      }
+
+      is ParsedEventType.InferenceSettings -> {
+        SettingsChangeRows(parsedEvent.parsed, accentColor)
+      }
+
+      is ParsedEventType.SettingsToggle -> {
+        // Single row matching the inference settings row style — shows state transition
+        val oldState = if (parsedEvent.enabled) "disabled" else "enabled"
+        val newState = if (parsedEvent.enabled) "enabled" else "disabled"
+        val newColor = if (parsedEvent.enabled) OlliteRTGreen400 else DeleteRedTint
+        // Reuse the same SettingsChangeRows composable via a synthetic ParsedInferenceEvent
+        SettingsChangeRows(
+          parsed = ParsedInferenceEvent(
+            changes = listOf(InferenceSettingsChange(parsedEvent.settingName, oldState, newState)),
+            statusSuffix = null,
+          ),
+          accentColor = accentColor,
+          newValueColorOverride = newColor,
+        )
+      }
+
+      is ParsedEventType.PromptActive -> {
+        // Show the prompt text in an expandable text box (same style as prompt diffs)
+        ExpandablePromptBox(
+          text = parsedEvent.promptText,
+          textStyle = MaterialTheme.typography.bodySmall.copy(
+            fontFamily = SpaceGroteskFontFamily,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+          ),
+          textColor = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+
+      null -> {
+        // Default: styled text with highlighted values
+        val isLong = message.length > 120 || message.count { it == '\n' } > 2
+        var expanded by remember { mutableStateOf(false) }
+        val styledMessage = remember(message) { highlightEventMessage(message, isError, accentColor) }
+
+        if (expanded) {
+          SelectionContainer {
+            Text(
+              text = styledMessage,
+              style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp, lineHeight = 17.sp),
+            )
+          }
+        } else {
+          Text(
+            text = styledMessage,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp, lineHeight = 17.sp),
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+        if (isLong) {
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = if (expanded) "Show less" else "Show more",
+            style = MaterialTheme.typography.labelSmall,
+            color = accentColor,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+              .clip(RoundedCornerShape(4.dp))
+              .clickable { expanded = !expanded }
+              .padding(vertical = 2.dp),
+          )
+        }
+      }
     }
 
-    // Footer: model · timestamp
+    // ── Footer ──
     Spacer(modifier = Modifier.height(8.dp))
     Row(
       modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+      // Timing in footer for model ready and warmup (mirrors request card latency)
+      when (parsedEvent) {
+        is ParsedEventType.Ready -> {
+          Text(
+            text = "Ready",
+            style = MaterialTheme.typography.labelSmall,
+            color = OlliteRTGreen400,
+            fontWeight = FontWeight.SemiBold,
+          )
+          FooterDot()
+          Text(
+            text = "${parsedEvent.timeMs}ms",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        is ParsedEventType.Warmup -> {
+          Text(
+            text = "${parsedEvent.timeMs}ms",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        else -> {}
+      }
       Spacer(modifier = Modifier.weight(1f))
       Text(
         text = listOfNotNull(
@@ -683,6 +1041,217 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
+      )
+    }
+  }
+}
+
+// ── Settings change rows ─────────────────────────────────────────────────────
+
+/**
+ * Structured rows for settings changes (inference params or toggle states).
+ * Each row: [param name]  [old → new], all full-width with consistent alignment.
+ * @param newValueColorOverride optional color override for the new value text
+ *   (e.g. green/red for enabled/disabled toggles)
+ */
+@Composable
+private fun SettingsChangeRows(
+  parsed: ParsedInferenceEvent,
+  accentColor: Color,
+  newValueColorOverride: Color? = null,
+) {
+  // 4-column table layout: [Name (flex)] [Old (fixed)] [→] [New (fixed)]
+  // weight() gives each value column a proportional share of the remaining space
+  // after the param name, so arrows stay vertically aligned across all rows.
+  if (parsed.changes.isNotEmpty()) {
+    Column(
+      modifier = Modifier.fillMaxWidth(),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      parsed.changes.forEach { change ->
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.6f))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          // Column 1: param name — left side
+          Text(
+            text = change.paramName,
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(3f),
+          )
+          if (change.oldValue.isEmpty()) {
+            Text(
+              text = change.newValue,
+              style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
+              color = newValueColorOverride ?: OlliteRTPrimary,
+              fontWeight = FontWeight.SemiBold,
+            )
+          } else {
+            // Column 2: old value — left-aligned in its column, close to param name
+            Text(
+              text = change.oldValue,
+              style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
+              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+              textAlign = TextAlign.Start,
+              modifier = Modifier.weight(2f),
+            )
+            // Column 3: arrow — centered in the box
+            Text(
+              text = "→",
+              style = MaterialTheme.typography.labelSmall,
+              color = ValueArrowColor,
+              fontWeight = FontWeight.Bold,
+              textAlign = TextAlign.Center,
+              modifier = Modifier.weight(2f),
+            )
+            // Column 4: new value — right-aligned, at the end
+            Text(
+              text = change.newValue,
+              style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
+              color = newValueColorOverride ?: MaterialTheme.colorScheme.onSurface,
+              fontWeight = FontWeight.SemiBold,
+              textAlign = TextAlign.End,
+              modifier = Modifier.weight(2f),
+            )
+          }
+        }
+      }
+    }
+  }
+
+  // Prompt before/after diffs — expandable text boxes for system_prompt / chat_template
+  parsed.promptDiffs.forEach { diff ->
+    if (parsed.changes.isNotEmpty()) Spacer(modifier = Modifier.height(8.dp))
+    else Spacer(modifier = Modifier.height(2.dp))
+    // Prompt label (e.g. "system_prompt" or "chat_template")
+    val displayName = diff.paramName.replace("_", " ")
+      .replaceFirstChar { it.uppercaseChar() }
+    Text(
+      text = displayName,
+      style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      fontWeight = FontWeight.SemiBold,
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    PromptBeforeAfterBoxes(diff)
+  }
+
+  // Status badge (reloading model, reload queued, etc.)
+  if (!parsed.statusSuffix.isNullOrBlank()) {
+    Spacer(modifier = Modifier.height(6.dp))
+    Text(
+      text = parsed.statusSuffix,
+      style = MaterialTheme.typography.labelSmall,
+      color = accentColor,
+      fontWeight = FontWeight.SemiBold,
+      modifier = Modifier
+        .clip(RoundedCornerShape(6.dp))
+        .background(accentColor.copy(alpha = 0.10f))
+        .padding(horizontal = 8.dp, vertical = 3.dp),
+    )
+  }
+}
+
+/**
+ * Expandable before/after text boxes for a prompt change.
+ * "Before" is shown in muted style, "After" in primary style.
+ * Both are collapsible for long prompts.
+ */
+@Composable
+private fun PromptBeforeAfterBoxes(diff: PromptDiff) {
+  val textStyle = MaterialTheme.typography.bodySmall.copy(
+    fontFamily = SpaceGroteskFontFamily,
+    fontSize = 11.sp,
+    lineHeight = 16.sp,
+  )
+
+  // Before
+  if (diff.oldText.isNotBlank()) {
+    Text(
+      text = "Before",
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+    )
+    Spacer(modifier = Modifier.height(2.dp))
+    ExpandablePromptBox(
+      text = diff.oldText,
+      textStyle = textStyle,
+      textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+  }
+
+  // After
+  Text(
+    text = if (diff.oldText.isNotBlank()) "After" else "Set to",
+    style = MaterialTheme.typography.labelSmall,
+    color = OlliteRTPrimary,
+  )
+  Spacer(modifier = Modifier.height(2.dp))
+  if (diff.newText.isBlank()) {
+    Text(
+      text = "(empty)",
+      style = textStyle,
+      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+      fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+    )
+  } else {
+    ExpandablePromptBox(
+      text = diff.newText,
+      textStyle = textStyle,
+      textColor = MaterialTheme.colorScheme.onSurface,
+    )
+  }
+}
+
+/**
+ * A text box with a dark background that collapses to 4 lines for long text.
+ * Tap to expand/collapse.
+ */
+@Composable
+private fun ExpandablePromptBox(
+  text: String,
+  textStyle: androidx.compose.ui.text.TextStyle,
+  textColor: Color,
+) {
+  val isLong = text.length > 200 || text.count { it == '\n' } > 3
+  var expanded by remember { mutableStateOf(false) }
+
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(10.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+      .then(if (isLong) Modifier.clickable { expanded = !expanded } else Modifier)
+      .padding(10.dp),
+  ) {
+    if (expanded) {
+      SelectionContainer {
+        Text(text = text, style = textStyle, color = textColor)
+      }
+    } else {
+      Text(
+        text = text,
+        style = textStyle,
+        color = textColor,
+        maxLines = 4,
+        overflow = TextOverflow.Ellipsis,
+      )
+    }
+    if (isLong) {
+      Icon(
+        imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+        contentDescription = if (expanded) "Collapse" else "Expand",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier
+          .align(Alignment.TopEnd)
+          .size(18.dp),
       )
     }
   }
@@ -1118,6 +1687,10 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
     obj.put("message", entry.path)
     obj.put("category", entry.eventCategory.name.lowercase())
     obj.put("level", entry.level.name.lowercase())
+    // Include structured event body (inference settings, prompt active, etc.)
+    if (!entry.requestBody.isNullOrBlank()) {
+      obj.put("data", tryParseJson(entry.requestBody))
+    }
   } else {
     obj.put("method", entry.method)
     obj.put("path", entry.path)
