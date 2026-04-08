@@ -26,6 +26,10 @@ import kotlinx.serialization.json.jsonPrimitive
   val input: List<InputMsg>? = null,
   val messages: List<InputMsg>? = null,
   val stream: Boolean? = null,
+  val temperature: Double? = null,
+  val top_p: Double? = null,
+  val top_k: Int? = null,
+  val max_output_tokens: Int? = null,      // Responses API uses max_output_tokens
   val tools: List<ToolSpec>? = null,
   val tool_choice: String? = null,
 )
@@ -143,13 +147,54 @@ object ChatContentSerializer : KSerializer<ChatContent> {
   val include_usage: Boolean = false,
 )
 
+@Serializable data class ResponseFormat(
+  val type: String = "text", // "text", "json_object", or "json_schema"
+)
+
+/**
+ * Custom serializer for the `stop` field which can be a single string or an array of strings.
+ * OpenAI API allows both `"stop": "\n"` and `"stop": ["\n", "###"]`.
+ */
+object StopDeserializer : KSerializer<List<String>> {
+  override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Stop")
+
+  override fun deserialize(decoder: Decoder): List<String> {
+    val jsonDecoder = decoder as JsonDecoder
+    return when (val element = jsonDecoder.decodeJsonElement()) {
+      is JsonPrimitive -> if (element.content.isNotBlank()) listOf(element.content) else emptyList()
+      is JsonArray -> element.map { it.jsonPrimitive.content }
+      else -> emptyList()
+    }
+  }
+
+  override fun serialize(encoder: Encoder, value: List<String>) {
+    val jsonEncoder = encoder as JsonEncoder
+    jsonEncoder.encodeJsonElement(JsonArray(value.map { JsonPrimitive(it) }))
+  }
+}
+
 @Serializable data class ChatRequest(
   val model: String? = null,
   val messages: List<ChatMessage> = emptyList(),
   val stream: Boolean? = null,
   val stream_options: StreamOptions? = null,
+  val temperature: Double? = null,
+  val top_p: Double? = null,
+  val top_k: Int? = null,                  // Non-standard but widely used (Ollama, llama.cpp)
+  val max_tokens: Int? = null,             // Deprecated but still sent by most clients
+  val max_completion_tokens: Int? = null,  // Newer replacement for max_tokens
+  @Serializable(with = StopDeserializer::class)
+  val stop: List<String> = emptyList(),
+  val seed: Int? = null,
+  val frequency_penalty: Double? = null,   // Accepted, silently ignored (LiteRT limitation)
+  val presence_penalty: Double? = null,    // Accepted, silently ignored (LiteRT limitation)
+  val response_format: ResponseFormat? = null,
   val tools: List<ToolSpec>? = null,
   val tool_choice: String? = null,
+  val user: String? = null,                // Accepted, ignored
+  val n: Int? = null,                      // Accepted, ignored (always 1)
+  val logprobs: Boolean? = null,           // Accepted, ignored
+  val top_logprobs: Int? = null,           // Accepted, ignored
 )
 
 @Serializable data class ChatChoice(

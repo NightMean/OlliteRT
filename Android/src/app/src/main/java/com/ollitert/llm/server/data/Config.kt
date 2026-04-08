@@ -248,6 +248,7 @@ fun createLlmChatConfigs(
           sliderMax = 100f,
           defaultValue = defaultTopK.toFloat(),
           valueType = ValueType.INT,
+          needReinitialization = false, // Applied per-conversation via resetConversation()
         ),
         NumberSliderConfig(
           key = ConfigKeys.TOPP,
@@ -255,6 +256,7 @@ fun createLlmChatConfigs(
           sliderMax = 1.0f,
           defaultValue = defaultTopP,
           valueType = ValueType.FLOAT,
+          needReinitialization = false, // Applied per-conversation via resetConversation()
         ),
         NumberSliderConfig(
           key = ConfigKeys.TEMPERATURE,
@@ -262,6 +264,7 @@ fun createLlmChatConfigs(
           sliderMax = 2.0f,
           defaultValue = defaultTemperature,
           valueType = ValueType.FLOAT,
+          needReinitialization = false, // Applied per-conversation via resetConversation()
         ),
         SegmentedButtonConfig(
           key = ConfigKeys.ACCELERATOR,
@@ -272,7 +275,7 @@ fun createLlmChatConfigs(
       .toMutableList()
 
   if (supportThinking) {
-    configs.add(BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = false))
+    configs.add(BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = false, needReinitialization = false)) // Read at request time, not during Engine init
   }
   return configs
 }

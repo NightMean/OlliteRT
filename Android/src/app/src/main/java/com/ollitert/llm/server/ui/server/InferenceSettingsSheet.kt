@@ -410,7 +410,7 @@ fun InferenceSettingsSheet(
       Spacer(modifier = Modifier.height(4.dp))
 
       Text(
-        text = "Applying changes will reload the model",
+        text = "Changes to Max Tokens or Accelerator will reload the model",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth(),
