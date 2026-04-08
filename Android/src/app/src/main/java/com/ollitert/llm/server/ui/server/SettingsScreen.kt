@@ -48,8 +48,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -79,6 +84,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
@@ -225,21 +231,12 @@ fun SettingsScreen(
   val currentSaveSettings by rememberUpdatedState(saveSettings)
   DisposableEffect(Unit) {
     onSetTopBarTrailingContent {
-      Box(
-        modifier = Modifier
-          .size(40.dp)
-          .clip(RoundedCornerShape(10.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-          .clickable { currentSaveSettings() },
-        contentAlignment = Alignment.Center,
-      ) {
-        Icon(
-          imageVector = Icons.Outlined.Save,
-          contentDescription = "Save settings",
-          tint = OlliteRTPrimary,
-          modifier = Modifier.size(22.dp),
-        )
-      }
+      TooltipIconButton(
+        icon = Icons.Outlined.Save,
+        tooltip = "Save settings",
+        onClick = { currentSaveSettings() },
+        tint = OlliteRTPrimary,
+      )
     }
     onDispose { onSetTopBarTrailingContent(null) }
   }
@@ -585,31 +582,45 @@ fun SettingsScreen(
           ),
           trailingIcon = {
             Row {
-              IconButton(onClick = {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Bearer Token", bearerToken))
-                Toast.makeText(context, "Token copied", Toast.LENGTH_SHORT).show()
-              }) {
-                Icon(
-                  imageVector = Icons.Outlined.ContentCopy,
-                  contentDescription = "Copy token",
-                  tint = OlliteRTPrimary,
-                  modifier = Modifier.size(20.dp),
-                )
-              }
-              IconButton(onClick = {
-                bearerToken = LlmHttpPrefs.ensureBearerToken(context).let {
-                  // Force regenerate by clearing first
-                  LlmHttpPrefs.setBearerToken(context, "")
-                  LlmHttpPrefs.ensureBearerToken(context)
+              @OptIn(ExperimentalMaterial3Api::class)
+              TooltipBox(
+                positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+                tooltip = { PlainTooltip { Text("Copy token") } },
+                state = rememberTooltipState(),
+              ) {
+                IconButton(onClick = {
+                  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                  clipboard.setPrimaryClip(ClipData.newPlainText("Bearer Token", bearerToken))
+                  Toast.makeText(context, "Token copied", Toast.LENGTH_SHORT).show()
+                }) {
+                  Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = "Copy token",
+                    tint = OlliteRTPrimary,
+                    modifier = Modifier.size(20.dp),
+                  )
                 }
-              }) {
-                Icon(
-                  imageVector = Icons.Outlined.Refresh,
-                  contentDescription = "Regenerate token",
-                  tint = OlliteRTPrimary,
-                  modifier = Modifier.size(20.dp),
-                )
+              }
+              @OptIn(ExperimentalMaterial3Api::class)
+              TooltipBox(
+                positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+                tooltip = { PlainTooltip { Text("Regenerate token") } },
+                state = rememberTooltipState(),
+              ) {
+                IconButton(onClick = {
+                  bearerToken = LlmHttpPrefs.ensureBearerToken(context).let {
+                    // Force regenerate by clearing first
+                    LlmHttpPrefs.setBearerToken(context, "")
+                    LlmHttpPrefs.ensureBearerToken(context)
+                  }
+                }) {
+                  Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Regenerate token",
+                    tint = OlliteRTPrimary,
+                    modifier = Modifier.size(20.dp),
+                  )
+                }
               }
             }
           },

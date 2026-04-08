@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.RestartAlt
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -202,21 +203,11 @@ fun InferenceSettingsSheet(
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurface,
         )
-        Box(
-          modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .clickable { showResetDialog = true },
-          contentAlignment = Alignment.Center,
-        ) {
-          Icon(
-            Icons.Outlined.RestartAlt,
-            contentDescription = "Reset to defaults",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
-          )
-        }
+        TooltipIconButton(
+          icon = Icons.Outlined.RestartAlt,
+          tooltip = "Reset to defaults",
+          onClick = { showResetDialog = true },
+        )
       }
 
       Spacer(modifier = Modifier.height(4.dp))

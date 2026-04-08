@@ -44,9 +44,14 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -485,16 +490,23 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         )
       }
       Spacer(modifier = Modifier.width(4.dp))
-      IconButton(
-        onClick = { copyEntryToClipboard(context, entry) },
-        modifier = Modifier.size(32.dp),
+      @OptIn(ExperimentalMaterial3Api::class)
+      TooltipBox(
+        positionProvider = @Suppress("DEPRECATION") TooltipDefaults.rememberTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text("Copy log entry") } },
+        state = rememberTooltipState(),
       ) {
-        Icon(
-          imageVector = Icons.Outlined.ContentCopy,
-          contentDescription = "Copy request",
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(16.dp),
-        )
+        IconButton(
+          onClick = { copyEntryToClipboard(context, entry) },
+          modifier = Modifier.size(32.dp),
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.ContentCopy,
+            contentDescription = "Copy log entry",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+          )
+        }
       }
     }
 
