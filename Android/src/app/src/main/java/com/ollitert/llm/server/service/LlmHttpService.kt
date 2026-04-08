@@ -30,6 +30,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -428,6 +430,70 @@ class LlmHttpService : Service() {
     private val executor = Executors.newSingleThreadExecutor()
     private val inferenceLock = Any()
 
+    /**
+     * Temporarily overrides model sampler config for the duration of a request.
+     * These values are picked up by resetConversation() which runs before every inference.
+     * Thread-safe because requests are serialized through [inferenceLock].
+     */
+    private inline fun <R> withPerRequestConfig(
+      model: Model,
+      temperature: Double? = null,
+      topP: Double? = null,
+      topK: Int? = null,
+      maxTokens: Int? = null,
+      block: () -> R,
+    ): R {
+      if (temperature == null && topP == null && topK == null && maxTokens == null) return block()
+      val originalConfig = model.configValues
+      try {
+        val overridden = originalConfig.toMutableMap()
+        temperature?.let { overridden[com.ollitert.llm.server.data.ConfigKeys.TEMPERATURE.label] = it.toFloat() }
+        topP?.let { overridden[com.ollitert.llm.server.data.ConfigKeys.TOPP.label] = it.toFloat() }
+        topK?.let { overridden[com.ollitert.llm.server.data.ConfigKeys.TOPK.label] = it }
+        maxTokens?.let {
+          // Cap to engine's configured max to avoid exceeding EngineConfig.maxNumTokens
+          val engineMax = (originalConfig[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+          if (engineMax != null) {
+            overridden[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] = it.coerceAtMost(engineMax)
+          } else {
+            overridden[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] = it
+          }
+        }
+        model.configValues = overridden
+        return block()
+      } finally {
+        model.configValues = originalConfig
+      }
+    }
+
+    /**
+     * Truncates model output at the first occurrence of any stop sequence.
+     * Returns the truncated text (or original if no stop sequence found).
+     */
+    private fun applyStopSequences(text: String, stopSequences: List<String>?): Pair<String, Boolean> {
+      if (stopSequences.isNullOrEmpty()) return text to false
+      var earliest = text.length
+      for (stop in stopSequences) {
+        val idx = text.indexOf(stop)
+        if (idx in 0 until earliest) earliest = idx
+      }
+      return if (earliest < text.length) text.substring(0, earliest) to true
+      else text to false
+    }
+
+    /**
+     * Injects a JSON mode instruction into the prompt when response_format is requested.
+     */
+    private fun applyResponseFormat(prompt: String, responseFormat: ResponseFormat?): String {
+      if (responseFormat == null || responseFormat.type == "text") return prompt
+      val instruction = when (responseFormat.type) {
+        "json_object" -> "Respond with valid JSON only. Do not include any text, explanation, or markdown outside the JSON object.\n\n"
+        "json_schema" -> "Respond with valid JSON only. Output only the JSON object, nothing else.\n\n"
+        else -> return prompt
+      }
+      return instruction + prompt
+    }
+
     override fun serve(session: IHTTPSession): Response {
       val startMs = SystemClock.elapsedRealtime()
       val method = session.method.name
@@ -581,7 +647,9 @@ class LlmHttpService : Service() {
       val model = selectModel(req.model) ?: return notFound("model_not_found")
       val chatTemplate = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
-      val prompt = LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
+      var prompt = LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
+      // Apply response_format JSON mode prompt injection
+      prompt = applyResponseFormat(prompt, req.response_format)
       logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       // Extract images for multimodal models (before blank-prompt check so image-only requests work).
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
@@ -599,18 +667,24 @@ class LlmHttpService : Service() {
       }
 
       val includeUsage = req.stream_options?.include_usage == true
+      val effectiveMaxTokens = req.max_completion_tokens ?: req.max_tokens
 
-      return if (req.stream == true) {
-        ServerMetrics.onInferenceStarted()
-        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage)
-      } else {
-        ServerMetrics.onInferenceStarted()
-        val (text, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
-        ServerMetrics.onInferenceCompleted()
-        if (text == null) return badRequest(llmError ?: "llm error")
-        val responseJson = json.encodeToString(chatResponseWithText(model.name, text, promptLen = prompt.length))
-        captureResponse(responseJson)
-        okJsonText(responseJson)
+      // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
+      // These are picked up by resetConversation() before inference — no model reload needed.
+      return withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens) {
+        if (req.stream == true) {
+          ServerMetrics.onInferenceStarted()
+          streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = req.stop.ifEmpty { null })
+        } else {
+          ServerMetrics.onInferenceStarted()
+          val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
+          ServerMetrics.onInferenceCompleted()
+          if (rawText == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+          val (text, _) = applyStopSequences(rawText, req.stop.ifEmpty { null })
+          val responseJson = json.encodeToString(chatResponseWithText(model.name, text, promptLen = prompt.length))
+          captureResponse(responseJson)
+          okJsonText(responseJson)
+        }
       }
     }
 
@@ -643,23 +717,34 @@ class LlmHttpService : Service() {
         return okJsonText(responseJson)
       }
 
-      // Streaming completions: fall through to non-streaming for now (TODO: implement streaming)
-      ServerMetrics.onInferenceStarted()
-      val (text, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120)
-      ServerMetrics.onInferenceCompleted()
-      if (text == null) return badRequest(llmError ?: "llm error")
+      // Parse stop sequences from JsonElement (can be String or List<String>)
+      val stopSequences: List<String>? = when (req.stop) {
+        is JsonPrimitive -> req.stop.jsonPrimitive.content.takeIf { it.isNotBlank() }?.let { listOf(it) }
+        is JsonArray -> req.stop.jsonArray.map { it.jsonPrimitive.content }
+        else -> null
+      }
 
-      val promptTokens = (prompt.length / 4).coerceAtLeast(1)
-      val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
-      val responseJson = json.encodeToString(CompletionResponse(
-        id = "cmpl-${java.util.UUID.randomUUID()}",
-        created = System.currentTimeMillis() / 1000,
-        model = model.name,
-        choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
-        usage = Usage(promptTokens, completionTokens),
-      ))
-      captureResponse(responseJson)
-      return okJsonText(responseJson)
+      // Apply per-request sampler overrides
+      return withPerRequestConfig(model, req.temperature, req.top_p, topK = null, req.max_tokens) {
+        // Streaming completions: fall through to non-streaming for now (TODO: implement streaming)
+        ServerMetrics.onInferenceStarted()
+        val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120)
+        ServerMetrics.onInferenceCompleted()
+        if (rawText == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+
+        val (text, _) = applyStopSequences(rawText, stopSequences?.ifEmpty { null })
+        val promptTokens = (prompt.length / 4).coerceAtLeast(1)
+        val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+        val responseJson = json.encodeToString(CompletionResponse(
+          id = "cmpl-${java.util.UUID.randomUUID()}",
+          created = System.currentTimeMillis() / 1000,
+          model = model.name,
+          choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
+          usage = Usage(promptTokens, completionTokens),
+        ))
+        captureResponse(responseJson)
+        okJsonText(responseJson)
+      }
     }
 
     private fun handleResponses(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}, logId: String? = null): Response {
@@ -694,19 +779,23 @@ class LlmHttpService : Service() {
         return if (req.stream == true) sseResponseToolCall(model.name, toolCall)
         else okJsonText(json.encodeToString(responsesResponseWithToolCall(model.name, toolCall, promptLen = prompt.length)))
       }
-      return if (req.stream == true) {
-        ServerMetrics.onInferenceStarted()
-        val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length)
-        // Note: for streaming, inference completion is signaled inside streamLlm's onToken(done=true)
-        resp
-      } else {
-        ServerMetrics.onInferenceStarted()
-        val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
-        ServerMetrics.onInferenceCompleted()
-        if (text == null) return badRequest(llmError ?: "llm error")
-        val responseJson = json.encodeToString(responsesResponseWithText(model.name, text, promptLen = prompt.length))
-        captureResponse(responseJson)
-        okJsonText(responseJson)
+
+      // Apply per-request sampler overrides
+      return withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens) {
+        if (req.stream == true) {
+          ServerMetrics.onInferenceStarted()
+          val resp = streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length)
+          // Note: for streaming, inference completion is signaled inside streamLlm's onToken(done=true)
+          resp
+        } else {
+          ServerMetrics.onInferenceStarted()
+          val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
+          ServerMetrics.onInferenceCompleted()
+          if (text == null) return@withPerRequestConfig badRequest(llmError ?: "llm error")
+          val responseJson = json.encodeToString(responsesResponseWithText(model.name, text, promptLen = prompt.length))
+          captureResponse(responseJson)
+          okJsonText(responseJson)
+        }
       }
     }
 
@@ -1009,6 +1098,7 @@ class LlmHttpService : Service() {
       images: List<Bitmap> = emptyList(),
       logId: String? = null,
       includeUsage: Boolean = false,
+      stopSequences: List<String>? = null,
     ): Response {
       val streamStartMs = SystemClock.elapsedRealtime()
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
@@ -1106,13 +1196,29 @@ class LlmHttpService : Service() {
               stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, thinkText))
             }
             if (partial.isNotEmpty()) {
+              fullText.append(partial)
+              // Check for stop sequences in accumulated text
+              if (!stopSequences.isNullOrEmpty()) {
+                val currentText = fullText.toString()
+                var stopIdx = currentText.length
+                for (stop in stopSequences) {
+                  val idx = currentText.indexOf(stop)
+                  if (idx in 0 until stopIdx) stopIdx = idx
+                }
+                if (stopIdx < currentText.length) {
+                  // Stop sequence found — truncate and finish streaming
+                  fullText.clear()
+                  fullText.append(currentText.substring(0, stopIdx))
+                  ServerLlmModelHelper.stopResponse(model)
+                  // Don't emit the stop-triggering token; fall through to done block below
+                }
+              }
               val text = if (thinkingTagOpened) {
                 thinkingTagOpened = false
                 "</think>$partial"
               } else {
                 partial
               }
-              fullText.append(partial)
               stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, text))
             }
             // Update log with partial text (debounced to ~150ms)

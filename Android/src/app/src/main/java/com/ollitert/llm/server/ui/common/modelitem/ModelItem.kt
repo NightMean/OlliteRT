@@ -183,8 +183,8 @@ fun ModelItem(
           isModelInUse = isActiveModel || isModelLoading,
         )
       }
-      // Settings cog - only for running model
-      if (isActiveModel) {
+      // Settings cog - available for any downloaded model (not just running)
+      if (isActiveModel || isModelLoading || downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED || model.imported) {
         TooltipIconButton(
           icon = Icons.Outlined.Settings,
           tooltip = "Inference settings",
@@ -228,11 +228,12 @@ fun ModelItem(
             }
           }
         }
-        // System prompt change requires conversation reset (treated as reinitialization)
+        // System prompt and chat template changes are picked up automatically via
+        // buildSystemInstruction() which reads from prefs on every resetConversation() call.
+        // No model reload needed.
         if (promptsChanged) {
           if (systemPrompt != oldSystemPrompt) changes.add("system_prompt: changed")
           if (chatTemplate != oldChatTemplate) changes.add("chat_template: changed")
-          needReinitialization = true
         }
 
         model.prevConfigValues = model.configValues
