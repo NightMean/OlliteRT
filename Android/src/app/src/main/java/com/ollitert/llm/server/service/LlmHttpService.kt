@@ -667,11 +667,19 @@ class LlmHttpService : Service() {
       captureBody(parsed.body)
       logPayload("POST /generate raw", parsed.body, requestId)
       val req = json.decodeFromString<GenReq>(parsed.body)
-      logPayload("POST /generate prompt", req.prompt, requestId)
       val model = selectModel(null) ?: return badRequest("llm error")
-      logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${req.prompt.length} model=default")
+      // Apply prompt compaction for raw prompts (only trimming is possible)
+      val autoCompactGen = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val maxContextGen = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+      val compactionResultGen = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextGen, autoCompactGen)
+      if (compactionResultGen.compacted) {
+        logEvent("prompt_compacted id=$requestId endpoint=/generate strategies=[${compactionResultGen.strategies.joinToString(", ")}]")
+      }
+      val prompt = compactionResultGen.prompt
+      logPayload("POST /generate prompt", prompt, requestId)
+      logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=default")
       ServerMetrics.onInferenceStarted()
-      val (text, llmError) = runLlm(model, req.prompt, requestId, "/generate")
+      val (text, llmError) = runLlm(model, prompt, requestId, "/generate")
       ServerMetrics.onInferenceCompleted()
       if (text == null) return badRequest(llmError ?: "llm error")
       val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(0, 0)))
@@ -700,45 +708,37 @@ class LlmHttpService : Service() {
       val chatTemplate = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
 
-      // Build prompt: inject tool schemas if tools are present and tool_choice != "none"
+      // Build prompt with progressive compaction if context window is exceeded.
+      // Two independent toggles: "Auto-compact Prompts" (history truncation + prompt trim)
+      // and "Compact Tool Schemas" (tool schema reduction, useful for Home Assistant).
       val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
+      val autoCompact = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
       val compactToolSchemas = LlmHttpPrefs.isCompactToolSchemas(this@LlmHttpService)
-      var toolsCompacted = false
-      var prompt = if (hasTools) {
-        if (compactToolSchemas) {
-          // Compact mode enabled: try full first, fall back to compact if context overflow
-          val maxContext = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-          val fullPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate)
-          if (maxContext != null && fullPrompt.length / 4 > maxContext) {
-            val compactPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate, compact = true)
-            if (compactPrompt.length / 4 > maxContext) {
-              logEvent("tool_schemas_skipped id=$requestId reason=prompt_exceeds_context estimatedTokens=${compactPrompt.length / 4} maxContext=$maxContext")
-              LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
-            } else {
-              toolsCompacted = true
-              logEvent("tool_schemas_compacted id=$requestId reason=prompt_exceeds_context fullTokens=${fullPrompt.length / 4} compactTokens=${compactPrompt.length / 4} maxContext=$maxContext")
-              compactPrompt
-            }
-          } else {
-            fullPrompt
-          }
-        } else {
-          // Compact mode disabled: inject full schemas, let model error if context overflows
-          LlmHttpRequestAdapter.buildToolAwarePrompt(req.messages, req.tools!!, toolChoiceStr, chatTemplate)
+      val maxContext = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+
+      val compactionResult = LlmHttpPromptCompactor.compactChatPrompt(
+        messages = req.messages,
+        tools = if (hasTools) req.tools else null,
+        toolChoice = toolChoiceStr,
+        chatTemplate = chatTemplate,
+        maxContext = maxContext,
+        autoCompact = autoCompact,
+        compactToolSchemas = compactToolSchemas,
+      )
+
+      if (compactionResult.compacted) {
+        val details = compactionResult.strategies.joinToString(", ")
+        logEvent("prompt_compacted id=$requestId endpoint=/v1/chat/completions strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResult.prompt)} maxContext=$maxContext")
+        if (logId != null) {
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details) }
         }
-      } else {
-        LlmHttpRequestAdapter.buildChatPrompt(req.messages, chatTemplate)
       }
+
       // Apply response_format JSON mode prompt injection
-      prompt = applyResponseFormat(prompt, req.response_format)
+      var prompt = applyResponseFormat(compactionResult.prompt, req.response_format)
       logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       // Extract images for multimodal models (before blank-prompt check so image-only requests work).
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
-
-      // Mark log entry as compacted if tool schemas were reduced
-      if (toolsCompacted && logId != null) {
-        RequestLogStore.update(logId) { it.copy(isCompacted = true) }
-      }
 
       logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} images=${images.size} model=$requestedId resolved=${model.name}")
 
@@ -775,12 +775,12 @@ class LlmHttpService : Service() {
           }
           val (text, _) = applyStopSequences(rawText, stopSeqs)
 
-          // Check if the model output contains a tool call
+          // Check if the model output contains tool call(s) — supports parallel calls
           if (hasTools) {
-            val toolCall = LlmHttpToolCallParser.parse(text, req.tools!!)
-            if (toolCall != null) {
-              logEvent("request_tool_call id=$requestId endpoint=/v1/chat/completions tool=${toolCall.function.name}")
-              val responseJson = json.encodeToString(chatResponseWithToolCall(model.name, toolCall, promptLen = prompt.length))
+            val toolCalls = LlmHttpToolCallParser.parseAll(text, req.tools!!)
+            if (toolCalls.isNotEmpty()) {
+              logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
+              val responseJson = json.encodeToString(chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
               captureResponse(responseJson)
               return@withPerRequestConfig okJsonText(responseJson)
             }
@@ -807,7 +807,18 @@ class LlmHttpService : Service() {
       logPayload("POST /v1/completions raw", parsed.body, requestId)
       val req = json.decodeFromString<CompletionRequest>(parsed.body)
       val model = selectModel(req.model) ?: return notFound("model_not_found")
-      val prompt = req.prompt
+      // Apply prompt compaction for raw prompts (only trimming is possible)
+      val autoCompactCompl = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val maxContextCompl = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+      val compactionResultCompl = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, autoCompactCompl)
+      if (compactionResultCompl.compacted) {
+        val details = compactionResultCompl.strategies.joinToString(", ")
+        logEvent("prompt_compacted id=$requestId endpoint=/v1/completions strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResultCompl.prompt)} maxContext=$maxContextCompl")
+        if (logId != null) {
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details) }
+        }
+      }
+      val prompt = compactionResultCompl.prompt
       logEvent("request_start id=$requestId endpoint=/v1/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=${model.name}")
 
       if (prompt.isBlank()) {
@@ -880,7 +891,23 @@ class LlmHttpService : Service() {
       val model = selectModel(req.model) ?: return notFound("model_not_found")
       val chatTemplateResp = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
-      val prompt = LlmHttpRequestAdapter.buildConversationPrompt(req.messages ?: req.input, chatTemplateResp)
+      // Build prompt with progressive compaction if context window is exceeded
+      val autoCompactResp = LlmHttpPrefs.isAutoCompactPrompts(this@LlmHttpService)
+      val maxContextResp = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+      val compactionResultResp = LlmHttpPromptCompactor.compactConversationPrompt(
+        messages = req.messages ?: req.input,
+        chatTemplate = chatTemplateResp,
+        maxContext = maxContextResp,
+        autoCompact = autoCompactResp,
+      )
+      if (compactionResultResp.compacted) {
+        val details = compactionResultResp.strategies.joinToString(", ")
+        logEvent("prompt_compacted id=$requestId endpoint=/v1/responses strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResultResp.prompt)} maxContext=$maxContextResp")
+        if (logId != null) {
+          RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details) }
+        }
+      }
+      val prompt = compactionResultResp.prompt
       logPayload("POST /v1/responses prompt", prompt, requestId)
       logEvent("request_start id=$requestId endpoint=/v1/responses bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
@@ -913,11 +940,12 @@ class LlmHttpService : Service() {
             return@withPerRequestConfig badRequest(errorMsg)
           }
 
-          // Check if the model output contains a tool call
+          // Check if the model output contains tool call(s)
           if (hasTools) {
-            val toolCall = LlmHttpToolCallParser.parse(text, req.tools!!)
-            if (toolCall != null) {
-              val responseJson = json.encodeToString(responsesResponseWithToolCall(model.name, toolCall, promptLen = prompt.length))
+            val toolCalls = LlmHttpToolCallParser.parseAll(text, req.tools!!)
+            if (toolCalls.isNotEmpty()) {
+              // Responses API: use first tool call (Responses API doesn't batch tool calls the same way)
+              val responseJson = json.encodeToString(responsesResponseWithToolCall(model.name, toolCalls.first(), promptLen = prompt.length))
               captureResponse(responseJson)
               return@withPerRequestConfig okJsonText(responseJson)
             }
@@ -1414,12 +1442,12 @@ class LlmHttpService : Service() {
               val promptTokens = (prompt.length / 4).coerceAtLeast(1)
               val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
 
-              // Check for tool calls in completed output
-              val parsedToolCall = if (tools != null) LlmHttpToolCallParser.parse(fullText.toString(), tools) else null
+              // Check for tool call(s) in completed output — supports parallel calls
+              val parsedToolCalls = if (tools != null) LlmHttpToolCallParser.parseAll(fullText.toString(), tools) else emptyList()
 
-              if (bufferForTools && parsedToolCall != null) {
-                // Emit proper OpenAI streaming tool_calls format
-                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamToolCallChunks(chatId, model.name, now, parsedToolCall))
+              if (bufferForTools && parsedToolCalls.isNotEmpty()) {
+                // Emit proper OpenAI streaming tool_calls format with per-call indexing
+                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamToolCallChunks(chatId, model.name, now, parsedToolCalls))
               } else {
                 // Emit buffered content (if we were buffering) or close the stream normally
                 if (bufferForTools) {
@@ -1450,8 +1478,8 @@ class LlmHttpService : Service() {
                 } else {
                   fullText.toString()
                 }
-                val responseJson = if (parsedToolCall != null) {
-                  json.encodeToString(chatResponseWithToolCall(model.name, parsedToolCall, promptLen = prompt.length))
+                val responseJson = if (parsedToolCalls.isNotEmpty()) {
+                  json.encodeToString(chatResponseWithToolCalls(model.name, parsedToolCalls, promptLen = prompt.length))
                 } else {
                   json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length))
                 }
@@ -1465,7 +1493,7 @@ class LlmHttpService : Service() {
                   )
                 }
               }
-              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen${if (parsedToolCall != null) " tool_call=${parsedToolCall.function.name}" else ""}")
+              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen${if (parsedToolCalls.isNotEmpty()) " tool_calls=${parsedToolCalls.joinToString(",") { it.function.name }} count=${parsedToolCalls.size}" else ""}")
             }
           } catch (e: Exception) {
             if (originalConfig != null) model.configValues = originalConfig
@@ -1721,14 +1749,17 @@ class LlmHttpService : Service() {
     ),
   )
 
-  private fun chatResponseWithToolCall(modelName: String, toolCall: ToolCall, promptLen: Int = 0) = ChatResponse(
-    id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = listOf(toolCall)), "tool_calls")),
-    usage = Usage(
-      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
-      completion_tokens = (toolCall.function.arguments.length / 4).coerceAtLeast(1),
-    ),
-  )
+  private fun chatResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0): ChatResponse {
+    val argsLen = toolCalls.sumOf { it.function.arguments.length }
+    return ChatResponse(
+      id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), "tool_calls")),
+      usage = Usage(
+        prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
+        completion_tokens = (argsLen / 4).coerceAtLeast(1),
+      ),
+    )
+  }
 
   private fun responsesResponseWithText(modelName: String, text: String, promptLen: Int = 0) = ResponsesResponse(
     id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,

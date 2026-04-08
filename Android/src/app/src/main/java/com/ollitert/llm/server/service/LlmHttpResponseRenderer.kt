@@ -149,22 +149,30 @@ object LlmHttpResponseRenderer {
   }
 
   /**
-   * Builds streaming SSE chunks for a tool call in chat.completion.chunk format.
-   * Emits: (1) role + tool_calls header, (2) arguments delta, (3) finish_reason chunk.
+   * Builds streaming SSE chunks for one or more tool calls in chat.completion.chunk format.
+   * Each tool call gets its own indexed entry in the `tool_calls` array, matching the
+   * OpenAI streaming spec that HA integrations (extended_openai_conversation, local_openai) parse.
+   *
+   * Emits per tool call: (1) header with id+name+empty args, (2) arguments delta.
+   * Then a single finish_reason chunk at the end.
    * Does NOT include [DONE] — caller should emit SSE_DONE separately.
    */
-  fun buildChatStreamToolCallChunks(chatId: String, modelId: String, now: Long, toolCall: ToolCall): String {
-    val escapedName = LlmHttpBridgeUtils.escapeSseText(toolCall.function.name)
-    val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)
-    val callId = toolCall.id
+  fun buildChatStreamToolCallChunks(chatId: String, modelId: String, now: Long, toolCalls: List<ToolCall>): String {
     return buildString {
-      // Chunk 1: role + tool_calls with name and empty arguments
-      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"$callId","type":"function","function":{"name":"$escapedName","arguments":""}}]},"finish_reason":null}]}""")
-      append("\n\n")
-      // Chunk 2: arguments delta
-      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"$escapedArgs"}}]},"finish_reason":null}]}""")
-      append("\n\n")
-      // Chunk 3: finish_reason
+      for ((index, toolCall) in toolCalls.withIndex()) {
+        val escapedName = LlmHttpBridgeUtils.escapeSseText(toolCall.function.name)
+        val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)
+        val callId = toolCall.id
+
+        // Chunk: role (first call only) + tool_calls entry with name and empty arguments
+        val roleField = if (index == 0) """"role":"assistant","content":null,""" else ""
+        append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{${roleField}"tool_calls":[{"index":$index,"id":"$callId","type":"function","function":{"name":"$escapedName","arguments":""}}]},"finish_reason":null}]}""")
+        append("\n\n")
+        // Chunk: arguments delta for this tool call
+        append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"tool_calls":[{"index":$index,"function":{"arguments":"$escapedArgs"}}]},"finish_reason":null}]}""")
+        append("\n\n")
+      }
+      // Final chunk: finish_reason
       append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}""")
       append("\n\n")
     }
