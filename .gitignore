@@ -44,9 +44,16 @@ captures/
 .cxx/
 output.json
 
-# Keystore
+# Keystore & signing
 *.jks
 *.keystore
+keystore.properties
+
+# ProGuard mapping (build artifact, needed for crash deobfuscation — archive separately)
+mapping.txt
+
+# Environment / secrets
+*.env
 
 # Google Services (Firebase, APIs)
 google-services.json

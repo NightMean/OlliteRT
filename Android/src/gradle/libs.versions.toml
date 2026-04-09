@@ -38,6 +38,7 @@ exifinterface = "1.4.1"
 securityCrypto = "1.1.0"
 kotlinReflect = "2.2.21"
 moshi = "1.15.2"
+room = "2.7.1"
 ksp = "2.3.6"
 
 [libraries]
@@ -91,6 +92,9 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshi" }
 moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshi" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

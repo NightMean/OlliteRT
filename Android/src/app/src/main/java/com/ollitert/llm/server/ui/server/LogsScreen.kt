@@ -74,7 +74,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +81,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -306,7 +306,7 @@ fun LogsScreen(
       horizontalArrangement = Arrangement.SpaceBetween,
     ) {
       Text(
-        text = "Request Log",
+        text = "Activity Log",
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurface,
       )
@@ -352,13 +352,13 @@ fun LogsScreen(
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(
-            text = "No requests yet",
+            text = "No activity yet",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
           )
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = "API traffic will appear here.",
+            text = "Server activity will appear here.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -368,43 +368,50 @@ fun LogsScreen(
       val listState = rememberLazyListState()
       val coroutineScope = rememberCoroutineScope()
 
-      // Track whether the top of the list is visible
-      val isAtTop by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 }
-      }
-
-      // Auto-scroll is ON by default — stays on until user manually scrolls away
-      var autoScrollEnabled by remember { mutableStateOf(true) }
-
-      // Count of unseen new entries (only tracked when auto-scroll is off)
+      // Count of unseen new entries (shown in the floating indicator)
       var unseenCount by remember { mutableIntStateOf(0) }
 
-      // Detect user-initiated scrolling: if user scrolls away from top, disable auto-scroll
-      val isScrollInProgress by remember {
-        derivedStateOf { listState.isScrollInProgress }
-      }
-      LaunchedEffect(isScrollInProgress, isAtTop) {
-        if (isScrollInProgress && !isAtTop) {
-          autoScrollEnabled = false
-        }
-      }
+      // Track the newest entry's ID to detect actual new entries (not partialText updates).
+      // Using entries.size as a key misses new entries when at max capacity (add + evict = same size).
+      val newestEntryId = entries.firstOrNull()?.id
 
-      // When new entries arrive: auto-scroll if enabled, otherwise bump unseen count
-      LaunchedEffect(entries.size) {
-        if (entries.isNotEmpty()) {
-          if (autoScrollEnabled) {
-            listState.animateScrollToItem(0)
-          } else {
-            unseenCount++
+      // True when a programmatic scroll is in progress — prevents the user-scroll
+      // detector from incorrectly disabling auto-scroll during animateScrollToItem.
+      var isProgrammaticScroll by remember { mutableStateOf(false) }
+
+      // Auto-scroll is ON by default — disabled when the user manually scrolls away from top.
+      var autoScrollEnabled by remember { mutableStateOf(true) }
+
+      // Detect user-initiated scrolling away from top.
+      // Uses snapshotFlow to avoid race conditions with LaunchedEffect key-based triggers.
+      LaunchedEffect(Unit) {
+        snapshotFlow {
+          listState.isScrollInProgress to listState.firstVisibleItemIndex
+        }.collect { (scrolling, firstIndex) ->
+          if (scrolling && firstIndex > 0 && !isProgrammaticScroll) {
+            autoScrollEnabled = false
+          }
+          if (firstIndex == 0 && !scrolling) {
+            // User reached the top — re-enable auto-scroll and clear unseen count
+            unseenCount = 0
+            autoScrollEnabled = true
           }
         }
       }
 
-      // When user scrolls back to top manually, clear unseen and re-enable auto-scroll
-      LaunchedEffect(isAtTop) {
-        if (isAtTop) {
-          unseenCount = 0
-          autoScrollEnabled = true
+      // When the newest entry changes: auto-scroll if enabled, otherwise bump unseen count
+      LaunchedEffect(newestEntryId) {
+        if (newestEntryId != null) {
+          if (autoScrollEnabled) {
+            isProgrammaticScroll = true
+            try {
+              listState.animateScrollToItem(0)
+            } finally {
+              isProgrammaticScroll = false
+            }
+          } else {
+            unseenCount++
+          }
         }
       }
 
@@ -426,7 +433,7 @@ fun LogsScreen(
           item { Spacer(modifier = Modifier.height(16.dp)) }
         }
 
-        // Floating "new logs" indicator
+        // Floating "new activity" indicator — shown when new entries arrive while scrolled down
         androidx.compose.animation.AnimatedVisibility(
           visible = unseenCount > 0,
           enter = slideInVertically { -it } + fadeIn(),
@@ -441,10 +448,15 @@ fun LogsScreen(
               .clip(RoundedCornerShape(20.dp))
               .background(OlliteRTPrimary)
               .clickable {
-                autoScrollEnabled = true
                 unseenCount = 0
+                autoScrollEnabled = true
                 coroutineScope.launch {
-                  listState.animateScrollToItem(0)
+                  isProgrammaticScroll = true
+                  try {
+                    listState.animateScrollToItem(0)
+                  } finally {
+                    isProgrammaticScroll = false
+                  }
                 }
               }
               .padding(horizontal = 14.dp, vertical = 8.dp),
@@ -458,7 +470,7 @@ fun LogsScreen(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              text = if (unseenCount == 1) "New log" else "$unseenCount new logs",
+              text = if (unseenCount == 1) "New activity" else "$unseenCount new entries",
               style = MaterialTheme.typography.labelMedium,
               color = Color.Black,
               fontWeight = FontWeight.SemiBold,
