@@ -1,8 +1,10 @@
 package com.ollitert.llm.server.service
 
 object LlmHttpBridgeUtils {
+  private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")
+
   fun normalizeModelKey(value: String): String =
-    value.lowercase().replace(Regex("[^a-z0-9]"), "")
+    value.lowercase().replace(NON_ALPHANUMERIC_REGEX, "")
 
   fun resolveRequestedModelId(requested: String?): String {
     if (requested.isNullOrBlank()) return "local"

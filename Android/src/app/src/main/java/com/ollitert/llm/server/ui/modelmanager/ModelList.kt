@@ -94,7 +94,7 @@ fun ModelList(
       derivedStateOf {
         val trigger = task.updateTrigger.value
         if (trigger >= 0) {
-          task.models.toList().filter { !it.imported }
+          task.models.filter { !it.imported }
         } else {
           listOf()
         }
@@ -105,7 +105,7 @@ fun ModelList(
       derivedStateOf {
         val trigger = task.updateTrigger.value
         if (trigger >= 0) {
-          task.models.toList().filter { it.imported }
+          task.models.filter { it.imported }
         } else {
           listOf()
         }
