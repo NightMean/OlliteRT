@@ -114,6 +114,10 @@ object ServerMetrics {
   private val _activeAccelerator = MutableStateFlow<String?>(null)
   val activeAccelerator: StateFlow<String?> = _activeAccelerator.asStateFlow()
 
+  /** Whether the "Allow Thinking" toggle is enabled for the active model. */
+  private val _thinkingEnabled = MutableStateFlow(false)
+  val thinkingEnabled: StateFlow<Boolean> = _thinkingEnabled.asStateFlow()
+
   /** Human-readable error message when status is ERROR, or null. */
   private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
@@ -176,6 +180,7 @@ object ServerMetrics {
     _modelLoadTimeMs.value = 0L
     _loadingStartedAtMs.value = 0L
     _activeAccelerator.value = null
+    _thinkingEnabled.value = false
     _lastError.value = null
     _isInferring.value = false
   }
@@ -228,6 +233,10 @@ object ServerMetrics {
 
   fun setActiveAccelerator(accelerator: String?) {
     _activeAccelerator.value = accelerator
+  }
+
+  fun setThinkingEnabled(enabled: Boolean) {
+    _thinkingEnabled.value = enabled
   }
 
   fun recordModelLoadTime(ms: Long) {

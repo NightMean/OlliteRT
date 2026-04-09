@@ -1486,19 +1486,8 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
 
       Spacer(modifier = Modifier.height(10.dp))
 
-      // Context overflow badge on its own line above footer when model returned an error
-      // despite compaction attempts (compaction was insufficient)
-      if (contextOverflow) {
-        Text(
-          text = "Context window exceeded",
-          style = MaterialTheme.typography.labelSmall,
-          color = ContextOverflowColor,
-          fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-      }
-
       // Footer: status · latency · SSE · Thinking · Cancelled  ···  model · time
+      // Context overflow is shown in the StatusBadge as "Context Exceeded" instead of "400 Bad Request".
       // Compaction badges (Compacted, Truncated, Trimmed) are shown below the
       // Compacted Prompt text box instead of here.
       Row(
@@ -1506,7 +1495,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
       ) {
-        StatusBadge(statusCode = entry.statusCode)
+        StatusBadge(statusCode = entry.statusCode, contextOverflow = contextOverflow)
         FooterDot()
         Text(
           text = "${entry.latencyMs}ms",
@@ -1538,6 +1527,22 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             style = MaterialTheme.typography.labelSmall,
             color = CancelledColor,
             fontWeight = FontWeight.SemiBold,
+          )
+        }
+        // Per-request context utilization (e.g. "~258 / 1024 ctx")
+        // Color-coded: white ≤50%, yellow 50–80%, red >80%
+        if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
+          val utilPct = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
+          val ctxColor = when {
+            utilPct > 0.8 -> MaterialTheme.colorScheme.error
+            utilPct > 0.5 -> WarningColor
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+          }
+          FooterDot()
+          Text(
+            text = "~${entry.inputTokenEstimate} / ${entry.maxContextTokens} ctx",
+            style = MaterialTheme.typography.labelSmall,
+            color = ctxColor,
           )
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -1696,6 +1701,8 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
       if (!entry.compactionDetails.isNullOrBlank()) obj.put("compaction_details", entry.compactionDetails)
     }
     if (entry.isCancelled) obj.put("cancelled", true)
+    if (entry.inputTokenEstimate > 0) obj.put("input_token_estimate", entry.inputTokenEstimate)
+    if (entry.maxContextTokens > 0) obj.put("max_context_tokens", entry.maxContextTokens)
     if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
 
     // Parse request/response bodies as JSON if possible, otherwise keep as string
@@ -1800,10 +1807,35 @@ private fun MethodBadge(method: String) {
 }
 
 @Composable
-private fun StatusBadge(statusCode: Int) {
+private fun StatusBadge(statusCode: Int, contextOverflow: Boolean = false) {
   val isSuccess = statusCode in 200..299
-  val color = if (isSuccess) OlliteRTGreen400 else MaterialTheme.colorScheme.error
-  val label = if (isSuccess) "$statusCode OK" else "$statusCode"
+  val color = when {
+    contextOverflow -> ContextOverflowColor
+    isSuccess -> OlliteRTGreen400
+    else -> MaterialTheme.colorScheme.error
+  }
+  val label = when {
+    // Context overflow gets a specific label regardless of status code
+    contextOverflow -> "Context Exceeded"
+    else -> {
+      val reasonPhrase = when (statusCode) {
+        400 -> "Bad Request"
+        401 -> "Unauthorized"
+        403 -> "Forbidden"
+        404 -> "Not Found"
+        405 -> "Method Not Allowed"
+        408 -> "Request Timeout"
+        413 -> "Payload Too Large"
+        429 -> "Too Many Requests"
+        500 -> "Internal Server Error"
+        502 -> "Bad Gateway"
+        503 -> "Service Unavailable"
+        504 -> "Gateway Timeout"
+        else -> if (!isSuccess) "Error" else "OK"
+      }
+      "$statusCode $reasonPhrase"
+    }
+  }
   Text(
     text = label,
     style = MaterialTheme.typography.labelSmall,

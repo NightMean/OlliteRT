@@ -271,6 +271,9 @@ class LlmHttpService : Service() {
         ServerMetrics.setActiveAccelerator(
           model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.label]?.toString()
         )
+        ServerMetrics.setThinkingEnabled(
+          model.llmSupportThinking && (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+        )
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
         // Check for queued reload (user changed reinit settings while model was loading)
@@ -668,9 +671,17 @@ class LlmHttpService : Service() {
           it.isCompacted -> LogLevel.WARNING
           else -> LogLevel.INFO
         }
+        // For non-streaming error responses, the handler already set responseBody with the
+        // detailed error JSON (e.g. from LiteRT). Preserve it if responseBodySnapshot is null
+        // (captureResponse is only called for success responses).
+        val finalResponseBody = if (isStreaming) it.responseBody
+          else (responseBodySnapshot ?: it.responseBody)
+        // Extract actual token counts from LiteRT error messages (e.g. "6579 >= 4000")
+        // to replace our rough charLen/4 estimate with exact numbers from the engine.
+        val actualTokens = finalResponseBody?.let { body -> extractActualTokenCounts(body) }
         it.copy(
           requestBody = requestBodySnapshot ?: it.requestBody,
-          responseBody = if (isStreaming) it.responseBody else responseBodySnapshot,
+          responseBody = finalResponseBody,
           statusCode = statusCode,
           latencyMs = if (isStreaming) it.latencyMs else elapsedMs,
           isStreaming = isStreaming,
@@ -678,6 +689,8 @@ class LlmHttpService : Service() {
           modelName = defaultModel?.name,
           level = level,
           isPending = if (isStreaming) it.isPending else false,
+          inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
+          maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
         )
       }
       // x-request-id: standard request tracing header used by Open WebUI and other clients
@@ -711,12 +724,18 @@ class LlmHttpService : Service() {
         }
       }
       val prompt = compactionResultGen.prompt
+      // Store context utilization data in the log entry for per-request display
+      val maxCtxGen = (maxContextGen ?: 0).toLong()
+      if (logId != null) {
+        val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+        RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxGen) }
+      }
       logPayload("POST /generate prompt", prompt, requestId)
       logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=default")
       ServerMetrics.onInferenceStarted()
       val (text, llmError) = runLlm(model, prompt, requestId, "/generate")
       ServerMetrics.onInferenceCompleted()
-      if (text == null) return badRequest(llmError ?: "llm error")
+      if (text == null) return badRequest(enrichLlmError(llmError ?: "llm error"))
       // Token counts are estimates (charLen / 4) — LiteRT SDK has no standalone tokenizer API
       val promptTokens = (prompt.length / 4).coerceAtLeast(if (prompt.isNotEmpty()) 1 else 0)
       val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
@@ -778,6 +797,12 @@ class LlmHttpService : Service() {
 
       // Apply response_format JSON mode prompt injection
       var prompt = applyResponseFormat(compactionResult.prompt, req.response_format)
+      // Store context utilization data in the log entry for per-request display
+      val maxCtxChat = (maxContext ?: 0).toLong()
+      if (logId != null) {
+        val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+        RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxChat) }
+      }
       logPayload("POST /v1/chat/completions prompt", prompt, requestId)
       // Extract images for multimodal models (before blank-prompt check so image-only requests work).
       val images = if (model.llmSupportImage) decodeImageDataUris(req.messages) else emptyList()
@@ -808,7 +833,7 @@ class LlmHttpService : Service() {
           val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
           ServerMetrics.onInferenceCompleted()
           if (rawText == null) {
-            val errorMsg = llmError ?: "llm error"
+            val errorMsg = enrichLlmError(llmError ?: "llm error")
             if (logId != null) {
               val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
               RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
@@ -867,6 +892,12 @@ class LlmHttpService : Service() {
         }
       }
       val prompt = compactionResultCompl.prompt
+      // Store context utilization data in the log entry for per-request display
+      val maxCtxCompl = (maxContextCompl ?: 0).toLong()
+      if (logId != null) {
+        val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+        RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxCompl) }
+      }
       logEvent("request_start id=$requestId endpoint=/v1/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=${model.name}")
 
       if (prompt.isBlank()) {
@@ -896,7 +927,7 @@ class LlmHttpService : Service() {
         val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120)
         ServerMetrics.onInferenceCompleted()
         if (rawText == null) {
-          val errorMsg = llmError ?: "llm error"
+          val errorMsg = enrichLlmError(llmError ?: "llm error")
           if (logId != null) {
             val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
             RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
@@ -960,6 +991,12 @@ class LlmHttpService : Service() {
         }
       }
       val prompt = compactionResultResp.prompt
+      // Store context utilization data in the log entry for per-request display
+      val maxCtxResp = (maxContextResp ?: 0).toLong()
+      if (logId != null) {
+        val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+        RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxResp) }
+      }
       logPayload("POST /v1/responses prompt", prompt, requestId)
       logEvent("request_start id=$requestId endpoint=/v1/responses bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
@@ -984,7 +1021,7 @@ class LlmHttpService : Service() {
           val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
           ServerMetrics.onInferenceCompleted()
           if (text == null) {
-            val errorMsg = llmError ?: "llm error"
+            val errorMsg = enrichLlmError(llmError ?: "llm error")
             if (logId != null) {
               val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
               RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
@@ -1683,6 +1720,35 @@ class LlmHttpService : Service() {
     private fun methodNotAllowed() = jsonError(Response.Status.METHOD_NOT_ALLOWED, "method_not_allowed")
     private fun payloadTooLarge() = jsonError(Response.Status.BAD_REQUEST, "payload_too_large")
 
+    /**
+     * Enrich LLM error messages with actionable hints for known error patterns.
+     * Context overflow errors get a note about OlliteRT compaction settings.
+     */
+    private fun enrichLlmError(error: String): String {
+      val lower = error.lowercase()
+      val isContextOverflow = lower.contains("too long") || lower.contains("exceed") ||
+        lower.contains(">=") || lower.contains("context") || lower.contains("too many tokens")
+      return if (isContextOverflow) {
+        "$error — Try increasing Max Tokens in the model's Inference Settings within OlliteRT. If the model doesn't support a larger context window, you can enable prompt compaction (Truncate History, Compact Tool Schemas, or Trim Prompt) in OlliteRT Settings as a fallback, though this may reduce response quality."
+      } else {
+        error
+      }
+    }
+
+    /**
+     * Extract actual token counts from LiteRT error messages.
+     * LiteRT reports context overflow as "N >= M" (e.g. "6579 >= 4000").
+     * Returns (actualInputTokens, maxContextTokens) or null if not a context overflow error.
+     */
+    private fun extractActualTokenCounts(responseBody: String): Pair<Long, Long>? {
+      // Pattern: "6579 >= 4000" — actual input tokens exceeding max context
+      val match = Regex("(\\d+)\\s*>=\\s*(\\d+)").find(responseBody) ?: return null
+      val actual = match.groupValues[1].toLongOrNull() ?: return null
+      val max = match.groupValues[2].toLongOrNull() ?: return null
+      if (actual <= 0 || max <= 0) return null
+      return actual to max
+    }
+
     private fun addCorsHeaders(response: Response): Response {
       response.addHeader("Access-Control-Allow-Origin", "*")
       response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -2001,6 +2067,10 @@ class LlmHttpService : Service() {
     fun updateConfigValues(configValues: Map<String, Any>) {
       activeInstance?.defaultModel?.let { model ->
         model.configValues = configValues.toMutableMap()
+        // Update thinking state in metrics so the Status screen pill reflects the change
+        ServerMetrics.setThinkingEnabled(
+          model.llmSupportThinking && (configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+        )
       }
     }
   }
