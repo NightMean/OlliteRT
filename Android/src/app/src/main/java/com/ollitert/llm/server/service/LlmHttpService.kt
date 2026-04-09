@@ -691,6 +691,7 @@ class LlmHttpService : Service() {
           isPending = if (isStreaming) it.isPending else false,
           inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
           maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
+          isExactTokenCount = actualTokens != null || it.isExactTokenCount,
         )
       }
       // x-request-id: standard request tracing header used by Open WebUI and other clients
@@ -1360,15 +1361,27 @@ class LlmHttpService : Service() {
           if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
+          val enrichedError = enrichLlmError(error)
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
           if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(error)
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError)
+            // Extract actual token counts from LiteRT error (e.g. "4467 >= 4000") to replace charLen/4 estimate
+            val actualTokens = extractActualTokenCounts(error)
             RequestLogStore.update(logId) {
-              it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR)
+              it.copy(
+                partialText = null,
+                responseBody = errorJson,
+                isPending = false,
+                latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+                level = LogLevel.ERROR,
+                inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
+                maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
+                isExactTokenCount = actualTokens != null || it.isExactTokenCount,
+              )
             }
           }
           try {
-            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(error)}\n\n")
+            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError)}\n\n")
             stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
             stream.finish()
           } catch (_: Exception) {}
@@ -1642,15 +1655,27 @@ class LlmHttpService : Service() {
           if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
+          val enrichedError = enrichLlmError(error)
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
           if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(error)
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError)
+            // Extract actual token counts from LiteRT error (e.g. "4467 >= 4000") to replace charLen/4 estimate
+            val actualTokens = extractActualTokenCounts(error)
             RequestLogStore.update(logId) {
-              it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR)
+              it.copy(
+                partialText = null,
+                responseBody = errorJson,
+                isPending = false,
+                latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+                level = LogLevel.ERROR,
+                inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
+                maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
+                isExactTokenCount = actualTokens != null || it.isExactTokenCount,
+              )
             }
           }
           try {
-            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(error)}\n\n")
+            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError)}\n\n")
             stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
             stream.finish()
           } catch (_: Exception) {}

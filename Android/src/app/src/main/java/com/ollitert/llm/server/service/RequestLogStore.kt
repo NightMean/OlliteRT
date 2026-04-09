@@ -35,10 +35,12 @@ data class RequestLogEntry(
   val isCancelled: Boolean = false,
   val partialText: String? = null,
   val eventCategory: EventCategory = EventCategory.GENERAL,
-  /** Estimated input token count (~charLen/4). Set after prompt is built. */
+  /** Estimated input token count (~charLen/4), or exact count if extracted from LiteRT error. */
   val inputTokenEstimate: Long = 0,
   /** Model's max context window in tokens. 0 if unknown. */
   val maxContextTokens: Long = 0,
+  /** True when [inputTokenEstimate] was extracted from a LiteRT error (exact count, not estimate). */
+  val isExactTokenCount: Boolean = false,
 )
 
 /**

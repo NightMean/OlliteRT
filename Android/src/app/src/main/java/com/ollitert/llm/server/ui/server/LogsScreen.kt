@@ -1540,7 +1540,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
           }
           FooterDot()
           Text(
-            text = "~${entry.inputTokenEstimate} / ${entry.maxContextTokens} ctx",
+            text = "${if (entry.isExactTokenCount) "" else "~"}${entry.inputTokenEstimate} / ${entry.maxContextTokens} ctx",
             style = MaterialTheme.typography.labelSmall,
             color = ctxColor,
           )
@@ -1701,7 +1701,10 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
       if (!entry.compactionDetails.isNullOrBlank()) obj.put("compaction_details", entry.compactionDetails)
     }
     if (entry.isCancelled) obj.put("cancelled", true)
-    if (entry.inputTokenEstimate > 0) obj.put("input_token_estimate", entry.inputTokenEstimate)
+    if (entry.inputTokenEstimate > 0) {
+      obj.put("input_token_estimate", entry.inputTokenEstimate)
+      obj.put("is_exact_token_count", entry.isExactTokenCount)
+    }
     if (entry.maxContextTokens > 0) obj.put("max_context_tokens", entry.maxContextTokens)
     if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
 
