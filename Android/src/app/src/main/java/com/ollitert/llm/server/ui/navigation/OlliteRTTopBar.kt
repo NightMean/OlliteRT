@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -91,8 +92,13 @@ fun OlliteRTTopBar(
             .clip(RoundedCornerShape(6.dp)),
         )
         Spacer(modifier = Modifier.width(8.dp))
+        // Brand name — includes channel suffix for dev/beta builds
         Text(
-          text = "OlliteRT",
+          text = when (BuildConfig.CHANNEL) {
+            "dev" -> "OlliteRT Dev"
+            "beta" -> "OlliteRT Beta"
+            else -> "OlliteRT"
+          },
           color = OlliteRTPrimary,
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Bold,
