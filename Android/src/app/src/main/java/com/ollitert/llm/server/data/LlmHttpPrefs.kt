@@ -45,51 +45,64 @@ private const val DEFAULT_LOG_MAX_ENTRIES = 500
 private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 
 object LlmHttpPrefs {
+
+  /**
+   * Cached SharedPreferences instance. Android's Context.getSharedPreferences() does its own
+   * internal caching, but it still requires a synchronized map lookup + string hash on every call.
+   * Caching here avoids ~59 redundant lookups per settings-read cycle, and more importantly avoids
+   * the disk I/O on the very first call from any thread (Android loads the XML file synchronously
+   * on first access to a given prefs name).
+   */
+  @Volatile private var cachedPrefs: android.content.SharedPreferences? = null
+
+  private fun prefs(context: Context): android.content.SharedPreferences =
+    cachedPrefs ?: context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).also { cachedPrefs = it }
+
   fun isEnabled(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
+    prefs(context).getBoolean(KEY_ENABLED, false)
 
   fun getPort(context: Context): Int =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt(KEY_PORT, DEFAULT_PORT)
+    prefs(context).getInt(KEY_PORT, DEFAULT_PORT)
 
   fun isPayloadLoggingEnabled(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_PAYLOAD_LOGGING_ENABLED, DEFAULT_PAYLOAD_LOGGING_ENABLED)
 
   fun isAcceleratorFallbackEnabled(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_ACCELERATOR_FALLBACK_ENABLED, DEFAULT_ACCELERATOR_FALLBACK_ENABLED)
 
   fun getHfToken(context: Context): String =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_HF_TOKEN, "")
+    prefs(context).getString(KEY_HF_TOKEN, "")
       ?: ""
 
   fun setHfToken(context: Context, token: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putString(KEY_HF_TOKEN, token.trim())
       .apply()
   }
 
   fun getBearerToken(context: Context): String =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_BEARER_TOKEN, "")
+    prefs(context).getString(KEY_BEARER_TOKEN, "")
       ?: ""
 
   fun setPayloadLoggingEnabled(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_PAYLOAD_LOGGING_ENABLED, enabled)
       .apply()
   }
 
   fun setAcceleratorFallbackEnabled(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_ACCELERATOR_FALLBACK_ENABLED, enabled)
       .apply()
   }
 
   fun setBearerToken(context: Context, token: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putString(KEY_BEARER_TOKEN, token.trim())
       .apply()
@@ -105,11 +118,11 @@ object LlmHttpPrefs {
   }
 
   fun getLastModelName(context: Context): String? =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getString(KEY_LAST_MODEL_NAME, null)
 
   fun setLastModelName(context: Context, modelName: String?) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .apply {
         if (modelName != null) putString(KEY_LAST_MODEL_NAME, modelName)
@@ -119,11 +132,11 @@ object LlmHttpPrefs {
   }
 
   fun getDefaultModelName(context: Context): String? =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getString(KEY_DEFAULT_MODEL_NAME, null)
 
   fun setDefaultModelName(context: Context, modelName: String?) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .apply {
         if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
@@ -133,187 +146,187 @@ object LlmHttpPrefs {
   }
 
   fun isAutoStartOnBoot(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_AUTO_START_ON_BOOT, false)
 
   fun setAutoStartOnBoot(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_AUTO_START_ON_BOOT, enabled)
       .apply()
   }
 
   fun isKeepScreenOn(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_KEEP_SCREEN_ON, true)
 
   fun setKeepScreenOn(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_KEEP_SCREEN_ON, enabled)
       .apply()
   }
 
   fun isAutoExpandLogs(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_AUTO_EXPAND_LOGS, false)
 
   fun setAutoExpandLogs(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_AUTO_EXPAND_LOGS, enabled)
       .apply()
   }
 
   fun isStreamLogsPreview(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_STREAM_LOGS_PREVIEW, true)
 
   fun setStreamLogsPreview(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_STREAM_LOGS_PREVIEW, enabled)
       .apply()
   }
 
   fun isKeepPartialResponse(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_KEEP_PARTIAL_RESPONSE, false)
 
   fun setKeepPartialResponse(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_KEEP_PARTIAL_RESPONSE, enabled)
       .apply()
   }
 
   fun isNotifShowRequestCount(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
 
   fun setNotifShowRequestCount(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, enabled)
       .apply()
   }
 
   fun isWarmupEnabled(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_WARMUP_ENABLED, true)
 
   fun setWarmupEnabled(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_WARMUP_ENABLED, enabled)
       .apply()
   }
 
   fun isEagerVisionInit(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_EAGER_VISION_INIT, false)
 
   fun setEagerVisionInit(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_EAGER_VISION_INIT, enabled)
       .apply()
   }
 
   fun isCustomPromptsEnabled(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_CUSTOM_PROMPTS_ENABLED, false)
 
   fun setCustomPromptsEnabled(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_CUSTOM_PROMPTS_ENABLED, enabled)
       .apply()
   }
 
   fun isCompactToolSchemas(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_COMPACT_TOOL_SCHEMAS, false)
 
   fun setCompactToolSchemas(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_COMPACT_TOOL_SCHEMAS, enabled)
       .apply()
   }
 
   fun isAutoTruncateHistory(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_AUTO_TRUNCATE_HISTORY, false)
 
   fun setAutoTruncateHistory(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_AUTO_TRUNCATE_HISTORY, enabled)
       .apply()
   }
 
   fun isAutoTrimPrompts(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_AUTO_TRIM_PROMPTS, false)
 
   fun setAutoTrimPrompts(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_AUTO_TRIM_PROMPTS, enabled)
       .apply()
   }
 
   fun isClearLogsOnStop(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_CLEAR_LOGS_ON_STOP, false)
 
   fun setClearLogsOnStop(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_CLEAR_LOGS_ON_STOP, enabled)
       .apply()
   }
 
   fun isConfirmClearLogs(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_CONFIRM_CLEAR_LOGS, true)
 
   fun setConfirmClearLogs(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_CONFIRM_CLEAR_LOGS, enabled)
       .apply()
   }
 
   fun isShowRequestTypes(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_SHOW_REQUEST_TYPES, false)
 
   fun setShowRequestTypes(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_SHOW_REQUEST_TYPES, enabled)
       .apply()
   }
 
   fun getSystemPrompt(context: Context, modelName: String): String =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getString(KEY_PREFIX_SYSTEM_PROMPT + modelName, "") ?: ""
 
   fun setSystemPrompt(context: Context, modelName: String, prompt: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putString(KEY_PREFIX_SYSTEM_PROMPT + modelName, prompt)
       .apply()
   }
 
   fun getChatTemplate(context: Context, modelName: String): String =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getString(KEY_PREFIX_CHAT_TEMPLATE + modelName, "") ?: ""
 
   fun setChatTemplate(context: Context, modelName: String, template: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putString(KEY_PREFIX_CHAT_TEMPLATE + modelName, template)
       .apply()
@@ -336,7 +349,7 @@ object LlmHttpPrefs {
         else -> json.put(key, value.toString())
       }
     }
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, json.toString())
       .apply()
@@ -347,7 +360,7 @@ object LlmHttpPrefs {
    * Values are returned as their JSON-native types (Int, Double, Boolean, String).
    */
   fun getInferenceConfig(context: Context, modelName: String): Map<String, Any>? {
-    val jsonStr = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val jsonStr = prefs(context)
       .getString(KEY_PREFIX_INFERENCE_CONFIG + modelName, null) ?: return null
     return try {
       val json = org.json.JSONObject(jsonStr)
@@ -364,12 +377,12 @@ object LlmHttpPrefs {
   }
 
   fun getCorsAllowedOrigins(context: Context): String =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getString(KEY_CORS_ALLOWED_ORIGINS, DEFAULT_CORS_ALLOWED_ORIGINS)
       ?: DEFAULT_CORS_ALLOWED_ORIGINS
 
   fun setCorsAllowedOrigins(context: Context, origins: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
       .apply()
@@ -378,40 +391,40 @@ object LlmHttpPrefs {
   // --- Log Persistence ---
 
   fun isLogPersistenceEnabled(context: Context): Boolean =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getBoolean(KEY_LOG_PERSISTENCE_ENABLED, DEFAULT_LOG_PERSISTENCE_ENABLED)
 
   fun setLogPersistenceEnabled(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_LOG_PERSISTENCE_ENABLED, enabled)
       .apply()
   }
 
   fun getLogMaxEntries(context: Context): Int =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getInt(KEY_LOG_MAX_ENTRIES, DEFAULT_LOG_MAX_ENTRIES)
 
   fun setLogMaxEntries(context: Context, maxEntries: Int) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putInt(KEY_LOG_MAX_ENTRIES, maxEntries)
       .apply()
   }
 
   fun getLogAutoDeleteMinutes(context: Context): Long =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .getLong(KEY_LOG_AUTO_DELETE_MINUTES, DEFAULT_LOG_AUTO_DELETE_MINUTES.toLong())
 
   fun setLogAutoDeleteMinutes(context: Context, minutes: Long) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putLong(KEY_LOG_AUTO_DELETE_MINUTES, minutes)
       .apply()
   }
 
   fun save(context: Context, enabled: Boolean, port: Int) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs(context)
       .edit()
       .putBoolean(KEY_ENABLED, enabled)
       .putInt(KEY_PORT, port)
