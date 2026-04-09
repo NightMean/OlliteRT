@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.ui.server
 
+import com.ollitert.llm.server.BuildConfig
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -120,6 +121,7 @@ fun SettingsScreen(
   var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
   var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
   var savedShowRequestTypes by remember { mutableStateOf(LlmHttpPrefs.isShowRequestTypes(context)) }
+  var savedCorsAllowedOrigins by remember { mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -145,6 +147,7 @@ fun SettingsScreen(
   var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
   var showRequestTypes by remember { mutableStateOf(savedShowRequestTypes) }
+  var corsAllowedOrigins by remember { mutableStateOf(savedCorsAllowedOrigins) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -165,7 +168,8 @@ fun SettingsScreen(
     compactToolSchemas != savedCompactToolSchemas ||
     clearLogsOnStop != savedClearLogsOnStop ||
     confirmClearLogs != savedConfirmClearLogs ||
-    showRequestTypes != savedShowRequestTypes
+    showRequestTypes != savedShowRequestTypes ||
+    corsAllowedOrigins != savedCorsAllowedOrigins
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -236,6 +240,16 @@ fun SettingsScreen(
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
         LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
+        LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOrigins)
+
+        // Log CORS setting change
+        if (corsAllowedOrigins != savedCorsAllowedOrigins) {
+          val displayValue = corsAllowedOrigins.ifBlank { "disabled" }
+          RequestLogStore.addEvent(
+            "CORS Allowed Origins changed: \"$displayValue\"",
+            category = EventCategory.SETTINGS,
+          )
+        }
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -264,6 +278,7 @@ fun SettingsScreen(
         savedClearLogsOnStop = clearLogsOnStop
         savedConfirmClearLogs = confirmClearLogs
         savedShowRequestTypes = showRequestTypes
+        savedCorsAllowedOrigins = corsAllowedOrigins
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -620,6 +635,56 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // CORS allowed origins
+      Text(
+        text = "CORS Allowed Origins",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      OutlinedTextField(
+        value = corsAllowedOrigins,
+        onValueChange = { corsAllowedOrigins = it },
+        singleLine = true,
+        placeholder = {
+          Text(
+            "*",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          )
+        },
+        trailingIcon = {
+          if (corsAllowedOrigins.isNotBlank()) {
+            IconButton(onClick = { corsAllowedOrigins = "" }) {
+              Icon(
+                imageVector = Icons.Outlined.Close,
+                contentDescription = "Clear origins",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = OlliteRTPrimary,
+          unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = "Origins allowed to make cross-origin requests. Use * to allow all, comma-separated URLs for specific origins (e.g. http://localhost:3000, https://my-app.com), or leave blank to disable CORS.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
 
       // Token display + actions (only when enabled)
       if (bearerEnabled) {
@@ -1061,7 +1126,7 @@ fun SettingsScreen(
     // Footer
     Spacer(modifier = Modifier.height(8.dp))
     Text(
-      text = "OlliteRT v1.0.11",
+      text = "OlliteRT v${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_HASH})",
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.align(Alignment.CenterHorizontally),

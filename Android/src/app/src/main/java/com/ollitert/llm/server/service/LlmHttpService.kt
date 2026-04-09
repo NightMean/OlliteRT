@@ -578,9 +578,11 @@ class LlmHttpService : Service() {
       val method = session.method.name
       val path = session.uri
       val clientIp = session.remoteIpAddress
+      // NanoHTTPD lowercases all header names
+      val requestOrigin = session.headers["origin"]
       // Handle CORS preflight (no logging needed)
       if (session.method == NanoHTTPD.Method.OPTIONS) {
-        return corsOk()
+        return corsOk(requestOrigin)
       }
 
       // Add a pending log entry immediately so it appears in the Logs tab
@@ -700,7 +702,7 @@ class LlmHttpService : Service() {
       }
       // x-request-id: standard request tracing header used by Open WebUI and other clients
       response.addHeader("x-request-id", logId)
-      return addCorsHeaders(response)
+      return addCorsHeaders(response, requestOrigin)
     }
 
     private fun handleGenerate(session: IHTTPSession, captureBody: (String) -> Unit = {}, captureResponse: (String) -> Unit = {}, logId: String? = null): Response {
@@ -1824,17 +1826,22 @@ class LlmHttpService : Service() {
       return actual to max
     }
 
-    private fun addCorsHeaders(response: Response): Response {
-      response.addHeader("Access-Control-Allow-Origin", "*")
-      response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-      response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
-      response.addHeader("Access-Control-Max-Age", "86400")
+    /**
+     * Adds CORS headers to a response based on the configured allowed origins
+     * and the request's Origin header. Uses [LlmHttpCorsHelper] for origin matching.
+     */
+    private fun addCorsHeaders(response: Response, requestOrigin: String?): Response {
+      val allowedOrigins = LlmHttpPrefs.getCorsAllowedOrigins(this@LlmHttpService)
+      val headers = LlmHttpCorsHelper.buildCorsHeaders(allowedOrigins, requestOrigin)
+      for ((key, value) in headers) {
+        response.addHeader(key, value)
+      }
       return response
     }
 
-    private fun corsOk(): Response {
+    private fun corsOk(requestOrigin: String?): Response {
       val resp = newFixedLengthResponse(Response.Status.OK, "text/plain", "")
-      return addCorsHeaders(resp)
+      return addCorsHeaders(resp, requestOrigin)
     }
   }
 
