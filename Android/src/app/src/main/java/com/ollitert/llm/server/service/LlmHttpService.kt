@@ -652,6 +652,15 @@ class LlmHttpService : Service() {
                 responseBodySnapshot = body
                 okJsonText(body)
               }
+              LlmHttpRouteHandler.METRICS -> {
+                val body = LlmHttpPrometheusRenderer.render()
+                responseBodySnapshot = body
+                newFixedLengthResponse(
+                  Response.Status.OK,
+                  LlmHttpPrometheusRenderer.CONTENT_TYPE,
+                  body,
+                )
+              }
               LlmHttpRouteHandler.MODELS -> {
                 val body = modelsPayload()
                 responseBodySnapshot = body
@@ -1950,6 +1959,7 @@ class LlmHttpService : Service() {
         JsonPrimitive("/v1/chat/completions"),
         JsonPrimitive("/v1/responses"),
         JsonPrimitive("/health"),
+        JsonPrimitive("/metrics"),
       )))
     }
     return JsonObject(info).toString()

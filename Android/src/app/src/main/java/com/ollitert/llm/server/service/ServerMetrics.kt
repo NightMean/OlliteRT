@@ -93,6 +93,14 @@ object ServerMetrics {
   private val _lastContextUtilization = MutableStateFlow(0.0)
   val lastContextUtilization: StateFlow<Double> = _lastContextUtilization.asStateFlow()
 
+  // Cumulative timing counters for Prometheus /metrics endpoint (mirrors llama.cpp approach).
+  // These track total wall-clock time spent in prefill and decode phases across all requests.
+  private val _totalPrefillMs = AtomicLong(0)
+  val totalPrefillMs: Long get() = _totalPrefillMs.get()
+
+  private val _totalDecodeMs = AtomicLong(0)
+  val totalDecodeMs: Long get() = _totalDecodeMs.get()
+
   // Error tracking
   private val _errorCount = AtomicLong(0)
   private val _errorCountFlow = MutableStateFlow(0L)
@@ -177,6 +185,8 @@ object ServerMetrics {
     _lastPrefillSpeed.value = 0.0
     _lastItlMs.value = 0.0
     _lastContextUtilization.value = 0.0
+    _totalPrefillMs.set(0)
+    _totalDecodeMs.set(0)
     _modelLoadTimeMs.value = 0L
     _loadingStartedAtMs.value = 0L
     _activeAccelerator.value = null
@@ -269,6 +279,10 @@ object ServerMetrics {
     generationMs: Long,
     maxContextTokens: Long = 0,
   ) {
+    // Accumulate cumulative timing for Prometheus counters
+    if (ttfbMs > 0) _totalPrefillMs.addAndGet(ttfbMs)
+    if (generationMs > 0) _totalDecodeMs.addAndGet(generationMs)
+
     // Decode speed: output tokens / generation time (excludes prefill)
     if (outputTokens > 0 && generationMs > 0) {
       val decodeSpeed = outputTokens.toDouble() / (generationMs.toDouble() / 1000.0)
