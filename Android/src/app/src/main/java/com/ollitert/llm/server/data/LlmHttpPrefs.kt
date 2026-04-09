@@ -36,6 +36,14 @@ private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 
+// --- Log Persistence ---
+private const val KEY_LOG_PERSISTENCE_ENABLED = "log_persistence_enabled"
+private const val KEY_LOG_MAX_ENTRIES = "log_max_entries"
+private const val KEY_LOG_AUTO_DELETE_MINUTES = "log_auto_delete_minutes"
+private const val DEFAULT_LOG_PERSISTENCE_ENABLED = false
+private const val DEFAULT_LOG_MAX_ENTRIES = 500
+private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
+
 object LlmHttpPrefs {
   fun isEnabled(context: Context): Boolean =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
@@ -364,6 +372,41 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
+      .apply()
+  }
+
+  // --- Log Persistence ---
+
+  fun isLogPersistenceEnabled(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_LOG_PERSISTENCE_ENABLED, DEFAULT_LOG_PERSISTENCE_ENABLED)
+
+  fun setLogPersistenceEnabled(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_LOG_PERSISTENCE_ENABLED, enabled)
+      .apply()
+  }
+
+  fun getLogMaxEntries(context: Context): Int =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getInt(KEY_LOG_MAX_ENTRIES, DEFAULT_LOG_MAX_ENTRIES)
+
+  fun setLogMaxEntries(context: Context, maxEntries: Int) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putInt(KEY_LOG_MAX_ENTRIES, maxEntries)
+      .apply()
+  }
+
+  fun getLogAutoDeleteMinutes(context: Context): Long =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getLong(KEY_LOG_AUTO_DELETE_MINUTES, DEFAULT_LOG_AUTO_DELETE_MINUTES.toLong())
+
+  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putLong(KEY_LOG_AUTO_DELETE_MINUTES, minutes)
       .apply()
   }
 

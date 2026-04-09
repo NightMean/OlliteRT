@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -71,9 +72,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -101,6 +104,7 @@ fun SettingsScreen(
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
   val context = LocalContext.current
+  val focusManager = LocalFocusManager.current
 
   // Saved (persisted) values — used for change detection; updated after successful save
   var savedPort by remember { mutableStateOf(LlmHttpPrefs.getPort(context)) }
@@ -122,6 +126,9 @@ fun SettingsScreen(
   var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
   var savedShowRequestTypes by remember { mutableStateOf(LlmHttpPrefs.isShowRequestTypes(context)) }
   var savedCorsAllowedOrigins by remember { mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context)) }
+  var savedLogPersistenceEnabled by remember { mutableStateOf(LlmHttpPrefs.isLogPersistenceEnabled(context)) }
+  var savedLogMaxEntries by remember { mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context)) }
+  var savedLogAutoDeleteMinutes by remember { mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -148,6 +155,11 @@ fun SettingsScreen(
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
   var showRequestTypes by remember { mutableStateOf(savedShowRequestTypes) }
   var corsAllowedOrigins by remember { mutableStateOf(savedCorsAllowedOrigins) }
+  var logPersistenceEnabled by remember { mutableStateOf(savedLogPersistenceEnabled) }
+  var logMaxEntries by remember { mutableStateOf(savedLogMaxEntries) }
+  var logAutoDeleteMinutes by remember { mutableStateOf(savedLogAutoDeleteMinutes) }
+  var showClearPersistedDialog by remember { mutableStateOf(false) }
+  var showTrimLogsDialog by remember { mutableStateOf(false) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -169,7 +181,10 @@ fun SettingsScreen(
     clearLogsOnStop != savedClearLogsOnStop ||
     confirmClearLogs != savedConfirmClearLogs ||
     showRequestTypes != savedShowRequestTypes ||
-    corsAllowedOrigins != savedCorsAllowedOrigins
+    corsAllowedOrigins != savedCorsAllowedOrigins ||
+    logPersistenceEnabled != savedLogPersistenceEnabled ||
+    logMaxEntries != savedLogMaxEntries ||
+    logAutoDeleteMinutes != savedLogAutoDeleteMinutes
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -251,6 +266,32 @@ fun SettingsScreen(
           )
         }
 
+        // Log persistence settings
+        LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabled)
+        LlmHttpPrefs.setLogMaxEntries(context, logMaxEntries)
+        LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutes)
+
+        if (logPersistenceEnabled != savedLogPersistenceEnabled) {
+          RequestLogStore.addEvent(
+            "Log Persistence ${if (logPersistenceEnabled) "enabled" else "disabled"}",
+            category = EventCategory.SETTINGS,
+          )
+        }
+
+        // Access the persistence layer to sync settings
+        val persistenceEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+          context.applicationContext,
+          com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
+        )
+        val persistence = persistenceEntryPoint.requestLogPersistence()
+
+        // If persistence was just enabled, persist current in-memory entries to DB
+        if (logPersistenceEnabled && !savedLogPersistenceEnabled) {
+          persistence.persistCurrentEntries()
+        }
+        // Always sync the in-memory cap with the persistence setting
+        persistence.updateMaxEntries()
+
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
         if (keepScreenOn) {
@@ -279,6 +320,9 @@ fun SettingsScreen(
         savedConfirmClearLogs = confirmClearLogs
         savedShowRequestTypes = showRequestTypes
         savedCorsAllowedOrigins = corsAllowedOrigins
+        savedLogPersistenceEnabled = logPersistenceEnabled
+        savedLogMaxEntries = logMaxEntries
+        savedLogAutoDeleteMinutes = logAutoDeleteMinutes
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -289,8 +333,18 @@ fun SettingsScreen(
     }
   }
 
+  // Wrapper that warns if saving would trim existing logs
+  val trySave: () -> Unit = {
+    val currentCount = RequestLogStore.entries.value.size
+    if (logMaxEntries < currentCount && logMaxEntries != savedLogMaxEntries) {
+      showTrimLogsDialog = true
+    } else {
+      saveSettings()
+    }
+  }
+
   // Inject save button into the top bar
-  val currentSaveSettings by rememberUpdatedState(saveSettings)
+  val currentSaveSettings by rememberUpdatedState(trySave)
   DisposableEffect(Unit) {
     onSetTopBarTrailingContent {
       TooltipIconButton(
@@ -682,13 +736,11 @@ fun SettingsScreen(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
-
-      // Token display + actions (only when enabled)
+      // Token display + actions (only when bearer is enabled)
       if (bearerEnabled) {
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Token value in a copyable box
         Row(
@@ -882,6 +934,290 @@ fun SettingsScreen(
       }
     }
 
+    // Log Persistence card
+    SettingsCard(
+      icon = Icons.Outlined.Storage,
+      title = "Log Persistence",
+    ) {
+      // Master toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Persist Logs to Database",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Save activity logs to a local database so they survive app restarts. Disabled by default.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = logPersistenceEnabled,
+          onCheckedChange = { logPersistenceEnabled = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Child controls — disabled (greyed out) when master toggle is OFF
+      val childAlpha = if (logPersistenceEnabled) 1f else 0.4f
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Max Entries — simple number input, value updates live into unsaved state
+      Column(modifier = Modifier.alpha(childAlpha)) {
+        Text(
+          text = "Maximum Log Entries",
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        // Track as text so the user can freely edit (e.g. delete "500" and type "200")
+        var maxEntriesText by remember { mutableStateOf(logMaxEntries.toString()) }
+        OutlinedTextField(
+          value = maxEntriesText,
+          onValueChange = { text ->
+            val filtered = text.filter { it.isDigit() }.take(5) // max 5 digits (99999)
+            maxEntriesText = filtered
+            filtered.toIntOrNull()?.let { logMaxEntries = it }
+          },
+          singleLine = true,
+          enabled = logPersistenceEnabled,
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+          modifier = Modifier.fillMaxWidth(),
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = OlliteRTPrimary,
+            cursorColor = OlliteRTPrimary,
+          ),
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "Maximum entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Auto-Delete — number input + unit dropdown (minutes/hours/days)
+      Column(modifier = Modifier.alpha(childAlpha)) {
+        Text(
+          text = "Auto-Delete After",
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Decompose total minutes into a display value + unit for the UI.
+        // Pick the largest unit that divides evenly, defaulting to minutes.
+        val autoDeleteUnits = listOf("minutes", "hours", "days")
+        val (initialValue, initialUnit) = remember(savedLogAutoDeleteMinutes) {
+          val mins = savedLogAutoDeleteMinutes
+          when {
+            mins > 0 && mins % (24 * 60) == 0L -> (mins / (24 * 60)).toString() to "days"
+            mins > 0 && mins % 60 == 0L -> (mins / 60).toString() to "hours"
+            else -> mins.toString() to "minutes"
+          }
+        }
+        var autoDeleteValueText by remember { mutableStateOf(initialValue) }
+        var autoDeleteUnit by remember { mutableStateOf(initialUnit) }
+        var showUnitDropdown by remember { mutableStateOf(false) }
+
+        // Recompute total minutes whenever the value or unit changes.
+        // A value of 0 means auto-delete is disabled (logs kept indefinitely).
+        fun recomputeMinutes() {
+          val num = autoDeleteValueText.toLongOrNull() ?: return
+          logAutoDeleteMinutes = when (autoDeleteUnit) {
+            "hours" -> num * 60
+            "days" -> num * 24 * 60
+            else -> num
+          }
+        }
+
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          // Number input
+          OutlinedTextField(
+            value = autoDeleteValueText,
+            onValueChange = { text ->
+              val filtered = text.filter { it.isDigit() }.take(5)
+              autoDeleteValueText = filtered
+              recomputeMinutes()
+            },
+            singleLine = true,
+            enabled = logPersistenceEnabled,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.weight(1f),
+            colors = OutlinedTextFieldDefaults.colors(
+              focusedBorderColor = OlliteRTPrimary,
+              cursorColor = OlliteRTPrimary,
+            ),
+          )
+          // Unit selector dropdown
+          Column {
+            OutlinedTextField(
+              value = autoDeleteUnit,
+              onValueChange = {},
+              readOnly = true,
+              singleLine = true,
+              modifier = Modifier
+                .width(120.dp)
+                .clickable(enabled = logPersistenceEnabled) {
+                  focusManager.clearFocus() // dismiss keyboard so dropdown anchors correctly
+                  showUnitDropdown = true
+                },
+              enabled = false,
+              colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              ),
+            )
+            DropdownMenu(
+              expanded = showUnitDropdown,
+              onDismissRequest = { showUnitDropdown = false },
+            ) {
+              autoDeleteUnits.forEach { unit ->
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      unit,
+                      color = if (unit == autoDeleteUnit) OlliteRTPrimary
+                              else MaterialTheme.colorScheme.onSurface,
+                    )
+                  },
+                  onClick = {
+                    autoDeleteUnit = unit
+                    showUnitDropdown = false
+                    recomputeMinutes()
+                  },
+                )
+              }
+            }
+          }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "Persisted logs older than this are automatically removed from the database. Does not affect the current session's in-memory logs.\nSet to 0 to disable.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Clear All Logs button — wipes both in-memory and persisted logs.
+      // The user has no visibility into what's only in the DB vs in memory,
+      // so clearing should remove everything to avoid confusion.
+      Column(modifier = Modifier.alpha(childAlpha)) {
+        Button(
+          onClick = { showClearPersistedDialog = true },
+          enabled = logPersistenceEnabled,
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+          ),
+          shape = RoundedCornerShape(50),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text("Clear All Logs", fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "Remove all logs from the database and current session.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+
+    // Clear persisted logs confirmation dialog
+    if (showClearPersistedDialog) {
+      AlertDialog(
+        onDismissRequest = { showClearPersistedDialog = false },
+        title = { Text("Clear All Logs") },
+        text = { Text("This will permanently delete all logs — both the current session and the database. This cannot be undone.") },
+        confirmButton = {
+          Button(
+            onClick = {
+              showClearPersistedDialog = false
+              // Clear in-memory logs (also triggers onEntriesCleared → wipes DB via callback)
+              RequestLogStore.clear()
+              // Explicit DB wipe as well, in case callback didn't fire (e.g. persistence was just enabled)
+              val persistenceEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
+              )
+              persistenceEntryPoint.requestLogPersistence().clearPersistedLogs()
+              Toast.makeText(context, "All logs cleared", Toast.LENGTH_SHORT).show()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+          ) {
+            Text("Clear")
+          }
+        },
+        dismissButton = {
+          Button(
+            onClick = { showClearPersistedDialog = false },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+          ) {
+            Text("Cancel")
+          }
+        },
+      )
+    }
+
+    // Trim logs confirmation — shown when max entries is reduced below current count
+    if (showTrimLogsDialog) {
+      val currentCount = RequestLogStore.entries.value.size
+      val toRemove = currentCount - logMaxEntries
+      AlertDialog(
+        onDismissRequest = { showTrimLogsDialog = false },
+        title = { Text("Reduce Log Limit") },
+        text = {
+          Text("You currently have $currentCount logs. Reducing the limit to $logMaxEntries will remove the $toRemove oldest entries after saving.")
+        },
+        confirmButton = {
+          Button(
+            onClick = {
+              showTrimLogsDialog = false
+              saveSettings()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+          ) {
+            Text("Continue")
+          }
+        },
+        dismissButton = {
+          Button(
+            onClick = { showTrimLogsDialog = false },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+          ) {
+            Text("Cancel")
+          }
+        },
+      )
+    }
+
     // Discard unsaved changes dialog
     if (showDiscardDialog) {
       AlertDialog(
@@ -891,7 +1227,7 @@ fun SettingsScreen(
         confirmButton = {
           Button(onClick = {
             showDiscardDialog = false
-            saveSettings()
+            trySave()
             onBackClick()
           }) {
             Text("Save")

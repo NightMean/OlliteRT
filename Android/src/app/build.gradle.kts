@@ -1,3 +1,5 @@
+import java.util.Properties
+
 /*
  * Copyright 2025 Google LLC
  *
@@ -25,6 +27,12 @@ plugins {
   alias(libs.plugins.ksp)
 }
 
+// Short git hash for BuildConfig — enables traceability in bug reports and Settings footer.
+// Falls back to "unknown" when building outside a git repo (e.g. downloaded source archive).
+val gitHash: String = providers.exec {
+  commandLine("git", "rev-parse", "--short", "HEAD")
+}.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
+
 android {
   namespace = "com.ollitert.llm.server"
   compileSdk = 35
@@ -33,8 +41,8 @@ android {
     applicationId = "com.ollitert.llm.server"
     minSdk = 31
     targetSdk = 35
-    versionCode = 23
-    versionName = "1.0.11"
+    versionCode = (findProperty("APP_VERSION_CODE") as String).toInt()
+    versionName = findProperty("APP_VERSION_NAME") as String
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
@@ -42,7 +50,31 @@ android {
     manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server"
     manifestPlaceholders["applicationName"] = "com.ollitert.llm.server.OlliteRTApplication"
 
+    // Git commit hash for traceability in Settings footer and future bug reports
+    buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
+
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  // Release signing config: reads from keystore.properties (local dev) or
+  // environment variables (CI). Falls back to debug signing if neither is set.
+  signingConfigs {
+    create("release") {
+      val keystorePropsFile = rootProject.file("keystore.properties")
+      if (keystorePropsFile.exists()) {
+        val props = Properties()
+        keystorePropsFile.inputStream().use { props.load(it) }
+        storeFile = file(props.getProperty("storeFile"))
+        storePassword = props.getProperty("storePassword")
+        keyAlias = props.getProperty("keyAlias")
+        keyPassword = props.getProperty("keyPassword")
+      } else if (System.getenv("KEYSTORE_FILE") != null) {
+        storeFile = file(System.getenv("KEYSTORE_FILE"))
+        storePassword = System.getenv("STORE_PASSWORD")
+        keyAlias = System.getenv("KEY_ALIAS")
+        keyPassword = System.getenv("KEY_PASSWORD")
+      }
+    }
   }
 
   // Product flavors: dev, beta, prod — all three can be installed side-by-side.
@@ -81,9 +113,15 @@ android {
 
   buildTypes {
     release {
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("debug")
+      // Use release keystore if available, otherwise fall back to debug for local dev
+      signingConfig = if (signingConfigs.findByName("release")?.storeFile != null) {
+        signingConfigs.getByName("release")
+      } else {
+        signingConfigs.getByName("debug")
+      }
     }
   }
   compileOptions {
@@ -133,8 +171,11 @@ dependencies {
   implementation(libs.play.services.oss.licenses)
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
+  implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.room.ktx)
   ksp(libs.hilt.android.compiler)
   ksp(libs.moshi.kotlin.codegen)
+  ksp(libs.androidx.room.compiler)
   testImplementation(libs.junit)
   testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
   androidTestImplementation(libs.androidx.junit)

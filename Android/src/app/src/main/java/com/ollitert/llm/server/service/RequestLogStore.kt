@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 enum class LogLevel { INFO, WARNING, ERROR }
 
@@ -47,13 +48,65 @@ data class RequestLogEntry(
 )
 
 /**
- * In-memory FIFO store for API request logs. Max [MAX_ENTRIES] entries.
- * Clears on app restart. Observable via [entries] StateFlow.
+ * In-memory FIFO store for API request logs. Max [maxEntries] entries.
+ * Observable via [entries] StateFlow.
+ *
+ * When log persistence is enabled, a [PersistenceCallback] is registered to
+ * asynchronously write entries to Room. The callback receives individual entry
+ * events rather than observing the full StateFlow, which avoids reacting to
+ * high-frequency [partialText] streaming updates (~150ms intervals).
  */
 object RequestLogStore {
 
-  private const val MAX_ENTRIES = 100
+  /** Default cap when persistence is disabled. */
+  private const val DEFAULT_MAX_ENTRIES = 100
+
+  /**
+   * Maximum in-memory entries. When persistence is OFF, defaults to [DEFAULT_MAX_ENTRIES].
+   * When ON, set to the user's configured max via [setMaxEntries].
+   */
+  @Volatile var maxEntries: Int = DEFAULT_MAX_ENTRIES
+    private set
+
   private val idCounter = AtomicLong(0)
+
+  /** Callback for the persistence layer to observe add/update/clear events. */
+  interface PersistenceCallback {
+    /** A new entry was added (create). */
+    fun onEntryAdded(entry: RequestLogEntry)
+
+    /**
+     * An existing entry was updated.
+     * [isTerminal] is true when the entry transitions to a final state
+     * (isPending→false or isCancelled→true) — the persistence layer should
+     * only write to the DB on terminal updates, skipping streaming partialText changes.
+     */
+    fun onEntryUpdated(entry: RequestLogEntry, isTerminal: Boolean)
+
+    /** All entries were cleared. */
+    fun onEntriesCleared()
+  }
+
+  @Volatile private var persistenceCallback: PersistenceCallback? = null
+
+  /** Register a persistence callback (called by [RequestLogPersistence] on app start). */
+  fun setPersistenceCallback(callback: PersistenceCallback?) {
+    persistenceCallback = callback
+  }
+
+  /**
+   * Update the in-memory entry cap. Called when persistence settings change.
+   * If the new cap is lower than the current count, excess entries are trimmed immediately.
+   */
+  fun setMaxEntries(max: Int) {
+    maxEntries = max
+    // 0 means no limit — skip trimming
+    if (max > 0) {
+      _entries.update { current ->
+        if (current.size > max) current.take(max) else current
+      }
+    }
+  }
 
   /**
    * Maps pending log-entry IDs to callbacks that cancel the in-flight inference.
@@ -66,21 +119,37 @@ object RequestLogStore {
   val entries: StateFlow<List<RequestLogEntry>> = _entries.asStateFlow()
 
   fun add(entry: RequestLogEntry) {
-    val current = _entries.value.toMutableList()
-    current.add(0, entry) // newest first
-    if (current.size > MAX_ENTRIES) {
-      current.removeAt(current.lastIndex)
+    _entries.update { current ->
+      buildList {
+        add(entry) // newest first
+        addAll(current)
+        // maxEntries == 0 means no limit (keep all entries)
+        if (maxEntries > 0 && size > maxEntries) removeAt(lastIndex)
+      }
     }
-    _entries.value = current
+    persistenceCallback?.onEntryAdded(entry)
   }
 
   /** Update an existing entry by ID. */
   fun update(id: String, transform: (RequestLogEntry) -> RequestLogEntry) {
-    val current = _entries.value.toMutableList()
-    val index = current.indexOfFirst { it.id == id }
-    if (index >= 0) {
-      current[index] = transform(current[index])
-      _entries.value = current
+    // Capture old/new for the persistence callback outside the atomic update.
+    var old: RequestLogEntry? = null
+    var updated: RequestLogEntry? = null
+
+    _entries.update { current ->
+      val index = current.indexOfFirst { it.id == id }
+      if (index < 0) return@update current
+      old = current[index]
+      updated = transform(old!!)
+      current.toMutableList().also { it[index] = updated!! }
+    }
+
+    if (updated != null) {
+      // Only notify persistence for terminal state changes (pending→complete or cancelled).
+      // This skips the high-frequency partialText streaming updates (~150ms intervals).
+      val isTerminal = (old!!.isPending && !updated!!.isPending) ||
+        (!old!!.isCancelled && updated!!.isCancelled)
+      persistenceCallback?.onEntryUpdated(updated!!, isTerminal)
     }
   }
 
@@ -104,8 +173,27 @@ object RequestLogStore {
   }
 
   fun clear() {
-    _entries.value = emptyList()
+    _entries.update { emptyList() }
     pendingCancellations.clear()
+    persistenceCallback?.onEntriesCleared()
+  }
+
+  /**
+   * Remove in-memory entries older than [cutoffMs] (epoch millis).
+   * Does not trigger persistence callbacks — the caller is responsible for
+   * pruning the database separately.
+   */
+  fun removeOlderThan(cutoffMs: Long) {
+    _entries.update { current -> current.filter { it.timestamp >= cutoffMs } }
+  }
+
+  /**
+   * Bulk-load entries from the database on startup.
+   * Replaces the current in-memory list without triggering persistence callbacks
+   * (the data is already in the DB).
+   */
+  fun loadEntries(entries: List<RequestLogEntry>) {
+    _entries.update { entries }
   }
 
   /**
