@@ -119,13 +119,19 @@ object LlmHttpResponseRenderer {
   fun buildChatStreamFinalChunk(chatId: String, modelId: String, now: Long, finishReason: String = "stop"): String =
     "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = null, finishReason = finishReason)}\n\n"
 
-  /** Usage chunk sent before [DONE] when stream_options.include_usage = true. */
+  /**
+   * Usage chunk sent before [DONE] when stream_options.include_usage = true.
+   * Optionally includes non-standard `timings` object (widely used by local LLM tooling
+   * like Open WebUI for per-message performance display).
+   */
   fun buildChatStreamUsageChunk(
     chatId: String, modelId: String, now: Long,
     promptTokens: Int, completionTokens: Int,
+    timingsJson: String? = null,
   ): String {
     val total = promptTokens + completionTokens
-    return """data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[],"usage":{"prompt_tokens":$promptTokens,"completion_tokens":$completionTokens,"total_tokens":$total}}""" + "\n\n"
+    val timingsSuffix = if (timingsJson != null) ""","timings":$timingsJson""" else ""
+    return """data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[],"usage":{"prompt_tokens":$promptTokens,"completion_tokens":$completionTokens,"total_tokens":$total}$timingsSuffix}""" + "\n\n"
   }
 
   private fun buildChatChunkJson(
@@ -178,13 +184,14 @@ object LlmHttpResponseRenderer {
     }
   }
 
-  fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall): String {
+  fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall, inputTokens: Int = 0, outputTokens: Int = 0): String {
     val now = System.currentTimeMillis() / 1000
     val respId = "resp-${java.util.UUID.randomUUID()}"
     val fcId = "fc-${java.util.UUID.randomUUID()}"
     val callId = toolCall.id
     val name = toolCall.function.name
     val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)
+    val totalTokens = inputTokens + outputTokens
 
     return buildString {
       append(emitSseEvent("response.created", """{"type":"response.created","response":{"id":"$respId","object":"response","created_at":$now,"status":"in_progress","model":"$modelId","output":[]}}"""))
@@ -193,7 +200,7 @@ object LlmHttpResponseRenderer {
       append(emitSseEvent("response.function_call_arguments.delta", """{"type":"response.function_call_arguments.delta","output_index":0,"item_id":"$fcId","call_id":"$callId","delta":"$escapedArgs"}"""))
       append(emitSseEvent("response.function_call_arguments.done", """{"type":"response.function_call_arguments.done","output_index":0,"item_id":"$fcId","call_id":"$callId","arguments":"$escapedArgs"}"""))
       append(emitSseEvent("response.output_item.done", """{"type":"response.output_item.done","output_index":0,"item":{"type":"function_call","id":"$fcId","call_id":"$callId","name":"$name","arguments":"$escapedArgs","status":"completed"}}"""))
-      append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"type":"function_call","id":"$fcId","call_id":"$callId","name":"$name","arguments":"$escapedArgs","status":"completed"}],"usage":{"input_tokens":0,"output_tokens":0,"total_tokens":0}}}"""))
+      append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"type":"function_call","id":"$fcId","call_id":"$callId","name":"$name","arguments":"$escapedArgs","status":"completed"}],"usage":{"input_tokens":$inputTokens,"output_tokens":$outputTokens,"total_tokens":$totalTokens}}}"""))
       append("data: [DONE]\n\n")
     }
   }

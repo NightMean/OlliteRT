@@ -268,6 +268,9 @@ class LlmHttpService : Service() {
           return@Thread
         }
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
+        ServerMetrics.setActiveAccelerator(
+          model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.label]?.toString()
+        )
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
         // Check for queued reload (user changed reinit settings while model was loading)
@@ -677,6 +680,8 @@ class LlmHttpService : Service() {
           isPending = if (isStreaming) it.isPending else false,
         )
       }
+      // x-request-id: standard request tracing header used by Open WebUI and other clients
+      response.addHeader("x-request-id", logId)
       return addCorsHeaders(response)
     }
 
@@ -712,7 +717,11 @@ class LlmHttpService : Service() {
       val (text, llmError) = runLlm(model, prompt, requestId, "/generate")
       ServerMetrics.onInferenceCompleted()
       if (text == null) return badRequest(llmError ?: "llm error")
-      val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(0, 0)))
+      // Token counts are estimates (charLen / 4) — LiteRT SDK has no standalone tokenizer API
+      val promptTokens = (prompt.length / 4).coerceAtLeast(if (prompt.isNotEmpty()) 1 else 0)
+      val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+      val timings = buildTimings(promptTokens, completionTokens)
+      val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(promptTokens, completionTokens), timings = timings))
       captureResponse(responseJson)
       return okJsonText(responseJson)
     }
@@ -808,18 +817,24 @@ class LlmHttpService : Service() {
           }
           val (text, _) = applyStopSequences(rawText, stopSeqs)
 
+          val promptTokens = (prompt.length / 4).coerceAtLeast(1)
+
           // Check if the model output contains tool call(s) — supports parallel calls
           if (hasTools) {
             val toolCalls = LlmHttpToolCallParser.parseAll(text, req.tools!!)
             if (toolCalls.isNotEmpty()) {
               logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
-              val responseJson = json.encodeToString(chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
+              val completionTokens = (toolCalls.sumOf { it.function.arguments.length } / 4).coerceAtLeast(1)
+              val timings = buildTimings(promptTokens, completionTokens)
+              val responseJson = json.encodeToString(chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
               captureResponse(responseJson)
               return@withPerRequestConfig okJsonText(responseJson)
             }
           }
 
-          val responseJson = json.encodeToString(chatResponseWithText(model.name, text, promptLen = prompt.length))
+          val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+          val timings = buildTimings(promptTokens, completionTokens)
+          val responseJson = json.encodeToString(chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
           captureResponse(responseJson)
           okJsonText(responseJson)
         }
@@ -892,12 +907,14 @@ class LlmHttpService : Service() {
         val (text, _) = applyStopSequences(rawText, stopSequences?.ifEmpty { null })
         val promptTokens = (prompt.length / 4).coerceAtLeast(1)
         val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+        val timings = buildTimings(promptTokens, completionTokens)
         val responseJson = json.encodeToString(CompletionResponse(
           id = "cmpl-${java.util.UUID.randomUUID()}",
           created = System.currentTimeMillis() / 1000,
           model = model.name,
           choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
           usage = Usage(promptTokens, completionTokens),
+          timings = timings,
         ))
         captureResponse(responseJson)
         okJsonText(responseJson)
@@ -1333,7 +1350,7 @@ class LlmHttpService : Service() {
       timeoutSeconds: Long = 120,
       images: List<Bitmap> = emptyList(),
       logId: String? = null,
-      includeUsage: Boolean = false,
+      @Suppress("UNUSED_PARAMETER") includeUsage: Boolean = false, // Usage+timings are always sent for client compatibility
       stopSequences: List<String>? = null,
       tools: List<ToolSpec>? = null,
       configSnapshot: Map<String, Any>? = null,
@@ -1541,9 +1558,13 @@ class LlmHttpService : Service() {
                 }
                 stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, model.name, now, "stop"))
               }
-              if (includeUsage) {
-                stream.enqueue(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, model.name, now, promptTokens, completionTokens))
-              }
+              // Build non-standard performance timings (used by Open WebUI and other local LLM clients)
+              val timings = buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
+              val timingsJson = if (timings != null) json.encodeToString(timings) else null
+              // Always send usage+timings chunk, not just when stream_options.include_usage is set.
+              // Most local LLM clients (Open WebUI, etc.) expect usage data in every streaming
+              // response for token tracking and performance display.
+              stream.enqueue(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, model.name, now, promptTokens, completionTokens, timingsJson))
               stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
               stream.finish()
               if (logId != null) {
@@ -1553,9 +1574,9 @@ class LlmHttpService : Service() {
                   fullText.toString()
                 }
                 val responseJson = if (parsedToolCalls.isNotEmpty()) {
-                  json.encodeToString(chatResponseWithToolCalls(model.name, parsedToolCalls, promptLen = prompt.length))
+                  json.encodeToString(chatResponseWithToolCalls(model.name, parsedToolCalls, promptLen = prompt.length, timings = timings))
                 } else {
-                  json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length))
+                  json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length, timings = timings))
                 }
                 RequestLogStore.update(logId) {
                   it.copy(
@@ -1620,8 +1641,12 @@ class LlmHttpService : Service() {
     private fun sseResponse(modelId: String, text: String): Response =
       chunkedSseResponse(LlmHttpResponseRenderer.buildTextSsePayload(modelId, text))
 
-    private fun sseResponseToolCall(modelId: String, toolCall: ToolCall): Response =
-      chunkedSseResponse(LlmHttpResponseRenderer.buildToolCallSsePayload(modelId, toolCall))
+    private fun sseResponseToolCall(modelId: String, toolCall: ToolCall, promptLen: Int = 0): Response {
+      // Token counts are estimates (charLen / 4) — LiteRT SDK has no standalone tokenizer API
+      val inputTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
+      val outputTokens = (toolCall.function.arguments.length / 4).coerceAtLeast(1)
+      return chunkedSseResponse(LlmHttpResponseRenderer.buildToolCallSsePayload(modelId, toolCall, inputTokens, outputTokens))
+    }
 
     private fun emptyResponse(modelId: String, stream: Boolean): Response {
       val body = responsesResponseWithText(modelId, "")
@@ -1808,30 +1833,80 @@ class LlmHttpService : Service() {
     return json.encodeToString(LlmHttpModelList(data = listOf(item)))
   }
 
+  // ── Response builders ──────────────────────────────────────────────────
+  // Token counts in all response builders below are **estimates** (charLen / 4).
+  // LiteRT LM SDK has no standalone tokenizer API — see Usage class doc for details.
+
+  /**
+   * Build performance timings from the most recent inference metrics.
+   * Safe to call right after runLlm() completes — inference is serialized via [inferenceLock],
+   * so the ServerMetrics "last" values are guaranteed to be from the current request.
+   *
+   * Returns null if no valid timing data is available (e.g. TTFB was 0).
+   */
+  private fun buildTimings(promptTokens: Int, completionTokens: Int): InferenceTimings? {
+    val ttfbMs = ServerMetrics.lastTtfbMs.value
+    val totalMs = ServerMetrics.lastLatencyMs.value
+    if (ttfbMs <= 0 || totalMs <= 0) return null
+    val promptMs = ttfbMs.toDouble()
+    val predictedMs = (totalMs - ttfbMs).toDouble()
+    return InferenceTimings(
+      prompt_n = promptTokens,
+      prompt_ms = promptMs,
+      prompt_per_token_ms = if (promptTokens > 0) promptMs / promptTokens else 0.0,
+      prompt_per_second = if (promptMs > 0) promptTokens * 1000.0 / promptMs else 0.0,
+      predicted_n = completionTokens,
+      predicted_ms = predictedMs,
+      predicted_per_token_ms = if (completionTokens > 0) predictedMs / completionTokens else 0.0,
+      predicted_per_second = if (predictedMs > 0) completionTokens * 1000.0 / predictedMs else 0.0,
+    )
+  }
+
+  /**
+   * Build performance timings from explicit timing values (for streaming paths
+   * where timing data is computed locally, not read from ServerMetrics).
+   */
+  private fun buildTimingsFromValues(promptTokens: Int, completionTokens: Int, ttfbMs: Long, totalMs: Long): InferenceTimings? {
+    if (ttfbMs <= 0 || totalMs <= 0) return null
+    val promptMs = ttfbMs.toDouble()
+    val predictedMs = (totalMs - ttfbMs).toDouble()
+    return InferenceTimings(
+      prompt_n = promptTokens,
+      prompt_ms = promptMs,
+      prompt_per_token_ms = if (promptTokens > 0) promptMs / promptTokens else 0.0,
+      prompt_per_second = if (promptMs > 0) promptTokens * 1000.0 / promptMs else 0.0,
+      predicted_n = completionTokens,
+      predicted_ms = predictedMs,
+      predicted_per_token_ms = if (completionTokens > 0) predictedMs / completionTokens else 0.0,
+      predicted_per_second = if (predictedMs > 0) completionTokens * 1000.0 / predictedMs else 0.0,
+    )
+  }
+
   private fun emptyChatResponse(modelName: String) = ChatResponse(
     id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
     choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), "stop")),
     usage = Usage(0, 0),
   )
 
-  private fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = "stop") = ChatResponse(
-    id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finishReason)),
-    usage = Usage(
-      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
-      completion_tokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0),
-    ),
-  )
+  private fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = "stop", timings: InferenceTimings? = null): ChatResponse {
+    val promptTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
+    val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+    return ChatResponse(
+      id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finishReason)),
+      usage = Usage(promptTokens, completionTokens),
+      timings = timings,
+    )
+  }
 
-  private fun chatResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0): ChatResponse {
-    val argsLen = toolCalls.sumOf { it.function.arguments.length }
+  private fun chatResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0, timings: InferenceTimings? = null): ChatResponse {
+    val promptTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
+    val completionTokens = (toolCalls.sumOf { it.function.arguments.length } / 4).coerceAtLeast(1)
     return ChatResponse(
       id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
       choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), "tool_calls")),
-      usage = Usage(
-        prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
-        completion_tokens = (argsLen / 4).coerceAtLeast(1),
-      ),
+      usage = Usage(promptTokens, completionTokens),
+      timings = timings,
     )
   }
 
