@@ -6,6 +6,7 @@ enum class LlmHttpRouteHandler {
   PING,
   HEALTH,
   SERVER_INFO,
+  METRICS,
   MODELS,
   MODEL_DETAIL,
   GENERATE,
@@ -31,6 +32,7 @@ object LlmHttpRouteResolver {
           uri == "/ping" -> LlmHttpRoute(handler = LlmHttpRouteHandler.PING, requiresAuth = false)
           uri == "/health" || uri == "/v1/health" -> LlmHttpRoute(handler = LlmHttpRouteHandler.HEALTH, requiresAuth = false)
           uri == "/" || uri == "/v1" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false)
+          uri == "/metrics" -> LlmHttpRoute(handler = LlmHttpRouteHandler.METRICS, requiresAuth = false)
           uri == "/v1/models" || uri == "/debug/models" ->
             LlmHttpRoute(handler = LlmHttpRouteHandler.MODELS, requiresAuth = true)
           uri.startsWith("/v1/models/") -> LlmHttpRoute(handler = LlmHttpRouteHandler.MODEL_DETAIL, requiresAuth = true)

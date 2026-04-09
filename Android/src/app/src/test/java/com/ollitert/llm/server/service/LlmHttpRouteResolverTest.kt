@@ -126,6 +126,21 @@ class LlmHttpRouteResolverTest {
   }
 
   @Test
+  fun resolvesMetricsRoute() {
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.METRICS, requiresAuth = false),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/metrics"),
+    )
+  }
+
+  @Test
+  fun metricsRouteDoesNotRequireAuth() {
+    val route = LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/metrics")
+    assertNotNull(route)
+    assertFalse("Metrics endpoint should not require auth", route!!.requiresAuth)
+  }
+
+  @Test
   fun unknownEndpointsReturnNull() {
     assertNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/chat/completions"))
     assertNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/models"))
