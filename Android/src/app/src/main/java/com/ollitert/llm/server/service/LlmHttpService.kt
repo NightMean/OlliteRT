@@ -666,6 +666,10 @@ class LlmHttpService : Service() {
       val isStreaming = response.mimeType == "text/event-stream"
       val isThinking = responseBodySnapshot?.contains("<think>") == true
       RequestLogStore.update(logId) {
+        // If the cancel handler already finalized this entry (user tapped Stop), don't overwrite it.
+        if (it.isCancelled) return@update it.copy(
+          requestBody = requestBodySnapshot ?: it.requestBody,
+        )
         val level = when {
           statusCode !in 200..299 -> LogLevel.ERROR
           it.isCompacted -> LogLevel.WARNING
@@ -734,7 +738,7 @@ class LlmHttpService : Service() {
       logPayload("POST /generate prompt", prompt, requestId)
       logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=default")
       ServerMetrics.onInferenceStarted()
-      val (text, llmError) = runLlm(model, prompt, requestId, "/generate")
+      val (text, llmError) = runLlm(model, prompt, requestId, "/generate", logId = logId)
       ServerMetrics.onInferenceCompleted()
       if (text == null) return badRequest(enrichLlmError(llmError ?: "llm error"))
       // Token counts are estimates (charLen / 4) — LiteRT SDK has no standalone tokenizer API
@@ -831,7 +835,7 @@ class LlmHttpService : Service() {
       } else {
         withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens) {
           ServerMetrics.onInferenceStarted()
-          val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images)
+          val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId)
           ServerMetrics.onInferenceCompleted()
           if (rawText == null) {
             val errorMsg = enrichLlmError(llmError ?: "llm error")
@@ -925,7 +929,7 @@ class LlmHttpService : Service() {
       return withPerRequestConfig(model, req.temperature, req.top_p, topK = null, req.max_tokens) {
         // Streaming completions: fall through to non-streaming for now (TODO: implement streaming)
         ServerMetrics.onInferenceStarted()
-        val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120)
+        val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120, logId = logId)
         ServerMetrics.onInferenceCompleted()
         if (rawText == null) {
           val errorMsg = enrichLlmError(llmError ?: "llm error")
@@ -1019,7 +1023,7 @@ class LlmHttpService : Service() {
       } else {
         withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens) {
           ServerMetrics.onInferenceStarted()
-          val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90)
+          val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId)
           ServerMetrics.onInferenceCompleted()
           if (text == null) {
             val errorMsg = enrichLlmError(llmError ?: "llm error")
@@ -1069,6 +1073,7 @@ class LlmHttpService : Service() {
       timeoutSeconds: Long = 30,
       images: List<Bitmap> = emptyList(),
       eagerVisionInit: Boolean = false,
+      logId: String? = null,
     ): Pair<String?, String?> {
       // Track input tokens (rough estimate: ~4 chars per token)
       ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
@@ -1103,6 +1108,17 @@ class LlmHttpService : Service() {
         (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
       val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
+      // Register a cancellation callback so the user can stop this request from the Logs screen.
+      // For non-streaming requests, calling stopResponse triggers CancellationException in the
+      // LiteRT SDK which completes inference early — we then check the flag and return an error.
+      val userCancelFlag = java.util.concurrent.atomic.AtomicBoolean(false)
+      if (logId != null) {
+        RequestLogStore.registerCancellation(logId) {
+          userCancelFlag.set(true)
+          ServerLlmModelHelper.stopResponse(model)
+        }
+      }
+
       val result = LlmHttpInferenceGateway.execute(
         prompt = prompt,
         timeoutSeconds = timeoutSeconds,
@@ -1125,6 +1141,22 @@ class LlmHttpService : Service() {
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
         elapsedMs = { SystemClock.elapsedRealtime() },
       )
+      if (logId != null) RequestLogStore.unregisterCancellation(logId)
+
+      // If the user tapped Stop in the Logs screen, return a cancellation error
+      // instead of the (potentially partial) inference output.
+      if (userCancelFlag.get()) {
+        val keepPartial = LlmHttpPrefs.isKeepPartialResponse(this@LlmHttpService)
+        val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
+        if (logId != null) {
+          RequestLogStore.update(logId) {
+            it.copy(partialText = partial, isPending = false, isCancelled = true, latencyMs = result.totalMs)
+          }
+        }
+        logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false user_stopped=true outputChars=${result.output?.length ?: 0}")
+        return null to "Generation stopped by user in OlliteRT"
+      }
+
       return if (result.error != null) {
         ServerMetrics.incrementErrorCount()
         logEvent("request_error id=$requestId endpoint=$endpoint error=${result.error} totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
@@ -1219,6 +1251,11 @@ class LlmHttpService : Service() {
 
       val stream = BlockingQueueInputStream()
 
+      // Allow the user to stop this streaming request from the Logs screen.
+      if (logId != null) {
+        RequestLogStore.registerCancellation(logId) { stream.cancel() }
+      }
+
       // Capture original config so we can restore after streaming completes.
       val originalConfig = if (configSnapshot != null) model.configValues else null
 
@@ -1246,6 +1283,7 @@ class LlmHttpService : Service() {
         elapsedMs = { SystemClock.elapsedRealtime() },
         onToken = { partial, done, thought ->
           if (stream.isCancelled) {
+            if (logId != null) RequestLogStore.unregisterCancellation(logId)
             if (originalConfig != null) model.configValues = originalConfig
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
@@ -1301,6 +1339,7 @@ class LlmHttpService : Service() {
               }
             }
             if (done) {
+              if (logId != null) RequestLogStore.unregisterCancellation(logId)
               if (originalConfig != null) model.configValues = originalConfig
               // Close thinking tag if still open (thinking-only response with no regular content)
               if (thinkingTagOpened) {
@@ -1347,6 +1386,7 @@ class LlmHttpService : Service() {
               logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen")
             }
           } catch (e: Exception) {
+            if (logId != null) RequestLogStore.unregisterCancellation(logId)
             if (originalConfig != null) model.configValues = originalConfig
             ServerMetrics.onInferenceCompleted()
             logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
@@ -1358,6 +1398,7 @@ class LlmHttpService : Service() {
           }
         },
         onError = { error ->
+          if (logId != null) RequestLogStore.unregisterCancellation(logId)
           if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
@@ -1462,6 +1503,11 @@ class LlmHttpService : Service() {
       // so we must buffer first, then emit either tool_calls or content.
       val bufferForTools = tools != null
 
+      // Allow the user to stop this streaming request from the Logs screen.
+      if (logId != null) {
+        RequestLogStore.registerCancellation(logId) { stream.cancel() }
+      }
+
       // Capture original config so we can restore after streaming completes.
       // configSnapshot (if non-null) is applied in resetConversation on the executor thread
       // to avoid a race where config is restored before inference reads it.
@@ -1491,6 +1537,7 @@ class LlmHttpService : Service() {
         elapsedMs = { SystemClock.elapsedRealtime() },
         onToken = { partial, done, thought ->
           if (stream.isCancelled) {
+            if (logId != null) RequestLogStore.unregisterCancellation(logId)
             if (originalConfig != null) model.configValues = originalConfig
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
@@ -1566,6 +1613,7 @@ class LlmHttpService : Service() {
               }
             }
             if (done) {
+              if (logId != null) RequestLogStore.unregisterCancellation(logId)
               if (originalConfig != null) model.configValues = originalConfig
               val outputLen = fullText.length
               val inputTokens = (prompt.length / 4).toLong().coerceAtLeast(1)
@@ -1641,6 +1689,7 @@ class LlmHttpService : Service() {
               logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${if (parsedToolCalls.isNotEmpty()) " tool_calls=${parsedToolCalls.joinToString(",") { it.function.name }} count=${parsedToolCalls.size}" else ""}")
             }
           } catch (e: Exception) {
+            if (logId != null) RequestLogStore.unregisterCancellation(logId)
             if (originalConfig != null) model.configValues = originalConfig
             ServerMetrics.onInferenceCompleted()
             logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
@@ -1652,6 +1701,7 @@ class LlmHttpService : Service() {
           }
         },
         onError = { error ->
+          if (logId != null) RequestLogStore.unregisterCancellation(logId)
           if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           ServerMetrics.incrementErrorCount()
