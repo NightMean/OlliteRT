@@ -140,6 +140,12 @@ fun OlliteRTNavHost(
           serverViewModel.stopServer()
           serverViewModel.startServer(modelName = currentModel)
         },
+        onStopServer = { serverViewModel.stopServer() },
+        onNavigateToModels = {
+          navController.navigate(OlliteRTRoutes.MODELS) {
+            popUpTo(OlliteRTRoutes.SETTINGS) { inclusive = true }
+          }
+        },
         downloadedModelNames = downloadedModelNames,
         onSetTopBarTrailingContent = onSetTopBarTrailingContent,
       )

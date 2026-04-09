@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
@@ -100,6 +101,8 @@ fun SettingsScreen(
   modifier: Modifier = Modifier,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   onRestartServer: () -> Unit = {},
+  onStopServer: () -> Unit = {},
+  onNavigateToModels: () -> Unit = {},
   downloadedModelNames: List<String> = emptyList(),
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
@@ -160,6 +163,7 @@ fun SettingsScreen(
   var logAutoDeleteMinutes by remember { mutableStateOf(savedLogAutoDeleteMinutes) }
   var showClearPersistedDialog by remember { mutableStateOf(false) }
   var showTrimLogsDialog by remember { mutableStateOf(false) }
+  var showResetDialog by remember { mutableStateOf(false) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -1284,6 +1288,71 @@ fun SettingsScreen(
       )
     }
 
+    // Reset to Defaults confirmation dialog
+    if (showResetDialog) {
+      val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
+      AlertDialog(
+        onDismissRequest = { showResetDialog = false },
+        title = { Text("Reset to Defaults") },
+        text = {
+          Text(
+            "This will reset all settings to their default values, including port, " +
+              "bearer token, HuggingFace token, inference configs, system prompts, " +
+              "and all toggles." +
+              if (isServerActive) "\n\nThe server will be stopped." else "",
+          )
+        },
+        confirmButton = {
+          Button(
+            onClick = {
+              showResetDialog = false
+
+              // Stop the server if it's running
+              if (isServerActive) {
+                onStopServer()
+              }
+
+              // Clear all SharedPreferences
+              LlmHttpPrefs.resetToDefaults(context)
+
+              // Clear persisted logs and in-memory log store
+              RequestLogStore.clear()
+              val persistenceEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
+              )
+              persistenceEntryPoint.requestLogPersistence().clearPersistedLogs()
+
+              // Restore keep-screen-on to default (true) immediately
+              val window = (context as? android.app.Activity)?.window
+              window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+              Toast.makeText(context, "All settings reset to defaults", Toast.LENGTH_SHORT).show()
+
+              // Navigate to the Models screen
+              onNavigateToModels()
+            },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.error,
+            ),
+          ) {
+            Text("Reset")
+          }
+        },
+        dismissButton = {
+          Button(
+            onClick = { showResetDialog = false },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+          ) {
+            Text("Cancel")
+          }
+        },
+      )
+    }
+
     // Advanced Settings card
     SettingsCard(
       icon = Icons.Outlined.Science,
@@ -1457,6 +1526,29 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+    }
+
+    // Reset to Defaults
+    Spacer(modifier = Modifier.height(16.dp))
+    Button(
+      onClick = { showResetDialog = true },
+      modifier = Modifier.fillMaxWidth(),
+      shape = RoundedCornerShape(50),
+      colors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.error,
+      ),
+    ) {
+      Icon(
+        imageVector = Icons.Outlined.RestartAlt,
+        contentDescription = null,
+        modifier = Modifier.size(18.dp),
+      )
+      Spacer(modifier = Modifier.width(8.dp))
+      Text(
+        text = "Reset to Defaults",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+      )
     }
 
     // Footer
