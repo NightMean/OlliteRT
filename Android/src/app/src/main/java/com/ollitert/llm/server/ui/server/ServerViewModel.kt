@@ -41,6 +41,8 @@ class ServerViewModel @Inject constructor(
   val peakDecodeSpeed = ServerMetrics.peakDecodeSpeed
   val lastPrefillSpeed = ServerMetrics.lastPrefillSpeed
   val lastItlMs = ServerMetrics.lastItlMs
+  val lastContextUtilization = ServerMetrics.lastContextUtilization
+  val activeAccelerator = ServerMetrics.activeAccelerator
   val modelLoadTimeMs = ServerMetrics.modelLoadTimeMs
   val loadingStartedAtMs = ServerMetrics.loadingStartedAtMs
   val lastError = ServerMetrics.lastError

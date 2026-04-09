@@ -89,7 +89,7 @@ object ServerMetrics {
   val lastItlMs: StateFlow<Double> = _lastItlMs.asStateFlow()
 
   // Context utilization — last request's input tokens as % of model's max context window.
-  // Per-request metric, no UI yet — exposed for future use (e.g. per-log-entry display).
+  // Displayed on the Status screen; uses estimated token counts (charLen / 4).
   private val _lastContextUtilization = MutableStateFlow(0.0)
   val lastContextUtilization: StateFlow<Double> = _lastContextUtilization.asStateFlow()
 
@@ -109,6 +109,10 @@ object ServerMetrics {
   /** Size of the active model in bytes, or 0 if none. */
   private val _activeModelSize = MutableStateFlow(0L)
   val activeModelSize: StateFlow<Long> = _activeModelSize.asStateFlow()
+
+  /** Active accelerator backend (e.g. "GPU", "CPU") for the loaded model, or null if none. */
+  private val _activeAccelerator = MutableStateFlow<String?>(null)
+  val activeAccelerator: StateFlow<String?> = _activeAccelerator.asStateFlow()
 
   /** Human-readable error message when status is ERROR, or null. */
   private val _lastError = MutableStateFlow<String?>(null)
@@ -171,6 +175,7 @@ object ServerMetrics {
     _lastContextUtilization.value = 0.0
     _modelLoadTimeMs.value = 0L
     _loadingStartedAtMs.value = 0L
+    _activeAccelerator.value = null
     _lastError.value = null
     _isInferring.value = false
   }
@@ -219,6 +224,10 @@ object ServerMetrics {
 
   fun setActiveModelSize(bytes: Long) {
     _activeModelSize.value = bytes
+  }
+
+  fun setActiveAccelerator(accelerator: String?) {
+    _activeAccelerator.value = accelerator
   }
 
   fun recordModelLoadTime(ms: Long) {

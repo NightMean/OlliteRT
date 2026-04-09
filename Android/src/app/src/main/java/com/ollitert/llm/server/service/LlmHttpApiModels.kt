@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -16,10 +18,44 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+/**
+ * Token usage reported in API responses.
+ *
+ * **LiteRT SDK limitation:** The LiteRT LM SDK (litertlm) does not expose a standalone tokenizer
+ * API — tokenization happens inside the native inference call and the token count is not returned.
+ * All token counts are **estimated** using `charLength / 4`, which is reasonably accurate for
+ * English text (~3.5–4 chars/token for Gemma/GPT tokenizers) but drifts for code (~2.5 chars/token)
+ * and multilingual text. There is no `countTokens()` method available. Bundling a separate
+ * SentencePiece tokenizer per model family would add binary size and complexity.
+ * Monitor future LiteRT releases for a tokenizer API.
+ */
 @Serializable data class Usage(
   val prompt_tokens: Int,
   val completion_tokens: Int,
   val total_tokens: Int = prompt_tokens + completion_tokens,
+)
+
+/**
+ * Performance timings included in API responses as a non-standard `timings` field.
+ *
+ * **Not part of the OpenAI API spec.** This is a widely adopted extension used by local LLM
+ * servers and clients. Open WebUI, for example, reads these fields and displays them as
+ * per-message performance stats in its chat UI.
+ *
+ * Field names intentionally match the common convention used by popular local LLM tooling
+ * (e.g. llama.cpp, Ollama) so that compatible clients work out of the box.
+ *
+ * Token counts are estimates (charLen / 4) — see [Usage] doc for LiteRT SDK limitations.
+ */
+@Serializable data class InferenceTimings(
+  val prompt_n: Int,              // Number of prompt (input) tokens
+  val prompt_ms: Double,          // Time spent processing prompt (ms) — approximated by TTFB
+  val prompt_per_token_ms: Double, // Average ms per prompt token
+  val prompt_per_second: Double,  // Prompt tokens processed per second
+  val predicted_n: Int,           // Number of predicted (output) tokens
+  val predicted_ms: Double,       // Time spent generating output (ms)
+  val predicted_per_token_ms: Double, // Average ms per output token (inter-token latency)
+  val predicted_per_second: Double, // Output tokens generated per second (decode speed)
 )
 
 @Serializable data class ResponsesRequest(
@@ -65,7 +101,13 @@ import kotlinx.serialization.json.jsonPrimitive
   val text: String,
 )
 
-@Serializable data class GenRes(val text: String, val usage: Usage)
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable data class GenRes(
+  val text: String,
+  val usage: Usage,
+  @EncodeDefault(EncodeDefault.Mode.NEVER)
+  val timings: InferenceTimings? = null,
+)
 
 /**
  * Represents the content of a multimodal message part.
@@ -208,6 +250,7 @@ object StopDeserializer : KSerializer<List<String>> {
   val finish_reason: String,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class ChatResponse(
   val id: String,
   val `object`: String = "chat.completion",
@@ -216,6 +259,11 @@ object StopDeserializer : KSerializer<List<String>> {
   val choices: List<ChatChoice>,
   val usage: Usage,
   val system_fingerprint: String? = null,
+  // Non-standard performance timings — see InferenceTimings doc.
+  // @EncodeDefault(NEVER) prevents serializing as "timings":null when not set,
+  // since our Json instance uses encodeDefaults = true.
+  @EncodeDefault(EncodeDefault.Mode.NEVER)
+  val timings: InferenceTimings? = null,
 )
 
 @Serializable data class GenReq(val prompt: String)
@@ -250,6 +298,7 @@ object StopDeserializer : KSerializer<List<String>> {
   val finish_reason: String,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class CompletionResponse(
   val id: String,
   val `object`: String = "text_completion",
@@ -258,4 +307,6 @@ object StopDeserializer : KSerializer<List<String>> {
   val choices: List<CompletionChoice>,
   val usage: Usage,
   val system_fingerprint: String? = null,
+  @EncodeDefault(EncodeDefault.Mode.NEVER)
+  val timings: InferenceTimings? = null,
 )

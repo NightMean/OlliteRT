@@ -85,6 +85,8 @@ fun StatusScreen(
   val peakDecodeSpeed by serverViewModel.peakDecodeSpeed.collectAsState()
   val lastPrefillSpeed by serverViewModel.lastPrefillSpeed.collectAsState()
   val lastItlMs by serverViewModel.lastItlMs.collectAsState()
+  val lastContextUtilization by serverViewModel.lastContextUtilization.collectAsState()
+  val activeAccelerator by serverViewModel.activeAccelerator.collectAsState()
   val modelLoadTimeMs by serverViewModel.modelLoadTimeMs.collectAsState()
   val loadingStartedAtMs by serverViewModel.loadingStartedAtMs.collectAsState()
   val lastError by serverViewModel.lastError.collectAsState()
@@ -442,6 +444,22 @@ fun StatusScreen(
       MetricCard(
         label = "Success Rate",
         value = if (requestCount > 0) "$successRate (${errorCount} err)" else "—",
+        modifier = Modifier.weight(1f),
+      )
+      MetricCard(
+        label = "Context Utilization",
+        value = if (lastContextUtilization > 0) "~%.0f%%".format(lastContextUtilization) else "—",
+        modifier = Modifier.weight(1f),
+      )
+    }
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      MetricCard(
+        label = "Accelerator",
+        value = activeAccelerator ?: "—",
         modifier = Modifier.weight(1f),
       )
     }
