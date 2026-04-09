@@ -27,6 +27,8 @@ private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 private const val KEY_SHOW_REQUEST_TYPES = "show_request_types"
+private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
+private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_CHAT_TEMPLATE = "chat_template_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
@@ -351,6 +353,18 @@ object LlmHttpPrefs {
     } catch (_: Exception) {
       null
     }
+  }
+
+  fun getCorsAllowedOrigins(context: Context): String =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_CORS_ALLOWED_ORIGINS, DEFAULT_CORS_ALLOWED_ORIGINS)
+      ?: DEFAULT_CORS_ALLOWED_ORIGINS
+
+  fun setCorsAllowedOrigins(context: Context, origins: String) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
+      .apply()
   }
 
   fun save(context: Context, enabled: Boolean, port: Int) {
