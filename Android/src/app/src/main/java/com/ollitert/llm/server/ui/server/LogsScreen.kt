@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.StopCircle
 // TODO: F72 — Uncomment these imports when model-based compaction is implemented (CompactingIcon)
 // import androidx.compose.foundation.Canvas
 // import androidx.compose.ui.graphics.StrokeCap
@@ -1431,6 +1432,30 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             fontWeight = FontWeight.SemiBold,
           )
           BouncingDots()
+          Spacer(modifier = Modifier.weight(1f))
+          // Stop button — cancels the in-flight inference from the Logs screen
+          @OptIn(ExperimentalMaterial3Api::class)
+          TooltipBox(
+            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+            tooltip = { PlainTooltip { Text("Stop generation") } },
+            state = rememberTooltipState(),
+          ) {
+            Box(
+              modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(CancelledColor.copy(alpha = 0.15f))
+                .clickable { RequestLogStore.cancelRequest(entry.id) },
+              contentAlignment = Alignment.Center,
+            ) {
+              Icon(
+                imageVector = Icons.Outlined.StopCircle,
+                contentDescription = "Stop generation",
+                tint = CancelledColor,
+                modifier = Modifier.size(16.dp),
+              )
+            }
+          }
         }
       }
     } else if (entry.isCancelled) {
@@ -1454,7 +1479,8 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
           Spacer(modifier = Modifier.height(10.dp))
         }
         Text(
-          text = "Client disconnected — generation stopped",
+          text = if (entry.cancelledByUser) "Generation stopped by user"
+                 else "Client disconnected — generation stopped",
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
             fontSize = 11.sp,
@@ -1700,7 +1726,10 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
       obj.put("compacted", true)
       if (!entry.compactionDetails.isNullOrBlank()) obj.put("compaction_details", entry.compactionDetails)
     }
-    if (entry.isCancelled) obj.put("cancelled", true)
+    if (entry.isCancelled) {
+      obj.put("cancelled", true)
+      if (entry.cancelledByUser) obj.put("cancelled_by_user", true)
+    }
     if (entry.inputTokenEstimate > 0) {
       obj.put("input_token_estimate", entry.inputTokenEstimate)
       obj.put("is_exact_token_count", entry.isExactTokenCount)

@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +34,8 @@ data class RequestLogEntry(
   val compactionDetails: String? = null,
   val compactedPrompt: String? = null,
   val isCancelled: Boolean = false,
+  /** True when the user tapped "Stop" in the Logs screen (vs client disconnect). */
+  val cancelledByUser: Boolean = false,
   val partialText: String? = null,
   val eventCategory: EventCategory = EventCategory.GENERAL,
   /** Estimated input token count (~charLen/4), or exact count if extracted from LiteRT error. */
@@ -51,6 +54,13 @@ object RequestLogStore {
 
   private const val MAX_ENTRIES = 100
   private val idCounter = AtomicLong(0)
+
+  /**
+   * Maps pending log-entry IDs to callbacks that cancel the in-flight inference.
+   * For streaming: the callback calls [BlockingQueueInputStream.cancel].
+   * For non-streaming: the callback calls [ServerLlmModelHelper.stopResponse].
+   */
+  private val pendingCancellations = ConcurrentHashMap<String, () -> Unit>()
 
   private val _entries = MutableStateFlow<List<RequestLogEntry>>(emptyList())
   val entries: StateFlow<List<RequestLogEntry>> = _entries.asStateFlow()
@@ -74,8 +84,28 @@ object RequestLogStore {
     }
   }
 
+  /** Register a cancellation callback for an in-flight request. */
+  fun registerCancellation(id: String, onCancel: () -> Unit) {
+    pendingCancellations[id] = onCancel
+  }
+
+  /** Remove a cancellation callback (called when inference completes normally). */
+  fun unregisterCancellation(id: String) {
+    pendingCancellations.remove(id)
+  }
+
+  /**
+   * Cancel a pending request from the UI (user tapped Stop).
+   * Sets [RequestLogEntry.cancelledByUser] and invokes the registered callback.
+   */
+  fun cancelRequest(id: String) {
+    update(id) { it.copy(cancelledByUser = true) }
+    pendingCancellations.remove(id)?.invoke()
+  }
+
   fun clear() {
     _entries.value = emptyList()
+    pendingCancellations.clear()
   }
 
   /**
