@@ -430,4 +430,14 @@ object LlmHttpPrefs {
       .putInt(KEY_PORT, port)
       .apply()
   }
+
+  /**
+   * Clear all settings and restore defaults. Wipes the entire SharedPreferences store,
+   * including per-model inference configs, system prompts, and chat templates.
+   * The cached prefs instance is invalidated so the next access picks up the cleared state.
+   */
+  fun resetToDefaults(context: Context) {
+    prefs(context).edit().clear().apply()
+    cachedPrefs = null
+  }
 }
