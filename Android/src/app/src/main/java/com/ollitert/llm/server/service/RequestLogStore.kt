@@ -118,6 +118,19 @@ object RequestLogStore {
   private val _entries = MutableStateFlow<List<RequestLogEntry>>(emptyList())
   val entries: StateFlow<List<RequestLogEntry>> = _entries.asStateFlow()
 
+  /**
+   * Lightweight channel for streaming partial text updates during inference.
+   * Emits (entryId, partialText) pairs on every debounced update (~300ms).
+   *
+   * **Why this exists:** Without it, every partialText update replaces the entire
+   * [_entries] list, which forces the LazyColumn to diff and recompose ALL visible
+   * items ~3-6 times per second during generation — the main cause of scroll jank.
+   * The Logs UI collects this flow separately and only recomposes the single
+   * pending card, leaving the rest of the list untouched.
+   */
+  private val _pendingPartialText = MutableStateFlow<Pair<String, String?>>("" to null)
+  val pendingPartialText: StateFlow<Pair<String, String?>> = _pendingPartialText.asStateFlow()
+
   fun add(entry: RequestLogEntry) {
     _entries.update { current ->
       buildList {
@@ -128,6 +141,15 @@ object RequestLogStore {
       }
     }
     persistenceCallback?.onEntryAdded(entry)
+  }
+
+  /**
+   * Update only the partial text for a pending entry during streaming.
+   * Emits via [pendingPartialText] flow without touching the main [_entries] list,
+   * avoiding full LazyColumn recomposition on every token batch.
+   */
+  fun updatePartialText(id: String, text: String) {
+    _pendingPartialText.value = id to text
   }
 
   /** Update an existing entry by ID. */
@@ -146,7 +168,7 @@ object RequestLogStore {
 
     if (updated != null) {
       // Only notify persistence for terminal state changes (pending→complete or cancelled).
-      // This skips the high-frequency partialText streaming updates (~150ms intervals).
+      // This skips the high-frequency partialText streaming updates (~300ms intervals).
       val isTerminal = (old!!.isPending && !updated!!.isPending) ||
         (!old!!.isCancelled && updated!!.isCancelled)
       persistenceCallback?.onEntryUpdated(updated!!, isTerminal)

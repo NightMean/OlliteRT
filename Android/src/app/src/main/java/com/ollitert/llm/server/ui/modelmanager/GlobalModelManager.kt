@@ -520,21 +520,56 @@ fun GlobalModelManager(
         )
       }
 
-      // Empty state when filters yield no results
+      // Empty state — distinguish between filter mismatch and allowlist load failure
       if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && !uiState.loadingModelAllowlist) {
         item(key = "empty_state") {
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(vertical = 64.dp),
-            contentAlignment = Alignment.Center,
-          ) {
-            Text(
-              text = stringResource(R.string.no_models_match_search),
-              style = MaterialTheme.typography.bodyLarge,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              textAlign = TextAlign.Center,
-            )
+          if (uiState.loadingModelAllowlistError.isNotEmpty()) {
+            // Allowlist failed to load — show error with retry
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp),
+              horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+              Text(
+                text = "Failed to load models",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+              )
+              Spacer(modifier = Modifier.height(8.dp))
+              Text(
+                text = uiState.loadingModelAllowlistError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp),
+              )
+              Spacer(modifier = Modifier.height(16.dp))
+              androidx.compose.material3.Button(
+                onClick = {
+                  viewModel.clearLoadModelAllowlistError()
+                  viewModel.loadModelAllowlist()
+                },
+              ) {
+                Text("Retry")
+              }
+            }
+          } else {
+            // Filters/search yielded no results
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 64.dp),
+              contentAlignment = Alignment.Center,
+            ) {
+              Text(
+                text = stringResource(R.string.no_models_match_search),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+              )
+            }
           }
         }
       }

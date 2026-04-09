@@ -490,6 +490,12 @@ fun LogsScreen(
  */
 @Composable
 private fun PendingResponseSection(entryId: String, partialText: String?) {
+  // Collect the lightweight partial-text flow directly here so only this composable
+  // recomposes on streaming updates (~300ms), not the entire LazyColumn.
+  // Falls back to the entry's partialText from the list for the initial render.
+  val pendingPartial by RequestLogStore.pendingPartialText.collectAsState()
+  val liveText = if (pendingPartial.first == entryId) pendingPartial.second else partialText
+
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -498,9 +504,9 @@ private fun PendingResponseSection(entryId: String, partialText: String?) {
       .padding(horizontal = 12.dp, vertical = 14.dp),
   ) {
     // Show partial text if tokens have started arriving
-    if (!partialText.isNullOrEmpty()) {
+    if (!liveText.isNullOrEmpty()) {
       Text(
-        text = partialText,
+        text = liveText,
         style = MaterialTheme.typography.bodySmall.copy(
           fontFamily = SpaceGroteskFontFamily,
           fontSize = 11.sp,
@@ -1436,8 +1442,8 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     // Request body preview (if present)
     if (!entry.requestBody.isNullOrBlank()) {
       val formatted = remember(entry.requestBody) { prettyPrintJson(entry.requestBody) }
-      val isLong = formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES
-      val requestSize = remember(entry.requestBody) { formatByteSize(entry.requestBody.toByteArray(Charsets.UTF_8).size) }
+      val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
+      val requestSize = remember(entry.requestBody) { formatByteSize(entry.requestBody.length) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
         label = "Request · $requestSize",
@@ -1452,8 +1458,8 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     // Compacted prompt preview — shown between Request and Response when compaction was applied.
     // This is the actual prompt that was sent to inference after compaction strategies were applied.
     if (!entry.compactedPrompt.isNullOrBlank()) {
-      val compactedSize = remember(entry.compactedPrompt) { formatByteSize(entry.compactedPrompt.toByteArray(Charsets.UTF_8).size) }
-      val isLong = entry.compactedPrompt.length > COLLAPSED_MAX_CHARS || entry.compactedPrompt.count { it == '\n' } > COLLAPSED_MAX_LINES
+      val compactedSize = remember(entry.compactedPrompt) { formatByteSize(entry.compactedPrompt.length) }
+      val isLong = remember(entry.compactedPrompt) { entry.compactedPrompt.length > COLLAPSED_MAX_CHARS || entry.compactedPrompt.count { it == '\n' } > COLLAPSED_MAX_LINES }
       val badges = remember(entry.compactionDetails) { parseCompactionBadges(entry.compactionDetails) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
@@ -1534,8 +1540,8 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       }
     } else if (!entry.responseBody.isNullOrBlank()) {
       val formatted = remember(entry.responseBody) { prettyPrintJson(entry.responseBody) }
-      val isLong = formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES
-      val responseSize = remember(entry.responseBody) { formatByteSize(entry.responseBody.toByteArray(Charsets.UTF_8).size) }
+      val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
+      val responseSize = remember(entry.responseBody) { formatByteSize(entry.responseBody.length) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
         label = "Response · $responseSize",
