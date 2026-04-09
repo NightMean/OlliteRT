@@ -24,9 +24,11 @@ data class LlmHttpModelItem(
 data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
 
 object LlmHttpResponseRenderer {
+  private val NON_SLUG_REGEX = Regex("[^a-zA-Z0-9_]")
+
   fun renderJsonError(error: String): String {
     val escaped = LlmHttpBridgeUtils.escapeSseText(error)
-    val typeSlug = error.replace(' ', '_').replace(Regex("[^a-zA-Z0-9_]"), "").take(40)
+    val typeSlug = error.replace(' ', '_').replace(NON_SLUG_REGEX, "").take(40)
     return """{"error":{"message":"$escaped","type":"${typeSlug}_error","code":null}}"""
   }
 

@@ -748,13 +748,13 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
   }
 
   // Model ready: ModelName (Xms)
-  Regex("""^Model ready: (.+?) \((\d+)ms\)$""").find(message)?.let {
+  PATTERN_MODEL_READY.find(message)?.let {
     return ParsedEventType.Ready(it.groupValues[1], it.groupValues[2])
   }
 
   // Sending a warmup message: "input" → "output" (Xms)
   // Greedy match on output to handle response text that might contain quotes
-  Regex("""^Sending a warmup message: "(.+?)" → "(.*)" \((\d+)ms\)$""").find(message)?.let {
+  PATTERN_WARMUP.find(message)?.let {
     return ParsedEventType.Warmup(it.groupValues[1], it.groupValues[2], it.groupValues[3])
   }
 
@@ -784,6 +784,14 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
   return null
 }
 
+// ── Cached regex patterns for event parsing & highlighting ──────────────────
+// Compiled once at class-load instead of per-render to avoid allocation in hot paths.
+private val PATTERN_MODEL_READY = Regex("""^Model ready: (.+?) \((\d+)ms\)$""")
+private val PATTERN_WARMUP = Regex("""^Sending a warmup message: "(.+?)" → "(.*)" \((\d+)ms\)$""")
+private val PATTERN_TIME_MS = Regex("""\(\d+ms\)""")
+private val PATTERN_ARROW = Regex("""→""")
+private val PATTERN_QUOTED = Regex(""""[^"]*"""")
+
 // ── Event text highlighting ──────────────────────────────────────────────────
 
 /** Accent color for arrows in settings/event values. */
@@ -812,15 +820,15 @@ private fun highlightEventMessage(
   val greenColor = Color(0xFF4ADE80)
   val defaultText = Color(0xFFE5E2E3)
 
-  Regex("""\(\d+ms\)""").findAll(message).forEach {
+  PATTERN_TIME_MS.findAll(message).forEach {
     spans.add(StyledSpan(it.range.first, it.range.last + 1,
       SpanStyle(color = greenColor, fontWeight = FontWeight.SemiBold)))
   }
-  Regex("""→""").findAll(message).forEach {
+  PATTERN_ARROW.findAll(message).forEach {
     spans.add(StyledSpan(it.range.first, it.range.last + 1,
       SpanStyle(color = ValueArrowColor, fontWeight = FontWeight.Bold)))
   }
-  Regex(""""[^"]*"""").findAll(message).forEach {
+  PATTERN_QUOTED.findAll(message).forEach {
     spans.add(StyledSpan(it.range.first, it.range.last + 1,
       SpanStyle(color = QuotedTextColor)))
   }

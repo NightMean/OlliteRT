@@ -13,6 +13,21 @@ package com.ollitert.llm.server.service
 object LlmHttpCorsHelper {
 
   /**
+   * Cached parsed origins list — avoids re-splitting the comma-separated string on every request.
+   * Invalidated when the raw setting string changes.
+   */
+  @Volatile private var cachedRawOrigins: String? = null
+  @Volatile private var cachedParsedOrigins: List<String> = emptyList()
+
+  private fun parsedOrigins(trimmed: String): List<String> {
+    if (trimmed == cachedRawOrigins) return cachedParsedOrigins
+    val parsed = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    cachedRawOrigins = trimmed
+    cachedParsedOrigins = parsed
+    return parsed
+  }
+
+  /**
    * Headers to add to every response (including preflight).
    * Returns an empty map if CORS is disabled or the origin is not allowed.
    *
@@ -34,7 +49,7 @@ object LlmHttpCorsHelper {
       headers["Access-Control-Allow-Origin"] = "*"
     } else {
       // Specific origins mode: only allow if the request Origin matches one of the configured origins
-      val allowed = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+      val allowed = parsedOrigins(trimmed)
       if (requestOrigin != null && allowed.any { it.equals(requestOrigin, ignoreCase = true) }) {
         headers["Access-Control-Allow-Origin"] = requestOrigin
         // Vary: Origin is required when the response varies based on the request Origin,
