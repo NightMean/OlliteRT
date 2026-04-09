@@ -1362,8 +1362,12 @@ private fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
 
 private const val COLLAPSED_MAX_LINES = 8
 private const val COLLAPSED_MAX_CHARS = 600
-/** Bodies above this size get highlighted asynchronously to avoid main-thread jank. */
-private const val ASYNC_HIGHLIGHT_THRESHOLD = 4_000
+/**
+ * Bodies above this size get highlighted asynchronously (off main thread) to avoid jank.
+ * At 1KB, regex-based JSON highlighting can take 10-30ms on mid-range devices — enough
+ * to drop frames during scrolling. Larger bodies (2-4KB) can take 50-100ms.
+ */
+private const val ASYNC_HIGHLIGHT_THRESHOLD = 1_000
 
 @Composable
 private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
