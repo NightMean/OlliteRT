@@ -78,6 +78,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -96,7 +97,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
@@ -254,6 +257,7 @@ fun LogsScreen(
   val context = LocalContext.current
   val autoExpand = remember { LlmHttpPrefs.isAutoExpandLogs(context) }
   var showClearConfirmDialog by remember { mutableStateOf(false) }
+  val scope = rememberCoroutineScope()
 
   // Clear logs confirmation dialog
   if (showClearConfirmDialog) {
@@ -327,14 +331,14 @@ fun LogsScreen(
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
             tooltip = "Copy all logs (JSON)",
-            onClick = { copyAllLogsToClipboard(context, entries) },
+            onClick = { scope.launch { copyAllLogsToClipboard(context, entries) } },
             tint = OlliteRTPrimary,
           )
           // Export/share logs as JSON file
           TooltipIconButton(
             icon = Icons.Outlined.Share,
             tooltip = "Export logs as JSON",
-            onClick = { exportLogsAsJson(context, entries) },
+            onClick = { scope.launch { exportLogsAsJson(context, entries) } },
             tint = OlliteRTPrimary,
           )
         }
@@ -461,6 +465,87 @@ fun LogsScreen(
             )
           }
         }
+      }
+    }
+  }
+}
+
+/**
+ * Pending response section — separated from [LogEntryCard] so that [partialText] changes
+ * (every ~150ms during streaming) don't force recomposition of the entire card.
+ * The [GeneratingStatusRow] is further isolated so the [BouncingDots] animation runs
+ * smoothly even while long streaming text is being laid out.
+ */
+@Composable
+private fun PendingResponseSection(entryId: String, partialText: String?) {
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(12.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+      .padding(horizontal = 12.dp, vertical = 14.dp),
+  ) {
+    // Show partial text if tokens have started arriving
+    if (!partialText.isNullOrEmpty()) {
+      Text(
+        text = partialText,
+        style = MaterialTheme.typography.bodySmall.copy(
+          fontFamily = SpaceGroteskFontFamily,
+          fontSize = 11.sp,
+        ),
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+      Spacer(modifier = Modifier.height(10.dp))
+    }
+    // Isolated into its own composable so the dots animation isn't invalidated
+    // by partialText layout changes above.
+    GeneratingStatusRow(entryId = entryId)
+  }
+}
+
+/**
+ * "Generating..." text + bouncing dots + stop button.
+ * Keyed only on [entryId] so it skips recomposition when [partialText] changes.
+ */
+@Composable
+private fun GeneratingStatusRow(entryId: String) {
+  val generatingText = remember(entryId) { GeneratingMessages.pick() }
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Text(
+      text = generatingText,
+      style = MaterialTheme.typography.bodySmall.copy(
+        fontFamily = SpaceGroteskFontFamily,
+        fontSize = 11.sp,
+      ),
+      color = OlliteRTPrimary,
+      fontWeight = FontWeight.SemiBold,
+    )
+    BouncingDots()
+    Spacer(modifier = Modifier.weight(1f))
+    // Stop button — cancels the in-flight inference from the Logs screen
+    @OptIn(ExperimentalMaterial3Api::class)
+    TooltipBox(
+      positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+      tooltip = { PlainTooltip { Text("Stop generation") } },
+      state = rememberTooltipState(),
+    ) {
+      Box(
+        modifier = Modifier
+          .size(28.dp)
+          .clip(RoundedCornerShape(8.dp))
+          .background(CancelledColor.copy(alpha = 0.15f))
+          .clickable { RequestLogStore.cancelRequest(entryId) },
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.StopCircle,
+          contentDescription = "Stop generation",
+          tint = CancelledColor,
+          modifier = Modifier.size(16.dp),
+        )
       }
     }
   }
@@ -1259,6 +1344,8 @@ private fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
 
 private const val COLLAPSED_MAX_LINES = 8
 private const val COLLAPSED_MAX_CHARS = 600
+/** Bodies above this size get highlighted asynchronously to avoid main-thread jank. */
+private const val ASYNC_HIGHLIGHT_THRESHOLD = 4_000
 
 @Composable
 private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
@@ -1390,7 +1477,6 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     // always shows normal generating text. If model-based compaction is added (F72), this should
     // show CompactingIcon + "Compacting prompt" text while the model summarizes.
     if (entry.isPending) {
-      val generatingText = remember(entry.id) { GeneratingMessages.pick() }
       Spacer(modifier = Modifier.height(10.dp))
       Text(
         text = "Response",
@@ -1399,65 +1485,10 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         fontWeight = FontWeight.SemiBold,
       )
       Spacer(modifier = Modifier.height(4.dp))
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(12.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-          .padding(horizontal = 12.dp, vertical = 14.dp),
-      ) {
-        // Show partial text if tokens have started arriving
-        if (!entry.partialText.isNullOrEmpty()) {
-          Text(
-            text = entry.partialText,
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontFamily = SpaceGroteskFontFamily,
-              fontSize = 11.sp,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Spacer(modifier = Modifier.height(10.dp))
-        }
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-          Text(
-            text = generatingText,
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontFamily = SpaceGroteskFontFamily,
-              fontSize = 11.sp,
-            ),
-            color = OlliteRTPrimary,
-            fontWeight = FontWeight.SemiBold,
-          )
-          BouncingDots()
-          Spacer(modifier = Modifier.weight(1f))
-          // Stop button — cancels the in-flight inference from the Logs screen
-          @OptIn(ExperimentalMaterial3Api::class)
-          TooltipBox(
-            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-            tooltip = { PlainTooltip { Text("Stop generation") } },
-            state = rememberTooltipState(),
-          ) {
-            Box(
-              modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(CancelledColor.copy(alpha = 0.15f))
-                .clickable { RequestLogStore.cancelRequest(entry.id) },
-              contentAlignment = Alignment.Center,
-            ) {
-              Icon(
-                imageVector = Icons.Outlined.StopCircle,
-                contentDescription = "Stop generation",
-                tint = CancelledColor,
-                modifier = Modifier.size(16.dp),
-              )
-            }
-          }
-        }
-      }
+      PendingResponseSection(
+        entryId = entry.id,
+        partialText = entry.partialText,
+      )
     } else if (entry.isCancelled) {
       Spacer(modifier = Modifier.height(10.dp))
       Column(
@@ -1613,8 +1644,31 @@ private fun ExpandableBodySection(
     )
   }
   Spacer(modifier = Modifier.height(4.dp))
-  val highlighted = remember(body) { highlightJson(body) }
+
+  // Collapsed: highlight only the visible prefix (cheap — max ~600 chars).
+  // Expanded: compute full highlight asynchronously to avoid main-thread jank on large bodies
+  // (50KB+ JSON with regex highlighting can take 100-200ms). Show plain text instantly,
+  // then swap in highlighted version when ready.
+  val collapsedHighlighted = remember(body) {
+    val preview = if (body.length > COLLAPSED_MAX_CHARS) body.substring(0, COLLAPSED_MAX_CHARS) else body
+    highlightJson(preview)
+  }
+
   if (expanded) {
+    // For large bodies, compute highlighting off the main thread.
+    // Small bodies (<4KB) are fast enough to highlight synchronously.
+    val fullHighlighted by produceState(
+      initialValue = if (body.length <= ASYNC_HIGHLIGHT_THRESHOLD) {
+        highlightJson(body)
+      } else {
+        null // show plain text while computing
+      },
+      key1 = body,
+    ) {
+      if (body.length > ASYNC_HIGHLIGHT_THRESHOLD) {
+        value = withContext(Dispatchers.Default) { highlightJson(body) }
+      }
+    }
     // Expanded: wrap in SelectionContainer so text is selectable
     SelectionContainer {
       Box(
@@ -1628,14 +1682,27 @@ private fun ExpandableBodySection(
             .padding(12.dp)
             .horizontalScroll(rememberScrollState()),
         ) {
-          Text(
-            text = highlighted,
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontFamily = SpaceGroteskFontFamily,
-              fontSize = 11.sp,
-              lineHeight = 16.sp,
-            ),
-          )
+          if (fullHighlighted != null) {
+            Text(
+              text = fullHighlighted!!,
+              style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = SpaceGroteskFontFamily,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+              ),
+            )
+          } else {
+            // Plain text fallback while async highlighting is in progress
+            Text(
+              text = body,
+              style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = SpaceGroteskFontFamily,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+              ),
+              color = Color(0xFFBDBDBD),
+            )
+          }
         }
         if (showToggle) {
           Icon(
@@ -1668,10 +1735,7 @@ private fun ExpandableBodySection(
           .horizontalScroll(rememberScrollState()),
       ) {
         Text(
-          text = remember(highlighted) {
-            if (highlighted.length > COLLAPSED_MAX_CHARS) highlighted.subSequence(0, COLLAPSED_MAX_CHARS)
-            else highlighted
-          },
+          text = collapsedHighlighted,
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
             fontSize = 11.sp,
@@ -1779,21 +1843,36 @@ private fun buildLogsJson(entries: List<RequestLogEntry>): String {
   return root.toString(2)
 }
 
-private fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
-  val json = buildLogsJson(entries)
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
-  Toast.makeText(context, "All logs copied as JSON (${entries.size} entries)", Toast.LENGTH_SHORT).show()
+/** Build JSON on a background thread to avoid UI jank with large log sets (2500+ entries). */
+private suspend fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
+  try {
+    val json = withContext(Dispatchers.Default) { buildLogsJson(entries) }
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
+    Toast.makeText(context, "All logs copied as JSON (${entries.size} entries)", Toast.LENGTH_SHORT).show()
+  } catch (_: Exception) {
+    // TransactionTooLargeException (or similar) — clipboard has a ~1MB Binder limit.
+    // With many entries and large request/response bodies, the JSON can exceed this.
+    Toast.makeText(
+      context,
+      "Log data too large for clipboard (${entries.size} entries) — use Export instead.",
+      Toast.LENGTH_LONG,
+    ).show()
+  }
 }
 
-private fun exportLogsAsJson(context: Context, entries: List<RequestLogEntry>) {
+/** Build JSON and write file on a background thread to avoid UI jank with large log sets. */
+private suspend fun exportLogsAsJson(context: Context, entries: List<RequestLogEntry>) {
   try {
-    val json = buildLogsJson(entries)
-    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    val cacheDir = File(context.cacheDir, "log_exports")
-    cacheDir.mkdirs()
-    val file = File(cacheDir, "ollitert_logs_$timestamp.json")
-    file.writeText(json, Charsets.UTF_8)
+    val file = withContext(Dispatchers.IO) {
+      val json = buildLogsJson(entries)
+      val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+      val cacheDir = File(context.cacheDir, "log_exports")
+      cacheDir.mkdirs()
+      val f = File(cacheDir, "ollitert_logs_$timestamp.json")
+      f.writeText(json, Charsets.UTF_8)
+      f
+    }
 
     val uri = FileProvider.getUriForFile(
       context,
