@@ -109,6 +109,26 @@ class LlmHttpService : Service() {
       return START_NOT_STICKY
     }
 
+    // Android requires startForeground() within ~10s of startForegroundService().
+    // Call it immediately with a minimal notification to avoid
+    // ForegroundServiceDidNotStartInTimeException on early-return paths
+    // (e.g. model not found, files missing). The notification is replaced later
+    // with the full loading/running notification once setup completes.
+    val placeholderIntent = Intent(this, MainActivity::class.java)
+    placeholderIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    val placeholderContentIntent = PendingIntent.getActivity(
+      this, 0, placeholderIntent, PendingIntent.FLAG_IMMUTABLE,
+    )
+    startForeground(
+      NOTIFICATION_ID,
+      buildNotification(
+        title = "OlliteRT",
+        text = "Starting…",
+        contentIntent = placeholderContentIntent,
+        showProgress = true,
+      ),
+    )
+
     // Handle reload action: clean up current model first, then proceed with normal start
     if (intent?.action == ACTION_RELOAD) {
       Log.i(logTag, "Reload requested — cleaning up current model before restart")
@@ -206,14 +226,13 @@ class LlmHttpService : Service() {
       PendingIntent.FLAG_IMMUTABLE,
     )
 
-    // Show loading notification — no stop button since loading can't be interrupted
-    val loadingNotification = buildNotification(
+    // Replace the placeholder notification with the full loading notification
+    updateNotification(
       title = "Loading model: ${model.name}",
       text = "Please wait, this may take a moment...",
       contentIntent = contentIntent,
       showProgress = true,
     )
-    startForeground(NOTIFICATION_ID, loadingNotification)
 
     server?.stop()
     server = NanoServer(port)
@@ -1331,13 +1350,14 @@ class LlmHttpService : Service() {
               val esc = LlmHttpBridgeUtils.escapeSseText(text)
               stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
             }
-            // Update log with partial text (debounced to ~150ms)
+            // Update log with partial text via lightweight flow (debounced to ~300ms).
+            // Uses updatePartialText() which emits via a dedicated StateFlow, avoiding
+            // full entries-list replacement that would cause entire LazyColumn recomposition.
             if (streamPreview && logId != null && !done) {
               val nowMs = SystemClock.elapsedRealtime()
-              if (nowMs - lastLogUpdateMs >= 150) {
+              if (nowMs - lastLogUpdateMs >= 300) {
                 lastLogUpdateMs = nowMs
-                val snapshot = fullText.toString()
-                RequestLogStore.update(logId) { it.copy(partialText = snapshot) }
+                RequestLogStore.updatePartialText(logId, fullText.toString())
               }
             }
             if (done) {
@@ -1605,13 +1625,14 @@ class LlmHttpService : Service() {
                 stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, model.name, now, text))
               }
             }
-            // Update log with partial text (debounced to ~150ms)
+            // Update log with partial text via lightweight flow (debounced to ~300ms).
+            // Uses updatePartialText() which emits via a dedicated StateFlow, avoiding
+            // full entries-list replacement that would cause entire LazyColumn recomposition.
             if (streamPreview && logId != null && !done) {
               val nowMs = SystemClock.elapsedRealtime()
-              if (nowMs - lastLogUpdateMs >= 150) {
+              if (nowMs - lastLogUpdateMs >= 300) {
                 lastLogUpdateMs = nowMs
-                val snapshot = fullText.toString()
-                RequestLogStore.update(logId) { it.copy(partialText = snapshot) }
+                RequestLogStore.updatePartialText(logId, fullText.toString())
               }
             }
             if (done) {

@@ -811,7 +811,10 @@ constructor(
 
         if (modelAllowlist == null) {
           _uiState.update {
-            uiState.value.copy(loadingModelAllowlistError = "Failed to load model list")
+            uiState.value.copy(
+              loadingModelAllowlist = false,
+              loadingModelAllowlistError = "Failed to load model list",
+            )
           }
           return@launch
         }
@@ -879,7 +882,13 @@ constructor(
         // Process pending downloads.
         processPendingDownloads()
       } catch (e: Exception) {
-        e.printStackTrace()
+        Log.e(TAG, "Failed to load model allowlist", e)
+        _uiState.update {
+          uiState.value.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = "Failed to load model list: ${e.message?.take(80) ?: "Unknown error"}",
+          )
+        }
       }
     }
   }
