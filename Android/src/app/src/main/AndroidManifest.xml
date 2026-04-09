@@ -38,7 +38,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="OlliteRT"
+        android:label="@string/app_label"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.OlliteRT"
@@ -60,7 +60,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.ollitert.llm.server" />
+                <data android:scheme="${appAuthRedirectScheme}" />
             </intent-filter>
         </activity>
 

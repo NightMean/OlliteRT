@@ -142,14 +142,10 @@ class LlmHttpService : Service() {
     }
 
     val resolvedModelName = requestedModelName
-    val model = if (resolvedModelName != null) {
-      pickModelByName(resolvedModelName)
-    } else {
-      null
-    }
+    val model = pickModelByName(resolvedModelName)
     if (model == null) {
-      val msg = "Model '${resolvedModelName ?: "unknown"}' not found"
-      Log.e(logTag, "No model specified or model '${resolvedModelName}' not found — cannot start server")
+      val msg = "Model '$resolvedModelName' not found"
+      Log.e(logTag, "Model '$resolvedModelName' not found — cannot start server")
       ServerMetrics.onServerError(msg)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
       pendingConfigOverrides = null

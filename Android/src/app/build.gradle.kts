@@ -23,7 +23,6 @@ plugins {
   alias(libs.plugins.hilt.application)
   alias(libs.plugins.oss.licenses)
   alias(libs.plugins.ksp)
-  kotlin("kapt")
 }
 
 android {
@@ -39,10 +38,45 @@ android {
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
+    // Updated per-flavor below to match applicationId (with suffix).
     manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server"
     manifestPlaceholders["applicationName"] = "com.ollitert.llm.server.OlliteRTApplication"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  // Product flavors: dev, beta, prod — all three can be installed side-by-side.
+  // Each flavor gets its own app icon (with badge for dev/beta), splash screen,
+  // and applicationIdSuffix so they coexist on the same device.
+  flavorDimensions += "channel"
+
+  productFlavors {
+    create("dev") {
+      dimension = "channel"
+      applicationIdSuffix = ".dev"
+      versionNameSuffix = "-dev"
+      // App label shown in launcher and recent apps
+      resValue("string", "app_label", "OlliteRT Dev")
+      // BuildConfig field to identify flavor at runtime
+      buildConfigField("String", "CHANNEL", "\"dev\"")
+      // OAuth redirect must match the full applicationId
+      manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.dev"
+    }
+    create("beta") {
+      dimension = "channel"
+      applicationIdSuffix = ".beta"
+      versionNameSuffix = "-beta"
+      resValue("string", "app_label", "OlliteRT Beta")
+      buildConfigField("String", "CHANNEL", "\"beta\"")
+      manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.beta"
+    }
+    create("prod") {
+      dimension = "channel"
+      // No suffix — this is the production release
+      resValue("string", "app_label", "OlliteRT")
+      buildConfigField("String", "CHANNEL", "\"prod\"")
+      // Default applicationId, no override needed
+    }
   }
 
   buildTypes {
@@ -99,7 +133,7 @@ dependencies {
   implementation(libs.play.services.oss.licenses)
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
-  kapt(libs.hilt.android.compiler)
+  ksp(libs.hilt.android.compiler)
   ksp(libs.moshi.kotlin.codegen)
   testImplementation(libs.junit)
   testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
@@ -110,10 +144,6 @@ dependencies {
   androidTestImplementation(libs.hilt.android.testing)
   debugImplementation(libs.androidx.ui.tooling)
   debugImplementation(libs.androidx.ui.test.manifest)
-}
-
-kapt {
-  correctErrorTypes = true
 }
 
 protobuf {
