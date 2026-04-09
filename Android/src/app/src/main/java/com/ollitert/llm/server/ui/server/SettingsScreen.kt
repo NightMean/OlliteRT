@@ -109,7 +109,20 @@ fun SettingsScreen(
   val context = LocalContext.current
   val focusManager = LocalFocusManager.current
 
-  // Saved (persisted) values — used for change detection; updated after successful save
+  // ─── Unsaved Changes Guard ─────────────────────────────────────────────────
+  // When adding a NEW setting, update ALL FOUR sections below:
+  //   1. [SAVED STATE]     Add: var savedXxx by remember { mutableStateOf(LlmHttpPrefs.getXxx(context)) }
+  //   2. [EDITABLE STATE]  Add: var xxx by remember { mutableStateOf(savedXxx) }
+  //   3. [CHANGE DETECT]   Add: xxx != savedXxx  to the hasUnsavedChanges expression
+  //   4. [SAVE HANDLER]    Add: LlmHttpPrefs.setXxx(context, xxx) + savedXxx = xxx
+  // The floating banner, BackHandler, and discard dialog are driven by hasUnsavedChanges —
+  // no other wiring is needed. Missing any of the 4 steps causes silent bugs:
+  //   - Missing #1/#3: changes aren't detected → no save prompt, user loses edits on back-press
+  //   - Missing #4 persist: save button does nothing for that field
+  //   - Missing #4 update savedXxx: banner stays visible after saving ("phantom unsaved changes")
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  // [SAVED STATE] Persisted values — used for change detection; updated after successful save
   var savedPort by remember { mutableStateOf(LlmHttpPrefs.getPort(context)) }
   var savedBearerToken by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context)) }
   var savedHfToken by remember { mutableStateOf(LlmHttpPrefs.getHfToken(context)) }
@@ -133,7 +146,7 @@ fun SettingsScreen(
   var savedLogMaxEntries by remember { mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context)) }
   var savedLogAutoDeleteMinutes by remember { mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context)) }
 
-  // Current (editable) state
+  // [EDITABLE STATE] Current (editable) state — see Unsaved Changes Guard comment above
   var portText by remember { mutableStateOf(savedPort.toString()) }
   var portError by remember { mutableStateOf(false) }
   var showRestartDialog by remember { mutableStateOf(false) }
@@ -165,7 +178,7 @@ fun SettingsScreen(
   var showTrimLogsDialog by remember { mutableStateOf(false) }
   var showResetDialog by remember { mutableStateOf(false) }
 
-  // Unsaved changes detection — compare current vs persisted
+  // [CHANGE DETECT] Unsaved changes detection — compare current vs persisted (see Unsaved Changes Guard)
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
   val hasUnsavedChanges = portText != savedPort.toString() ||
     effectiveBearerToken != savedBearerToken ||
@@ -198,7 +211,7 @@ fun SettingsScreen(
     showDiscardDialog = true
   }
 
-  // Save action — shared between top bar button and internal logic
+  // [SAVE HANDLER] Save action — shared between top bar button and internal logic (see Unsaved Changes Guard)
   val saveSettings: () -> Unit = {
     if (portText.isBlank()) {
       portError = true
@@ -304,7 +317,7 @@ fun SettingsScreen(
           window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
-        // Update saved state so change detection resets
+        // [SAVE HANDLER — update savedXxx] Reset change detection (see Unsaved Changes Guard)
         savedPort = port
         savedBearerToken = if (bearerEnabled) bearerToken else ""
         savedHfToken = hfToken
