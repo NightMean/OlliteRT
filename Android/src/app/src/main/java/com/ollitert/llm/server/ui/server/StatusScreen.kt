@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material.icons.outlined.Lan
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.foundation.clickable
@@ -85,8 +86,8 @@ fun StatusScreen(
   val peakDecodeSpeed by serverViewModel.peakDecodeSpeed.collectAsState()
   val lastPrefillSpeed by serverViewModel.lastPrefillSpeed.collectAsState()
   val lastItlMs by serverViewModel.lastItlMs.collectAsState()
-  val lastContextUtilization by serverViewModel.lastContextUtilization.collectAsState()
   val activeAccelerator by serverViewModel.activeAccelerator.collectAsState()
+  val thinkingEnabled by serverViewModel.thinkingEnabled.collectAsState()
   val modelLoadTimeMs by serverViewModel.modelLoadTimeMs.collectAsState()
   val loadingStartedAtMs by serverViewModel.loadingStartedAtMs.collectAsState()
   val lastError by serverViewModel.lastError.collectAsState()
@@ -191,11 +192,49 @@ fun StatusScreen(
         }
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = if (isStopped) "No model loaded" else (modelName ?: "Loading…"),
-            style = MaterialTheme.typography.titleMedium,
-            color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-          )
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Text(
+              text = if (isStopped) "No model loaded" else (modelName ?: "Loading…"),
+              style = MaterialTheme.typography.titleMedium,
+              color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+              modifier = Modifier.weight(1f, fill = false),
+            )
+            // Accelerator pill (GPU/CPU/NPU) — shown next to model name when running
+            if (!isStopped && !isLoading && activeAccelerator != null) {
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(6.dp))
+                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                  .padding(horizontal = 8.dp, vertical = 3.dp),
+              ) {
+                Text(
+                  text = activeAccelerator!!,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = OlliteRTPrimary,
+                  fontWeight = FontWeight.Bold,
+                )
+              }
+            }
+            // Thinking indicator — brain icon shown when thinking mode is enabled
+            if (!isStopped && !isLoading && thinkingEnabled) {
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(6.dp))
+                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                  .padding(horizontal = 6.dp, vertical = 3.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Outlined.Psychology,
+                  contentDescription = "Thinking enabled",
+                  tint = OlliteRTPrimary,
+                  modifier = Modifier.size(16.dp),
+                )
+              }
+            }
+          }
           Spacer(modifier = Modifier.height(2.dp))
           if (status == ServerStatus.ERROR) {
             val errorText = if (!lastError.isNullOrBlank()) {
@@ -444,22 +483,6 @@ fun StatusScreen(
       MetricCard(
         label = "Success Rate",
         value = if (requestCount > 0) "$successRate (${errorCount} err)" else "—",
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = "Context Utilization",
-        value = if (lastContextUtilization > 0) "~%.0f%%".format(lastContextUtilization) else "—",
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = "Accelerator",
-        value = activeAccelerator ?: "—",
         modifier = Modifier.weight(1f),
       )
     }
