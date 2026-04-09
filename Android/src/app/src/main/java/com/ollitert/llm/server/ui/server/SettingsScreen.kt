@@ -24,15 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
@@ -110,7 +109,6 @@ fun SettingsScreen(
   var savedAutoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
   var savedKeepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
   var savedAutoExpandLogs by remember { mutableStateOf(LlmHttpPrefs.isAutoExpandLogs(context)) }
-  var savedNotifShowRequestCount by remember { mutableStateOf(LlmHttpPrefs.isNotifShowRequestCount(context)) }
   var savedWarmupEnabled by remember { mutableStateOf(LlmHttpPrefs.isWarmupEnabled(context)) }
   var savedStreamLogsPreview by remember { mutableStateOf(LlmHttpPrefs.isStreamLogsPreview(context)) }
   var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
@@ -121,6 +119,7 @@ fun SettingsScreen(
   var savedCompactToolSchemas by remember { mutableStateOf(LlmHttpPrefs.isCompactToolSchemas(context)) }
   var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
   var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
+  var savedShowRequestTypes by remember { mutableStateOf(LlmHttpPrefs.isShowRequestTypes(context)) }
 
   // Current (editable) state
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -135,7 +134,6 @@ fun SettingsScreen(
   var autoStartOnBoot by remember { mutableStateOf(savedAutoStartOnBoot) }
   var keepScreenOn by remember { mutableStateOf(savedKeepScreenOn) }
   var autoExpandLogs by remember { mutableStateOf(savedAutoExpandLogs) }
-  var notifShowRequestCount by remember { mutableStateOf(savedNotifShowRequestCount) }
   var warmupEnabled by remember { mutableStateOf(savedWarmupEnabled) }
   var streamLogsPreview by remember { mutableStateOf(savedStreamLogsPreview) }
   var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
@@ -146,6 +144,7 @@ fun SettingsScreen(
   var compactToolSchemas by remember { mutableStateOf(savedCompactToolSchemas) }
   var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
+  var showRequestTypes by remember { mutableStateOf(savedShowRequestTypes) }
 
   // Unsaved changes detection — compare current vs persisted
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -156,7 +155,6 @@ fun SettingsScreen(
     autoStartOnBoot != savedAutoStartOnBoot ||
     keepScreenOn != savedKeepScreenOn ||
     autoExpandLogs != savedAutoExpandLogs ||
-    notifShowRequestCount != savedNotifShowRequestCount ||
     warmupEnabled != savedWarmupEnabled ||
     streamLogsPreview != savedStreamLogsPreview ||
     keepPartialResponse != savedKeepPartialResponse ||
@@ -166,7 +164,8 @@ fun SettingsScreen(
     autoTrimPrompts != savedAutoTrimPrompts ||
     compactToolSchemas != savedCompactToolSchemas ||
     clearLogsOnStop != savedClearLogsOnStop ||
-    confirmClearLogs != savedConfirmClearLogs
+    confirmClearLogs != savedConfirmClearLogs ||
+    showRequestTypes != savedShowRequestTypes
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -205,7 +204,6 @@ fun SettingsScreen(
         LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
         LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
         LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
-        LlmHttpPrefs.setNotifShowRequestCount(context, notifShowRequestCount)
         LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
         LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
         LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
@@ -237,6 +235,7 @@ fun SettingsScreen(
 
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
+        LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
 
         // Apply keep-screen-on immediately
         val window = (context as? android.app.Activity)?.window
@@ -254,7 +253,6 @@ fun SettingsScreen(
         savedAutoStartOnBoot = autoStartOnBoot
         savedKeepScreenOn = keepScreenOn
         savedAutoExpandLogs = autoExpandLogs
-        savedNotifShowRequestCount = notifShowRequestCount
         savedWarmupEnabled = warmupEnabled
         savedStreamLogsPreview = streamLogsPreview
         savedKeepPartialResponse = keepPartialResponse
@@ -265,6 +263,7 @@ fun SettingsScreen(
         savedCompactToolSchemas = compactToolSchemas
         savedClearLogsOnStop = clearLogsOnStop
         savedConfirmClearLogs = confirmClearLogs
+        savedShowRequestTypes = showRequestTypes
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -316,54 +315,38 @@ fun SettingsScreen(
 
     Spacer(modifier = Modifier.height(4.dp))
 
-    // Server Config card
-    SettingsCard(
-      icon = Icons.Outlined.Tune,
-      title = "Server Configuration",
-    ) {
-      Text(
-        text = "Host Port (1024–65535)",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-      Spacer(modifier = Modifier.height(4.dp))
-      OutlinedTextField(
-        value = portText,
-        onValueChange = { input ->
-          // Allow only digits, let user freely type/delete
-          portText = input.filter { it.isDigit() }.take(5)
-          portError = false
-        },
-        singleLine = true,
-        isError = portError,
-        placeholder = {
-          Text(
-            "8000",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-          )
-        },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (portError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (portError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-      )
-      Spacer(modifier = Modifier.height(4.dp))
-      Text(
-        text = "Default: 8000. Requires server restart to take effect.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-
-    }
-
     // General card
     SettingsCard(
       icon = Icons.Outlined.PhoneAndroid,
       title = "General",
     ) {
+      // Keep screen awake toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Keep Screen Awake",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Prevent screen from turning off while app is open.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = keepScreenOn,
+          onCheckedChange = { enabled ->
+            keepScreenOn = enabled
+          },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
       // Auto-expand logs toggle
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -463,13 +446,8 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
-    }
 
-    // Notification card
-    SettingsCard(
-      icon = Icons.Outlined.Notifications,
-      title = "Notification",
-    ) {
+      // Keep partial response toggle
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -477,21 +455,220 @@ fun SettingsScreen(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Show Request Count",
+            text = "Keep Partial Response",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
           )
           Text(
-            text = "Display live request count in the notification. Updates on every request.",
+            text = "Preserve incomplete response text in logs when a streaming request is cancelled by the client.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
         Switch(
-          checked = notifShowRequestCount,
-          onCheckedChange = { notifShowRequestCount = it },
+          checked = keepPartialResponse,
+          onCheckedChange = { keepPartialResponse = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
+      }
+
+    }
+
+    // Hugging Face Token card
+    SettingsCard(
+      icon = Icons.Outlined.Key,
+      title = "Hugging Face Token",
+    ) {
+      Text(
+        text = "Required for downloading models from Hugging Face. Get your token from",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Text(
+        text = buildAnnotatedString {
+          withLink(
+            LinkAnnotation.Url(
+              url = "https://huggingface.co/settings/tokens",
+              styles = TextLinkStyles(
+                style = SpanStyle(
+                  color = OlliteRTPrimary,
+                  textDecoration = TextDecoration.Underline,
+                ),
+              ),
+            ),
+          ) {
+            append("huggingface.co/settings/tokens")
+          }
+        },
+        style = MaterialTheme.typography.bodySmall,
+      )
+      Spacer(modifier = Modifier.height(8.dp))
+      OutlinedTextField(
+        value = hfToken,
+        onValueChange = { hfToken = it.trim() },
+        singleLine = true,
+        visualTransformation = if (hfTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        placeholder = {
+          Text(
+            "hf_...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          )
+        },
+        trailingIcon = {
+          Row {
+            IconButton(onClick = { hfTokenVisible = !hfTokenVisible }) {
+              Icon(
+                imageVector = if (hfTokenVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                contentDescription = if (hfTokenVisible) "Hide token" else "Show token",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+            if (hfToken.isNotBlank()) {
+              IconButton(onClick = {
+                hfToken = ""
+                Toast.makeText(context, "Token cleared", Toast.LENGTH_SHORT).show()
+              }) {
+                Icon(
+                  imageVector = Icons.Outlined.Close,
+                  contentDescription = "Clear token",
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+            }
+          }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = OlliteRTPrimary,
+          unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+      )
+    }
+
+    // Server Config card
+    SettingsCard(
+      icon = Icons.Outlined.Tune,
+      title = "Server Configuration",
+    ) {
+      Text(
+        text = "Host Port (1024–65535)",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      OutlinedTextField(
+        value = portText,
+        onValueChange = { input ->
+          // Allow only digits, let user freely type/delete
+          portText = input.filter { it.isDigit() }.take(5)
+          portError = false
+        },
+        singleLine = true,
+        isError = portError,
+        placeholder = {
+          Text(
+            "8000",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          )
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = if (portError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (portError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = "Default: 8000. Requires server restart to take effect.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Bearer token toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Require Bearer Token",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Protect the API with a bearer token. Clients must include it in the Authorization header.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = bearerEnabled,
+          onCheckedChange = { enabled ->
+            bearerEnabled = enabled
+            if (enabled && bearerToken.isBlank()) {
+              bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+            }
+          },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Token display + actions (only when enabled)
+      if (bearerEnabled) {
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Token value in a copyable box
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = bearerToken,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+
+          // Copy button
+          TooltipIconButton(
+            icon = Icons.Outlined.ContentCopy,
+            tooltip = "Copy token",
+            onClick = {
+              val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+              clipboard.setPrimaryClip(ClipData.newPlainText("Bearer Token", bearerToken))
+              Toast.makeText(context, "Token copied", Toast.LENGTH_SHORT).show()
+            },
+          )
+
+          Spacer(modifier = Modifier.width(4.dp))
+
+          // Regenerate button
+          TooltipIconButton(
+            icon = Icons.Outlined.Refresh,
+            tooltip = "Regenerate token",
+            onClick = {
+              bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+              Toast.makeText(context, "Token regenerated — save to apply", Toast.LENGTH_SHORT).show()
+            },
+          )
+        }
       }
     }
 
@@ -607,11 +784,14 @@ fun SettingsScreen(
         )
       }
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+    }
 
-      // Keep screen awake toggle
+    // Metrics card
+    SettingsCard(
+      icon = Icons.Outlined.BarChart,
+      title = "Metrics",
+    ) {
+      // Show Request Types on Status screen
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -619,208 +799,22 @@ fun SettingsScreen(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Keep Screen Awake",
+            text = "Show Request Types",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
           )
           Text(
-            text = "Prevent screen from turning off while app is open.",
+            text = "Show text, vision, and audio request counts on the Status screen.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
         Switch(
-          checked = keepScreenOn,
-          onCheckedChange = { enabled ->
-            keepScreenOn = enabled
-          },
+          checked = showRequestTypes,
+          onCheckedChange = { showRequestTypes = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
-    }
-
-    // API Authentication card
-    SettingsCard(
-      icon = Icons.Outlined.Shield,
-      title = "API Authentication",
-    ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Text(
-          text = "Require Bearer Token",
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurface,
-        )
-        Switch(
-          checked = bearerEnabled,
-          onCheckedChange = { enabled ->
-            bearerEnabled = enabled
-            if (enabled && bearerToken.isBlank()) {
-              bearerToken = LlmHttpPrefs.ensureBearerToken(context)
-            } else if (!enabled) {
-              bearerToken = ""
-            }
-          },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      if (bearerEnabled && bearerToken.isNotBlank()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-          value = bearerToken,
-          onValueChange = {},
-          readOnly = true,
-          singleLine = true,
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = OlliteRTPrimary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-          ),
-          trailingIcon = {
-            Row {
-              @OptIn(ExperimentalMaterial3Api::class)
-              TooltipBox(
-                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-                tooltip = { PlainTooltip { Text("Copy token") } },
-                state = rememberTooltipState(),
-              ) {
-                IconButton(onClick = {
-                  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                  clipboard.setPrimaryClip(ClipData.newPlainText("Bearer Token", bearerToken))
-                  Toast.makeText(context, "Token copied", Toast.LENGTH_SHORT).show()
-                }) {
-                  Icon(
-                    imageVector = Icons.Outlined.ContentCopy,
-                    contentDescription = "Copy token",
-                    tint = OlliteRTPrimary,
-                    modifier = Modifier.size(20.dp),
-                  )
-                }
-              }
-              @OptIn(ExperimentalMaterial3Api::class)
-              TooltipBox(
-                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-                tooltip = { PlainTooltip { Text("Regenerate token") } },
-                state = rememberTooltipState(),
-              ) {
-                IconButton(onClick = {
-                  bearerToken = LlmHttpPrefs.ensureBearerToken(context).let {
-                    // Force regenerate by clearing first
-                    LlmHttpPrefs.setBearerToken(context, "")
-                    LlmHttpPrefs.ensureBearerToken(context)
-                  }
-                }) {
-                  Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = "Regenerate token",
-                    tint = OlliteRTPrimary,
-                    modifier = Modifier.size(20.dp),
-                  )
-                }
-              }
-            }
-          },
-          modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = "Clients must send Authorization: Bearer <token> header.",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
-    }
-
-    // Hugging Face Token card
-    SettingsCard(
-      icon = Icons.Outlined.Key,
-      title = "Hugging Face Token",
-    ) {
-      Text(
-        text = "Required for downloading gated models and private repositories.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-      Spacer(modifier = Modifier.height(4.dp))
-      Text(
-        text = buildAnnotatedString {
-          append("Generate a token with ")
-          withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Read") }
-          append(" permissions from ")
-          withLink(LinkAnnotation.Url(
-            url = "https://huggingface.co/settings/tokens",
-            styles = TextLinkStyles(style = SpanStyle(color = OlliteRTPrimary, textDecoration = TextDecoration.Underline)),
-          )) {
-            append("HuggingFace token settings")
-          }
-          append(".")
-        },
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-      Spacer(modifier = Modifier.height(8.dp))
-      OutlinedTextField(
-        value = hfToken,
-        onValueChange = { hfToken = it },
-        singleLine = true,
-        placeholder = {
-          Text(
-            "hf_...",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-          )
-        },
-        visualTransformation = if (hfTokenVisible) {
-          VisualTransformation.None
-        } else {
-          PasswordVisualTransformation()
-        },
-        trailingIcon = {
-          Row {
-            val eyeTooltip = if (hfTokenVisible) "Hide token" else "Show token"
-            @OptIn(ExperimentalMaterial3Api::class)
-            TooltipBox(
-              positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-              tooltip = { PlainTooltip { Text(eyeTooltip) } },
-              state = rememberTooltipState(),
-            ) {
-              IconButton(onClick = { hfTokenVisible = !hfTokenVisible }) {
-                Icon(
-                  imageVector = if (hfTokenVisible) Icons.Outlined.VisibilityOff
-                  else Icons.Outlined.Visibility,
-                  contentDescription = eyeTooltip,
-                  tint = OlliteRTPrimary,
-                  modifier = Modifier.size(20.dp),
-                )
-              }
-            }
-            if (hfToken.isNotEmpty()) {
-              @OptIn(ExperimentalMaterial3Api::class)
-              TooltipBox(
-                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-                tooltip = { PlainTooltip { Text("Clear token") } },
-                state = rememberTooltipState(),
-              ) {
-                IconButton(onClick = { hfToken = "" }) {
-                  Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = "Clear token",
-                    tint = OlliteRTPrimary,
-                    modifier = Modifier.size(20.dp),
-                  )
-                }
-              }
-            }
-          }
-        },
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = OlliteRTPrimary,
-          unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-      )
     }
 
     // Discard unsaved changes dialog
@@ -914,35 +908,6 @@ fun SettingsScreen(
         Switch(
           checked = warmupEnabled,
           onCheckedChange = { warmupEnabled = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
-
-      // Keep partial response toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Keep Partial Response",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Text(
-            text = "Preserve incomplete response text in logs when a streaming request is cancelled by the client.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = keepPartialResponse,
-          onCheckedChange = { keepPartialResponse = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

@@ -35,6 +35,12 @@ class ServerViewModel @Inject constructor(
   val imageRequests = ServerMetrics.imageRequests
   val audioRequests = ServerMetrics.audioRequests
   val errorCount = ServerMetrics.errorCount
+  val lastTtfbMs = ServerMetrics.lastTtfbMs
+  val avgTtfbMs = ServerMetrics.avgTtfbMs
+  val lastDecodeSpeed = ServerMetrics.lastDecodeSpeed
+  val peakDecodeSpeed = ServerMetrics.peakDecodeSpeed
+  val lastPrefillSpeed = ServerMetrics.lastPrefillSpeed
+  val lastItlMs = ServerMetrics.lastItlMs
   val modelLoadTimeMs = ServerMetrics.modelLoadTimeMs
   val loadingStartedAtMs = ServerMetrics.loadingStartedAtMs
   val lastError = ServerMetrics.lastError

@@ -26,6 +26,7 @@ private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
 private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
+private const val KEY_SHOW_REQUEST_TYPES = "show_request_types"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_CHAT_TEMPLATE = "chat_template_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
@@ -272,6 +273,17 @@ object LlmHttpPrefs {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
       .putBoolean(KEY_CONFIRM_CLEAR_LOGS, enabled)
+      .apply()
+  }
+
+  fun isShowRequestTypes(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_SHOW_REQUEST_TYPES, false)
+
+  fun setShowRequestTypes(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(KEY_SHOW_REQUEST_TYPES, enabled)
       .apply()
   }
 
