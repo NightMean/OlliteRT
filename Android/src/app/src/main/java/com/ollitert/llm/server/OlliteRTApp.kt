@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,19 +52,22 @@ fun OlliteRTApp(
     OlliteRTRoutes.GETTING_STARTED
   }
 
-  // Auto-load default model on app launch (if configured and server isn't already running)
+  // Auto-load default model on app launch (if configured and server isn't already running).
+  // Reads status snapshot once — no ongoing collection that would recompose the root.
   val context = LocalContext.current
-  val serverStatus by serverViewModel.status.collectAsState()
   LaunchedEffect(Unit) {
     if (startDestination == OlliteRTRoutes.MODELS) {
       val defaultModel = LlmHttpPrefs.getDefaultModelName(context)
-      if (!defaultModel.isNullOrBlank() && serverStatus == ServerStatus.STOPPED) {
+      if (!defaultModel.isNullOrBlank() && serverViewModel.status.value == ServerStatus.STOPPED) {
         serverViewModel.startServer(modelName = defaultModel)
       }
     }
   }
 
   // ── Server error dialog ──────────────────────────────────────────────────
+  // Collected here because the dialog must overlay all screens. These flows only
+  // emit on status transitions (rare), not per-token, so recomposition cost is minimal.
+  val serverStatus by serverViewModel.status.collectAsState()
   val lastError by serverViewModel.lastError.collectAsState()
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
@@ -153,7 +157,11 @@ fun OlliteRTApp(
     },
     bottomBar = {
       if (showBottomBar) {
-        val mmUiState by modelManagerViewModel.uiState.collectAsState()
+        // Only collect the storage trigger — not the full uiState — to avoid
+        // recomposing the entire bottom bar on every model download progress update.
+        val storageTrigger by remember {
+          modelManagerViewModel.uiState.map { it.storageUpdateTrigger }
+        }.collectAsState(initial = 0L)
         OlliteRTBottomNavBar(
           currentRoute = currentRoute,
           onTabSelected = { tab ->
@@ -165,7 +173,7 @@ fun OlliteRTApp(
               restoreState = true
             }
           },
-          storageUpdateTrigger = mmUiState.storageUpdateTrigger,
+          storageUpdateTrigger = storageTrigger,
         )
       }
     },

@@ -293,7 +293,7 @@ fun ModelList(
         }
 
       // List of models within a task.
-      items(items = models) { model ->
+      items(items = models, key = { it.name }) { model ->
         ModelItem(
           model = model,
           task = task,

@@ -128,11 +128,10 @@ fun StatusScreen(
   // During reload/loading, bindAddress is null — show "—" instead of "localhost".
   val endpointUrl = if (bindAddress != null) "http://${bindAddress}:$port/v1" else null
 
-  // Global average throughput: tokens/sec over entire uptime (includes idle time)
-  val avgThroughput = if (uptimeSeconds > 0) {
-    "%.1f".format(tokensGenerated.toDouble() / uptimeSeconds)
-  } else {
-    "0.0"
+  // Global average throughput: tokens/sec over entire uptime (includes idle time).
+  // Wrapped in remember to avoid Formatter allocation on every recomposition.
+  val avgThroughput = remember(tokensGenerated, uptimeSeconds) {
+    if (uptimeSeconds > 0) "%.1f".format(tokensGenerated.toDouble() / uptimeSeconds) else "0.0"
   }
 
   Column(
@@ -399,12 +398,12 @@ fun StatusScreen(
     ) {
       MetricCard(
         label = "Decode Speed",
-        value = if (lastDecodeSpeed > 0) "%.1f t/s".format(lastDecodeSpeed) else "—",
+        value = remember(lastDecodeSpeed) { if (lastDecodeSpeed > 0) "%.1f t/s".format(lastDecodeSpeed) else "—" },
         modifier = Modifier.weight(1f),
       )
       MetricCard(
         label = "Peak Decode",
-        value = if (peakDecodeSpeed > 0) "%.1f t/s".format(peakDecodeSpeed) else "—",
+        value = remember(peakDecodeSpeed) { if (peakDecodeSpeed > 0) "%.1f t/s".format(peakDecodeSpeed) else "—" },
         modifier = Modifier.weight(1f),
       )
     }
@@ -415,7 +414,7 @@ fun StatusScreen(
     ) {
       MetricCard(
         label = "Prefill Speed",
-        value = if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else "—",
+        value = remember(lastPrefillSpeed) { if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else "—" },
         modifier = Modifier.weight(1f),
       )
       MetricCard(
@@ -447,7 +446,7 @@ fun StatusScreen(
     ) {
       MetricCard(
         label = "Inter-Token Latency",
-        value = if (lastItlMs > 0) "%.1fms".format(lastItlMs) else "—",
+        value = remember(lastItlMs) { if (lastItlMs > 0) "%.1fms".format(lastItlMs) else "—" },
         modifier = Modifier.weight(1f),
       )
       MetricCard(
@@ -477,9 +476,9 @@ fun StatusScreen(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      val successRate = if (requestCount > 0) {
-        "%.0f%%".format(((requestCount - errorCount).toDouble() / requestCount) * 100)
-      } else "—"
+      val successRate = remember(requestCount, errorCount) {
+        if (requestCount > 0) "%.0f%%".format(((requestCount - errorCount).toDouble() / requestCount) * 100) else "—"
+      }
       MetricCard(
         label = "Success Rate",
         value = if (requestCount > 0) "$successRate (${errorCount} err)" else "—",

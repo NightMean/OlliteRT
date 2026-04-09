@@ -423,7 +423,11 @@ fun LogsScreen(
             .padding(horizontal = 16.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          items(entries, key = { it.id }) { entry ->
+          items(
+            entries,
+            key = { it.id },
+            contentType = { if (it.method == "EVENT") "event" else "request" },
+          ) { entry ->
             if (entry.method == "EVENT") {
               InternalEventCard(entry)
             } else {
