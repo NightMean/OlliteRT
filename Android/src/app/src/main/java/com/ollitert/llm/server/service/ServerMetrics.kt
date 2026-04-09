@@ -63,6 +63,36 @@ object ServerMetrics {
   private val _audioRequestsFlow = MutableStateFlow(0L)
   val audioRequests: StateFlow<Long> = _audioRequestsFlow.asStateFlow()
 
+  // Time to first token (TTFB) tracking
+  private val _lastTtfbMs = MutableStateFlow(0L)
+  val lastTtfbMs: StateFlow<Long> = _lastTtfbMs.asStateFlow()
+
+  private val _totalTtfbMs = AtomicLong(0)
+  private val _ttfbCount = AtomicLong(0)
+  private val _avgTtfbMs = MutableStateFlow(0L)
+  val avgTtfbMs: StateFlow<Long> = _avgTtfbMs.asStateFlow()
+
+  // Per-request decode speed (tokens/sec for last completed request)
+  private val _lastDecodeSpeed = MutableStateFlow(0.0)
+  val lastDecodeSpeed: StateFlow<Double> = _lastDecodeSpeed.asStateFlow()
+
+  // Peak decode speed — highest decode speed seen since server start
+  private val _peakDecodeSpeed = MutableStateFlow(0.0)
+  val peakDecodeSpeed: StateFlow<Double> = _peakDecodeSpeed.asStateFlow()
+
+  // Prefill speed — input tokens processed per second (inputTokens / ttfbSeconds)
+  private val _lastPrefillSpeed = MutableStateFlow(0.0)
+  val lastPrefillSpeed: StateFlow<Double> = _lastPrefillSpeed.asStateFlow()
+
+  // Inter-Token Latency — average ms between consecutive output tokens
+  private val _lastItlMs = MutableStateFlow(0.0)
+  val lastItlMs: StateFlow<Double> = _lastItlMs.asStateFlow()
+
+  // Context utilization — last request's input tokens as % of model's max context window.
+  // Per-request metric, no UI yet — exposed for future use (e.g. per-log-entry display).
+  private val _lastContextUtilization = MutableStateFlow(0.0)
+  val lastContextUtilization: StateFlow<Double> = _lastContextUtilization.asStateFlow()
+
   // Error tracking
   private val _errorCount = AtomicLong(0)
   private val _errorCountFlow = MutableStateFlow(0L)
@@ -130,6 +160,15 @@ object ServerMetrics {
     _audioRequestsFlow.value = 0L
     _errorCount.set(0)
     _errorCountFlow.value = 0L
+    _lastTtfbMs.value = 0L
+    _totalTtfbMs.set(0)
+    _ttfbCount.set(0)
+    _avgTtfbMs.value = 0L
+    _lastDecodeSpeed.value = 0.0
+    _peakDecodeSpeed.value = 0.0
+    _lastPrefillSpeed.value = 0.0
+    _lastItlMs.value = 0.0
+    _lastContextUtilization.value = 0.0
     _modelLoadTimeMs.value = 0L
     _loadingStartedAtMs.value = 0L
     _lastError.value = null
@@ -184,6 +223,57 @@ object ServerMetrics {
 
   fun recordModelLoadTime(ms: Long) {
     _modelLoadTimeMs.value = ms
+  }
+
+  /** Record time to first token in milliseconds. Values <= 0 are ignored. */
+  fun recordTtfb(ms: Long) {
+    if (ms <= 0) return
+    _lastTtfbMs.value = ms
+    val totalMs = _totalTtfbMs.addAndGet(ms)
+    val count = _ttfbCount.incrementAndGet()
+    _avgTtfbMs.value = totalMs / count
+  }
+
+  /**
+   * Record per-request performance metrics derived from timing data.
+   * Called once per completed request with all available timing info.
+   *
+   * @param inputTokens  estimated input token count (~prompt.length / 4)
+   * @param outputTokens estimated output token count (~output.length / 4)
+   * @param ttfbMs       time to first token (ms) — approximates prefill time
+   * @param generationMs time from first token to last token (totalMs - ttfbMs)
+   * @param maxContextTokens model's max context window size (0 if unknown)
+   */
+  fun recordInferenceMetrics(
+    inputTokens: Long,
+    outputTokens: Long,
+    ttfbMs: Long,
+    generationMs: Long,
+    maxContextTokens: Long = 0,
+  ) {
+    // Decode speed: output tokens / generation time (excludes prefill)
+    if (outputTokens > 0 && generationMs > 0) {
+      val decodeSpeed = outputTokens.toDouble() / (generationMs.toDouble() / 1000.0)
+      _lastDecodeSpeed.value = decodeSpeed
+      synchronized(this) {
+        if (decodeSpeed > _peakDecodeSpeed.value) _peakDecodeSpeed.value = decodeSpeed
+      }
+    }
+
+    // Prefill speed: input tokens / TTFB (TTFB ≈ prefill time at HTTP layer)
+    if (inputTokens > 0 && ttfbMs > 0) {
+      _lastPrefillSpeed.value = inputTokens.toDouble() / (ttfbMs.toDouble() / 1000.0)
+    }
+
+    // Inter-Token Latency: average ms between consecutive output tokens
+    if (outputTokens > 1 && generationMs > 0) {
+      _lastItlMs.value = generationMs.toDouble() / (outputTokens.toDouble() - 1)
+    }
+
+    // Context utilization: input tokens as % of max context window
+    if (maxContextTokens > 0 && inputTokens > 0) {
+      _lastContextUtilization.value = (inputTokens.toDouble() / maxContextTokens.toDouble()) * 100.0
+    }
   }
 
   fun onInferenceStarted() {

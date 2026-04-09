@@ -1081,8 +1081,15 @@ class LlmHttpService : Service() {
       } else {
         val outputLen = result.output?.length ?: 0
         // Rough token estimate: ~4 chars per token
-        ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
+        val inputTokens = (prompt.length / 4).toLong().coerceAtLeast(1)
+        val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
+        val maxCtx = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
+        ServerMetrics.addTokens(outputTokens)
         ServerMetrics.recordLatency(result.totalMs)
+        ServerMetrics.recordTtfb(result.ttfbMs)
+        if (result.ttfbMs > 0) {
+          ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx)
+        }
         logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
         // Prepend thinking content wrapped in <think> tags if present
         val output = if (!result.thinking.isNullOrEmpty()) {
@@ -1154,6 +1161,8 @@ class LlmHttpService : Service() {
       var headerWritten = false
       var thinkingTagOpened = false
       var lastLogUpdateMs = 0L
+      // Track time of first content/thinking token for TTFB and decode speed calculations
+      var firstTokenMs = 0L
       val streamPreview = LlmHttpPrefs.isStreamLogsPreview(this@LlmHttpService)
       val keepPartial = LlmHttpPrefs.isKeepPartialResponse(this@LlmHttpService)
 
@@ -1199,6 +1208,10 @@ class LlmHttpService : Service() {
             return@executeStreaming
           }
           try {
+            // Capture first token time for TTFB calculation
+            if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
+              firstTokenMs = SystemClock.elapsedRealtime()
+            }
             if (!headerWritten) {
               headerWritten = true
               stream.enqueue(LlmHttpResponseRenderer.buildStreamingHeader(model.name, respId, msgId, now))
@@ -1245,7 +1258,17 @@ class LlmHttpService : Service() {
                 stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
               }
               val outputLen = fullText.length
-              ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
+              val inputTokens = (promptLen / 4).toLong().coerceAtLeast(if (promptLen > 0) 1L else 0L)
+              val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
+              val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
+              val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
+              val maxCtx = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
+              ServerMetrics.addTokens(outputTokens)
+              ServerMetrics.recordLatency(totalLatencyMs)
+              ServerMetrics.recordTtfb(ttfbMs)
+              if (firstTokenMs > 0) {
+                ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
+              }
               ServerMetrics.onInferenceCompleted()
               // Include thinking in the full output for footer/log
               val combinedText = if (fullThinking.isNotEmpty()) {
@@ -1265,12 +1288,12 @@ class LlmHttpService : Service() {
                     responseBody = responseJson,
                     partialText = null,
                     isPending = false,
-                    latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+                    latencyMs = totalLatencyMs,
                     isThinking = fullThinking.isNotEmpty(),
                   )
                 }
               }
-              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen")
+              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen")
             }
           } catch (e: Exception) {
             if (originalConfig != null) model.configValues = originalConfig
@@ -1365,6 +1388,8 @@ class LlmHttpService : Service() {
       var headerWritten = false
       var thinkingTagOpened = false
       var lastLogUpdateMs = 0L
+      // Track time of first content/thinking token for TTFB and decode speed calculations
+      var firstTokenMs = 0L
       val streamPreview = LlmHttpPrefs.isStreamLogsPreview(this@LlmHttpService)
       val keepPartial = LlmHttpPrefs.isKeepPartialResponse(this@LlmHttpService)
 
@@ -1416,6 +1441,10 @@ class LlmHttpService : Service() {
             return@executeStreaming
           }
           try {
+            // Capture first token time for TTFB calculation
+            if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
+              firstTokenMs = SystemClock.elapsedRealtime()
+            }
             if (!bufferForTools) {
               if (!headerWritten) {
                 headerWritten = true
@@ -1476,7 +1505,17 @@ class LlmHttpService : Service() {
             if (done) {
               if (originalConfig != null) model.configValues = originalConfig
               val outputLen = fullText.length
-              ServerMetrics.addTokens((outputLen / 4).toLong().coerceAtLeast(1))
+              val inputTokens = (prompt.length / 4).toLong().coerceAtLeast(1)
+              val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
+              val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
+              val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
+              val maxCtx = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
+              ServerMetrics.addTokens(outputTokens)
+              ServerMetrics.recordLatency(totalLatencyMs)
+              ServerMetrics.recordTtfb(ttfbMs)
+              if (firstTokenMs > 0) {
+                ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
+              }
               ServerMetrics.onInferenceCompleted()
               val promptTokens = (prompt.length / 4).coerceAtLeast(1)
               val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
@@ -1527,12 +1566,12 @@ class LlmHttpService : Service() {
                     responseBody = responseJson,
                     partialText = null,
                     isPending = false,
-                    latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+                    latencyMs = totalLatencyMs,
                     isThinking = fullThinking.isNotEmpty(),
                   )
                 }
               }
-              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true outputChars=$outputLen${if (parsedToolCalls.isNotEmpty()) " tool_calls=${parsedToolCalls.joinToString(",") { it.function.name }} count=${parsedToolCalls.size}" else ""}")
+              logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${if (parsedToolCalls.isNotEmpty()) " tool_calls=${parsedToolCalls.joinToString(",") { it.function.name }} count=${parsedToolCalls.size}" else ""}")
             }
           } catch (e: Exception) {
             if (originalConfig != null) model.configValues = originalConfig

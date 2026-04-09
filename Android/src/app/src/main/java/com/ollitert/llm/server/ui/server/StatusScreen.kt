@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
@@ -78,6 +79,12 @@ fun StatusScreen(
   val imageRequests by serverViewModel.imageRequests.collectAsState()
   val audioRequests by serverViewModel.audioRequests.collectAsState()
   val errorCount by serverViewModel.errorCount.collectAsState()
+  val lastTtfbMs by serverViewModel.lastTtfbMs.collectAsState()
+  val avgTtfbMs by serverViewModel.avgTtfbMs.collectAsState()
+  val lastDecodeSpeed by serverViewModel.lastDecodeSpeed.collectAsState()
+  val peakDecodeSpeed by serverViewModel.peakDecodeSpeed.collectAsState()
+  val lastPrefillSpeed by serverViewModel.lastPrefillSpeed.collectAsState()
+  val lastItlMs by serverViewModel.lastItlMs.collectAsState()
   val modelLoadTimeMs by serverViewModel.modelLoadTimeMs.collectAsState()
   val loadingStartedAtMs by serverViewModel.loadingStartedAtMs.collectAsState()
   val lastError by serverViewModel.lastError.collectAsState()
@@ -114,10 +121,12 @@ fun StatusScreen(
 
   var showReloadDialog by remember { mutableStateOf(false) }
 
-  val endpointUrl = "http://${bindAddress ?: "localhost"}:$port/v1"
+  // Only show a real endpoint URL when bindAddress is known (server is RUNNING and bound).
+  // During reload/loading, bindAddress is null — show "—" instead of "localhost".
+  val endpointUrl = if (bindAddress != null) "http://${bindAddress}:$port/v1" else null
 
-  // Throughput: tokens/sec based on uptime
-  val throughput = if (uptimeSeconds > 0) {
+  // Global average throughput: tokens/sec over entire uptime (includes idle time)
+  val avgThroughput = if (uptimeSeconds > 0) {
     "%.1f".format(tokensGenerated.toDouble() / uptimeSeconds)
   } else {
     "0.0"
@@ -284,15 +293,15 @@ fun StatusScreen(
           )
           Spacer(modifier = Modifier.height(2.dp))
           Text(
-            text = if (isStopped) "—" else endpointUrl,
+            text = endpointUrl ?: "—",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else OlliteRTPrimary,
+            color = if (endpointUrl != null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
             fontFamily = SpaceGroteskFontFamily,
-            textDecoration = if (isStopped) TextDecoration.None else TextDecoration.Underline,
-            modifier = if (!isStopped) Modifier.clickable { uriHandler.openUri(endpointUrl) } else Modifier,
+            textDecoration = if (endpointUrl != null) TextDecoration.Underline else TextDecoration.None,
+            modifier = if (endpointUrl != null) Modifier.clickable { uriHandler.openUri(endpointUrl) } else Modifier,
           )
         }
-        if (!isStopped) {
+        if (endpointUrl != null) {
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
             tooltip = "Copy endpoint URL",
@@ -348,13 +357,13 @@ fun StatusScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       MetricCard(
-        label = "Throughput",
-        value = "${throughput} t/s",
+        label = "Decode Speed",
+        value = if (lastDecodeSpeed > 0) "%.1f t/s".format(lastDecodeSpeed) else "—",
         modifier = Modifier.weight(1f),
       )
       MetricCard(
-        label = "Tokens / Request",
-        value = if (requestCount > 0) "%.1f".format(tokensGenerated.toDouble() / requestCount) else "—",
+        label = "Peak Decode",
+        value = if (peakDecodeSpeed > 0) "%.1f t/s".format(peakDecodeSpeed) else "—",
         modifier = Modifier.weight(1f),
       )
     }
@@ -363,14 +372,62 @@ fun StatusScreen(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+      MetricCard(
+        label = "Prefill Speed",
+        value = if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else "—",
+        modifier = Modifier.weight(1f),
+      )
+      MetricCard(
+        label = "Avg Throughput",
+        value = "${avgThroughput} t/s",
+        modifier = Modifier.weight(1f),
+      )
+    }
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      MetricCard(
+        label = "Last TTFB",
+        value = if (lastTtfbMs > 0) "${lastTtfbMs}ms" else "—",
+        modifier = Modifier.weight(1f),
+      )
+      MetricCard(
+        label = "Avg TTFB",
+        value = if (avgTtfbMs > 0) "${avgTtfbMs}ms" else "—",
+        modifier = Modifier.weight(1f),
+      )
+    }
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      MetricCard(
+        label = "Inter-Token Latency",
+        value = if (lastItlMs > 0) "%.1fms".format(lastItlMs) else "—",
+        modifier = Modifier.weight(1f),
+      )
       MetricCard(
         label = "Last Latency",
         value = if (lastLatencyMs > 0) "${lastLatencyMs}ms" else "—",
         modifier = Modifier.weight(1f),
       )
+    }
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
       MetricCard(
         label = "Avg Latency",
         value = if (avgLatencyMs > 0) "${avgLatencyMs}ms" else "—",
+        modifier = Modifier.weight(1f),
+      )
+      MetricCard(
+        label = "Peak Latency",
+        value = if (peakLatencyMs > 0) "${peakLatencyMs}ms" else "—",
         modifier = Modifier.weight(1f),
       )
     }
@@ -379,11 +436,6 @@ fun StatusScreen(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      MetricCard(
-        label = "Peak Latency",
-        value = if (peakLatencyMs > 0) "${peakLatencyMs}ms" else "—",
-        modifier = Modifier.weight(1f),
-      )
       val successRate = if (requestCount > 0) {
         "%.0f%%".format(((requestCount - errorCount).toDouble() / requestCount) * 100)
       } else "—"
@@ -394,8 +446,9 @@ fun StatusScreen(
       )
     }
 
-    // Request modality breakdown
-    if (requestCount > 0) {
+    // Request modality breakdown — controlled by Settings toggle
+    val showRequestTypes = remember { LlmHttpPrefs.isShowRequestTypes(context) }
+    if (showRequestTypes) {
       Text(
         text = "Request Types",
         style = MaterialTheme.typography.titleSmall,
