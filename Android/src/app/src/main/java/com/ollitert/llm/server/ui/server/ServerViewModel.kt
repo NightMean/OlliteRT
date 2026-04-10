@@ -45,6 +45,7 @@ class ServerViewModel @Inject constructor(
   val activeAccelerator = ServerMetrics.activeAccelerator
   val thinkingEnabled = ServerMetrics.thinkingEnabled
   val modelLoadTimeMs = ServerMetrics.modelLoadTimeMs
+  val isIdleUnloaded = ServerMetrics.isIdleUnloaded
   val loadingStartedAtMs = ServerMetrics.loadingStartedAtMs
   val lastError = ServerMetrics.lastError
   val nativeHeapBytes = ServerMetrics.nativeHeapBytes
