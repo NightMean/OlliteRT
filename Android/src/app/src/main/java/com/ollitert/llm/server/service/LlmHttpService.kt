@@ -274,7 +274,7 @@ class LlmHttpService : Service() {
           }
           model.initializedWithVision = supportImage
           RequestLogStore.addEvent(
-            "Warmup skipped (disabled in Advanced Settings) — model loaded without test inference",
+            "Warmup skipped — Model loaded without test inference (disabled in Settings)",
             modelName = model.name,
             category = EventCategory.MODEL,
           )
