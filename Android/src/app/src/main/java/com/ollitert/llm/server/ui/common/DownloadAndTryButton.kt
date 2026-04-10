@@ -99,7 +99,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "OlliteRTDownloadAndTryButton"
-private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
+/**
+ * 3 GB reserved for system stability. Downloads are blocked unless
+ * availableBytes > modelSize + this reserve, preventing the device from
+ * running out of space for OS operations after a large model download.
+ * The storage bar on the Models screen subtracts this from the displayed
+ * "available" space so the user sees what's actually usable for models.
+ */
+internal const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 
 /**
  * Handles the "Download & Try it" button click, managing the model download process based on
@@ -735,6 +742,19 @@ fun DownloadAndTryButton(
   }
 
   if (showStorageWarning) {
+    // Build a detailed breakdown so the user understands why the download is
+    // blocked even though raw free space may appear sufficient. The 3 GB system
+    // reserve (SYSTEM_RESERVED_MEMORY_IN_BYTES) keeps the device stable after
+    // downloading large models\.
+    val modelSizeGb = model.totalBytes / (1024f * 1024 * 1024)
+    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES / (1024f * 1024 * 1024)
+    val totalRequiredGb = modelSizeGb + reserveGb
+    val availableBytes = try {
+      val stat = StatFs(Environment.getDataDirectory().path)
+      stat.availableBlocksLong * stat.blockSizeLong
+    } catch (_: Exception) { 0L }
+    val availableGb = availableBytes / (1024f * 1024 * 1024)
+
     AlertDialog(
       icon = {
         Icon(
@@ -743,20 +763,29 @@ fun DownloadAndTryButton(
           tint = MaterialTheme.colorScheme.error,
         )
       },
-      title = { Text("Storage Full") },
+      title = { Text("Not Enough Storage") },
       text = {
-        val sizeGb = model.totalBytes / (1024f * 1024 * 1024)
-        Text("Not enough storage to download this model (%.1f GB required). Free up space and try again.".format(sizeGb))
+        Text(
+          "This download requires %.1f GB total:\n".format(totalRequiredGb) +
+          "  • Model size: %.1f GB\n".format(modelSizeGb) +
+          "  • System reserve: %.0f GB\n\n".format(reserveGb) +
+          "Available: %.1f GB\n\n".format(availableGb) +
+          "Free up at least %.1f GB to continue, or tap \"Download Anyway\" to skip the safety check."
+            .format((totalRequiredGb - availableGb).coerceAtLeast(0f))
+        )
       },
       onDismissRequest = { showStorageWarning = false },
+      // Cancel is the confirm (right) button — more prominent position — so the
+      // user's natural tap lands on the safe action. "Download Anyway" is the
+      // less prominent dismiss (left) button for power users who understand the risk.
       confirmButton = {
+        TextButton(onClick = { showStorageWarning = false }) { Text(stringResource(R.string.cancel)) }
+      },
+      dismissButton = {
         TextButton(onClick = {
           showStorageWarning = false
           handleClickButton()
         }) { Text("Download Anyway") }
-      },
-      dismissButton = {
-        TextButton(onClick = { showStorageWarning = false }) { Text(stringResource(R.string.cancel)) }
       },
     )
   }

@@ -8,7 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Environment
 import android.os.IBinder
+import android.os.StatFs
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -291,6 +293,26 @@ class LlmHttpService : Service() {
 
     Thread {
       try {
+        // Guard against native SIGABRT: LiteRT's Engine.initialize() calls
+        // abort() (not a catchable exception) when it can't allocate memory or
+        // create temp/cache files on a nearly-full disk. Check available storage
+        // before entering native code so we fail gracefully instead of crashing
+        // the entire process. 500 MB is a conservative minimum — models create
+        // XNNPack weight caches that can be hundreds of MB.
+        val MIN_STORAGE_FOR_INIT_BYTES = 500L * 1024 * 1024
+        try {
+          val stat = StatFs(Environment.getDataDirectory().path)
+          if (stat.availableBytes < MIN_STORAGE_FOR_INIT_BYTES) {
+            val availMb = stat.availableBytes / (1024 * 1024)
+            throw RuntimeException(
+              "Not enough storage to load model (${availMb}MB available, " +
+              "need at least ${MIN_STORAGE_FOR_INIT_BYTES / (1024 * 1024)}MB). " +
+              "Free up space and try again."
+            )
+          }
+        } catch (e: RuntimeException) { throw e } // re-throw our own RuntimeException
+        catch (_: Exception) { /* StatFs failed — proceed and let native code decide */ }
+
         val loadStart = SystemClock.elapsedRealtime()
         val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
         val supportImage = model.llmSupportImage && eagerVision

@@ -2,6 +2,7 @@ package com.ollitert.llm.server.ui.navigation
 
 import android.os.Environment
 import android.os.StatFs
+import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -113,8 +114,11 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
       modifier = Modifier.size(18.dp),
     )
     Spacer(modifier = Modifier.width(8.dp))
+    // Shows effective available space (free minus system reserve) so the user
+    // sees what's actually usable for model downloads — matches the check in
+    // DownloadAndTryButton.isStorageLow() which also subtracts the reserve.
     Text(
-      text = "${storageInfo.freeBytes.humanReadableSize()} FREE",
+      text = "${storageInfo.effectiveFreeBytes.humanReadableSize()} USABLE",
       style = MaterialTheme.typography.labelMedium,
       fontFamily = SpaceGroteskFontFamily,
       fontWeight = FontWeight.SemiBold,
@@ -150,6 +154,8 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
 private data class StorageInfo(
   val totalBytes: Long,
   val freeBytes: Long,
+  /** Free space minus the 3 GB system reserve — what's actually usable for model downloads. */
+  val effectiveFreeBytes: Long,
   val usedFraction: Float,
 )
 
@@ -158,10 +164,16 @@ private fun getStorageInfo(): StorageInfo {
     val stat = StatFs(Environment.getDataDirectory().path)
     val total = stat.totalBytes
     val free = stat.availableBytes
+    val effectiveFree = (free - SYSTEM_RESERVED_MEMORY_IN_BYTES).coerceAtLeast(0L)
     val used = (total - free).toFloat() / total.toFloat()
-    StorageInfo(totalBytes = total, freeBytes = free, usedFraction = used.coerceIn(0f, 1f))
+    StorageInfo(
+      totalBytes = total,
+      freeBytes = free,
+      effectiveFreeBytes = effectiveFree,
+      usedFraction = used.coerceIn(0f, 1f),
+    )
   } catch (e: Exception) {
-    StorageInfo(totalBytes = 0L, freeBytes = 0L, usedFraction = 0f)
+    StorageInfo(totalBytes = 0L, freeBytes = 0L, effectiveFreeBytes = 0L, usedFraction = 0f)
   }
 }
 

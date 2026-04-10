@@ -45,6 +45,8 @@ import com.ollitert.llm.server.data.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.KEY_MODEL_URL
 import com.ollitert.llm.server.data.TMP_FILE_EXT
+import android.os.Environment
+import android.os.StatFs
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -108,6 +110,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       if (fileUrl == null || fileName == null) {
         Result.failure()
       } else {
+        // Track all .tmp files created during this download session so we can
+        // clean them up if the failure is disk-space related (see catch block).
+        val createdTmpFiles: MutableList<File> = mutableListOf()
         return@withContext try {
           // Set the worker as a foreground service immediately.
           setForeground(createForegroundInfo(progress = 0, modelName = modelName))
@@ -153,6 +158,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
                   .joinToString(separator = File.separator),
               )
+            createdTmpFiles.add(outputTmpFile)
             val outputFileBytes = outputTmpFile.length()
             if (outputFileBytes > 0) {
               Log.d(
@@ -312,8 +318,42 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           Result.success()
         } catch (e: IOException) {
           Log.e(TAG, e.message, e)
+
+          // Detect disk-full failures: if available space is critically low after
+          // the error, the partial .tmp files are actively harmful — they consume
+          // the little space left and can't be resumed meaningfully. Delete them
+          // to give the user their storage back. For network errors (where space
+          // is still available), keep .tmp files so downloads can resume.
+          val isDiskFull = try {
+            val stat = StatFs(Environment.getDataDirectory().path)
+            // Less than 500 MB left → almost certainly a disk-full write failure
+            stat.availableBytes < 500L * 1024 * 1024
+          } catch (_: Exception) { false }
+
+          if (isDiskFull) {
+            var freedBytes = 0L
+            for (tmpFile in createdTmpFiles) {
+              if (tmpFile.exists()) {
+                val size = tmpFile.length()
+                if (tmpFile.delete()) {
+                  freedBytes += size
+                  Log.i(TAG, "Disk full — deleted partial download: ${tmpFile.name} (${size} bytes)")
+                }
+              }
+            }
+            if (freedBytes > 0) {
+              Log.i(TAG, "Freed ${freedBytes} bytes of partial downloads due to low storage")
+            }
+          }
+
+          val errorMessage = if (isDiskFull) {
+            "Not enough storage space to complete the download. Partial files have been cleaned up."
+          } else {
+            e.message
+          }
+
           Result.failure(
-            Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, e.message).build()
+            Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage).build()
           )
         }
       }
