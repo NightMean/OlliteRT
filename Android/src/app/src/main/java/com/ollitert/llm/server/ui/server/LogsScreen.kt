@@ -1077,7 +1077,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     is ParsedEventType.KeepAliveUnloaded -> "Model Idle Unloaded"
     is ParsedEventType.KeepAliveReloading -> "Model Reloading"
     is ParsedEventType.KeepAliveReloaded -> "Model Reloaded"
-    null -> null
+    null -> if (isDebug) "Debug" else null
   }
 
   Column(
