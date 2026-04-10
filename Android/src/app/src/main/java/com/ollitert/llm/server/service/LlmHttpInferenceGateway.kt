@@ -25,6 +25,11 @@ object LlmHttpInferenceGateway {
    * Returns immediately; the caller receives the stream via the [PipedOutputStream] pattern.
    * [onToken] is called with (partial, false) for each token and (*, true) once when done.
    * [onError] is called instead of [onToken] if inference fails.
+   *
+   * @param onCaughtThrowable Optional callback invoked with the full [Throwable] when an
+   *   exception is caught during inference. Used by [LlmHttpService] to emit verbose debug
+   *   stack traces when debug mode is enabled. The gateway itself only forwards [Throwable.message]
+   *   via [onError] — this callback preserves the full stack trace for diagnostics.
    */
   fun executeStreaming(
     prompt: String,
@@ -37,6 +42,7 @@ object LlmHttpInferenceGateway {
     elapsedMs: () -> Long,
     onToken: (partial: String, done: Boolean, thought: String?) -> Unit,
     onError: (error: String) -> Unit,
+    onCaughtThrowable: ((Throwable) -> Unit)? = null,
   ) {
     executor.execute {
       synchronized(inferenceLock) {
@@ -66,6 +72,7 @@ object LlmHttpInferenceGateway {
         } catch (t: Throwable) {
           // Reclaim memory before reporting the error if OOM
           if (t is OutOfMemoryError) System.gc()
+          onCaughtThrowable?.invoke(t)
           if (!errorOccurred) {
             onError(t.message ?: "unknown_error")
             try { cancelInference() } catch (_: Throwable) {}
@@ -75,6 +82,10 @@ object LlmHttpInferenceGateway {
     }
   }
 
+  /**
+   * @param onCaughtThrowable Optional callback invoked with the full [Throwable] when an
+   *   exception is caught during inference. See [executeStreaming] for details.
+   */
   fun execute(
     prompt: String,
     timeoutSeconds: Long = 30,
@@ -84,6 +95,7 @@ object LlmHttpInferenceGateway {
     runInference: InferenceRunner,
     cancelInference: () -> Unit,
     elapsedMs: () -> Long,
+    onCaughtThrowable: ((Throwable) -> Unit)? = null,
   ): InferenceResult {
     val sb = StringBuilder()
     val thinkingSb = StringBuilder()
@@ -123,6 +135,7 @@ object LlmHttpInferenceGateway {
           }
         } catch (t: Throwable) {
           if (t is OutOfMemoryError) System.gc()
+          onCaughtThrowable?.invoke(t)
           error = t.message
           inferenceLatch.countDown()
         } finally {
