@@ -151,6 +151,14 @@ object ServerMetrics {
   private val _isInferring = MutableStateFlow(false)
   val isInferring: StateFlow<Boolean> = _isInferring.asStateFlow()
 
+  /**
+   * True when the model was unloaded due to keep_alive idle timeout.
+   * The server is still running (NanoHTTPD up, port bound) but the native Engine/Conversation
+   * have been freed to reclaim RAM. The next inference request will auto-reload the model.
+   */
+  private val _isIdleUnloaded = MutableStateFlow(false)
+  val isIdleUnloaded: StateFlow<Boolean> = _isIdleUnloaded.asStateFlow()
+
   // ── Memory snapshot (updated periodically by UI-side polling) ──────────
 
   /** Native heap allocated bytes — dominated by LiteRT model weights. */
@@ -193,6 +201,7 @@ object ServerMetrics {
     _loadingStartedAtMs.value = 0L
     _lastError.value = null
     _isInferring.value = false
+    _isIdleUnloaded.value = false
   }
 
   fun onServerStopped() {
@@ -250,6 +259,7 @@ object ServerMetrics {
     _appTotalPssBytes.value = 0L
     _deviceAvailRamBytes.value = 0L
     _deviceTotalRamBytes.value = 0L
+    _isIdleUnloaded.value = false
   }
 
   fun onServerError(message: String? = null) {
@@ -383,6 +393,14 @@ object ServerMetrics {
 
   fun onInferenceCompleted() {
     _isInferring.value = false
+  }
+
+  fun onModelIdleUnloaded() {
+    _isIdleUnloaded.value = true
+  }
+
+  fun onModelReloadedFromIdle() {
+    _isIdleUnloaded.value = false
   }
 
   /**

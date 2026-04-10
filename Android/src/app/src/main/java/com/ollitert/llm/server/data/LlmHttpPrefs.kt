@@ -41,6 +41,12 @@ private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
 private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
 
+// --- Keep Alive (auto-unload model after idle timeout to free RAM) ---
+private const val KEY_KEEP_ALIVE_ENABLED = "keep_alive_enabled"
+private const val KEY_KEEP_ALIVE_MINUTES = "keep_alive_minutes"
+private const val DEFAULT_KEEP_ALIVE_ENABLED = false
+private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
+
 // --- Log Persistence ---
 private const val KEY_LOG_PERSISTENCE_ENABLED = "log_persistence_enabled"
 private const val KEY_LOG_MAX_ENTRIES = "log_max_entries"
@@ -419,6 +425,22 @@ object LlmHttpPrefs {
 
   fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, enabled).apply()
+  }
+
+  // --- Keep Alive ---
+
+  fun isKeepAliveEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_KEEP_ALIVE_ENABLED, DEFAULT_KEEP_ALIVE_ENABLED)
+
+  fun setKeepAliveEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_KEEP_ALIVE_ENABLED, enabled).apply()
+  }
+
+  fun getKeepAliveMinutes(context: Context): Int =
+    prefs(context).getInt(KEY_KEEP_ALIVE_MINUTES, DEFAULT_KEEP_ALIVE_MINUTES)
+
+  fun setKeepAliveMinutes(context: Context, minutes: Int) {
+    prefs(context).edit().putInt(KEY_KEEP_ALIVE_MINUTES, minutes).apply()
   }
 
   // --- Log Persistence ---
