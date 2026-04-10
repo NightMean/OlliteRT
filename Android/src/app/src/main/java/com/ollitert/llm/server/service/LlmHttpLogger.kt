@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit
 class LlmHttpLogger(
   private val logDir: () -> File?,
   private val isEnabled: () -> Boolean,
+  /** When true, payload truncation is skipped (verbose debug mode). */
+  private val isVerboseDebug: () -> Boolean = { false },
 ) {
   private val maxLogChars = 2000
   private val logFileMaxBytes = 512 * 1024L
@@ -27,8 +29,10 @@ class LlmHttpLogger(
 
   fun logPayload(label: String, body: String, requestId: String) {
     if (!isEnabled()) return
+    // In verbose debug mode, log the full payload without truncation
+    val limit = if (isVerboseDebug()) Int.MAX_VALUE else maxLogChars
     val trimmed =
-      if (body.length <= maxLogChars) body else body.take(maxLogChars) + "...(truncated)"
+      if (body.length <= limit) body else body.take(limit) + "...(truncated)"
     append(
       "LLM_HTTP payload id=$requestId label=\"$label\" bytes=${body.length} data=\"$trimmed\""
     )
@@ -52,7 +56,9 @@ class LlmHttpLogger(
           logFile.renameTo(rotated)
         }
         FileWriter(logFile, true).use { it.append(stampedLine) }
-      } catch (_: Exception) {}
+      } catch (e: Exception) {
+        android.util.Log.w("LlmHttpLogger", "Failed to write log", e)
+      }
     }
   }
 }

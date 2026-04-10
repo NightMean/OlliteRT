@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -101,10 +102,26 @@ object ServerMetrics {
   private val _totalDecodeMs = AtomicLong(0)
   val totalDecodeMs: Long get() = _totalDecodeMs.get()
 
-  // Error tracking
+  // Error tracking — aggregate + per-category for Prometheus labeled metrics
   private val _errorCount = AtomicLong(0)
   private val _errorCountFlow = MutableStateFlow(0L)
   val errorCount: StateFlow<Long> = _errorCountFlow.asStateFlow()
+
+  private val _modelLoadErrors = AtomicLong(0)
+  private val _modelLoadErrorsFlow = MutableStateFlow(0L)
+  val modelLoadErrors: StateFlow<Long> = _modelLoadErrorsFlow.asStateFlow()
+
+  private val _inferenceErrors = AtomicLong(0)
+  private val _inferenceErrorsFlow = MutableStateFlow(0L)
+  val inferenceErrors: StateFlow<Long> = _inferenceErrorsFlow.asStateFlow()
+
+  private val _networkErrors = AtomicLong(0)
+  private val _networkErrorsFlow = MutableStateFlow(0L)
+  val networkErrors: StateFlow<Long> = _networkErrorsFlow.asStateFlow()
+
+  private val _systemErrors = AtomicLong(0)
+  private val _systemErrorsFlow = MutableStateFlow(0L)
+  val systemErrors: StateFlow<Long> = _systemErrorsFlow.asStateFlow()
 
   /** Model load (warm-up) time in milliseconds. */
   private val _modelLoadTimeMs = MutableStateFlow(0L)
@@ -176,6 +193,14 @@ object ServerMetrics {
     _audioRequestsFlow.value = 0L
     _errorCount.set(0)
     _errorCountFlow.value = 0L
+    _modelLoadErrors.set(0)
+    _modelLoadErrorsFlow.value = 0L
+    _inferenceErrors.set(0)
+    _inferenceErrorsFlow.value = 0L
+    _networkErrors.set(0)
+    _networkErrorsFlow.value = 0L
+    _systemErrors.set(0)
+    _systemErrorsFlow.value = 0L
     _lastTtfbMs.value = 0L
     _totalTtfbMs.set(0)
     _ttfbCount.set(0)
@@ -233,8 +258,20 @@ object ServerMetrics {
     }
   }
 
+  /** Increment the aggregate error counter (no category breakdown). */
   fun incrementErrorCount() {
     _errorCountFlow.value = _errorCount.incrementAndGet()
+  }
+
+  /** Increment both the aggregate and per-category error counters. */
+  fun incrementErrorCount(category: ErrorCategory) {
+    _errorCountFlow.value = _errorCount.incrementAndGet()
+    when (category) {
+      ErrorCategory.MODEL_LOAD -> _modelLoadErrorsFlow.value = _modelLoadErrors.incrementAndGet()
+      ErrorCategory.INFERENCE -> _inferenceErrorsFlow.value = _inferenceErrors.incrementAndGet()
+      ErrorCategory.NETWORK -> _networkErrorsFlow.value = _networkErrors.incrementAndGet()
+      ErrorCategory.SYSTEM -> _systemErrorsFlow.value = _systemErrors.incrementAndGet()
+    }
   }
 
   fun setActiveModelSize(bytes: Long) {

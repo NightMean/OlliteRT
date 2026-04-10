@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -196,6 +197,7 @@ fun SettingsScreen(
   var showClearPersistedDialog by remember { mutableStateOf(false) }
   var showTrimLogsDialog by remember { mutableStateOf(false) }
   var showResetDialog by remember { mutableStateOf(false) }
+  var verboseDebugEnabled by remember { mutableStateOf(LlmHttpPrefs.isVerboseDebugEnabled(context)) }
 
   // [CHANGE DETECT] Unsaved changes detection — compare current vs persisted (see Unsaved Changes Guard)
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -1567,6 +1569,42 @@ fun SettingsScreen(
         Switch(
           checked = autoTrimPrompts,
           onCheckedChange = { autoTrimPrompts = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+    }
+
+    // Developer card — verbose debug toggle (immediate-apply, no save/cancel)
+    SettingsCard(
+      icon = Icons.Outlined.Code,
+      title = "Developer",
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Verbose Debug Mode",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = verboseDebugEnabled,
+          onCheckedChange = {
+            verboseDebugEnabled = it
+            LlmHttpPrefs.setVerboseDebugEnabled(context, it)
+            val msg = if (it) "Debug mode enabled — additional details will appear in Logs"
+              else "Debug mode disabled"
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+          },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }

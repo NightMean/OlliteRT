@@ -101,6 +101,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.LlmHttpErrorSuggestions
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.EventCategory
@@ -347,7 +348,9 @@ fun LogsScreen(
     }
 
     // ── DEBUG: Test buttons to fire all event card types for visual verification ──
-    // Only visible in debug builds (devDebug, betaDebug, prodDebug) — stripped by R8 in release
+    // Only visible in debug builds (devDebug, betaDebug, prodDebug) — stripped by R8 in release.
+    // IMPORTANT: These messages must match the format produced by real code paths in
+    // LlmHttpService.kt. If the real message format changes, update these too.
     if (BuildConfig.DEBUG) {
     var showTestButtons by remember { mutableStateOf(false) }
     Row(
@@ -409,7 +412,7 @@ fun LogsScreen(
         }
         TestChip("Server Failed") {
           RequestLogStore.addEvent(
-            "Server failed to start on port 8000: Address already in use",
+            "Server failed to start: Port 8000 is already in use",
             level = LogLevel.ERROR, modelName = testModel, category = EventCategory.SERVER,
           )
         }
@@ -1069,9 +1072,11 @@ private fun InternalEventCard(entry: RequestLogEntry) {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
   val isWarning = entry.level == LogLevel.WARNING
+  val isDebug = entry.level == LogLevel.DEBUG
   val accentColor = when {
     isError -> DeleteRedTint
     isWarning -> WarningColor
+    isDebug -> MaterialTheme.colorScheme.outline
     else -> EventColor
   }
   val message = entry.path
@@ -1094,6 +1099,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
   val cardBg = when {
     isError -> DeleteRedTint.copy(alpha = 0.06f)
     isWarning -> WarningColor.copy(alpha = 0.06f)
+    isDebug -> MaterialTheme.colorScheme.outline.copy(alpha = 0.06f)
     else -> MaterialTheme.colorScheme.surfaceContainerLow
   }
 
@@ -1193,19 +1199,28 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     when (parsedEvent) {
       is ParsedEventType.Loading -> {
         Text(
-          text = parsedEvent.modelName,
+          text = buildAnnotatedString {
+            append("Loading ")
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" into memory")
+          },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
-          color = OlliteRTPrimary,
-          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 
       is ParsedEventType.Ready -> {
         Text(
-          text = parsedEvent.modelName,
+          text = buildAnnotatedString {
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" loaded into memory")
+          },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
-          color = OlliteRTPrimary,
-          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 
@@ -1291,7 +1306,13 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         // Show model name that was unloaded — sourced from the entry's modelName field
         if (entry.modelName != null) {
           Text(
-            text = "${entry.modelName} unloaded",
+            text = buildAnnotatedString {
+              append("Model ")
+              withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+                append(entry.modelName)
+              }
+              append(" unloaded from memory")
+            },
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1307,11 +1328,10 @@ private fun InternalEventCard(entry: RequestLogEntry) {
       }
 
       is ParsedEventType.ModelLoadFailed -> {
-        // Error message in a styled box
         Text(
           text = parsedEvent.errorMessage,
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
-          color = DeleteRedTint,
+          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
@@ -1320,7 +1340,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         Text(
           text = parsedEvent.errorMessage,
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
-          color = DeleteRedTint,
+          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
@@ -1339,7 +1359,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         Text(
           text = parsedEvent.errorMessage,
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
-          color = DeleteRedTint,
+          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
@@ -1370,7 +1390,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         Text(
           text = parsedEvent.errorMessage,
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
-          color = DeleteRedTint,
+          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
@@ -1409,6 +1429,24 @@ private fun InternalEventCard(entry: RequestLogEntry) {
               .padding(vertical = 2.dp),
           )
         }
+      }
+    }
+
+    // Recovery suggestion for error-level events — shown below the error body
+    if (isError) {
+      val suggestion = remember(message) {
+        val kind = LlmHttpErrorSuggestions.classifyFromString(message)
+        LlmHttpErrorSuggestions.suggest(kind)
+      }
+      if (suggestion != null) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = suggestion,
+          style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 3,
+          overflow = TextOverflow.Ellipsis,
+        )
       }
     }
 

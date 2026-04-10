@@ -64,6 +64,8 @@ object LlmHttpInferenceGateway {
             resetConversation()
           }
         } catch (t: Throwable) {
+          // Reclaim memory before reporting the error if OOM
+          if (t is OutOfMemoryError) System.gc()
           if (!errorOccurred) {
             onError(t.message ?: "unknown_error")
             try { cancelInference() } catch (_: Throwable) {}
@@ -120,6 +122,7 @@ object LlmHttpInferenceGateway {
             cancelInference()
           }
         } catch (t: Throwable) {
+          if (t is OutOfMemoryError) System.gc()
           error = t.message
           inferenceLatch.countDown()
         } finally {
