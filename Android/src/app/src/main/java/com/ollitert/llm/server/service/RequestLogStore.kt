@@ -45,6 +45,8 @@ data class RequestLogEntry(
   val maxContextTokens: Long = 0,
   /** True when [inputTokenEstimate] was extracted from a LiteRT error (exact count, not estimate). */
   val isExactTokenCount: Boolean = false,
+  /** Client-supplied sampler params that were ignored due to the "Ignore Client Sampler" setting. */
+  val ignoredClientParams: String? = null,
 )
 
 /**

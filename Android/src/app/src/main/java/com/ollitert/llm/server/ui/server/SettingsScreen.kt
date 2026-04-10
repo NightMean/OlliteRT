@@ -96,6 +96,14 @@ import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
+/** Formats a duration in minutes into human-readable text (e.g. 10080 → "7 days", 120 → "2 hours", 45 → "45 minutes"). */
+private fun formatMinutesHumanReadable(minutes: Long): String = when {
+  minutes == 0L -> "disabled"
+  minutes % (24 * 60) == 0L -> "${minutes / (24 * 60)} ${if (minutes / (24 * 60) == 1L) "day" else "days"}"
+  minutes % 60 == 0L -> "${minutes / 60} ${if (minutes / 60 == 1L) "hour" else "hours"}"
+  else -> "$minutes ${if (minutes == 1L) "minute" else "minutes"}"
+}
+
 /**
  * Validates CORS allowed origins input.
  * Valid formats: blank (disabled), "*" (allow all), or comma-separated origin URLs.
@@ -164,6 +172,7 @@ fun SettingsScreen(
   var savedLogPersistenceEnabled by remember { mutableStateOf(LlmHttpPrefs.isLogPersistenceEnabled(context)) }
   var savedLogMaxEntries by remember { mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context)) }
   var savedLogAutoDeleteMinutes by remember { mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context)) }
+  var savedIgnoreClientSamplerParams by remember { mutableStateOf(LlmHttpPrefs.isIgnoreClientSamplerParams(context)) }
 
   // [EDITABLE STATE] Current (editable) state — see Unsaved Changes Guard comment above
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -194,6 +203,7 @@ fun SettingsScreen(
   var logPersistenceEnabled by remember { mutableStateOf(savedLogPersistenceEnabled) }
   var logMaxEntries by remember { mutableStateOf(savedLogMaxEntries) }
   var logAutoDeleteMinutes by remember { mutableStateOf(savedLogAutoDeleteMinutes) }
+  var ignoreClientSamplerParams by remember { mutableStateOf(savedIgnoreClientSamplerParams) }
   var showClearPersistedDialog by remember { mutableStateOf(false) }
   var showTrimLogsDialog by remember { mutableStateOf(false) }
   var showResetDialog by remember { mutableStateOf(false) }
@@ -222,7 +232,8 @@ fun SettingsScreen(
     corsAllowedOrigins != savedCorsAllowedOrigins ||
     logPersistenceEnabled != savedLogPersistenceEnabled ||
     logMaxEntries != savedLogMaxEntries ||
-    logAutoDeleteMinutes != savedLogAutoDeleteMinutes
+    logAutoDeleteMinutes != savedLogAutoDeleteMinutes ||
+    ignoreClientSamplerParams != savedIgnoreClientSamplerParams
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -272,51 +283,55 @@ fun SettingsScreen(
         LlmHttpPrefs.setAutoTruncateHistory(context, autoTruncateHistory)
         LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPrompts)
         LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemas)
-
-        // Log compaction toggle changes as SETTINGS events so they appear in the Logs tab
-        if (autoTruncateHistory != savedAutoTruncateHistory) {
-          RequestLogStore.addEvent(
-            "Truncate Conversation History ${if (autoTruncateHistory) "enabled" else "disabled"}",
-            category = EventCategory.SETTINGS,
-          )
-        }
-        if (compactToolSchemas != savedCompactToolSchemas) {
-          RequestLogStore.addEvent(
-            "Compact Tool Schemas ${if (compactToolSchemas) "enabled" else "disabled"}",
-            category = EventCategory.SETTINGS,
-          )
-        }
-        if (autoTrimPrompts != savedAutoTrimPrompts) {
-          RequestLogStore.addEvent(
-            "Trim Prompt ${if (autoTrimPrompts) "enabled" else "disabled"}",
-            category = EventCategory.SETTINGS,
-          )
-        }
+        LlmHttpPrefs.setIgnoreClientSamplerParams(context, ignoreClientSamplerParams)
 
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
         LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
         LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOrigins)
-
-        // Log CORS setting change
-        if (corsAllowedOrigins != savedCorsAllowedOrigins) {
-          val oldDisplay = savedCorsAllowedOrigins.ifBlank { "disabled" }
-          val newDisplay = corsAllowedOrigins.ifBlank { "disabled" }
-          RequestLogStore.addEvent(
-            "CORS Allowed Origins changed: \"$oldDisplay\" → \"$newDisplay\"",
-            category = EventCategory.SETTINGS,
-          )
-        }
-
-        // Log persistence settings
         LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabled)
         LlmHttpPrefs.setLogMaxEntries(context, logMaxEntries)
         LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutes)
 
-        if (logPersistenceEnabled != savedLogPersistenceEnabled) {
+        // Collect all behavioral settings changes into one grouped log entry
+        val changes = mutableListOf<String>()
+        if (port != savedPort) changes.add("Port: $savedPort → $port")
+        val bearerWasEnabled = savedBearerToken.isNotBlank()
+        val bearerIsEnabled = effectiveBearerToken.isNotBlank()
+        if (bearerWasEnabled != bearerIsEnabled)
+          changes.add("Bearer Auth: ${if (bearerWasEnabled) "enabled" else "disabled"} → ${if (bearerIsEnabled) "enabled" else "disabled"}")
+        if (autoStartOnBoot != savedAutoStartOnBoot)
+          changes.add("Auto-Start on Boot: ${if (savedAutoStartOnBoot) "enabled" else "disabled"} → ${if (autoStartOnBoot) "enabled" else "disabled"}")
+        if (warmupEnabled != savedWarmupEnabled)
+          changes.add("Warmup Message: ${if (savedWarmupEnabled) "enabled" else "disabled"} → ${if (warmupEnabled) "enabled" else "disabled"}")
+        if (eagerVisionInit != savedEagerVisionInit)
+          changes.add("Pre-initialize Vision: ${if (savedEagerVisionInit) "enabled" else "disabled"} → ${if (eagerVisionInit) "enabled" else "disabled"}")
+        if (customPromptsEnabled != savedCustomPromptsEnabled)
+          changes.add("Custom System Prompt & Chat Template: ${if (savedCustomPromptsEnabled) "enabled" else "disabled"} → ${if (customPromptsEnabled) "enabled" else "disabled"}")
+        if (ignoreClientSamplerParams != savedIgnoreClientSamplerParams)
+          changes.add("Ignore Client Sampler Parameters: ${if (savedIgnoreClientSamplerParams) "enabled" else "disabled"} → ${if (ignoreClientSamplerParams) "enabled" else "disabled"}")
+        if (autoTruncateHistory != savedAutoTruncateHistory)
+          changes.add("Truncate Conversation History: ${if (savedAutoTruncateHistory) "enabled" else "disabled"} → ${if (autoTruncateHistory) "enabled" else "disabled"}")
+        if (compactToolSchemas != savedCompactToolSchemas)
+          changes.add("Compact Tool Schemas: ${if (savedCompactToolSchemas) "enabled" else "disabled"} → ${if (compactToolSchemas) "enabled" else "disabled"}")
+        if (autoTrimPrompts != savedAutoTrimPrompts)
+          changes.add("Trim Prompt: ${if (savedAutoTrimPrompts) "enabled" else "disabled"} → ${if (autoTrimPrompts) "enabled" else "disabled"}")
+        if (corsAllowedOrigins != savedCorsAllowedOrigins) {
+          val oldDisplay = savedCorsAllowedOrigins.ifBlank { "disabled" }
+          val newDisplay = corsAllowedOrigins.ifBlank { "disabled" }
+          changes.add("CORS Allowed Origins: $oldDisplay → $newDisplay")
+        }
+        if (logPersistenceEnabled != savedLogPersistenceEnabled)
+          changes.add("Log Persistence: ${if (savedLogPersistenceEnabled) "enabled" else "disabled"} → ${if (logPersistenceEnabled) "enabled" else "disabled"}")
+        if (logMaxEntries != savedLogMaxEntries)
+          changes.add("Log Max Entries: $savedLogMaxEntries → $logMaxEntries")
+        if (logAutoDeleteMinutes != savedLogAutoDeleteMinutes)
+          changes.add("Log Auto-Delete: ${formatMinutesHumanReadable(savedLogAutoDeleteMinutes)} → ${formatMinutesHumanReadable(logAutoDeleteMinutes)}")
+        if (changes.isNotEmpty()) {
           RequestLogStore.addEvent(
-            "Log Persistence ${if (logPersistenceEnabled) "enabled" else "disabled"}",
+            "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
             category = EventCategory.SETTINGS,
+            body = changes.joinToString("\n"),
           )
         }
 
@@ -365,6 +380,7 @@ fun SettingsScreen(
         savedLogPersistenceEnabled = logPersistenceEnabled
         savedLogMaxEntries = logMaxEntries
         savedLogAutoDeleteMinutes = logAutoDeleteMinutes
+        savedIgnoreClientSamplerParams = ignoreClientSamplerParams
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -888,6 +904,7 @@ fun SettingsScreen(
               },
               onClick = {
                 defaultModelName = null
+                autoStartOnBoot = false  // Can't auto-start without a default model
                 showModelDropdown = false
               },
             )
@@ -920,9 +937,10 @@ fun SettingsScreen(
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
       Spacer(modifier = Modifier.height(16.dp))
 
-      // Auto-start on boot toggle
+      // Auto-start on boot toggle — entire row dims when no default model is selected
+      val autoStartAlpha = if (defaultModelName != null) 1f else 0.4f
       Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().alpha(autoStartAlpha),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
@@ -933,7 +951,8 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurface,
           )
           Text(
-            text = "Launch server automatically when device starts.",
+            text = if (defaultModelName == null) "Select a default model above to enable."
+                   else "Launch server automatically when device starts.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -941,12 +960,9 @@ fun SettingsScreen(
         Switch(
           checked = autoStartOnBoot,
           onCheckedChange = { enabled ->
-            if (enabled && defaultModelName == null) {
-              Toast.makeText(context, "Select a default model first", Toast.LENGTH_SHORT).show()
-            } else {
-              autoStartOnBoot = enabled
-            }
+            autoStartOnBoot = enabled
           },
+          enabled = defaultModelName != null,
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -1572,6 +1588,35 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Ignore client sampler parameters toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Ignore Client Sampler Parameters",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server's own Inference Settings will always be used instead.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = ignoreClientSamplerParams,
+          onCheckedChange = { ignoreClientSamplerParams = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
     }
 
     // Developer card — verbose debug toggle (immediate-apply, no save/cancel)
@@ -1601,6 +1646,11 @@ fun SettingsScreen(
           onCheckedChange = {
             verboseDebugEnabled = it
             LlmHttpPrefs.setVerboseDebugEnabled(context, it)
+            RequestLogStore.addEvent(
+              "Settings updated (1 change)",
+              category = EventCategory.SETTINGS,
+              body = "Verbose Debug Mode: ${if (!it) "enabled" else "disabled"} → ${if (it) "enabled" else "disabled"}",
+            )
             val msg = if (it) "Debug mode enabled — additional details will appear in Logs"
               else "Debug mode disabled"
             android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
