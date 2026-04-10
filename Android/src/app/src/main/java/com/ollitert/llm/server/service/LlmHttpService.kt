@@ -957,7 +957,7 @@ class LlmHttpService : Service() {
           id = logId,
           method = method,
           path = path,
-          modelName = defaultModel?.name,
+          modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
           clientIp = clientIp,
           isPending = true,
         )
