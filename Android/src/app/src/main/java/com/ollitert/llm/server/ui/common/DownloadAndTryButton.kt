@@ -651,6 +651,7 @@ fun DownloadAndTryButton(
       onDismissRequest = {
         showAgreementAckSheet = false
         checkingToken = false
+        downloadStarted = false
       },
       sheetState = sheetState,
       modifier = Modifier.wrapContentHeight(),
@@ -677,7 +678,8 @@ fun DownloadAndTryButton(
               customTabsIntent.intent.setData(agreementUrl.toUri())
               agreementAckLauncher.launch(customTabsIntent.intent)
             }
-            // Dismiss the sheet.
+            // Dismiss the sheet — keep downloadStarted true because agreementAckLauncher
+            // will proceed with the download when the user returns from the browser.
             showAgreementAckSheet = false
           }
         ) {
