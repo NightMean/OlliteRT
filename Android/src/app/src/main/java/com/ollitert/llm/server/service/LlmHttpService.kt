@@ -423,14 +423,7 @@ class LlmHttpService : Service() {
           System.gc()
         }
         Log.e(logTag, "Failed to load model ${model.name}", t)
-        // Verbose debug: log full stack trace for diagnosing model load failures
-        if (LlmHttpPrefs.isVerboseDebugEnabled(this@LlmHttpService)) {
-          val traceBody = org.json.JSONObject().apply {
-            put("type", "debug_stacktrace")
-            put("trace", t.stackTraceToString())
-          }.toString()
-          RequestLogStore.addEvent("Model load failure — stack trace", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = traceBody)
-        }
+        emitDebugStackTrace(t, "model_load", model.name)
         pendingReloadAfterLoad = null  // Clear queued reload — don't apply stale config to a future model
         val msg = t.message?.take(120) ?: "Unknown error during model initialization"
         val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
@@ -572,6 +565,32 @@ class LlmHttpService : Service() {
 
   private fun logPayload(label: String, body: String, requestId: String) {
     logger.logPayload(label, body, requestId)
+  }
+
+  /**
+   * Emits a DEBUG-level log entry with the full stack trace of a caught [Throwable].
+   * Only logs when verbose debug mode is enabled. Called from model load, inference
+   * gateway catch blocks, and the serve() catch-all to preserve stack traces that
+   * would otherwise be reduced to just [Throwable.message].
+   *
+   * @param t The caught throwable
+   * @param source Identifier for which catch block produced this (e.g. "model_load", "execute", "serve_catch_all")
+   * @param modelName Optional model name for log entry context
+   */
+  private fun emitDebugStackTrace(t: Throwable, source: String, modelName: String? = null) {
+    if (!LlmHttpPrefs.isVerboseDebugEnabled(this)) return
+    val traceBody = org.json.JSONObject().apply {
+      put("type", "debug_stacktrace")
+      put("source", source)
+      put("trace", t.stackTraceToString())
+    }.toString()
+    RequestLogStore.addEvent(
+      "Exception in $source — stack trace",
+      level = LogLevel.DEBUG,
+      modelName = modelName,
+      category = EventCategory.SERVER,
+      body = traceBody,
+    )
   }
 
   private inner class NanoServer(port: Int) : NanoHTTPD("0.0.0.0", port) {
@@ -785,6 +804,7 @@ class LlmHttpService : Service() {
           ServerMetrics.onServerError(t.message ?: "Out of memory")
         }
         ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+        emitDebugStackTrace(t, "serve_catch_all")
         responseBodySnapshot = t.message
         jsonError(Response.Status.INTERNAL_ERROR, t.message ?: "internal_error")
       }
@@ -1311,6 +1331,7 @@ class LlmHttpService : Service() {
         },
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
         elapsedMs = { SystemClock.elapsedRealtime() },
+        onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
       )
       if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
@@ -1602,6 +1623,7 @@ class LlmHttpService : Service() {
             stream.finish()
           } catch (_: Exception) {}
         },
+        onCaughtThrowable = { t -> emitDebugStackTrace(t, "executeStreaming_responses", model.name) },
       )
 
       return chunkedSseResponse(stream)
@@ -1908,6 +1930,7 @@ class LlmHttpService : Service() {
             stream.finish()
           } catch (_: Exception) {}
         },
+        onCaughtThrowable = { t -> emitDebugStackTrace(t, "executeStreaming_chat", model.name) },
       )
 
       return chunkedSseResponse(stream)
