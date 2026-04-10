@@ -59,6 +59,18 @@ object LlmHttpPrometheusRenderer {
       "Total number of request errors.",
       m.errorCount.value,
     )
+    // Per-category error breakdown using Prometheus labels
+    labeledCounter(
+      "ollitert_errors_by_category_total",
+      "Total errors by category.",
+      "category",
+      mapOf(
+        "model_load" to m.modelLoadErrors.value,
+        "inference" to m.inferenceErrors.value,
+        "network" to m.networkErrors.value,
+        "system" to m.systemErrors.value,
+      ),
+    )
     counter(
       "ollitert_request_text_total",
       "Total text-only requests.",
@@ -160,5 +172,14 @@ object LlmHttpPrometheusRenderer {
     // Locale.US ensures '.' decimal separator — Prometheus rejects ',' from European locales
     if (value is Long || value is Int) append(value) else append(String.format(Locale.US, "%.4f", value.toDouble()))
     appendLine()
+  }
+
+  /** Emit a labeled counter with one line per label value. */
+  private fun StringBuilder.labeledCounter(name: String, help: String, labelKey: String, values: Map<String, Long>) {
+    append("# HELP ").append(name).append(' ').appendLine(help)
+    append("# TYPE ").append(name).append(" counter").appendLine()
+    for ((label, value) in values) {
+      append(name).append('{').append(labelKey).append("=\"").append(label).append("\"} ").append(value).appendLine()
+    }
   }
 }

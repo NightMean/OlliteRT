@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.AllowedModel
@@ -87,12 +88,13 @@ class LlmHttpService : Service() {
     logger = LlmHttpLogger(
       logDir = { getExternalFilesDir(null)?.let { File(it, "ollitert") } },
       isEnabled = { LlmHttpPrefs.isPayloadLoggingEnabled(this) },
+      isVerboseDebug = { LlmHttpPrefs.isVerboseDebugEnabled(this) },
     )
     allowlistLoader = LlmHttpAllowlistLoader(
       externalFilesDir = getExternalFilesDir(null),
       packageName = packageName,
       assetReader = {
-        try { assets.open("model_allowlist.json").reader().readText() } catch (_: Exception) { null }
+        try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
       },
     )
     val mgr = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -167,6 +169,7 @@ class LlmHttpService : Service() {
       val msg = "Model '$resolvedModelName' not found"
       Log.e(logTag, "Model '$resolvedModelName' not found — cannot start server")
       ServerMetrics.onServerError(msg)
+      ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
       pendingConfigOverrides = null
       stopSelf()
@@ -184,6 +187,7 @@ class LlmHttpService : Service() {
       val msg = "Model files not found on disk"
       Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server")
       ServerMetrics.onServerError(msg)
+      ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
       stopSelf()
       return START_NOT_STICKY
@@ -239,9 +243,13 @@ class LlmHttpService : Service() {
     try {
       server?.start()
     } catch (e: Exception) {
-      val msg = "Server failed to start on port $port: ${e.message?.take(120) ?: "Unknown error"}"
+      // Java's BindException says "Address already in use" — rewrite to mention the port explicitly
+      val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
+        "Port $port is already in use" else (e.message?.take(120) ?: "Unknown error")
+      val msg = "Server failed to start: $reason"
       Log.e(logTag, msg, e)
       ServerMetrics.onServerError(msg)
+      ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.SERVER)
       stopSelf()
       return START_NOT_STICKY
@@ -295,6 +303,22 @@ class LlmHttpService : Service() {
         )
         ServerMetrics.onServerRunning(wifiIp)
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
+        // Verbose debug: log model config dump on successful load
+        if (LlmHttpPrefs.isVerboseDebugEnabled(this@LlmHttpService)) {
+          val debugBody = org.json.JSONObject().apply {
+            put("type", "debug_model_config")
+            put("name", model.name)
+            put("path", model.getPath(this@LlmHttpService))
+            put("size_bytes", model.totalBytes)
+            put("config", org.json.JSONObject(model.configValues.mapValues { it.value.toString() }))
+            put("capabilities", org.json.JSONObject().apply {
+              put("vision", model.llmSupportImage)
+              put("audio", model.llmSupportAudio)
+              put("thinking", model.llmSupportThinking)
+            })
+          }.toString()
+          RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugBody)
+        }
         // Check for queued reload (user changed reinit settings while model was loading)
         val queued = pendingReloadAfterLoad
         if (queued != null) {
@@ -354,16 +378,32 @@ class LlmHttpService : Service() {
           stopIntent = stopIntent,
           copyIntent = copyIntent,
         )
-      } catch (e: Exception) {
+      } catch (t: Throwable) {
         // Only report error if this is still the current load
         if (loadGeneration.get() != thisGeneration) {
           Log.w(logTag, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
           return@Thread
         }
-        Log.e(logTag, "Failed to load model ${model.name}", e)
+        // OOM during model load: release the model instance immediately to free memory.
+        // The model state is corrupt after OOM and cannot be reused.
+        if (t is OutOfMemoryError) {
+          defaultModel?.instance = null
+          System.gc()
+        }
+        Log.e(logTag, "Failed to load model ${model.name}", t)
+        // Verbose debug: log full stack trace for diagnosing model load failures
+        if (LlmHttpPrefs.isVerboseDebugEnabled(this@LlmHttpService)) {
+          val traceBody = org.json.JSONObject().apply {
+            put("type", "debug_stacktrace")
+            put("trace", t.stackTraceToString())
+          }.toString()
+          RequestLogStore.addEvent("Model load failure — stack trace", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = traceBody)
+        }
         pendingReloadAfterLoad = null  // Clear queued reload — don't apply stale config to a future model
-        val msg = e.message?.take(120) ?: "Unknown error during model initialization"
+        val msg = t.message?.take(120) ?: "Unknown error during model initialization"
+        val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
         ServerMetrics.onServerError(msg)
+        ServerMetrics.incrementErrorCount(category)
         RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
         // Update notification to show error state
         updateNotification(
@@ -683,6 +723,12 @@ class LlmHttpService : Service() {
           }
         }
       } catch (t: Throwable) {
+        if (t is OutOfMemoryError) {
+          defaultModel?.instance = null
+          System.gc()
+          ServerMetrics.onServerError(t.message ?: "Out of memory")
+        }
+        ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
         responseBodySnapshot = t.message
         jsonError(Response.Status.INTERNAL_ERROR, t.message ?: "internal_error")
       }
@@ -770,7 +816,11 @@ class LlmHttpService : Service() {
       ServerMetrics.onInferenceStarted()
       val (text, llmError) = runLlm(model, prompt, requestId, "/generate", logId = logId)
       ServerMetrics.onInferenceCompleted()
-      if (text == null) return badRequest(enrichLlmError(llmError ?: "llm error"))
+      if (text == null) {
+        val (enrichedError, kind) = enrichLlmError(llmError ?: "llm error")
+        ServerMetrics.incrementErrorCount(kind.category)
+        return badRequest(enrichedError)
+      }
       // Token counts are estimates (charLen / 4) — LiteRT SDK has no standalone tokenizer API
       val promptTokens = (prompt.length / 4).coerceAtLeast(if (prompt.isNotEmpty()) 1 else 0)
       val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
@@ -868,9 +918,11 @@ class LlmHttpService : Service() {
           val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId)
           ServerMetrics.onInferenceCompleted()
           if (rawText == null) {
-            val errorMsg = enrichLlmError(llmError ?: "llm error")
+            val (errorMsg, kind) = enrichLlmError(llmError ?: "llm error")
+            ServerMetrics.incrementErrorCount(kind.category)
             if (logId != null) {
-              val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
+              val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+              val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
               RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
             }
             return@withPerRequestConfig badRequest(errorMsg)
@@ -962,9 +1014,11 @@ class LlmHttpService : Service() {
         val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120, logId = logId)
         ServerMetrics.onInferenceCompleted()
         if (rawText == null) {
-          val errorMsg = enrichLlmError(llmError ?: "llm error")
+          val (errorMsg, kind) = enrichLlmError(llmError ?: "llm error")
+          ServerMetrics.incrementErrorCount(kind.category)
           if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
+            val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
             RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
           }
           return@withPerRequestConfig badRequest(errorMsg)
@@ -1056,9 +1110,11 @@ class LlmHttpService : Service() {
           val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId)
           ServerMetrics.onInferenceCompleted()
           if (text == null) {
-            val errorMsg = enrichLlmError(llmError ?: "llm error")
+            val (errorMsg, kind) = enrichLlmError(llmError ?: "llm error")
+            ServerMetrics.incrementErrorCount(kind.category)
             if (logId != null) {
-              val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg)
+              val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+              val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
               RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
             }
             return@withPerRequestConfig badRequest(errorMsg)
@@ -1188,7 +1244,7 @@ class LlmHttpService : Service() {
       }
 
       return if (result.error != null) {
-        ServerMetrics.incrementErrorCount()
+        // Error counting is done by the caller after classifying the error via enrichLlmError()
         logEvent("request_error id=$requestId endpoint=$endpoint error=${result.error} totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=${result.output?.length ?: 0}")
         null to result.error
       } else {
@@ -1203,6 +1259,7 @@ class LlmHttpService : Service() {
         if (result.ttfbMs > 0) {
           ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx)
         }
+        emitDebugInferenceLog(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, result.totalMs, model.name)
         logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
         // Prepend thinking content wrapped in <think> tags if present
         val output = if (!result.thinking.isNullOrEmpty()) {
@@ -1390,6 +1447,7 @@ class LlmHttpService : Service() {
               if (firstTokenMs > 0) {
                 ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
               }
+              emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
               ServerMetrics.onInferenceCompleted()
               // Include thinking in the full output for footer/log
               val combinedText = if (fullThinking.isNotEmpty()) {
@@ -1432,11 +1490,12 @@ class LlmHttpService : Service() {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
           if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
-          ServerMetrics.incrementErrorCount()
-          val enrichedError = enrichLlmError(error)
+          val (enrichedError, kind) = enrichLlmError(error)
+          ServerMetrics.incrementErrorCount(kind.category)
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
+          val suggestion = LlmHttpErrorSuggestions.suggest(kind)
           if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError)
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)
             // Extract actual token counts from LiteRT error (e.g. "4467 >= 4000") to replace charLen/4 estimate
             val actualTokens = extractActualTokenCounts(error)
             RequestLogStore.update(logId) {
@@ -1453,7 +1512,7 @@ class LlmHttpService : Service() {
             }
           }
           try {
-            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError)}\n\n")
+            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)}\n\n")
             stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
             stream.finish()
           } catch (_: Exception) {}
@@ -1659,6 +1718,7 @@ class LlmHttpService : Service() {
               if (firstTokenMs > 0) {
                 ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
               }
+              emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
               ServerMetrics.onInferenceCompleted()
               val promptTokens = (prompt.length / 4).coerceAtLeast(1)
               val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
@@ -1736,11 +1796,12 @@ class LlmHttpService : Service() {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
           if (originalConfig != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
-          ServerMetrics.incrementErrorCount()
-          val enrichedError = enrichLlmError(error)
+          val (enrichedError, kind) = enrichLlmError(error)
+          ServerMetrics.incrementErrorCount(kind.category)
           logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
+          val suggestion = LlmHttpErrorSuggestions.suggest(kind)
           if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError)
+            val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)
             // Extract actual token counts from LiteRT error (e.g. "4467 >= 4000") to replace charLen/4 estimate
             val actualTokens = extractActualTokenCounts(error)
             RequestLogStore.update(logId) {
@@ -1757,7 +1818,7 @@ class LlmHttpService : Service() {
             }
           }
           try {
-            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError)}\n\n")
+            stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)}\n\n")
             stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
             stream.finish()
           } catch (_: Exception) {}
@@ -1817,8 +1878,8 @@ class LlmHttpService : Service() {
       return if (LlmHttpBridgeUtils.isBearerAuthorized(expected, header)) null else unauthorized("unauthorized")
     }
 
-    private fun jsonError(status: Response.Status, error: String): Response =
-      newFixedLengthResponse(status, "application/json", LlmHttpResponseRenderer.renderJsonError(error))
+    private fun jsonError(status: Response.Status, error: String, suggestion: String? = null, category: ErrorCategory? = null): Response =
+      newFixedLengthResponse(status, "application/json", LlmHttpResponseRenderer.renderJsonError(error, suggestion, category))
 
     private fun badRequest(msg: String) = jsonError(Response.Status.BAD_REQUEST, msg)
     private fun notFound(error: String = "not_found") = jsonError(Response.Status.NOT_FOUND, error)
@@ -1828,18 +1889,16 @@ class LlmHttpService : Service() {
     private fun payloadTooLarge() = jsonError(Response.Status.BAD_REQUEST, "payload_too_large")
 
     /**
-     * Enrich LLM error messages with actionable hints for known error patterns.
-     * Context overflow errors get a note about OlliteRT compaction settings.
+     * Classify an opaque LLM error string and return the enriched message with a
+     * recovery suggestion appended (if one is available for the classified error kind).
+     *
+     * Also returns the [ErrorKind] so callers can use it for metrics and API responses.
      */
-    private fun enrichLlmError(error: String): String {
-      val lower = error.lowercase()
-      val isContextOverflow = lower.contains("too long") || lower.contains("exceed") ||
-        lower.contains(">=") || lower.contains("context") || lower.contains("too many tokens")
-      return if (isContextOverflow) {
-        "$error — Try increasing Max Tokens in the model's Inference Settings within OlliteRT. If the model doesn't support a larger context window, you can enable prompt compaction (Truncate History, Compact Tool Schemas, or Trim Prompt) in OlliteRT Settings as a fallback, though this may reduce response quality."
-      } else {
-        error
-      }
+    private fun enrichLlmError(error: String): Pair<String, ErrorKind> {
+      val kind = LlmHttpErrorSuggestions.classifyFromString(error)
+      val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+      val enriched = if (suggestion != null) "$error — $suggestion" else error
+      return enriched to kind
     }
 
     /**
@@ -1854,6 +1913,51 @@ class LlmHttpService : Service() {
       val max = match.groupValues[2].toLongOrNull() ?: return null
       if (actual <= 0 || max <= 0) return null
       return actual to max
+    }
+
+    /**
+     * Emit verbose debug log entries for per-request timing and memory usage.
+     * Only logs when the verbose debug toggle is enabled in Settings.
+     */
+    private fun emitDebugInferenceLog(
+      inputTokens: Long,
+      outputTokens: Long,
+      ttfbMs: Long,
+      generationMs: Long,
+      totalMs: Long,
+      modelName: String?,
+    ) {
+      if (!LlmHttpPrefs.isVerboseDebugEnabled(this@LlmHttpService)) return
+      val rt = Runtime.getRuntime()
+      val heapTotalMb = rt.totalMemory() / (1024.0 * 1024.0)
+      val heapFreeMb = rt.freeMemory() / (1024.0 * 1024.0)
+      val nativeAllocMb = android.os.Debug.getNativeHeapAllocatedSize() / (1024.0 * 1024.0)
+      val nativeTotalMb = android.os.Debug.getNativeHeapSize() / (1024.0 * 1024.0)
+      val decodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
+      val prefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
+
+      val body = org.json.JSONObject().apply {
+        put("type", "debug_inference")
+        put("ttfb_ms", ttfbMs)
+        put("generation_ms", generationMs)
+        put("total_ms", totalMs)
+        put("input_tokens_est", inputTokens)
+        put("output_tokens_est", outputTokens)
+        put("decode_speed_tps", String.format(java.util.Locale.US, "%.1f", decodeSpeed))
+        put("prefill_speed_tps", String.format(java.util.Locale.US, "%.1f", prefillSpeed))
+        put("heap_total_mb", String.format(java.util.Locale.US, "%.1f", heapTotalMb))
+        put("heap_free_mb", String.format(java.util.Locale.US, "%.1f", heapFreeMb))
+        put("native_allocated_mb", String.format(java.util.Locale.US, "%.1f", nativeAllocMb))
+        put("native_total_mb", String.format(java.util.Locale.US, "%.1f", nativeTotalMb))
+      }.toString()
+
+      RequestLogStore.addEvent(
+        "Inference details: ${inputTokens}→${outputTokens} tokens in ${totalMs}ms",
+        level = LogLevel.DEBUG,
+        modelName = modelName,
+        category = EventCategory.SERVER,
+        body = body,
+      )
     }
 
     /**

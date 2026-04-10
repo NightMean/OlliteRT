@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.ErrorCategory
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -26,10 +27,30 @@ data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHtt
 object LlmHttpResponseRenderer {
   private val NON_SLUG_REGEX = Regex("[^a-zA-Z0-9_]")
 
-  fun renderJsonError(error: String): String {
+  /**
+   * Render an OpenAI-compatible JSON error response.
+   *
+   * @param suggestion optional recovery hint — rendered as a separate `"suggestion"` field
+   *   so API clients can distinguish the raw error from the guidance.
+   * @param category when provided, maps to an OpenAI-compatible `"type"` value
+   *   (e.g. `server_error`, `invalid_request_error`). Falls back to a slug derived
+   *   from the error message when null.
+   */
+  fun renderJsonError(
+    error: String,
+    suggestion: String? = null,
+    category: ErrorCategory? = null,
+  ): String {
     val escaped = LlmHttpBridgeUtils.escapeSseText(error)
-    val typeSlug = error.replace(' ', '_').replace(NON_SLUG_REGEX, "").take(40)
-    return """{"error":{"message":"$escaped","type":"${typeSlug}_error","code":null}}"""
+    val type = if (category != null) {
+      LlmHttpErrorSuggestions.openAiErrorType(category, error)
+    } else {
+      error.replace(' ', '_').replace(NON_SLUG_REGEX, "").take(40) + "_error"
+    }
+    val suggestionField = if (suggestion != null) {
+      ""","suggestion":"${LlmHttpBridgeUtils.escapeSseText(suggestion)}""""
+    } else ""
+    return """{"error":{"message":"$escaped","type":"$type","code":null$suggestionField}}"""
   }
 
   fun renderModelListPayload(json: Json, modelIds: List<String>, fallbackId: String): String {

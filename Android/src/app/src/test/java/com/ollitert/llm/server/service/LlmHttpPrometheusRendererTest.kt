@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.ErrorCategory
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -167,6 +168,46 @@ class LlmHttpPrometheusRendererTest {
       "Content type should include version",
       LlmHttpPrometheusRenderer.CONTENT_TYPE.contains("version=0.0.4"),
     )
+  }
+
+  @Test
+  fun renderContainsLabeledErrorCounters() {
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("Missing HELP for labeled errors", output.contains("# HELP ollitert_errors_by_category_total "))
+    assertTrue("Missing TYPE for labeled errors", output.contains("# TYPE ollitert_errors_by_category_total counter"))
+    assertTrue("Missing model_load label", output.contains("""ollitert_errors_by_category_total{category="model_load"}"""))
+    assertTrue("Missing inference label", output.contains("""ollitert_errors_by_category_total{category="inference"}"""))
+    assertTrue("Missing network label", output.contains("""ollitert_errors_by_category_total{category="network"}"""))
+    assertTrue("Missing system label", output.contains("""ollitert_errors_by_category_total{category="system"}"""))
+  }
+
+  @Test
+  fun renderLabeledErrorCountersReflectIncrements() {
+    ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+    ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+    ServerMetrics.incrementErrorCount(ErrorCategory.INFERENCE)
+    ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
+    ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+    ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+    ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("model_load should be 2", output.contains("""ollitert_errors_by_category_total{category="model_load"} 2"""))
+    assertTrue("inference should be 1", output.contains("""ollitert_errors_by_category_total{category="inference"} 1"""))
+    assertTrue("network should be 1", output.contains("""ollitert_errors_by_category_total{category="network"} 1"""))
+    assertTrue("system should be 3", output.contains("""ollitert_errors_by_category_total{category="system"} 3"""))
+  }
+
+  @Test
+  fun renderLabeledErrorCountersResetToZero() {
+    ServerMetrics.incrementErrorCount(ErrorCategory.INFERENCE)
+    ServerMetrics.onServerStopped()
+
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("model_load should be 0", output.contains("""ollitert_errors_by_category_total{category="model_load"} 0"""))
+    assertTrue("inference should be 0", output.contains("""ollitert_errors_by_category_total{category="inference"} 0"""))
+    assertTrue("network should be 0", output.contains("""ollitert_errors_by_category_total{category="network"} 0"""))
+    assertTrue("system should be 0", output.contains("""ollitert_errors_by_category_total{category="system"} 0"""))
   }
 
   @Test

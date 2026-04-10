@@ -780,7 +780,8 @@ private fun isStorageLow(model: Model): Boolean {
     val stat = StatFs(Environment.getDataDirectory().path)
     val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
     availableBytes < model.totalBytes + SYSTEM_RESERVED_MEMORY_IN_BYTES
-  } catch (_: Exception) {
+  } catch (e: Exception) {
+    android.util.Log.w("DownloadAndTryButton", "Failed to check storage availability", e)
     false
   }
 }

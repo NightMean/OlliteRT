@@ -36,6 +36,9 @@ private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 
+// --- Developer / Debug ---
+private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
+
 // --- Log Persistence ---
 private const val KEY_LOG_PERSISTENCE_ENABLED = "log_persistence_enabled"
 private const val KEY_LOG_MAX_ENTRIES = "log_max_entries"
@@ -371,7 +374,8 @@ object LlmHttpPrefs {
         result[key] = value
       }
       result
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+      android.util.Log.w("LlmHttpPrefs", "Failed to parse inference config JSON", e)
       null
     }
   }
@@ -386,6 +390,15 @@ object LlmHttpPrefs {
       .edit()
       .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
       .apply()
+  }
+
+  // --- Developer / Debug ---
+
+  fun isVerboseDebugEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_VERBOSE_DEBUG_ENABLED, false)
+
+  fun setVerboseDebugEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_VERBOSE_DEBUG_ENABLED, enabled).apply()
   }
 
   // --- Log Persistence ---

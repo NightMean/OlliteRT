@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.ErrorCategory
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -14,6 +15,43 @@ class LlmHttpResponseRendererTest {
     val result = LlmHttpResponseRenderer.renderJsonError("not_found")
     assertTrue(result.contains("\"message\":\"not_found\""))
     assertTrue(result.contains("\"type\":\"not_found_error\""))
+  }
+
+  @Test
+  fun rendersJsonErrorWithSuggestion() {
+    val result = LlmHttpResponseRenderer.renderJsonError("context overflow", suggestion = "Try shorter input")
+    assertTrue(result.contains("\"suggestion\":\"Try shorter input\""))
+    assertTrue(result.contains("\"message\":\"context overflow\""))
+  }
+
+  @Test
+  fun rendersJsonErrorWithCategory() {
+    val result = LlmHttpResponseRenderer.renderJsonError("model failed", category = ErrorCategory.MODEL_LOAD)
+    assertTrue(result.contains("\"type\":\"server_error\""))
+  }
+
+  @Test
+  fun rendersJsonErrorWithCategoryAndSuggestion() {
+    val result = LlmHttpResponseRenderer.renderJsonError(
+      "out of memory",
+      suggestion = "Try a smaller model",
+      category = ErrorCategory.SYSTEM,
+    )
+    assertTrue(result.contains("\"type\":\"server_error\""))
+    assertTrue(result.contains("\"suggestion\":\"Try a smaller model\""))
+    assertTrue(result.contains("\"message\":\"out of memory\""))
+  }
+
+  @Test
+  fun rendersJsonErrorNetworkCategoryMapsToInvalidRequest() {
+    val result = LlmHttpResponseRenderer.renderJsonError("port in use", category = ErrorCategory.NETWORK)
+    assertTrue(result.contains("\"type\":\"invalid_request_error\""))
+  }
+
+  @Test
+  fun rendersJsonErrorWithoutSuggestionOmitsField() {
+    val result = LlmHttpResponseRenderer.renderJsonError("generic error")
+    assertTrue(!result.contains("\"suggestion\""))
   }
 
   @Test

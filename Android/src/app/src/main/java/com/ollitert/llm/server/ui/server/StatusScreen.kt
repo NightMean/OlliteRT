@@ -248,6 +248,21 @@ fun StatusScreen(
               color = MaterialTheme.colorScheme.error,
               maxLines = 2,
             )
+            // Show recovery suggestion below the error if one is available
+            if (!lastError.isNullOrBlank()) {
+              val suggestion = remember(lastError) {
+                val kind = com.ollitert.llm.server.service.LlmHttpErrorSuggestions.classifyFromString(lastError!!)
+                com.ollitert.llm.server.service.LlmHttpErrorSuggestions.suggest(kind)
+              }
+              if (suggestion != null) {
+                Text(
+                  text = suggestion,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 3,
+                )
+              }
+            }
           } else if (isLoading) {
             Text(
               text = buildString {
