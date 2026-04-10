@@ -95,6 +95,24 @@ import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
+/**
+ * Validates CORS allowed origins input.
+ * Valid formats: blank (disabled), "*" (allow all), or comma-separated origin URLs.
+ * Each origin must have a scheme (http:// or https://) and a host.
+ */
+private fun isValidCorsOrigins(input: String): Boolean {
+  val trimmed = input.trim()
+  if (trimmed.isEmpty() || trimmed == "*") return true
+  return trimmed.split(",").all { entry ->
+    val origin = entry.trim()
+    origin.isNotEmpty() && (origin.startsWith("http://") || origin.startsWith("https://")) &&
+      origin.substringAfter("://").let { host ->
+        // Must have at least a host portion (e.g. "localhost", "example.com", "192.168.1.1:3000")
+        host.isNotEmpty() && !host.startsWith("/") && !host.contains(" ")
+      }
+  }
+}
+
 @Composable
 fun SettingsScreen(
   onBackClick: () -> Unit,
@@ -171,6 +189,7 @@ fun SettingsScreen(
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
   var showRequestTypes by remember { mutableStateOf(savedShowRequestTypes) }
   var corsAllowedOrigins by remember { mutableStateOf(savedCorsAllowedOrigins) }
+  var corsError by remember { mutableStateOf(false) }
   var logPersistenceEnabled by remember { mutableStateOf(savedLogPersistenceEnabled) }
   var logMaxEntries by remember { mutableStateOf(savedLogMaxEntries) }
   var logAutoDeleteMinutes by remember { mutableStateOf(savedLogAutoDeleteMinutes) }
@@ -216,12 +235,15 @@ fun SettingsScreen(
     if (portText.isBlank()) {
       portError = true
       Toast.makeText(context, "A port number is required", Toast.LENGTH_SHORT).show()
+    } else if (portText.toIntOrNull().let { it == null || it !in 1024..65535 }) {
+      portError = true
+      Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
+    } else if (!isValidCorsOrigins(corsAllowedOrigins)) {
+      corsError = true
+      Toast.makeText(context, "Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://", Toast.LENGTH_LONG).show()
     } else {
-      val port = portText.toIntOrNull()
-      if (port == null || port !in 1024..65535) {
-        portError = true
-        Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
-      } else {
+      corsError = false
+      val port = portText.toInt()
         val isPortChanged = port != savedPort
         val isEagerVisionChanged = eagerVisionInit != savedEagerVisionInit
         val needsRestart = isPortChanged || isEagerVisionChanged
@@ -276,9 +298,10 @@ fun SettingsScreen(
 
         // Log CORS setting change
         if (corsAllowedOrigins != savedCorsAllowedOrigins) {
-          val displayValue = corsAllowedOrigins.ifBlank { "disabled" }
+          val oldDisplay = savedCorsAllowedOrigins.ifBlank { "disabled" }
+          val newDisplay = corsAllowedOrigins.ifBlank { "disabled" }
           RequestLogStore.addEvent(
-            "CORS Allowed Origins changed: \"$displayValue\"",
+            "CORS Allowed Origins changed: \"$oldDisplay\" → \"$newDisplay\"",
             category = EventCategory.SETTINGS,
           )
         }
@@ -347,7 +370,6 @@ fun SettingsScreen(
           Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
         }
       }
-    }
   }
 
   // Wrapper that warns if saving would trim existing logs
@@ -720,8 +742,13 @@ fun SettingsScreen(
       Spacer(modifier = Modifier.height(4.dp))
       OutlinedTextField(
         value = corsAllowedOrigins,
-        onValueChange = { corsAllowedOrigins = it },
+        onValueChange = {
+          corsAllowedOrigins = it
+          // Clear error as soon as the user edits the field
+          if (corsError) corsError = false
+        },
         singleLine = true,
+        isError = corsError,
         placeholder = {
           Text(
             "*",
@@ -731,18 +758,22 @@ fun SettingsScreen(
         },
         trailingIcon = {
           if (corsAllowedOrigins.isNotBlank()) {
-            IconButton(onClick = { corsAllowedOrigins = "" }) {
+            IconButton(onClick = {
+              corsAllowedOrigins = ""
+              if (corsError) corsError = false
+            }) {
               Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = "Clear origins",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (corsError) MaterialTheme.colorScheme.error
+                       else MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
           }
         },
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = OlliteRTPrimary,
-          unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (corsError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (corsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )

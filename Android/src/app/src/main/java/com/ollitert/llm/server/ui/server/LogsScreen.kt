@@ -108,6 +108,7 @@ import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
+import com.ollitert.llm.server.BuildConfig
 import org.json.JSONObject
 import org.json.JSONArray
 import java.io.File
@@ -343,6 +344,127 @@ fun LogsScreen(
           )
         }
       }
+    }
+
+    // ── DEBUG: Test buttons to fire all event card types for visual verification ──
+    // Only visible in debug builds (devDebug, betaDebug, prodDebug) — stripped by R8 in release
+    if (BuildConfig.DEBUG) {
+    var showTestButtons by remember { mutableStateOf(false) }
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 20.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        text = if (showTestButtons) "▼ Hide test events" else "▶ Show test events",
+        style = MaterialTheme.typography.labelSmall,
+        color = WarningColor,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+          .clip(RoundedCornerShape(6.dp))
+          .background(WarningColor.copy(alpha = 0.10f))
+          .clickable { showTestButtons = !showTestButtons }
+          .padding(horizontal = 10.dp, vertical = 4.dp),
+      )
+    }
+    if (showTestButtons) {
+      Spacer(modifier = Modifier.height(4.dp))
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .horizontalScroll(rememberScrollState())
+          .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        val testModel = "TestModel-1B"
+        @Composable
+        fun TestChip(label: String, onClick: () -> Unit) {
+          Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .clickable(onClick = onClick)
+              .padding(horizontal = 10.dp, vertical = 6.dp),
+          )
+        }
+        TestChip("Server Stopped") {
+          RequestLogStore.addEvent("Server stopped", modelName = testModel, category = EventCategory.SERVER)
+        }
+        TestChip("Warmup Skipped") {
+          RequestLogStore.addEvent(
+            "Warmup skipped — Model loaded without test inference (disabled in Settings)",
+            modelName = testModel, category = EventCategory.MODEL,
+          )
+        }
+        TestChip("Model Load Failed") {
+          RequestLogStore.addEvent(
+            "Model load failed: Out of memory — insufficient RAM to load model weights",
+            level = LogLevel.ERROR, modelName = testModel, category = EventCategory.MODEL,
+          )
+        }
+        TestChip("Server Failed") {
+          RequestLogStore.addEvent(
+            "Server failed to start on port 8000: Address already in use",
+            level = LogLevel.ERROR, modelName = testModel, category = EventCategory.SERVER,
+          )
+        }
+        TestChip("Model Not Found") {
+          RequestLogStore.addEvent(
+            "Model 'NonExistent-7B' not found",
+            level = LogLevel.ERROR, modelName = testModel, category = EventCategory.MODEL,
+          )
+        }
+        TestChip("Files Not Found") {
+          RequestLogStore.addEvent(
+            "Model files not found on disk",
+            level = LogLevel.ERROR, modelName = testModel, category = EventCategory.MODEL,
+          )
+        }
+        TestChip("Image Decode Failed") {
+          RequestLogStore.addEvent(
+            "Failed to decode image: Invalid base64 encoding at offset 1024",
+            level = LogLevel.ERROR, modelName = testModel, category = EventCategory.SERVER,
+          )
+        }
+        TestChip("Queued Reload") {
+          RequestLogStore.addEvent(
+            "Applying queued settings change — reloading model",
+            modelName = testModel, category = EventCategory.SETTINGS,
+          )
+        }
+        TestChip("CORS Changed") {
+          RequestLogStore.addEvent(
+            "CORS Allowed Origins changed: \"disabled\" → \"https://example.com\"",
+            category = EventCategory.SETTINGS,
+          )
+        }
+        TestChip("Conv Reset Failed") {
+          RequestLogStore.addEvent(
+            "Failed to reset conversation: Engine instance was disposed",
+            level = LogLevel.ERROR, modelName = testModel,
+          )
+        }
+        TestChip("Loading") {
+          RequestLogStore.addEvent("Loading model: $testModel", modelName = testModel, category = EventCategory.MODEL)
+        }
+        TestChip("Ready") {
+          RequestLogStore.addEvent("Model ready: $testModel (1245ms)", modelName = testModel, category = EventCategory.MODEL)
+        }
+        TestChip("Toggle On") {
+          RequestLogStore.addEvent("Compact Tool Schemas enabled", category = EventCategory.SETTINGS)
+        }
+        TestChip("Toggle Off") {
+          RequestLogStore.addEvent("Log Persistence disabled", category = EventCategory.SETTINGS)
+        }
+      }
+      Spacer(modifier = Modifier.height(8.dp))
+    }
+    // ── END DEBUG ──
     }
 
     if (entries.isEmpty()) {
@@ -677,6 +799,24 @@ private sealed class ParsedEventType {
   data class SettingsToggle(val settingName: String, val enabled: Boolean) : ParsedEventType()
   /** System prompt or chat template active on server start. */
   data class PromptActive(val promptType: String, val promptText: String) : ParsedEventType()
+  /** Server stopped cleanly. */
+  data object ServerStopped : ParsedEventType()
+  /** Warmup skipped because disabled in settings. */
+  data class WarmupSkipped(val reason: String) : ParsedEventType()
+  /** Model load failed with an error message. */
+  data class ModelLoadFailed(val errorMessage: String) : ParsedEventType()
+  /** Server failed to start (e.g. port in use). */
+  data class ServerFailed(val errorMessage: String) : ParsedEventType()
+  /** Model not found or model files missing on disk. */
+  data class ModelNotFound(val detail: String) : ParsedEventType()
+  /** Failed to decode a base64 image in a multimodal request. */
+  data class ImageDecodeFailed(val errorMessage: String) : ParsedEventType()
+  /** Queued settings change being applied — model reloading. */
+  data object QueuedReload : ParsedEventType()
+  /** CORS allowed origins changed. */
+  data class CorsChanged(val oldValue: String, val newValue: String) : ParsedEventType()
+  /** Failed to reset conversation (e.g. during model reuse). */
+  data class ConversationResetFailed(val errorMessage: String) : ParsedEventType()
 }
 
 private val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -769,6 +909,66 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
       promptType = if (isSystem) "System prompt" else "Chat template",
       promptText = text,
     )
+  }
+
+  // Server stopped
+  if (message == "Server stopped") {
+    return ParsedEventType.ServerStopped
+  }
+
+  // Warmup skipped: "Warmup skipped — model loaded without test inference (disabled in Settings)"
+  if (message.startsWith("Warmup skipped")) {
+    // Extract everything after "Warmup skipped — " as the body text
+    val body = message.removePrefix("Warmup skipped").trimStart(' ', '—', '-').trim()
+    return ParsedEventType.WarmupSkipped(body)
+  }
+
+  // Model load failed: "Model load failed: <error>"
+  if (message.startsWith("Model load failed: ")) {
+    return ParsedEventType.ModelLoadFailed(message.removePrefix("Model load failed: "))
+  }
+
+  // Server failed to start: "Server failed to start on port <N>: <error>"
+  if (message.startsWith("Server failed to start")) {
+    return ParsedEventType.ServerFailed(message)
+  }
+
+  // Model not found: "Model '<name>' not found" or "Model files not found on disk"
+  if (message.startsWith("Model") && message.contains("not found")) {
+    // Extract quoted model name if present: "Model 'Foo' not found" → "Foo"
+    val quoted = Regex("""'(.+?)'""").find(message)?.groupValues?.get(1)
+    val detail = if (quoted != null) {
+      "$quoted (not in downloaded or available models)"
+    } else if (message.contains("files")) {
+      "Model files missing from device storage"
+    } else {
+      message
+    }
+    return ParsedEventType.ModelNotFound(detail)
+  }
+
+  // Failed to decode image: "Failed to decode image: <error>"
+  if (message.startsWith("Failed to decode image: ")) {
+    return ParsedEventType.ImageDecodeFailed(message.removePrefix("Failed to decode image: "))
+  }
+
+  // Queued settings change: "Applying queued settings change — reloading model"
+  if (message.startsWith("Applying queued settings change")) {
+    return ParsedEventType.QueuedReload
+  }
+
+  // CORS changed: "CORS Allowed Origins changed: \"old\" → \"new\""
+  if (message.startsWith("CORS Allowed Origins changed: ")) {
+    val rest = message.removePrefix("CORS Allowed Origins changed: ")
+    val parts = rest.split(" → ", limit = 2)
+    val oldValue = parts.getOrElse(0) { "" }.trim('"')
+    val newValue = parts.getOrElse(1) { "" }.trim('"')
+    return ParsedEventType.CorsChanged(oldValue, newValue)
+  }
+
+  // Failed to reset conversation: "Failed to reset conversation: <error>"
+  if (message.startsWith("Failed to reset conversation: ")) {
+    return ParsedEventType.ConversationResetFailed(message.removePrefix("Failed to reset conversation: "))
   }
 
   // Settings toggle: "SettingName enabled" / "SettingName disabled"
@@ -907,6 +1107,15 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     is ParsedEventType.InferenceSettings -> "Settings changed"
     is ParsedEventType.SettingsToggle -> "Settings changed"
     is ParsedEventType.PromptActive -> "${parsedEvent.promptType} active"
+    is ParsedEventType.ServerStopped -> "Server Stopped"
+    is ParsedEventType.WarmupSkipped -> "Warmup Skipped"
+    is ParsedEventType.ModelLoadFailed -> "Model Load Failed"
+    is ParsedEventType.ServerFailed -> "Server Failed"
+    is ParsedEventType.ModelNotFound -> "Model Not Found"
+    is ParsedEventType.ImageDecodeFailed -> "Image Decode Failed"
+    is ParsedEventType.QueuedReload -> "Queued Reload"
+    is ParsedEventType.CorsChanged -> "Settings changed"
+    is ParsedEventType.ConversationResetFailed -> "Conversation Reset Failed"
     null -> null
   }
 
@@ -1075,6 +1284,94 @@ private fun InternalEventCard(entry: RequestLogEntry) {
             lineHeight = 16.sp,
           ),
           textColor = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+
+      is ParsedEventType.ServerStopped -> {
+        // Show model name that was unloaded — sourced from the entry's modelName field
+        if (entry.modelName != null) {
+          Text(
+            text = "${entry.modelName} unloaded",
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+
+      is ParsedEventType.WarmupSkipped -> {
+        Text(
+          text = parsedEvent.reason,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      is ParsedEventType.ModelLoadFailed -> {
+        // Error message in a styled box
+        Text(
+          text = parsedEvent.errorMessage,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = DeleteRedTint,
+          fontWeight = FontWeight.Medium,
+        )
+      }
+
+      is ParsedEventType.ServerFailed -> {
+        Text(
+          text = parsedEvent.errorMessage,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = DeleteRedTint,
+          fontWeight = FontWeight.Medium,
+        )
+      }
+
+      is ParsedEventType.ModelNotFound -> {
+        // Show model name in primary color if extracted, otherwise the raw detail as error
+        Text(
+          text = parsedEvent.detail,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = OlliteRTPrimary,
+          fontWeight = FontWeight.SemiBold,
+        )
+      }
+
+      is ParsedEventType.ImageDecodeFailed -> {
+        Text(
+          text = parsedEvent.errorMessage,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = DeleteRedTint,
+          fontWeight = FontWeight.Medium,
+        )
+      }
+
+      is ParsedEventType.QueuedReload -> {
+        val modelText = if (entry.modelName != null) "Reloading ${entry.modelName} with updated settings"
+                        else "Reloading model with updated settings"
+        Text(
+          text = modelText,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = OlliteRTPrimary,
+          fontWeight = FontWeight.Medium,
+        )
+      }
+
+      is ParsedEventType.CorsChanged -> {
+        // Reuse the settings change row style for CORS before → after
+        SettingsChangeRows(
+          parsed = ParsedInferenceEvent(
+            changes = listOf(InferenceSettingsChange("CORS Allowed Origins", parsedEvent.oldValue, parsedEvent.newValue)),
+            statusSuffix = null,
+          ),
+          accentColor = accentColor,
+        )
+      }
+
+      is ParsedEventType.ConversationResetFailed -> {
+        Text(
+          text = parsedEvent.errorMessage,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = DeleteRedTint,
+          fontWeight = FontWeight.Medium,
         )
       }
 
