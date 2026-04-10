@@ -59,6 +59,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -471,6 +472,47 @@ fun GlobalModelManager(
       if (uiState.loadingModelAllowlist && builtInModels.isEmpty()) {
         items(3, key = { "shimmer_$it" }) {
           ShimmerModelCard()
+        }
+      }
+
+      // Info banner when model list was loaded from cache/bundle instead of network.
+      // The app works fully offline — this just lets the user know the list may not include
+      // newer models that were published after their last successful fetch.
+      if (uiState.allowlistSource != null && uiState.allowlistSource != AllowlistSource.NETWORK && !uiState.loadingModelAllowlist) {
+        item(key = "offline_info_banner") {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp)
+              .padding(bottom = 12.dp)
+              .clip(RoundedCornerShape(12.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+              .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.CloudOff,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(18.dp),
+            )
+            Text(
+              text = stringResource(R.string.models_offline_info),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.weight(1f),
+            )
+            Text(
+              text = stringResource(R.string.retry),
+              style = MaterialTheme.typography.labelMedium,
+              color = MaterialTheme.colorScheme.primary,
+              modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable { viewModel.loadModelAllowlist() }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+          }
         }
       }
 
