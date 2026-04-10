@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import android.view.WindowManager
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -135,6 +137,7 @@ fun SettingsScreen(
 ) {
   val context = LocalContext.current
   val focusManager = LocalFocusManager.current
+  val uriHandler = LocalUriHandler.current
 
   // ─── Unsaved Changes Guard ─────────────────────────────────────────────────
   // When adding a NEW setting, update ALL FOUR sections below:
@@ -969,6 +972,40 @@ fun SettingsScreen(
           },
           enabled = defaultModelName != null,
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(12.dp))
+
+      // Link to dontkillmyapp.com — OEM-specific battery/background kill settings
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .clickable { uriHandler.openUri("https://dontkillmyapp.com") }
+          .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Device background settings",
+            style = MaterialTheme.typography.bodyMedium,
+            color = OlliteRTPrimary,
+          )
+          Text(
+            text = "Some manufacturers kill background apps aggressively. Check dontkillmyapp.com for device-specific fixes.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+          imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+          contentDescription = "Open dontkillmyapp.com",
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(18.dp),
         )
       }
 

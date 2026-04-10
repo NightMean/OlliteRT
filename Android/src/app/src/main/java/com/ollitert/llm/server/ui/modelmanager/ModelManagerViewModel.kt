@@ -802,7 +802,14 @@ constructor(
 
         if (modelAllowlist == null) {
           // Load from github.
-          var version = BuildConfig.VERSION_NAME.replace(".", "_")
+          // Strip flavor suffixes (-dev, -beta) so the version maps to the upstream
+          // allowlist file (e.g. "1.0.11-beta" → "1_0_11" → "1_0_11.json").
+          // When beta needs different models, it will have a bumped version number
+          // (e.g. 1.0.12) with its own allowlist — the suffix is not part of the
+          // allowlist versioning scheme.
+          var version = BuildConfig.VERSION_NAME
+            .replace(Regex("-(dev|beta)$"), "")
+            .replace(".", "_")
           val url = getAllowlistUrl(version)
           Log.d(TAG, "Loading model allowlist from internet. Url: $url")
           val data = getJsonResponse<ModelAllowlist>(url = url)
