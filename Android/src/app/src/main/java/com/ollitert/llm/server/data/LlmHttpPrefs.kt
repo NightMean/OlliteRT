@@ -38,6 +38,7 @@ private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 
 // --- Developer / Debug ---
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
+private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
 
 // --- Log Persistence ---
 private const val KEY_LOG_PERSISTENCE_ENABLED = "log_persistence_enabled"
@@ -399,6 +400,13 @@ object LlmHttpPrefs {
 
   fun setVerboseDebugEnabled(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_VERBOSE_DEBUG_ENABLED, enabled).apply()
+  }
+
+  fun isIgnoreClientSamplerParams(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, false)
+
+  fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, enabled).apply()
   }
 
   // --- Log Persistence ---

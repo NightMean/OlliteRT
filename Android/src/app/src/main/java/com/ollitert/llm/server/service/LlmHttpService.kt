@@ -111,6 +111,16 @@ class LlmHttpService : Service() {
       return START_NOT_STICKY
     }
 
+    // System auto-restart after crash: intent is null or has no model name and no action.
+    // Don't call startForeground() — on Android 12+ it throws
+    // ForegroundServiceStartNotAllowedException when the app is in the background.
+    // Just stop immediately to avoid a crash loop.
+    if (intent == null || (intent.action == null && intent.getStringExtra(EXTRA_MODEL_NAME) == null)) {
+      Log.i(logTag, "No intent or model specified — stopping to avoid crash loop")
+      stopSelf()
+      return START_NOT_STICKY
+    }
+
     // Android requires startForeground() within ~10s of startForegroundService().
     // Call it immediately with a minimal notification to avoid
     // ForegroundServiceDidNotStartInTimeException on early-return paths
@@ -131,11 +141,27 @@ class LlmHttpService : Service() {
       ),
     )
 
-    // Handle reload action: clean up current model first, then proceed with normal start
+    // Handle reload action: clean up current model first, then proceed with normal start.
+    // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
+    // of "Server stopped", because the server will immediately start again.
     if (intent?.action == ACTION_RELOAD) {
+      val previousModelName = defaultModel?.name
       Log.i(logTag, "Reload requested — cleaning up current model before restart")
+      // Bump generation FIRST so any in-flight load thread sees the stale generation
+      // and cleans up its own Engine when it finishes (see loadGeneration guard below).
+      loadGeneration.incrementAndGet()
+      RequestLogStore.addEvent(
+        "Model restart requested",
+        modelName = previousModelName,
+        category = EventCategory.MODEL,
+      )
       server?.stop()
       defaultModel?.let { model ->
+        RequestLogStore.addEvent(
+          "Unloading model: ${model.name}",
+          modelName = model.name,
+          category = EventCategory.MODEL,
+        )
         try {
           ServerLlmModelHelper.cleanUp(model) {}
         } catch (e: Exception) {
@@ -146,8 +172,14 @@ class LlmHttpService : Service() {
       }
       defaultModel = null
       modelCache.clear()
+      // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
       ServerMetrics.onServerStopped()
-      // Fall through to normal start logic below
+      // Hint GC to reclaim native memory from the closed Engine/Conversation.
+      // LiteRT Engine allocates large native buffers (hundreds of MB) that are only
+      // freed when the Java wrapper is finalized. Without this hint, the old Engine's
+      // native memory may persist until the new model's allocation triggers OOM.
+      System.gc()
+      // Fall through to normal start logic below (which emits "Loading model: X")
     }
 
     val port = intent?.getIntExtra(EXTRA_PORT, DEFAULT_PORT) ?: LlmHttpPrefs.getPort(this)
@@ -435,8 +467,14 @@ class LlmHttpService : Service() {
     loadGeneration.incrementAndGet()
     server?.stop()
     val modelName = defaultModel?.name
-    // Unload the model to free memory
+    // Unload the model and release native memory (Engine + Conversation).
+    // Without cleanUp, the native LiteRT buffers (hundreds of MB) leak until GC finalizes them.
     defaultModel?.let { model ->
+      try {
+        ServerLlmModelHelper.cleanUp(model) {}
+      } catch (e: Exception) {
+        Log.w(logTag, "Error cleaning up model during destroy: ${e.message}")
+      }
       model.instance = null
       model.initializing = false
     }
@@ -539,6 +577,24 @@ class LlmHttpService : Service() {
   private inner class NanoServer(port: Int) : NanoHTTPD("0.0.0.0", port) {
     private val executor = Executors.newSingleThreadExecutor()
     private val inferenceLock = Any()
+
+    /**
+     * Builds a human-readable summary of client-supplied sampler params that will be ignored.
+     * Returns null if the client didn't send any overrides.
+     */
+    private fun describeClientSamplerParams(
+      temperature: Double?,
+      topP: Double?,
+      topK: Int?,
+      maxTokens: Int?,
+    ): String? {
+      val parts = mutableListOf<String>()
+      temperature?.let { parts.add("temperature=$it") }
+      topP?.let { parts.add("top_p=$it") }
+      topK?.let { parts.add("top_k=$it") }
+      maxTokens?.let { parts.add("max_tokens=$it") }
+      return if (parts.isEmpty()) null else parts.joinToString(", ")
+    }
 
     /**
      * Builds a config snapshot with per-request overrides applied.
@@ -902,6 +958,18 @@ class LlmHttpService : Service() {
       val includeUsage = req.stream_options?.include_usage == true
       val effectiveMaxTokens = req.max_completion_tokens ?: req.max_tokens
 
+      // When "Ignore Client Sampler Parameters" is enabled, discard client-supplied
+      // temperature/top_p/top_k/max_tokens and use the server's configured values instead.
+      val ignoreClientSampler = LlmHttpPrefs.isIgnoreClientSamplerParams(this@LlmHttpService)
+      val clientTemp = if (ignoreClientSampler) null else req.temperature
+      val clientTopP = if (ignoreClientSampler) null else req.top_p
+      val clientTopK = if (ignoreClientSampler) null else req.top_k
+      val clientMaxTokens = if (ignoreClientSampler) null else effectiveMaxTokens
+      if (ignoreClientSampler && logId != null) {
+        val ignored = describeClientSamplerParams(req.temperature, req.top_p, req.top_k, effectiveMaxTokens)
+        if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
+      }
+
       // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
       // These are picked up by resetConversation() before inference — no model reload needed.
       // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
@@ -909,11 +977,11 @@ class LlmHttpService : Service() {
       // For non-streaming: withPerRequestConfig wraps the blocking call safely.
       val stopSeqs = req.stop.ifEmpty { null }
       return if (req.stream == true) {
-        val configSnapshot = buildPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens)
+        val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
         ServerMetrics.onInferenceStarted()
         streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) req.tools else null, configSnapshot = configSnapshot)
       } else {
-        withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, effectiveMaxTokens) {
+        withPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens) {
           ServerMetrics.onInferenceStarted()
           val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId)
           ServerMetrics.onInferenceCompleted()
@@ -1007,8 +1075,16 @@ class LlmHttpService : Service() {
         else -> null
       }
 
-      // Apply per-request sampler overrides
-      return withPerRequestConfig(model, req.temperature, req.top_p, topK = null, req.max_tokens) {
+      // Apply per-request sampler overrides (ignored when "Ignore Client Sampler" is on)
+      val ignoreClientSamplerC = LlmHttpPrefs.isIgnoreClientSamplerParams(this@LlmHttpService)
+      val cTemp = if (ignoreClientSamplerC) null else req.temperature
+      val cTopP = if (ignoreClientSamplerC) null else req.top_p
+      val cMaxTokens = if (ignoreClientSamplerC) null else req.max_tokens
+      if (ignoreClientSamplerC && logId != null) {
+        val ignored = describeClientSamplerParams(req.temperature, req.top_p, topK = null, req.max_tokens)
+        if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
+      }
+      return withPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens) {
         // Streaming completions: fall through to non-streaming for now (TODO: implement streaming)
         ServerMetrics.onInferenceStarted()
         val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120, logId = logId)
@@ -1096,16 +1172,25 @@ class LlmHttpService : Service() {
 
       val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
 
-      // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
+      // Apply per-request sampler overrides (ignored when "Ignore Client Sampler" is on)
+      val ignoreClientSamplerR = LlmHttpPrefs.isIgnoreClientSamplerParams(this@LlmHttpService)
+      val rTemp = if (ignoreClientSamplerR) null else req.temperature
+      val rTopP = if (ignoreClientSamplerR) null else req.top_p
+      val rTopK = if (ignoreClientSamplerR) null else req.top_k
+      val rMaxTokens = if (ignoreClientSamplerR) null else req.max_output_tokens
+      if (ignoreClientSamplerR && logId != null) {
+        val ignored = describeClientSamplerParams(req.temperature, req.top_p, req.top_k, req.max_output_tokens)
+        if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
+      }
       // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
       // a race where the NanoHTTPD thread restores config before the executor reads it.
       // For non-streaming: withPerRequestConfig wraps the blocking call safely.
       return if (req.stream == true) {
-        val configSnapshot = buildPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens)
+        val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
         ServerMetrics.onInferenceStarted()
         streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot)
       } else {
-        withPerRequestConfig(model, req.temperature, req.top_p, req.top_k, req.max_output_tokens) {
+        withPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens) {
           ServerMetrics.onInferenceStarted()
           val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId)
           ServerMetrics.onInferenceCompleted()

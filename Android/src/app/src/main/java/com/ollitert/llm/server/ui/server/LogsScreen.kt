@@ -464,6 +464,20 @@ fun LogsScreen(
         TestChip("Toggle Off") {
           RequestLogStore.addEvent("Log Persistence disabled", category = EventCategory.SETTINGS)
         }
+        // Test chips for restart flow and grouped settings batch
+        TestChip("Restart") {
+          RequestLogStore.addEvent("Model restart requested", modelName = testModel, category = EventCategory.MODEL)
+        }
+        TestChip("Unloading") {
+          RequestLogStore.addEvent("Unloading model: $testModel", modelName = testModel, category = EventCategory.MODEL)
+        }
+        TestChip("Settings Batch") {
+          RequestLogStore.addEvent(
+            "Settings updated (3 changes)",
+            category = EventCategory.SETTINGS,
+            body = "Port: 8000 → 8080\nWarmup Message: disabled → enabled\nLog Auto-Delete: 7 days → 3 days",
+          )
+        }
       }
       Spacer(modifier = Modifier.height(8.dp))
     }
@@ -820,6 +834,12 @@ private sealed class ParsedEventType {
   data class CorsChanged(val oldValue: String, val newValue: String) : ParsedEventType()
   /** Failed to reset conversation (e.g. during model reuse). */
   data class ConversationResetFailed(val errorMessage: String) : ParsedEventType()
+  /** Grouped batch of settings changes from the Settings screen (body = newline-separated "Name: old → new"). */
+  data class SettingsBatch(val changes: List<InferenceSettingsChange>) : ParsedEventType()
+  /** Model restart requested (user tapped Reload in Status screen). */
+  data object RestartRequested : ParsedEventType()
+  /** Model being unloaded during a restart (before the new load begins). */
+  data class Unloading(val modelName: String) : ParsedEventType()
 }
 
 private val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -914,6 +934,16 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
     )
   }
 
+  // Model restart requested
+  if (message == "Model restart requested") {
+    return ParsedEventType.RestartRequested
+  }
+
+  // Unloading model during restart: "Unloading model: ModelName"
+  if (message.startsWith("Unloading model: ")) {
+    return ParsedEventType.Unloading(message.removePrefix("Unloading model: "))
+  }
+
   // Server stopped
   if (message == "Server stopped") {
     return ParsedEventType.ServerStopped
@@ -972,6 +1002,34 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
   // Failed to reset conversation: "Failed to reset conversation: <error>"
   if (message.startsWith("Failed to reset conversation: ")) {
     return ParsedEventType.ConversationResetFailed(message.removePrefix("Failed to reset conversation: "))
+  }
+
+  // Grouped settings batch: "Settings updated (N changes)" with body = newline-separated changes
+  if (message.startsWith("Settings updated (") && !eventBody.isNullOrBlank()) {
+    val changes = eventBody.lines().filter { it.isNotBlank() }.map { line ->
+      // Parse "Name: old → new" or "Name: enabled/disabled" (no arrow)
+      val arrowIdx = line.indexOf(" → ")
+      if (arrowIdx >= 0) {
+        // "Port: 8000 → 8001" → paramName="Port", old="8000", new="8001"
+        val left = line.substring(0, arrowIdx)
+        val newValue = line.substring(arrowIdx + 3)
+        val colonIdx = left.indexOf(": ")
+        if (colonIdx >= 0) {
+          InferenceSettingsChange(left.substring(0, colonIdx), left.substring(colonIdx + 2), newValue)
+        } else {
+          InferenceSettingsChange(left, "", newValue)
+        }
+      } else {
+        // "Auto-Start on Boot: enabled" → paramName="Auto-Start on Boot", old="", new="enabled"
+        val colonIdx = line.indexOf(": ")
+        if (colonIdx >= 0) {
+          InferenceSettingsChange(line.substring(0, colonIdx), "", line.substring(colonIdx + 2))
+        } else {
+          InferenceSettingsChange(line, "", "")
+        }
+      }
+    }
+    if (changes.isNotEmpty()) return ParsedEventType.SettingsBatch(changes)
   }
 
   // Settings toggle: "SettingName enabled" / "SettingName disabled"
@@ -1122,6 +1180,9 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     is ParsedEventType.QueuedReload -> "Queued Reload"
     is ParsedEventType.CorsChanged -> "Settings changed"
     is ParsedEventType.ConversationResetFailed -> "Conversation Reset Failed"
+    is ParsedEventType.SettingsBatch -> "Settings updated"
+    is ParsedEventType.RestartRequested -> "Model Restart"
+    is ParsedEventType.Unloading -> "Model Unloading"
     null -> null
   }
 
@@ -1395,6 +1456,56 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         )
       }
 
+      is ParsedEventType.SettingsBatch -> {
+        // Reuse SettingsChangeRows via a synthetic ParsedInferenceEvent.
+        // For toggle-style changes (new value is "enabled"/"disabled"),
+        // color the new value green/red for clarity.
+        val toggleValues = setOf("enabled", "disabled")
+        SettingsChangeRows(
+          parsed = ParsedInferenceEvent(
+            changes = parsedEvent.changes,
+            statusSuffix = null,
+          ),
+          accentColor = accentColor,
+          newValueColorOverride = null,
+          perRowNewColor = { change ->
+            if (change.newValue in toggleValues) {
+              if (change.newValue == "enabled") OlliteRTGreen400 else DeleteRedTint
+            } else null
+          },
+        )
+      }
+
+      is ParsedEventType.RestartRequested -> {
+        // Show the model name being restarted if available
+        if (entry.modelName != null) {
+          Text(
+            text = buildAnnotatedString {
+              append("Restarting ")
+              withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+                append(entry.modelName)
+              }
+            },
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+
+      is ParsedEventType.Unloading -> {
+        Text(
+          text = buildAnnotatedString {
+            append("Unloading ")
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" from memory")
+          },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
       null -> {
         // Default: styled text with highlighted values
         val isLong = message.length > 120 || message.count { it == '\n' } > 2
@@ -1502,14 +1613,17 @@ private fun InternalEventCard(entry: RequestLogEntry) {
 /**
  * Structured rows for settings changes (inference params or toggle states).
  * Each row: [param name]  [old → new], all full-width with consistent alignment.
- * @param newValueColorOverride optional color override for the new value text
+ * @param newValueColorOverride optional color override for the new value text on ALL rows
  *   (e.g. green/red for enabled/disabled toggles)
+ * @param perRowNewColor optional per-row color function — takes precedence over [newValueColorOverride]
+ *   when non-null. Used by SettingsBatch to color "enabled" green and "disabled" red per row.
  */
 @Composable
 private fun SettingsChangeRows(
   parsed: ParsedInferenceEvent,
   accentColor: Color,
   newValueColorOverride: Color? = null,
+  perRowNewColor: ((InferenceSettingsChange) -> Color?)? = null,
 ) {
   // Two-column diff layout: [Param: old]  →  [Param: new]
   // Both sides are equal weight(1f), arrow is fixed-width centered between them.
@@ -1520,6 +1634,7 @@ private fun SettingsChangeRows(
       verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
       parsed.changes.forEach { change ->
+        val rowColor = perRowNewColor?.invoke(change) ?: newValueColorOverride
         Row(
           modifier = Modifier
             .fillMaxWidth()
@@ -1533,7 +1648,7 @@ private fun SettingsChangeRows(
             Text(
               text = "${change.paramName}: ${change.newValue}",
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
-              color = newValueColorOverride ?: OlliteRTPrimary,
+              color = rowColor ?: OlliteRTPrimary,
               fontWeight = FontWeight.SemiBold,
             )
           } else {
@@ -1557,7 +1672,7 @@ private fun SettingsChangeRows(
             Text(
               text = "${change.paramName}: ${change.newValue}",
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
-              color = newValueColorOverride ?: MaterialTheme.colorScheme.onSurface,
+              color = rowColor ?: MaterialTheme.colorScheme.onSurface,
               fontWeight = FontWeight.SemiBold,
               textAlign = TextAlign.End,
               modifier = Modifier.weight(1f),
@@ -1904,6 +2019,16 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       )
     }
 
+    // Show which client-supplied sampler params were ignored
+    if (entry.ignoredClientParams != null) {
+      Spacer(modifier = Modifier.height(6.dp))
+      Text(
+        text = "Client params ignored: ${entry.ignoredClientParams}",
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+        color = WarningColor,
+      )
+    }
+
     // Footer area: badges (compaction/overflow) are placed inline when they fit,
     // or on a separate row above when they'd overflow. Measured dynamically via
     // SubcomposeLayout so the layout scales correctly across phones and tablets.
@@ -2168,6 +2293,7 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
       obj.put("is_exact_token_count", entry.isExactTokenCount)
     }
     if (entry.maxContextTokens > 0) obj.put("max_context_tokens", entry.maxContextTokens)
+    if (entry.ignoredClientParams != null) obj.put("ignored_client_params", entry.ignoredClientParams)
     if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
 
     // Parse request/response bodies as JSON if possible, otherwise keep as string
