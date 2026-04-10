@@ -1,9 +1,12 @@
 package com.ollitert.llm.server.ui.gettingstarted
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -57,12 +60,39 @@ fun GettingStartedScreen(
   val scrollState = rememberScrollState()
   val context = LocalContext.current
 
-  // Request notification permission on "Get Started" tap (Android 13+)
+  // After notification permission is handled, request battery optimization exemption
+  // so the OS doesn't throttle/kill the foreground service while serving inference.
+  val batteryOptLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.StartActivityForResult(),
+  ) { _ ->
+    // Proceed regardless of whether the user granted the exemption
+    onGetStartedClick()
+  }
+
+  /** Request battery optimization exemption, or proceed directly if already exempt. */
+  fun requestBatteryOptimizationExemption() {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+      // Show the system dialog asking the user to exempt this app from Doze mode.
+      // Uses ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS which is allowed by Google Play
+      // for apps that need sustained background work (HTTP servers, media players, etc.).
+      val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${context.packageName}")
+      }
+      batteryOptLauncher.launch(intent)
+    } else {
+      // Already exempt — skip straight to the main app
+      onGetStartedClick()
+    }
+  }
+
+  // Request notification permission on "Get Started" tap (Android 13+),
+  // then chain into battery optimization request.
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission(),
   ) { _ ->
-    // Proceed regardless of whether permission was granted
-    onGetStartedClick()
+    // Proceed to battery optimization request regardless of notification result
+    requestBatteryOptimizationExemption()
   }
 
   Column(
@@ -98,9 +128,9 @@ fun GettingStartedScreen(
 
     Spacer(modifier = Modifier.weight(1f))
 
-    // Notification permission notice
+    // Permission notice — notification + battery optimization
     Text(
-      text = "Notification permission is required to keep the server running in the background.",
+      text = "You\u2019ll be asked for notification and battery optimization permissions to keep the server running reliably.",
       style = MaterialTheme.typography.bodyLarge.copy(
         fontSize = 14.sp,
         lineHeight = 20.sp,
@@ -115,9 +145,11 @@ fun GettingStartedScreen(
     Button(
       onClick = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          // Android 13+: notification permission first, then battery opt in the callback
           notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-          onGetStartedClick()
+          // Pre-Android 13: notification permission not needed, go straight to battery opt
+          requestBatteryOptimizationExemption()
         }
       },
       modifier = Modifier

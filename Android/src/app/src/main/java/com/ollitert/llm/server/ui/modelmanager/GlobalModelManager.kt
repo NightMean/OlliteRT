@@ -16,10 +16,15 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
@@ -60,6 +65,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -125,6 +131,8 @@ import com.ollitert.llm.server.ui.common.modelitem.ModelItem
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningContainer
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
 import kotlin.text.endsWith
 import kotlin.text.lowercase
 import kotlinx.coroutines.delay
@@ -185,6 +193,34 @@ fun GlobalModelManager(
   var showSwitchModelDialog by remember { mutableStateOf(false) }
   var pendingSwitchModel by remember { mutableStateOf<Model?>(null) }
   var pendingSwitchTask by remember { mutableStateOf<Task?>(null) }
+
+  // Re-check permissions when the user returns from system settings.
+  // A simple counter bumped on ON_RESUME forces recomposition of permission-dependent UI.
+  val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+  var resumeCount by remember { mutableStateOf(0) }
+  androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+      if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        resumeCount++
+      }
+    }
+    lifecycleOwner.lifecycle.addObserver(observer)
+    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+  }
+
+  // Permission state — re-evaluated on every resume so the banner disappears
+  // after the user grants permissions in system settings and returns to the app.
+  val missingNotifPermission by remember(resumeCount) {
+    mutableStateOf(
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+      } else false
+    )
+  }
+  val missingBatteryExemption by remember(resumeCount) {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    mutableStateOf(!pm.isIgnoringBatteryOptimizations(context.packageName))
+  }
 
   // Search, filter, and sort state
   var searchQuery by remember { mutableStateOf("") }
@@ -475,6 +511,52 @@ fun GlobalModelManager(
         }
       }
 
+      // Permission warning banner — shown when notification or battery optimization
+      // permissions are missing, which can cause the OS to kill the server in the background.
+      // State is hoisted above and re-checked on every ON_RESUME lifecycle event.
+      if ((missingNotifPermission || missingBatteryExemption) && !uiState.loadingModelAllowlist) {
+        item(key = "permission_warning_banner") {
+          // Build a message tailored to which permissions are missing
+          val issues = buildList {
+            if (missingNotifPermission) add("notification access")
+            if (missingBatteryExemption) add("battery optimization exemption")
+          }
+          val issueText = issues.joinToString(" and ")
+
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp)
+              .padding(bottom = 12.dp)
+              .clip(RoundedCornerShape(12.dp))
+              .background(OlliteRTWarningContainer)
+              .clickable {
+                // Open app settings so the user can grant the missing permissions
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                  data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+              }
+              .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.Warning,
+              contentDescription = null,
+              tint = OlliteRTWarningText,
+              modifier = Modifier.size(18.dp),
+            )
+            Text(
+              text = "Missing $issueText — the server may be stopped by the system while running in the background. Tap to open settings.",
+              style = MaterialTheme.typography.bodySmall,
+              color = OlliteRTWarningText,
+              modifier = Modifier.weight(1f),
+            )
+          }
+        }
+      }
+
       // Info banner when model list was loaded from cache/bundle instead of network.
       // The app works fully offline — this just lets the user know the list may not include
       // newer models that were published after their last successful fetch.
@@ -498,7 +580,12 @@ fun GlobalModelManager(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              text = stringResource(R.string.models_offline_info),
+              text = stringResource(
+                if (uiState.allowlistSource == AllowlistSource.DISK_CACHE)
+                  R.string.models_offline_cached
+                else
+                  R.string.models_offline_bundled
+              ),
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.weight(1f),

@@ -81,6 +81,14 @@ class LlmHttpService : Service() {
     return Contents.of(listOf(Content.Text(prompt)))
   }
 
+  /**
+   * Partial wake lock held for the entire server lifetime to keep the CPU awake while serving.
+   * Without this, Doze mode suspends CPU on a locked/idle device — making the HTTP server
+   * unreachable between requests. Essential for "closet server" use cases where the device
+   * sits idle with the screen off. Acquired when the server starts, released in onDestroy().
+   */
+  private var wakeLock: android.os.PowerManager.WakeLock? = null
+
   private lateinit var logger: LlmHttpLogger
   private lateinit var allowlistLoader: LlmHttpAllowlistLoader
 
@@ -99,6 +107,12 @@ class LlmHttpService : Service() {
         try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
       },
     )
+    // Create a partial wake lock to keep the CPU awake while the server is running.
+    // Acquired in onStartCommand once the server starts, released in onDestroy.
+    val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+    wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "OlliteRT::Server").apply {
+      setReferenceCounted(false)
+    }
     val mgr = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val ch = NotificationChannel(CHANNEL_ID, getString(R.string.llm_http_channel_name), NotificationManager.IMPORTANCE_LOW)
@@ -133,15 +147,27 @@ class LlmHttpService : Service() {
     val placeholderContentIntent = PendingIntent.getActivity(
       this, 0, placeholderIntent, PendingIntent.FLAG_IMMUTABLE,
     )
-    startForeground(
-      NOTIFICATION_ID,
-      buildNotification(
-        title = "OlliteRT",
-        text = "Starting…",
-        contentIntent = placeholderContentIntent,
-        showProgress = true,
-      ),
+    val placeholderNotification = buildNotification(
+      title = "OlliteRT",
+      text = "Starting…",
+      contentIntent = placeholderContentIntent,
+      showProgress = true,
     )
+    // Pass the foreground service type explicitly so Android 14+ (which requires it)
+    // shows the notification immediately instead of deferring it for up to 10 seconds.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      startForeground(
+        NOTIFICATION_ID,
+        placeholderNotification,
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+      )
+    } else {
+      startForeground(NOTIFICATION_ID, placeholderNotification)
+    }
+
+    // Keep CPU awake for the entire server lifetime so the HTTP server stays reachable
+    // on locked/idle devices (e.g. dedicated "closet server" use case).
+    wakeLock?.acquire()
 
     // Handle reload action: clean up current model first, then proceed with normal start.
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
@@ -529,6 +555,9 @@ class LlmHttpService : Service() {
     if (LlmHttpPrefs.isClearLogsOnStop(this)) {
       RequestLogStore.clear()
     }
+    // Release wake lock if still held (e.g. service killed mid-inference)
+    if (wakeLock?.isHeld == true) wakeLock?.release()
+    wakeLock = null
     logger.shutdown()
     super.onDestroy()
   }
