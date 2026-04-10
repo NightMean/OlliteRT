@@ -47,6 +47,11 @@ class ServerViewModel @Inject constructor(
   val modelLoadTimeMs = ServerMetrics.modelLoadTimeMs
   val loadingStartedAtMs = ServerMetrics.loadingStartedAtMs
   val lastError = ServerMetrics.lastError
+  val nativeHeapBytes = ServerMetrics.nativeHeapBytes
+  val appHeapUsedBytes = ServerMetrics.appHeapUsedBytes
+  val appTotalPssBytes = ServerMetrics.appTotalPssBytes
+  val deviceAvailRamBytes = ServerMetrics.deviceAvailRamBytes
+  val deviceTotalRamBytes = ServerMetrics.deviceTotalRamBytes
 
   fun startServer(port: Int = LlmHttpPrefs.getPort(context), modelName: String? = null) {
     LlmHttpService.start(context, port, modelName)

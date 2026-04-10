@@ -154,6 +154,34 @@ object LlmHttpPrometheusRenderer {
       "Number of requests currently being processed (0 or 1).",
       if (m.isInferring.value) 1L else 0L,
     )
+
+    // ── Memory gauges (populated by UI-side polling every 3s) ───────────
+
+    gauge(
+      "ollitert_memory_native_heap_bytes",
+      "Native heap allocated bytes (dominated by LiteRT model weights).",
+      m.nativeHeapBytes.value,
+    )
+    gauge(
+      "ollitert_memory_app_heap_used_bytes",
+      "JVM heap used bytes (totalMemory - freeMemory).",
+      m.appHeapUsedBytes.value,
+    )
+    gauge(
+      "ollitert_memory_app_total_pss_bytes",
+      "Total process PSS including JVM heap, native heap, and resident mmap'd model pages.",
+      m.appTotalPssBytes.value,
+    )
+    gauge(
+      "ollitert_memory_device_available_bytes",
+      "Device available RAM in bytes.",
+      m.deviceAvailRamBytes.value,
+    )
+    gauge(
+      "ollitert_memory_device_total_bytes",
+      "Device total RAM in bytes.",
+      m.deviceTotalRamBytes.value,
+    )
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────

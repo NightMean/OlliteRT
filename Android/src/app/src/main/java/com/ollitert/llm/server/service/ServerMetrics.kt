@@ -151,6 +151,33 @@ object ServerMetrics {
   private val _isInferring = MutableStateFlow(false)
   val isInferring: StateFlow<Boolean> = _isInferring.asStateFlow()
 
+  // ── Memory snapshot (updated periodically by UI-side polling) ──────────
+
+  /** Native heap allocated bytes — dominated by LiteRT model weights. */
+  private val _nativeHeapBytes = MutableStateFlow(0L)
+  val nativeHeapBytes: StateFlow<Long> = _nativeHeapBytes.asStateFlow()
+
+  /** JVM heap used bytes (totalMemory - freeMemory). */
+  private val _appHeapUsedBytes = MutableStateFlow(0L)
+  val appHeapUsedBytes: StateFlow<Long> = _appHeapUsedBytes.asStateFlow()
+
+  /**
+   * Total process PSS (Proportional Set Size) in bytes.
+   * Includes JVM heap + native heap + mmap'd model pages resident in RAM.
+   * This is the actual RAM footprint of the app — the same metric Android's
+   * Settings > Apps > Memory shows. Measured via [android.app.ActivityManager.getProcessMemoryInfo].
+   */
+  private val _appTotalPssBytes = MutableStateFlow(0L)
+  val appTotalPssBytes: StateFlow<Long> = _appTotalPssBytes.asStateFlow()
+
+  /** Device available RAM from ActivityManager.MemoryInfo.availMem. */
+  private val _deviceAvailRamBytes = MutableStateFlow(0L)
+  val deviceAvailRamBytes: StateFlow<Long> = _deviceAvailRamBytes.asStateFlow()
+
+  /** Device total RAM from ActivityManager.MemoryInfo.totalMem (or advertisedMem on API 34+). */
+  private val _deviceTotalRamBytes = MutableStateFlow(0L)
+  val deviceTotalRamBytes: StateFlow<Long> = _deviceTotalRamBytes.asStateFlow()
+
   fun onServerStarting(port: Int, modelName: String?) {
     _status.value = ServerStatus.LOADING
     _port.value = port
@@ -218,6 +245,11 @@ object ServerMetrics {
     _thinkingEnabled.value = false
     _lastError.value = null
     _isInferring.value = false
+    _nativeHeapBytes.value = 0L
+    _appHeapUsedBytes.value = 0L
+    _appTotalPssBytes.value = 0L
+    _deviceAvailRamBytes.value = 0L
+    _deviceTotalRamBytes.value = 0L
   }
 
   fun onServerError(message: String? = null) {
@@ -351,5 +383,25 @@ object ServerMetrics {
 
   fun onInferenceCompleted() {
     _isInferring.value = false
+  }
+
+  /**
+   * Push a memory snapshot from the UI polling loop.
+   * Called every few seconds by a [LaunchedEffect] in StatusScreen using
+   * [android.os.Debug.getNativeHeapAllocatedSize], [Runtime.getRuntime], and
+   * [android.app.ActivityManager.MemoryInfo].
+   */
+  fun updateMemorySnapshot(
+    nativeHeapBytes: Long,
+    appHeapUsedBytes: Long,
+    appTotalPssBytes: Long,
+    deviceAvailRamBytes: Long,
+    deviceTotalRamBytes: Long,
+  ) {
+    _nativeHeapBytes.value = nativeHeapBytes
+    _appHeapUsedBytes.value = appHeapUsedBytes
+    _appTotalPssBytes.value = appTotalPssBytes
+    _deviceAvailRamBytes.value = deviceAvailRamBytes
+    _deviceTotalRamBytes.value = deviceTotalRamBytes
   }
 }

@@ -1,7 +1,11 @@
 package com.ollitert.llm.server.ui.navigation
 
+import android.app.Activity
+import android.app.ActivityManager
+import android.os.Build
 import android.os.Environment
 import android.os.StatFs
+import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -22,6 +26,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.ViewInAr
@@ -29,12 +34,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -45,6 +55,7 @@ import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTSurfaceContainerLowest
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
+import kotlinx.coroutines.delay
 
 enum class OlliteRTTab(val label: String, val icon: ImageVector, val route: String) {
   Models("Models", Icons.Outlined.ViewInAr, OlliteRTRoutes.MODELS),
@@ -60,6 +71,7 @@ fun OlliteRTBottomNavBar(
   storageUpdateTrigger: Long = 0L,
 ) {
   val showStorageBar = currentRoute == OlliteRTRoutes.MODELS
+  val showMemoryBar = currentRoute == OlliteRTRoutes.STATUS
 
   Column(
     modifier = modifier
@@ -70,6 +82,11 @@ fun OlliteRTBottomNavBar(
     // Storage bar - only on Models page
     if (showStorageBar) {
       StorageBar(storageUpdateTrigger = storageUpdateTrigger)
+    }
+
+    // Memory bar - only on Status page
+    if (showMemoryBar) {
+      MemoryBar()
     }
 
     // Navigation tabs
@@ -139,6 +156,129 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
           )
           // Filled portion (used space)
           val filledWidth = size.width * storageInfo.usedFraction
+          if (filledWidth > 0f) {
+            drawRoundRect(
+              color = barColor,
+              size = Size(filledWidth, size.height),
+              cornerRadius = CornerRadius(3.dp.toPx()),
+            )
+          }
+        },
+    )
+  }
+}
+
+/**
+ * RAM usage bar — shows device available RAM with a usage bar, plus actual app RAM footprint.
+ * Polls every 3 seconds on [Dispatchers.IO]:
+ * - Device RAM via [ActivityManager.getMemoryInfo]
+ * - App PSS via [android.os.Debug.getPss] — not rate-limited unlike
+ *   [ActivityManager.getProcessMemoryInfo] which Android throttles to ~5 min intervals.
+ *
+ * PSS (Proportional Set Size) is the actual physical RAM used by the app — includes
+ * JVM heap, native heap, AND mmap'd model pages that are resident in RAM. LiteRT loads
+ * models via mmap(), so only the actively-used pages consume RAM (a 2.7 GB model file
+ * may only use ~1 GB depending on device memory pressure and inference patterns).
+ *
+ * Also pushes snapshots to [ServerMetrics] so Prometheus /metrics can expose them.
+ */
+@Composable
+private fun MemoryBar() {
+  val context = LocalContext.current
+
+  // Device RAM + app PSS polled every 3 seconds
+  var deviceAvailBytes by remember { mutableLongStateOf(0L) }
+  var deviceTotalBytes by remember { mutableLongStateOf(0L) }
+  var appPssBytes by remember { mutableLongStateOf(0L) }
+
+  LaunchedEffect(Unit) {
+    val activityManager = context.getSystemService(Activity.ACTIVITY_SERVICE) as? ActivityManager
+    while (true) {
+      // Run all memory reads on IO thread — getMemoryInfo reads /proc, getPss reads /proc/self/smaps
+      kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        // Device-level RAM
+        val memInfo = ActivityManager.MemoryInfo()
+        activityManager?.getMemoryInfo(memInfo)
+        deviceAvailBytes = memInfo.availMem
+        deviceTotalBytes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+          memInfo.advertisedMem
+        } else {
+          memInfo.totalMem
+        }
+
+        // Process PSS via Debug.getPss() — returns KB, not rate-limited.
+        // Unlike ActivityManager.getProcessMemoryInfo() which Android throttles
+        // to ~5 minute intervals, Debug.getPss() reads /proc/self/smaps_rollup
+        // directly and reflects changes within seconds.
+        val pssKb = android.os.Debug.getPss()
+        appPssBytes = pssKb * 1024L
+
+        // Push to ServerMetrics for Prometheus /metrics exposure
+        val rt = Runtime.getRuntime()
+        ServerMetrics.updateMemorySnapshot(
+          nativeHeapBytes = android.os.Debug.getNativeHeapAllocatedSize(),
+          appHeapUsedBytes = rt.totalMemory() - rt.freeMemory(),
+          appTotalPssBytes = appPssBytes,
+          deviceAvailRamBytes = deviceAvailBytes,
+          deviceTotalRamBytes = deviceTotalBytes,
+        )
+      }
+      delay(3000)
+    }
+  }
+
+  // Don't render until first poll completes
+  if (deviceTotalBytes <= 0) return
+
+  val barColor = OlliteRTPrimary
+  val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+  val usedFraction = ((deviceTotalBytes - deviceAvailBytes).toFloat() / deviceTotalBytes.toFloat())
+    .coerceIn(0f, 1f)
+
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(horizontal = 20.dp)
+      .padding(top = 12.dp, bottom = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Icon(
+      Icons.Outlined.Memory,
+      contentDescription = null,
+      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.size(18.dp),
+    )
+    Spacer(modifier = Modifier.width(8.dp))
+    Text(
+      text = "${deviceAvailBytes.humanReadableSize()} FREE",
+      style = MaterialTheme.typography.labelMedium,
+      fontFamily = SpaceGroteskFontFamily,
+      fontWeight = FontWeight.SemiBold,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    // Show actual app RAM (PSS) — includes resident mmap'd model pages
+    if (appPssBytes > 0) {
+      Text(
+        text = " · App ${appPssBytes.humanReadableSize()}",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+      )
+    }
+    Spacer(modifier = Modifier.weight(1f))
+    // Custom drawn progress bar matching StorageBar style
+    Box(
+      modifier = Modifier
+        .width(140.dp)
+        .height(5.dp)
+        .clip(RoundedCornerShape(3.dp))
+        .drawBehind {
+          // Track (full background)
+          drawRoundRect(
+            color = trackColor,
+            cornerRadius = CornerRadius(3.dp.toPx()),
+          )
+          // Filled portion (used RAM)
+          val filledWidth = size.width * usedFraction
           if (filledWidth > 0f) {
             drawRoundRect(
               color = barColor,
