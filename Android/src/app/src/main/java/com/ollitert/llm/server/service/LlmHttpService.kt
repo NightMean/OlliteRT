@@ -835,6 +835,13 @@ class LlmHttpService : Service() {
         // Extract actual token counts from LiteRT error messages (e.g. "6579 >= 4000")
         // to replace our rough charLen/4 estimate with exact numbers from the engine.
         val actualTokens = finalResponseBody?.let { body -> extractActualTokenCounts(body) }
+        // For non-streaming requests, read per-request performance metrics from ServerMetrics.
+        // These were just set by runLlm() which holds the inference lock, so no interleaving.
+        // Streaming requests set their own metrics in the done callback.
+        val perReqTtfb = if (!isStreaming) ServerMetrics.lastTtfbMs.value else it.ttfbMs
+        val perReqDecode = if (!isStreaming) ServerMetrics.lastDecodeSpeed.value else it.decodeSpeed
+        val perReqPrefill = if (!isStreaming) ServerMetrics.lastPrefillSpeed.value else it.prefillSpeed
+        val perReqItl = if (!isStreaming) ServerMetrics.lastItlMs.value else it.itlMs
         it.copy(
           requestBody = requestBodySnapshot ?: it.requestBody,
           responseBody = finalResponseBody,
@@ -848,6 +855,10 @@ class LlmHttpService : Service() {
           inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
           maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
           isExactTokenCount = actualTokens != null || it.isExactTokenCount,
+          ttfbMs = perReqTtfb,
+          decodeSpeed = perReqDecode,
+          prefillSpeed = perReqPrefill,
+          itlMs = perReqItl,
         )
       }
       // x-request-id: standard request tracing header used by Open WebUI and other clients
@@ -1568,6 +1579,11 @@ class LlmHttpService : Service() {
               stream.finish()
               if (logId != null) {
                 val responseJson = json.encodeToString(responsesResponseWithText(model.name, combinedText, promptLen = promptLen))
+                // Compute per-request performance metrics for the Logs info popup
+                val generationMs = totalLatencyMs - ttfbMs
+                val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
+                val reqPrefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
+                val reqItlMs = if (outputTokens > 1 && generationMs > 0) generationMs.toDouble() / (outputTokens - 1) else 0.0
                 RequestLogStore.update(logId) {
                   it.copy(
                     responseBody = responseJson,
@@ -1575,6 +1591,10 @@ class LlmHttpService : Service() {
                     isPending = false,
                     latencyMs = totalLatencyMs,
                     isThinking = fullThinking.isNotEmpty(),
+                    ttfbMs = ttfbMs,
+                    decodeSpeed = reqDecodeSpeed,
+                    prefillSpeed = reqPrefillSpeed,
+                    itlMs = reqItlMs,
                   )
                 }
               }
@@ -1875,6 +1895,11 @@ class LlmHttpService : Service() {
                 } else {
                   json.encodeToString(chatResponseWithText(model.name, combinedText, promptLen = prompt.length, timings = timings))
                 }
+                // Compute per-request performance metrics for the Logs info popup
+                val generationMs = totalLatencyMs - ttfbMs
+                val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
+                val reqPrefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
+                val reqItlMs = if (outputTokens > 1 && generationMs > 0) generationMs.toDouble() / (outputTokens - 1) else 0.0
                 RequestLogStore.update(logId) {
                   it.copy(
                     responseBody = responseJson,
@@ -1882,6 +1907,10 @@ class LlmHttpService : Service() {
                     isPending = false,
                     latencyMs = totalLatencyMs,
                     isThinking = fullThinking.isNotEmpty(),
+                    ttfbMs = ttfbMs,
+                    decodeSpeed = reqDecodeSpeed,
+                    prefillSpeed = reqPrefillSpeed,
+                    itlMs = reqItlMs,
                   )
                 }
               }

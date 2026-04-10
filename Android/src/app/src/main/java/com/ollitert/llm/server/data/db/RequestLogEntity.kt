@@ -65,6 +65,11 @@ data class RequestLogEntity(
     val cancelledByUser: Boolean = false,
     val partialText: String? = null,
     val isExactTokenCount: Boolean = false,
+    // Per-request performance metrics
+    val ttfbMs: Long = 0,
+    val decodeSpeed: Double = 0.0,
+    val prefillSpeed: Double = 0.0,
+    val itlMs: Double = 0.0,
   )
 
   /** Convert back to the in-memory [RequestLogEntry]. */
@@ -101,6 +106,10 @@ data class RequestLogEntity(
       inputTokenEstimate = inputTokenEstimate,
       maxContextTokens = maxContextTokens,
       isExactTokenCount = ext.isExactTokenCount,
+      ttfbMs = ext.ttfbMs,
+      decodeSpeed = ext.decodeSpeed,
+      prefillSpeed = ext.prefillSpeed,
+      itlMs = ext.itlMs,
     )
   }
 
@@ -122,6 +131,10 @@ data class RequestLogEntity(
         cancelledByUser = entry.cancelledByUser,
         partialText = entry.partialText,
         isExactTokenCount = entry.isExactTokenCount,
+        ttfbMs = entry.ttfbMs,
+        decodeSpeed = entry.decodeSpeed,
+        prefillSpeed = entry.prefillSpeed,
+        itlMs = entry.itlMs,
       )
       return RequestLogEntity(
         id = entry.id,
