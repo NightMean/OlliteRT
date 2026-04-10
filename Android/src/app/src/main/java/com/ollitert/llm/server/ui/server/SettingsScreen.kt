@@ -92,6 +92,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.TooltipIconButton
@@ -177,6 +178,8 @@ fun SettingsScreen(
   var savedLogMaxEntries by remember { mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context)) }
   var savedLogAutoDeleteMinutes by remember { mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context)) }
   var savedIgnoreClientSamplerParams by remember { mutableStateOf(LlmHttpPrefs.isIgnoreClientSamplerParams(context)) }
+  var savedKeepAliveEnabled by remember { mutableStateOf(LlmHttpPrefs.isKeepAliveEnabled(context)) }
+  var savedKeepAliveMinutes by remember { mutableStateOf(LlmHttpPrefs.getKeepAliveMinutes(context)) }
 
   // [EDITABLE STATE] Current (editable) state — see Unsaved Changes Guard comment above
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -209,6 +212,13 @@ fun SettingsScreen(
   var logMaxEntries by remember { mutableStateOf(savedLogMaxEntries) }
   var logAutoDeleteMinutes by remember { mutableStateOf(savedLogAutoDeleteMinutes) }
   var ignoreClientSamplerParams by remember { mutableStateOf(savedIgnoreClientSamplerParams) }
+  var keepAliveEnabled by remember { mutableStateOf(savedKeepAliveEnabled) }
+  var keepAliveMinutes by remember { mutableStateOf(savedKeepAliveMinutes) }
+  var keepAliveError by remember { mutableStateOf(false) }
+  // Hoisted so the save handler can show unit-aware validation messages
+  var keepAliveUnit by remember {
+    mutableStateOf(if (savedKeepAliveMinutes > 0 && savedKeepAliveMinutes % 60 == 0) "hours" else "minutes")
+  }
   var showClearPersistedDialog by remember { mutableStateOf(false) }
   var showTrimLogsDialog by remember { mutableStateOf(false) }
   var showResetDialog by remember { mutableStateOf(false) }
@@ -239,7 +249,9 @@ fun SettingsScreen(
     logPersistenceEnabled != savedLogPersistenceEnabled ||
     logMaxEntries != savedLogMaxEntries ||
     logAutoDeleteMinutes != savedLogAutoDeleteMinutes ||
-    ignoreClientSamplerParams != savedIgnoreClientSamplerParams
+    ignoreClientSamplerParams != savedIgnoreClientSamplerParams ||
+    keepAliveEnabled != savedKeepAliveEnabled ||
+    keepAliveMinutes != savedKeepAliveMinutes
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -260,8 +272,13 @@ fun SettingsScreen(
     } else if (!isValidCorsOrigins(corsAllowedOrigins)) {
       corsError = true
       Toast.makeText(context, "Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://", Toast.LENGTH_LONG).show()
+    } else if (keepAliveEnabled && keepAliveMinutes !in 1..7200) {
+      keepAliveError = true
+      val rangeText = if (keepAliveUnit == "hours") "1 and 120 hours" else "1 and 7200 minutes"
+      Toast.makeText(context, "Keep-alive timeout must be between $rangeText", Toast.LENGTH_SHORT).show()
     } else {
       corsError = false
+      keepAliveError = false
       val port = portText.toInt()
         val isPortChanged = port != savedPort
         val isEagerVisionChanged = eagerVisionInit != savedEagerVisionInit
@@ -290,6 +307,13 @@ fun SettingsScreen(
         LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPrompts)
         LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemas)
         LlmHttpPrefs.setIgnoreClientSamplerParams(context, ignoreClientSamplerParams)
+        LlmHttpPrefs.setKeepAliveEnabled(context, keepAliveEnabled)
+        LlmHttpPrefs.setKeepAliveMinutes(context, keepAliveMinutes)
+        // Poke the running service to reschedule (or cancel) the keep-alive idle timer
+        // so changes take effect immediately without waiting for the next inference request.
+        if ((keepAliveEnabled != savedKeepAliveEnabled || keepAliveMinutes != savedKeepAliveMinutes) && isServerActive) {
+          LlmHttpService.resetKeepAliveTimer(context)
+        }
 
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
@@ -334,6 +358,10 @@ fun SettingsScreen(
           changes.add("Log Max Entries: $savedLogMaxEntries → $logMaxEntries")
         if (logAutoDeleteMinutes != savedLogAutoDeleteMinutes)
           changes.add("Log Auto-Delete: ${formatMinutesHumanReadable(savedLogAutoDeleteMinutes)} → ${formatMinutesHumanReadable(logAutoDeleteMinutes)}")
+        if (keepAliveEnabled != savedKeepAliveEnabled)
+          changes.add("Keep Alive: ${if (savedKeepAliveEnabled) "enabled" else "disabled"} → ${if (keepAliveEnabled) "enabled" else "disabled"}")
+        if (keepAliveMinutes != savedKeepAliveMinutes)
+          changes.add("Keep Alive Timeout: ${savedKeepAliveMinutes}m → ${keepAliveMinutes}m")
         if (changes.isNotEmpty()) {
           RequestLogStore.addEvent(
             "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
@@ -389,6 +417,8 @@ fun SettingsScreen(
         savedLogMaxEntries = logMaxEntries
         savedLogAutoDeleteMinutes = logAutoDeleteMinutes
         savedIgnoreClientSamplerParams = ignoreClientSamplerParams
+        savedKeepAliveEnabled = keepAliveEnabled
+        savedKeepAliveMinutes = keepAliveMinutes
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -972,6 +1002,141 @@ fun SettingsScreen(
           },
           enabled = defaultModelName != null,
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // Keep Alive — auto-unload model after idle timeout to free RAM
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Keep Alive",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Unload model after idle timeout to free RAM. Next request auto-reloads (cold start).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = keepAliveEnabled,
+          onCheckedChange = { keepAliveEnabled = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Idle timeout child control — dimmed when keep alive is disabled
+      val keepAliveChildAlpha = if (keepAliveEnabled) 1f else 0.4f
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      Column(modifier = Modifier.alpha(keepAliveChildAlpha)) {
+        Text(
+          text = "Idle Timeout",
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        val keepAliveTimeoutUnits = listOf("minutes", "hours")
+        val initialKeepAliveValue = remember(savedKeepAliveMinutes) {
+          val mins = savedKeepAliveMinutes
+          if (mins > 0 && mins % 60 == 0) (mins / 60).toString() else mins.toString()
+        }
+        var keepAliveValueText by remember { mutableStateOf(initialKeepAliveValue) }
+        var showKeepAliveUnitDropdown by remember { mutableStateOf(false) }
+
+        fun recomputeKeepAliveMinutes() {
+          val num = keepAliveValueText.toIntOrNull() ?: 0
+          val totalMinutes = when (keepAliveUnit) {
+            "hours" -> num * 60
+            else -> num
+          }
+          keepAliveMinutes = totalMinutes
+          if (keepAliveError) keepAliveError = false
+        }
+
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          OutlinedTextField(
+            value = keepAliveValueText,
+            onValueChange = { text ->
+              val filtered = text.filter { it.isDigit() }.take(4)
+              keepAliveValueText = filtered
+              recomputeKeepAliveMinutes()
+            },
+            singleLine = true,
+            isError = keepAliveError,
+            enabled = keepAliveEnabled,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.weight(1f),
+            colors = OutlinedTextFieldDefaults.colors(
+              focusedBorderColor = if (keepAliveError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+              unfocusedBorderColor = if (keepAliveError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+              cursorColor = OlliteRTPrimary,
+            ),
+          )
+          // Unit selector dropdown
+          Column {
+            OutlinedTextField(
+              value = keepAliveUnit,
+              onValueChange = {},
+              readOnly = true,
+              singleLine = true,
+              modifier = Modifier
+                .width(120.dp)
+                .clickable(enabled = keepAliveEnabled) {
+                  focusManager.clearFocus()
+                  showKeepAliveUnitDropdown = true
+                },
+              enabled = false,
+              colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              ),
+            )
+            DropdownMenu(
+              expanded = showKeepAliveUnitDropdown,
+              onDismissRequest = { showKeepAliveUnitDropdown = false },
+            ) {
+              keepAliveTimeoutUnits.forEach { unit ->
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      unit,
+                      color = if (unit == keepAliveUnit) OlliteRTPrimary
+                              else MaterialTheme.colorScheme.onSurface,
+                    )
+                  },
+                  onClick = {
+                    keepAliveUnit = unit
+                    showKeepAliveUnitDropdown = false
+                    recomputeKeepAliveMinutes()
+                  },
+                )
+              }
+            }
+          }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size).",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 

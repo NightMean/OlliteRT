@@ -81,6 +81,141 @@ class LlmHttpService : Service() {
     return Contents.of(listOf(Content.Text(prompt)))
   }
 
+  // ── Keep-alive: auto-unload model after idle timeout to free RAM ──────────
+  // Uses a Handler on the main looper to schedule a delayed unload. The timer is reset
+  // after each inference request completes. When it fires, native model memory (Engine +
+  // Conversation) is released while the HTTP server stays running. The next request
+  // triggers a synchronous model reload (blocking the HTTP thread until ready).
+  private val keepAliveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+  /** Lock protecting the idle-unload and reload-from-idle transitions against concurrent requests. */
+  private val keepAliveLock = Any()
+  /** Name of the model that was unloaded due to idle timeout, for auto-reload. */
+  @Volatile private var keepAliveUnloadedModelName: String? = null
+
+  private val keepAliveRunnable = Runnable { onKeepAliveTimeout() }
+
+  /** Called when the keep-alive idle timer fires. Extracted from the Runnable to avoid
+   *  recursive type inference (a Runnable initializer can't reference itself). */
+  private fun onKeepAliveTimeout() {
+    // Don't unload if currently inferring — reschedule and check again in 30s
+    if (ServerMetrics.isInferring.value) {
+      keepAliveHandler.postDelayed(keepAliveRunnable, 30_000L)
+      Log.i(logTag, "Keep-alive: model is inferring, will recheck in 30s")
+      return
+    }
+    synchronized(keepAliveLock) {
+      val model = defaultModel ?: return@synchronized
+      val minutes = LlmHttpPrefs.getKeepAliveMinutes(this)
+      Log.i(logTag, "Keep-alive: unloading model ${model.name} after ${minutes}m idle")
+      keepAliveUnloadedModelName = model.name
+      try {
+        ServerLlmModelHelper.cleanUp(model) {}
+      } catch (e: Exception) {
+        Log.w(logTag, "Keep-alive: error cleaning up model: ${e.message}")
+      }
+      model.instance = null
+      model.initializing = false
+      defaultModel = null
+      System.gc()
+      ServerMetrics.onModelIdleUnloaded()
+      RequestLogStore.addEvent(
+        "Model unloaded: ${model.name} (after ${minutes}m idle, keep_alive)",
+        modelName = keepAliveUnloadedModelName,
+        category = EventCategory.MODEL,
+      )
+    }
+  }
+
+  /** Cancel any pending keep-alive unload timer. */
+  private fun cancelKeepAliveTimer() {
+    keepAliveHandler.removeCallbacks(keepAliveRunnable)
+  }
+
+  /**
+   * Reset the keep-alive idle timer. Called after each inference completes.
+   * If keep_alive is enabled, schedules a model unload after the configured idle duration.
+   */
+  private fun resetKeepAliveTimer() {
+    cancelKeepAliveTimer()
+    if (!LlmHttpPrefs.isKeepAliveEnabled(this)) return
+    val minutes = LlmHttpPrefs.getKeepAliveMinutes(this)
+    if (minutes <= 0) return
+    keepAliveHandler.postDelayed(keepAliveRunnable, minutes * 60_000L)
+  }
+
+  /**
+   * Reload the model after it was unloaded due to keep_alive idle timeout.
+   * Blocks the calling thread (NanoHTTPD request thread) until the model is ready.
+   * Returns the loaded model, or null if reload fails.
+   */
+  private fun reloadModelFromIdle(): Model? {
+    synchronized(keepAliveLock) {
+      // Double-check: another thread may have already reloaded
+      if (defaultModel != null) return defaultModel
+      val modelName = keepAliveUnloadedModelName ?: return null
+      Log.i(logTag, "Keep-alive: reloading model $modelName (waking from idle)")
+      RequestLogStore.addEvent(
+        "Auto-reloading model: $modelName (keep_alive wake-up)",
+        modelName = modelName,
+        category = EventCategory.MODEL,
+      )
+      ServerMetrics.onModelReloadedFromIdle()
+
+      val model = pickModelByName(modelName) ?: run {
+        Log.e(logTag, "Keep-alive: model '$modelName' not found during reload")
+        return null
+      }
+
+      // Restore persisted inference config
+      val savedConfig = LlmHttpPrefs.getInferenceConfig(this, model.name)
+      if (savedConfig != null) {
+        val restored = model.configValues.toMutableMap()
+        for ((key, savedValue) in savedConfig) {
+          restored[key] = savedValue
+        }
+        model.configValues = restored
+      }
+
+      val loadStart = SystemClock.elapsedRealtime()
+      val eagerVision = LlmHttpPrefs.isEagerVisionInit(this)
+      val supportImage = model.llmSupportImage && eagerVision
+      val supportAudio = model.llmSupportAudio
+      var initErr = ""
+      ServerLlmModelHelper.initialize(
+        context = this,
+        model = model,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        onDone = { initErr = it },
+        systemInstruction = buildSystemInstruction(model.name),
+      )
+      if (initErr.isNotEmpty()) {
+        Log.e(logTag, "Keep-alive: model reload failed: $initErr")
+        RequestLogStore.addEvent(
+          "Keep-alive reload failed: $initErr",
+          level = LogLevel.ERROR,
+          modelName = modelName,
+          category = EventCategory.MODEL,
+        )
+        return null
+      }
+      model.initializedWithVision = supportImage
+      defaultModel = model
+      modelCache[model.name] = model
+      keepAliveUnloadedModelName = null
+      val loadMs = SystemClock.elapsedRealtime() - loadStart
+      ServerMetrics.recordModelLoadTime(loadMs)
+      RequestLogStore.addEvent(
+        "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      // Reset keep-alive timer for the next idle period
+      resetKeepAliveTimer()
+      return model
+    }
+  }
+
   /**
    * Partial wake lock held for the entire server lifetime to keep the CPU awake while serving.
    * Without this, Doze mode suspends CPU on a locked/idle device — making the HTTP server
@@ -125,6 +260,13 @@ class LlmHttpService : Service() {
     if (intent?.action == ACTION_STOP) {
       stopSelf()
       return START_NOT_STICKY
+    }
+
+    // Handle keep-alive timer reset — lightweight action, no foreground notification needed.
+    // Sent by SettingsScreen when the user changes keep_alive settings while the server is running.
+    if (intent?.action == ACTION_RESET_KEEP_ALIVE) {
+      resetKeepAliveTimer()
+      return START_STICKY
     }
 
     // System auto-restart after crash: intent is null or has no model name and no action.
@@ -173,6 +315,8 @@ class LlmHttpService : Service() {
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
     // of "Server stopped", because the server will immediately start again.
     if (intent?.action == ACTION_RELOAD) {
+      cancelKeepAliveTimer()
+      keepAliveUnloadedModelName = null
       val previousModelName = defaultModel?.name
       Log.i(logTag, "Reload requested — cleaning up current model before restart")
       // Bump generation FIRST so any in-flight load thread sees the stale generation
@@ -390,6 +534,9 @@ class LlmHttpService : Service() {
           model.llmSupportThinking && (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
         )
         ServerMetrics.onServerRunning(wifiIp)
+        // Start keep-alive idle timer if enabled — model will auto-unload after the configured
+        // idle duration to free RAM. Timer is reset after each inference request.
+        resetKeepAliveTimer()
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
         // Verbose debug: log model config dump on successful load
         if (LlmHttpPrefs.isVerboseDebugEnabled(this@LlmHttpService)) {
@@ -518,6 +665,8 @@ class LlmHttpService : Service() {
 
   override fun onDestroy() {
     activeInstance = null
+    cancelKeepAliveTimer()
+    keepAliveUnloadedModelName = null
     // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
     loadGeneration.incrementAndGet()
     server?.stop()
@@ -591,6 +740,15 @@ class LlmHttpService : Service() {
   }
 
   private fun selectModel(requestedModel: String?): Model? {
+    // If model was unloaded due to keep_alive idle timeout, auto-reload it regardless of
+    // what model the client requested. The keep_alive reload restores the same model that was
+    // previously active, with its persisted config. This must happen before any other path
+    // (modelCache, allowlist lookup) to avoid silently re-initializing via the inference handler's
+    // needsReinit path, which wouldn't log keep_alive reload events or restore config.
+    if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
+      return reloadModelFromIdle()
+    }
+
     val requested = requestedModel?.trim().orEmpty()
     if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
       requested.equals("default", ignoreCase = true)
@@ -840,6 +998,11 @@ class LlmHttpService : Service() {
                 responseBodySnapshot = body
                 okJsonText(body)
               }
+              LlmHttpRouteHandler.VERSION -> {
+                val body = """{"version":"${com.ollitert.llm.server.BuildConfig.VERSION_NAME}"}"""
+                responseBodySnapshot = body
+                okJsonText(body)
+              }
               LlmHttpRouteHandler.METRICS -> {
                 val body = LlmHttpPrometheusRenderer.render()
                 responseBodySnapshot = body
@@ -938,6 +1101,12 @@ class LlmHttpService : Service() {
           prefillSpeed = perReqPrefill,
           itlMs = perReqItl,
         )
+      }
+      // Reset keep-alive idle timer after any inference request (POST routes that touch the model).
+      // Non-inference GET routes (models, health, metrics) don't reset it — they shouldn't
+      // keep the model loaded if only monitoring tools are polling.
+      if (session.method == NanoHTTPD.Method.POST && statusCode in 200..299) {
+        this@LlmHttpService.resetKeepAliveTimer()
       }
       // x-request-id: standard request tracing header used by Open WebUI and other clients
       response.addHeader("x-request-id", logId)
@@ -2327,6 +2496,7 @@ class LlmHttpService : Service() {
         JsonPrimitive("/v1/responses"),
         JsonPrimitive("/health"),
         JsonPrimitive("/metrics"),
+        JsonPrimitive("/api/version"),
       )))
     }
     return JsonObject(info).toString()
@@ -2334,11 +2504,20 @@ class LlmHttpService : Service() {
 
   private fun healthPayload(): String {
     val status = ServerMetrics.status.value
+    val isIdle = ServerMetrics.isIdleUnloaded.value
     val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
       (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
     val info = buildMap {
-      put("status", JsonPrimitive(if (status == ServerStatus.RUNNING) "ok" else status.name.lowercase()))
-      defaultModel?.let { put("model", JsonPrimitive(it.name)) }
+      // Report "idle" when model is unloaded due to keep_alive — server is reachable but
+      // the next inference request will have a cold-start delay while the model reloads.
+      val statusStr = when {
+        isIdle -> "idle"
+        status == ServerStatus.RUNNING -> "ok"
+        else -> status.name.lowercase()
+      }
+      put("status", JsonPrimitive(statusStr))
+      val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
+      modelName?.let { put("model", JsonPrimitive(it)) }
       uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
     }
     return JsonObject(info).toString()
@@ -2364,6 +2543,14 @@ class LlmHttpService : Service() {
   private fun modelsPayload(): String {
     val model = defaultModel
     if (model == null) {
+      // If model is idle-unloaded (keep_alive), still report it so clients know
+      // which model will serve their next request (after auto-reload).
+      val idleName = keepAliveUnloadedModelName
+      if (idleName != null) {
+        Log.i(logTag, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
+        val item = LlmHttpModelItem(id = idleName)
+        return json.encodeToString(LlmHttpModelList(data = listOf(item)))
+      }
       Log.i(logTag, "Models list: no model loaded")
       return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
@@ -2480,6 +2667,7 @@ class LlmHttpService : Service() {
     const val DEFAULT_PORT = 8000
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
+    const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     private const val CHANNEL_ID = "ollitert-server"
     private const val NOTIFICATION_ID = 42
 
@@ -2535,6 +2723,18 @@ class LlmHttpService : Service() {
       } else {
         context.startService(intent)
       }
+    }
+
+    /**
+     * Tell the running service to re-read keep_alive prefs and reschedule (or cancel) the
+     * idle-unload timer. Called from SettingsScreen after saving keep_alive changes.
+     * Uses [Context.startService] (not startForegroundService) because the service is already
+     * in the foreground — this just delivers the intent without triggering a new foreground start.
+     */
+    fun resetKeepAliveTimer(context: Context) {
+      context.startService(
+        Intent(context, LlmHttpService::class.java).apply { action = ACTION_RESET_KEEP_ALIVE }
+      )
     }
 
     /**

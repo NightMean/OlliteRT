@@ -707,6 +707,12 @@ private sealed class ParsedEventType {
   data object RestartRequested : ParsedEventType()
   /** Model being unloaded during a restart (before the new load begins). */
   data class Unloading(val modelName: String) : ParsedEventType()
+  /** Model unloaded due to keep_alive idle timeout. */
+  data class KeepAliveUnloaded(val modelName: String, val idleMinutes: String) : ParsedEventType()
+  /** Model auto-reloading after keep_alive idle unload (request arrived). */
+  data class KeepAliveReloading(val modelName: String) : ParsedEventType()
+  /** Model reloaded successfully after keep_alive idle unload. */
+  data class KeepAliveReloaded(val modelName: String, val timeMs: String) : ParsedEventType()
 }
 
 private val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -809,6 +815,22 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
   // Unloading model during restart: "Unloading model: ModelName"
   if (message.startsWith("Unloading model: ")) {
     return ParsedEventType.Unloading(message.removePrefix("Unloading model: "))
+  }
+
+  // Keep-alive idle unload: "Model unloaded: ModelName (after Xm idle, keep_alive)"
+  PATTERN_KEEP_ALIVE_UNLOADED.find(message)?.let {
+    return ParsedEventType.KeepAliveUnloaded(it.groupValues[1], it.groupValues[2])
+  }
+
+  // Keep-alive auto-reload: "Auto-reloading model: ModelName (keep_alive wake-up)"
+  if (message.startsWith("Auto-reloading model: ") && message.contains("keep_alive")) {
+    val modelName = message.removePrefix("Auto-reloading model: ").substringBefore(" (")
+    return ParsedEventType.KeepAliveReloading(modelName)
+  }
+
+  // Keep-alive reloaded: "Model reloaded: ModelName (Xms, keep_alive wake-up)"
+  PATTERN_KEEP_ALIVE_RELOADED.find(message)?.let {
+    return ParsedEventType.KeepAliveReloaded(it.groupValues[1], it.groupValues[2])
   }
 
   // Server stopped
@@ -916,6 +938,8 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
 // Compiled once at class-load instead of per-render to avoid allocation in hot paths.
 private val PATTERN_MODEL_READY = Regex("""^Model ready: (.+?) \((\d+)ms\)$""")
 private val PATTERN_WARMUP = Regex("""^Sending a warmup message: "(.+?)" → "(.*)" \((\d+)ms\)$""")
+private val PATTERN_KEEP_ALIVE_UNLOADED = Regex("""^Model unloaded: (.+?) \(after (\d+)m idle, keep_alive\)$""")
+private val PATTERN_KEEP_ALIVE_RELOADED = Regex("""^Model reloaded: (.+?) \((\d+)ms, keep_alive wake-up\)$""")
 private val PATTERN_TIME_MS = Regex("""\(\d+ms\)""")
 private val PATTERN_ARROW = Regex("""→""")
 private val PATTERN_QUOTED = Regex(""""[^"]*"""")
@@ -1050,6 +1074,9 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     is ParsedEventType.SettingsBatch -> "Settings updated"
     is ParsedEventType.RestartRequested -> "Model Restart"
     is ParsedEventType.Unloading -> "Model Unloading"
+    is ParsedEventType.KeepAliveUnloaded -> "Model Idle Unloaded"
+    is ParsedEventType.KeepAliveReloading -> "Model Reloading"
+    is ParsedEventType.KeepAliveReloaded -> "Model Reloaded"
     null -> null
   }
 
@@ -1367,6 +1394,46 @@ private fun InternalEventCard(entry: RequestLogEntry) {
               append(parsedEvent.modelName)
             }
             append(" from memory")
+          },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      is ParsedEventType.KeepAliveUnloaded -> {
+        Text(
+          text = buildAnnotatedString {
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" unloaded after ${parsedEvent.idleMinutes}m idle to free RAM")
+          },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      is ParsedEventType.KeepAliveReloading -> {
+        Text(
+          text = buildAnnotatedString {
+            append("Reloading ")
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" (request received while idle)")
+          },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      is ParsedEventType.KeepAliveReloaded -> {
+        Text(
+          text = buildAnnotatedString {
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" reloaded in ${parsedEvent.timeMs}ms")
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,

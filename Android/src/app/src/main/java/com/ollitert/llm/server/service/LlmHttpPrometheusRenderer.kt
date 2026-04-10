@@ -154,6 +154,11 @@ object LlmHttpPrometheusRenderer {
       "Number of requests currently being processed (0 or 1).",
       if (m.isInferring.value) 1L else 0L,
     )
+    gauge(
+      "ollitert_model_idle_unloaded",
+      "Whether the model is unloaded due to keep_alive idle timeout (0 or 1). Next request triggers auto-reload.",
+      if (m.isIdleUnloaded.value) 1L else 0L,
+    )
 
     // ── Memory gauges (populated by UI-side polling every 3s) ───────────
 
