@@ -119,7 +119,7 @@ import java.util.Locale
 
 private val DeleteRedTint = Color(0xFFE57373)
 private val EventColor = OlliteRTPrimary // matches the app's blue accent
-private val ThinkingColor = Color(0xFFCE93D8) // soft purple for thinking mode
+private val ThinkingColor = Color(0xFFB0B3BE) // muted grey — subtle indicator, not eye-catching
 private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
 private val WarningColor = Color(0xFFFFF176) // yellow for warnings (e.g. compacted tool schemas)
 private val TruncatedColor = Color(0xFFFFB74D) // amber for history truncation
@@ -646,10 +646,14 @@ private fun PendingResponseSection(entryId: String, partialText: String?) {
       .background(MaterialTheme.colorScheme.surfaceContainerLowest)
       .padding(horizontal = 12.dp, vertical = 14.dp),
   ) {
-    // Show partial text if tokens have started arriving
-    if (!liveText.isNullOrEmpty()) {
+    // Show partial text if tokens have started arriving.
+    // Strip <think>...</think> tags so they don't appear as raw text to the user.
+    val displayText = remember(liveText) {
+      liveText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+    }
+    if (!displayText.isNullOrEmpty()) {
       Text(
-        text = liveText,
+        text = displayText,
         style = MaterialTheme.typography.bodySmall.copy(
           fontFamily = SpaceGroteskFontFamily,
           fontSize = 11.sp,
@@ -2005,9 +2009,12 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
           .background(CancelledColor.copy(alpha = 0.08f))
           .padding(horizontal = 12.dp, vertical = 14.dp),
       ) {
-        if (!entry.partialText.isNullOrEmpty()) {
+        val cancelledDisplay = remember(entry.partialText) {
+          entry.partialText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+        }
+        if (!cancelledDisplay.isNullOrEmpty()) {
           Text(
-            text = entry.partialText,
+            text = cancelledDisplay,
             style = MaterialTheme.typography.bodySmall.copy(
               fontFamily = SpaceGroteskFontFamily,
               fontSize = 11.sp,

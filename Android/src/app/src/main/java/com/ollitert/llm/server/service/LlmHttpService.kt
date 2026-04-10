@@ -1570,7 +1570,16 @@ class LlmHttpService : Service() {
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
             if (logId != null) {
-              val cancelledPartial = if (keepPartial && fullText.isNotEmpty()) fullText.toString() else null
+              // Include thinking content so the Logs screen can show what the
+              // model was reasoning about before the request was cancelled.
+              val cancelledPartial = if (keepPartial && (fullText.isNotEmpty() || fullThinking.isNotEmpty())) {
+                buildString {
+                  if (fullThinking.isNotEmpty()) {
+                    append("<think>"); append(fullThinking); append("</think>")
+                  }
+                  append(fullText)
+                }
+              } else null
               RequestLogStore.update(logId) {
                 it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
               }
@@ -1618,7 +1627,24 @@ class LlmHttpService : Service() {
               val nowMs = SystemClock.elapsedRealtime()
               if (nowMs - lastLogUpdateMs >= 300) {
                 lastLogUpdateMs = nowMs
-                RequestLogStore.updatePartialText(logId, fullText.toString())
+                // Include thinking content in the preview so the Logs screen
+                // can show it during streaming (not just after completion).
+                val previewText = try {
+                  buildString {
+                    if (fullThinking.isNotEmpty()) {
+                      append("<think>")
+                      append(fullThinking)
+                      // Still thinking — no closing tag yet
+                      if (!thinkingTagOpened) append("</think>")
+                    }
+                    append(fullText)
+                  }
+                } catch (e: Exception) {
+                  // DEBUG: catch any unexpected error in preview text building
+                  Log.e("OlliteRT", "Error building thinking preview: ${e.message}", e)
+                  fullText.toString() // fall back to content-only
+                }
+                RequestLogStore.updatePartialText(logId, previewText)
               }
             }
             if (done) {
@@ -1837,7 +1863,14 @@ class LlmHttpService : Service() {
             ServerLlmModelHelper.stopResponse(model)
             ServerMetrics.onInferenceCompleted()
             if (logId != null) {
-              val cancelledPartial = if (keepPartial && fullText.isNotEmpty()) fullText.toString() else null
+              val cancelledPartial = if (keepPartial && (fullText.isNotEmpty() || fullThinking.isNotEmpty())) {
+                buildString {
+                  if (fullThinking.isNotEmpty()) {
+                    append("<think>"); append(fullThinking); append("</think>")
+                  }
+                  append(fullText)
+                }
+              } else null
               RequestLogStore.update(logId) {
                 it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
               }
@@ -1905,7 +1938,22 @@ class LlmHttpService : Service() {
               val nowMs = SystemClock.elapsedRealtime()
               if (nowMs - lastLogUpdateMs >= 300) {
                 lastLogUpdateMs = nowMs
-                RequestLogStore.updatePartialText(logId, fullText.toString())
+                // Include thinking content in the preview so the Logs screen
+                // can show it during streaming (not just after completion).
+                val previewText = try {
+                  buildString {
+                    if (fullThinking.isNotEmpty()) {
+                      append("<think>")
+                      append(fullThinking)
+                      if (!thinkingTagOpened) append("</think>")
+                    }
+                    append(fullText)
+                  }
+                } catch (e: Exception) {
+                  Log.e("OlliteRT", "Error building thinking preview: ${e.message}", e)
+                  fullText.toString()
+                }
+                RequestLogStore.updatePartialText(logId, previewText)
               }
             }
             if (done) {
