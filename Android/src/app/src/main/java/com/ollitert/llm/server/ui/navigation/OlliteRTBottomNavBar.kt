@@ -135,7 +135,7 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
     // sees what's actually usable for model downloads — matches the check in
     // DownloadAndTryButton.isStorageLow() which also subtracts the reserve.
     Text(
-      text = "${storageInfo.effectiveFreeBytes.humanReadableSize()} USABLE",
+      text = "${storageInfo.effectiveFreeBytes.humanReadableSize()} free of ${storageInfo.totalBytes.humanReadableSize()}",
       style = MaterialTheme.typography.labelMedium,
       fontFamily = SpaceGroteskFontFamily,
       fontWeight = FontWeight.SemiBold,
@@ -250,7 +250,7 @@ private fun MemoryBar() {
     )
     Spacer(modifier = Modifier.width(8.dp))
     Text(
-      text = "${deviceAvailBytes.humanReadableSize()} FREE",
+      text = "${deviceAvailBytes.humanReadableSize()} free of ${deviceTotalBytes.humanReadableSize()}",
       style = MaterialTheme.typography.labelMedium,
       fontFamily = SpaceGroteskFontFamily,
       fontWeight = FontWeight.SemiBold,
