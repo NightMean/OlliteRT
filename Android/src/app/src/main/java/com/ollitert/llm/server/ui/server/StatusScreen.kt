@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ fun StatusScreen(
   val activeAccelerator by serverViewModel.activeAccelerator.collectAsState()
   val thinkingEnabled by serverViewModel.thinkingEnabled.collectAsState()
   val modelLoadTimeMs by serverViewModel.modelLoadTimeMs.collectAsState()
+  val isIdleUnloaded by serverViewModel.isIdleUnloaded.collectAsState()
   val loadingStartedAtMs by serverViewModel.loadingStartedAtMs.collectAsState()
   val lastError by serverViewModel.lastError.collectAsState()
 
@@ -273,6 +275,12 @@ fun StatusScreen(
               },
               style = MaterialTheme.typography.labelSmall,
               color = OlliteRTPrimary.copy(alpha = 0.7f),
+            )
+          } else if (!isStopped && isIdleUnloaded) {
+            Text(
+              text = "Idle — model unloaded to free RAM",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color(0xFFFFF176).copy(alpha = 0.8f),
             )
           } else if (!isStopped && modelLoadTimeMs > 0) {
             Text(
