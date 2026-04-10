@@ -122,6 +122,8 @@ fun StatusScreen(
     }
   }
 
+  val context = LocalContext.current
+
   var showReloadDialog by remember { mutableStateOf(false) }
 
   // Only show a real endpoint URL when bindAddress is known (server is RUNNING and bound).
@@ -317,7 +319,6 @@ fun StatusScreen(
     }
 
     // Endpoint card
-    val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     StatusCard {
       Row(

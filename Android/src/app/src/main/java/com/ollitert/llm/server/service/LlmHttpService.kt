@@ -173,6 +173,14 @@ class LlmHttpService : Service() {
         model.initializing = false
       }
       defaultModel = null
+      // Close any secondary models' native Engines before dropping references.
+      // Without this, modelCache.clear() orphans Engine instances with GB-scale native memory.
+      for ((_, cachedModel) in modelCache) {
+        if (cachedModel.instance != null) {
+          try { ServerLlmModelHelper.cleanUp(cachedModel) {} } catch (_: Exception) {}
+          cachedModel.instance = null
+        }
+      }
       modelCache.clear()
       // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
       ServerMetrics.onServerStopped()
@@ -436,11 +444,17 @@ class LlmHttpService : Service() {
         // Only report error if this is still the current load
         if (loadGeneration.get() != thisGeneration) {
           Log.w(logTag, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
+          // Clean up any partially-created Engine (e.g. Engine initialized but Conversation
+          // creation failed). Without this, the orphaned Engine's native memory is leaked.
+          try { ServerLlmModelHelper.cleanUp(model) {} } catch (_: Exception) {}
+          model.instance = null
           return@Thread
         }
-        // OOM during model load: release the model instance immediately to free memory.
-        // The model state is corrupt after OOM and cannot be reused.
+        // OOM during model load: close the native Engine/Conversation to release memory.
+        // Just nullifying the instance pointer leaks GB-scale native memory until GC
+        // finalizes the Java wrapper — which may never happen if heap pressure is low.
         if (t is OutOfMemoryError) {
+          try { ServerLlmModelHelper.cleanUp(model) {} } catch (_: Exception) {}
           defaultModel?.instance = null
           System.gc()
         }
@@ -494,6 +508,14 @@ class LlmHttpService : Service() {
       model.initializing = false
     }
     defaultModel = null
+    // Close any secondary models' native Engines in the cache
+    for ((_, cachedModel) in modelCache) {
+      if (cachedModel.instance != null) {
+        try { ServerLlmModelHelper.cleanUp(cachedModel) {} } catch (_: Exception) {}
+        cachedModel.instance = null
+      }
+    }
+    modelCache.clear()
     notifContentIntent = null
     notifStopIntent = null
     notifCopyIntent = null
@@ -821,7 +843,12 @@ class LlmHttpService : Service() {
         }
       } catch (t: Throwable) {
         if (t is OutOfMemoryError) {
-          defaultModel?.instance = null
+          // Close the native Engine/Conversation before nullifying — just setting instance = null
+          // leaks GB-scale native memory because GC may not finalize the wrapper promptly.
+          defaultModel?.let { m ->
+            try { ServerLlmModelHelper.cleanUp(m) {} } catch (_: Exception) {}
+            m.instance = null
+          }
           System.gc()
           ServerMetrics.onServerError(t.message ?: "Out of memory")
         }
