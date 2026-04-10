@@ -37,10 +37,14 @@ class LlmHttpAllowlistLoader(
   private fun readFromFiles(): ModelAllowlist? {
     return try {
       var file = externalFilesDir?.let { File(it, "model_allowlist.json") }
-      if (file == null || !file.exists()) {
+      // Check both exists AND non-empty — a 0-byte file can be left behind
+      // when a write is interrupted by a crash (e.g. disk full during model
+      // switch). Without the length check, the empty file shadows the bundled
+      // asset fallback, causing "model not found" errors on restart.
+      if (file == null || !file.exists() || file.length() == 0L) {
         file = File("/sdcard/Android/data/$packageName/files", "model_allowlist.json")
       }
-      if (file.exists()) {
+      if (file.exists() && file.length() > 0L) {
         val allowlist = ModelAllowlistJson.decode(file.readText())
         lastSource = "external:${file.absolutePath}"
         return allowlist
