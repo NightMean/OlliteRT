@@ -181,6 +181,8 @@
   <string name="filter_downloaded" translatable="false">Downloaded</string>
   <string name="filter_available" translatable="false">Available</string>
   <string name="no_models_match_search" translatable="false">No models match your search</string>
+  <string name="models_offline_info" translatable="false">Could not check for newer models — showing cached list</string>
+  <string name="retry" translatable="false">Retry</string>
   <string name="wifi_warning_title" translatable="false">No Wi-Fi Connection</string>
   <string name="wifi_warning_content" translatable="false">The server needs Wi-Fi to accept connections from other devices. You can still start the server, but it will only be reachable via localhost.</string>
   <string name="wifi_warning_start_anyway" translatable="false">Start anyway</string>

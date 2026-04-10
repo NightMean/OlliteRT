@@ -96,6 +96,16 @@ enum class ModelInitializationStatusType {
   ERROR,
 }
 
+/** Where the model allowlist was loaded from — used to show an info banner when offline. */
+enum class AllowlistSource {
+  /** Successfully fetched from GitHub (fresh list). */
+  NETWORK,
+  /** Network failed, loaded from a previously cached file on disk. */
+  DISK_CACHE,
+  /** Network failed and no cache, loaded from the APK's bundled asset. */
+  BUNDLED_ASSET,
+}
+
 enum class TokenStatus {
   NOT_STORED,
   EXPIRED,
@@ -130,6 +140,9 @@ data class ModelManagerUiState(
 
   /** The error message when loading the model allowlist. */
   val loadingModelAllowlistError: String = "",
+
+  /** Where the allowlist was loaded from (network, disk cache, or bundled asset). */
+  val allowlistSource: AllowlistSource? = null,
 
   /** The currently selected model. */
   val selectedModel: Model = EMPTY_MODEL,
@@ -770,6 +783,7 @@ constructor(
       try {
         // Load model allowlist json.
         var modelAllowlist: ModelAllowlist? = null
+        var allowlistSource: AllowlistSource = AllowlistSource.NETWORK
 
         // Try to read the test allowlist first.
         Log.d(TAG, "Loading test model allowlist.")
@@ -794,18 +808,25 @@ constructor(
           val data = getJsonResponse<ModelAllowlist>(url = url)
           modelAllowlist = data?.jsonObj
 
-          if (modelAllowlist == null) {
-            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
-            modelAllowlist = readModelAllowlistFromDisk()
-          }
-
-          // Fallback to bundled asset (guarantees models on fresh install).
-          if (modelAllowlist == null) {
-            Log.w(TAG, "Disk cache empty. Falling back to bundled asset allowlist")
-            modelAllowlist = readModelAllowlistFromAssets()
-          } else {
+          if (modelAllowlist != null) {
+            // Network fetch succeeded — save to disk cache for future offline use.
+            allowlistSource = AllowlistSource.NETWORK
             Log.d(TAG, "Done: loading model allowlist from internet")
             saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
+          } else {
+            // Network failed — try disk cache.
+            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
+            modelAllowlist = readModelAllowlistFromDisk()
+
+            if (modelAllowlist != null) {
+              allowlistSource = AllowlistSource.DISK_CACHE
+              Log.d(TAG, "Loaded model allowlist from disk cache")
+            } else {
+              // Disk cache empty — fall back to bundled asset (guarantees models on fresh install).
+              Log.w(TAG, "Disk cache empty. Falling back to bundled asset allowlist")
+              modelAllowlist = readModelAllowlistFromAssets()
+              allowlistSource = AllowlistSource.BUNDLED_ASSET
+            }
           }
         }
 
@@ -814,6 +835,7 @@ constructor(
             uiState.value.copy(
               loadingModelAllowlist = false,
               loadingModelAllowlistError = "Failed to load model list",
+              allowlistSource = null,
             )
           }
           return@launch
@@ -822,7 +844,11 @@ constructor(
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         // Convert models in the allowlist.
+        // Clear existing models to avoid duplicates on retry (mutable list accumulates).
         val curTasks = uiState.value.tasks
+        for (task in curTasks) {
+          task.models.clear()
+        }
         val nameToModel = mutableMapOf<String, Model>()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
@@ -876,6 +902,7 @@ constructor(
               loadingModelAllowlist = false,
               tasks = curTasks,
               tasksByCategory = groupTasksByCategory(),
+              allowlistSource = allowlistSource,
             )
         }
 
