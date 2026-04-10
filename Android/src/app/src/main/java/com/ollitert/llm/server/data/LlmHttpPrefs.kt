@@ -27,6 +27,7 @@ private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 private const val KEY_SHOW_REQUEST_TYPES = "show_request_types"
+private const val KEY_SHOW_ADVANCED_METRICS = "show_advanced_metrics"
 private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
 private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
@@ -311,6 +312,17 @@ object LlmHttpPrefs {
     prefs(context)
       .edit()
       .putBoolean(KEY_SHOW_REQUEST_TYPES, enabled)
+      .apply()
+  }
+
+  fun isShowAdvancedMetrics(context: Context): Boolean =
+    prefs(context)
+      .getBoolean(KEY_SHOW_ADVANCED_METRICS, false)
+
+  fun setShowAdvancedMetrics(context: Context, enabled: Boolean) {
+    prefs(context)
+      .edit()
+      .putBoolean(KEY_SHOW_ADVANCED_METRICS, enabled)
       .apply()
   }
 

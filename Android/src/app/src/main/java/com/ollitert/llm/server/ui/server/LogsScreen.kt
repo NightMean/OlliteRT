@@ -1846,6 +1846,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
   var requestExpanded by remember { mutableStateOf(autoExpand) }
   var compactedExpanded by remember { mutableStateOf(autoExpand) }
   var responseExpanded by remember { mutableStateOf(autoExpand) }
+  var showMetricsDialog by remember { mutableStateOf(false) }
 
   Column(
     modifier = Modifier
@@ -1884,7 +1885,29 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
             .padding(horizontal = 8.dp, vertical = 3.dp),
         )
       }
-      Spacer(modifier = Modifier.width(4.dp))
+      // Per-request metrics info button — only shown when metrics are available
+      if (entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0) {
+        Spacer(modifier = Modifier.width(2.dp))
+        @OptIn(ExperimentalMaterial3Api::class)
+        TooltipBox(
+          positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+          tooltip = { PlainTooltip { Text("Request metrics") } },
+          state = rememberTooltipState(),
+        ) {
+          IconButton(
+            onClick = { showMetricsDialog = true },
+            modifier = Modifier.size(32.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.Info,
+              contentDescription = "Request metrics",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(16.dp),
+            )
+          }
+        }
+      }
+      Spacer(modifier = Modifier.width(2.dp))
       @OptIn(ExperimentalMaterial3Api::class)
       TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
@@ -2110,6 +2133,110 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
       }
     }
   }
+
+  // Per-request performance metrics popup
+  if (showMetricsDialog) {
+    RequestMetricsDialog(entry = entry, onDismiss = { showMetricsDialog = false })
+  }
+}
+
+/**
+ * Dialog showing per-request performance metrics for a single log entry.
+ * Displays TTFB, decode speed, prefill speed, inter-token latency, token counts,
+ * context utilization, and total latency.
+ */
+@Composable
+private fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit) {
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = {
+      Text(
+        text = "Request Metrics",
+        style = MaterialTheme.typography.titleMedium,
+      )
+    },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (entry.ttfbMs > 0) {
+          MetricsRow("Time to First Token", "${entry.ttfbMs}ms")
+        }
+        if (entry.decodeSpeed > 0) {
+          MetricsRow("Decode Speed", "%.1f t/s".format(entry.decodeSpeed))
+        }
+        if (entry.prefillSpeed > 0) {
+          MetricsRow("Prefill Speed", "%.1f t/s".format(entry.prefillSpeed))
+        }
+        if (entry.itlMs > 0) {
+          MetricsRow("Inter-Token Latency", "%.1fms".format(entry.itlMs))
+        }
+        if (entry.latencyMs > 0) {
+          MetricsRow("Total Latency", "${entry.latencyMs}ms")
+        }
+        if (entry.inputTokenEstimate > 0) {
+          val prefix = if (entry.isExactTokenCount) "" else "~"
+          MetricsRow("Input Tokens", "$prefix${entry.inputTokenEstimate}")
+        }
+        if (entry.tokens > 0) {
+          MetricsRow("Output Tokens", "~${entry.tokens}")
+        }
+        if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
+          val utilPct = (entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()) * 100.0
+          val utilColor = when {
+            utilPct > 80 -> MaterialTheme.colorScheme.error
+            utilPct > 50 -> WarningColor
+            else -> MaterialTheme.colorScheme.onSurface
+          }
+          MetricsRow(
+            label = "Context Utilization",
+            value = "%.1f%%".format(utilPct),
+            valueColor = utilColor,
+            detail = "${entry.inputTokenEstimate} / ${entry.maxContextTokens}",
+          )
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = onDismiss) {
+        Text("Close")
+      }
+    },
+  )
+}
+
+@Composable
+private fun MetricsRow(
+  label: String,
+  value: String,
+  valueColor: Color = MaterialTheme.colorScheme.onSurface,
+  detail: String? = null,
+) {
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Column(horizontalAlignment = Alignment.End) {
+      Text(
+        text = value,
+        style = MaterialTheme.typography.bodyMedium,
+        color = valueColor,
+        fontWeight = FontWeight.SemiBold,
+        fontFamily = SpaceGroteskFontFamily,
+      )
+      if (detail != null) {
+        Text(
+          text = detail,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+  }
 }
 
 @Composable
@@ -2294,6 +2421,10 @@ private fun entryToJson(entry: RequestLogEntry): JSONObject {
     }
     if (entry.maxContextTokens > 0) obj.put("max_context_tokens", entry.maxContextTokens)
     if (entry.ignoredClientParams != null) obj.put("ignored_client_params", entry.ignoredClientParams)
+    if (entry.ttfbMs > 0) obj.put("ttfb_ms", entry.ttfbMs)
+    if (entry.decodeSpeed > 0) obj.put("decode_speed_tps", entry.decodeSpeed)
+    if (entry.prefillSpeed > 0) obj.put("prefill_speed_tps", entry.prefillSpeed)
+    if (entry.itlMs > 0) obj.put("itl_ms", entry.itlMs)
     if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
 
     // Parse request/response bodies as JSON if possible, otherwise keep as string

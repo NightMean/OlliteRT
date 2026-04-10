@@ -367,7 +367,7 @@ fun StatusScreen(
       }
     }
 
-    // Metrics grid
+    // ── Core metrics (always shown) ──
     Text(
       text = "Metrics",
       style = MaterialTheme.typography.titleSmall,
@@ -428,22 +428,6 @@ fun StatusScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       MetricCard(
-        label = "Prefill Speed",
-        value = remember(lastPrefillSpeed) { if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else "—" },
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = "Avg Throughput",
-        value = "${avgThroughput} t/s",
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
         label = "Last TTFB",
         value = if (lastTtfbMs > 0) "${lastTtfbMs}ms" else "—",
         modifier = Modifier.weight(1f),
@@ -451,38 +435,6 @@ fun StatusScreen(
       MetricCard(
         label = "Avg TTFB",
         value = if (avgTtfbMs > 0) "${avgTtfbMs}ms" else "—",
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = "Inter-Token Latency",
-        value = remember(lastItlMs) { if (lastItlMs > 0) "%.1fms".format(lastItlMs) else "—" },
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = "Last Latency",
-        value = if (lastLatencyMs > 0) "${lastLatencyMs}ms" else "—",
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = "Avg Latency",
-        value = if (avgLatencyMs > 0) "${avgLatencyMs}ms" else "—",
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = "Peak Latency",
-        value = if (peakLatencyMs > 0) "${peakLatencyMs}ms" else "—",
         modifier = Modifier.weight(1f),
       )
     }
@@ -501,7 +453,7 @@ fun StatusScreen(
       )
     }
 
-    // Request modality breakdown — controlled by Settings toggle
+    // Request modality breakdown — controlled by its own Settings toggle
     val showRequestTypes = remember { LlmHttpPrefs.isShowRequestTypes(context) }
     if (showRequestTypes) {
       Text(
@@ -531,6 +483,66 @@ fun StatusScreen(
           modifier = Modifier.weight(1f),
         )
       }
+    }
+
+    // ── Advanced metrics (behind Settings toggle) ──
+    val showAdvancedMetrics = remember { LlmHttpPrefs.isShowAdvancedMetrics(context) }
+    if (showAdvancedMetrics) {
+      Text(
+        text = "Advanced",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+      )
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        MetricCard(
+          label = "Prefill Speed",
+          value = remember(lastPrefillSpeed) { if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else "—" },
+          modifier = Modifier.weight(1f),
+        )
+        MetricCard(
+          label = "Avg Throughput",
+          value = "${avgThroughput} t/s",
+          modifier = Modifier.weight(1f),
+        )
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        MetricCard(
+          label = "Inter-Token Latency",
+          value = remember(lastItlMs) { if (lastItlMs > 0) "%.1fms".format(lastItlMs) else "—" },
+          modifier = Modifier.weight(1f),
+        )
+        MetricCard(
+          label = "Last Latency",
+          value = if (lastLatencyMs > 0) "${lastLatencyMs}ms" else "—",
+          modifier = Modifier.weight(1f),
+        )
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        MetricCard(
+          label = "Avg Latency",
+          value = if (avgLatencyMs > 0) "${avgLatencyMs}ms" else "—",
+          modifier = Modifier.weight(1f),
+        )
+        MetricCard(
+          label = "Peak Latency",
+          value = if (peakLatencyMs > 0) "${peakLatencyMs}ms" else "—",
+          modifier = Modifier.weight(1f),
+        )
+      }
+
     }
   }
 

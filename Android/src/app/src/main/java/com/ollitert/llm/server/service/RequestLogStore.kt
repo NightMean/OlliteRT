@@ -47,6 +47,16 @@ data class RequestLogEntry(
   val isExactTokenCount: Boolean = false,
   /** Client-supplied sampler params that were ignored due to the "Ignore Client Sampler" setting. */
   val ignoredClientParams: String? = null,
+  // ── Per-request performance metrics ──
+  // Computed at inference completion and stored per-entry for the Logs info popup.
+  /** Time to first token in ms (0 if unavailable, e.g. non-streaming without TTFB tracking). */
+  val ttfbMs: Long = 0,
+  /** Decode speed in tokens/sec for this request's generation phase. */
+  val decodeSpeed: Double = 0.0,
+  /** Prefill speed in tokens/sec (input tokens / TTFB). */
+  val prefillSpeed: Double = 0.0,
+  /** Inter-token latency in ms (average time between consecutive output tokens). */
+  val itlMs: Double = 0.0,
 )
 
 /**

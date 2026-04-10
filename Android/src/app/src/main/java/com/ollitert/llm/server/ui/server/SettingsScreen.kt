@@ -168,6 +168,7 @@ fun SettingsScreen(
   var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
   var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
   var savedShowRequestTypes by remember { mutableStateOf(LlmHttpPrefs.isShowRequestTypes(context)) }
+  var savedShowAdvancedMetrics by remember { mutableStateOf(LlmHttpPrefs.isShowAdvancedMetrics(context)) }
   var savedCorsAllowedOrigins by remember { mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context)) }
   var savedLogPersistenceEnabled by remember { mutableStateOf(LlmHttpPrefs.isLogPersistenceEnabled(context)) }
   var savedLogMaxEntries by remember { mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context)) }
@@ -198,6 +199,7 @@ fun SettingsScreen(
   var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
   var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
   var showRequestTypes by remember { mutableStateOf(savedShowRequestTypes) }
+  var showAdvancedMetrics by remember { mutableStateOf(savedShowAdvancedMetrics) }
   var corsAllowedOrigins by remember { mutableStateOf(savedCorsAllowedOrigins) }
   var corsError by remember { mutableStateOf(false) }
   var logPersistenceEnabled by remember { mutableStateOf(savedLogPersistenceEnabled) }
@@ -229,6 +231,7 @@ fun SettingsScreen(
     clearLogsOnStop != savedClearLogsOnStop ||
     confirmClearLogs != savedConfirmClearLogs ||
     showRequestTypes != savedShowRequestTypes ||
+    showAdvancedMetrics != savedShowAdvancedMetrics ||
     corsAllowedOrigins != savedCorsAllowedOrigins ||
     logPersistenceEnabled != savedLogPersistenceEnabled ||
     logMaxEntries != savedLogMaxEntries ||
@@ -288,6 +291,7 @@ fun SettingsScreen(
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
         LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
         LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
+        LlmHttpPrefs.setShowAdvancedMetrics(context, showAdvancedMetrics)
         LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOrigins)
         LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabled)
         LlmHttpPrefs.setLogMaxEntries(context, logMaxEntries)
@@ -376,6 +380,7 @@ fun SettingsScreen(
         savedClearLogsOnStop = clearLogsOnStop
         savedConfirmClearLogs = confirmClearLogs
         savedShowRequestTypes = showRequestTypes
+        savedShowAdvancedMetrics = showAdvancedMetrics
         savedCorsAllowedOrigins = corsAllowedOrigins
         savedLogPersistenceEnabled = logPersistenceEnabled
         savedLogMaxEntries = logMaxEntries
@@ -995,6 +1000,35 @@ fun SettingsScreen(
         Switch(
           checked = showRequestTypes,
           onCheckedChange = { showRequestTypes = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Show Advanced Metrics on Status screen
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Show Advanced Metrics",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = showAdvancedMetrics,
+          onCheckedChange = { showAdvancedMetrics = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
