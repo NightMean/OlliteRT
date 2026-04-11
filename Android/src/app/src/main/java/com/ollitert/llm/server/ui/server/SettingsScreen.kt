@@ -721,6 +721,15 @@ fun SettingsScreen(
       title = "General",
       searchQuery = searchQuery,
     ) {
+      // Divider logic: only show between consecutive visible settings
+      val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
+      val generalVisible = generalKeys.map { settingVisible(it) }
+
+      fun showGeneralDivider(index: Int): Boolean {
+        if (!generalVisible[index]) return false
+        return (0 until index).any { generalVisible[it] }
+      }
+
       // Keep screen awake toggle
       if (settingVisible("keep_screen_awake")) {
       Row(
@@ -746,6 +755,12 @@ fun SettingsScreen(
       }
       } // if: keep_screen_awake
 
+      if (showGeneralDivider(1)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
       // Auto-expand logs toggle
       if (settingVisible("auto_expand_logs")) {
       Row(
@@ -768,6 +783,12 @@ fun SettingsScreen(
         )
       }
       } // if: auto_expand_logs
+
+      if (showGeneralDivider(2)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Stream response preview toggle
       if (settingVisible("stream_response_preview")) {
@@ -792,6 +813,12 @@ fun SettingsScreen(
       }
       } // if: stream_response_preview
 
+      if (showGeneralDivider(3)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
       // Clear logs on stop toggle
       if (settingVisible("clear_logs_on_stop")) {
       Row(
@@ -815,6 +842,12 @@ fun SettingsScreen(
       }
       } // if: clear_logs_on_stop
 
+      if (showGeneralDivider(4)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
       // Confirm before clearing logs
       if (settingVisible("confirm_clear_logs")) {
       Row(
@@ -837,6 +870,12 @@ fun SettingsScreen(
         )
       }
       } // if: confirm_clear_logs
+
+      if (showGeneralDivider(5)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Keep partial response toggle
       if (settingVisible("keep_partial_response")) {
