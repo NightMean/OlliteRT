@@ -95,6 +95,7 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -1651,6 +1652,177 @@ fun SettingsScreen(
       )
     }
 
+    // Home Assistant Integration card — immediate-apply (not part of save/cancel flow)
+    var haIntegrationEnabled by remember { mutableStateOf(LlmHttpPrefs.isHaIntegrationEnabled(context)) }
+
+    SettingsCard(
+      iconRes = com.ollitert.llm.server.R.drawable.ic_home_assistant,
+      title = "Home Assistant",
+    ) {
+      // Toggle for HA integration
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "REST API Integration",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "Generate a ready-made configuration.yaml snippet for Home Assistant. Creates REST sensors for server status, model info, and performance metrics, plus a command to stop the server remotely.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = haIntegrationEnabled,
+          onCheckedChange = {
+            haIntegrationEnabled = it
+            LlmHttpPrefs.setHaIntegrationEnabled(context, it)
+          },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // "Copy Configuration" button — only visible when the toggle is on
+      if (haIntegrationEnabled) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Build the HA YAML config dynamically using current IP, port, and bearer token
+        val currentPort = portText.toIntOrNull() ?: LlmHttpPrefs.getPort(context)
+        val currentIp = remember { getWifiIpAddress(context) ?: "<YOUR_DEVICE_IP>" }
+        val currentToken = if (bearerEnabled) bearerToken else ""
+        val baseUrl = "http://$currentIp:$currentPort"
+
+        // Auth header block reused across REST sensor and commands
+        val authYaml = if (currentToken.isNotBlank()) "    headers:\n      Authorization: \"Bearer $currentToken\"\n" else ""
+
+        // IMPORTANT: Keep this YAML template in sync with healthPayload() in LlmHttpService.kt.
+        // When new fields are added to /health?metrics=true or new /v1/server/* endpoints
+        // are created, update the sensors and rest_commands here to match.
+        val haConfig = buildString {
+          appendLine("# OlliteRT — Home Assistant REST Integration")
+          appendLine("# Add this to your configuration.yaml")
+          appendLine("# Docs: GET /health?metrics=true for sensors, POST /v1/server/* for commands")
+          appendLine()
+
+          // REST sensors — single poll for status + metrics
+          appendLine("rest:")
+          appendLine("  - resource: \"$baseUrl/health?metrics=true\"")
+          appendLine("    scan_interval: 30")
+          if (currentToken.isNotBlank()) {
+            append(authYaml)
+          }
+          appendLine("    sensor:")
+          appendLine("      - name: \"OlliteRT Status\"")
+          appendLine("        value_template: \"{{ value_json.status }}\"")
+          appendLine("      - name: \"OlliteRT Model\"")
+          appendLine("        value_template: \"{{ value_json.model | default('none') }}\"")
+          appendLine("      - name: \"OlliteRT Uptime\"")
+          appendLine("        value_template: \"{{ value_json.uptime_seconds | default(0) }}\"")
+          appendLine("        unit_of_measurement: \"s\"")
+          appendLine("      - name: \"OlliteRT Thinking\"")
+          appendLine("        value_template: \"{{ value_json.thinking_enabled | default(false) }}\"")
+          appendLine("      - name: \"OlliteRT Accelerator\"")
+          appendLine("        value_template: \"{{ value_json.accelerator | default('unknown') }}\"")
+          appendLine("      - name: \"OlliteRT Idle\"")
+          appendLine("        value_template: \"{{ value_json.is_idle_unloaded | default(false) }}\"")
+          appendLine("      - name: \"OlliteRT Requests\"")
+          appendLine("        value_template: \"{{ value_json.metrics.requests_total | default(0) }}\"")
+          appendLine("      - name: \"OlliteRT Errors\"")
+          appendLine("        value_template: \"{{ value_json.metrics.errors_total | default(0) }}\"")
+          appendLine("      - name: \"OlliteRT TTFB\"")
+          appendLine("        value_template: \"{{ value_json.metrics.ttfb_avg_ms | default(0) }}\"")
+          appendLine("        unit_of_measurement: \"ms\"")
+          appendLine("      - name: \"OlliteRT Decode Speed\"")
+          appendLine("        value_template: \"{{ value_json.metrics.decode_tokens_per_second | default(0) | round(1) }}\"")
+          appendLine("        unit_of_measurement: \"t/s\"")
+          appendLine("      - name: \"OlliteRT Context Usage\"")
+          appendLine("        value_template: \"{{ value_json.metrics.context_utilization_percent | default(0) | round(1) }}\"")
+          appendLine("        unit_of_measurement: \"%\"")
+          appendLine()
+
+          // REST commands for server control
+          appendLine("rest_command:")
+
+          // Stop server
+          appendLine("  ollitert_stop:")
+          appendLine("    url: \"$baseUrl/v1/server/stop\"")
+          appendLine("    method: POST")
+          if (currentToken.isNotBlank()) append(authYaml)
+          appendLine("    content_type: \"application/json\"")
+
+          // Reload model
+          appendLine("  ollitert_reload:")
+          appendLine("    url: \"$baseUrl/v1/server/reload\"")
+          appendLine("    method: POST")
+          if (currentToken.isNotBlank()) append(authYaml)
+          appendLine("    content_type: \"application/json\"")
+
+          // Toggle thinking (sends { "enabled": true/false } via HA payload template)
+          appendLine("  ollitert_thinking:")
+          appendLine("    url: \"$baseUrl/v1/server/thinking\"")
+          appendLine("    method: POST")
+          if (currentToken.isNotBlank()) append(authYaml)
+          appendLine("    content_type: \"application/json\"")
+          appendLine("    payload: '{\"enabled\": {{ enabled }}}'")
+
+          // Update inference config (send any subset of: temperature, max_tokens, top_k, top_p)
+          appendLine("  ollitert_config:")
+          appendLine("    url: \"$baseUrl/v1/server/config\"")
+          appendLine("    method: POST")
+          if (currentToken.isNotBlank()) append(authYaml)
+          appendLine("    content_type: \"application/json\"")
+          appendLine("    payload: '{{ payload }}'")
+
+          // TODO: Add ollitert_switch_model command when multi-model support is implemented.
+          // Would call POST /v1/server/model with { "model": "model-name" } to switch the
+          // active model via HA automation. Blocked until the server exposes all downloaded
+          // models and supports on-demand model switching.
+        }
+
+        // Preview of what will be copied (truncated)
+        Text(
+          text = "Generates a configuration.yaml snippet with your current IP ($currentIp), port ($currentPort)${if (currentToken.isNotBlank()) ", and bearer token" else ""}.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Full-width copy button
+        Button(
+          onClick = {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("HA Config", haConfig))
+            Toast.makeText(context, "Home Assistant configuration copied to clipboard", Toast.LENGTH_SHORT).show()
+          },
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+          shape = RoundedCornerShape(50),
+          colors = ButtonDefaults.buttonColors(containerColor = OlliteRTPrimary),
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.ContentCopy,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = "Copy Configuration",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+          )
+        }
+      }
+    }
+
     // Advanced Settings card
     SettingsCard(
       icon = Icons.Outlined.Science,
@@ -1976,6 +2148,51 @@ private fun SettingsCard(
   modifier: Modifier = Modifier,
   content: @Composable () -> Unit,
 ) {
+  SettingsCardLayout(
+    iconContent = {
+      Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(20.dp),
+      )
+    },
+    title = title,
+    modifier = modifier,
+    content = content,
+  )
+}
+
+/** Overload for cards that use a drawable resource icon (e.g. brand icons like Home Assistant). */
+@Composable
+private fun SettingsCard(
+  iconRes: Int,
+  title: String,
+  modifier: Modifier = Modifier,
+  content: @Composable () -> Unit,
+) {
+  SettingsCardLayout(
+    iconContent = {
+      Icon(
+        painter = androidx.compose.ui.res.painterResource(id = iconRes),
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(20.dp),
+      )
+    },
+    title = title,
+    modifier = modifier,
+    content = content,
+  )
+}
+
+@Composable
+private fun SettingsCardLayout(
+  iconContent: @Composable () -> Unit,
+  title: String,
+  modifier: Modifier = Modifier,
+  content: @Composable () -> Unit,
+) {
   Column(
     modifier = modifier
       .fillMaxWidth()
@@ -1984,12 +2201,7 @@ private fun SettingsCard(
       .padding(20.dp),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(
-        imageVector = icon,
-        contentDescription = null,
-        tint = OlliteRTPrimary,
-        modifier = Modifier.size(20.dp),
-      )
+      iconContent()
       Spacer(modifier = Modifier.width(8.dp))
       Text(
         text = title,

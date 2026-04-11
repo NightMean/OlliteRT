@@ -41,6 +41,9 @@ private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
 private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
 
+// --- Home Assistant Integration (UI convenience — shows copy-config button in Settings) ---
+private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
+
 // --- Keep Alive (auto-unload model after idle timeout to free RAM) ---
 private const val KEY_KEEP_ALIVE_ENABLED = "keep_alive_enabled"
 private const val KEY_KEEP_ALIVE_MINUTES = "keep_alive_minutes"
@@ -425,6 +428,15 @@ object LlmHttpPrefs {
 
   fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, enabled).apply()
+  }
+
+  // --- Home Assistant Integration ---
+
+  fun isHaIntegrationEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_HA_INTEGRATION_ENABLED, false)
+
+  fun setHaIntegrationEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_HA_INTEGRATION_ENABLED, enabled).apply()
   }
 
   // --- Keep Alive ---
