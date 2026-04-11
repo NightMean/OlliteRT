@@ -51,7 +51,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StopCircle
-// TODO: F72 — Uncomment these imports when model-based compaction is implemented (CompactingIcon)
+// TODO: Uncomment these imports when model-based compaction is implemented (CompactingIcon)
 // import androidx.compose.foundation.Canvas
 // import androidx.compose.ui.graphics.StrokeCap
 // import androidx.compose.ui.geometry.Offset
@@ -132,11 +132,16 @@ private val CONTEXT_OVERFLOW_PATTERNS = listOf(
 /**
  * Checks if a response body contains a context window overflow error.
  * Detects patterns like "1031 >= 1024", "exceeds context", "token limit exceeded", etc.
+ * Only matches actual error responses — not success responses that happen to contain
+ * metric field names like "errors_total" or "context_utilization_percent".
  */
-private fun isContextOverflowError(responseBody: String?): Boolean {
+private fun isContextOverflowError(responseBody: String?, statusCode: Int = 200): Boolean {
   if (responseBody.isNullOrBlank()) return false
+  // Only check error responses (4xx/5xx) — successful responses can contain
+  // metric field names like "errors_total" and "context_utilization_percent"
+  // that would false-positive (e.g. /health?metrics=true).
+  if (statusCode in 200..299) return false
   val lower = responseBody.lowercase()
-  // Must contain "error" (indicating it's an error response) plus a context-overflow keyword
   val hasError = lower.contains("error") || lower.contains("fail")
   val hasOverflow = CONTEXT_OVERFLOW_PATTERNS.any { lower.contains(it) }
   return hasError && hasOverflow
@@ -603,10 +608,10 @@ private fun BouncingDots() {
   }
 }
 
-// TODO: F72 — Model-based prompt compaction. When implemented, this animation will be used
+// TODO: Model-based prompt compaction. When implemented, this animation will be used
 // in the pending state to indicate the model is actively compacting/summarizing the prompt.
 // Currently unused because compaction is instant (string manipulation, not model inference).
-// See CLAUDE.md F72 for the full design concept.
+// See CLAUDE.md backlog for the full design concept.
 //
 // /**
 //  * Animated compaction icon — two inward-pointing chevrons squeezing a box between them.
@@ -703,6 +708,8 @@ private sealed class ParsedEventType {
   data class ConversationResetFailed(val errorMessage: String) : ParsedEventType()
   /** Grouped batch of settings changes from the Settings screen (body = newline-separated "Name: old → new"). */
   data class SettingsBatch(val changes: List<InferenceSettingsChange>) : ParsedEventType()
+  /** Settings changed via REST API endpoint (/v1/server/config or /v1/server/thinking). */
+  data class ApiConfigChange(val changes: List<InferenceSettingsChange>) : ParsedEventType()
   /** Model restart requested (user tapped Reload in Status screen). */
   data object RestartRequested : ParsedEventType()
   /** Model being unloaded during a restart (before the new load begins). */
@@ -893,8 +900,11 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
     return ParsedEventType.ConversationResetFailed(message.removePrefix("Failed to reset conversation: "))
   }
 
-  // Grouped settings batch: "Settings updated (N changes)" with body = newline-separated changes
-  if (message.startsWith("Settings updated (") && !eventBody.isNullOrBlank()) {
+  // Settings changed via REST API: "Config via REST API (N changes)" or via Settings UI: "Settings updated (N changes)"
+  // Both use the same body format: newline-separated "Name: old → new" lines.
+  val isApiConfig = message.startsWith("Config via REST API (") && !eventBody.isNullOrBlank()
+  val isUiSettings = message.startsWith("Settings updated (") && !eventBody.isNullOrBlank()
+  if (isApiConfig || isUiSettings) {
     val changes = eventBody.lines().filter { it.isNotBlank() }.map { line ->
       // Parse "Name: old → new" or "Name: enabled/disabled" (no arrow)
       val arrowIdx = line.indexOf(" → ")
@@ -918,7 +928,10 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
         }
       }
     }
-    if (changes.isNotEmpty()) return ParsedEventType.SettingsBatch(changes)
+    if (changes.isNotEmpty()) {
+      return if (isApiConfig) ParsedEventType.ApiConfigChange(changes)
+      else ParsedEventType.SettingsBatch(changes)
+    }
   }
 
   // Settings toggle: "SettingName enabled" / "SettingName disabled"
@@ -1072,6 +1085,7 @@ private fun InternalEventCard(entry: RequestLogEntry) {
     is ParsedEventType.CorsChanged -> "Settings changed"
     is ParsedEventType.ConversationResetFailed -> "Conversation Reset Failed"
     is ParsedEventType.SettingsBatch -> "Settings updated"
+    is ParsedEventType.ApiConfigChange -> "Config via REST API"
     is ParsedEventType.RestartRequested -> "Model Restart"
     is ParsedEventType.Unloading -> "Model Unloading"
     is ParsedEventType.KeepAliveUnloaded -> "Model Idle Unloaded"
@@ -1350,14 +1364,19 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         )
       }
 
-      is ParsedEventType.SettingsBatch -> {
+      is ParsedEventType.SettingsBatch, is ParsedEventType.ApiConfigChange -> {
         // Reuse SettingsChangeRows via a synthetic ParsedInferenceEvent.
         // For toggle-style changes (new value is "enabled"/"disabled"),
         // color the new value green/red for clarity.
+        val batchChanges = when (parsedEvent) {
+          is ParsedEventType.SettingsBatch -> parsedEvent.changes
+          is ParsedEventType.ApiConfigChange -> parsedEvent.changes
+          else -> emptyList()
+        }
         val toggleValues = setOf("enabled", "disabled")
         SettingsChangeRows(
           parsed = ParsedInferenceEvent(
-            changes = parsedEvent.changes,
+            changes = batchChanges,
             statusSuffix = null,
           ),
           accentColor = accentColor,
@@ -1915,7 +1934,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
 
     // Response area: streaming partial text while pending, full JSON when done
     // NOTE: Compaction is instant (string manipulation before inference), so the pending state
-    // always shows normal generating text. If model-based compaction is added (F72), this should
+    // always shows normal generating text. If model-based compaction is added, this should
     // show CompactingIcon + "Compacting prompt" text while the model summarizes.
     if (entry.isPending) {
       Spacer(modifier = Modifier.height(10.dp))
@@ -1993,7 +2012,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     // or on a separate row above when they'd overflow. Measured dynamically via
     // SubcomposeLayout so the layout scales correctly across phones and tablets.
     if (!entry.isPending) {
-      val contextOverflow = remember(entry.responseBody) { isContextOverflowError(entry.responseBody) }
+      val contextOverflow = remember(entry.responseBody, entry.statusCode) { isContextOverflowError(entry.responseBody, entry.statusCode) }
 
       Spacer(modifier = Modifier.height(10.dp))
 

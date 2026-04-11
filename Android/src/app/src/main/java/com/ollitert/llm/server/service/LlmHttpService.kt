@@ -990,7 +990,9 @@ class LlmHttpService : Service() {
                 okJsonText(responseBodySnapshot!!)
               }
               LlmHttpRouteHandler.HEALTH -> {
-                responseBodySnapshot = healthPayload()
+                // session.parameters returns Map<String, List<String>> (non-deprecated API)
+                val includeMetrics = session.parameters?.get("metrics")?.firstOrNull()?.equals("true", ignoreCase = true) == true
+                responseBodySnapshot = healthPayload(includeMetrics)
                 okJsonText(responseBodySnapshot!!)
               }
               LlmHttpRouteHandler.SERVER_INFO -> {
@@ -1030,6 +1032,186 @@ class LlmHttpService : Service() {
               LlmHttpRouteHandler.COMPLETIONS -> handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.CHAT_COMPLETIONS -> handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
               LlmHttpRouteHandler.RESPONSES -> handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+              // Server control endpoints (stop, reload, thinking, config).
+              // IMPORTANT: When adding new /v1/server/* endpoints, also update the HA YAML
+              // template in SettingsScreen.kt (haConfig buildString block) with the new rest_command.
+              LlmHttpRouteHandler.SERVER_STOP -> {
+                // Trigger graceful shutdown via the same intent the notification Stop button uses.
+                // The response is sent before the service actually stops.
+                val stopIntent = android.content.Intent(this@LlmHttpService, LlmHttpService::class.java).apply {
+                  action = ACTION_STOP
+                }
+                startService(stopIntent)
+                val body = """{"success":true,"message":"Server stopping"}"""
+                responseBodySnapshot = body
+                okJsonText(body)
+              }
+              LlmHttpRouteHandler.SERVER_RELOAD -> {
+                // Trigger a model reload via the same intent the UI uses.
+                val model = defaultModel
+                if (model == null) {
+                  responseBodySnapshot = """{"success":false,"message":"No model loaded"}"""
+                  badRequest("No model loaded")
+                } else {
+                  val port = ServerMetrics.port.value
+                  reload(this@LlmHttpService, port, model.name)
+                  val body = """{"success":true,"message":"Model reloading","model":"${model.name}"}"""
+                  responseBodySnapshot = body
+                  okJsonText(body)
+                }
+              }
+              LlmHttpRouteHandler.SERVER_THINKING -> {
+                // Toggle thinking mode on/off for the active model.
+                // ENABLE_THINKING has needReinitialization = false, so this takes effect
+                // on the next inference request without a model reload.
+                val model = defaultModel
+                if (model == null) {
+                  responseBodySnapshot = """{"success":false,"message":"No model loaded"}"""
+                  badRequest("No model loaded")
+                } else if (!model.llmSupportThinking) {
+                  responseBodySnapshot = """{"success":false,"message":"Model does not support thinking"}"""
+                  badRequest("Model does not support thinking")
+                } else {
+                  val payload = HashMap<String, String>()
+                  session.parseBody(payload)
+                  val raw = payload["postData"] ?: ""
+                  val currentState = model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
+                  // Parse { "enabled": true/false } — default to toggling current state
+                  val requestedState = if (raw.isNotBlank()) {
+                    try {
+                      val obj = org.json.JSONObject(raw)
+                      obj.optBoolean("enabled", !currentState)
+                    } catch (_: Exception) {
+                      !currentState
+                    }
+                  } else {
+                    // No body = toggle
+                    !currentState
+                  }
+                  model.configValues = model.configValues.toMutableMap().apply {
+                    put(com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label, requestedState)
+                  }
+                  // Persist and update metrics
+                  LlmHttpPrefs.setInferenceConfig(this@LlmHttpService, model.name, model.configValues)
+                  ServerMetrics.setThinkingEnabled(requestedState)
+                  // Log using the same "Settings updated" format as the Settings UI,
+                  // so the LogsScreen parser renders it with the proper card headline and arrow format.
+                  val oldLabel = if (currentState) "enabled" else "disabled"
+                  val newLabel = if (requestedState) "enabled" else "disabled"
+                  RequestLogStore.addEvent(
+                    "Config via REST API (1 change)",
+                    modelName = model.name,
+                    category = EventCategory.SETTINGS,
+                    body = "Thinking: $oldLabel → $newLabel",
+                  )
+                  val body = """{"success":true,"thinking_enabled":$requestedState,"model":"${model.name}"}"""
+                  responseBodySnapshot = body
+                  okJsonText(body)
+                }
+              }
+              LlmHttpRouteHandler.SERVER_CONFIG -> {
+                // Update inference settings (temperature, max_tokens, top_k, top_p) for the active model.
+                // These are sampler parameters — they take effect on the next inference request.
+                // Does NOT trigger a model reload.
+                val model = defaultModel
+                if (model == null) {
+                  responseBodySnapshot = """{"success":false,"message":"No model loaded"}"""
+                  badRequest("No model loaded")
+                } else {
+                  val payload = HashMap<String, String>()
+                  session.parseBody(payload)
+                  val raw = payload["postData"] ?: ""
+                  if (raw.isBlank()) {
+                    // GET-like: return current config
+                    val current = org.json.JSONObject().apply {
+                      val cfg = model.configValues
+                      put("temperature", (cfg[com.ollitert.llm.server.data.ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+                      put("max_tokens", (cfg[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+                      put("top_k", (cfg[com.ollitert.llm.server.data.ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
+                      put("top_p", (cfg[com.ollitert.llm.server.data.ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
+                      put("thinking_enabled", cfg[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+                      put("model", model.name)
+                    }
+                    val body = current.toString()
+                    responseBodySnapshot = body
+                    okJsonText(body)
+                  } else {
+                    try {
+                      val obj = org.json.JSONObject(raw)
+                      val oldConfig = model.configValues
+                      val updated = oldConfig.toMutableMap()
+                      // Each change is logged as "Name: old → new" to match the Settings UI format
+                      val changes = mutableListOf<String>()
+                      if (obj.has("temperature")) {
+                        val old = (oldConfig[com.ollitert.llm.server.data.ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat()
+                        val v = obj.getDouble("temperature").toFloat()
+                        updated[com.ollitert.llm.server.data.ConfigKeys.TEMPERATURE.label] = v
+                        changes.add("Temperature: ${old ?: "unset"} → $v")
+                      }
+                      if (obj.has("max_tokens")) {
+                        val old = (oldConfig[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+                        val v = obj.getInt("max_tokens")
+                        updated[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] = v
+                        changes.add("Max Tokens: ${old ?: "unset"} → $v")
+                      }
+                      if (obj.has("top_k")) {
+                        val old = (oldConfig[com.ollitert.llm.server.data.ConfigKeys.TOPK.label] as? Number)?.toInt()
+                        val v = obj.getInt("top_k")
+                        updated[com.ollitert.llm.server.data.ConfigKeys.TOPK.label] = v
+                        changes.add("Top-K: ${old ?: "unset"} → $v")
+                      }
+                      if (obj.has("top_p")) {
+                        val old = (oldConfig[com.ollitert.llm.server.data.ConfigKeys.TOPP.label] as? Number)?.toFloat()
+                        val v = obj.getDouble("top_p").toFloat()
+                        updated[com.ollitert.llm.server.data.ConfigKeys.TOPP.label] = v
+                        changes.add("Top-P: ${old ?: "unset"} → $v")
+                      }
+                      if (obj.has("thinking_enabled")) {
+                        val v = obj.getBoolean("thinking_enabled")
+                        if (model.llmSupportThinking) {
+                          val old = oldConfig[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
+                          updated[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] = v
+                          ServerMetrics.setThinkingEnabled(v)
+                          changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+                        }
+                      }
+                      if (changes.isEmpty()) {
+                        val body = """{"success":false,"message":"No recognized fields in request. Supported: temperature, max_tokens, top_k, top_p, thinking_enabled"}"""
+                        responseBodySnapshot = body
+                        badRequest("No recognized config fields")
+                      } else {
+                        model.configValues = updated
+                        LlmHttpPrefs.setInferenceConfig(this@LlmHttpService, model.name, updated)
+                        // Log using the same format as the Settings UI so the LogsScreen parser
+                        // renders it with the proper card headline and old→new arrow format.
+                        RequestLogStore.addEvent(
+                          "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
+                          modelName = model.name,
+                          category = EventCategory.SETTINGS,
+                          body = changes.joinToString("\n"),
+                        )
+                        // Return the full current config after applying changes
+                        val current = org.json.JSONObject().apply {
+                          put("success", true)
+                          put("model", model.name)
+                          put("temperature", (updated[com.ollitert.llm.server.data.ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+                          put("max_tokens", (updated[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+                          put("top_k", (updated[com.ollitert.llm.server.data.ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
+                          put("top_p", (updated[com.ollitert.llm.server.data.ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
+                          put("thinking_enabled", updated[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+                        }
+                        val body = current.toString()
+                        responseBodySnapshot = body
+                        okJsonText(body)
+                      }
+                    } catch (e: org.json.JSONException) {
+                      val body = """{"success":false,"message":"Invalid JSON: ${e.message}"}"""
+                      responseBodySnapshot = body
+                      badRequest("Invalid JSON body")
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -2497,12 +2679,24 @@ class LlmHttpService : Service() {
         JsonPrimitive("/health"),
         JsonPrimitive("/metrics"),
         JsonPrimitive("/api/version"),
+        JsonPrimitive("/v1/server/stop"),
+        JsonPrimitive("/v1/server/reload"),
+        JsonPrimitive("/v1/server/thinking"),
+        JsonPrimitive("/v1/server/config"),
       )))
     }
     return JsonObject(info).toString()
   }
 
-  private fun healthPayload(): String {
+  /**
+   * Builds the JSON response for GET /health.
+   * When [includeMetrics] is true (via ?metrics=true query param), appends a full
+   * ServerMetrics snapshot — designed for Home Assistant REST sensor integration
+   * so a single poll returns status + all performance metrics.
+   */
+  // IMPORTANT: When adding or changing fields here, also update the HA YAML template
+  // in SettingsScreen.kt (haConfig buildString block) so the generated configuration stays in sync.
+  private fun healthPayload(includeMetrics: Boolean = false): String {
     val status = ServerMetrics.status.value
     val isIdle = ServerMetrics.isIdleUnloaded.value
     val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
@@ -2519,6 +2713,35 @@ class LlmHttpService : Service() {
       val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
       modelName?.let { put("model", JsonPrimitive(it)) }
       uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+
+      if (includeMetrics) {
+        put("version", JsonPrimitive(com.ollitert.llm.server.BuildConfig.VERSION_NAME))
+        put("thinking_enabled", JsonPrimitive(ServerMetrics.thinkingEnabled.value))
+        put("accelerator", JsonPrimitive(ServerMetrics.activeAccelerator.value ?: "unknown"))
+        put("is_idle_unloaded", JsonPrimitive(ServerMetrics.isIdleUnloaded.value))
+        val metricsMap = buildMap {
+          put("requests_total", JsonPrimitive(ServerMetrics.requestCount.value))
+          put("errors_total", JsonPrimitive(ServerMetrics.errorCount.value))
+          put("prompt_tokens_total", JsonPrimitive(ServerMetrics.tokensIn.value))
+          put("generation_tokens_total", JsonPrimitive(ServerMetrics.tokensGenerated.value))
+          put("requests_text", JsonPrimitive(ServerMetrics.textRequests.value))
+          put("requests_image", JsonPrimitive(ServerMetrics.imageRequests.value))
+          put("requests_audio", JsonPrimitive(ServerMetrics.audioRequests.value))
+          put("ttfb_last_ms", JsonPrimitive(ServerMetrics.lastTtfbMs.value))
+          put("ttfb_avg_ms", JsonPrimitive(ServerMetrics.avgTtfbMs.value))
+          put("decode_tokens_per_second", JsonPrimitive(ServerMetrics.lastDecodeSpeed.value))
+          put("decode_tokens_per_second_peak", JsonPrimitive(ServerMetrics.peakDecodeSpeed.value))
+          put("prefill_tokens_per_second", JsonPrimitive(ServerMetrics.lastPrefillSpeed.value))
+          put("inter_token_latency_ms", JsonPrimitive(ServerMetrics.lastItlMs.value))
+          put("request_latency_last_ms", JsonPrimitive(ServerMetrics.lastLatencyMs.value))
+          put("request_latency_avg_ms", JsonPrimitive(ServerMetrics.avgLatencyMs.value))
+          put("request_latency_peak_ms", JsonPrimitive(ServerMetrics.peakLatencyMs.value))
+          put("context_utilization_percent", JsonPrimitive(ServerMetrics.lastContextUtilization.value))
+          put("model_load_time_seconds", JsonPrimitive(ServerMetrics.modelLoadTimeMs.value / 1000.0))
+          put("is_inferring", JsonPrimitive(ServerMetrics.isInferring.value))
+        }
+        put("metrics", JsonObject(metricsMap))
+      }
     }
     return JsonObject(info).toString()
   }

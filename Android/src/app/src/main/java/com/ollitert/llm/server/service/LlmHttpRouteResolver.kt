@@ -14,6 +14,15 @@ enum class LlmHttpRouteHandler {
   COMPLETIONS,
   CHAT_COMPLETIONS,
   RESPONSES,
+  SERVER_STOP,
+  SERVER_RELOAD,
+  SERVER_THINKING,
+  SERVER_CONFIG,
+  // TODO: Add SERVER_MODEL_SWITCH when multi-model support is implemented.
+  // Would accept { "model": "model-name" } to switch the active model via API,
+  // enabling HA automations like "switch to the small model at night to save battery".
+  // Blocked until the server decouples model lifecycle from server lifecycle and
+  // exposes all downloaded models.
 }
 
 data class LlmHttpRoute(
@@ -47,6 +56,10 @@ object LlmHttpRouteResolver {
           "/v1/chat/completions" ->
             LlmHttpRoute(handler = LlmHttpRouteHandler.CHAT_COMPLETIONS, requiresAuth = true)
           "/v1/responses" -> LlmHttpRoute(handler = LlmHttpRouteHandler.RESPONSES, requiresAuth = true)
+          "/v1/server/stop" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_STOP, requiresAuth = true)
+          "/v1/server/reload" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_RELOAD, requiresAuth = true)
+          "/v1/server/thinking" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_THINKING, requiresAuth = true)
+          "/v1/server/config" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_CONFIG, requiresAuth = true)
           else -> null
         }
       else -> null
