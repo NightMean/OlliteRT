@@ -491,6 +491,15 @@ class LlmHttpService : Service() {
         } catch (e: RuntimeException) { throw e } // re-throw our own RuntimeException
         catch (_: Exception) { /* StatFs failed — proceed and let native code decide */ }
 
+        // Wait for the previous service instance's background cleanup to finish before
+        // initializing. Without this, the new Engine.initialize() races with the old
+        // Engine/Conversation.close() on native LiteRT resources, causing the load to hang.
+        cleanupLatch?.let { latch ->
+          Log.i(logTag, "Waiting for previous model cleanup to finish...")
+          latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
+          Log.i(logTag, "Previous cleanup finished, proceeding with model load")
+        }
+
         val loadStart = SystemClock.elapsedRealtime()
         val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
         val supportImage = model.llmSupportImage && eagerVision
@@ -689,19 +698,28 @@ class LlmHttpService : Service() {
     }
     modelCache.clear()
 
-    // Dispatch native memory release to a background thread to avoid ANR
+    // Dispatch native memory release to a background thread to avoid ANR.
+    // Set a static latch so the next service instance's load thread can wait for cleanup
+    // to finish before initializing — prevents racing on native LiteRT resources.
     if (modelsToCleanUp.isNotEmpty()) {
+      val latch = java.util.concurrent.CountDownLatch(1)
+      cleanupLatch = latch
       Thread {
-        for (model in modelsToCleanUp) {
-          try {
-            ServerLlmModelHelper.cleanUp(model) {}
-          } catch (e: Exception) {
-            Log.w(logTag, "Error cleaning up model during destroy: ${e.message}")
+        try {
+          for (model in modelsToCleanUp) {
+            try {
+              ServerLlmModelHelper.cleanUp(model) {}
+            } catch (e: Exception) {
+              Log.w(logTag, "Error cleaning up model during destroy: ${e.message}")
+            }
+            model.instance = null
           }
-          model.instance = null
+          // GC hint after releasing large native allocations
+          System.gc()
+        } finally {
+          latch.countDown()
+          cleanupLatch = null
         }
-        // GC hint after releasing large native allocations (see F109 in CLAUDE.md)
-        System.gc()
       }.start()
     }
 
@@ -2939,6 +2957,12 @@ class LlmHttpService : Service() {
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     private const val CHANNEL_ID = "ollitert-server"
     private const val NOTIFICATION_ID = 42
+
+    /** Latch that the background cleanup thread in onDestroy signals when native memory is released.
+     *  The next service instance's model load thread waits on this before initializing to avoid
+     *  racing with the old instance's Engine/Conversation cleanup. */
+    @Volatile
+    private var cleanupLatch: java.util.concurrent.CountDownLatch? = null
 
     fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null) {
       val intent = Intent(context, LlmHttpService::class.java).apply {
