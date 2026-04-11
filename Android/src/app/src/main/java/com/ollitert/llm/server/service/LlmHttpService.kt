@@ -671,26 +671,40 @@ class LlmHttpService : Service() {
     loadGeneration.incrementAndGet()
     server?.stop()
     val modelName = defaultModel?.name
-    // Unload the model and release native memory (Engine + Conversation).
-    // Without cleanUp, the native LiteRT buffers (hundreds of MB) leak until GC finalizes them.
+
+    // Collect models that need native cleanup (Engine + Conversation close).
+    // These operations can take seconds for multi-GB models and must NOT run on the main
+    // thread — doing so causes an ANR ("Input dispatching timed out") when the user taps
+    // Stop Server, because onDestroy runs on the main thread.
+    val modelsToCleanUp = mutableListOf<Model>()
     defaultModel?.let { model ->
-      try {
-        ServerLlmModelHelper.cleanUp(model) {}
-      } catch (e: Exception) {
-        Log.w(logTag, "Error cleaning up model during destroy: ${e.message}")
-      }
-      model.instance = null
+      modelsToCleanUp.add(model)
       model.initializing = false
     }
     defaultModel = null
-    // Close any secondary models' native Engines in the cache
     for ((_, cachedModel) in modelCache) {
       if (cachedModel.instance != null) {
-        try { ServerLlmModelHelper.cleanUp(cachedModel) {} } catch (_: Exception) {}
-        cachedModel.instance = null
+        modelsToCleanUp.add(cachedModel)
       }
     }
     modelCache.clear()
+
+    // Dispatch native memory release to a background thread to avoid ANR
+    if (modelsToCleanUp.isNotEmpty()) {
+      Thread {
+        for (model in modelsToCleanUp) {
+          try {
+            ServerLlmModelHelper.cleanUp(model) {}
+          } catch (e: Exception) {
+            Log.w(logTag, "Error cleaning up model during destroy: ${e.message}")
+          }
+          model.instance = null
+        }
+        // GC hint after releasing large native allocations (see F109 in CLAUDE.md)
+        System.gc()
+      }.start()
+    }
+
     notifContentIntent = null
     notifStopIntent = null
     notifCopyIntent = null
