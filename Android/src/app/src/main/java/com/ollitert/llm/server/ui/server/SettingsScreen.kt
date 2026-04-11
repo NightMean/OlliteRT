@@ -99,6 +99,14 @@ import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 
 /** Formats a duration in minutes into human-readable text (e.g. 10080 → "7 days", 120 → "2 hours", 45 → "45 minutes"). */
 private fun formatMinutesHumanReadable(minutes: Long): String = when {
@@ -124,6 +132,54 @@ private fun isValidCorsOrigins(input: String): Boolean {
         host.isNotEmpty() && !host.startsWith("/") && !host.contains(" ")
       }
   }
+}
+
+/** Highlights all occurrences of search query words in the given text with the specified color. */
+private fun highlightSearchMatches(
+  text: String,
+  query: String,
+  highlightColor: androidx.compose.ui.graphics.Color,
+): AnnotatedString {
+  if (query.isBlank()) return AnnotatedString(text)
+  val words = query.trim().lowercase().split("\\s+".toRegex()).filter { it.isNotEmpty() }
+  if (words.isEmpty()) return AnnotatedString(text)
+  val textLower = text.lowercase()
+  val ranges = mutableListOf<IntRange>()
+  for (word in words) {
+    var start = 0
+    while (true) {
+      val idx = textLower.indexOf(word, start)
+      if (idx < 0) break
+      ranges.add(idx until idx + word.length)
+      start = idx + 1
+    }
+  }
+  if (ranges.isEmpty()) return AnnotatedString(text)
+  val merged = ranges.sortedBy { it.first }.fold(mutableListOf<IntRange>()) { acc, r ->
+    if (acc.isEmpty() || acc.last().last < r.first - 1) acc.add(r)
+    else acc[acc.lastIndex] = acc.last().first..maxOf(acc.last().last, r.last)
+    acc
+  }
+  return buildAnnotatedString {
+    append(text)
+    for (range in merged) {
+      addStyle(
+        SpanStyle(color = highlightColor, fontWeight = FontWeight.Bold),
+        start = range.first,
+        end = range.last + 1,
+      )
+    }
+  }
+}
+
+/** Setting name text with search term highlighting. Replaces plain Text() for setting labels. */
+@Composable
+private fun SettingLabel(text: String, searchQuery: String) {
+  Text(
+    text = highlightSearchMatches(text, searchQuery, OlliteRTPrimary),
+    style = MaterialTheme.typography.bodyMedium,
+    color = MaterialTheme.colorScheme.onSurface,
+  )
 }
 
 @Composable
@@ -224,6 +280,88 @@ fun SettingsScreen(
   var showTrimLogsDialog by remember { mutableStateOf(false) }
   var showResetDialog by remember { mutableStateOf(false) }
   var verboseDebugEnabled by remember { mutableStateOf(LlmHttpPrefs.isVerboseDebugEnabled(context)) }
+
+  // ─── Search / Filter ────────────────────────────────────────────────────────
+  // Per-setting search index: each setting has searchable keywords (name + description).
+  // Cards are visible when at least one of their settings matches the query.
+  // Individual settings within a visible card are shown/hidden independently.
+  var searchQuery by remember { mutableStateOf("") }
+
+  // Per-setting keyword index — setting key → searchable text (name + description).
+  // All text is lowercased at match time; stored as-is for readability.
+  val settingSearchIndex = remember {
+    mapOf(
+      // General
+      "keep_screen_awake" to "Keep Screen Awake Prevent screen from turning off while app is open",
+      "auto_expand_logs" to "Auto-Expand Logs Show full request and response bodies in the Logs tab",
+      "stream_response_preview" to "Stream Response Preview Show model output as it generates in the Logs tab for streaming requests",
+      "clear_logs_on_stop" to "Clear Logs on Stop Automatically clear in-memory logs when the server stops",
+      "confirm_clear_logs" to "Confirm Before Clearing Logs Show a confirmation dialog before clearing logs",
+      "keep_partial_response" to "Keep Partial Response Preserve incomplete response text in logs when a streaming request is cancelled by the client",
+      // HF Token
+      "hf_token" to "Hugging Face Token HuggingFace hf download models authentication required",
+      // Server Config
+      "host_port" to "Host Port 1024 65535 server configuration default 8000 restart",
+      "bearer_token" to "Require Bearer Token Protect API authentication Authorization header security",
+      "cors_origins" to "CORS Allowed Origins cross-origin requests localhost",
+      // Auto-Launch & Behavior
+      "default_model" to "Default Model Automatically load model when app launches",
+      "start_on_boot" to "Start on Boot Launch server automatically when device starts",
+      "keep_alive" to "Keep Alive Unload model after idle timeout free RAM cold start Idle Timeout",
+      "dontkillmyapp" to "Device background settings manufacturers kill background apps dontkillmyapp",
+      // Metrics
+      "show_request_types" to "Show Request Types text vision audio request counts Status screen",
+      "show_advanced_metrics" to "Show Advanced Metrics prefill speed inter-token latency latency stats context utilization Status screen",
+      // Log Persistence (master toggle + children treated as one group)
+      "log_persistence" to "Log Persistence Persist Logs Database Maximum Log Entries Auto-Delete Clear All Logs storage oldest entries pruned survive app restarts",
+      // Home Assistant
+      "ha_integration" to "Home Assistant REST API Integration configuration yaml sensors commands stop reload thinking config",
+      // Advanced
+      "warmup_message" to "Warmup Message Send test message when model loads verify engine working startup",
+      "pre_init_vision" to "Pre-initialize Vision Load vision backend multimodal model starts image request memory GPU",
+      "custom_prompts" to "Custom System Prompt Chat Template per-model prompt formats Inference Settings",
+      "truncate_history" to "Truncate Conversation History request exceeds context window drop older messages system prompts",
+      "compact_tool_schemas" to "Compact Tool Schemas reduce tool schemas names descriptions context window Home Assistant tool definitions",
+      "trim_prompt" to "Trim Prompt last resort hard-cuts prompt fit context window recent content discarding beginning",
+      "ignore_client_params" to "Ignore Client Sampler Parameters Discard temperature top_p top_k max_tokens API clients server Inference Settings",
+      // Developer
+      "verbose_debug" to "Verbose Debug Mode Logs additional details stack traces memory snapshots model config per-request timing performance",
+      // Reset
+      "reset" to "Reset to Defaults reset all settings port token inference",
+    )
+  }
+
+  // Which settings belong to which card — used to derive card visibility
+  val settingsByCard = remember {
+    mapOf(
+      "general" to listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response"),
+      "hf_token" to listOf("hf_token"),
+      "server_config" to listOf("host_port", "bearer_token", "cors_origins"),
+      "auto_launch" to listOf("default_model", "start_on_boot", "keep_alive", "dontkillmyapp"),
+      "metrics" to listOf("show_request_types", "show_advanced_metrics"),
+      "log_persistence" to listOf("log_persistence"),
+      "home_assistant" to listOf("ha_integration"),
+      "advanced" to listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
+      "developer" to listOf("verbose_debug"),
+      "reset" to listOf("reset"),
+    )
+  }
+
+  /** Returns true if an individual setting matches the current search query. */
+  fun settingVisible(settingKey: String): Boolean {
+    if (searchQuery.isBlank()) return true
+    val keywords = settingSearchIndex[settingKey] ?: return true
+    val query = searchQuery.trim().lowercase()
+    return query.split("\\s+".toRegex()).all { word ->
+      keywords.lowercase().contains(word)
+    }
+  }
+
+  /** Returns true if the card should be visible (any of its settings match). */
+  fun cardVisible(cardKey: String): Boolean {
+    if (searchQuery.isBlank()) return true
+    return settingsByCard[cardKey]?.any { settingVisible(it) } ?: true
+  }
 
   // [CHANGE DETECT] Unsaved changes detection — compare current vs persisted (see Unsaved Changes Guard)
   val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
@@ -480,23 +618,73 @@ fun SettingsScreen(
 
     Spacer(modifier = Modifier.height(4.dp))
 
+    // Search bar — always visible, filters settings cards and individual settings within cards
+    OutlinedTextField(
+      value = searchQuery,
+      onValueChange = { searchQuery = it },
+      modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+      placeholder = { Text("Search settings...", style = MaterialTheme.typography.bodyLarge) },
+      leadingIcon = {
+        Icon(
+          Icons.Outlined.Search,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      },
+      trailingIcon = {
+        if (searchQuery.isNotEmpty()) {
+          IconButton(onClick = { searchQuery = "" }) {
+            Icon(
+              Icons.Outlined.Close,
+              contentDescription = "Clear search",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+      },
+      singleLine = true,
+      shape = RoundedCornerShape(16.dp),
+      colors = OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        focusedBorderColor = OlliteRTPrimary,
+        unfocusedBorderColor = Color.Transparent,
+        cursorColor = OlliteRTPrimary,
+      ),
+      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+      keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+    )
+
+    // "No results" message when search has no matches
+    if (searchQuery.isNotBlank() && settingsByCard.keys.none { cardVisible(it) }) {
+      Text(
+        text = "No settings match \"$searchQuery\"",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = 32.dp).align(Alignment.CenterHorizontally),
+      )
+    }
+
     // General card
+    AnimatedVisibility(
+      visible = cardVisible("general"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.PhoneAndroid,
       title = "General",
+      searchQuery = searchQuery,
     ) {
       // Keep screen awake toggle
+      if (settingVisible("keep_screen_awake")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Keep Screen Awake",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Keep Screen Awake", searchQuery = searchQuery)
           Text(
             text = "Prevent screen from turning off while app is open.",
             style = MaterialTheme.typography.bodySmall,
@@ -511,19 +699,17 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: keep_screen_awake
 
       // Auto-expand logs toggle
+      if (settingVisible("auto_expand_logs")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Auto-Expand Logs",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Auto-Expand Logs", searchQuery = searchQuery)
           Text(
             text = "Show full request and response bodies in the Logs tab.",
             style = MaterialTheme.typography.bodySmall,
@@ -536,19 +722,17 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: auto_expand_logs
 
       // Stream response preview toggle
+      if (settingVisible("stream_response_preview")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Stream Response Preview",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Stream Response Preview", searchQuery = searchQuery)
           Text(
             text = "Show model output as it generates in the Logs tab for streaming requests.",
             style = MaterialTheme.typography.bodySmall,
@@ -561,19 +745,17 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: stream_response_preview
 
       // Clear logs on stop toggle
+      if (settingVisible("clear_logs_on_stop")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Clear Logs on Stop",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Clear Logs on Stop", searchQuery = searchQuery)
           Text(
             text = "Automatically clear in-memory logs when the server stops.",
             style = MaterialTheme.typography.bodySmall,
@@ -586,19 +768,17 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: clear_logs_on_stop
 
       // Confirm before clearing logs
+      if (settingVisible("confirm_clear_logs")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Confirm Before Clearing Logs",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Confirm Before Clearing Logs", searchQuery = searchQuery)
           Text(
             text = "Show a confirmation dialog before clearing logs.",
             style = MaterialTheme.typography.bodySmall,
@@ -611,19 +791,17 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: confirm_clear_logs
 
       // Keep partial response toggle
+      if (settingVisible("keep_partial_response")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Keep Partial Response",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Keep Partial Response", searchQuery = searchQuery)
           Text(
             text = "Preserve incomplete response text in logs when a streaming request is cancelled by the client.",
             style = MaterialTheme.typography.bodySmall,
@@ -636,13 +814,21 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: keep_partial_response
 
     }
+    } // AnimatedVisibility: General
 
     // Hugging Face Token card
+    AnimatedVisibility(
+      visible = cardVisible("hf_token"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.Key,
       title = "Hugging Face Token",
+      searchQuery = searchQuery,
     ) {
       Text(
         text = "Required for downloading models from Hugging Face. Get your token from",
@@ -710,14 +896,22 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxWidth(),
       )
     }
+    } // AnimatedVisibility: HF Token
 
     // Server Config card
+    AnimatedVisibility(
+      visible = cardVisible("server_config"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.Tune,
       title = "Server Configuration",
+      searchQuery = searchQuery,
     ) {
+      if (settingVisible("host_port")) {
       Text(
-        text = "Host Port (1024–65535)",
+        text = highlightSearchMatches("Host Port (1024–65535)", searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -751,23 +945,23 @@ fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+      } // if: host_port
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (settingVisible("host_port") && settingVisible("bearer_token")) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Bearer token toggle
+      if (settingVisible("bearer_token")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Require Bearer Token",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Require Bearer Token", searchQuery = searchQuery)
           Text(
             text = "Protect the API with a bearer token. Clients must include it in the Authorization header.",
             style = MaterialTheme.typography.bodySmall,
@@ -785,14 +979,18 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: bearer_token
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (settingVisible("bearer_token") && settingVisible("cors_origins")) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // CORS allowed origins
+      if (settingVisible("cors_origins")) {
       Text(
-        text = "CORS Allowed Origins",
+        text = highlightSearchMatches("CORS Allowed Origins", searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -840,9 +1038,10 @@ fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+      } // if: cors_origins
 
-      // Token display + actions (only when bearer is enabled)
-      if (bearerEnabled) {
+      // Token display + actions (only when bearer is enabled and setting is visible)
+      if (bearerEnabled && settingVisible("bearer_token")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
@@ -893,15 +1092,23 @@ fun SettingsScreen(
         }
       }
     }
+    } // AnimatedVisibility: Server Config
 
     // Auto-Launch & Behavior card
+    AnimatedVisibility(
+      visible = cardVisible("auto_launch"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.PlayArrow,
       title = "Auto-Launch & Behavior",
+      searchQuery = searchQuery,
     ) {
       // Default model picker
+      if (settingVisible("default_model")) {
       Text(
-        text = "Default Model",
+        text = highlightSearchMatches("Default Model", searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -971,12 +1178,16 @@ fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+      } // if: default_model
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (settingVisible("default_model") && settingVisible("start_on_boot")) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Auto-start on boot toggle — entire row dims when no default model is selected
+      if (settingVisible("start_on_boot")) {
       val autoStartAlpha = if (defaultModelName != null) 1f else 0.4f
       Row(
         modifier = Modifier.fillMaxWidth().alpha(autoStartAlpha),
@@ -984,11 +1195,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Start on Boot",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Start on Boot", searchQuery = searchQuery)
           Text(
             text = if (defaultModelName == null) "Select a default model above to enable."
                    else "Launch server automatically when device starts.",
@@ -1005,23 +1212,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: start_on_boot
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (settingVisible("start_on_boot") && settingVisible("keep_alive")) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Keep Alive — auto-unload model after idle timeout to free RAM
+      if (settingVisible("keep_alive")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Keep Alive",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Keep Alive", searchQuery = searchQuery)
           Text(
             text = "Unload model after idle timeout to free RAM. Next request auto-reloads (cold start).",
             style = MaterialTheme.typography.bodySmall,
@@ -1044,7 +1251,7 @@ fun SettingsScreen(
 
       Column(modifier = Modifier.alpha(keepAliveChildAlpha)) {
         Text(
-          text = "Idle Timeout",
+          text = highlightSearchMatches("Idle Timeout", searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1140,12 +1347,16 @@ fun SettingsScreen(
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
+      } // if: keep_alive
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(12.dp))
+      if (settingVisible("keep_alive") && settingVisible("dontkillmyapp")) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(12.dp))
+      }
 
       // Link to dontkillmyapp.com — OEM-specific battery/background kill settings
+      if (settingVisible("dontkillmyapp")) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
@@ -1156,7 +1367,7 @@ fun SettingsScreen(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Device background settings",
+            text = highlightSearchMatches("Device background settings", searchQuery, OlliteRTPrimary),
             style = MaterialTheme.typography.bodyMedium,
             color = OlliteRTPrimary,
           )
@@ -1174,26 +1385,31 @@ fun SettingsScreen(
           modifier = Modifier.size(18.dp),
         )
       }
+      } // if: dontkillmyapp
 
     }
+    } // AnimatedVisibility: Auto-Launch
 
     // Metrics card
+    AnimatedVisibility(
+      visible = cardVisible("metrics"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.BarChart,
       title = "Metrics",
+      searchQuery = searchQuery,
     ) {
       // Show Request Types on Status screen
+      if (settingVisible("show_request_types")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Show Request Types",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Show Request Types", searchQuery = searchQuery)
           Text(
             text = "Show text, vision, and audio request counts on the Status screen.",
             style = MaterialTheme.typography.bodySmall,
@@ -1206,23 +1422,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: show_request_types
 
-      Spacer(modifier = Modifier.height(8.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
+      if (settingVisible("show_request_types") && settingVisible("show_advanced_metrics")) {
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(8.dp))
+      }
 
       // Show Advanced Metrics on Status screen
+      if (settingVisible("show_advanced_metrics")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Show Advanced Metrics",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Show Advanced Metrics", searchQuery = searchQuery)
           Text(
             text = "Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen.",
             style = MaterialTheme.typography.bodySmall,
@@ -1235,12 +1451,20 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: show_advanced_metrics
     }
+    } // AnimatedVisibility: Metrics
 
     // Log Persistence card
+    AnimatedVisibility(
+      visible = cardVisible("log_persistence"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.Storage,
       title = "Log Persistence",
+      searchQuery = searchQuery,
     ) {
       // Master toggle
       Row(
@@ -1249,11 +1473,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Persist Logs to Database",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Persist Logs to Database", searchQuery = searchQuery)
           Text(
             text = "Save activity logs to a local database so they survive app restarts. Disabled by default.",
             style = MaterialTheme.typography.bodySmall,
@@ -1277,7 +1497,7 @@ fun SettingsScreen(
       // Max Entries — simple number input, value updates live into unsaved state
       Column(modifier = Modifier.alpha(childAlpha)) {
         Text(
-          text = "Maximum Log Entries",
+          text = highlightSearchMatches("Maximum Log Entries", searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1315,7 +1535,7 @@ fun SettingsScreen(
       // Auto-Delete — number input + unit dropdown (minutes/hours/days)
       Column(modifier = Modifier.alpha(childAlpha)) {
         Text(
-          text = "Auto-Delete After",
+          text = highlightSearchMatches("Auto-Delete After", searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1446,6 +1666,7 @@ fun SettingsScreen(
         )
       }
     }
+    } // AnimatedVisibility: Log Persistence
 
     // Clear persisted logs confirmation dialog
     if (showClearPersistedDialog) {
@@ -1655,9 +1876,15 @@ fun SettingsScreen(
     // Home Assistant Integration card — immediate-apply (not part of save/cancel flow)
     var haIntegrationEnabled by remember { mutableStateOf(LlmHttpPrefs.isHaIntegrationEnabled(context)) }
 
+    AnimatedVisibility(
+      visible = cardVisible("home_assistant"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       iconRes = com.ollitert.llm.server.R.drawable.ic_home_assistant,
       title = "Home Assistant",
+      searchQuery = searchQuery,
     ) {
       // Toggle for HA integration
       Row(
@@ -1666,11 +1893,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "REST API Integration",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "REST API Integration", searchQuery = searchQuery)
           Text(
             text = "Generate a ready-made configuration.yaml snippet for Home Assistant. Creates REST sensors for server status, model info, and performance metrics, plus a command to stop the server remotely.",
             style = MaterialTheme.typography.bodySmall,
@@ -1822,23 +2045,38 @@ fun SettingsScreen(
         }
       }
     }
+    } // AnimatedVisibility: Home Assistant
 
     // Advanced Settings card
+    AnimatedVisibility(
+      visible = cardVisible("advanced"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.Science,
       title = "Advanced",
+      searchQuery = searchQuery,
     ) {
+      // Track which advanced settings are visible to control dividers between them.
+      // Dividers only show between two consecutively visible settings.
+      val advancedKeys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params")
+      val advancedVisible = advancedKeys.map { settingVisible(it) }
+
+      /** Show a divider before [index] only if a preceding setting is also visible. */
+      fun showDividerBefore(index: Int): Boolean {
+        if (!advancedVisible[index]) return false
+        return (0 until index).any { advancedVisible[it] }
+      }
+
+      if (settingVisible("warmup_message")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Warmup Message",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Warmup Message", searchQuery = searchQuery)
           Text(
             text = "Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup.",
             style = MaterialTheme.typography.bodySmall,
@@ -1851,23 +2089,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: warmup_message
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (showDividerBefore(1)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Eager vision initialization toggle
+      if (settingVisible("pre_init_vision")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Pre-initialize Vision",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Pre-initialize Vision", searchQuery = searchQuery)
           Text(
             text = "Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start.",
             style = MaterialTheme.typography.bodySmall,
@@ -1880,23 +2118,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: pre_init_vision
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (showDividerBefore(2)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Custom system prompt & chat template toggle
+      if (settingVisible("custom_prompts")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Custom System Prompt & Chat Template",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Custom System Prompt & Chat Template", searchQuery = searchQuery)
           Text(
             text = "Enable per-model system prompt and chat template fields in Inference Settings. Useful for models with non-standard prompt formats.",
             style = MaterialTheme.typography.bodySmall,
@@ -1909,23 +2147,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: custom_prompts
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (showDividerBefore(3)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Truncate conversation history toggle
+      if (settingVisible("truncate_history")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Truncate Conversation History",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Truncate Conversation History", searchQuery = searchQuery)
           Text(
             text = "When a request exceeds the model's context window, drop older messages from the conversation while keeping system prompts and the most recent messages.",
             style = MaterialTheme.typography.bodySmall,
@@ -1938,23 +2176,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: truncate_history
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (showDividerBefore(4)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Compact tool schemas toggle (especially useful for Home Assistant)
+      if (settingVisible("compact_tool_schemas")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Compact Tool Schemas",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Compact Tool Schemas", searchQuery = searchQuery)
           Text(
             text = "When a request with tools exceeds the model's context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for Home Assistant integration which sends many tool definitions.",
             style = MaterialTheme.typography.bodySmall,
@@ -1967,23 +2205,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: compact_tool_schemas
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (showDividerBefore(5)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Trim prompt toggle (last resort)
+      if (settingVisible("trim_prompt")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Trim Prompt",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Trim Prompt", searchQuery = searchQuery)
           Text(
             text = "Last resort when other strategies aren't enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.",
             style = MaterialTheme.typography.bodySmall,
@@ -1996,23 +2234,23 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: trim_prompt
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      if (showDividerBefore(6)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
 
       // Ignore client sampler parameters toggle
+      if (settingVisible("ignore_client_params")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Ignore Client Sampler Parameters",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Ignore Client Sampler Parameters", searchQuery = searchQuery)
           Text(
             text = "Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server's own Inference Settings will always be used instead.",
             style = MaterialTheme.typography.bodySmall,
@@ -2025,12 +2263,20 @@ fun SettingsScreen(
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
+      } // if: ignore_client_params
     }
+    } // AnimatedVisibility: Advanced
 
     // Developer card — verbose debug toggle (immediate-apply, no save/cancel)
+    AnimatedVisibility(
+      visible = cardVisible("developer"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
     SettingsCard(
       icon = Icons.Outlined.Code,
       title = "Developer",
+      searchQuery = searchQuery,
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -2038,11 +2284,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Verbose Debug Mode",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
+          SettingLabel(text = "Verbose Debug Mode", searchQuery = searchQuery)
           Text(
             text = "Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance.",
             style = MaterialTheme.typography.bodySmall,
@@ -2067,8 +2309,15 @@ fun SettingsScreen(
         )
       }
     }
+    } // AnimatedVisibility: Developer
 
     // Reset to Defaults
+    AnimatedVisibility(
+      visible = cardVisible("reset"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
+    Column {
     Spacer(modifier = Modifier.height(16.dp))
     Button(
       onClick = { showResetDialog = true },
@@ -2090,6 +2339,9 @@ fun SettingsScreen(
         fontWeight = FontWeight.Bold,
       )
     }
+
+    } // Column
+    } // AnimatedVisibility: Reset
 
     // Footer
     Spacer(modifier = Modifier.height(8.dp))
@@ -2146,6 +2398,7 @@ private fun SettingsCard(
   icon: ImageVector,
   title: String,
   modifier: Modifier = Modifier,
+  searchQuery: String = "",
   content: @Composable () -> Unit,
 ) {
   SettingsCardLayout(
@@ -2159,6 +2412,7 @@ private fun SettingsCard(
     },
     title = title,
     modifier = modifier,
+    searchQuery = searchQuery,
     content = content,
   )
 }
@@ -2169,6 +2423,7 @@ private fun SettingsCard(
   iconRes: Int,
   title: String,
   modifier: Modifier = Modifier,
+  searchQuery: String = "",
   content: @Composable () -> Unit,
 ) {
   SettingsCardLayout(
@@ -2182,6 +2437,7 @@ private fun SettingsCard(
     },
     title = title,
     modifier = modifier,
+    searchQuery = searchQuery,
     content = content,
   )
 }
@@ -2191,6 +2447,7 @@ private fun SettingsCardLayout(
   iconContent: @Composable () -> Unit,
   title: String,
   modifier: Modifier = Modifier,
+  searchQuery: String = "",
   content: @Composable () -> Unit,
 ) {
   Column(
@@ -2204,7 +2461,7 @@ private fun SettingsCardLayout(
       iconContent()
       Spacer(modifier = Modifier.width(8.dp))
       Text(
-        text = title,
+        text = highlightSearchMatches(title, searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
       )
