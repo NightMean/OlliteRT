@@ -7,13 +7,16 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -22,6 +25,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,9 +41,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material.icons.outlined.DeleteSweep
@@ -47,6 +55,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Share
@@ -59,9 +68,12 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
@@ -70,10 +82,12 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +96,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +106,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -123,6 +140,128 @@ private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped re
 private val WarningColor = Color(0xFFFFF176) // yellow for warnings (e.g. compacted tool schemas)
 private val TruncatedColor = Color(0xFFFFB74D) // amber for history truncation
 private val ContextOverflowColor = Color(0xFFEF5350) // red for context window exceeded errors
+
+/** Semi-transparent yellow highlight for search matches — layered on top of existing text styling. */
+private val SearchHighlightColor = Color(0xFFFFD54F).copy(alpha = 0.35f)
+
+// ── Log filter model ────────────────────────────────────────────────────────
+
+/** HTTP status code range groupings for filter chips. */
+enum class StatusRange(val label: String, val range: IntRange) {
+  SUCCESS("2xx", 200..299),
+  CLIENT_ERROR("4xx", 400..499),
+  SERVER_ERROR("5xx", 500..599);
+  fun contains(code: Int) = code in range
+}
+
+/**
+ * Immutable filter state for the Logs screen. Chip filters check indexed fields only
+ * (instant, <5ms for 1000 entries). Text search is triggered on Enter, not per-keystroke.
+ * Body search always included (runs async on [Dispatchers.Default]).
+ */
+data class LogFilter(
+  val query: String = "",
+  val methods: Set<String> = emptySet(),
+  val statusRanges: Set<StatusRange> = emptySet(),
+  val levels: Set<LogLevel> = emptySet(),
+) {
+  /** True when any filter is active — used to show the result count banner. */
+  val isActive: Boolean
+    get() = query.isNotEmpty() || methods.isNotEmpty() ||
+      statusRanges.isNotEmpty() || levels.isNotEmpty()
+}
+
+/** Check chip-only filters (method, status range, log level). */
+private fun RequestLogEntry.matchesChipFilters(filter: LogFilter): Boolean {
+  if (filter.methods.isNotEmpty() && method !in filter.methods) return false
+  if (filter.statusRanges.isNotEmpty() && method != "EVENT") {
+    if (filter.statusRanges.none { it.contains(statusCode) }) return false
+  }
+  if (filter.levels.isNotEmpty() && level !in filter.levels) return false
+  return true
+}
+
+/**
+ * Check text query against all searchable fields including request/response bodies.
+ * Always searches bodies — runs on [Dispatchers.Default] to avoid main-thread jank.
+ */
+private fun RequestLogEntry.matchesTextQuery(query: String): Boolean {
+  if (query.isEmpty()) return true
+  if (path.contains(query, ignoreCase = true)) return true
+  if (modelName?.contains(query, ignoreCase = true) == true) return true
+  if (clientIp?.contains(query, ignoreCase = true) == true) return true
+  if (method.contains(query, ignoreCase = true)) return true
+  if (requestBody?.contains(query, ignoreCase = true) == true) return true
+  if (responseBody?.contains(query, ignoreCase = true) == true) return true
+  return false
+}
+
+/** Combined filter: chip filters + text query. Pending entries hidden during text search. */
+private fun RequestLogEntry.matchesFilter(filter: LogFilter): Boolean {
+  // Pending entries hidden during active text search — incomplete content can't be
+  // reliably matched. They reappear instantly when the user clears the search.
+  if (isPending && filter.query.isNotEmpty()) return false
+  if (!matchesChipFilters(filter)) return false
+  if (!matchesTextQuery(filter.query)) return false
+  return true
+}
+
+// ── Search highlighting ─────────────────────────────────────────────────────
+
+/**
+ * Builds an [AnnotatedString] with [SearchHighlightColor] background spans on all
+ * case-insensitive matches of [query] within [text]. If [baseColor] is provided,
+ * it's applied to the entire string as the default text color.
+ */
+private fun buildHighlightedString(
+  text: String,
+  query: String,
+  baseColor: Color? = null,
+): AnnotatedString = buildAnnotatedString {
+  if (baseColor != null) pushStyle(SpanStyle(color = baseColor))
+  var start = 0
+  val lowerText = text.lowercase()
+  val lowerQuery = query.lowercase()
+  while (start < text.length) {
+    val idx = lowerText.indexOf(lowerQuery, start)
+    if (idx < 0) { append(text.substring(start)); break }
+    append(text.substring(start, idx))
+    withStyle(SpanStyle(background = SearchHighlightColor)) {
+      append(text.substring(idx, idx + query.length))
+    }
+    start = idx + query.length
+  }
+  if (baseColor != null) pop()
+}
+
+/**
+ * Overlays search highlight [SpanStyle]s on top of an existing [AnnotatedString]
+ * (e.g. one already styled with JSON syntax colors or event highlighting).
+ * Does not disturb existing spans — only adds background highlights.
+ */
+private fun overlaySearchHighlights(
+  base: AnnotatedString,
+  query: String,
+): AnnotatedString {
+  val text = base.text
+  val lowerText = text.lowercase()
+  val lowerQuery = query.lowercase()
+  val matches = mutableListOf<IntRange>()
+  var searchFrom = 0
+  while (searchFrom < text.length) {
+    val idx = lowerText.indexOf(lowerQuery, searchFrom)
+    if (idx < 0) break
+    matches.add(idx until (idx + query.length))
+    searchFrom = idx + query.length
+  }
+  if (matches.isEmpty()) return base
+  return buildAnnotatedString {
+    append(base) // copies text + all existing SpanStyles
+    for (range in matches) {
+      addStyle(SpanStyle(background = SearchHighlightColor), range.first, range.last + 1)
+    }
+  }
+}
 
 /** Patterns that indicate a context window overflow error in the response body. */
 private val CONTEXT_OVERFLOW_PATTERNS = listOf(
@@ -265,8 +404,67 @@ fun LogsScreen(
   var showClearConfirmDialog by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
 
+  // ── Filter state ──────────────────────────────────────────────────────────
+  var filter by remember { mutableStateOf(LogFilter()) }
+  var searchDraft by remember { mutableStateOf("") }
+  var searchBarVisible by remember { mutableStateOf(false) }
+  // True while async body search is in progress (text queries always search bodies)
+  var isSearching by remember { mutableStateOf(false) }
+
+  // When a text search is active, freeze the entry list at the moment the search was committed.
+  // New entries arriving during an active search don't re-trigger filtering — this prevents
+  // the result count from blinking and the list from shifting under the user.
+  // Chip-only filters stay live (watching POST requests come in makes sense).
+  // The snapshot is keyed on filter.query so it refreshes when the user commits a new search.
+  val searchSnapshot by remember(filter.query) { mutableStateOf(entries) }
+  val sourceEntries = if (filter.query.isNotEmpty()) searchSnapshot else entries
+
+  // Filtered entries — text queries always include body search (async on Dispatchers.Default).
+  // Chip-only filters are cheap (<5ms for 1000 entries) and run inline.
+  val displayedEntries by produceState(
+    initialValue = sourceEntries,
+    key1 = sourceEntries,
+    key2 = filter,
+  ) {
+    if (!filter.isActive) {
+      isSearching = false
+      value = sourceEntries
+    } else if (filter.query.isNotEmpty()) {
+      // Text search always includes bodies — run off main thread
+      isSearching = true
+      value = withContext(Dispatchers.Default) {
+        sourceEntries.filter { it.matchesFilter(filter) }
+      }
+      isSearching = false
+    } else {
+      // Chip-only filters — cheap, run inline
+      isSearching = false
+      value = sourceEntries.filter { it.matchesFilter(filter) }
+    }
+  }
+
+  /** Commits the current search draft into the active filter. */
+  fun commitSearch() {
+    filter = filter.copy(query = searchDraft.trim())
+  }
+
+  /** Clears the text search query (chips remain). */
+  fun clearSearch() {
+    searchDraft = ""
+    filter = filter.copy(query = "")
+  }
+
+  /** Resets all filters (chips + text). */
+  fun clearAllFilters() {
+    searchDraft = ""
+    filter = LogFilter()
+  }
+
   // Clear logs confirmation dialog
   if (showClearConfirmDialog) {
+    val totalCount = entries.size
+    val filteredCount = displayedEntries.size
+    val isFiltered = filter.isActive && filteredCount != totalCount
     AlertDialog(
       onDismissRequest = { showClearConfirmDialog = false },
       title = {
@@ -277,7 +475,11 @@ fun LogsScreen(
       },
       text = {
         Text(
-          text = "This will delete all ${entries.size} log entries. This action cannot be undone.",
+          text = if (isFiltered) {
+            "This will delete all $totalCount log entries (not just the $filteredCount shown). This action cannot be undone."
+          } else {
+            "This will delete all $totalCount log entries. This action cannot be undone."
+          },
           style = MaterialTheme.typography.bodyMedium,
         )
       },
@@ -285,6 +487,7 @@ fun LogsScreen(
         Button(
           onClick = {
             RequestLogStore.clear()
+            clearAllFilters()
             showClearConfirmDialog = false
           },
           colors = ButtonDefaults.buttonColors(
@@ -303,7 +506,7 @@ fun LogsScreen(
   }
 
   Column(modifier = modifier.fillMaxSize()) {
-    // Header with clear button
+    // ── Header row ────────────────────────────────────────────────────────
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -317,7 +520,6 @@ fun LogsScreen(
         color = MaterialTheme.colorScheme.onSurface,
       )
       if (entries.isNotEmpty()) {
-        val context = LocalContext.current
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           // Clear all logs (with optional confirmation)
           TooltipIconButton(
@@ -328,30 +530,186 @@ fun LogsScreen(
                 showClearConfirmDialog = true
               } else {
                 RequestLogStore.clear()
+                clearAllFilters()
               }
             },
             tint = DeleteRedTint,
             backgroundColor = DeleteRedTint.copy(alpha = 0.12f),
           )
-          // Copy all logs (JSON)
+          // Copy visible logs (filtered if active) as JSON
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
-            tooltip = "Copy all logs (JSON)",
-            onClick = { scope.launch { copyAllLogsToClipboard(context, entries) } },
+            tooltip = if (filter.isActive) "Copy filtered logs (JSON)" else "Copy all logs (JSON)",
+            onClick = { scope.launch { copyAllLogsToClipboard(context, displayedEntries) } },
             tint = OlliteRTPrimary,
           )
-          // Export/share logs as JSON file
+          // Export visible logs as JSON file
           TooltipIconButton(
             icon = Icons.Outlined.Share,
-            tooltip = "Export logs as JSON",
-            onClick = { scope.launch { exportLogsAsJson(context, entries) } },
+            tooltip = if (filter.isActive) "Export filtered logs as JSON" else "Export logs as JSON",
+            onClick = { scope.launch { exportLogsAsJson(context, displayedEntries) } },
             tint = OlliteRTPrimary,
+          )
+          // Search toggle
+          TooltipIconButton(
+            icon = if (searchBarVisible) Icons.Outlined.Close else Icons.Outlined.Search,
+            tooltip = if (searchBarVisible) "Close search" else "Search logs",
+            onClick = {
+              searchBarVisible = !searchBarVisible
+              if (!searchBarVisible) clearSearch()
+            },
+            tint = if (filter.query.isNotEmpty()) OlliteRTPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            backgroundColor = if (filter.query.isNotEmpty()) OlliteRTPrimary.copy(alpha = 0.15f)
+              else MaterialTheme.colorScheme.surfaceContainerHighest,
           )
         }
       }
     }
 
+    // ── Search bar (animated) ─────────────────────────────────────────────
+    AnimatedVisibility(
+      visible = searchBarVisible,
+      enter = expandVertically() + fadeIn(),
+      exit = shrinkVertically() + fadeOut(),
+    ) {
+      val focusRequester = remember { FocusRequester() }
 
+      OutlinedTextField(
+        value = searchDraft,
+        onValueChange = { searchDraft = it },
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 8.dp)
+          .focusRequester(focusRequester),
+        placeholder = {
+          Text("Search logs...", style = MaterialTheme.typography.bodyMedium)
+        },
+        leadingIcon = {
+          Icon(
+            imageVector = Icons.Outlined.Search,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+          )
+        },
+        trailingIcon = {
+          if (searchDraft.isNotEmpty()) {
+            IconButton(onClick = { clearSearch() }) {
+              Icon(
+                imageVector = Icons.Outlined.Close,
+                contentDescription = "Clear search",
+                modifier = Modifier.size(20.dp),
+              )
+            }
+          }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { commitSearch() }),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+          fontFamily = SpaceGroteskFontFamily,
+        ),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = OlliteRTPrimary,
+          unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+          cursorColor = OlliteRTPrimary,
+        ),
+      )
+
+      // Request focus when search bar opens
+      LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+      }
+    }
+
+    // ── Filter segmented groups ─────────────────────────────────────────
+    // TODO: filter chip design may need a future redesign pass for visual polish.
+    // No horizontalScroll — all groups fit on screen. SpaceBetween spreads
+    // them so the right edge of the last group aligns with the header buttons.
+    if (entries.isNotEmpty()) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        // Method group
+        SegmentedToggleGroup(segmentCount = 3) { segmentShape ->
+          SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0)) {
+            filter = filter.copy(methods = filter.methods.toggle("POST"))
+          }
+          SegmentItem("GET", "GET" in filter.methods, shape = segmentShape(1)) {
+            filter = filter.copy(methods = filter.methods.toggle("GET"))
+          }
+          SegmentItem("EVENT", "EVENT" in filter.methods, shape = segmentShape(2)) {
+            filter = filter.copy(methods = filter.methods.toggle("EVENT"))
+          }
+        }
+        // Status group
+        SegmentedToggleGroup(segmentCount = StatusRange.entries.size) { segmentShape ->
+          StatusRange.entries.forEachIndexed { index, range ->
+            SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index)) {
+              filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
+            }
+          }
+        }
+        // Level group
+        SegmentedToggleGroup(segmentCount = 2) { segmentShape ->
+          SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = DeleteRedTint) {
+            filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
+          }
+          SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor) {
+            filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING))
+          }
+        }
+      }
+    }
+
+    // ── Result count banner ───────────────────────────────────────────────
+    if (filter.isActive && entries.isNotEmpty()) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        if (isSearching) {
+          CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = OlliteRTPrimary,
+          )
+          Text(
+            text = "Searching...",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        } else {
+          Text(
+            text = "Showing ${displayedEntries.size} of ${entries.size}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        TextButton(
+          onClick = { clearAllFilters() },
+          modifier = Modifier.height(28.dp),
+          contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        ) {
+          Text(
+            text = "Clear filters",
+            style = MaterialTheme.typography.labelSmall,
+            color = OlliteRTPrimary,
+          )
+        }
+      }
+    }
+
+    // ── Log list / empty states ───────────────────────────────────────────
     if (entries.isEmpty()) {
       Box(
         modifier = Modifier.fillMaxSize(),
@@ -371,16 +729,40 @@ fun LogsScreen(
           )
         }
       }
-    } else {
+    } else if (displayedEntries.isEmpty() && filter.isActive) {
+      // Filter produced zero results
+      Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+      ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+          Text(
+            text = "No matching entries",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(
+            text = "No logs match the current filters.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+          Spacer(modifier = Modifier.height(12.dp))
+          TextButton(onClick = { clearAllFilters() }) {
+            Text("Clear filters", color = OlliteRTPrimary)
+          }
+        }
+      }
+    } else if (displayedEntries.isNotEmpty()) {
       val listState = rememberLazyListState()
       val coroutineScope = rememberCoroutineScope()
 
       // Count of unseen new entries (shown in the floating indicator)
       var unseenCount by remember { mutableIntStateOf(0) }
 
-      // Track the newest entry's ID to detect actual new entries (not partialText updates).
-      // Using entries.size as a key misses new entries when at max capacity (add + evict = same size).
-      val newestEntryId = entries.firstOrNull()?.id
+      // Track the newest entry ID from the *unfiltered* list to detect genuinely new entries.
+      // Using displayedEntries would cause animated scrolls on every filter change.
+      val newestRawEntryId = entries.firstOrNull()?.id
 
       // True when a programmatic scroll is in progress — prevents the user-scroll
       // detector from incorrectly disabling auto-scroll during animateScrollToItem.
@@ -390,7 +772,6 @@ fun LogsScreen(
       var autoScrollEnabled by remember { mutableStateOf(true) }
 
       // Detect user-initiated scrolling away from top.
-      // Uses snapshotFlow to avoid race conditions with LaunchedEffect key-based triggers.
       LaunchedEffect(Unit) {
         snapshotFlow {
           listState.isScrollInProgress to listState.firstVisibleItemIndex
@@ -399,16 +780,19 @@ fun LogsScreen(
             autoScrollEnabled = false
           }
           if (firstIndex == 0 && !scrolling) {
-            // User reached the top — re-enable auto-scroll and clear unseen count
             unseenCount = 0
             autoScrollEnabled = true
           }
         }
       }
 
-      // When the newest entry changes: auto-scroll if enabled, otherwise bump unseen count
-      LaunchedEffect(newestEntryId) {
-        if (newestEntryId != null) {
+      // When a genuinely new entry arrives: auto-scroll if enabled, otherwise bump unseen count.
+      // Uses the raw (unfiltered) list's newest ID so filter changes don't trigger this.
+      // When a genuinely new entry arrives and no filter is active: auto-scroll or bump unseen.
+      // Suppressed during active filter — the user is reviewing search results and shouldn't
+      // be disturbed by new entries appearing at the top.
+      LaunchedEffect(newestRawEntryId) {
+        if (newestRawEntryId != null && !filter.isActive) {
           if (autoScrollEnabled) {
             isProgrammaticScroll = true
             try {
@@ -422,6 +806,19 @@ fun LogsScreen(
         }
       }
 
+      // When filter changes, instantly jump to top (no animation) and reset unseen count.
+      // This prevents the "cards jumping" effect when toggling chip filters.
+      LaunchedEffect(filter) {
+        isProgrammaticScroll = true
+        try {
+          listState.scrollToItem(0)
+        } finally {
+          isProgrammaticScroll = false
+        }
+        unseenCount = 0
+        autoScrollEnabled = true
+      }
+
       Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
           state = listState,
@@ -431,14 +828,14 @@ fun LogsScreen(
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
           items(
-            entries,
+            displayedEntries,
             key = { it.id },
             contentType = { if (it.method == "EVENT") "event" else "request" },
           ) { entry ->
             if (entry.method == "EVENT") {
-              InternalEventCard(entry)
+              InternalEventCard(entry, searchQuery = filter.query)
             } else {
-              LogEntryCard(entry, autoExpand = autoExpand)
+              LogEntryCard(entry, autoExpand = autoExpand, searchQuery = filter.query)
             }
           }
           item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -446,7 +843,7 @@ fun LogsScreen(
 
         // Floating "new activity" indicator — shown when new entries arrive while scrolled down
         androidx.compose.animation.AnimatedVisibility(
-          visible = unseenCount > 0,
+          visible = unseenCount > 0 && !filter.isActive,
           enter = slideInVertically { -it } + fadeIn(),
           exit = slideOutVertically { -it } + fadeOut(),
           modifier = Modifier
@@ -490,6 +887,87 @@ fun LogsScreen(
         }
       }
     }
+  }
+}
+
+/** Toggle an element in a set — add if absent, remove if present. */
+private fun <T> Set<T>.toggle(element: T): Set<T> =
+  if (element in this) this - element else this + element
+
+/**
+ * A connected toggle bar — segments share a common rounded container with
+ * [surfaceContainerHighest] background. Individual segments highlight with the
+ * accent color when selected. Uses [segmentCount] to give each segment
+ * position-aware corner rounding: only outer ends are rounded, inner
+ * boundaries are flat so adjacent selected segments look seamless.
+ */
+@Composable
+private fun SegmentedToggleGroup(
+  segmentCount: Int,
+  content: @Composable RowScope.(segmentShape: (index: Int) -> Shape) -> Unit,
+) {
+  val r = 12.dp
+  // Build per-position shapes: first segment rounds left, last rounds right, middle is flat.
+  val shapeFor: (Int) -> Shape = { index ->
+    when {
+      segmentCount == 1 -> RoundedCornerShape(r)
+      index == 0 -> RoundedCornerShape(topStart = r, bottomStart = r)
+      index == segmentCount - 1 -> RoundedCornerShape(topEnd = r, bottomEnd = r)
+      else -> RoundedCornerShape(0.dp)
+    }
+  }
+  Row(
+    modifier = Modifier
+      .height(32.dp)
+      .clip(RoundedCornerShape(r))
+      .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    content(shapeFor)
+  }
+}
+
+/**
+ * A single segment within a [SegmentedToggleGroup]. Must be called inside a [RowScope].
+ * Highlights with [accentColor] (defaults to [OlliteRTPrimary]) when [selected].
+ * [shape] should come from the parent group's [segmentShape] callback so only
+ * outer ends are rounded and inner boundaries stay flat.
+ */
+@Composable
+private fun RowScope.SegmentItem(
+  label: String,
+  selected: Boolean,
+  shape: Shape = RoundedCornerShape(0.dp),
+  accentColor: Color? = null,
+  onClick: () -> Unit,
+) {
+  val selectedColor = accentColor ?: OlliteRTPrimary
+  val bgColor by animateColorAsState(
+    targetValue = if (selected) selectedColor else Color.Transparent,
+    animationSpec = tween(150),
+    label = "seg_bg",
+  )
+
+  Box(
+    modifier = Modifier
+      .fillMaxHeight()
+      .clip(shape)
+      .background(bgColor)
+      .clickable(onClick = onClick)
+      .padding(horizontal = 12.dp),
+    contentAlignment = Alignment.Center,
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      color = if (selected) {
+        if (accentColor == WarningColor) Color.Black else MaterialTheme.colorScheme.surface
+      } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+      },
+      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+      fontFamily = SpaceGroteskFontFamily,
+    )
   }
 }
 
@@ -1030,7 +1508,7 @@ private fun highlightEventMessage(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun InternalEventCard(entry: RequestLogEntry) {
+private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
   val isWarning = entry.level == LogLevel.WARNING
@@ -1463,7 +1941,10 @@ private fun InternalEventCard(entry: RequestLogEntry) {
         // Default: styled text with highlighted values
         val isLong = message.length > 120 || message.count { it == '\n' } > 2
         var expanded by remember { mutableStateOf(false) }
-        val styledMessage = remember(message) { highlightEventMessage(message, isError, accentColor) }
+        val styledMessage = remember(message, searchQuery) {
+          val base = highlightEventMessage(message, isError, accentColor)
+          if (searchQuery.isNotEmpty()) overlaySearchHighlights(base, searchQuery) else base
+        }
 
         if (expanded) {
           SelectionContainer {
@@ -1785,7 +2266,7 @@ private const val COLLAPSED_MAX_CHARS = 600
 private const val ASYNC_HIGHLIGHT_THRESHOLD = 1_000
 
 @Composable
-private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
+private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, searchQuery: String = "") {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
   val isWarning = entry.level == LogLevel.WARNING
@@ -1814,29 +2295,62 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
     ) {
       MethodBadge(method = entry.method)
       Spacer(modifier = Modifier.width(8.dp))
-      Text(
-        text = entry.path,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontFamily = SpaceGroteskFontFamily,
-        fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f),
-      )
+      // Path text with optional search highlighting
+      if (searchQuery.isNotEmpty()) {
+        val highlighted = remember(entry.path, searchQuery) {
+          buildHighlightedString(entry.path, searchQuery, baseColor = Color(0xFFE5E2E3))
+        }
+        Text(
+          text = highlighted,
+          style = MaterialTheme.typography.bodyMedium,
+          fontFamily = SpaceGroteskFontFamily,
+          fontWeight = FontWeight.Medium,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.weight(1f),
+        )
+      } else {
+        Text(
+          text = entry.path,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+          fontFamily = SpaceGroteskFontFamily,
+          fontWeight = FontWeight.Medium,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.weight(1f),
+        )
+      }
       if (entry.clientIp != null) {
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-          text = entry.clientIp,
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          fontFamily = SpaceGroteskFontFamily,
-          maxLines = 1,
-          modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-        )
+        // Client IP with optional search highlighting
+        if (searchQuery.isNotEmpty()) {
+          val highlighted = remember(entry.clientIp, searchQuery) {
+            buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
+          }
+          Text(
+            text = highlighted,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = SpaceGroteskFontFamily,
+            maxLines = 1,
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .padding(horizontal = 8.dp, vertical = 3.dp),
+          )
+        } else {
+          Text(
+            text = entry.clientIp,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = SpaceGroteskFontFamily,
+            maxLines = 1,
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .padding(horizontal = 8.dp, vertical = 3.dp),
+          )
+        }
       }
       // Per-request metrics info button — only shown when metrics are available
       if (entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0) {
@@ -1894,6 +2408,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         expanded = requestExpanded,
         showToggle = isLong,
         onToggle = { requestExpanded = !requestExpanded },
+        searchQuery = searchQuery,
       )
     }
 
@@ -1911,6 +2426,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         expanded = compactedExpanded,
         showToggle = isLong,
         onToggle = { compactedExpanded = !compactedExpanded },
+        searchQuery = searchQuery,
       )
       // Strategy badges below the text box, above the Response section
       if (badges.isNotEmpty()) {
@@ -1995,6 +2511,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false) {
         expanded = responseExpanded,
         showToggle = isLong,
         onToggle = { responseExpanded = !responseExpanded },
+        searchQuery = searchQuery,
       )
     }
 
@@ -2205,6 +2722,8 @@ private fun ExpandableBodySection(
   onToggle: () -> Unit,
   /** Optional annotated label — takes precedence over plain [label] when provided. */
   annotatedLabel: AnnotatedString? = null,
+  /** Active search query — overlays yellow highlight on matches within JSON-highlighted text. */
+  searchQuery: String = "",
 ) {
   if (annotatedLabel != null) {
     Text(
@@ -2226,24 +2745,30 @@ private fun ExpandableBodySection(
   // Expanded: compute full highlight asynchronously to avoid main-thread jank on large bodies
   // (50KB+ JSON with regex highlighting can take 100-200ms). Show plain text instantly,
   // then swap in highlighted version when ready.
-  val collapsedHighlighted = remember(body) {
+  val collapsedHighlighted = remember(body, searchQuery) {
     val preview = if (body.length > COLLAPSED_MAX_CHARS) body.substring(0, COLLAPSED_MAX_CHARS) else body
-    highlightJson(preview)
+    val jsonStyled = highlightJson(preview)
+    if (searchQuery.isNotEmpty()) overlaySearchHighlights(jsonStyled, searchQuery) else jsonStyled
   }
 
   if (expanded) {
-    // For large bodies, compute highlighting off the main thread.
+    // For large bodies, compute JSON + search highlighting off the main thread.
     // Small bodies (<4KB) are fast enough to highlight synchronously.
     val fullHighlighted by produceState(
       initialValue = if (body.length <= ASYNC_HIGHLIGHT_THRESHOLD) {
-        highlightJson(body)
+        val jsonStyled = highlightJson(body)
+        if (searchQuery.isNotEmpty()) overlaySearchHighlights(jsonStyled, searchQuery) else jsonStyled
       } else {
         null // show plain text while computing
       },
       key1 = body,
+      key2 = searchQuery,
     ) {
       if (body.length > ASYNC_HIGHLIGHT_THRESHOLD) {
-        value = withContext(Dispatchers.Default) { highlightJson(body) }
+        value = withContext(Dispatchers.Default) {
+          val jsonStyled = highlightJson(body)
+          if (searchQuery.isNotEmpty()) overlaySearchHighlights(jsonStyled, searchQuery) else jsonStyled
+        }
       }
     }
     // Expanded: wrap in SelectionContainer so text is selectable
