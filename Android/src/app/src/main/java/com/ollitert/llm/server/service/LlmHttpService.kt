@@ -739,30 +739,50 @@ class LlmHttpService : Service() {
     return model
   }
 
-  private fun selectModel(requestedModel: String?): Model? {
+  /** Result of [selectModel]: either the active model or a descriptive error. */
+  private sealed class ModelSelection {
+    data class Ok(val model: Model) : ModelSelection()
+    data class Error(val status: NanoHTTPD.Response.Status, val message: String) : ModelSelection()
+  }
+
+  private fun selectModel(requestedModel: String?): ModelSelection {
     // If model was unloaded due to keep_alive idle timeout, auto-reload it regardless of
     // what model the client requested. The keep_alive reload restores the same model that was
     // previously active, with its persisted config. This must happen before any other path
     // (modelCache, allowlist lookup) to avoid silently re-initializing via the inference handler's
     // needsReinit path, which wouldn't log keep_alive reload events or restore config.
     if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
-      return reloadModelFromIdle()
+      val reloaded = reloadModelFromIdle()
+        ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry")
+      return ModelSelection.Ok(reloaded)
     }
+
+    val active = defaultModel
+      ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "No model is currently loaded")
 
     val requested = requestedModel?.trim().orEmpty()
     if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
       requested.equals("default", ignoreCase = true)
     ) {
-      return defaultModel
+      return ModelSelection.Ok(active)
     }
-    val allowed = LlmHttpModelResolver.selectAllowedModel(allowlistLoader.load(), requested)
-      ?: return defaultModel
-    return modelCache.getOrPut(allowed.name) {
-      LlmHttpModelFactory.buildAllowedModel(
-        allowedModel = allowed,
-        importsDir = File(getExternalFilesDir(null), "__imports"),
-      )
+    // Check if the requested model matches the currently loaded model. We normalize both
+    // names to handle variations (e.g. "gemma-4-e2b" vs "Gemma_4_E2B_it").
+    val requestedKey = LlmHttpBridgeUtils.normalizeModelKey(requested)
+    val activeKey = LlmHttpBridgeUtils.normalizeModelKey(active.name)
+    if (requestedKey == activeKey) {
+      return ModelSelection.Ok(active)
     }
+    // The requested model doesn't match the active model. We must NOT build/cache an
+    // uninitialized Model object — that would cause runLlm/streamLlm to call
+    // ServerLlmModelHelper.initialize() on the wrong model, loading a second engine into GPU
+    // memory and causing an OOM kill on memory-constrained devices.
+    // Return a descriptive error so the client knows which model is actually loaded.
+    return ModelSelection.Error(
+      NanoHTTPD.Response.Status.BAD_REQUEST,
+      "Model '${requested}' is not loaded. Currently loaded: '${active.name}'. " +
+        "Please select '${active.name}' in your client or load the requested model on the device first."
+    )
   }
 
   private fun nextRequestId(): String {
@@ -1308,7 +1328,10 @@ class LlmHttpService : Service() {
       captureBody(parsed.body)
       logPayload("POST /generate raw", parsed.body, requestId)
       val req = json.decodeFromString<GenReq>(parsed.body)
-      val model = selectModel(null) ?: return badRequest("llm error")
+      val model = when (val sel = selectModel(null)) {
+        is ModelSelection.Ok -> sel.model
+        is ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      }
       // Apply prompt compaction for raw prompts (only trimming is possible)
       val trimPromptsGen = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
       val maxContextGen = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
@@ -1363,7 +1386,10 @@ class LlmHttpService : Service() {
       if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
         return badRequest("tool_choice required but tools empty")
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
-      val model = selectModel(req.model) ?: return notFound("model_not_found")
+      val model = when (val sel = selectModel(req.model)) {
+        is ModelSelection.Ok -> sel.model
+        is ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      }
       val chatTemplate = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
 
@@ -1494,7 +1520,10 @@ class LlmHttpService : Service() {
       captureBody(parsed.body)
       logPayload("POST /v1/completions raw", parsed.body, requestId)
       val req = json.decodeFromString<CompletionRequest>(parsed.body)
-      val model = selectModel(req.model) ?: return notFound("model_not_found")
+      val model = when (val sel = selectModel(req.model)) {
+        is ModelSelection.Ok -> sel.model
+        is ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      }
       // Apply prompt compaction for raw prompts (only trimming is possible)
       val trimPromptsCompl = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
       val maxContextCompl = (model.configValues[com.ollitert.llm.server.data.ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
@@ -1594,7 +1623,10 @@ class LlmHttpService : Service() {
       if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
         return badRequest("tool_choice required but tools empty")
       val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
-      val model = selectModel(req.model) ?: return notFound("model_not_found")
+      val model = when (val sel = selectModel(req.model)) {
+        is ModelSelection.Ok -> sel.model
+        is ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      }
       val chatTemplateResp = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
         LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name).ifBlank { null } else null
       // Build prompt with progressive compaction if context window is exceeded
