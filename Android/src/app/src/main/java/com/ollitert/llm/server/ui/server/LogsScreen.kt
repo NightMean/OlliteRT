@@ -583,13 +583,13 @@ fun LogsScreen(
           .padding(bottom = 8.dp)
           .focusRequester(focusRequester),
         placeholder = {
-          Text("Search logs...", style = MaterialTheme.typography.bodyMedium)
+          Text("Search logs...", style = MaterialTheme.typography.bodyLarge)
         },
         leadingIcon = {
           Icon(
             imageVector = Icons.Outlined.Search,
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         },
         trailingIcon = {
@@ -598,7 +598,7 @@ fun LogsScreen(
               Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = "Clear search",
-                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
           }
@@ -606,13 +606,12 @@ fun LogsScreen(
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { commitSearch() }),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-          fontFamily = SpaceGroteskFontFamily,
-        ),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
+          focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+          unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
           focusedBorderColor = OlliteRTPrimary,
-          unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+          unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
           cursorColor = OlliteRTPrimary,
         ),
       )
