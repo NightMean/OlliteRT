@@ -1,0 +1,26 @@
+OlliteRT turns your Android device into a local LLM inference server with an OpenAI-compatible API. Run AI models entirely on-device with no cloud dependency.
+
+Features:
+- OpenAI-compatible REST API (Chat Completions, Completions, Responses)
+- Support for Gemma, DeepSeek-R1, and Qwen models via LiteRT
+- Streaming responses (Server-Sent Events)
+- Tool/function calling support
+- Multimodal support (vision) for capable models
+- Prometheus /metrics endpoint for monitoring
+- Configurable inference settings per model (temperature, top-k, top-p, max tokens)
+- Bearer token authentication
+- CORS configuration
+- Foreground service with notification controls
+- Auto-start on boot
+- Keep-alive with idle timeout (auto-unload to free RAM)
+- Home Assistant integration support
+- Dark theme UI with model management, logs, and status screens
+- Log persistence with configurable retention
+
+Perfect for:
+- Home automation (Home Assistant, Open WebUI)
+- Privacy-focused AI assistants
+- Local development and testing
+- Self-hosted AI on mobile hardware
+
+No internet required for inference. Your data stays on your device.

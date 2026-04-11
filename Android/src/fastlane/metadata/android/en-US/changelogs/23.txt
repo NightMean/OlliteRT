@@ -1,0 +1,11 @@
+- OpenAI-compatible API server running entirely on-device
+- Gemma 3n, Gemma 3, DeepSeek-R1, and Qwen 2.5 models
+- Streaming responses via Server-Sent Events
+- Tool/function calling support
+- Multimodal vision support for capable models
+- Prometheus /metrics endpoint for monitoring
+- Configurable inference settings per model
+- Keep-alive with idle timeout to free RAM
+- Home Assistant integration support
+- Log persistence with configurable retention
+- Bearer token auth and CORS configuration

@@ -38,6 +38,8 @@ import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -69,6 +71,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,8 +100,12 @@ import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.common.getWifiIpAddress
+import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.worker.UpdateCheckWorker
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -237,6 +245,8 @@ fun SettingsScreen(
   var savedIgnoreClientSamplerParams by remember { mutableStateOf(LlmHttpPrefs.isIgnoreClientSamplerParams(context)) }
   var savedKeepAliveEnabled by remember { mutableStateOf(LlmHttpPrefs.isKeepAliveEnabled(context)) }
   var savedKeepAliveMinutes by remember { mutableStateOf(LlmHttpPrefs.getKeepAliveMinutes(context)) }
+  var savedUpdateCheckEnabled by remember { mutableStateOf(LlmHttpPrefs.isUpdateCheckEnabled(context)) }
+  var savedUpdateCheckIntervalHours by remember { mutableStateOf(LlmHttpPrefs.getUpdateCheckIntervalHours(context)) }
 
   // [EDITABLE STATE] Current (editable) state — see Unsaved Changes Guard comment above
   var portText by remember { mutableStateOf(savedPort.toString()) }
@@ -272,9 +282,15 @@ fun SettingsScreen(
   var keepAliveEnabled by remember { mutableStateOf(savedKeepAliveEnabled) }
   var keepAliveMinutes by remember { mutableStateOf(savedKeepAliveMinutes) }
   var keepAliveError by remember { mutableStateOf(false) }
+  var updateCheckError by remember { mutableStateOf(false) }
   // Hoisted so the save handler can show unit-aware validation messages
   var keepAliveUnit by remember {
     mutableStateOf(if (savedKeepAliveMinutes > 0 && savedKeepAliveMinutes % 60 == 0) "hours" else "minutes")
+  }
+  var updateCheckEnabled by remember { mutableStateOf(savedUpdateCheckEnabled) }
+  var updateCheckIntervalHours by remember { mutableStateOf(savedUpdateCheckIntervalHours) }
+  var updateCheckUnit by remember {
+    mutableStateOf(if (savedUpdateCheckIntervalHours > 0 && savedUpdateCheckIntervalHours % 24 == 0) "days" else "hours")
   }
   var showClearPersistedDialog by remember { mutableStateOf(false) }
   var showTrimLogsDialog by remember { mutableStateOf(false) }
@@ -309,6 +325,7 @@ fun SettingsScreen(
       "start_on_boot" to "Start on Boot Launch server automatically when device starts",
       "keep_alive" to "Keep Alive Unload model after idle timeout free RAM cold start Idle Timeout",
       "dontkillmyapp" to "Device background settings manufacturers kill background apps dontkillmyapp",
+      "update_check" to "Check for Updates version new notification background frequency interval update available",
       // Metrics
       "show_request_types" to "Show Request Types text vision audio request counts Status screen",
       "show_advanced_metrics" to "Show Advanced Metrics prefill speed inter-token latency latency stats context utilization Status screen",
@@ -337,7 +354,7 @@ fun SettingsScreen(
       "general" to listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response"),
       "hf_token" to listOf("hf_token"),
       "server_config" to listOf("host_port", "bearer_token", "cors_origins"),
-      "auto_launch" to listOf("default_model", "start_on_boot", "keep_alive", "dontkillmyapp"),
+      "auto_launch" to listOf("default_model", "start_on_boot", "keep_alive", "dontkillmyapp", "update_check"),
       "metrics" to listOf("show_request_types", "show_advanced_metrics"),
       "log_persistence" to listOf("log_persistence"),
       "home_assistant" to listOf("ha_integration"),
@@ -390,7 +407,9 @@ fun SettingsScreen(
     logAutoDeleteMinutes != savedLogAutoDeleteMinutes ||
     ignoreClientSamplerParams != savedIgnoreClientSamplerParams ||
     keepAliveEnabled != savedKeepAliveEnabled ||
-    keepAliveMinutes != savedKeepAliveMinutes
+    keepAliveMinutes != savedKeepAliveMinutes ||
+    updateCheckEnabled != savedUpdateCheckEnabled ||
+    updateCheckIntervalHours != savedUpdateCheckIntervalHours
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
@@ -415,9 +434,14 @@ fun SettingsScreen(
       keepAliveError = true
       val rangeText = if (keepAliveUnit == "hours") "1 and 120 hours" else "1 and 7200 minutes"
       Toast.makeText(context, "Keep-alive timeout must be between $rangeText", Toast.LENGTH_SHORT).show()
+    } else if (updateCheckEnabled && updateCheckIntervalHours !in 1..720) {
+      updateCheckError = true
+      val rangeText = if (updateCheckUnit == "days") "1 and 30 days" else "1 and 720 hours"
+      Toast.makeText(context, "Update check interval must be between $rangeText", Toast.LENGTH_SHORT).show()
     } else {
       corsError = false
       keepAliveError = false
+      updateCheckError = false
       val port = portText.toInt()
         val isPortChanged = port != savedPort
         val isEagerVisionChanged = eagerVisionInit != savedEagerVisionInit
@@ -452,6 +476,16 @@ fun SettingsScreen(
         // so changes take effect immediately without waiting for the next inference request.
         if ((keepAliveEnabled != savedKeepAliveEnabled || keepAliveMinutes != savedKeepAliveMinutes) && isServerActive) {
           LlmHttpService.resetKeepAliveTimer(context)
+        }
+        LlmHttpPrefs.setUpdateCheckEnabled(context, updateCheckEnabled)
+        LlmHttpPrefs.setUpdateCheckIntervalHours(context, updateCheckIntervalHours)
+        // Schedule or cancel the periodic update check worker based on the toggle state
+        if (updateCheckEnabled != savedUpdateCheckEnabled || updateCheckIntervalHours != savedUpdateCheckIntervalHours) {
+          if (updateCheckEnabled) {
+            com.ollitert.llm.server.worker.UpdateCheckWorker.scheduleUpdateCheck(context)
+          } else {
+            com.ollitert.llm.server.worker.UpdateCheckWorker.cancelUpdateCheck(context)
+          }
         }
 
         LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
@@ -501,6 +535,15 @@ fun SettingsScreen(
           changes.add("Keep Alive: ${if (savedKeepAliveEnabled) "enabled" else "disabled"} → ${if (keepAliveEnabled) "enabled" else "disabled"}")
         if (keepAliveMinutes != savedKeepAliveMinutes)
           changes.add("Keep Alive Timeout: ${savedKeepAliveMinutes}m → ${keepAliveMinutes}m")
+        if (updateCheckEnabled != savedUpdateCheckEnabled)
+          changes.add("Check for Updates: ${if (savedUpdateCheckEnabled) "enabled" else "disabled"} → ${if (updateCheckEnabled) "enabled" else "disabled"}")
+        if (updateCheckIntervalHours != savedUpdateCheckIntervalHours) {
+          fun formatIntervalHuman(hours: Int): String = when {
+            hours % 24 == 0 -> "${hours / 24} ${if (hours / 24 == 1) "day" else "days"}"
+            else -> "$hours ${if (hours == 1) "hour" else "hours"}"
+          }
+          changes.add("Update Check Frequency: ${formatIntervalHuman(savedUpdateCheckIntervalHours)} → ${formatIntervalHuman(updateCheckIntervalHours)}")
+        }
         if (changes.isNotEmpty()) {
           RequestLogStore.addEvent(
             "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
@@ -558,6 +601,8 @@ fun SettingsScreen(
         savedIgnoreClientSamplerParams = ignoreClientSamplerParams
         savedKeepAliveEnabled = keepAliveEnabled
         savedKeepAliveMinutes = keepAliveMinutes
+        savedUpdateCheckEnabled = updateCheckEnabled
+        savedUpdateCheckIntervalHours = updateCheckIntervalHours
 
         if (needsRestart && isServerActive) {
           showRestartDialog = true
@@ -1387,6 +1432,250 @@ fun SettingsScreen(
       }
       } // if: dontkillmyapp
 
+      if ((settingVisible("dontkillmyapp") || settingVisible("keep_alive")) && settingVisible("update_check")) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
+      // Check for Updates — manual check always available, automatic scheduling is separate
+      if (settingVisible("update_check")) {
+
+      // Observe update availability from ServerMetrics to swap refresh → download icon
+      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsState()
+      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsState()
+      val hasUpdate = availableVersion != null
+
+      // Track the work request ID to observe results and show toast feedback
+      var checkWorkId by remember { mutableStateOf<java.util.UUID?>(null) }
+      val workManager = remember { WorkManager.getInstance(context) }
+
+      // Observe work completion and show result toast.
+      // Includes a 15-second timeout for cases where WorkManager can't run
+      // the work (e.g. no network — work stays ENQUEUED indefinitely).
+      checkWorkId?.let { id ->
+        val workInfo by workManager.getWorkInfoByIdFlow(id).collectAsState(initial = null)
+        LaunchedEffect(workInfo?.state) {
+          val info = workInfo ?: return@LaunchedEffect
+          if (info.state.isFinished) {
+            val message = info.outputData.getString(UpdateCheckWorker.KEY_MESSAGE)
+            if (message != null) {
+              android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            }
+            checkWorkId = null
+          }
+        }
+        // Timeout: if work hasn't finished after 15s, show error and stop observing
+        LaunchedEffect(id) {
+          kotlinx.coroutines.delay(15_000)
+          if (checkWorkId == id) {
+            android.widget.Toast.makeText(context, "Update check timed out — check your network connection", android.widget.Toast.LENGTH_SHORT).show()
+            workManager.cancelWorkById(id)
+            checkWorkId = null
+          }
+        }
+      }
+
+      // Manual check — always available regardless of automatic toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          SettingLabel(text = "Check for Updates", searchQuery = searchQuery)
+          Text(
+            text = "Check for a newer version of OlliteRT.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        if (hasUpdate && !availableUrl.isNullOrBlank()) {
+          // Update available — show download button that opens Play Store or GitHub
+          val uriHandler = LocalUriHandler.current
+          val url = availableUrl!! // Safe — guarded by isNullOrBlank check above
+          TooltipIconButton(
+            icon = Icons.Outlined.FileDownload,
+            tooltip = "Download $availableVersion",
+            onClick = {
+              val intent = UpdateCheckWorker.buildUpdateIntent(context, url)
+              intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
+            },
+          )
+        } else {
+          // No update pending — show check now button
+          TooltipIconButton(
+            icon = Icons.Outlined.Refresh,
+            tooltip = "Check now",
+            onClick = {
+              android.widget.Toast.makeText(context, "Checking for updates…", android.widget.Toast.LENGTH_SHORT).show()
+              checkWorkId = UpdateCheckWorker.checkNow(context)
+            },
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Automatic update check — gated behind notification permissions
+      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+      val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
+      val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          SettingLabel(text = "Automatic Update Check", searchQuery = searchQuery)
+          Text(
+            text = "Periodically check in the background and notify when an update is available.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = updateCheckEnabled,
+          onCheckedChange = { updateCheckEnabled = it },
+          enabled = updateControlsEnabled,
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+
+      // Notification permission/channel warning
+      if (!notifPermissionGranted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "Notification access not enabled. Grant notification permission in system settings to receive update alerts.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+      } else if (updateChannelMuted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "Update notification channel is muted in system settings.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+              putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, UpdateCheckWorker.UPDATE_CHANNEL_ID)
+            }
+            context.startActivity(intent)
+          },
+        )
+      }
+
+      // Frequency input — dimmed when toggle is off or permission missing
+      val updateChildAlpha = if (updateCheckEnabled && updateControlsEnabled) 1f else 0.4f
+
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      Column(modifier = Modifier.alpha(updateChildAlpha)) {
+        Text(
+          text = highlightSearchMatches("Check Frequency", searchQuery, OlliteRTPrimary),
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        val updateCheckUnits = listOf("hours", "days")
+        val initialUpdateValue = remember(savedUpdateCheckIntervalHours) {
+          val h = savedUpdateCheckIntervalHours
+          if (h > 0 && h % 24 == 0) (h / 24).toString() else h.toString()
+        }
+        var updateValueText by remember { mutableStateOf(initialUpdateValue) }
+        var showUpdateUnitDropdown by remember { mutableStateOf(false) }
+
+        fun recomputeUpdateHours() {
+          val num = updateValueText.toIntOrNull() ?: 0
+          val totalHours = when (updateCheckUnit) {
+            "days" -> num * 24
+            else -> num
+          }
+          updateCheckIntervalHours = totalHours
+          if (updateCheckError) updateCheckError = false
+        }
+
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          OutlinedTextField(
+            value = updateValueText,
+            onValueChange = { text ->
+              val filtered = text.filter { it.isDigit() }.take(4)
+              updateValueText = filtered
+              recomputeUpdateHours()
+            },
+            singleLine = true,
+            isError = updateCheckError,
+            enabled = updateCheckEnabled && updateControlsEnabled,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.weight(1f),
+            colors = OutlinedTextFieldDefaults.colors(
+              focusedBorderColor = if (updateCheckError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+              unfocusedBorderColor = if (updateCheckError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+              cursorColor = OlliteRTPrimary,
+            ),
+          )
+          // Unit selector dropdown
+          Column {
+            OutlinedTextField(
+              value = updateCheckUnit,
+              onValueChange = {},
+              readOnly = true,
+              singleLine = true,
+              modifier = Modifier
+                .width(120.dp)
+                .clickable(enabled = updateCheckEnabled && updateControlsEnabled) {
+                  focusManager.clearFocus()
+                  showUpdateUnitDropdown = true
+                },
+              enabled = false,
+              colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              ),
+            )
+            DropdownMenu(
+              expanded = showUpdateUnitDropdown,
+              onDismissRequest = { showUpdateUnitDropdown = false },
+            ) {
+              updateCheckUnits.forEach { unit ->
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      unit,
+                      color = if (unit == updateCheckUnit) OlliteRTPrimary
+                              else MaterialTheme.colorScheme.onSurface,
+                    )
+                  },
+                  onClick = {
+                    updateCheckUnit = unit
+                    showUpdateUnitDropdown = false
+                    recomputeUpdateHours()
+                  },
+                )
+              }
+            }
+          }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      } // if: update_check
+
     }
     } // AnimatedVisibility: Auto-Launch
 
@@ -1876,6 +2165,7 @@ fun SettingsScreen(
     // Home Assistant Integration card — immediate-apply (not part of save/cancel flow)
     var haIntegrationEnabled by remember { mutableStateOf(LlmHttpPrefs.isHaIntegrationEnabled(context)) }
 
+
     AnimatedVisibility(
       visible = cardVisible("home_assistant"),
       enter = expandVertically(),
@@ -2044,6 +2334,7 @@ fun SettingsScreen(
           )
         }
       }
+
     }
     } // AnimatedVisibility: Home Assistant
 
@@ -2343,8 +2634,35 @@ fun SettingsScreen(
     } // Column
     } // AnimatedVisibility: Reset
 
-    // Footer
+    // "What's New" link — opens changelog: Play Store listing for store users, GitHub Releases for sideloaded
     Spacer(modifier = Modifier.height(8.dp))
+    Row(
+      modifier = Modifier
+        .align(Alignment.CenterHorizontally)
+        .clip(RoundedCornerShape(8.dp))
+        .clickable {
+          val intent = UpdateCheckWorker.buildUpdateIntent(context, UpdateCheckWorker.GITHUB_RELEASES_URL)
+          intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
+        }
+        .padding(horizontal = 8.dp, vertical = 4.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      Icon(
+        imageVector = Icons.Outlined.NewReleases,
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(16.dp),
+      )
+      Text(
+        text = "What's New",
+        style = MaterialTheme.typography.bodySmall,
+        color = OlliteRTPrimary,
+      )
+    }
+
+    // Footer
+    Spacer(modifier = Modifier.height(4.dp))
     Text(
       text = "OlliteRT v${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_HASH})",
       style = MaterialTheme.typography.bodySmall,

@@ -825,16 +825,19 @@ class LlmHttpService : Service() {
     return "r${requestCounter.incrementAndGet()}"
   }
 
-  /** Update the foreground notification with the current request count. */
+  /** Update the foreground notification with the current request count and optional update badge. */
   private fun refreshRunningNotification() {
     val ci = notifContentIntent ?: return
     val name = notifModelName ?: return
     val url = notifEndpointUrl ?: return
     val count = ServerMetrics.requestCount.value
     val reqLabel = if (count == 1L) "1 request" else "$count requests"
+    // Append subtle "update available" line if a newer version was found by the background checker
+    val updateVersion = ServerMetrics.availableUpdateVersion.value
+    val updateLine = if (updateVersion != null) "\nUpdate available: ${updateVersion.removePrefix("v")}" else ""
     updateNotification(
       title = "OlliteRT Server Running",
-      text = "Model: $name\nRequests: $reqLabel\nAPI URL: $url",
+      text = "Model: $name\nRequests: $reqLabel\nAPI URL: $url$updateLine",
       contentIntent = ci,
       stopIntent = notifStopIntent,
       copyIntent = notifCopyIntent,
@@ -1053,7 +1056,8 @@ class LlmHttpService : Service() {
                 okJsonText(body)
               }
               LlmHttpRouteHandler.VERSION -> {
-                val body = """{"version":"${com.ollitert.llm.server.BuildConfig.VERSION_NAME}"}"""
+                // Enhanced /api/version with update info from background UpdateCheckWorker
+                val body = serverInfoPayload()
                 responseBodySnapshot = body
                 okJsonText(body)
               }
@@ -2731,9 +2735,19 @@ class LlmHttpService : Service() {
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
       put("version", JsonPrimitive(com.ollitert.llm.server.BuildConfig.VERSION_NAME))
+      put("build", JsonPrimitive(com.ollitert.llm.server.BuildConfig.VERSION_CODE))
+      put("git_hash", JsonPrimitive(com.ollitert.llm.server.BuildConfig.GIT_HASH))
       put("status", JsonPrimitive(status.name.lowercase()))
       defaultModel?.let { put("model", JsonPrimitive(it.name)) }
       uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
+      val latestVersion = ServerMetrics.availableUpdateVersion.value
+      val updateUrl = ServerMetrics.availableUpdateUrl.value
+      put("update_available", JsonPrimitive(latestVersion != null))
+      if (latestVersion != null) {
+        put("latest_version", JsonPrimitive(latestVersion.removePrefix("v")))
+        if (updateUrl != null) put("release_url", JsonPrimitive(updateUrl))
+      }
       put("compatibility", JsonPrimitive("openai"))
       put("endpoints", JsonArray(listOf(
         JsonPrimitive("/v1/models"),
@@ -2777,6 +2791,8 @@ class LlmHttpService : Service() {
       val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
       modelName?.let { put("model", JsonPrimitive(it)) }
       uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      // Surface update availability in health response — lightweight boolean for monitoring dashboards
+      put("update_available", JsonPrimitive(ServerMetrics.availableUpdateVersion.value != null))
 
       if (includeMetrics) {
         put("version", JsonPrimitive(com.ollitert.llm.server.BuildConfig.VERSION_NAME))

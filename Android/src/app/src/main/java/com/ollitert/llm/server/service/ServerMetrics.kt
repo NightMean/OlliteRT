@@ -152,6 +152,23 @@ object ServerMetrics {
   val isInferring: StateFlow<Boolean> = _isInferring.asStateFlow()
 
   /**
+   * Latest version available from GitHub Releases, or null if none/not checked yet.
+   * Set by [UpdateCheckWorker], read by the foreground notification and REST API endpoints
+   * to surface "update available" info without re-checking GitHub.
+   */
+  private val _availableUpdateVersion = MutableStateFlow<String?>(null)
+  val availableUpdateVersion: StateFlow<String?> = _availableUpdateVersion.asStateFlow()
+
+  /** URL of the GitHub Release page for the available update, or null. */
+  private val _availableUpdateUrl = MutableStateFlow<String?>(null)
+  val availableUpdateUrl: StateFlow<String?> = _availableUpdateUrl.asStateFlow()
+
+  fun setAvailableUpdate(version: String?, url: String?) {
+    _availableUpdateVersion.value = version
+    _availableUpdateUrl.value = url
+  }
+
+  /**
    * True when the model was unloaded due to keep_alive idle timeout.
    * The server is still running (NanoHTTPD up, port bound) but the native Engine/Conversation
    * have been freed to reclaim RAM. The next inference request will auto-reload the model.
