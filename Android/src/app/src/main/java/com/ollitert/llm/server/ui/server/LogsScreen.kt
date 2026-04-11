@@ -45,6 +45,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -1197,6 +1198,12 @@ private sealed class ParsedEventType {
   data class KeepAliveReloading(val modelName: String) : ParsedEventType()
   /** Model reloaded successfully after keep_alive idle unload. */
   data class KeepAliveReloaded(val modelName: String, val timeMs: String) : ParsedEventType()
+  /** A newer version is available from GitHub. */
+  data class UpdateAvailable(val version: String, val body: String?) : ParsedEventType()
+  /** Update check ran and current version is latest. */
+  data class UpdateCurrent(val body: String?) : ParsedEventType()
+  /** Update check auto-disabled after consecutive failures. */
+  data class UpdateAutoDisabled(val body: String?) : ParsedEventType()
 }
 
 private val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -1411,6 +1418,22 @@ private fun parseEventType(message: String, eventBody: String? = null): ParsedEv
     }
   }
 
+  // Update available: "Update available: vX.Y.Z"
+  if (message.startsWith("Update available: v")) {
+    val version = message.removePrefix("Update available: ")
+    return ParsedEventType.UpdateAvailable(version, eventBody)
+  }
+
+  // Already on latest version
+  if (message == "Already on latest version") {
+    return ParsedEventType.UpdateCurrent(eventBody)
+  }
+
+  // Update check auto-disabled
+  if (message.startsWith("Update check auto-disabled")) {
+    return ParsedEventType.UpdateAutoDisabled(eventBody)
+  }
+
   // Settings toggle: "SettingName enabled" / "SettingName disabled"
   if (message.endsWith(" enabled") || message.endsWith(" disabled")) {
     val enabled = message.endsWith(" enabled")
@@ -1525,6 +1548,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
     EventCategory.SETTINGS -> "SETTINGS"
     EventCategory.SERVER -> "SERVER"
     EventCategory.PROMPT -> "PROMPT"
+    EventCategory.UPDATE -> "UPDATE"
     EventCategory.GENERAL -> "EVENT"
   }
   val categoryIcon = when (entry.eventCategory) {
@@ -1532,6 +1556,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
     EventCategory.SETTINGS -> Icons.Outlined.Settings
     EventCategory.SERVER -> Icons.Outlined.Dns
     EventCategory.PROMPT -> Icons.AutoMirrored.Outlined.Notes
+    EventCategory.UPDATE -> Icons.Outlined.NewReleases
     EventCategory.GENERAL -> Icons.Outlined.Info
   }
 
@@ -1568,6 +1593,9 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
     is ParsedEventType.KeepAliveUnloaded -> "Model Idle Unloaded"
     is ParsedEventType.KeepAliveReloading -> "Model Reloading"
     is ParsedEventType.KeepAliveReloaded -> "Model Reloaded"
+    is ParsedEventType.UpdateAvailable -> "Update Available"
+    is ParsedEventType.UpdateCurrent -> "Up to Date"
+    is ParsedEventType.UpdateAutoDisabled -> "Update Check Disabled"
     null -> if (isDebug) "Debug" else null
   }
 
@@ -1933,6 +1961,46 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      is ParsedEventType.UpdateAvailable -> {
+        Text(
+          text = buildAnnotatedString {
+            append("Version ")
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.version)
+            }
+            append(" is available")
+          },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Show body details (current version, release URL) if present
+        if (parsedEvent.body != null) {
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = parsedEvent.body,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+          )
+        }
+      }
+
+      is ParsedEventType.UpdateCurrent -> {
+        Text(
+          text = parsedEvent.body ?: "No newer version found",
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+
+      is ParsedEventType.UpdateAutoDisabled -> {
+        Text(
+          text = parsedEvent.body ?: "Too many consecutive failures",
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = accentColor,
+          fontWeight = FontWeight.Medium,
         )
       }
 

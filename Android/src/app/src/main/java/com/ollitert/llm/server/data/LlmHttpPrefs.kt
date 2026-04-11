@@ -44,6 +44,7 @@ private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_para
 // --- Home Assistant Integration (UI convenience — shows copy-config button in Settings) ---
 private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
 
+
 // --- Keep Alive (auto-unload model after idle timeout to free RAM) ---
 private const val KEY_KEEP_ALIVE_ENABLED = "keep_alive_enabled"
 private const val KEY_KEEP_ALIVE_MINUTES = "keep_alive_minutes"
@@ -57,6 +58,17 @@ private const val KEY_LOG_AUTO_DELETE_MINUTES = "log_auto_delete_minutes"
 private const val DEFAULT_LOG_PERSISTENCE_ENABLED = false
 private const val DEFAULT_LOG_MAX_ENTRIES = 500
 private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
+
+// --- Update Check ---
+private const val KEY_UPDATE_CHECK_ENABLED = "update_check_enabled"
+private const val KEY_UPDATE_CHECK_INTERVAL_HOURS = "update_check_interval_hours"
+private const val KEY_LAST_DISMISSED_UPDATE_VERSION = "last_dismissed_update_version"
+private const val KEY_CACHED_LATEST_VERSION = "cached_latest_version"
+private const val KEY_CACHED_RELEASE_HTML_URL = "cached_release_html_url"
+private const val KEY_CACHED_RELEASE_ETAG = "cached_release_etag"
+private const val KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES = "update_check_consecutive_failures"
+private const val DEFAULT_UPDATE_CHECK_ENABLED = true
+private const val DEFAULT_UPDATE_CHECK_INTERVAL_HOURS = 24
 
 object LlmHttpPrefs {
 
@@ -487,6 +499,67 @@ object LlmHttpPrefs {
     prefs(context)
       .edit()
       .putLong(KEY_LOG_AUTO_DELETE_MINUTES, minutes)
+      .apply()
+  }
+
+  // --- Update Check ---
+
+  fun isUpdateCheckEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
+
+  fun setUpdateCheckEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_UPDATE_CHECK_ENABLED, enabled).apply()
+  }
+
+  fun getUpdateCheckIntervalHours(context: Context): Int =
+    prefs(context).getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, DEFAULT_UPDATE_CHECK_INTERVAL_HOURS)
+
+  fun setUpdateCheckIntervalHours(context: Context, hours: Int) {
+    prefs(context).edit().putInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, hours).apply()
+  }
+
+  fun getLastDismissedUpdateVersion(context: Context): String? =
+    prefs(context).getString(KEY_LAST_DISMISSED_UPDATE_VERSION, null)
+
+  fun setLastDismissedUpdateVersion(context: Context, version: String?) {
+    prefs(context).edit().apply {
+      if (version != null) putString(KEY_LAST_DISMISSED_UPDATE_VERSION, version)
+      else remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
+    }.apply()
+  }
+
+  fun getCachedLatestVersion(context: Context): String? =
+    prefs(context).getString(KEY_CACHED_LATEST_VERSION, null)
+
+  fun getCachedReleaseHtmlUrl(context: Context): String? =
+    prefs(context).getString(KEY_CACHED_RELEASE_HTML_URL, null)
+
+  fun getCachedReleaseETag(context: Context): String? =
+    prefs(context).getString(KEY_CACHED_RELEASE_ETAG, null)
+
+  fun setCachedUpdateInfo(context: Context, version: String?, htmlUrl: String?, etag: String?) {
+    prefs(context).edit().apply {
+      if (version != null) putString(KEY_CACHED_LATEST_VERSION, version) else remove(KEY_CACHED_LATEST_VERSION)
+      if (htmlUrl != null) putString(KEY_CACHED_RELEASE_HTML_URL, htmlUrl) else remove(KEY_CACHED_RELEASE_HTML_URL)
+      if (etag != null) putString(KEY_CACHED_RELEASE_ETAG, etag) else remove(KEY_CACHED_RELEASE_ETAG)
+    }.apply()
+  }
+
+  fun getUpdateCheckConsecutiveFailures(context: Context): Int =
+    prefs(context).getInt(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, 0)
+
+  fun setUpdateCheckConsecutiveFailures(context: Context, count: Int) {
+    prefs(context).edit().putInt(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, count).apply()
+  }
+
+  /** Clear all cached update state (version, URL, ETag, dismiss). Called after a successful app update. */
+  fun clearUpdateState(context: Context) {
+    prefs(context).edit()
+      .remove(KEY_CACHED_LATEST_VERSION)
+      .remove(KEY_CACHED_RELEASE_HTML_URL)
+      .remove(KEY_CACHED_RELEASE_ETAG)
+      .remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
+      .remove(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES)
       .apply()
   }
 

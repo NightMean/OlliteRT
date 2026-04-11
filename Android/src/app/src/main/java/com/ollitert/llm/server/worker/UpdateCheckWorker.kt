@@ -1,0 +1,595 @@
+package com.ollitert.llm.server.worker
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import androidx.work.workDataOf
+import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.SemVer
+import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.EventCategory
+import com.ollitert.llm.server.service.LogLevel
+import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.service.ServerMetrics
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.TimeUnit
+
+/**
+ * Background WorkManager worker that checks GitHub Releases for newer versions.
+ * Runs periodically (default: every 24 hours) with network + battery constraints.
+ *
+ * Channel-aware: prod checks /releases/latest (stable only), beta/dev fetch the
+ * releases list and filter by tag pattern. See [fetchLatestRelease] for details.
+ */
+class UpdateCheckWorker(
+  appContext: Context,
+  workerParams: WorkerParameters,
+) : CoroutineWorker(appContext, workerParams) {
+
+  override suspend fun doWork(): Result {
+    val context = applicationContext
+
+    // Manual checks (via "Check Now" button) bypass the enabled check —
+    // only periodic scheduled checks should respect the toggle.
+    val isManualCheck = inputData.getBoolean(KEY_MANUAL_CHECK, false)
+    if (!isManualCheck && !LlmHttpPrefs.isUpdateCheckEnabled(context)) {
+      return Result.success(workDataOf(KEY_RESULT to RESULT_DISABLED))
+    }
+
+    val verbose = LlmHttpPrefs.isVerboseDebugEnabled(context)
+    if (verbose) {
+      val endpoint = if (BuildConfig.UPDATE_CHANNEL == "stable") "/releases/latest" else "/releases?per_page=10"
+      RequestLogStore.addEvent(
+        "Update check started",
+        level = LogLevel.DEBUG,
+        category = EventCategory.UPDATE,
+        body = "Channel: ${BuildConfig.UPDATE_CHANNEL}, Endpoint: $endpoint",
+      )
+    }
+
+    try {
+      val release = fetchLatestRelease(context) ?: run {
+        // null means either 304 Not Modified with no cache, or no matching releases found.
+        // Both mean there's nothing newer to report — but distinguish for user feedback.
+        if (verbose) {
+          RequestLogStore.addEvent(
+            "No releases found",
+            level = LogLevel.DEBUG,
+            category = EventCategory.UPDATE,
+            body = "Channel: ${BuildConfig.UPDATE_CHANNEL}, Version: ${BuildConfig.VERSION_NAME}",
+          )
+        }
+        return Result.success(workDataOf(
+          KEY_RESULT to RESULT_UP_TO_DATE,
+          KEY_MESSAGE to "No updates available",
+        ))
+      }
+
+      // Reset consecutive failure counter on any successful response
+      LlmHttpPrefs.setUpdateCheckConsecutiveFailures(context, 0)
+
+      val currentVersion = BuildConfig.VERSION_NAME
+      if (!SemVer.isNewer(currentVersion, release.tagName)) {
+        // Current version is up-to-date
+        if (verbose) {
+          RequestLogStore.addEvent(
+            "Already on latest version",
+            level = LogLevel.DEBUG,
+            category = EventCategory.UPDATE,
+            body = "Checked: ${release.tagName} (${BuildConfig.UPDATE_CHANNEL})",
+          )
+        }
+        // Clear any stale update state
+        ServerMetrics.setAvailableUpdate(null, null)
+        return Result.success(workDataOf(
+          KEY_RESULT to RESULT_UP_TO_DATE,
+          KEY_MESSAGE to "You're on the latest version ($currentVersion)",
+        ))
+      }
+
+      // Newer version found — cache it and surface it
+      LlmHttpPrefs.setCachedUpdateInfo(context, release.tagName, release.htmlUrl, release.etag)
+      ServerMetrics.setAvailableUpdate(release.tagName, release.htmlUrl)
+
+      RequestLogStore.addEvent(
+        "Update available: ${release.tagName}",
+        level = LogLevel.INFO,
+        category = EventCategory.UPDATE,
+        body = "Current: $currentVersion\nRelease: ${release.htmlUrl}",
+      )
+
+      val versionDisplay = release.tagName.removePrefix("v")
+
+      // Check if user already dismissed this exact version
+      val dismissed = LlmHttpPrefs.getLastDismissedUpdateVersion(context)
+      if (dismissed == release.tagName) {
+        Log.d(TAG, "User dismissed notification for ${release.tagName} — skipping notification")
+        return Result.success(workDataOf(
+          KEY_RESULT to RESULT_UPDATE_AVAILABLE,
+          KEY_MESSAGE to "Version $versionDisplay is available",
+        ))
+      }
+
+      postUpdateNotification(context, release)
+
+      return Result.success(workDataOf(
+        KEY_RESULT to RESULT_UPDATE_AVAILABLE,
+        KEY_MESSAGE to "Version $versionDisplay is available",
+      ))
+
+    } catch (e: UpdateCheckException) {
+      val errorMessage = handleError(context, e, verbose)
+      return Result.success(workDataOf(
+        KEY_RESULT to RESULT_ERROR,
+        KEY_MESSAGE to errorMessage,
+      ))
+    } catch (e: Exception) {
+      Log.w(TAG, "Update check failed unexpectedly", e)
+      if (verbose) {
+        RequestLogStore.addEvent(
+          "Update check failed — network error",
+          level = LogLevel.WARNING,
+          category = EventCategory.UPDATE,
+          body = e.message ?: "Unknown error",
+        )
+      }
+      return Result.success(workDataOf(
+        KEY_RESULT to RESULT_ERROR,
+        KEY_MESSAGE to "Update check failed — check your network connection",
+      ))
+    }
+  }
+
+  // ── GitHub API fetching ──────────────────────────────────────────────────
+
+  private data class ReleaseInfo(
+    val tagName: String,
+    val htmlUrl: String,
+    val etag: String?,
+  )
+
+  /**
+   * Fetch the latest applicable release from GitHub based on the build channel.
+   * Returns null if the API returned 304 (Not Modified) or no applicable release was found.
+   */
+  private fun fetchLatestRelease(context: Context): ReleaseInfo? {
+    return when (BuildConfig.UPDATE_CHANNEL) {
+      "stable" -> fetchLatestStable(context)
+      "beta" -> fetchLatestBetaOrStable(context)
+      "dev" -> fetchLatestAny(context)
+      else -> fetchLatestStable(context)
+    }
+  }
+
+  /**
+   * Prod channel: GET /releases/latest — GitHub automatically skips pre-releases.
+   */
+  private fun fetchLatestStable(context: Context): ReleaseInfo? {
+    val url = "$GITHUB_API_BASE/releases/latest"
+    val cachedETag = LlmHttpPrefs.getCachedReleaseETag(context)
+    val response = fetchGitHub(url, cachedETag)
+
+    return when (response) {
+      is GitHubResponse.NotModified -> {
+        // Use cached data — still the same release
+        val cachedVersion = LlmHttpPrefs.getCachedLatestVersion(context) ?: return null
+        val cachedUrl = LlmHttpPrefs.getCachedReleaseHtmlUrl(context) ?: return null
+        ReleaseInfo(cachedVersion, cachedUrl, cachedETag)
+      }
+      is GitHubResponse.Success -> parseRelease(response.body, response.etag)
+      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
+    }
+  }
+
+  /**
+   * Beta channel: GET /releases?per_page=10, filter for beta or stable tags.
+   */
+  private fun fetchLatestBetaOrStable(context: Context): ReleaseInfo? {
+    val url = "$GITHUB_API_BASE/releases?per_page=10"
+    val response = fetchGitHub(url, etag = null) // Don't cache list endpoint
+    return when (response) {
+      is GitHubResponse.NotModified -> null
+      is GitHubResponse.Success -> {
+        val releases = JSONArray(response.body)
+        findBestRelease(releases, BETA_TAG_PATTERN)
+      }
+      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
+    }
+  }
+
+  /**
+   * Dev channel: GET /releases?per_page=10, take the most recent non-draft release.
+   */
+  private fun fetchLatestAny(context: Context): ReleaseInfo? {
+    val url = "$GITHUB_API_BASE/releases?per_page=10"
+    val response = fetchGitHub(url, etag = null)
+    return when (response) {
+      is GitHubResponse.NotModified -> null
+      is GitHubResponse.Success -> {
+        val releases = JSONArray(response.body)
+        findBestRelease(releases, DEV_TAG_PATTERN)
+      }
+      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
+    }
+  }
+
+  /**
+   * Find the newest release matching the given tag pattern, skipping drafts.
+   * Releases are returned by GitHub in reverse chronological order.
+   */
+  private fun findBestRelease(releases: JSONArray, tagPattern: Regex): ReleaseInfo? {
+    for (i in 0 until releases.length()) {
+      val release = releases.getJSONObject(i)
+      if (release.optBoolean("draft", false)) continue
+      val tag = release.optString("tag_name", "")
+      val url = release.optString("html_url", "")
+      if (tag.isNotBlank() && url.isNotBlank() && tagPattern.matches(tag)) {
+        return ReleaseInfo(
+          tagName = tag,
+          htmlUrl = url,
+          etag = null,
+        )
+      }
+    }
+    return null
+  }
+
+  private fun parseRelease(json: String, etag: String?): ReleaseInfo? {
+    val obj = JSONObject(json)
+    val tag = obj.optString("tag_name", "")
+    val url = obj.optString("html_url", "")
+    if (tag.isBlank() || url.isBlank()) return null
+    return ReleaseInfo(tag, url, etag)
+  }
+
+  // ── HTTP layer ───────────────────────────────────────────────────────────
+
+  private sealed class GitHubResponse {
+    data class Success(val body: String, val etag: String?) : GitHubResponse()
+    data object NotModified : GitHubResponse()
+    data class Error(val code: Int) : GitHubResponse()
+  }
+
+  private fun fetchGitHub(url: String, etag: String?): GitHubResponse {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    try {
+      connection.connectTimeout = 10_000
+      connection.readTimeout = 10_000
+      connection.setRequestProperty("Accept", "application/vnd.github+json")
+      connection.setRequestProperty("User-Agent", "OlliteRT/${BuildConfig.VERSION_NAME}")
+      if (etag != null) {
+        connection.setRequestProperty("If-None-Match", etag)
+      }
+
+      val code = connection.responseCode
+      return when {
+        code == 304 -> GitHubResponse.NotModified
+        code in 200..299 -> {
+          val body = connection.inputStream.bufferedReader().readText()
+          val responseEtag = connection.getHeaderField("ETag")
+          GitHubResponse.Success(body, responseEtag)
+        }
+        else -> GitHubResponse.Error(code)
+      }
+    } finally {
+      connection.disconnect()
+    }
+  }
+
+  // ── Error handling ───────────────────────────────────────────────────────
+
+  private class UpdateCheckException(val httpCode: Int, val url: String) : Exception("HTTP $httpCode: $url")
+
+  /** Handle HTTP errors and return a user-facing message for toast feedback. */
+  private fun handleError(context: Context, e: UpdateCheckException, verbose: Boolean): String {
+    when (e.httpCode) {
+      403 -> {
+        // Rate limited — silently skip, resets hourly
+        Log.w(TAG, "Update check rate limited (403)")
+        if (verbose) {
+          RequestLogStore.addEvent(
+            "Update check failed — rate limited",
+            level = LogLevel.WARNING,
+            category = EventCategory.UPDATE,
+            body = "HTTP 403: Rate limit exceeded.",
+          )
+        }
+        return "Update check failed — rate limited, try again later"
+      }
+      404 -> {
+        // Repository not found — increment consecutive failure counter
+        val failures = LlmHttpPrefs.getUpdateCheckConsecutiveFailures(context) + 1
+        LlmHttpPrefs.setUpdateCheckConsecutiveFailures(context, failures)
+        Log.w(TAG, "Update check 404 — consecutive failures: $failures/$MAX_CONSECUTIVE_FAILURES")
+
+        if (verbose) {
+          RequestLogStore.addEvent(
+            "Update check failed — repository not found",
+            level = LogLevel.WARNING,
+            category = EventCategory.UPDATE,
+            body = "HTTP 404: ${e.url}\nConsecutive failures: $failures/$MAX_CONSECUTIVE_FAILURES",
+          )
+        }
+
+        // Auto-disable after too many consecutive 404s (repo migrated, URL wrong)
+        if (failures >= MAX_CONSECUTIVE_FAILURES) {
+          LlmHttpPrefs.setUpdateCheckEnabled(context, false)
+          cancelUpdateCheck(context)
+          RequestLogStore.addEvent(
+            "Update check auto-disabled — repository not found",
+            level = LogLevel.ERROR,
+            category = EventCategory.UPDATE,
+            body = "$MAX_CONSECUTIVE_FAILURES consecutive 404 errors. Re-enable in Settings or update the repository URL.",
+          )
+        }
+        return "Update check failed — repository or releases not found"
+      }
+      in 500..599 -> {
+        // GitHub server error — transient, try again next cycle
+        Log.w(TAG, "Update check server error (${e.httpCode})")
+        if (verbose) {
+          RequestLogStore.addEvent(
+            "Update check failed — server error",
+            level = LogLevel.WARNING,
+            category = EventCategory.UPDATE,
+            body = "HTTP ${e.httpCode}: ${e.url}",
+          )
+        }
+        return "Update check failed — server error, try again later"
+      }
+      else -> {
+        Log.w(TAG, "Update check HTTP error: ${e.httpCode}")
+        return "Update check failed — HTTP error ${e.httpCode}"
+      }
+    }
+  }
+
+  // ── Notification ─────────────────────────────────────────────────────────
+
+  private fun postUpdateNotification(context: Context, release: ReleaseInfo) {
+    // Check notification permission (required on Android 13+)
+    if (!canPostUpdateNotification(context)) {
+      if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+        RequestLogStore.addEvent(
+          "Update check skipped — notification permission not granted",
+          level = LogLevel.DEBUG,
+          category = EventCategory.UPDATE,
+        )
+      }
+      // Still update ServerMetrics so API endpoints and foreground notification show the update
+      return
+    }
+
+    val tapIntent = buildUpdateIntent(context, release.htmlUrl)
+    val contentIntent = PendingIntent.getActivity(
+      context, UPDATE_REQUEST_CODE, tapIntent,
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    // deleteIntent fires when user swipes the notification away
+    val dismissIntent = PendingIntent.getBroadcast(
+      context, UPDATE_DISMISS_REQUEST_CODE,
+      Intent(context, UpdateDismissReceiver::class.java)
+        .putExtra(UpdateDismissReceiver.EXTRA_DISMISSED_VERSION, release.tagName),
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    val versionDisplay = release.tagName.removePrefix("v")
+    val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
+      .setContentTitle("OlliteRT Update Available")
+      .setContentText("Version $versionDisplay is available")
+      .setSmallIcon(R.mipmap.ic_launcher_foreground)
+      .setContentIntent(contentIntent)
+      .setDeleteIntent(dismissIntent)
+      .setAutoCancel(true)
+      .build()
+
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    mgr.notify(UPDATE_NOTIFICATION_ID, notification)
+  }
+
+  companion object {
+    private const val TAG = "UpdateCheck"
+    private const val WORK_NAME = "ollitert_update_check"
+    const val UPDATE_CHANNEL_ID = "ollitert-update"
+    const val UPDATE_NOTIFICATION_ID = 43
+    private const val UPDATE_REQUEST_CODE = 100
+    private const val UPDATE_DISMISS_REQUEST_CODE = 101
+    private const val MAX_CONSECUTIVE_FAILURES = 5
+
+    // Output data keys for communicating check results to the UI (via WorkInfo.outputData)
+    const val KEY_RESULT = "result"
+    const val KEY_MESSAGE = "message"
+    const val RESULT_UP_TO_DATE = "up_to_date"
+    const val RESULT_UPDATE_AVAILABLE = "update_available"
+    const val RESULT_ERROR = "error"
+    const val RESULT_DISABLED = "disabled"
+    private const val KEY_MANUAL_CHECK = "manual_check"
+
+    // GitHub API base URL — single source of truth for the repo location.
+    // Update this when migrating to a new repo (see F92 network dependency audit).
+    private const val GITHUB_OWNER = "NightMean"
+    private const val GITHUB_REPO = "ollitert"
+    private const val GITHUB_API_BASE = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO"
+
+    /** GitHub Releases page URL for the "What's New" link in Settings. */
+    const val GITHUB_RELEASES_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases"
+
+    // Tag patterns for channel-aware filtering (internal for testability)
+    internal val STABLE_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+$")
+    internal val BETA_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+(-beta\\.\\d+)?$")
+    internal val DEV_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+(-(?:dev|beta)\\.\\d+)?$")
+
+    /**
+     * Determine tap target based on install source:
+     * - Play Store users → Play Store listing (they update from there)
+     * - Sideloaded users → GitHub Release page (changelog + APK download)
+     */
+    fun buildUpdateIntent(context: Context, releaseHtmlUrl: String): Intent {
+      val uri = if (isPlayStoreBuild(context)) {
+        Uri.parse("market://details?id=${context.packageName}")
+      } else {
+        Uri.parse(releaseHtmlUrl)
+      }
+      val intent = Intent(Intent.ACTION_VIEW, uri)
+      // Play Store intent fallback — if Play Store app isn't installed (rare: degoogled ROMs)
+      if (isPlayStoreBuild(context)) {
+        try {
+          // Verify the market:// intent can be resolved
+          if (intent.resolveActivity(context.packageManager) == null) {
+            return Intent(Intent.ACTION_VIEW, Uri.parse(releaseHtmlUrl))
+          }
+        } catch (_: Exception) {
+          return Intent(Intent.ACTION_VIEW, Uri.parse(releaseHtmlUrl))
+        }
+      }
+      return intent
+    }
+
+    /** Check if the app was installed from the Google Play Store. */
+    fun isPlayStoreBuild(context: Context): Boolean {
+      return try {
+        val info = context.packageManager.getInstallSourceInfo(context.packageName)
+        info.installingPackageName == "com.android.vending"
+      } catch (_: Exception) {
+        false
+      }
+    }
+
+    /**
+     * Check if we can actually post update notifications.
+     * Checks both the app-level permission and channel-level mute status.
+     */
+    fun canPostUpdateNotification(context: Context): Boolean {
+      if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val channel = mgr.getNotificationChannel(UPDATE_CHANNEL_ID)
+      // channel == null means not created yet — will be created with IMPORTANCE_DEFAULT
+      return channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE
+    }
+
+    /**
+     * Check if notifications are enabled at the app level but the update channel is muted.
+     * Used by Settings to show a distinct message ("channel is muted") vs "permission not granted".
+     */
+    fun isUpdateChannelMuted(context: Context): Boolean {
+      if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val channel = mgr.getNotificationChannel(UPDATE_CHANNEL_ID) ?: return false
+      return channel.importance == NotificationManager.IMPORTANCE_NONE
+    }
+
+    /** Create the update notification channel. Call from Application.onCreate(). */
+    fun createNotificationChannel(context: Context) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+          UPDATE_CHANNEL_ID,
+          "Update Available",
+          NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+          description = "Notifies when a new version of OlliteRT is available"
+        }
+        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        mgr.createNotificationChannel(channel)
+      }
+    }
+
+    /**
+     * Schedule the periodic update check. Called from Application.onCreate()
+     * and when the user toggles the setting on or changes the frequency.
+     */
+    fun scheduleUpdateCheck(context: Context) {
+      val intervalHours = LlmHttpPrefs.getUpdateCheckIntervalHours(context).toLong()
+
+      val constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .setRequiresBatteryNotLow(true)
+        .build()
+
+      val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(intervalHours, TimeUnit.HOURS)
+        .setConstraints(constraints)
+        .setInitialDelay(1, TimeUnit.HOURS) // Don't check immediately on every app start
+        .build()
+
+      WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        WORK_NAME,
+        ExistingPeriodicWorkPolicy.REPLACE, // REPLACE to pick up interval changes
+        request,
+      )
+    }
+
+    /** Cancel the periodic update check. Called when the user disables the setting. */
+    fun cancelUpdateCheck(context: Context) {
+      WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+      // Clear any pending notification and cached state
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      mgr.cancel(UPDATE_NOTIFICATION_ID)
+      ServerMetrics.setAvailableUpdate(null, null)
+    }
+
+    /**
+     * Enqueue a one-time immediate check (for the "Check Now" button in Settings).
+     * Returns the work request UUID so the caller can observe the result via
+     * [WorkManager.getWorkInfoByIdFlow].
+     */
+    fun checkNow(context: Context): java.util.UUID {
+      val constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build()
+      val request = OneTimeWorkRequestBuilder<UpdateCheckWorker>()
+        .setConstraints(constraints)
+        .setInputData(workDataOf(KEY_MANUAL_CHECK to true))
+        .build()
+      WorkManager.getInstance(context).enqueue(request)
+      return request.id
+    }
+
+    /**
+     * Clear stale update notification after an auto-update.
+     * Call from Application.onCreate() — if the cached "latest" version is no longer
+     * newer than the installed version, the app was updated and the notification is stale.
+     */
+    fun clearStaleNotification(context: Context) {
+      val cached = LlmHttpPrefs.getCachedLatestVersion(context) ?: return
+      if (!SemVer.isNewer(BuildConfig.VERSION_NAME, cached)) {
+        // Cached "latest" is no longer newer than installed — update happened
+        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        mgr.cancel(UPDATE_NOTIFICATION_ID)
+        LlmHttpPrefs.clearUpdateState(context)
+        ServerMetrics.setAvailableUpdate(null, null)
+        if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+          RequestLogStore.addEvent(
+            "Stale update notification cleared",
+            level = LogLevel.DEBUG,
+            category = EventCategory.UPDATE,
+            body = "App updated to ${BuildConfig.VERSION_NAME}, cached latest was $cached",
+          )
+        }
+      } else {
+        // Still have a pending update — restore it to ServerMetrics so API/notification surface it
+        val url = LlmHttpPrefs.getCachedReleaseHtmlUrl(context)
+        ServerMetrics.setAvailableUpdate(cached, url)
+      }
+    }
+  }
+}

@@ -91,6 +91,8 @@ android {
       resValue("string", "app_label", "OlliteRT Dev")
       // BuildConfig field to identify flavor at runtime
       buildConfigField("String", "CHANNEL", "\"dev\"")
+      // Update channel: dev sees all releases (stable, beta, dev)
+      buildConfigField("String", "UPDATE_CHANNEL", "\"dev\"")
       // OAuth redirect must match the full applicationId
       manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.dev"
     }
@@ -100,6 +102,8 @@ android {
       versionNameSuffix = "-beta"
       resValue("string", "app_label", "OlliteRT Beta")
       buildConfigField("String", "CHANNEL", "\"beta\"")
+      // Update channel: beta sees beta and stable releases
+      buildConfigField("String", "UPDATE_CHANNEL", "\"beta\"")
       manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.beta"
     }
     create("prod") {
@@ -107,6 +111,8 @@ android {
       // No suffix — this is the production release
       resValue("string", "app_label", "OlliteRT")
       buildConfigField("String", "CHANNEL", "\"prod\"")
+      // Update channel: stable only (GitHub's /releases/latest auto-skips pre-releases)
+      buildConfigField("String", "UPDATE_CHANNEL", "\"stable\"")
       // Default applicationId, no override needed
     }
   }

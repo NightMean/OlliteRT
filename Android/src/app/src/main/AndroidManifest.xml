@@ -110,6 +110,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Records dismissed update notification version to avoid re-posting -->
+        <receiver
+            android:name="com.ollitert.llm.server.worker.UpdateDismissReceiver"
+            android:exported="false" />
+
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />

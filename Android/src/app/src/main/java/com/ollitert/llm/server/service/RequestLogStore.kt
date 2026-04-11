@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.update
 enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
 
 /** Category for EVENT-type log entries — drives the icon shown in the Logs tab. */
-enum class EventCategory { GENERAL, MODEL, SETTINGS, SERVER, PROMPT }
+enum class EventCategory { GENERAL, MODEL, SETTINGS, SERVER, PROMPT, UPDATE }
 
 /**
  * A single API request/response pair displayed in the Logs screen.

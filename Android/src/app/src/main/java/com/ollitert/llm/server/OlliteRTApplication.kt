@@ -18,7 +18,9 @@ package com.ollitert.llm.server
 
 import android.app.Application
 import android.util.Log
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
+import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -49,6 +51,28 @@ class OlliteRTApplication : Application() {
       entryPoint.requestLogPersistence().initialize()
     } catch (e: Exception) {
       Log.e("OlliteRTApp", "Failed to initialize log persistence — logs will be in-memory only", e)
+    }
+
+    // Create the update notification channel (safe to call on every start — no-ops if it exists).
+    UpdateCheckWorker.createNotificationChannel(this)
+
+    // Clear stale update notification if the app was auto-updated since the last check.
+    // Also restores cached update info to ServerMetrics if an update is still pending.
+    // Wrapped in try-catch so a failure doesn't crash the app on startup.
+    try {
+      UpdateCheckWorker.clearStaleNotification(this)
+    } catch (e: Exception) {
+      Log.e("OlliteRTApp", "Failed to clear stale update notification", e)
+    }
+
+    // Schedule periodic update checks if enabled.
+    // Wrapped in try-catch so WorkManager failures don't crash the app on startup.
+    try {
+      if (LlmHttpPrefs.isUpdateCheckEnabled(this)) {
+        UpdateCheckWorker.scheduleUpdateCheck(this)
+      }
+    } catch (e: Exception) {
+      Log.e("OlliteRTApp", "Failed to schedule update check", e)
     }
   }
 }
