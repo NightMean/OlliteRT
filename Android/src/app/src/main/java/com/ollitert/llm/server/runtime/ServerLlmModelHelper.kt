@@ -233,7 +233,14 @@ object ServerLlmModelHelper : LlmModelHelper {
 
   override fun stopResponse(model: Model) {
     val instance = model.instance as? LlmModelInstance ?: return
-    instance.conversation.cancelProcess()
+    // The Conversation may already be closed if the server is stopping while inference is
+    // in progress (e.g. user taps Stop Server mid-generation). The SDK throws
+    // IllegalStateException("Conversation is not alive") from cancelProcess() in that case.
+    try {
+      instance.conversation.cancelProcess()
+    } catch (_: IllegalStateException) {
+      Log.d(TAG, "stopResponse: conversation already closed, skipping cancel")
+    }
   }
 
   override fun runInference(
