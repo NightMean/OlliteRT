@@ -22,6 +22,14 @@ object GitHubConfig {
   const val NEW_BUG_REPORT_URL = "$REPO_URL/issues/new?template=01_bug_report.yml"
 
   // ---------------------------------------------------------------------------
+  // Donation
+  // ---------------------------------------------------------------------------
+
+  const val DONATE_GITHUB_SPONSORS = "https://github.com/sponsors/NightMean"
+  const val DONATE_BUY_ME_A_COFFEE = "https://www.buymeacoffee.com/nightmean"
+  const val DONATE_KOFI = "https://ko-fi.com/nightmean"
+
+  // ---------------------------------------------------------------------------
   // Model allowlists and documentation (hosted in this repo)
   // ---------------------------------------------------------------------------
 
