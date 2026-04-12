@@ -1,6 +1,7 @@
 package com.ollitert.llm.server.ui.server
 
 import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.common.GitHubConfig
 import android.content.ClipData
 import android.os.Build
 import java.net.URLEncoder
@@ -2721,9 +2722,7 @@ fun SettingsScreen(
               "- LLM Model: $activeModel",
             ).joinToString("\n")
             val encoded = URLEncoder.encode(deviceInfo, "UTF-8")
-            val url = "https://github.com/NightMean/ollitert/issues/new" +
-              "?template=01_bug_report.yml" +
-              "&device-info=$encoded"
+            val url = "${GitHubConfig.NEW_BUG_REPORT_URL}&device-info=$encoded"
             uriHandler.openUri(url)
           }
           .padding(horizontal = 10.dp, vertical = 6.dp),

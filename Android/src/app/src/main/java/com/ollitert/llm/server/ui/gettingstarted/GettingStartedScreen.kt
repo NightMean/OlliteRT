@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.ui.gettingstarted
 
+import com.ollitert.llm.server.common.GitHubConfig
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -186,7 +187,7 @@ fun GettingStartedScreen(
       verticalAlignment = Alignment.CenterVertically,
       modifier = Modifier.clickable {
         context.startActivity(
-          Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/NightMean/ollitert"))
+          Intent(Intent.ACTION_VIEW, Uri.parse(GitHubConfig.REPO_URL))
         )
       },
     ) {

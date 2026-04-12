@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.worker
 
+import com.ollitert.llm.server.common.GitHubConfig
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -185,7 +186,7 @@ class UpdateCheckWorker(
    * Prod channel: GET /releases/latest — GitHub automatically skips pre-releases.
    */
   private fun fetchLatestStable(context: Context): ReleaseInfo? {
-    val url = "$GITHUB_API_BASE/releases/latest"
+    val url = "${GitHubConfig.API_BASE}/releases/latest"
     val cachedETag = LlmHttpPrefs.getCachedReleaseETag(context)
     val response = fetchGitHub(url, cachedETag)
 
@@ -205,7 +206,7 @@ class UpdateCheckWorker(
    * Beta channel: GET /releases?per_page=10, filter for beta or stable tags.
    */
   private fun fetchLatestBetaOrStable(context: Context): ReleaseInfo? {
-    val url = "$GITHUB_API_BASE/releases?per_page=10"
+    val url = "${GitHubConfig.API_BASE}/releases?per_page=10"
     val response = fetchGitHub(url, etag = null) // Don't cache list endpoint
     return when (response) {
       is GitHubResponse.NotModified -> null
@@ -221,7 +222,7 @@ class UpdateCheckWorker(
    * Dev channel: GET /releases?per_page=10, take the most recent non-draft release.
    */
   private fun fetchLatestAny(context: Context): ReleaseInfo? {
-    val url = "$GITHUB_API_BASE/releases?per_page=10"
+    val url = "${GitHubConfig.API_BASE}/releases?per_page=10"
     val response = fetchGitHub(url, etag = null)
     return when (response) {
       is GitHubResponse.NotModified -> null
@@ -426,14 +427,8 @@ class UpdateCheckWorker(
     const val RESULT_DISABLED = "disabled"
     private const val KEY_MANUAL_CHECK = "manual_check"
 
-    // GitHub API base URL — single source of truth for the repo location.
-    // Update this when migrating to a new repo (see F92 network dependency audit).
-    private const val GITHUB_OWNER = "NightMean"
-    private const val GITHUB_REPO = "ollitert"
-    private const val GITHUB_API_BASE = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO"
-
     /** GitHub Releases page URL for the "What's New" link in Settings. */
-    const val GITHUB_RELEASES_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases"
+    const val GITHUB_RELEASES_URL = GitHubConfig.RELEASES_URL
 
     // Tag patterns for channel-aware filtering (internal for testability)
     internal val STABLE_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+$")
