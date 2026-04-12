@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
@@ -86,6 +87,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -112,6 +114,11 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.text.KeyboardActions
@@ -417,6 +424,7 @@ fun SettingsScreen(
 
   // Discard confirmation dialog
   var showDiscardDialog by remember { mutableStateOf(false) }
+  var showDonateDialog by remember { mutableStateOf(false) }
 
   // Intercept back navigation when there are unsaved changes
   BackHandler(enabled = hasUnsavedChanges) {
@@ -2205,6 +2213,39 @@ fun SettingsScreen(
       )
     }
 
+    // Donate dialog — shows donation platform options
+    if (showDonateDialog) {
+      AlertDialog(
+        onDismissRequest = { showDonateDialog = false },
+        title = { Text("Support OlliteRT") },
+        text = {
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+              text = "If you find OlliteRT useful, consider supporting its development.",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            DonateOption("GitHub Sponsors", GitHubConfig.DONATE_GITHUB_SPONSORS, uriHandler) { showDonateDialog = false }
+            DonateOption("Buy Me a Coffee", GitHubConfig.DONATE_BUY_ME_A_COFFEE, uriHandler) { showDonateDialog = false }
+            DonateOption("Ko-fi", GitHubConfig.DONATE_KOFI, uriHandler) { showDonateDialog = false }
+          }
+        },
+        confirmButton = {},
+        dismissButton = {
+          Button(
+            onClick = { showDonateDialog = false },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+          ) {
+            Text("Close")
+          }
+        },
+      )
+    }
+
     // Home Assistant Integration card — immediate-apply (not part of save/cancel flow)
     var haIntegrationEnabled by remember { mutableStateOf(LlmHttpPrefs.isHaIntegrationEnabled(context)) }
 
@@ -2741,6 +2782,43 @@ fun SettingsScreen(
           color = OlliteRTPrimary,
         )
       }
+
+      // Donate — opens dialog with donation platform options
+      val heartPulse = rememberInfiniteTransition(label = "heartPulse")
+      val heartScale by heartPulse.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+          animation = tween(durationMillis = 600),
+          repeatMode = RepeatMode.Reverse,
+        ),
+        label = "heartScale",
+      )
+      Row(
+        modifier = Modifier
+          .clip(RoundedCornerShape(8.dp))
+          .clickable { showDonateDialog = true }
+          .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Favorite,
+          contentDescription = null,
+          tint = OlliteRTPrimary,
+          modifier = Modifier
+            .size(18.dp)
+            .graphicsLayer {
+              scaleX = heartScale
+              scaleY = heartScale
+            },
+        )
+        Text(
+          text = "Donate",
+          style = MaterialTheme.typography.bodyMedium,
+          color = OlliteRTPrimary,
+        )
+      }
     }
 
     // Footer
@@ -2868,5 +2946,41 @@ private fun SettingsCardLayout(
     }
     Spacer(modifier = Modifier.height(12.dp))
     content()
+  }
+}
+
+/** A single tappable row in the donate dialog that opens a donation URL. */
+@Composable
+private fun DonateOption(
+  label: String,
+  url: String,
+  uriHandler: androidx.compose.ui.platform.UriHandler,
+  onDismiss: () -> Unit,
+) {
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(10.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+      .clickable {
+        onDismiss()
+        uriHandler.openUri(url)
+      }
+      .padding(horizontal = 16.dp, vertical = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween,
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.bodyMedium,
+      fontWeight = FontWeight.SemiBold,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Icon(
+      imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+      contentDescription = null,
+      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.size(18.dp),
+    )
   }
 }
