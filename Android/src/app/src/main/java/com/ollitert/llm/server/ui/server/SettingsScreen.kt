@@ -1566,9 +1566,9 @@ fun SettingsScreen(
         }
       }
 
-      Spacer(modifier = Modifier.height(8.dp))
+      Spacer(modifier = Modifier.height(16.dp))
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
+      Spacer(modifier = Modifier.height(16.dp))
 
       // Automatic update check — gated behind notification permissions
       val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
