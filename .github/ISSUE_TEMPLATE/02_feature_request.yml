@@ -1,0 +1,53 @@
+name: Feature Request
+description: Suggest an idea or improvement for OlliteRT
+labels: ["feature request"]
+body:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues and this feature has not been requested yet
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Which problem is this feature request solving?
+      description: >-
+        A clear description of what the problem or limitation is.
+      placeholder: "I'm always frustrated when [...]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: >-
+        A clear description of what you want to happen.
+      placeholder: "This could be solved by [...]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: >-
+        Any alternative solutions or workarounds you've considered.
+      placeholder: "Another approach would be [...]"
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to submit a pull request for this feature
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: >-
+        Any other context, screenshots, or mockups about the feature request.
