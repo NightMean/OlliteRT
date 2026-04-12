@@ -59,6 +59,11 @@ private const val DEFAULT_LOG_PERSISTENCE_ENABLED = false
 private const val DEFAULT_LOG_MAX_ENTRIES = 500
 private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 
+// --- Engagement Prompt (donation/support prompt shown after N manual server starts) ---
+private const val KEY_MANUAL_START_COUNT = "manual_start_count"
+private const val KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED = "engagement_prompt_permanently_dismissed"
+private const val KEY_ENGAGEMENT_PROMPT_SHOW_COUNT = "engagement_prompt_show_count"
+
 // --- Update Check ---
 private const val KEY_UPDATE_CHECK_ENABLED = "update_check_enabled"
 private const val KEY_UPDATE_CHECK_INTERVAL_HOURS = "update_check_interval_hours"
@@ -550,6 +555,55 @@ object LlmHttpPrefs {
 
   fun setUpdateCheckConsecutiveFailures(context: Context, count: Int) {
     prefs(context).edit().putInt(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, count).apply()
+  }
+
+  // ---------------------------------------------------------------------------
+  // Engagement Prompt
+  // ---------------------------------------------------------------------------
+
+  /** Number of times the user has manually pressed "Start Server" (excludes auto-start on boot). */
+  fun getManualStartCount(context: Context): Int =
+    prefs(context).getInt(KEY_MANUAL_START_COUNT, 0)
+
+  fun incrementManualStartCount(context: Context): Int {
+    val newCount = getManualStartCount(context) + 1
+    prefs(context).edit().putInt(KEY_MANUAL_START_COUNT, newCount).apply()
+    return newCount
+  }
+
+  /** True if the user checked "Don't show this again" or tapped a positive action (Support/Star). */
+  fun isEngagementPromptPermanentlyDismissed(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED, false)
+
+  fun setEngagementPromptPermanentlyDismissed(context: Context) {
+    prefs(context).edit().putBoolean(KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED, true).apply()
+  }
+
+  /** How many times the engagement prompt has been shown (max 2 lifetime). */
+  fun getEngagementPromptShowCount(context: Context): Int =
+    prefs(context).getInt(KEY_ENGAGEMENT_PROMPT_SHOW_COUNT, 0)
+
+  fun incrementEngagementPromptShowCount(context: Context): Int {
+    val newCount = getEngagementPromptShowCount(context) + 1
+    prefs(context).edit().putInt(KEY_ENGAGEMENT_PROMPT_SHOW_COUNT, newCount).apply()
+    return newCount
+  }
+
+  /**
+   * Whether the engagement prompt should be shown right now.
+   * Criteria: not permanently dismissed, shown fewer than 2 times, and manual start count
+   * hits a threshold (3 for first show, 13 for second show — i.e. 10 additional starts).
+   */
+  fun shouldShowEngagementPrompt(context: Context): Boolean {
+    if (isEngagementPromptPermanentlyDismissed(context)) return false
+    val showCount = getEngagementPromptShowCount(context)
+    if (showCount >= 2) return false
+    val startCount = getManualStartCount(context)
+    return when (showCount) {
+      0 -> startCount >= 3
+      1 -> startCount >= 13
+      else -> false
+    }
   }
 
   /** Clear all cached update state (version, URL, ETag, dismiss). Called after a successful app update. */

@@ -2213,36 +2213,10 @@ fun SettingsScreen(
       )
     }
 
-    // Donate dialog — shows donation platform options
+    // Donate dialog — shows donation platform options (shared composable)
     if (showDonateDialog) {
-      AlertDialog(
-        onDismissRequest = { showDonateDialog = false },
-        title = { Text("Support OlliteRT") },
-        text = {
-          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-              text = "If you find OlliteRT useful, consider supporting its development.",
-              style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            DonateOption("GitHub Sponsors", GitHubConfig.DONATE_GITHUB_SPONSORS, uriHandler) { showDonateDialog = false }
-            DonateOption("Buy Me a Coffee", GitHubConfig.DONATE_BUY_ME_A_COFFEE, uriHandler) { showDonateDialog = false }
-            DonateOption("Ko-fi", GitHubConfig.DONATE_KOFI, uriHandler) { showDonateDialog = false }
-          }
-        },
-        confirmButton = {},
-        dismissButton = {
-          Button(
-            onClick = { showDonateDialog = false },
-            colors = ButtonDefaults.buttonColors(
-              containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-              contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-          ) {
-            Text("Close")
-          }
-        },
+      com.ollitert.llm.server.ui.common.DonateDialog(
+        onDismiss = { showDonateDialog = false },
       )
     }
 
@@ -2949,38 +2923,3 @@ private fun SettingsCardLayout(
   }
 }
 
-/** A single tappable row in the donate dialog that opens a donation URL. */
-@Composable
-private fun DonateOption(
-  label: String,
-  url: String,
-  uriHandler: androidx.compose.ui.platform.UriHandler,
-  onDismiss: () -> Unit,
-) {
-  Row(
-    modifier = Modifier
-      .fillMaxWidth()
-      .clip(RoundedCornerShape(10.dp))
-      .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-      .clickable {
-        onDismiss()
-        uriHandler.openUri(url)
-      }
-      .padding(horizontal = 16.dp, vertical = 12.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.SpaceBetween,
-  ) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.bodyMedium,
-      fontWeight = FontWeight.SemiBold,
-      color = MaterialTheme.colorScheme.onSurface,
-    )
-    Icon(
-      imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-      contentDescription = null,
-      tint = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.size(18.dp),
-    )
-  }
-}
