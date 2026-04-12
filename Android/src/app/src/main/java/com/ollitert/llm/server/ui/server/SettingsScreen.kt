@@ -2,6 +2,8 @@ package com.ollitert.llm.server.ui.server
 
 import com.ollitert.llm.server.BuildConfig
 import android.content.ClipData
+import android.os.Build
+import java.net.URLEncoder
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
@@ -2673,31 +2676,72 @@ fun SettingsScreen(
     } // Column
     } // AnimatedVisibility: Reset
 
-    // "What's New" link — opens changelog: Play Store listing for store users, GitHub Releases for sideloaded
-    Spacer(modifier = Modifier.height(8.dp))
+    // Footer links — What's New and Report Issue side by side
+    Spacer(modifier = Modifier.height(12.dp))
     Row(
-      modifier = Modifier
-        .align(Alignment.CenterHorizontally)
-        .clip(RoundedCornerShape(8.dp))
-        .clickable {
-          val intent = UpdateCheckWorker.buildUpdateIntent(context, UpdateCheckWorker.GITHUB_RELEASES_URL)
-          intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
-        }
-        .padding(horizontal = 8.dp, vertical = 4.dp),
+      modifier = Modifier.align(Alignment.CenterHorizontally),
+      horizontalArrangement = Arrangement.spacedBy(16.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      Icon(
-        imageVector = Icons.Outlined.NewReleases,
-        contentDescription = null,
-        tint = OlliteRTPrimary,
-        modifier = Modifier.size(16.dp),
-      )
-      Text(
-        text = "What's New",
-        style = MaterialTheme.typography.bodySmall,
-        color = OlliteRTPrimary,
-      )
+      // What's New — opens changelog
+      Row(
+        modifier = Modifier
+          .clip(RoundedCornerShape(8.dp))
+          .clickable {
+            val intent = UpdateCheckWorker.buildUpdateIntent(context, UpdateCheckWorker.GITHUB_RELEASES_URL)
+            intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
+          }
+          .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.NewReleases,
+          contentDescription = null,
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(18.dp),
+        )
+        Text(
+          text = "What's New",
+          style = MaterialTheme.typography.bodyMedium,
+          color = OlliteRTPrimary,
+        )
+      }
+
+      // Report Issue — opens GitHub bug report template with prefilled device info
+      Row(
+        modifier = Modifier
+          .clip(RoundedCornerShape(8.dp))
+          .clickable {
+            val activeModel = ServerMetrics.activeModelName.value ?: "None"
+            val deviceInfo = listOf(
+              "- App version: OlliteRT v${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_HASH}) [${BuildConfig.CHANNEL}]",
+              "- Device: ${Build.MANUFACTURER} ${Build.MODEL}",
+              "- Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+              "- LLM Model: $activeModel",
+            ).joinToString("\n")
+            val encoded = URLEncoder.encode(deviceInfo, "UTF-8")
+            val url = "https://github.com/NightMean/ollitert/issues/new" +
+              "?template=01_bug_report.yml" +
+              "&device-info=$encoded"
+            uriHandler.openUri(url)
+          }
+          .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.BugReport,
+          contentDescription = null,
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(18.dp),
+        )
+        Text(
+          text = "Report Issue",
+          style = MaterialTheme.typography.bodyMedium,
+          color = OlliteRTPrimary,
+        )
+      }
     }
 
     // Footer
