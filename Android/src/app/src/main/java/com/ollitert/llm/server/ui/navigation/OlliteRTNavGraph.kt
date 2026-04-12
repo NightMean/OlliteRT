@@ -15,8 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
@@ -28,7 +32,13 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.ui.benchmark.BenchmarkScreen
+import com.ollitert.llm.server.ui.common.DonateDialog
+import com.ollitert.llm.server.ui.common.EngagementPromptDialog
 import com.ollitert.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollitert.llm.server.ui.modelmanager.GlobalModelManager
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
@@ -61,6 +71,8 @@ fun OlliteRTNavHost(
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
+  val context = LocalContext.current
+  val uriHandler = LocalUriHandler.current
 
   // Track app foreground state
   DisposableEffect(lifecycleOwner) {
@@ -77,6 +89,53 @@ fun OlliteRTNavHost(
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
+  // --- Engagement prompt (donation/support) ---
+  // State lives at the NavHost level so it persists across tab navigation.
+  // The server may reach RUNNING after the user navigates away from the Models screen.
+  val engagementServerStatus by serverViewModel.status.collectAsState()
+  var manualStartPending by remember { mutableStateOf(false) }
+  var showEngagementPrompt by remember { mutableStateOf(false) }
+  var showDonateFromEngagement by remember { mutableStateOf(false) }
+
+  LaunchedEffect(engagementServerStatus) {
+    if (engagementServerStatus == ServerStatus.RUNNING && manualStartPending) {
+      manualStartPending = false
+      if (LlmHttpPrefs.shouldShowEngagementPrompt(context)) {
+        LlmHttpPrefs.incrementEngagementPromptShowCount(context)
+        showEngagementPrompt = true
+      }
+    } else if (engagementServerStatus == ServerStatus.ERROR || engagementServerStatus == ServerStatus.STOPPED) {
+      manualStartPending = false
+    }
+  }
+
+  // Engagement prompt dialog — shown after N successful manual server starts
+  if (showEngagementPrompt && !showDonateFromEngagement) {
+    EngagementPromptDialog(
+      onSupportDevelopment = {
+        // Open the donate dialog; engagement prompt will reappear when donate dialog closes
+        showDonateFromEngagement = true
+      },
+      onStarOnGitHub = {
+        showEngagementPrompt = false
+        LlmHttpPrefs.setEngagementPromptPermanentlyDismissed(context)
+        uriHandler.openUri(GitHubConfig.REPO_URL)
+      },
+      onDismiss = { permanentlyDismiss ->
+        showEngagementPrompt = false
+        if (permanentlyDismiss) {
+          LlmHttpPrefs.setEngagementPromptPermanentlyDismissed(context)
+        }
+      },
+    )
+  }
+
+  // Donate dialog — opened from the engagement prompt's "Support Development" button.
+  // When closed, the engagement prompt reappears so the user can still tap "Star on GitHub".
+  if (showDonateFromEngagement) {
+    DonateDialog(onDismiss = { showDonateFromEngagement = false })
+  }
+
   NavHost(
     navController = navController,
     startDestination = startDestination,
@@ -86,6 +145,7 @@ fun OlliteRTNavHost(
   ) {
     // Models tab (main screen, reusing GlobalModelManager)
     composable(OlliteRTRoutes.MODELS) {
+      val modelsContext = LocalContext.current
       val serverStatus by serverViewModel.status.collectAsState()
       val activeModelName by serverViewModel.activeModelName.collectAsState()
       val lastError by serverViewModel.lastError.collectAsState()
@@ -93,7 +153,10 @@ fun OlliteRTNavHost(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
         onModelSelected = { _, model ->
-          // Start the server with the selected model
+          // Track manual server starts for the engagement prompt (counter lives in prefs,
+          // observer lives at NavHost level so it fires regardless of which screen is active)
+          LlmHttpPrefs.incrementManualStartCount(modelsContext)
+          manualStartPending = true
           serverViewModel.startServer(modelName = model.name)
         },
         onBenchmarkClicked = { model ->
