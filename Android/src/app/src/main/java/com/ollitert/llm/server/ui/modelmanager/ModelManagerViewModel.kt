@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ProjectConfig
 import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.Accelerator
@@ -72,8 +73,7 @@ private const val TAG = "OlliteRTModelManagerVM"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
-private const val ALLOWLIST_BASE_URL =
-  "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
+private const val ALLOWLIST_BASE_URL = GitHubConfig.ALLOWLIST_BASE_URL
 
 private const val TEST_MODEL_ALLOW_LIST = ""
 
@@ -802,11 +802,18 @@ constructor(
 
         if (modelAllowlist == null) {
           // Load from github.
-          // Strip flavor suffixes (-dev, -beta) so the version maps to the upstream
+          // Strip flavor suffixes (-dev, -beta) so the version maps to the remote
           // allowlist file (e.g. "1.0.11-beta" → "1_0_11" → "1_0_11.json").
           // When beta needs different models, it will have a bumped version number
           // (e.g. 1.0.12) with its own allowlist — the suffix is not part of the
           // allowlist versioning scheme.
+          //
+          // IMPORTANT: Every new app version release MUST have a corresponding
+          // allowlist file in the repo's model_allowlists/ directory (e.g. 2_0_0.json
+          // for version 2.0.0). Without it, the app falls back to the disk cache or
+          // the bundled asset, which may be outdated. The file can be a copy of the
+          // previous version's allowlist if models haven't changed.
+          // See: model_allowlists/ in the repo root and GitHubConfig.ALLOWLIST_BASE_URL.
           var version = BuildConfig.VERSION_NAME
             .replace(Regex("-(dev|beta)$"), "")
             .replace(".", "_")
@@ -1296,6 +1303,7 @@ constructor(
   }
 }
 
+/** Builds the remote URL for a version-specific model allowlist file (e.g. "1_0_11" → "1_0_11.json"). */
 private fun getAllowlistUrl(version: String): String {
   return "$ALLOWLIST_BASE_URL/${version}.json"
 }
