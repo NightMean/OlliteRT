@@ -1,0 +1,136 @@
+name: Bug Report
+description: Report a bug, crash, or unexpected behavior
+labels: ["bug"]
+body:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am on the latest version of OlliteRT (or can reproduce on it)
+          required: true
+        - label: I have searched existing issues for duplicates
+          required: true
+
+  - type: markdown
+    attributes:
+      value: "## The Problem"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the app
+        2. Go to '...'
+        3. Tap on '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## Classification"
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Bug category
+      options:
+        - Application crash
+        - Model loading failure
+        - Server / networking (connection, port, CORS, auth)
+        - Model download
+        - API compatibility (OpenAI API format mismatch)
+        - User interface
+        - Integration (Home Assistant, Open WebUI, etc.)
+        - Settings
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: flavor
+    attributes:
+      label: App flavor
+      description: Which build of OlliteRT are you using?
+      options:
+        - stable (OlliteRT)
+        - beta (OlliteRT Beta)
+        - dev (OlliteRT Dev)
+    validations:
+      required: true
+
+  # - type: dropdown
+  #   id: downloaded_from
+  #   attributes:
+  #     label: Downloaded from
+  #     description: Where did you download OlliteRT from?
+  #     options:
+  #       - GitHub Releases
+  #       - Google Play Store
+  #   validations:
+  #     required: true
+
+  - type: markdown
+    attributes:
+      value: "## Environment"
+
+  - type: textarea
+    id: device-info
+    attributes:
+      label: Device & app information
+      description: >-
+        If you used the "Report Issue" button in the app, this is filled in automatically.
+        Otherwise, please fill it in manually.
+      placeholder: |
+        - App version: OlliteRT v___ (e.g. v0.8.0)
+        - Device: [manufacturer] [model] (e.g. Samsung Galaxy S23 Ultra)
+        - Android: [version] (e.g. Android 14)
+        - LLM Model: [LLM model name used] (e.g. Gemma-4-E2B-it)
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## Additional Information"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error message or logs
+      description: >-
+        Paste any error messages from the app's Logs screen, Status screen, or your client.
+        For full device logs, see the
+        [Bug Reporting Guide](https://github.com/NightMean/ollitert/blob/master/docs/Bug_Reporting_Guide.md).
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+      description: If applicable, drag and drop screenshots or screen recordings here.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: >-
+        Anything else that might help: workarounds tried, how often it happens,
+        which client is connecting, relevant non-default settings, etc.
