@@ -1448,7 +1448,7 @@ fun SettingsScreen(
       if (settingVisible("keep_alive") && settingVisible("dontkillmyapp")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
       }
 
       // Link to dontkillmyapp.com — OEM-specific battery/background kill settings
