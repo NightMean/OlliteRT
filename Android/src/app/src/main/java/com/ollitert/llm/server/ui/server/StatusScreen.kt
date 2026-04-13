@@ -1,9 +1,6 @@
 package com.ollitert.llm.server.ui.server
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.formatModelError
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Psychology
@@ -372,7 +370,7 @@ fun StatusScreen(
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
             tooltip = "Copy endpoint URL",
-            onClick = { copyToClipboard(context, endpointUrl) },
+            onClick = { copyToClipboard(context, "OlliteRT Endpoint", endpointUrl) },
             tint = OlliteRTPrimary,
           )
         }
@@ -686,8 +684,3 @@ private fun formatUptime(totalSeconds: Long): String {
   return "%02d:%02d:%02d".format(hours, minutes, seconds)
 }
 
-private fun copyToClipboard(context: Context, text: String) {
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Endpoint", text))
-  Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-}

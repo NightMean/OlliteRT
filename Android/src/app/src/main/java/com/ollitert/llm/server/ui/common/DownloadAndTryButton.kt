@@ -18,6 +18,7 @@ package com.ollitert.llm.server.ui.common
 
 import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -564,10 +565,10 @@ fun DownloadAndTryButton(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
           ) {
-            android.widget.Toast.makeText(
+            Toast.makeText(
               context,
               "Please wait for the current model to finish loading",
-              android.widget.Toast.LENGTH_SHORT,
+              Toast.LENGTH_SHORT,
             ).show()
           },
       )

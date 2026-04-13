@@ -1,13 +1,12 @@
 package com.ollitert.llm.server.ui.server
 
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.common.GitHubConfig
-import android.content.ClipData
-import android.os.Build
+import com.ollitert.llm.server.ui.common.copyToClipboard
 import java.net.URLEncoder
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1174,9 +1173,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.ContentCopy,
             tooltip = "Copy token",
             onClick = {
-              val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-              clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Bearer Token", bearerToken))
-              Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+              copyToClipboard(context, "OlliteRT Bearer Token", bearerToken)
             },
           )
 
@@ -1517,7 +1514,7 @@ fun SettingsScreen(
           if (info.state.isFinished) {
             val message = info.outputData.getString(UpdateCheckWorker.KEY_MESSAGE)
             if (message != null) {
-              android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
             checkWorkId = null
           }
@@ -1526,7 +1523,7 @@ fun SettingsScreen(
         LaunchedEffect(id) {
           kotlinx.coroutines.delay(15_000)
           if (checkWorkId == id) {
-            android.widget.Toast.makeText(context, "Update check timed out — check your network connection", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Update check timed out — check your network connection", Toast.LENGTH_SHORT).show()
             workManager.cancelWorkById(id)
             checkWorkId = null
           }
@@ -1565,7 +1562,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.Refresh,
             tooltip = "Check now",
             onClick = {
-              android.widget.Toast.makeText(context, "Checking for updates…", android.widget.Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, "Checking for updates…", Toast.LENGTH_SHORT).show()
               checkWorkId = UpdateCheckWorker.checkNow(context)
             },
           )
@@ -2375,9 +2372,7 @@ fun SettingsScreen(
         // Full-width copy button
         Button(
           onClick = {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT HA Config", haConfig))
-            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            copyToClipboard(context, "OlliteRT HA Config", haConfig)
           },
           modifier = Modifier
             .fillMaxWidth()
@@ -2658,7 +2653,7 @@ fun SettingsScreen(
             )
             val msg = if (it) "Debug mode enabled — additional details will appear in Logs"
               else "Debug mode disabled"
-            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
           },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )

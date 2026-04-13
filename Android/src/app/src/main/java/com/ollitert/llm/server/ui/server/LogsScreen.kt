@@ -51,6 +51,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.copyToClipboard
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -2329,9 +2330,7 @@ private fun ExpandablePromptBox(
 
 private fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
   val json = entryToJson(entry).toString(2)
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Event", json))
-  Toast.makeText(context, "Copied to clipboard (JSON)", Toast.LENGTH_SHORT).show()
+  copyToClipboard(context, "OlliteRT Event", json, formatSuffix = "JSON")
 }
 
 private const val COLLAPSED_MAX_LINES = 8
@@ -3089,9 +3088,7 @@ private suspend fun exportLogsAsJson(context: Context, entries: List<RequestLogE
 
 private fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
   val json = entryToJson(entry).toString(2)
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Log Entry", json))
-  Toast.makeText(context, "Copied to clipboard (JSON)", Toast.LENGTH_SHORT).show()
+  copyToClipboard(context, "OlliteRT Log Entry", json, formatSuffix = "JSON")
 }
 
 @Composable

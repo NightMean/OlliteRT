@@ -17,10 +17,13 @@
 package com.ollitert.llm.server.ui.common
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -61,6 +64,22 @@ import kotlin.math.pow
 import kotlinx.coroutines.delay
 
 private const val TAG = "OlliteRTUiUtils"
+
+/**
+ * Copy text to the system clipboard with a standardized toast notification.
+ *
+ * @param label Clipboard metadata label (prefix with "OlliteRT", e.g. "OlliteRT Endpoint").
+ *              Visible in clipboard manager apps, not shown to the user directly.
+ * @param text The content to copy.
+ * @param formatSuffix Optional format hint appended to the toast (e.g. "JSON", "CSV").
+ *                     Omit for simple values like URLs or tokens.
+ */
+fun copyToClipboard(context: Context, label: String, text: String, formatSuffix: String? = null) {
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+  clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+  val toast = if (formatSuffix != null) "Copied to clipboard ($formatSuffix)" else "Copied to clipboard"
+  Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
+}
 
 /** Consistent error text for model loading failures across all screens. */
 fun formatModelError(error: String?): String = when {
