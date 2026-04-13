@@ -35,7 +35,7 @@ val gitHash: String = providers.exec {
 
 android {
   namespace = "com.ollitert.llm.server"
-  compileSdk = 35
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.ollitert.llm.server"
@@ -185,7 +185,7 @@ dependencies {
   ksp(libs.moshi.kotlin.codegen)
   ksp(libs.androidx.room.compiler)
   testImplementation(libs.junit)
-  testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+  testImplementation(libs.kotlinx.coroutines.test)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -196,6 +196,6 @@ dependencies {
 }
 
 protobuf {
-  protoc { artifact = "com.google.protobuf:protoc:4.26.1" }
+  protoc { artifact = "com.google.protobuf:protoc:4.34.1" }
   generateProtoTasks { all().forEach { it.plugins { create("java") { option("lite") } } } }
 }
