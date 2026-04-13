@@ -1175,8 +1175,8 @@ fun SettingsScreen(
             tooltip = "Copy token",
             onClick = {
               val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-              clipboard.setPrimaryClip(ClipData.newPlainText("Bearer Token", bearerToken))
-              Toast.makeText(context, "Token copied", Toast.LENGTH_SHORT).show()
+              clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Bearer Token", bearerToken))
+              Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             },
           )
 
@@ -2376,8 +2376,8 @@ fun SettingsScreen(
         Button(
           onClick = {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("HA Config", haConfig))
-            Toast.makeText(context, "Home Assistant configuration copied to clipboard", Toast.LENGTH_SHORT).show()
+            clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT HA Config", haConfig))
+            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
           },
           modifier = Modifier
             .fillMaxWidth()

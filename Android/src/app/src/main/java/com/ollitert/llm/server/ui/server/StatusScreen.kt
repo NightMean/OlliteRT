@@ -656,7 +656,7 @@ private fun MetricCard(
 ) {
   Column(
     modifier = modifier
-      .clip(RoundedCornerShape(20.dp))
+      .clip(RoundedCornerShape(24.dp))
       .background(MaterialTheme.colorScheme.surfaceContainerLow)
       .padding(16.dp),
   ) {

@@ -17,7 +17,7 @@ class CopyUrlReceiver : BroadcastReceiver() {
     val url = intent.getStringExtra(EXTRA_URL) ?: return
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Endpoint", url))
-    Toast.makeText(context, "Copied: $url", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
   }
 
   companion object {

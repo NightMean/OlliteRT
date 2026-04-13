@@ -171,7 +171,7 @@ fun InferenceSettingsSheet(
           useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
           systemPrompt = ""
           chatTemplate = ""
-          Toast.makeText(context, "Model settings reset to default", Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, "Model settings reset to defaults", Toast.LENGTH_SHORT).show()
         }) {
           Text("Reset")
         }
