@@ -22,10 +22,10 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.AppLifecycleProvider
-import com.ollitert.llm.server.BenchmarkResultsSerializer
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
-import com.ollitert.llm.server.SettingsSerializer
-import com.ollitert.llm.server.UserDataSerializer
+import com.ollitert.llm.server.data.BenchmarkResultsSerializer
+import com.ollitert.llm.server.data.SettingsSerializer
+import com.ollitert.llm.server.data.UserDataSerializer
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
 import com.ollitert.llm.server.data.DefaultDownloadRepository

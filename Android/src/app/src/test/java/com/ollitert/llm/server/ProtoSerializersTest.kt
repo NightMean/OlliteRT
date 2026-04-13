@@ -1,6 +1,8 @@
 package com.ollitert.llm.server
 
 import androidx.datastore.core.CorruptionException
+import com.ollitert.llm.server.data.BenchmarkResultsSerializer
+import com.ollitert.llm.server.data.SettingsSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.Settings
 import java.io.ByteArrayInputStream
