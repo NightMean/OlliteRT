@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -58,6 +59,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -191,7 +195,7 @@ fun InferenceSettingsSheet(
         .fillMaxWidth()
         .verticalScroll(rememberScrollState())
         .padding(horizontal = 24.dp, vertical = 8.dp)
-        .padding(bottom = 32.dp),
+        .padding(bottom = 16.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       // Header row
@@ -446,7 +450,7 @@ fun InferenceSettingsSheet(
         },
         modifier = Modifier
           .fillMaxWidth()
-          .height(52.dp),
+          .defaultMinSize(minHeight = 52.dp),
         shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(containerColor = OlliteRTPrimary),
       ) {
@@ -454,6 +458,7 @@ fun InferenceSettingsSheet(
           text = "Save & Apply Configuration",
           style = MaterialTheme.typography.labelLarge,
           fontWeight = FontWeight.Bold,
+          textAlign = TextAlign.Center,
         )
       }
     }
@@ -509,10 +514,13 @@ private fun ParameterInputBox(
   }
 
   Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    Row(
+    // Label + range hint — FlowRow wraps the hint below the label at large font scaling
+    // instead of overlapping or truncating.
+    @OptIn(ExperimentalLayoutApi::class)
+    FlowRow(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically,
+      verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
       Text(
         text = label,

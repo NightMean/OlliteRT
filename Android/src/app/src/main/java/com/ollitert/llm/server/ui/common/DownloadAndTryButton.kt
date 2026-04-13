@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -403,7 +404,7 @@ fun DownloadAndTryButton(
   }
 
   if (!showDownloadProgress) {
-    var buttonModifier: Modifier = modifier.height(42.dp)
+    var buttonModifier: Modifier = modifier.defaultMinSize(minHeight = 42.dp)
     if (!compact) {
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
@@ -433,6 +434,9 @@ fun DownloadAndTryButton(
               "Loading Model",
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               style = MaterialTheme.typography.titleMedium,
+              maxLines = 1,
+              autoSize =
+                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
           }
         }
@@ -462,6 +466,9 @@ fun DownloadAndTryButton(
               "Stop Server",
               color = MaterialTheme.colorScheme.error,
               style = MaterialTheme.typography.titleMedium,
+              maxLines = 1,
+              autoSize =
+                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
           }
         }
@@ -475,7 +482,7 @@ fun DownloadAndTryButton(
     val effectiveEnabled = enabled && !isStartDisabled
     Box(modifier = buttonModifier) {
     Button(
-      modifier = Modifier.height(42.dp).fillMaxWidth(),
+      modifier = Modifier.defaultMinSize(minHeight = 42.dp).fillMaxWidth(),
       enabled = effectiveEnabled,
       colors =
         ButtonDefaults.buttonColors(

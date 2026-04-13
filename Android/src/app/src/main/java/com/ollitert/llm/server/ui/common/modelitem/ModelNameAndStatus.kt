@@ -95,13 +95,14 @@ fun ModelNameAndStatus(
       }
     }
 
-    // Model name and action buttons.
+    // Model name — end padding reserves space for the overlaid action icons
+    // (delete 40dp + settings 40dp + 8dp gap + 12dp card padding = 100dp worst case).
     Text(
       model.displayName.ifEmpty { model.name },
-      maxLines = 1,
-      overflow = TextOverflow.MiddleEllipsis,
+      maxLines = 2,
+      overflow = TextOverflow.Ellipsis,
       style = MaterialTheme.typography.titleLarge,
-      modifier = Modifier.padding(end = 64.dp),
+      modifier = Modifier.padding(end = 100.dp),
     )
 
     // Capability chips (Text, Vision, Audio, Thinking)

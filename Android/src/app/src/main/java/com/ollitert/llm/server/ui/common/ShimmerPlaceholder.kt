@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -59,20 +59,20 @@ fun ShimmerModelCard(modifier: Modifier = Modifier) {
       .padding(16.dp),
   ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      // Title line
+      // Title line — weight() gives proportional sizing within a Row
       Row {
         Box(
           modifier = Modifier
             .height(20.dp)
-            .width(180.dp)
+            .weight(0.55f)
             .clip(RoundedCornerShape(4.dp))
             .background(brush),
         )
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(0.25f))
         Box(
           modifier = Modifier
             .height(20.dp)
-            .width(60.dp)
+            .weight(0.2f)
             .clip(RoundedCornerShape(4.dp))
             .background(brush),
         )

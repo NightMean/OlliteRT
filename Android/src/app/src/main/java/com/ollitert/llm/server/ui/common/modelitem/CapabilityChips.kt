@@ -1,11 +1,11 @@
 package com.ollitert.llm.server.ui.common.modelitem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,19 +19,17 @@ import com.ollitert.llm.server.data.Model
 /**
  * Displays capability chips (Text, Vision, Audio, Thinking) for an LLM model.
  * All LLM models show "Text"; other chips appear based on model flags.
+ * Horizontally scrollable so chips that don't fit scroll off-screen.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CapabilityChips(
   model: Model,
   modifier: Modifier = Modifier,
 ) {
-  FlowRow(
-    modifier = modifier,
+  Row(
+    modifier = modifier.horizontalScroll(rememberScrollState()),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
-    verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    // All LLM models support text
     CapabilityChip(label = "Text")
     if (model.llmSupportImage) {
       CapabilityChip(label = "Vision")
@@ -61,6 +59,7 @@ private fun CapabilityChip(
       text = label,
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
+      maxLines = 1,
     )
   }
 }

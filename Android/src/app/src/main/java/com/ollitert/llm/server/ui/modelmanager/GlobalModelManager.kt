@@ -37,6 +37,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -370,7 +372,7 @@ fun GlobalModelManager(
         .fillMaxWidth()
         .padding(horizontal = 16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
-      contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
+      contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
     ) {
       // Search bar
       item(key = "search_bar") {
@@ -426,7 +428,9 @@ fun GlobalModelManager(
       // Filter chips + sort button
       item(key = "filter_chips") {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          // Horizontally scrollable so chips remain usable at large font scaling
           Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
@@ -484,6 +488,7 @@ fun GlobalModelManager(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
               Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
               ) {
