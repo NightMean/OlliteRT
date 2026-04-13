@@ -1610,7 +1610,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
   Column(
     modifier = Modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(20.dp))
+      .clip(RoundedCornerShape(24.dp))
       .background(cardBg)
       .padding(16.dp),
   ) {
@@ -2331,7 +2331,7 @@ private fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
   val json = entryToJson(entry).toString(2)
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
   clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Event", json))
-  Toast.makeText(context, "Event copied (JSON)", Toast.LENGTH_SHORT).show()
+  Toast.makeText(context, "Copied to clipboard (JSON)", Toast.LENGTH_SHORT).show()
 }
 
 private const val COLLAPSED_MAX_LINES = 8
@@ -2363,7 +2363,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
   Column(
     modifier = Modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(20.dp))
+      .clip(RoundedCornerShape(24.dp))
       .background(cardBg)
       .padding(16.dp),
   ) {
@@ -2422,23 +2422,26 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
           }
         }
       }
-      Spacer(modifier = Modifier.width(2.dp))
-      @OptIn(ExperimentalMaterial3Api::class)
-      TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = { PlainTooltip { Text("Copy log entry") } },
-        state = rememberTooltipState(),
-      ) {
-        IconButton(
-          onClick = { copyEntryToClipboard(context, entry) },
-          modifier = Modifier.size(32.dp),
+      // Hide copy while response is still generating — entry has no response body yet
+      if (!entry.isPending) {
+        Spacer(modifier = Modifier.width(2.dp))
+        @OptIn(ExperimentalMaterial3Api::class)
+        TooltipBox(
+          positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+          tooltip = { PlainTooltip { Text("Copy log entry") } },
+          state = rememberTooltipState(),
         ) {
-          Icon(
-            imageVector = Icons.Outlined.ContentCopy,
-            contentDescription = "Copy log entry",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp),
-          )
+          IconButton(
+            onClick = { copyEntryToClipboard(context, entry) },
+            modifier = Modifier.size(32.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.ContentCopy,
+              contentDescription = "Copy log entry",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(16.dp),
+            )
+          }
         }
       }
     }
@@ -3043,7 +3046,7 @@ private suspend fun copyAllLogsToClipboard(context: Context, entries: List<Reque
     val json = withContext(Dispatchers.Default) { buildLogsJson(entries) }
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
-    Toast.makeText(context, "All logs copied as JSON (${entries.size} entries)", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, "Copied ${entries.size} entries (JSON)", Toast.LENGTH_SHORT).show()
   } catch (_: Exception) {
     // TransactionTooLargeException (or similar) — clipboard has a ~1MB Binder limit.
     // With many entries and large request/response bodies, the JSON can exceed this.

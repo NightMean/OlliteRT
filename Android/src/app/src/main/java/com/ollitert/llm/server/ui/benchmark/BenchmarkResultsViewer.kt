@@ -17,6 +17,9 @@
 package com.ollitert.llm.server.ui.benchmark
 
 import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -88,8 +91,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -624,20 +626,18 @@ fun BenchmarkResultsViewer(
                             Spacer(modifier = Modifier.width(8.dp))
 
                             // Copy
-                            val clipboard = LocalClipboard.current
+                            val copyContext = LocalContext.current
                             Button(
                               onClick = {
                                 scope.launch {
-                                  // Copy csv to clipboard.
                                   val csv =
                                     getBenchmarkResultCsv(
                                       llmResult = llmResult,
                                       aggregation = result.aggregation,
                                     )
-                                  val clipData =
-                                    ClipData.newPlainText("benchmark results for ${modelName}", csv)
-                                  val clipEntry = ClipEntry(clipData = clipData)
-                                  clipboard.setClipEntry(clipEntry = clipEntry)
+                                  val clipboard = copyContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Benchmark Results", csv))
+                                  Toast.makeText(copyContext, "Copied to clipboard (CSV)", Toast.LENGTH_SHORT).show()
                                 }
                               },
                               colors =
