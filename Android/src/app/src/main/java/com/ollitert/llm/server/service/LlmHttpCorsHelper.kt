@@ -12,6 +12,9 @@ package com.ollitert.llm.server.service
  */
 object LlmHttpCorsHelper {
 
+  /** Preflight response cache duration — browsers cache the CORS allow for this long. */
+  private const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400" // 24 hours
+
   /**
    * Cached parsed origins list — avoids re-splitting the comma-separated string on every request.
    * Invalidated when the raw setting string changes.
@@ -66,8 +69,7 @@ object LlmHttpCorsHelper {
     // Ollama allows the same set plus x-stainless-* (OpenAI SDK internals).
     headers["Access-Control-Allow-Headers"] =
       "Content-Type, Authorization, User-Agent, Accept, X-Requested-With"
-    // Cache preflight response for 24 hours
-    headers["Access-Control-Max-Age"] = "86400"
+    headers["Access-Control-Max-Age"] = CORS_PREFLIGHT_MAX_AGE_SECONDS
     return headers
   }
 

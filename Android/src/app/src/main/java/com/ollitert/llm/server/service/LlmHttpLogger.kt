@@ -18,8 +18,15 @@ class LlmHttpLogger(
   /** When true, payload truncation is skipped (verbose debug mode). */
   private val isVerboseDebug: () -> Boolean = { false },
 ) {
-  private val maxLogChars = 2000
-  private val logFileMaxBytes = 512 * 1024L
+  private val maxLogChars = MAX_PAYLOAD_LOG_CHARS
+  private val logFileMaxBytes = LOG_FILE_MAX_BYTES
+
+  companion object {
+    /** Max characters logged per payload before truncation (bypassed in verbose debug mode). */
+    private const val MAX_PAYLOAD_LOG_CHARS = 2000
+    /** Log file rotation threshold — rotates to .log.1 when exceeded. */
+    private const val LOG_FILE_MAX_BYTES = 512 * 1024L
+  }
   private val executor = Executors.newSingleThreadExecutor()
 
   fun logEvent(message: String) {

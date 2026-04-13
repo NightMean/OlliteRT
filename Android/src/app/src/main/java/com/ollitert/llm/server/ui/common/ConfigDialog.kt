@@ -586,7 +586,7 @@ fun BottomSheetSelectorRow(
     ModalBottomSheet(
       onDismissRequest = { showBottomSheet = false },
       sheetState = sheetState,
-      sheetMaxWidth = 640.dp,
+      sheetMaxWidth = SHEET_MAX_WIDTH,
       containerColor = MaterialTheme.colorScheme.surface,
     ) {
       Column(modifier = Modifier.fillMaxWidth()) {

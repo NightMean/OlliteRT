@@ -61,7 +61,8 @@ class LlmHttpService : Service() {
   private var defaultModel: Model? = null
   private val modelCache: MutableMap<String, Model> = mutableMapOf()
   private val logTag = "LlmHttpService"
-  private val maxBodyBytes = 512 * 1024
+  /** Max HTTP request body size (512 KB). Larger payloads are rejected as 413. */
+  private val maxBodyBytes = MAX_REQUEST_BODY_BYTES
   private val requestCounter = AtomicLong(0)
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
@@ -97,10 +98,10 @@ class LlmHttpService : Service() {
   /** Called when the keep-alive idle timer fires. Extracted from the Runnable to avoid
    *  recursive type inference (a Runnable initializer can't reference itself). */
   private fun onKeepAliveTimeout() {
-    // Don't unload if currently inferring — reschedule and check again in 30s
+    // Don't unload if currently inferring — reschedule and recheck after a short delay
     if (ServerMetrics.isInferring.value) {
-      keepAliveHandler.postDelayed(keepAliveRunnable, 30_000L)
-      Log.i(logTag, "Keep-alive: model is inferring, will recheck in 30s")
+      keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_RECHECK_MS)
+      Log.i(logTag, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
       return
     }
     synchronized(keepAliveLock) {
@@ -477,14 +478,13 @@ class LlmHttpService : Service() {
         // before entering native code so we fail gracefully instead of crashing
         // the entire process. 500 MB is a conservative minimum — models create
         // XNNPack weight caches that can be hundreds of MB.
-        val MIN_STORAGE_FOR_INIT_BYTES = 500L * 1024 * 1024
         try {
           val stat = StatFs(Environment.getDataDirectory().path)
-          if (stat.availableBytes < MIN_STORAGE_FOR_INIT_BYTES) {
+          if (stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
             val availMb = stat.availableBytes / (1024 * 1024)
             throw RuntimeException(
               "Not enough storage to load model (${availMb}MB available, " +
-              "need at least ${MIN_STORAGE_FOR_INIT_BYTES / (1024 * 1024)}MB). " +
+              "need at least ${MIN_STORAGE_FOR_MODEL_INIT_BYTES / (1024 * 1024)}MB). " +
               "Free up space and try again."
             )
           }
@@ -1504,11 +1504,11 @@ class LlmHttpService : Service() {
       return if (req.stream == true) {
         val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
         ServerMetrics.onInferenceStarted()
-        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot)
+        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot)
       } else {
         withPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens) {
           ServerMetrics.onInferenceStarted()
-          val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId)
+          val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId)
           ServerMetrics.onInferenceCompleted()
           if (rawText == null) {
             val (errorMsg, kind) = enrichLlmError(llmError ?: "llm error")
@@ -1615,7 +1615,7 @@ class LlmHttpService : Service() {
       return withPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens) {
         // Streaming completions: fall through to non-streaming for now (TODO: implement streaming)
         ServerMetrics.onInferenceStarted()
-        val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = 120, logId = logId)
+        val (rawText, llmError) = runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId)
         ServerMetrics.onInferenceCompleted()
         if (rawText == null) {
           val (errorMsg, kind) = enrichLlmError(llmError ?: "llm error")
@@ -1720,11 +1720,11 @@ class LlmHttpService : Service() {
       return if (req.stream == true) {
         val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
         ServerMetrics.onInferenceStarted()
-        streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot)
+        streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot)
       } else {
         withPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens) {
           ServerMetrics.onInferenceStarted()
-          val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = 90, logId = logId)
+          val (text, llmError) = runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId)
           ServerMetrics.onInferenceCompleted()
           if (text == null) {
             val (errorMsg, kind) = enrichLlmError(llmError ?: "llm error")
@@ -1758,7 +1758,7 @@ class LlmHttpService : Service() {
     fun warmUpModel(model: Model) {
       val startMs = SystemClock.elapsedRealtime()
       val eagerVision = LlmHttpPrefs.isEagerVisionInit(this@LlmHttpService)
-      val (result, _) = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = 10, eagerVisionInit = eagerVision)
+      val (result, _) = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = WARMUP_TIMEOUT_SECONDS, eagerVisionInit = eagerVision)
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
       val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
       RequestLogStore.addEvent(
@@ -2048,7 +2048,7 @@ class LlmHttpService : Service() {
             // full entries-list replacement that would cause entire LazyColumn recomposition.
             if (streamPreview && logId != null && !done) {
               val nowMs = SystemClock.elapsedRealtime()
-              if (nowMs - lastLogUpdateMs >= 300) {
+              if (nowMs - lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
                 lastLogUpdateMs = nowMs
                 // Include thinking content in the preview so the Logs screen
                 // can show it during streaming (not just after completion).
@@ -2359,7 +2359,7 @@ class LlmHttpService : Service() {
             // full entries-list replacement that would cause entire LazyColumn recomposition.
             if (streamPreview && logId != null && !done) {
               val nowMs = SystemClock.elapsedRealtime()
-              if (nowMs - lastLogUpdateMs >= 300) {
+              if (nowMs - lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
                 lastLogUpdateMs = nowMs
                 // Include thinking content in the preview so the Logs screen
                 // can show it during streaming (not just after completion).
@@ -2977,6 +2977,23 @@ class LlmHttpService : Service() {
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     private const val CHANNEL_ID = "ollitert-server"
     private const val NOTIFICATION_ID = 42
+
+    /** Max HTTP request body size (512 KB). */
+    private const val MAX_REQUEST_BODY_BYTES = 512 * 1024
+    /** When model is inferring at keep-alive timeout, recheck after this delay. */
+    private const val KEEP_ALIVE_RECHECK_MS = 30_000L
+    /** Conservative minimum free storage before attempting model init.
+     *  LiteRT's Engine creates XNNPack weight caches that can be hundreds of MB. */
+    private const val MIN_STORAGE_FOR_MODEL_INIT_BYTES = 500L * 1024 * 1024
+    /** Debounce interval for updating the Logs screen preview during streaming inference. */
+    private const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
+
+    /** Inference timeout for /v1/chat/completions and /v1/completions (seconds). */
+    private const val CHAT_COMPLETIONS_TIMEOUT_SECONDS = 120L
+    /** Inference timeout for /v1/responses (seconds). */
+    private const val RESPONSES_TIMEOUT_SECONDS = 90L
+    /** Inference timeout for the warmup pass after model load (seconds). */
+    private const val WARMUP_TIMEOUT_SECONDS = 10L
 
     /** Latch that the background cleanup thread in onDestroy signals when native memory is released.
      *  The next service instance's model load thread waits on this before initializing to avoid

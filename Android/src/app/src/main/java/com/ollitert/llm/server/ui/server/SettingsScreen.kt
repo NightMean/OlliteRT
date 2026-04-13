@@ -5,6 +5,7 @@ import android.os.Build
 import android.widget.Toast
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.copyToClipboard
 import java.net.URLEncoder
 import androidx.activity.compose.BackHandler
@@ -659,7 +660,7 @@ fun SettingsScreen(
   ) {
   Column(
     modifier = Modifier
-      .widthIn(max = 840.dp)
+      .widthIn(max = SCREEN_CONTENT_MAX_WIDTH)
       .fillMaxWidth()
       .verticalScroll(rememberScrollState())
       .padding(horizontal = 20.dp, vertical = 16.dp)

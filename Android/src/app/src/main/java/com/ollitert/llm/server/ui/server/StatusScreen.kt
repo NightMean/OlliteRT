@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.formatModelError
@@ -145,7 +146,7 @@ fun StatusScreen(
   ) {
   Column(
     modifier = Modifier
-      .widthIn(max = 840.dp)
+      .widthIn(max = SCREEN_CONTENT_MAX_WIDTH)
       .fillMaxWidth()
       .verticalScroll(rememberScrollState())
       .padding(horizontal = 20.dp, vertical = 16.dp),

@@ -63,6 +63,12 @@ private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 private const val KEY_MANUAL_START_COUNT = "manual_start_count"
 private const val KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED = "engagement_prompt_permanently_dismissed"
 private const val KEY_ENGAGEMENT_PROMPT_SHOW_COUNT = "engagement_prompt_show_count"
+/** Maximum number of times the engagement prompt is shown before being auto-suppressed. */
+private const val ENGAGEMENT_PROMPT_MAX_SHOWS = 2
+/** Manual start count threshold for showing the engagement prompt the first time. */
+private const val ENGAGEMENT_PROMPT_FIRST_THRESHOLD = 3
+/** Manual start count threshold for showing the engagement prompt the second time. */
+private const val ENGAGEMENT_PROMPT_SECOND_THRESHOLD = 13
 
 // --- Update Check ---
 private const val KEY_UPDATE_CHECK_ENABLED = "update_check_enabled"
@@ -597,11 +603,11 @@ object LlmHttpPrefs {
   fun shouldShowEngagementPrompt(context: Context): Boolean {
     if (isEngagementPromptPermanentlyDismissed(context)) return false
     val showCount = getEngagementPromptShowCount(context)
-    if (showCount >= 2) return false
+    if (showCount >= ENGAGEMENT_PROMPT_MAX_SHOWS) return false
     val startCount = getManualStartCount(context)
     return when (showCount) {
-      0 -> startCount >= 3
-      1 -> startCount >= 13
+      0 -> startCount >= ENGAGEMENT_PROMPT_FIRST_THRESHOLD
+      1 -> startCount >= ENGAGEMENT_PROMPT_SECOND_THRESHOLD
       else -> false
     }
   }

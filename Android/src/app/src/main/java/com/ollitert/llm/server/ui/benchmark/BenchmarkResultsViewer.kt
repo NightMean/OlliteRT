@@ -99,6 +99,7 @@ import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.ui.common.Accordions
 import com.ollitert.llm.server.ui.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.MarkdownText
+import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.theme.customColors
@@ -725,7 +726,7 @@ fun BenchmarkResultsViewer(
     ModalBottomSheet(
       onDismissRequest = { showBenchmarkComparisonHelpBottomSheet = false },
       sheetState = sheetState,
-      sheetMaxWidth = 640.dp,
+      sheetMaxWidth = SHEET_MAX_WIDTH,
     ) {
       Column(
         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
