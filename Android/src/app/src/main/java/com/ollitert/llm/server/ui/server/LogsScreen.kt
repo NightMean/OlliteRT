@@ -519,9 +519,11 @@ fun LogsScreen(
         text = "Activity Log",
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 2,
+        modifier = Modifier.weight(1f),
       )
       if (entries.isNotEmpty()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
           // Clear all logs (with optional confirmation)
           TooltipIconButton(
             icon = Icons.Outlined.DeleteSweep,
@@ -624,15 +626,14 @@ fun LogsScreen(
     }
 
     // ── Filter segmented groups ─────────────────────────────────────────
-    // TODO: filter chip design may need a future redesign pass for visual polish.
-    // No horizontalScroll — all groups fit on screen. SpaceBetween spreads
-    // them so the right edge of the last group aligns with the header buttons.
+    // Horizontally scrollable so filters remain usable at large font scaling.
     if (entries.isNotEmpty()) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
+          .horizontalScroll(rememberScrollState())
           .padding(horizontal = 20.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         // Method group
@@ -2062,10 +2063,12 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
       }
     }
 
-    // ── Footer ──
+    // ── Footer — horizontally scrollable so all badges remain visible at large font ──
     Spacer(modifier = Modifier.height(8.dp))
     Row(
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier
+        .fillMaxWidth()
+        .horizontalScroll(rememberScrollState()),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -2094,7 +2097,10 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
         }
         else -> {}
       }
-      Spacer(modifier = Modifier.weight(1f))
+      // Separator dot — only shown when there's timing content before the timestamp
+      if (parsedEvent is ParsedEventType.Ready || parsedEvent is ParsedEventType.Warmup) {
+        FooterDot()
+      }
       Text(
         text = listOfNotNull(
           entry.modelName,
@@ -2103,7 +2109,6 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
       )
     }
   }
@@ -2356,7 +2361,8 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
       .background(cardBg)
       .padding(16.dp),
   ) {
-    // Method badge + path + client IP pill + copy button
+    // Method badge + path + info/copy buttons (top row)
+    // Client IP shown on a second row so it doesn't squeeze the path at large font
     Row(
       verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -2372,7 +2378,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
           style = MaterialTheme.typography.bodyMedium,
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Medium,
-          maxLines = 1,
+          maxLines = 2,
           overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f),
         )
@@ -2383,41 +2389,10 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
           color = MaterialTheme.colorScheme.onSurface,
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Medium,
-          maxLines = 1,
+          maxLines = 2,
           overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f),
         )
-      }
-      if (entry.clientIp != null) {
-        Spacer(modifier = Modifier.width(8.dp))
-        // Client IP with optional search highlighting
-        if (searchQuery.isNotEmpty()) {
-          val highlighted = remember(entry.clientIp, searchQuery) {
-            buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
-          }
-          Text(
-            text = highlighted,
-            style = MaterialTheme.typography.labelSmall,
-            fontFamily = SpaceGroteskFontFamily,
-            maxLines = 1,
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .padding(horizontal = 8.dp, vertical = 3.dp),
-          )
-        } else {
-          Text(
-            text = entry.clientIp,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontFamily = SpaceGroteskFontFamily,
-            maxLines = 1,
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .padding(horizontal = 8.dp, vertical = 3.dp),
-          )
-        }
       }
       // Per-request metrics info button — only shown when metrics are available
       if (entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0) {
@@ -2457,6 +2432,43 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
             contentDescription = "Copy log entry",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
+          )
+        }
+      }
+    }
+
+    // Client IP on its own row, right-aligned, so it's visible at large font scaling
+    if (entry.clientIp != null) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+      ) {
+        if (searchQuery.isNotEmpty()) {
+          val highlighted = remember(entry.clientIp, searchQuery) {
+            buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
+          }
+          Text(
+            text = highlighted,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = SpaceGroteskFontFamily,
+            maxLines = 1,
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .padding(horizontal = 8.dp, vertical = 3.dp),
+          )
+        } else {
+          Text(
+            text = entry.clientIp,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = SpaceGroteskFontFamily,
+            maxLines = 1,
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .padding(horizontal = 8.dp, vertical = 3.dp),
           )
         }
       }
@@ -2604,8 +2616,11 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
       // Context overflow is shown in the StatusBadge as "Context Exceeded" instead of "400 Bad Request".
       // Compaction badges (Compacted, Truncated, Trimmed) are shown below the
       // Compacted Prompt text box instead of here.
+      // Horizontally scrollable so all badges remain visible at large font scaling.
       Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+          .fillMaxWidth()
+          .horizontalScroll(rememberScrollState()),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
       ) {
@@ -2659,7 +2674,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
             color = ctxColor,
           )
         }
-        Spacer(modifier = Modifier.weight(1f))
+        FooterDot()
         Text(
           text = listOfNotNull(
             entry.modelName,
@@ -2668,7 +2683,6 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
         )
       }
     }

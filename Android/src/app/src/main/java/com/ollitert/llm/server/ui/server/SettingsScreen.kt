@@ -14,6 +14,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -201,6 +204,7 @@ private fun SettingLabel(text: String, searchQuery: String) {
   )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
   onBackClick: () -> Unit,
@@ -1401,7 +1405,7 @@ fun SettingsScreen(
               readOnly = true,
               singleLine = true,
               modifier = Modifier
-                .width(120.dp)
+                .widthIn(min = 90.dp, max = 120.dp)
                 .clickable(enabled = keepAliveEnabled) {
                   focusManager.clearFocus()
                   showKeepAliveUnitDropdown = true
@@ -1683,7 +1687,7 @@ fun SettingsScreen(
               readOnly = true,
               singleLine = true,
               modifier = Modifier
-                .width(120.dp)
+                .widthIn(min = 90.dp, max = 120.dp)
                 .clickable(enabled = updateCheckEnabled && updateControlsEnabled) {
                   focusManager.clearFocus()
                   showUpdateUnitDropdown = true
@@ -1936,7 +1940,7 @@ fun SettingsScreen(
               readOnly = true,
               singleLine = true,
               modifier = Modifier
-                .width(120.dp)
+                .widthIn(min = 90.dp, max = 120.dp)
                 .clickable(enabled = logPersistenceEnabled) {
                   focusManager.clearFocus() // dismiss keyboard so dropdown anchors correctly
                   showUnitDropdown = true
@@ -2692,12 +2696,12 @@ fun SettingsScreen(
     } // Column
     } // AnimatedVisibility: Reset
 
-    // Footer links — What's New and Report Issue side by side
+    // Footer links — What's New, Report Issue, and Donate; wraps on narrow/large-font screens
     Spacer(modifier = Modifier.height(12.dp))
-    Row(
+    FlowRow(
       modifier = Modifier.align(Alignment.CenterHorizontally),
-      horizontalArrangement = Arrangement.spacedBy(16.dp),
-      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
       // What's New — opens changelog
       Row(

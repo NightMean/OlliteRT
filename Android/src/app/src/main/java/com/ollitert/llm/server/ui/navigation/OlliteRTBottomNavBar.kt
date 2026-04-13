@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,6 +52,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -77,7 +80,10 @@ fun OlliteRTBottomNavBar(
     modifier = modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-      .background(OlliteRTSurfaceContainerLowest),
+      .background(OlliteRTSurfaceContainerLowest)
+      // Push nav content above the system navigation bar while the background
+      // color extends behind it (background() is applied before the inset padding).
+      .navigationBarsPadding(),
   ) {
     // Storage bar - only on Models page
     if (showStorageBar) {
@@ -140,8 +146,11 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
       fontFamily = SpaceGroteskFontFamily,
       fontWeight = FontWeight.SemiBold,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f),
     )
-    Spacer(modifier = Modifier.weight(1f))
+    Spacer(modifier = Modifier.width(8.dp))
     // Custom drawn progress bar to avoid LinearProgressIndicator artifacts
     Box(
       modifier = Modifier
@@ -249,22 +258,31 @@ private fun MemoryBar() {
       modifier = Modifier.size(18.dp),
     )
     Spacer(modifier = Modifier.width(8.dp))
-    Text(
-      text = "${deviceAvailBytes.humanReadableSize()} free of ${deviceTotalBytes.humanReadableSize()}",
-      style = MaterialTheme.typography.labelMedium,
-      fontFamily = SpaceGroteskFontFamily,
-      fontWeight = FontWeight.SemiBold,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    // Show actual app RAM (PSS) — includes resident mmap'd model pages
-    if (appPssBytes > 0) {
+    // Text block uses weight(1f) so it truncates before pushing the progress bar off-screen
+    Row(
+      modifier = Modifier.weight(1f),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
       Text(
-        text = " · App ${appPssBytes.humanReadableSize()}",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        text = "${deviceAvailBytes.humanReadableSize()} free of ${deviceTotalBytes.humanReadableSize()}",
+        style = MaterialTheme.typography.labelMedium,
+        fontFamily = SpaceGroteskFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
       )
+      // Show actual app RAM (PSS) — includes resident mmap'd model pages
+      if (appPssBytes > 0) {
+        Text(
+          text = " · App ${appPssBytes.humanReadableSize()}",
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+          maxLines = 1,
+        )
+      }
     }
-    Spacer(modifier = Modifier.weight(1f))
+    Spacer(modifier = Modifier.width(8.dp))
     // Custom drawn progress bar matching StorageBar style
     Box(
       modifier = Modifier
@@ -348,7 +366,7 @@ private fun OlliteRTNavItem(
     if (selected) {
       Box(
         modifier = Modifier
-          .width(80.dp)
+          .fillMaxWidth(0.75f)
           .height(48.dp)
           .clip(RoundedCornerShape(14.dp))
           .background(OlliteRTPrimary.copy(alpha = 0.20f))
