@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.formatModelError
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
@@ -247,12 +248,7 @@ fun StatusScreen(
           }
           Spacer(modifier = Modifier.height(2.dp))
           if (status == ServerStatus.ERROR) {
-            val errorText = if (!lastError.isNullOrBlank()) {
-              if (lastError!!.length > 80) "Failed to load — check Logs for details"
-              else "Failed: $lastError"
-            } else {
-              "Failed to load model"
-            }
+            val errorText = formatModelError(lastError)
             Text(
               text = errorText,
               style = MaterialTheme.typography.labelSmall,

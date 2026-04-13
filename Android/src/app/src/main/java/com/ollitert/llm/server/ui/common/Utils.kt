@@ -62,6 +62,13 @@ import kotlinx.coroutines.delay
 
 private const val TAG = "OlliteRTUiUtils"
 
+/** Consistent error text for model loading failures across all screens. */
+fun formatModelError(error: String?): String = when {
+  error.isNullOrBlank() -> "Failed to load model"
+  error.length > 80 -> "Failed to load — check Logs for details"
+  else -> "Failed to load: $error"
+}
+
 val SMALL_BUTTON_CONTENT_PADDING =
   PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
 

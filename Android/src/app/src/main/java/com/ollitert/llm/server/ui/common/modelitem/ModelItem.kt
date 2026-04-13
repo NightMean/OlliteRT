@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.formatModelError
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -143,12 +144,7 @@ fun ModelItem(
 
       // Loading hint / error text
       if (isModelError) {
-        val errorText = if (!lastError.isNullOrBlank()) {
-          if (lastError.length > 80) "Failed to load model — check Logs for details"
-          else "Failed to load: $lastError"
-        } else {
-          "Failed to load model"
-        }
+        val errorText = formatModelError(lastError)
         Text(
           text = errorText,
           style = MaterialTheme.typography.bodySmall,
