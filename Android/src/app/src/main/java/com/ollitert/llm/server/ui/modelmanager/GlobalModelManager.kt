@@ -70,7 +70,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material.icons.rounded.Error
+import com.ollitert.llm.server.ui.common.ErrorAlertDialog
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -841,43 +841,19 @@ fun GlobalModelManager(
 
   // Alert dialog for unsupported file type
   if (showUnsupportedFileTypeDialog) {
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      onDismissRequest = { showUnsupportedFileTypeDialog = false },
-      title = { Text("Unsupported file type") },
-      text = { Text("Only \".task\" or \".litertlm\" file type is supported.") },
-      confirmButton = {
-        Button(onClick = { showUnsupportedFileTypeDialog = false }) {
-          Text(stringResource(R.string.ok))
-        }
-      },
+    ErrorAlertDialog(
+      title = "Unsupported file type",
+      text = "Only \".task\" or \".litertlm\" file type is supported.",
+      onDismiss = { showUnsupportedFileTypeDialog = false },
     )
   }
 
   // Alert dialog for unsupported web model
   if (showUnsupportedWebModelDialog) {
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      onDismissRequest = { showUnsupportedWebModelDialog = false },
-      title = { Text("Unsupported model type") },
-      text = { Text("Looks like the model is a web-only model and is not supported by the app.") },
-      confirmButton = {
-        Button(onClick = { showUnsupportedWebModelDialog = false }) {
-          Text(stringResource(R.string.ok))
-        }
-      },
+    ErrorAlertDialog(
+      title = "Unsupported model type",
+      text = "Looks like the model is a web-only model and is not supported by the app.",
+      onDismiss = { showUnsupportedWebModelDialog = false },
     )
   }
 

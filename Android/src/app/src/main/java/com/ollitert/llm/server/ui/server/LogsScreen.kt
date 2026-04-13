@@ -127,6 +127,7 @@ import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
@@ -137,7 +138,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val DeleteRedTint = Color(0xFFE57373)
 private val EventColor = OlliteRTPrimary // matches the app's blue accent
 private val ThinkingColor = Color(0xFFB0B3BE) // muted grey — subtle indicator, not eye-catching
 private val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
@@ -544,8 +544,8 @@ fun LogsScreen(
                 clearAllFilters()
               }
             },
-            tint = DeleteRedTint,
-            backgroundColor = DeleteRedTint.copy(alpha = 0.12f),
+            tint = OlliteRTDeleteRed,
+            backgroundColor = OlliteRTDeleteRed.copy(alpha = 0.12f),
           )
           // Copy visible logs (filtered if active) as JSON
           TooltipIconButton(
@@ -666,7 +666,7 @@ fun LogsScreen(
         }
         // Level group
         SegmentedToggleGroup(segmentCount = 2) { segmentShape ->
-          SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = DeleteRedTint) {
+          SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed) {
             filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
           }
           SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor) {
@@ -1546,7 +1546,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
   val isWarning = entry.level == LogLevel.WARNING
   val isDebug = entry.level == LogLevel.DEBUG
   val accentColor = when {
-    isError -> DeleteRedTint
+    isError -> OlliteRTDeleteRed
     isWarning -> WarningColor
     isDebug -> MaterialTheme.colorScheme.outline
     else -> EventColor
@@ -1571,7 +1571,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
   }
 
   val cardBg = when {
-    isError -> DeleteRedTint.copy(alpha = 0.06f)
+    isError -> OlliteRTDeleteRed.copy(alpha = 0.06f)
     isWarning -> WarningColor.copy(alpha = 0.06f)
     isDebug -> MaterialTheme.colorScheme.outline.copy(alpha = 0.06f)
     else -> MaterialTheme.colorScheme.surfaceContainerLow
@@ -1761,7 +1761,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
         // Single row matching the inference settings row style — shows state transition
         val oldState = if (parsedEvent.enabled) "disabled" else "enabled"
         val newState = if (parsedEvent.enabled) "enabled" else "disabled"
-        val newColor = if (parsedEvent.enabled) OlliteRTGreen400 else DeleteRedTint
+        val newColor = if (parsedEvent.enabled) OlliteRTGreen400 else OlliteRTDeleteRed
         // Reuse the same SettingsChangeRows composable via a synthetic ParsedInferenceEvent
         SettingsChangeRows(
           parsed = ParsedInferenceEvent(
@@ -1897,7 +1897,7 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
           newValueColorOverride = null,
           perRowNewColor = { change ->
             if (change.newValue in toggleValues) {
-              if (change.newValue == "enabled") OlliteRTGreen400 else DeleteRedTint
+              if (change.newValue == "enabled") OlliteRTGreen400 else OlliteRTDeleteRed
             } else null
           },
         )
@@ -2350,7 +2350,7 @@ private fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, se
   val isWarning = entry.level == LogLevel.WARNING
   val cardBg = when {
     entry.isCancelled -> CancelledColor.copy(alpha = 0.06f)
-    isError -> DeleteRedTint.copy(alpha = 0.06f)
+    isError -> OlliteRTDeleteRed.copy(alpha = 0.06f)
     isWarning -> WarningColor.copy(alpha = 0.06f)
     else -> MaterialTheme.colorScheme.surfaceContainerLow
   }

@@ -558,20 +558,7 @@ fun DownloadAndTryButton(
     }
     // Invisible overlay to show toast when disabled
     if (isStartDisabled) {
-      Box(
-        modifier = Modifier
-          .matchParentSize()
-          .clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-          ) {
-            Toast.makeText(
-              context,
-              "Please wait for the current model to finish loading",
-              Toast.LENGTH_SHORT,
-            ).show()
-          },
-      )
+      LoadingBlockingOverlay("Please wait for the current model to finish loading")
     }
     }
     }
@@ -700,18 +687,11 @@ fun DownloadAndTryButton(
   }
 
   if (showErrorDialog) {
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      title = { Text("Unknown network error") },
-      text = { Text("Please check your internet connection.") },
-      onDismissRequest = { showErrorDialog = false },
-      confirmButton = { TextButton(onClick = { showErrorDialog = false }) { Text("Close") } },
+    ErrorAlertDialog(
+      title = "Unknown network error",
+      text = "Please check your internet connection.",
+      onDismiss = { showErrorDialog = false },
+      confirmLabel = "Close",
     )
   }
 

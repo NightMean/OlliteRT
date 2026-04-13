@@ -16,9 +16,6 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
-import android.widget.Toast
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,7 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.runtime.remember
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.common.LoadingBlockingOverlay
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
@@ -108,16 +105,7 @@ fun DownloadModelPanel(
         }
         // Invisible overlay to show toast when disabled
         if (isServerActive) {
-          Box(
-            modifier = Modifier
-              .matchParentSize()
-              .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-              ) {
-                Toast.makeText(context, "Stop the server first to run benchmarks", Toast.LENGTH_SHORT).show()
-              },
-          )
+          LoadingBlockingOverlay("Stop the server first to run benchmarks")
         }
       }
 
