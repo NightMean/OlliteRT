@@ -63,12 +63,12 @@ class SettingsViewModel @Inject constructor(
   private var savedCorsAllowedOrigins by mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context))
   private var savedLogPersistenceEnabled by mutableStateOf(LlmHttpPrefs.isLogPersistenceEnabled(context))
   private var savedLogMaxEntries by mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context))
-  private var savedLogAutoDeleteMinutes by mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context))
+  internal var savedLogAutoDeleteMinutes by mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context))
   private var savedIgnoreClientSamplerParams by mutableStateOf(LlmHttpPrefs.isIgnoreClientSamplerParams(context))
   private var savedKeepAliveEnabled by mutableStateOf(LlmHttpPrefs.isKeepAliveEnabled(context))
-  private var savedKeepAliveMinutes by mutableStateOf(LlmHttpPrefs.getKeepAliveMinutes(context))
+  internal var savedKeepAliveMinutes by mutableStateOf(LlmHttpPrefs.getKeepAliveMinutes(context))
   private var savedUpdateCheckEnabled by mutableStateOf(LlmHttpPrefs.isUpdateCheckEnabled(context))
-  private var savedUpdateCheckIntervalHours by mutableStateOf(LlmHttpPrefs.getUpdateCheckIntervalHours(context))
+  internal var savedUpdateCheckIntervalHours by mutableStateOf(LlmHttpPrefs.getUpdateCheckIntervalHours(context))
 
   // ─── Editable State ──────────────────────────────────────────────────────
   // Current (editable) state — observed by the UI, compared against saved for change detection.

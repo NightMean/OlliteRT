@@ -983,8 +983,8 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(4.dp))
 
         val keepAliveTimeoutUnits = listOf("minutes", "hours")
-        val initialKeepAliveValue = remember(vm.keepAliveMinutes) {
-          val mins = vm.keepAliveMinutes
+        val initialKeepAliveValue = remember(vm.savedKeepAliveMinutes) {
+          val mins = vm.savedKeepAliveMinutes
           if (mins > 0 && mins % 60 == 0) (mins / 60).toString() else mins.toString()
         }
         var keepAliveValueText by remember { mutableStateOf(initialKeepAliveValue) }
@@ -1265,8 +1265,8 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(4.dp))
 
         val updateCheckUnits = listOf("hours", "days")
-        val initialUpdateValue = remember(vm.updateCheckIntervalHours) {
-          val h = vm.updateCheckIntervalHours
+        val initialUpdateValue = remember(vm.savedUpdateCheckIntervalHours) {
+          val h = vm.savedUpdateCheckIntervalHours
           if (h > 0 && h % 24 == 0) (h / 24).toString() else h.toString()
         }
         var updateValueText by remember { mutableStateOf(initialUpdateValue) }
@@ -1513,8 +1513,8 @@ fun SettingsScreen(
         // Decompose total minutes into a display value + unit for the UI.
         // Pick the largest unit that divides evenly, defaulting to minutes.
         val autoDeleteUnits = listOf("minutes", "hours", "days")
-        val (initialValue, initialUnit) = remember(vm.logAutoDeleteMinutes) {
-          val mins = vm.logAutoDeleteMinutes
+        val (initialValue, initialUnit) = remember(vm.savedLogAutoDeleteMinutes) {
+          val mins = vm.savedLogAutoDeleteMinutes
           when {
             mins > 0 && mins % (24 * 60) == 0L -> (mins / (24 * 60)).toString() to "days"
             mins > 0 && mins % 60 == 0L -> (mins / 60).toString() to "hours"
@@ -1801,20 +1801,12 @@ fun SettingsScreen(
                 onStopServer()
               }
 
-              // Clear all SharedPreferences
-              LlmHttpPrefs.resetToDefaults(context)
+              // Reset all settings and clear persisted logs via ViewModel
+              vm.resetToDefaults()
 
-              // Clear persisted logs and in-memory log store
-              RequestLogStore.clear()
-              val persistenceEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-                context.applicationContext,
-                com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
-              )
-              persistenceEntryPoint.requestLogPersistence().clearPersistedLogs()
-
-              // Restore keep-screen-on to default (true) immediately
+              // Apply keep-screen-on default (off after reset)
               val window = (context as? android.app.Activity)?.window
-              window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+              window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
               Toast.makeText(context, "All settings reset to defaults", Toast.LENGTH_SHORT).show()
 
