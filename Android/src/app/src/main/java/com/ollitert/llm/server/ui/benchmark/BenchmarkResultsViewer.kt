@@ -339,7 +339,7 @@ fun BenchmarkResultsViewer(
                     index,
                     result ->
                     // Result card.
-                    var cardModifier = Modifier.clip(RoundedCornerShape(20.dp)).fillMaxWidth()
+                    var cardModifier = Modifier.clip(RoundedCornerShape(24.dp)).fillMaxWidth()
                     if (showLazyListPlacementAnimation) {
                       cardModifier = cardModifier.animateItem()
                     }
