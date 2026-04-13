@@ -280,13 +280,13 @@ fun ModelItem(
             val promptDiffsObj = org.json.JSONObject()
             if (systemPrompt != oldSystemPrompt) {
               promptDiffsObj.put("system_prompt", org.json.JSONObject().apply {
-                put("old", oldSystemPrompt ?: "")
+                put("old", oldSystemPrompt)
                 put("new", systemPrompt)
               })
             }
             if (chatTemplate != oldChatTemplate) {
               promptDiffsObj.put("chat_template", org.json.JSONObject().apply {
-                put("old", oldChatTemplate ?: "")
+                put("old", oldChatTemplate)
                 put("new", chatTemplate)
               })
             }

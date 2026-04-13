@@ -314,7 +314,7 @@ class LlmHttpService : Service() {
     // Handle reload action: clean up current model first, then proceed with normal start.
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
     // of "Server stopped", because the server will immediately start again.
-    if (intent?.action == ACTION_RELOAD) {
+    if (intent.action == ACTION_RELOAD) {
       cancelKeepAliveTimer()
       keepAliveUnloadedModelName = null
       val previousModelName = defaultModel?.name
@@ -362,8 +362,8 @@ class LlmHttpService : Service() {
       // Fall through to normal start logic below (which emits "Loading model: X")
     }
 
-    val port = intent?.getIntExtra(EXTRA_PORT, DEFAULT_PORT) ?: LlmHttpPrefs.getPort(this)
-    val requestedModelName = intent?.getStringExtra(EXTRA_MODEL_NAME)
+    val port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT)
+    val requestedModelName = intent.getStringExtra(EXTRA_MODEL_NAME)
     currentPort = port
 
     // If no explicit model was requested, this is likely a system restart after a crash.
@@ -1041,14 +1041,16 @@ class LlmHttpService : Service() {
             }
             when (route.handler) {
               LlmHttpRouteHandler.PING -> {
-                responseBodySnapshot = "{\"status\":\"ok\"}"
-                okJsonText(responseBodySnapshot!!)
+                val body = "{\"status\":\"ok\"}"
+                responseBodySnapshot = body
+                okJsonText(body)
               }
               LlmHttpRouteHandler.HEALTH -> {
                 // session.parameters returns Map<String, List<String>> (non-deprecated API)
                 val includeMetrics = session.parameters?.get("metrics")?.firstOrNull()?.equals("true", ignoreCase = true) == true
-                responseBodySnapshot = healthPayload(includeMetrics)
-                okJsonText(responseBodySnapshot!!)
+                val body = healthPayload(includeMetrics)
+                responseBodySnapshot = body
+                okJsonText(body)
               }
               LlmHttpRouteHandler.SERVER_INFO -> {
                 val body = serverInfoPayload()
@@ -1433,7 +1435,8 @@ class LlmHttpService : Service() {
       // Three independent toggles for progressive prompt compaction:
       // "Truncate History" (drop older messages), "Compact Tool Schemas" (reduce tool definitions,
       // useful for Home Assistant), "Trim Prompt" (hard-cut as last resort).
-      val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
+      val tools = req.tools.orEmpty()
+      val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
       val truncateHistory = LlmHttpPrefs.isAutoTruncateHistory(this@LlmHttpService)
       val compactToolSchemas = LlmHttpPrefs.isCompactToolSchemas(this@LlmHttpService)
       val trimPrompts = LlmHttpPrefs.isAutoTrimPrompts(this@LlmHttpService)
@@ -1441,7 +1444,7 @@ class LlmHttpService : Service() {
 
       val compactionResult = LlmHttpPromptCompactor.compactChatPrompt(
         messages = req.messages,
-        tools = if (hasTools) req.tools else null,
+        tools = if (hasTools) tools else null,
         toolChoice = toolChoiceStr,
         chatTemplate = chatTemplate,
         maxContext = maxContext,
@@ -1501,7 +1504,7 @@ class LlmHttpService : Service() {
       return if (req.stream == true) {
         val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
         ServerMetrics.onInferenceStarted()
-        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) req.tools else null, configSnapshot = configSnapshot)
+        streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = 120, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot)
       } else {
         withPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens) {
           ServerMetrics.onInferenceStarted()
@@ -1523,7 +1526,7 @@ class LlmHttpService : Service() {
 
           // Check if the model output contains tool call(s) — supports parallel calls
           if (hasTools) {
-            val toolCalls = LlmHttpToolCallParser.parseAll(text, req.tools!!)
+            val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
             if (toolCalls.isNotEmpty()) {
               logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
               val completionTokens = (toolCalls.sumOf { it.function.arguments.length } / 4).coerceAtLeast(1)
@@ -1698,7 +1701,8 @@ class LlmHttpService : Service() {
         return emptyResponse(model.name, stream = req.stream == true)
       }
 
-      val hasTools = !req.tools.isNullOrEmpty() && toolChoiceStr != "none"
+      val tools = req.tools.orEmpty()
+      val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
 
       // Apply per-request sampler overrides (ignored when "Ignore Client Sampler" is on)
       val ignoreClientSamplerR = LlmHttpPrefs.isIgnoreClientSamplerParams(this@LlmHttpService)
@@ -1735,7 +1739,7 @@ class LlmHttpService : Service() {
 
           // Check if the model output contains tool call(s)
           if (hasTools) {
-            val toolCalls = LlmHttpToolCallParser.parseAll(text, req.tools!!)
+            val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
             if (toolCalls.isNotEmpty()) {
               // Responses API: use first tool call (Responses API doesn't batch tool calls the same way)
               val responseJson = json.encodeToString(responsesResponseWithToolCall(model.name, toolCalls.first(), promptLen = prompt.length))
