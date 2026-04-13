@@ -1,4 +1,6 @@
 [versions]
+# AGP 9.1.1 is blocked by protobuf-gradle-plugin 0.9.6 (BaseExtension cast failure).
+# Upgrade to AGP 9 + Hilt 2.59.2 + Gradle 9.3.1 when protobuf-gradle-plugin 0.9.7 ships.
 agp = "8.9.1"
 kotlin = "2.3.20"
 coreKtx = "1.18.0"
@@ -8,7 +10,7 @@ espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
 composeBom = "2026.03.00"
-navigation = "2.8.9"
+navigation = "2.9.7"
 serializationPlugin = "2.3.20"
 serializationJson = "1.11.0"
 materialIconExtended = "1.7.8"
