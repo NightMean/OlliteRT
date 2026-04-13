@@ -840,8 +840,8 @@ constructor(
 
   // Allowlist I/O — delegated to ModelAllowlistLoader
   private fun saveModelAllowlistToDisk(modelAllowlistContent: String) = allowlistLoader.saveToDisk(modelAllowlistContent)
-  private fun readModelAllowlistFromDisk(fileName: String = "") =
-    if (fileName.isNotEmpty() && fileName.contains("test")) allowlistLoader.readTestAllowlist()
+  private fun readModelAllowlistFromDisk(fileName: String = MODEL_ALLOWLIST_FILENAME) =
+    if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) allowlistLoader.readTestAllowlist()
     else allowlistLoader.readFromDiskCache()
   private fun readModelAllowlistFromAssets() = allowlistLoader.readFromAssets()
 

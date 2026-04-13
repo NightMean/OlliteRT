@@ -471,7 +471,13 @@ class LlmHttpEndpointHandlers(
   private fun emptyResponse(modelId: String, stream: Boolean): NanoHTTPD.Response {
     val body = LlmHttpPayloadBuilders.responsesResponseWithText(modelId, "")
     return if (stream) {
-      sseFixedResponse(LlmHttpResponseRenderer.buildTextSsePayload(modelId, ""))
+      // Use chunked SSE (via BlockingQueueInputStream + FlushingSseResponse) to match
+      // the transfer encoding that streaming inference responses use.
+      val payload = LlmHttpResponseRenderer.buildTextSsePayload(modelId, "")
+      val stream = BlockingQueueInputStream()
+      stream.enqueue(payload)
+      stream.finish()
+      FlushingSseResponse(stream)
     } else {
       okJsonText(json.encodeToString(body))
     }

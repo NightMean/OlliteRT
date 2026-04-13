@@ -60,6 +60,7 @@ class LlmHttpServer(
   private val modelLifecycle: LlmHttpModelLifecycle,
   private val json: kotlinx.serialization.json.Json,
   private val nextRequestId: () -> String,
+  private val getRequestCount: () -> Long,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
 ) : NanoHTTPD("0.0.0.0", port) {
 
@@ -82,7 +83,7 @@ class LlmHttpServer(
     }
 
     // Add a pending log entry immediately so it appears in the Logs tab
-    val logId = "log-${System.currentTimeMillis()}-${System.nanoTime()}"
+    val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
     RequestLogStore.add(
       RequestLogEntry(
         id = logId,
