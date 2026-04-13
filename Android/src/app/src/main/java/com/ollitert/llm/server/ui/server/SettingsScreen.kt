@@ -220,437 +220,62 @@ fun SettingsScreen(
   val focusManager = LocalFocusManager.current
   val uriHandler = LocalUriHandler.current
 
-  // ─── Unsaved Changes Guard ─────────────────────────────────────────────────
-  // When adding a NEW setting, update ALL FOUR sections below:
-  //   1. [SAVED STATE]     Add: var savedXxx by remember { mutableStateOf(LlmHttpPrefs.getXxx(context)) }
-  //   2. [EDITABLE STATE]  Add: var xxx by remember { mutableStateOf(savedXxx) }
-  //   3. [CHANGE DETECT]   Add: xxx != savedXxx  to the hasUnsavedChanges expression
-  //   4. [SAVE HANDLER]    Add: LlmHttpPrefs.setXxx(context, xxx) + savedXxx = xxx
-  // The floating banner, BackHandler, and discard dialog are driven by hasUnsavedChanges —
-  // no other wiring is needed. Missing any of the 4 steps causes silent bugs:
-  //   - Missing #1/#3: changes aren't detected → no save prompt, user loses edits on back-press
-  //   - Missing #4 persist: save button does nothing for that field
-  //   - Missing #4 update savedXxx: banner stays visible after saving ("phantom unsaved changes")
-  // ──────────────────────────────────────────────────────────────────────────────
+  // All state, change detection, search, validation, and save logic in SettingsViewModel
+  val vm: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 
-  // [SAVED STATE] Persisted values — used for change detection; updated after successful save
-  var savedPort by remember { mutableStateOf(LlmHttpPrefs.getPort(context)) }
-  var savedBearerToken by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context)) }
-  var savedHfToken by remember { mutableStateOf(LlmHttpPrefs.getHfToken(context)) }
-  var savedDefaultModelName by remember { mutableStateOf(LlmHttpPrefs.getDefaultModelName(context)) }
-  var savedAutoStartOnBoot by remember { mutableStateOf(LlmHttpPrefs.isAutoStartOnBoot(context)) }
-  var savedKeepScreenOn by remember { mutableStateOf(LlmHttpPrefs.isKeepScreenOn(context)) }
-  var savedAutoExpandLogs by remember { mutableStateOf(LlmHttpPrefs.isAutoExpandLogs(context)) }
-  var savedWarmupEnabled by remember { mutableStateOf(LlmHttpPrefs.isWarmupEnabled(context)) }
-  var savedStreamLogsPreview by remember { mutableStateOf(LlmHttpPrefs.isStreamLogsPreview(context)) }
-  var savedKeepPartialResponse by remember { mutableStateOf(LlmHttpPrefs.isKeepPartialResponse(context)) }
-  var savedEagerVisionInit by remember { mutableStateOf(LlmHttpPrefs.isEagerVisionInit(context)) }
-  var savedCustomPromptsEnabled by remember { mutableStateOf(LlmHttpPrefs.isCustomPromptsEnabled(context)) }
-  var savedAutoTruncateHistory by remember { mutableStateOf(LlmHttpPrefs.isAutoTruncateHistory(context)) }
-  var savedAutoTrimPrompts by remember { mutableStateOf(LlmHttpPrefs.isAutoTrimPrompts(context)) }
-  var savedCompactToolSchemas by remember { mutableStateOf(LlmHttpPrefs.isCompactToolSchemas(context)) }
-  var savedClearLogsOnStop by remember { mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context)) }
-  var savedConfirmClearLogs by remember { mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context)) }
-  var savedShowRequestTypes by remember { mutableStateOf(LlmHttpPrefs.isShowRequestTypes(context)) }
-  var savedShowAdvancedMetrics by remember { mutableStateOf(LlmHttpPrefs.isShowAdvancedMetrics(context)) }
-  var savedCorsAllowedOrigins by remember { mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context)) }
-  var savedLogPersistenceEnabled by remember { mutableStateOf(LlmHttpPrefs.isLogPersistenceEnabled(context)) }
-  var savedLogMaxEntries by remember { mutableStateOf(LlmHttpPrefs.getLogMaxEntries(context)) }
-  var savedLogAutoDeleteMinutes by remember { mutableStateOf(LlmHttpPrefs.getLogAutoDeleteMinutes(context)) }
-  var savedIgnoreClientSamplerParams by remember { mutableStateOf(LlmHttpPrefs.isIgnoreClientSamplerParams(context)) }
-  var savedKeepAliveEnabled by remember { mutableStateOf(LlmHttpPrefs.isKeepAliveEnabled(context)) }
-  var savedKeepAliveMinutes by remember { mutableStateOf(LlmHttpPrefs.getKeepAliveMinutes(context)) }
-  var savedUpdateCheckEnabled by remember { mutableStateOf(LlmHttpPrefs.isUpdateCheckEnabled(context)) }
-  var savedUpdateCheckIntervalHours by remember { mutableStateOf(LlmHttpPrefs.getUpdateCheckIntervalHours(context)) }
-
-  // [EDITABLE STATE] Current (editable) state — see Unsaved Changes Guard comment above
-  var portText by remember { mutableStateOf(savedPort.toString()) }
-  var portError by remember { mutableStateOf(false) }
-  var showRestartDialog by remember { mutableStateOf(false) }
-  var bearerEnabled by remember { mutableStateOf(savedBearerToken.isNotBlank()) }
-  var bearerToken by remember { mutableStateOf(savedBearerToken) }
-  var hfToken by remember { mutableStateOf(savedHfToken) }
-  var hfTokenVisible by remember { mutableStateOf(false) }
-  var defaultModelName by remember { mutableStateOf(savedDefaultModelName) }
-  var showModelDropdown by remember { mutableStateOf(false) }
-  var autoStartOnBoot by remember { mutableStateOf(savedAutoStartOnBoot) }
-  var keepScreenOn by remember { mutableStateOf(savedKeepScreenOn) }
-  var autoExpandLogs by remember { mutableStateOf(savedAutoExpandLogs) }
-  var warmupEnabled by remember { mutableStateOf(savedWarmupEnabled) }
-  var streamLogsPreview by remember { mutableStateOf(savedStreamLogsPreview) }
-  var keepPartialResponse by remember { mutableStateOf(savedKeepPartialResponse) }
-  var eagerVisionInit by remember { mutableStateOf(savedEagerVisionInit) }
-  var customPromptsEnabled by remember { mutableStateOf(savedCustomPromptsEnabled) }
-  var autoTruncateHistory by remember { mutableStateOf(savedAutoTruncateHistory) }
-  var autoTrimPrompts by remember { mutableStateOf(savedAutoTrimPrompts) }
-  var compactToolSchemas by remember { mutableStateOf(savedCompactToolSchemas) }
-  var clearLogsOnStop by remember { mutableStateOf(savedClearLogsOnStop) }
-  var confirmClearLogs by remember { mutableStateOf(savedConfirmClearLogs) }
-  var showRequestTypes by remember { mutableStateOf(savedShowRequestTypes) }
-  var showAdvancedMetrics by remember { mutableStateOf(savedShowAdvancedMetrics) }
-  var corsAllowedOrigins by remember { mutableStateOf(savedCorsAllowedOrigins) }
-  var corsError by remember { mutableStateOf(false) }
-  var logPersistenceEnabled by remember { mutableStateOf(savedLogPersistenceEnabled) }
-  var logMaxEntries by remember { mutableStateOf(savedLogMaxEntries) }
-  var logAutoDeleteMinutes by remember { mutableStateOf(savedLogAutoDeleteMinutes) }
-  var ignoreClientSamplerParams by remember { mutableStateOf(savedIgnoreClientSamplerParams) }
-  var keepAliveEnabled by remember { mutableStateOf(savedKeepAliveEnabled) }
-  var keepAliveMinutes by remember { mutableStateOf(savedKeepAliveMinutes) }
-  var keepAliveError by remember { mutableStateOf(false) }
-  var updateCheckError by remember { mutableStateOf(false) }
-  // Hoisted so the save handler can show unit-aware validation messages
-  var keepAliveUnit by remember {
-    mutableStateOf(if (savedKeepAliveMinutes > 0 && savedKeepAliveMinutes % 60 == 0) "hours" else "minutes")
-  }
-  var updateCheckEnabled by remember { mutableStateOf(savedUpdateCheckEnabled) }
-  var updateCheckIntervalHours by remember { mutableStateOf(savedUpdateCheckIntervalHours) }
-  var updateCheckUnit by remember {
-    mutableStateOf(if (savedUpdateCheckIntervalHours > 0 && savedUpdateCheckIntervalHours % 24 == 0) "days" else "hours")
-  }
-  var showClearPersistedDialog by remember { mutableStateOf(false) }
-  var showTrimLogsDialog by remember { mutableStateOf(false) }
-  var showResetDialog by remember { mutableStateOf(false) }
-  var verboseDebugEnabled by remember { mutableStateOf(LlmHttpPrefs.isVerboseDebugEnabled(context)) }
-
-  // ─── Search / Filter ────────────────────────────────────────────────────────
-  // Per-setting search index: each setting has searchable keywords (name + description).
-  // Cards are visible when at least one of their settings matches the query.
-  // Individual settings within a visible card are shown/hidden independently.
-  var searchQuery by remember { mutableStateOf("") }
-
-  // Per-setting keyword index — setting key → searchable text (name + description).
-  // All text is lowercased at match time; stored as-is for readability.
-  val settingSearchIndex = remember {
-    mapOf(
-      // General
-      "keep_screen_awake" to "Keep Screen Awake Prevent screen from turning off while app is open",
-      "auto_expand_logs" to "Auto-Expand Logs Show full request and response bodies in the Logs tab",
-      "stream_response_preview" to "Stream Response Preview Show model output as it generates in the Logs tab for streaming requests",
-      "clear_logs_on_stop" to "Clear Logs on Stop Automatically clear in-memory logs when the server stops",
-      "confirm_clear_logs" to "Confirm Before Clearing Logs Show a confirmation dialog before clearing logs",
-      "keep_partial_response" to "Keep Partial Response Preserve incomplete response text in logs when a streaming request is cancelled by the client",
-      // HF Token
-      "hf_token" to "Hugging Face Token HuggingFace hf download models authentication required",
-      // Server Config
-      "host_port" to "Host Port 1024 65535 server configuration default 8000 restart",
-      "bearer_token" to "Require Bearer Token Protect API authentication Authorization header security",
-      "cors_origins" to "CORS Allowed Origins cross-origin requests localhost",
-      // Auto-Launch & Behavior
-      "default_model" to "Default Model Automatically load model when app launches",
-      "start_on_boot" to "Start on Boot Launch server automatically when device starts",
-      "keep_alive" to "Keep Alive Unload model after idle timeout free RAM cold start Idle Timeout",
-      "dontkillmyapp" to "Device background settings manufacturers kill background apps dontkillmyapp",
-      "update_check" to "Check for Updates version new notification background frequency interval update available",
-      // Metrics
-      "show_request_types" to "Show Request Types text vision audio request counts Status screen",
-      "show_advanced_metrics" to "Show Advanced Metrics prefill speed inter-token latency latency stats context utilization Status screen",
-      // Log Persistence (master toggle + children treated as one group)
-      "log_persistence" to "Log Persistence Persist Logs Database Maximum Log Entries Auto-Delete Clear All Logs storage oldest entries pruned survive app restarts",
-      // Home Assistant
-      "ha_integration" to "Home Assistant REST API Integration configuration yaml sensors commands stop reload thinking config",
-      // Advanced
-      "warmup_message" to "Warmup Message Send test message when model loads verify engine working startup",
-      "pre_init_vision" to "Pre-initialize Vision Load vision backend multimodal model starts image request memory GPU",
-      "custom_prompts" to "Custom System Prompt Chat Template per-model prompt formats Inference Settings",
-      "truncate_history" to "Truncate Conversation History request exceeds context window drop older messages system prompts",
-      "compact_tool_schemas" to "Compact Tool Schemas reduce tool schemas names descriptions context window Home Assistant tool definitions",
-      "trim_prompt" to "Trim Prompt last resort hard-cuts prompt fit context window recent content discarding beginning",
-      "ignore_client_params" to "Ignore Client Sampler Parameters Discard temperature top_p top_k max_tokens API clients server Inference Settings",
-      // Developer
-      "verbose_debug" to "Verbose Debug Mode Logs additional details stack traces memory snapshots model config per-request timing performance",
-      // Reset
-      "reset" to "Reset to Defaults reset all settings port token inference",
-    )
-  }
-
-  // Which settings belong to which card — used to derive card visibility
-  val settingsByCard = remember {
-    mapOf(
-      "general" to listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response"),
-      "hf_token" to listOf("hf_token"),
-      "server_config" to listOf("host_port", "bearer_token", "cors_origins"),
-      "auto_launch" to listOf("default_model", "start_on_boot", "keep_alive", "dontkillmyapp", "update_check"),
-      "metrics" to listOf("show_request_types", "show_advanced_metrics"),
-      "log_persistence" to listOf("log_persistence"),
-      "home_assistant" to listOf("ha_integration"),
-      "advanced" to listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
-      "developer" to listOf("verbose_debug"),
-      "reset" to listOf("reset"),
-    )
-  }
-
-  /** Returns true if an individual setting matches the current search query. */
-  fun settingVisible(settingKey: String): Boolean {
-    if (searchQuery.isBlank()) return true
-    val keywords = settingSearchIndex[settingKey] ?: return true
-    val query = searchQuery.trim().lowercase()
-    return query.split("\\s+".toRegex()).all { word ->
-      keywords.lowercase().contains(word)
-    }
-  }
-
-  /** Returns true if the card should be visible (any of its settings match). */
-  fun cardVisible(cardKey: String): Boolean {
-    if (searchQuery.isBlank()) return true
-    return settingsByCard[cardKey]?.any { settingVisible(it) } ?: true
-  }
-
-  // [CHANGE DETECT] Unsaved changes detection — compare current vs persisted (see Unsaved Changes Guard)
-  val effectiveBearerToken = if (bearerEnabled) bearerToken else ""
-  val hasUnsavedChanges = portText != savedPort.toString() ||
-    effectiveBearerToken != savedBearerToken ||
-    hfToken != savedHfToken ||
-    defaultModelName != savedDefaultModelName ||
-    autoStartOnBoot != savedAutoStartOnBoot ||
-    keepScreenOn != savedKeepScreenOn ||
-    autoExpandLogs != savedAutoExpandLogs ||
-    warmupEnabled != savedWarmupEnabled ||
-    streamLogsPreview != savedStreamLogsPreview ||
-    keepPartialResponse != savedKeepPartialResponse ||
-    eagerVisionInit != savedEagerVisionInit ||
-    customPromptsEnabled != savedCustomPromptsEnabled ||
-    autoTruncateHistory != savedAutoTruncateHistory ||
-    autoTrimPrompts != savedAutoTrimPrompts ||
-    compactToolSchemas != savedCompactToolSchemas ||
-    clearLogsOnStop != savedClearLogsOnStop ||
-    confirmClearLogs != savedConfirmClearLogs ||
-    showRequestTypes != savedShowRequestTypes ||
-    showAdvancedMetrics != savedShowAdvancedMetrics ||
-    corsAllowedOrigins != savedCorsAllowedOrigins ||
-    logPersistenceEnabled != savedLogPersistenceEnabled ||
-    logMaxEntries != savedLogMaxEntries ||
-    logAutoDeleteMinutes != savedLogAutoDeleteMinutes ||
-    ignoreClientSamplerParams != savedIgnoreClientSamplerParams ||
-    keepAliveEnabled != savedKeepAliveEnabled ||
-    keepAliveMinutes != savedKeepAliveMinutes ||
-    updateCheckEnabled != savedUpdateCheckEnabled ||
-    updateCheckIntervalHours != savedUpdateCheckIntervalHours
-
-  // Discard confirmation dialog
-  var showDiscardDialog by remember { mutableStateOf(false) }
-  var showDonateDialog by remember { mutableStateOf(false) }
-
-  // Intercept back navigation when there are unsaved changes
-  BackHandler(enabled = hasUnsavedChanges) {
-    showDiscardDialog = true
-  }
-
-  // [SAVE HANDLER] Save action — shared between top bar button and internal logic (see Unsaved Changes Guard)
-  val saveSettings: () -> Unit = {
-    if (portText.isBlank()) {
-      portError = true
-      Toast.makeText(context, "A port number is required", Toast.LENGTH_SHORT).show()
-    } else if (portText.toIntOrNull().let { it == null || it !in 1024..65535 }) {
-      portError = true
-      Toast.makeText(context, "Port must be between 1024 and 65535", Toast.LENGTH_SHORT).show()
-    } else if (!isValidCorsOrigins(corsAllowedOrigins)) {
-      corsError = true
-      Toast.makeText(context, "Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://", Toast.LENGTH_LONG).show()
-    } else if (keepAliveEnabled && keepAliveMinutes !in 1..7200) {
-      keepAliveError = true
-      val rangeText = if (keepAliveUnit == "hours") "1 and 120 hours" else "1 and 7200 minutes"
-      Toast.makeText(context, "Keep-alive timeout must be between $rangeText", Toast.LENGTH_SHORT).show()
-    } else if (updateCheckEnabled && updateCheckIntervalHours !in 1..720) {
-      updateCheckError = true
-      val rangeText = if (updateCheckUnit == "days") "1 and 30 days" else "1 and 720 hours"
-      Toast.makeText(context, "Update check interval must be between $rangeText", Toast.LENGTH_SHORT).show()
-    } else {
-      corsError = false
-      keepAliveError = false
-      updateCheckError = false
-      val port = portText.toInt()
-        val isPortChanged = port != savedPort
-        val isEagerVisionChanged = eagerVisionInit != savedEagerVisionInit
-        val needsRestart = isPortChanged || isEagerVisionChanged
-        val isServerRunning = serverStatus == ServerStatus.RUNNING
-        val isServerLoading = serverStatus == ServerStatus.LOADING
-        val isServerActive = isServerRunning || isServerLoading
-
-        LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
-        if (bearerEnabled) {
-          LlmHttpPrefs.setBearerToken(context, bearerToken)
-        } else {
-          LlmHttpPrefs.setBearerToken(context, "")
-        }
-        LlmHttpPrefs.setHfToken(context, hfToken)
-        LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
-        LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
-        LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
-        LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
-        LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
-        LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
-        LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
-        LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
-        LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
-        LlmHttpPrefs.setAutoTruncateHistory(context, autoTruncateHistory)
-        LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPrompts)
-        LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemas)
-        LlmHttpPrefs.setIgnoreClientSamplerParams(context, ignoreClientSamplerParams)
-        LlmHttpPrefs.setKeepAliveEnabled(context, keepAliveEnabled)
-        LlmHttpPrefs.setKeepAliveMinutes(context, keepAliveMinutes)
-        // Poke the running service to reschedule (or cancel) the keep-alive idle timer
-        // so changes take effect immediately without waiting for the next inference request.
-        if ((keepAliveEnabled != savedKeepAliveEnabled || keepAliveMinutes != savedKeepAliveMinutes) && isServerActive) {
-          LlmHttpService.resetKeepAliveTimer(context)
-        }
-        LlmHttpPrefs.setUpdateCheckEnabled(context, updateCheckEnabled)
-        LlmHttpPrefs.setUpdateCheckIntervalHours(context, updateCheckIntervalHours)
-        // Schedule or cancel the periodic update check worker based on the toggle state
-        if (updateCheckEnabled != savedUpdateCheckEnabled || updateCheckIntervalHours != savedUpdateCheckIntervalHours) {
-          if (updateCheckEnabled) {
-            com.ollitert.llm.server.worker.UpdateCheckWorker.scheduleUpdateCheck(context)
-          } else {
-            com.ollitert.llm.server.worker.UpdateCheckWorker.cancelUpdateCheck(context)
-          }
-        }
-
-        LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
-        LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
-        LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
-        LlmHttpPrefs.setShowAdvancedMetrics(context, showAdvancedMetrics)
-        LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOrigins)
-        LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabled)
-        LlmHttpPrefs.setLogMaxEntries(context, logMaxEntries)
-        LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutes)
-
-        // Collect all behavioral settings changes into one grouped log entry
-        val changes = mutableListOf<String>()
-        if (port != savedPort) changes.add("Port: $savedPort → $port")
-        val bearerWasEnabled = savedBearerToken.isNotBlank()
-        val bearerIsEnabled = effectiveBearerToken.isNotBlank()
-        if (bearerWasEnabled != bearerIsEnabled)
-          changes.add("Bearer Auth: ${if (bearerWasEnabled) "enabled" else "disabled"} → ${if (bearerIsEnabled) "enabled" else "disabled"}")
-        if (autoStartOnBoot != savedAutoStartOnBoot)
-          changes.add("Auto-Start on Boot: ${if (savedAutoStartOnBoot) "enabled" else "disabled"} → ${if (autoStartOnBoot) "enabled" else "disabled"}")
-        if (warmupEnabled != savedWarmupEnabled)
-          changes.add("Warmup Message: ${if (savedWarmupEnabled) "enabled" else "disabled"} → ${if (warmupEnabled) "enabled" else "disabled"}")
-        if (eagerVisionInit != savedEagerVisionInit)
-          changes.add("Pre-initialize Vision: ${if (savedEagerVisionInit) "enabled" else "disabled"} → ${if (eagerVisionInit) "enabled" else "disabled"}")
-        if (customPromptsEnabled != savedCustomPromptsEnabled)
-          changes.add("Custom System Prompt & Chat Template: ${if (savedCustomPromptsEnabled) "enabled" else "disabled"} → ${if (customPromptsEnabled) "enabled" else "disabled"}")
-        if (ignoreClientSamplerParams != savedIgnoreClientSamplerParams)
-          changes.add("Ignore Client Sampler Parameters: ${if (savedIgnoreClientSamplerParams) "enabled" else "disabled"} → ${if (ignoreClientSamplerParams) "enabled" else "disabled"}")
-        if (autoTruncateHistory != savedAutoTruncateHistory)
-          changes.add("Truncate Conversation History: ${if (savedAutoTruncateHistory) "enabled" else "disabled"} → ${if (autoTruncateHistory) "enabled" else "disabled"}")
-        if (compactToolSchemas != savedCompactToolSchemas)
-          changes.add("Compact Tool Schemas: ${if (savedCompactToolSchemas) "enabled" else "disabled"} → ${if (compactToolSchemas) "enabled" else "disabled"}")
-        if (autoTrimPrompts != savedAutoTrimPrompts)
-          changes.add("Trim Prompt: ${if (savedAutoTrimPrompts) "enabled" else "disabled"} → ${if (autoTrimPrompts) "enabled" else "disabled"}")
-        if (corsAllowedOrigins != savedCorsAllowedOrigins) {
-          val oldDisplay = savedCorsAllowedOrigins.ifBlank { "disabled" }
-          val newDisplay = corsAllowedOrigins.ifBlank { "disabled" }
-          changes.add("CORS Allowed Origins: $oldDisplay → $newDisplay")
-        }
-        if (logPersistenceEnabled != savedLogPersistenceEnabled)
-          changes.add("Log Persistence: ${if (savedLogPersistenceEnabled) "enabled" else "disabled"} → ${if (logPersistenceEnabled) "enabled" else "disabled"}")
-        if (logMaxEntries != savedLogMaxEntries)
-          changes.add("Log Max Entries: $savedLogMaxEntries → $logMaxEntries")
-        if (logAutoDeleteMinutes != savedLogAutoDeleteMinutes)
-          changes.add("Log Auto-Delete: ${formatMinutesHumanReadable(savedLogAutoDeleteMinutes)} → ${formatMinutesHumanReadable(logAutoDeleteMinutes)}")
-        if (keepAliveEnabled != savedKeepAliveEnabled)
-          changes.add("Keep Alive: ${if (savedKeepAliveEnabled) "enabled" else "disabled"} → ${if (keepAliveEnabled) "enabled" else "disabled"}")
-        if (keepAliveMinutes != savedKeepAliveMinutes)
-          changes.add("Keep Alive Timeout: ${savedKeepAliveMinutes}m → ${keepAliveMinutes}m")
-        if (updateCheckEnabled != savedUpdateCheckEnabled)
-          changes.add("Check for Updates: ${if (savedUpdateCheckEnabled) "enabled" else "disabled"} → ${if (updateCheckEnabled) "enabled" else "disabled"}")
-        if (updateCheckIntervalHours != savedUpdateCheckIntervalHours) {
-          fun formatIntervalHuman(hours: Int): String = when {
-            hours % 24 == 0 -> "${hours / 24} ${if (hours / 24 == 1) "day" else "days"}"
-            else -> "$hours ${if (hours == 1) "hour" else "hours"}"
-          }
-          changes.add("Update Check Frequency: ${formatIntervalHuman(savedUpdateCheckIntervalHours)} → ${formatIntervalHuman(updateCheckIntervalHours)}")
-        }
-        if (changes.isNotEmpty()) {
-          RequestLogStore.addEvent(
-            "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
-            category = EventCategory.SETTINGS,
-            body = changes.joinToString("\n"),
-          )
-        }
-
-        // Access the persistence layer to sync settings
-        val persistenceEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-          context.applicationContext,
-          com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
-        )
-        val persistence = persistenceEntryPoint.requestLogPersistence()
-
-        // If persistence was just enabled, persist current in-memory entries to DB
-        if (logPersistenceEnabled && !savedLogPersistenceEnabled) {
-          persistence.persistCurrentEntries()
-        }
-        // Always sync the in-memory cap with the persistence setting
-        persistence.updateMaxEntries()
-
-        // Apply keep-screen-on immediately
+  val performSave: () -> Unit = {
+    val result = vm.trySave(serverStatus)
+    when (result) {
+      is SettingsViewModel.SaveResult.Success -> {
         val window = (context as? android.app.Activity)?.window
-        if (keepScreenOn) {
-          window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-          window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-
-        // [SAVE HANDLER — update savedXxx] Reset change detection (see Unsaved Changes Guard)
-        savedPort = port
-        savedBearerToken = if (bearerEnabled) bearerToken else ""
-        savedHfToken = hfToken
-        savedDefaultModelName = defaultModelName
-        savedAutoStartOnBoot = autoStartOnBoot
-        savedKeepScreenOn = keepScreenOn
-        savedAutoExpandLogs = autoExpandLogs
-        savedWarmupEnabled = warmupEnabled
-        savedStreamLogsPreview = streamLogsPreview
-        savedKeepPartialResponse = keepPartialResponse
-        savedEagerVisionInit = eagerVisionInit
-        savedCustomPromptsEnabled = customPromptsEnabled
-        savedAutoTruncateHistory = autoTruncateHistory
-        savedAutoTrimPrompts = autoTrimPrompts
-        savedCompactToolSchemas = compactToolSchemas
-        savedClearLogsOnStop = clearLogsOnStop
-        savedConfirmClearLogs = confirmClearLogs
-        savedShowRequestTypes = showRequestTypes
-        savedShowAdvancedMetrics = showAdvancedMetrics
-        savedCorsAllowedOrigins = corsAllowedOrigins
-        savedLogPersistenceEnabled = logPersistenceEnabled
-        savedLogMaxEntries = logMaxEntries
-        savedLogAutoDeleteMinutes = logAutoDeleteMinutes
-        savedIgnoreClientSamplerParams = ignoreClientSamplerParams
-        savedKeepAliveEnabled = keepAliveEnabled
-        savedKeepAliveMinutes = keepAliveMinutes
-        savedUpdateCheckEnabled = updateCheckEnabled
-        savedUpdateCheckIntervalHours = updateCheckIntervalHours
-
-        if (needsRestart && isServerActive) {
-          showRestartDialog = true
-        } else {
-          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
-        }
+        if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
       }
+      is SettingsViewModel.SaveResult.NeedsRestart -> {
+        val window = (context as? android.app.Activity)?.window
+        if (result.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        vm.showRestartDialog = true
+      }
+      is SettingsViewModel.SaveResult.ValidationError -> Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+      is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> vm.showTrimLogsDialog = true
+    }
   }
-
-  // Wrapper that warns if saving would trim existing logs
-  val trySave: () -> Unit = {
-    val currentCount = RequestLogStore.entries.value.size
-    if (logMaxEntries < currentCount && logMaxEntries != savedLogMaxEntries) {
-      showTrimLogsDialog = true
-    } else {
-      saveSettings()
+  val forceSave: () -> Unit = {
+    val result = vm.save(serverStatus)
+    when (result) {
+      is SettingsViewModel.SaveResult.Success -> {
+        val window = (context as? android.app.Activity)?.window
+        if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+      }
+      is SettingsViewModel.SaveResult.NeedsRestart -> {
+        val window = (context as? android.app.Activity)?.window
+        if (result.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        vm.showRestartDialog = true
+      }
+      is SettingsViewModel.SaveResult.ValidationError -> Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+      is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> {}
     }
   }
 
-  // Inject save button into the top bar
-  val currentSaveSettings by rememberUpdatedState(trySave)
+  BackHandler(enabled = vm.hasUnsavedChanges) { vm.showDiscardDialog = true }
+  val currentSave by rememberUpdatedState(performSave)
   DisposableEffect(Unit) {
     onSetTopBarTrailingContent {
       TooltipIconButton(
         icon = Icons.Outlined.Save,
         tooltip = "Save settings",
-        onClick = { currentSaveSettings() },
+        onClick = { currentSave() },
         tint = OlliteRTPrimary,
       )
     }
     onDispose { onSetTopBarTrailingContent(null) }
   }
+
 
   Box(
     modifier = modifier
@@ -683,8 +308,8 @@ fun SettingsScreen(
 
     // Search bar — always visible, filters settings cards and individual settings within cards
     OutlinedTextField(
-      value = searchQuery,
-      onValueChange = { searchQuery = it },
+      value = vm.searchQuery,
+      onValueChange = { vm.searchQuery = it },
       modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
       placeholder = { Text("Search settings...", style = MaterialTheme.typography.bodyLarge) },
       leadingIcon = {
@@ -695,8 +320,8 @@ fun SettingsScreen(
         )
       },
       trailingIcon = {
-        if (searchQuery.isNotEmpty()) {
-          IconButton(onClick = { searchQuery = "" }) {
+        if (vm.searchQuery.isNotEmpty()) {
+          IconButton(onClick = { vm.searchQuery = "" }) {
             Icon(
               Icons.Outlined.Close,
               contentDescription = "Clear search",
@@ -719,9 +344,9 @@ fun SettingsScreen(
     )
 
     // "No results" message when search has no matches
-    if (searchQuery.isNotBlank() && settingsByCard.keys.none { cardVisible(it) }) {
+    if (vm.searchQuery.isNotBlank() && listOf("general","hf_token","server_config","auto_launch","metrics","log_persistence","home_assistant","advanced","developer","reset").none { vm.cardVisible(it) }) {
       Text(
-        text = "No settings match \"$searchQuery\"",
+        text = "No settings match \"$vm.searchQuery\"",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 32.dp).align(Alignment.CenterHorizontally),
@@ -730,18 +355,18 @@ fun SettingsScreen(
 
     // General card
     AnimatedVisibility(
-      visible = cardVisible("general"),
+      visible = vm.cardVisible("general"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.PhoneAndroid,
       title = "General",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       // Divider logic: only show between consecutive visible settings
       val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
-      val generalVisible = generalKeys.map { settingVisible(it) }
+      val generalVisible = generalKeys.map { vm.settingVisible(it) }
 
       fun showGeneralDivider(index: Int): Boolean {
         if (!generalVisible[index]) return false
@@ -749,14 +374,14 @@ fun SettingsScreen(
       }
 
       // Keep screen awake toggle
-      if (settingVisible("keep_screen_awake")) {
+      if (vm.settingVisible("keep_screen_awake")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Keep Screen Awake", searchQuery = searchQuery)
+          SettingLabel(text = "Keep Screen Awake", searchQuery = vm.searchQuery)
           Text(
             text = "Prevent screen from turning off while app is open.",
             style = MaterialTheme.typography.bodySmall,
@@ -764,9 +389,9 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = keepScreenOn,
+          checked = vm.keepScreenOn,
           onCheckedChange = { enabled ->
-            keepScreenOn = enabled
+            vm.keepScreenOn = enabled
           },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
@@ -780,14 +405,14 @@ fun SettingsScreen(
       }
 
       // Auto-expand logs toggle
-      if (settingVisible("auto_expand_logs")) {
+      if (vm.settingVisible("auto_expand_logs")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Auto-Expand Logs", searchQuery = searchQuery)
+          SettingLabel(text = "Auto-Expand Logs", searchQuery = vm.searchQuery)
           Text(
             text = "Show full request and response bodies in the Logs tab.",
             style = MaterialTheme.typography.bodySmall,
@@ -795,8 +420,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = autoExpandLogs,
-          onCheckedChange = { autoExpandLogs = it },
+          checked = vm.autoExpandLogs,
+          onCheckedChange = { vm.autoExpandLogs = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -809,14 +434,14 @@ fun SettingsScreen(
       }
 
       // Stream response preview toggle
-      if (settingVisible("stream_response_preview")) {
+      if (vm.settingVisible("stream_response_preview")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Stream Response Preview", searchQuery = searchQuery)
+          SettingLabel(text = "Stream Response Preview", searchQuery = vm.searchQuery)
           Text(
             text = "Show model output as it generates in the Logs tab for streaming requests.",
             style = MaterialTheme.typography.bodySmall,
@@ -824,8 +449,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = streamLogsPreview,
-          onCheckedChange = { streamLogsPreview = it },
+          checked = vm.streamLogsPreview,
+          onCheckedChange = { vm.streamLogsPreview = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -838,14 +463,14 @@ fun SettingsScreen(
       }
 
       // Clear logs on stop toggle
-      if (settingVisible("clear_logs_on_stop")) {
+      if (vm.settingVisible("clear_logs_on_stop")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Clear Logs on Stop", searchQuery = searchQuery)
+          SettingLabel(text = "Clear Logs on Stop", searchQuery = vm.searchQuery)
           Text(
             text = "Automatically clear in-memory logs when the server stops.",
             style = MaterialTheme.typography.bodySmall,
@@ -853,8 +478,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = clearLogsOnStop,
-          onCheckedChange = { clearLogsOnStop = it },
+          checked = vm.clearLogsOnStop,
+          onCheckedChange = { vm.clearLogsOnStop = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -867,14 +492,14 @@ fun SettingsScreen(
       }
 
       // Confirm before clearing logs
-      if (settingVisible("confirm_clear_logs")) {
+      if (vm.settingVisible("confirm_clear_logs")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Confirm Before Clearing Logs", searchQuery = searchQuery)
+          SettingLabel(text = "Confirm Before Clearing Logs", searchQuery = vm.searchQuery)
           Text(
             text = "Show a confirmation dialog before clearing logs.",
             style = MaterialTheme.typography.bodySmall,
@@ -882,8 +507,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = confirmClearLogs,
-          onCheckedChange = { confirmClearLogs = it },
+          checked = vm.confirmClearLogs,
+          onCheckedChange = { vm.confirmClearLogs = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -896,14 +521,14 @@ fun SettingsScreen(
       }
 
       // Keep partial response toggle
-      if (settingVisible("keep_partial_response")) {
+      if (vm.settingVisible("keep_partial_response")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Keep Partial Response", searchQuery = searchQuery)
+          SettingLabel(text = "Keep Partial Response", searchQuery = vm.searchQuery)
           Text(
             text = "Preserve incomplete response text in logs when a streaming request is cancelled by the client.",
             style = MaterialTheme.typography.bodySmall,
@@ -911,8 +536,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = keepPartialResponse,
-          onCheckedChange = { keepPartialResponse = it },
+          checked = vm.keepPartialResponse,
+          onCheckedChange = { vm.keepPartialResponse = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -923,14 +548,14 @@ fun SettingsScreen(
 
     // Hugging Face Token card
     AnimatedVisibility(
-      visible = cardVisible("hf_token"),
+      visible = vm.cardVisible("hf_token"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.Key,
       title = "Hugging Face Token",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       Text(
         text = "Required for downloading models from Hugging Face. Get your token from",
@@ -957,10 +582,10 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.height(8.dp))
       OutlinedTextField(
-        value = hfToken,
-        onValueChange = { hfToken = it.trim() },
+        value = vm.hfToken,
+        onValueChange = { vm.hfToken = it.trim() },
         singleLine = true,
-        visualTransformation = if (hfTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        visualTransformation = if (vm.hfTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
         placeholder = {
           Text(
             "hf_...",
@@ -970,16 +595,16 @@ fun SettingsScreen(
         },
         trailingIcon = {
           Row {
-            IconButton(onClick = { hfTokenVisible = !hfTokenVisible }) {
+            IconButton(onClick = { vm.hfTokenVisible = !vm.hfTokenVisible }) {
               Icon(
-                imageVector = if (hfTokenVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                contentDescription = if (hfTokenVisible) "Hide token" else "Show token",
+                imageVector = if (vm.hfTokenVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                contentDescription = if (vm.hfTokenVisible) "Hide token" else "Show token",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
-            if (hfToken.isNotBlank()) {
+            if (vm.hfToken.isNotBlank()) {
               IconButton(onClick = {
-                hfToken = ""
+                vm.hfToken = ""
                 Toast.makeText(context, "Token cleared", Toast.LENGTH_SHORT).show()
               }) {
                 Icon(
@@ -1002,31 +627,31 @@ fun SettingsScreen(
 
     // Server Config card
     AnimatedVisibility(
-      visible = cardVisible("server_config"),
+      visible = vm.cardVisible("server_config"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.Tune,
       title = "Server Configuration",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
-      if (settingVisible("host_port")) {
+      if (vm.settingVisible("host_port")) {
       Text(
-        text = highlightSearchMatches("Host Port (1024–65535)", searchQuery, OlliteRTPrimary),
+        text = highlightSearchMatches("Host Port (1024–65535)", vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(modifier = Modifier.height(4.dp))
       OutlinedTextField(
-        value = portText,
+        value = vm.portText,
         onValueChange = { input ->
           // Allow only digits, let user freely type/delete
-          portText = input.filter { it.isDigit() }.take(5)
-          portError = false
+          vm.portText = input.filter { it.isDigit() }.take(5)
+          vm.portError = false
         },
         singleLine = true,
-        isError = portError,
+        isError = vm.portError,
         placeholder = {
           Text(
             "8000",
@@ -1036,8 +661,8 @@ fun SettingsScreen(
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (portError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (portError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (vm.portError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (vm.portError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
@@ -1049,21 +674,21 @@ fun SettingsScreen(
       )
       } // if: host_port
 
-      if (settingVisible("host_port") && settingVisible("bearer_token")) {
+      if (vm.settingVisible("host_port") && vm.settingVisible("bearer_token")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
       }
 
       // Bearer token toggle
-      if (settingVisible("bearer_token")) {
+      if (vm.settingVisible("bearer_token")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Require Bearer Token", searchQuery = searchQuery)
+          SettingLabel(text = "Require Bearer Token", searchQuery = vm.searchQuery)
           Text(
             text = "Protect the API with a bearer token. Clients must include it in the Authorization header.",
             style = MaterialTheme.typography.bodySmall,
@@ -1071,11 +696,11 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = bearerEnabled,
+          checked = vm.bearerEnabled,
           onCheckedChange = { enabled ->
-            bearerEnabled = enabled
-            if (enabled && bearerToken.isBlank()) {
-              bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+            vm.bearerEnabled = enabled
+            if (enabled && vm.bearerToken.isBlank()) {
+              vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
             }
           },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
@@ -1083,29 +708,29 @@ fun SettingsScreen(
       }
       } // if: bearer_token
 
-      if (settingVisible("bearer_token") && settingVisible("cors_origins")) {
+      if (vm.settingVisible("bearer_token") && vm.settingVisible("cors_origins")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
       }
 
       // CORS allowed origins
-      if (settingVisible("cors_origins")) {
+      if (vm.settingVisible("cors_origins")) {
       Text(
-        text = highlightSearchMatches("CORS Allowed Origins", searchQuery, OlliteRTPrimary),
+        text = highlightSearchMatches("CORS Allowed Origins", vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(modifier = Modifier.height(4.dp))
       OutlinedTextField(
-        value = corsAllowedOrigins,
+        value = vm.corsAllowedOrigins,
         onValueChange = {
-          corsAllowedOrigins = it
+          vm.corsAllowedOrigins = it
           // Clear error as soon as the user edits the field
-          if (corsError) corsError = false
+          if (vm.corsError) vm.corsError = false
         },
         singleLine = true,
-        isError = corsError,
+        isError = vm.corsError,
         placeholder = {
           Text(
             "*",
@@ -1114,23 +739,23 @@ fun SettingsScreen(
           )
         },
         trailingIcon = {
-          if (corsAllowedOrigins.isNotBlank()) {
+          if (vm.corsAllowedOrigins.isNotBlank()) {
             IconButton(onClick = {
-              corsAllowedOrigins = ""
-              if (corsError) corsError = false
+              vm.corsAllowedOrigins = ""
+              if (vm.corsError) vm.corsError = false
             }) {
               Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = "Clear origins",
-                tint = if (corsError) MaterialTheme.colorScheme.error
+                tint = if (vm.corsError) MaterialTheme.colorScheme.error
                        else MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
           }
         },
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (corsError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (corsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (vm.corsError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (vm.corsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
@@ -1143,7 +768,7 @@ fun SettingsScreen(
       } // if: cors_origins
 
       // Token display + actions (only when bearer is enabled and setting is visible)
-      if (bearerEnabled && settingVisible("bearer_token")) {
+      if (vm.bearerEnabled && vm.settingVisible("bearer_token")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
@@ -1158,7 +783,7 @@ fun SettingsScreen(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Text(
-            text = bearerToken,
+            text = vm.bearerToken,
             style = MaterialTheme.typography.bodySmall.copy(
               fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
             ),
@@ -1174,7 +799,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.ContentCopy,
             tooltip = "Copy token",
             onClick = {
-              copyToClipboard(context, "OlliteRT Bearer Token", bearerToken)
+              copyToClipboard(context, "OlliteRT Bearer Token", vm.bearerToken)
             },
           )
 
@@ -1185,7 +810,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.Refresh,
             tooltip = "Regenerate token",
             onClick = {
-              bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+              vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
               Toast.makeText(context, "Token regenerated — save to apply", Toast.LENGTH_SHORT).show()
             },
           )
@@ -1196,19 +821,19 @@ fun SettingsScreen(
 
     // Auto-Launch & Behavior card
     AnimatedVisibility(
-      visible = cardVisible("auto_launch"),
+      visible = vm.cardVisible("auto_launch"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.PlayArrow,
       title = "Auto-Launch & Behavior",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       // Default model picker
-      if (settingVisible("default_model")) {
+      if (vm.settingVisible("default_model")) {
       Text(
-        text = highlightSearchMatches("Default Model", searchQuery, OlliteRTPrimary),
+        text = highlightSearchMatches("Default Model", vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -1223,13 +848,13 @@ fun SettingsScreen(
         // Dropdown trigger
         Column {
           OutlinedTextField(
-            value = defaultModelName ?: "None (manual start)",
+            value = vm.defaultModelName ?: "None (manual start)",
             onValueChange = {},
             readOnly = true,
             singleLine = true,
             modifier = Modifier
               .fillMaxWidth()
-              .clickable { showModelDropdown = true },
+              .clickable { vm.showModelDropdown = true },
             enabled = false,
             colors = OutlinedTextFieldDefaults.colors(
               disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -1238,20 +863,20 @@ fun SettingsScreen(
             ),
           )
           DropdownMenu(
-            expanded = showModelDropdown,
-            onDismissRequest = { showModelDropdown = false },
+            expanded = vm.showModelDropdown,
+            onDismissRequest = { vm.showModelDropdown = false },
           ) {
             DropdownMenuItem(
               text = {
                 Text(
                   "None (manual start)",
-                  color = if (defaultModelName == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+                  color = if (vm.defaultModelName == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
                 )
               },
               onClick = {
-                defaultModelName = null
-                autoStartOnBoot = false  // Can't auto-start without a default model
-                showModelDropdown = false
+                vm.defaultModelName = null
+                vm.autoStartOnBoot = false  // Can't auto-start without a default model
+                vm.showModelDropdown = false
               },
             )
             HorizontalDivider()
@@ -1260,12 +885,12 @@ fun SettingsScreen(
                 text = {
                   Text(
                     modelName,
-                    color = if (modelName == defaultModelName) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+                    color = if (modelName == vm.defaultModelName) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
                   )
                 },
                 onClick = {
-                  defaultModelName = modelName
-                  showModelDropdown = false
+                  vm.defaultModelName = modelName
+                  vm.showModelDropdown = false
                 },
               )
             }
@@ -1280,55 +905,55 @@ fun SettingsScreen(
       )
       } // if: default_model
 
-      if (settingVisible("default_model") && settingVisible("start_on_boot")) {
+      if (vm.settingVisible("default_model") && vm.settingVisible("start_on_boot")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
       }
 
       // Auto-start on boot toggle — entire row dims when no default model is selected
-      if (settingVisible("start_on_boot")) {
-      val autoStartAlpha = if (defaultModelName != null) 1f else 0.4f
+      if (vm.settingVisible("start_on_boot")) {
+      val autoStartAlpha = if (vm.defaultModelName != null) 1f else 0.4f
       Row(
         modifier = Modifier.fillMaxWidth().alpha(autoStartAlpha),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Start on Boot", searchQuery = searchQuery)
+          SettingLabel(text = "Start on Boot", searchQuery = vm.searchQuery)
           Text(
-            text = if (defaultModelName == null) "Select a default model above to enable."
+            text = if (vm.defaultModelName == null) "Select a default model above to enable."
                    else "Launch server automatically when device starts.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
         Switch(
-          checked = autoStartOnBoot,
+          checked = vm.autoStartOnBoot,
           onCheckedChange = { enabled ->
-            autoStartOnBoot = enabled
+            vm.autoStartOnBoot = enabled
           },
-          enabled = defaultModelName != null,
+          enabled = vm.defaultModelName != null,
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
       } // if: start_on_boot
 
-      if (settingVisible("start_on_boot") && settingVisible("keep_alive")) {
+      if (vm.settingVisible("start_on_boot") && vm.settingVisible("keep_alive")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
       }
 
       // Keep Alive — auto-unload model after idle timeout to free RAM
-      if (settingVisible("keep_alive")) {
+      if (vm.settingVisible("keep_alive")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Keep Alive", searchQuery = searchQuery)
+          SettingLabel(text = "Keep Alive", searchQuery = vm.searchQuery)
           Text(
             text = "Unload model after idle timeout to free RAM. Next request auto-reloads (cold start).",
             style = MaterialTheme.typography.bodySmall,
@@ -1336,14 +961,14 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = keepAliveEnabled,
-          onCheckedChange = { keepAliveEnabled = it },
+          checked = vm.keepAliveEnabled,
+          onCheckedChange = { vm.keepAliveEnabled = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
 
       // Idle timeout child control — dimmed when keep alive is disabled
-      val keepAliveChildAlpha = if (keepAliveEnabled) 1f else 0.4f
+      val keepAliveChildAlpha = if (vm.keepAliveEnabled) 1f else 0.4f
 
       Spacer(modifier = Modifier.height(8.dp))
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1351,15 +976,15 @@ fun SettingsScreen(
 
       Column(modifier = Modifier.alpha(keepAliveChildAlpha)) {
         Text(
-          text = highlightSearchMatches("Idle Timeout", searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches("Idle Timeout", vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(4.dp))
 
         val keepAliveTimeoutUnits = listOf("minutes", "hours")
-        val initialKeepAliveValue = remember(savedKeepAliveMinutes) {
-          val mins = savedKeepAliveMinutes
+        val initialKeepAliveValue = remember(vm.keepAliveMinutes) {
+          val mins = vm.keepAliveMinutes
           if (mins > 0 && mins % 60 == 0) (mins / 60).toString() else mins.toString()
         }
         var keepAliveValueText by remember { mutableStateOf(initialKeepAliveValue) }
@@ -1367,12 +992,12 @@ fun SettingsScreen(
 
         fun recomputeKeepAliveMinutes() {
           val num = keepAliveValueText.toIntOrNull() ?: 0
-          val totalMinutes = when (keepAliveUnit) {
+          val totalMinutes = when (vm.keepAliveUnit) {
             "hours" -> num * 60
             else -> num
           }
-          keepAliveMinutes = totalMinutes
-          if (keepAliveError) keepAliveError = false
+          vm.keepAliveMinutes = totalMinutes
+          if (vm.keepAliveError) vm.keepAliveError = false
         }
 
         Row(
@@ -1387,26 +1012,26 @@ fun SettingsScreen(
               recomputeKeepAliveMinutes()
             },
             singleLine = true,
-            isError = keepAliveError,
-            enabled = keepAliveEnabled,
+            isError = vm.keepAliveError,
+            enabled = vm.keepAliveEnabled,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.weight(1f),
             colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = if (keepAliveError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-              unfocusedBorderColor = if (keepAliveError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+              focusedBorderColor = if (vm.keepAliveError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+              unfocusedBorderColor = if (vm.keepAliveError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
               cursorColor = OlliteRTPrimary,
             ),
           )
           // Unit selector dropdown
           Column {
             OutlinedTextField(
-              value = keepAliveUnit,
+              value = vm.keepAliveUnit,
               onValueChange = {},
               readOnly = true,
               singleLine = true,
               modifier = Modifier
                 .widthIn(min = 90.dp, max = 120.dp)
-                .clickable(enabled = keepAliveEnabled) {
+                .clickable(enabled = vm.keepAliveEnabled) {
                   focusManager.clearFocus()
                   showKeepAliveUnitDropdown = true
                 },
@@ -1426,12 +1051,12 @@ fun SettingsScreen(
                   text = {
                     Text(
                       unit,
-                      color = if (unit == keepAliveUnit) OlliteRTPrimary
+                      color = if (unit == vm.keepAliveUnit) OlliteRTPrimary
                               else MaterialTheme.colorScheme.onSurface,
                     )
                   },
                   onClick = {
-                    keepAliveUnit = unit
+                    vm.keepAliveUnit = unit
                     showKeepAliveUnitDropdown = false
                     recomputeKeepAliveMinutes()
                   },
@@ -1449,14 +1074,14 @@ fun SettingsScreen(
       }
       } // if: keep_alive
 
-      if (settingVisible("keep_alive") && settingVisible("dontkillmyapp")) {
+      if (vm.settingVisible("keep_alive") && vm.settingVisible("dontkillmyapp")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
       }
 
       // Link to dontkillmyapp.com — OEM-specific battery/background kill settings
-      if (settingVisible("dontkillmyapp")) {
+      if (vm.settingVisible("dontkillmyapp")) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
@@ -1467,7 +1092,7 @@ fun SettingsScreen(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = highlightSearchMatches("Device background settings", searchQuery, OlliteRTPrimary),
+            text = highlightSearchMatches("Device background settings", vm.searchQuery, OlliteRTPrimary),
             style = MaterialTheme.typography.bodyMedium,
             color = OlliteRTPrimary,
           )
@@ -1487,14 +1112,14 @@ fun SettingsScreen(
       }
       } // if: dontkillmyapp
 
-      if ((settingVisible("dontkillmyapp") || settingVisible("keep_alive")) && settingVisible("update_check")) {
+      if ((vm.settingVisible("dontkillmyapp") || vm.settingVisible("keep_alive")) && vm.settingVisible("update_check")) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
       }
 
       // Check for Updates — manual check always available, automatic scheduling is separate
-      if (settingVisible("update_check")) {
+      if (vm.settingVisible("update_check")) {
 
       // Observe update availability from ServerMetrics to swap refresh → download icon
       val availableVersion by ServerMetrics.availableUpdateVersion.collectAsState()
@@ -1538,7 +1163,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Check for Updates", searchQuery = searchQuery)
+          SettingLabel(text = "Check for Updates", searchQuery = vm.searchQuery)
           Text(
             text = "Check for a newer version of OlliteRT.",
             style = MaterialTheme.typography.bodySmall,
@@ -1585,7 +1210,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Automatic Update Check", searchQuery = searchQuery)
+          SettingLabel(text = "Automatic Update Check", searchQuery = vm.searchQuery)
           Text(
             text = "Periodically check in the background and notify when an update is available.",
             style = MaterialTheme.typography.bodySmall,
@@ -1593,8 +1218,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = updateCheckEnabled,
-          onCheckedChange = { updateCheckEnabled = it },
+          checked = vm.updateCheckEnabled,
+          onCheckedChange = { vm.updateCheckEnabled = it },
           enabled = updateControlsEnabled,
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
@@ -1625,7 +1250,7 @@ fun SettingsScreen(
       }
 
       // Frequency input — dimmed when toggle is off or permission missing
-      val updateChildAlpha = if (updateCheckEnabled && updateControlsEnabled) 1f else 0.4f
+      val updateChildAlpha = if (vm.updateCheckEnabled && updateControlsEnabled) 1f else 0.4f
 
       Spacer(modifier = Modifier.height(8.dp))
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1633,15 +1258,15 @@ fun SettingsScreen(
 
       Column(modifier = Modifier.alpha(updateChildAlpha)) {
         Text(
-          text = highlightSearchMatches("Check Frequency", searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches("Check Frequency", vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(4.dp))
 
         val updateCheckUnits = listOf("hours", "days")
-        val initialUpdateValue = remember(savedUpdateCheckIntervalHours) {
-          val h = savedUpdateCheckIntervalHours
+        val initialUpdateValue = remember(vm.updateCheckIntervalHours) {
+          val h = vm.updateCheckIntervalHours
           if (h > 0 && h % 24 == 0) (h / 24).toString() else h.toString()
         }
         var updateValueText by remember { mutableStateOf(initialUpdateValue) }
@@ -1649,12 +1274,12 @@ fun SettingsScreen(
 
         fun recomputeUpdateHours() {
           val num = updateValueText.toIntOrNull() ?: 0
-          val totalHours = when (updateCheckUnit) {
+          val totalHours = when (vm.updateCheckUnit) {
             "days" -> num * 24
             else -> num
           }
-          updateCheckIntervalHours = totalHours
-          if (updateCheckError) updateCheckError = false
+          vm.updateCheckIntervalHours = totalHours
+          if (vm.updateCheckError) vm.updateCheckError = false
         }
 
         Row(
@@ -1669,26 +1294,26 @@ fun SettingsScreen(
               recomputeUpdateHours()
             },
             singleLine = true,
-            isError = updateCheckError,
-            enabled = updateCheckEnabled && updateControlsEnabled,
+            isError = vm.updateCheckError,
+            enabled = vm.updateCheckEnabled && updateControlsEnabled,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.weight(1f),
             colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = if (updateCheckError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-              unfocusedBorderColor = if (updateCheckError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+              focusedBorderColor = if (vm.updateCheckError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+              unfocusedBorderColor = if (vm.updateCheckError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
               cursorColor = OlliteRTPrimary,
             ),
           )
           // Unit selector dropdown
           Column {
             OutlinedTextField(
-              value = updateCheckUnit,
+              value = vm.updateCheckUnit,
               onValueChange = {},
               readOnly = true,
               singleLine = true,
               modifier = Modifier
                 .widthIn(min = 90.dp, max = 120.dp)
-                .clickable(enabled = updateCheckEnabled && updateControlsEnabled) {
+                .clickable(enabled = vm.updateCheckEnabled && updateControlsEnabled) {
                   focusManager.clearFocus()
                   showUpdateUnitDropdown = true
                 },
@@ -1708,12 +1333,12 @@ fun SettingsScreen(
                   text = {
                     Text(
                       unit,
-                      color = if (unit == updateCheckUnit) OlliteRTPrimary
+                      color = if (unit == vm.updateCheckUnit) OlliteRTPrimary
                               else MaterialTheme.colorScheme.onSurface,
                     )
                   },
                   onClick = {
-                    updateCheckUnit = unit
+                    vm.updateCheckUnit = unit
                     showUpdateUnitDropdown = false
                     recomputeUpdateHours()
                   },
@@ -1736,24 +1361,24 @@ fun SettingsScreen(
 
     // Metrics card
     AnimatedVisibility(
-      visible = cardVisible("metrics"),
+      visible = vm.cardVisible("metrics"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.BarChart,
       title = "Metrics",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       // Show Request Types on Status screen
-      if (settingVisible("show_request_types")) {
+      if (vm.settingVisible("show_request_types")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Show Request Types", searchQuery = searchQuery)
+          SettingLabel(text = "Show Request Types", searchQuery = vm.searchQuery)
           Text(
             text = "Show text, vision, and audio request counts on the Status screen.",
             style = MaterialTheme.typography.bodySmall,
@@ -1761,28 +1386,28 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = showRequestTypes,
-          onCheckedChange = { showRequestTypes = it },
+          checked = vm.showRequestTypes,
+          onCheckedChange = { vm.showRequestTypes = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
       } // if: show_request_types
 
-      if (settingVisible("show_request_types") && settingVisible("show_advanced_metrics")) {
+      if (vm.settingVisible("show_request_types") && vm.settingVisible("show_advanced_metrics")) {
         Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(8.dp))
       }
 
       // Show Advanced Metrics on Status screen
-      if (settingVisible("show_advanced_metrics")) {
+      if (vm.settingVisible("show_advanced_metrics")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Show Advanced Metrics", searchQuery = searchQuery)
+          SettingLabel(text = "Show Advanced Metrics", searchQuery = vm.searchQuery)
           Text(
             text = "Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen.",
             style = MaterialTheme.typography.bodySmall,
@@ -1790,8 +1415,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = showAdvancedMetrics,
-          onCheckedChange = { showAdvancedMetrics = it },
+          checked = vm.showAdvancedMetrics,
+          onCheckedChange = { vm.showAdvancedMetrics = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -1801,14 +1426,14 @@ fun SettingsScreen(
 
     // Log Persistence card
     AnimatedVisibility(
-      visible = cardVisible("log_persistence"),
+      visible = vm.cardVisible("log_persistence"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.Storage,
       title = "Log Persistence",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       // Master toggle
       Row(
@@ -1817,7 +1442,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Persist Logs to Database", searchQuery = searchQuery)
+          SettingLabel(text = "Persist Logs to Database", searchQuery = vm.searchQuery)
           Text(
             text = "Save activity logs to a local database so they survive app restarts. Disabled by default.",
             style = MaterialTheme.typography.bodySmall,
@@ -1825,14 +1450,14 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = logPersistenceEnabled,
-          onCheckedChange = { logPersistenceEnabled = it },
+          checked = vm.logPersistenceEnabled,
+          onCheckedChange = { vm.logPersistenceEnabled = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
 
       // Child controls — disabled (greyed out) when master toggle is OFF
-      val childAlpha = if (logPersistenceEnabled) 1f else 0.4f
+      val childAlpha = if (vm.logPersistenceEnabled) 1f else 0.4f
 
       Spacer(modifier = Modifier.height(8.dp))
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1841,22 +1466,22 @@ fun SettingsScreen(
       // Max Entries — simple number input, value updates live into unsaved state
       Column(modifier = Modifier.alpha(childAlpha)) {
         Text(
-          text = highlightSearchMatches("Maximum Log Entries", searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches("Maximum Log Entries", vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(4.dp))
         // Track as text so the user can freely edit (e.g. delete "500" and type "200")
-        var maxEntriesText by remember { mutableStateOf(logMaxEntries.toString()) }
+        var maxEntriesText by remember { mutableStateOf(vm.logMaxEntries.toString()) }
         OutlinedTextField(
           value = maxEntriesText,
           onValueChange = { text ->
             val filtered = text.filter { it.isDigit() }.take(5) // max 5 digits (99999)
             maxEntriesText = filtered
-            filtered.toIntOrNull()?.let { logMaxEntries = it }
+            filtered.toIntOrNull()?.let { vm.logMaxEntries = it }
           },
           singleLine = true,
-          enabled = logPersistenceEnabled,
+          enabled = vm.logPersistenceEnabled,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
           modifier = Modifier.fillMaxWidth(),
           colors = OutlinedTextFieldDefaults.colors(
@@ -1879,7 +1504,7 @@ fun SettingsScreen(
       // Auto-Delete — number input + unit dropdown (minutes/hours/days)
       Column(modifier = Modifier.alpha(childAlpha)) {
         Text(
-          text = highlightSearchMatches("Auto-Delete After", searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches("Auto-Delete After", vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1888,8 +1513,8 @@ fun SettingsScreen(
         // Decompose total minutes into a display value + unit for the UI.
         // Pick the largest unit that divides evenly, defaulting to minutes.
         val autoDeleteUnits = listOf("minutes", "hours", "days")
-        val (initialValue, initialUnit) = remember(savedLogAutoDeleteMinutes) {
-          val mins = savedLogAutoDeleteMinutes
+        val (initialValue, initialUnit) = remember(vm.logAutoDeleteMinutes) {
+          val mins = vm.logAutoDeleteMinutes
           when {
             mins > 0 && mins % (24 * 60) == 0L -> (mins / (24 * 60)).toString() to "days"
             mins > 0 && mins % 60 == 0L -> (mins / 60).toString() to "hours"
@@ -1904,7 +1529,7 @@ fun SettingsScreen(
         // A value of 0 means auto-delete is disabled (logs kept indefinitely).
         fun recomputeMinutes() {
           val num = autoDeleteValueText.toLongOrNull() ?: return
-          logAutoDeleteMinutes = when (autoDeleteUnit) {
+          vm.logAutoDeleteMinutes = when (autoDeleteUnit) {
             "hours" -> num * 60
             "days" -> num * 24 * 60
             else -> num
@@ -1924,7 +1549,7 @@ fun SettingsScreen(
               recomputeMinutes()
             },
             singleLine = true,
-            enabled = logPersistenceEnabled,
+            enabled = vm.logPersistenceEnabled,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.weight(1f),
             colors = OutlinedTextFieldDefaults.colors(
@@ -1941,7 +1566,7 @@ fun SettingsScreen(
               singleLine = true,
               modifier = Modifier
                 .widthIn(min = 90.dp, max = 120.dp)
-                .clickable(enabled = logPersistenceEnabled) {
+                .clickable(enabled = vm.logPersistenceEnabled) {
                   focusManager.clearFocus() // dismiss keyboard so dropdown anchors correctly
                   showUnitDropdown = true
                 },
@@ -1992,8 +1617,8 @@ fun SettingsScreen(
       // so clearing should remove everything to avoid confusion.
       Column(modifier = Modifier.alpha(childAlpha)) {
         Button(
-          onClick = { showClearPersistedDialog = true },
-          enabled = logPersistenceEnabled,
+          onClick = { vm.showClearPersistedDialog = true },
+          enabled = vm.logPersistenceEnabled,
           colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.error,
           ),
@@ -2013,15 +1638,15 @@ fun SettingsScreen(
     } // AnimatedVisibility: Log Persistence
 
     // Clear persisted logs confirmation dialog
-    if (showClearPersistedDialog) {
+    if (vm.showClearPersistedDialog) {
       AlertDialog(
-        onDismissRequest = { showClearPersistedDialog = false },
+        onDismissRequest = { vm.showClearPersistedDialog = false },
         title = { Text("Clear All Logs") },
         text = { Text("This will permanently delete all logs — both the current session and the database. This cannot be undone.") },
         confirmButton = {
           Button(
             onClick = {
-              showClearPersistedDialog = false
+              vm.showClearPersistedDialog = false
               // Clear in-memory logs (also triggers onEntriesCleared → wipes DB via callback)
               RequestLogStore.clear()
               // Explicit DB wipe as well, in case callback didn't fire (e.g. persistence was just enabled)
@@ -2039,7 +1664,7 @@ fun SettingsScreen(
         },
         dismissButton = {
           Button(
-            onClick = { showClearPersistedDialog = false },
+            onClick = { vm.showClearPersistedDialog = false },
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
               contentColor = MaterialTheme.colorScheme.onSurface,
@@ -2052,20 +1677,20 @@ fun SettingsScreen(
     }
 
     // Trim logs confirmation — shown when max entries is reduced below current count
-    if (showTrimLogsDialog) {
+    if (vm.showTrimLogsDialog) {
       val currentCount = RequestLogStore.entries.value.size
-      val toRemove = currentCount - logMaxEntries
+      val toRemove = currentCount - vm.logMaxEntries
       AlertDialog(
-        onDismissRequest = { showTrimLogsDialog = false },
+        onDismissRequest = { vm.showTrimLogsDialog = false },
         title = { Text("Reduce Log Limit") },
         text = {
-          Text("You currently have $currentCount logs. Reducing the limit to $logMaxEntries will remove the $toRemove oldest entries after saving.")
+          Text("You currently have $currentCount logs. Reducing the limit to $vm.logMaxEntries will remove the $toRemove oldest entries after saving.")
         },
         confirmButton = {
           Button(
             onClick = {
-              showTrimLogsDialog = false
-              saveSettings()
+              vm.showTrimLogsDialog = false
+              forceSave()
             },
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
           ) {
@@ -2074,7 +1699,7 @@ fun SettingsScreen(
         },
         dismissButton = {
           Button(
-            onClick = { showTrimLogsDialog = false },
+            onClick = { vm.showTrimLogsDialog = false },
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
               contentColor = MaterialTheme.colorScheme.onSurface,
@@ -2087,15 +1712,15 @@ fun SettingsScreen(
     }
 
     // Discard unsaved changes dialog
-    if (showDiscardDialog) {
+    if (vm.showDiscardDialog) {
       AlertDialog(
-        onDismissRequest = { showDiscardDialog = false },
+        onDismissRequest = { vm.showDiscardDialog = false },
         title = { Text("Unsaved Changes") },
         text = { Text("You have unsaved changes. Would you like to save or discard them?") },
         confirmButton = {
           Button(onClick = {
-            showDiscardDialog = false
-            trySave()
+            vm.showDiscardDialog = false
+            performSave()
             onBackClick()
           }) {
             Text("Save")
@@ -2103,7 +1728,7 @@ fun SettingsScreen(
         },
         dismissButton = {
           Button(onClick = {
-            showDiscardDialog = false
+            vm.showDiscardDialog = false
             onBackClick()
           },
           colors = ButtonDefaults.buttonColors(
@@ -2116,10 +1741,10 @@ fun SettingsScreen(
     }
 
     // Restart server dialog when settings that require a restart are changed
-    if (showRestartDialog) {
+    if (vm.showRestartDialog) {
       AlertDialog(
         onDismissRequest = {
-          showRestartDialog = false
+          vm.showRestartDialog = false
           Toast.makeText(context, "Settings saved. Restart the server manually for changes to take effect.", Toast.LENGTH_LONG).show()
         },
         title = { Text("Restart server?") },
@@ -2128,7 +1753,7 @@ fun SettingsScreen(
         },
         confirmButton = {
           Button(onClick = {
-            showRestartDialog = false
+            vm.showRestartDialog = false
             onRestartServer()
             Toast.makeText(context, "Server restarting with updated settings", Toast.LENGTH_SHORT).show()
           }) {
@@ -2138,7 +1763,7 @@ fun SettingsScreen(
         dismissButton = {
           Button(
             onClick = {
-              showRestartDialog = false
+              vm.showRestartDialog = false
               Toast.makeText(context, "Settings saved. Restart the server manually for changes to take effect.", Toast.LENGTH_LONG).show()
             },
             colors = ButtonDefaults.buttonColors(
@@ -2153,10 +1778,10 @@ fun SettingsScreen(
     }
 
     // Reset to Defaults confirmation dialog
-    if (showResetDialog) {
+    if (vm.showResetDialog) {
       val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
       AlertDialog(
-        onDismissRequest = { showResetDialog = false },
+        onDismissRequest = { vm.showResetDialog = false },
         title = { Text("Reset to Defaults") },
         text = {
           Text(
@@ -2169,7 +1794,7 @@ fun SettingsScreen(
         confirmButton = {
           Button(
             onClick = {
-              showResetDialog = false
+              vm.showResetDialog = false
 
               // Stop the server if it's running
               if (isServerActive) {
@@ -2205,7 +1830,7 @@ fun SettingsScreen(
         },
         dismissButton = {
           Button(
-            onClick = { showResetDialog = false },
+            onClick = { vm.showResetDialog = false },
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
               contentColor = MaterialTheme.colorScheme.onSurface,
@@ -2218,9 +1843,9 @@ fun SettingsScreen(
     }
 
     // Donate dialog — shows donation platform options (shared composable)
-    if (showDonateDialog) {
+    if (vm.showDonateDialog) {
       com.ollitert.llm.server.ui.common.DonateDialog(
-        onDismiss = { showDonateDialog = false },
+        onDismiss = { vm.showDonateDialog = false },
       )
     }
 
@@ -2229,14 +1854,14 @@ fun SettingsScreen(
 
 
     AnimatedVisibility(
-      visible = cardVisible("home_assistant"),
+      visible = vm.cardVisible("home_assistant"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       iconRes = com.ollitert.llm.server.R.drawable.ic_home_assistant,
       title = "Home Assistant",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       // Toggle for HA integration
       Row(
@@ -2245,7 +1870,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "REST API Integration", searchQuery = searchQuery)
+          SettingLabel(text = "REST API Integration", searchQuery = vm.searchQuery)
           Text(
             text = "Generate a ready-made configuration.yaml snippet for Home Assistant. Creates REST sensors for server status, model info, and performance metrics, plus a command to stop the server remotely.",
             style = MaterialTheme.typography.bodySmall,
@@ -2269,9 +1894,9 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Build the HA YAML config dynamically using current IP, port, and bearer token
-        val currentPort = portText.toIntOrNull() ?: LlmHttpPrefs.getPort(context)
+        val currentPort = vm.portText.toIntOrNull() ?: LlmHttpPrefs.getPort(context)
         val currentIp = remember { getWifiIpAddress(context) ?: "<YOUR_DEVICE_IP>" }
-        val currentToken = if (bearerEnabled) bearerToken else ""
+        val currentToken = if (vm.bearerEnabled) vm.bearerToken else ""
         val baseUrl = "http://$currentIp:$currentPort"
 
         // Auth header block reused across REST sensor and commands
@@ -2400,19 +2025,19 @@ fun SettingsScreen(
 
     // Advanced Settings card
     AnimatedVisibility(
-      visible = cardVisible("advanced"),
+      visible = vm.cardVisible("advanced"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.Science,
       title = "Advanced",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       // Track which advanced settings are visible to control dividers between them.
       // Dividers only show between two consecutively visible settings.
       val advancedKeys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params")
-      val advancedVisible = advancedKeys.map { settingVisible(it) }
+      val advancedVisible = advancedKeys.map { vm.settingVisible(it) }
 
       /** Show a divider before [index] only if a preceding setting is also visible. */
       fun showDividerBefore(index: Int): Boolean {
@@ -2420,14 +2045,14 @@ fun SettingsScreen(
         return (0 until index).any { advancedVisible[it] }
       }
 
-      if (settingVisible("warmup_message")) {
+      if (vm.settingVisible("warmup_message")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Warmup Message", searchQuery = searchQuery)
+          SettingLabel(text = "Warmup Message", searchQuery = vm.searchQuery)
           Text(
             text = "Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup.",
             style = MaterialTheme.typography.bodySmall,
@@ -2435,8 +2060,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = warmupEnabled,
-          onCheckedChange = { warmupEnabled = it },
+          checked = vm.warmupEnabled,
+          onCheckedChange = { vm.warmupEnabled = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2449,14 +2074,14 @@ fun SettingsScreen(
       }
 
       // Eager vision initialization toggle
-      if (settingVisible("pre_init_vision")) {
+      if (vm.settingVisible("pre_init_vision")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Pre-initialize Vision", searchQuery = searchQuery)
+          SettingLabel(text = "Pre-initialize Vision", searchQuery = vm.searchQuery)
           Text(
             text = "Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start.",
             style = MaterialTheme.typography.bodySmall,
@@ -2464,8 +2089,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = eagerVisionInit,
-          onCheckedChange = { eagerVisionInit = it },
+          checked = vm.eagerVisionInit,
+          onCheckedChange = { vm.eagerVisionInit = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2478,14 +2103,14 @@ fun SettingsScreen(
       }
 
       // Custom system prompt & chat template toggle
-      if (settingVisible("custom_prompts")) {
+      if (vm.settingVisible("custom_prompts")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Custom System Prompt & Chat Template", searchQuery = searchQuery)
+          SettingLabel(text = "Custom System Prompt & Chat Template", searchQuery = vm.searchQuery)
           Text(
             text = "Enable per-model system prompt and chat template fields in Inference Settings. Useful for models with non-standard prompt formats.",
             style = MaterialTheme.typography.bodySmall,
@@ -2493,8 +2118,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = customPromptsEnabled,
-          onCheckedChange = { customPromptsEnabled = it },
+          checked = vm.customPromptsEnabled,
+          onCheckedChange = { vm.customPromptsEnabled = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2507,14 +2132,14 @@ fun SettingsScreen(
       }
 
       // Truncate conversation history toggle
-      if (settingVisible("truncate_history")) {
+      if (vm.settingVisible("truncate_history")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Truncate Conversation History", searchQuery = searchQuery)
+          SettingLabel(text = "Truncate Conversation History", searchQuery = vm.searchQuery)
           Text(
             text = "When a request exceeds the model's context window, drop older messages from the conversation while keeping system prompts and the most recent messages.",
             style = MaterialTheme.typography.bodySmall,
@@ -2522,8 +2147,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = autoTruncateHistory,
-          onCheckedChange = { autoTruncateHistory = it },
+          checked = vm.autoTruncateHistory,
+          onCheckedChange = { vm.autoTruncateHistory = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2536,14 +2161,14 @@ fun SettingsScreen(
       }
 
       // Compact tool schemas toggle (especially useful for Home Assistant)
-      if (settingVisible("compact_tool_schemas")) {
+      if (vm.settingVisible("compact_tool_schemas")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Compact Tool Schemas", searchQuery = searchQuery)
+          SettingLabel(text = "Compact Tool Schemas", searchQuery = vm.searchQuery)
           Text(
             text = "When a request with tools exceeds the model's context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for Home Assistant integration which sends many tool definitions.",
             style = MaterialTheme.typography.bodySmall,
@@ -2551,8 +2176,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = compactToolSchemas,
-          onCheckedChange = { compactToolSchemas = it },
+          checked = vm.compactToolSchemas,
+          onCheckedChange = { vm.compactToolSchemas = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2565,14 +2190,14 @@ fun SettingsScreen(
       }
 
       // Trim prompt toggle (last resort)
-      if (settingVisible("trim_prompt")) {
+      if (vm.settingVisible("trim_prompt")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Trim Prompt", searchQuery = searchQuery)
+          SettingLabel(text = "Trim Prompt", searchQuery = vm.searchQuery)
           Text(
             text = "Last resort when other strategies aren't enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.",
             style = MaterialTheme.typography.bodySmall,
@@ -2580,8 +2205,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = autoTrimPrompts,
-          onCheckedChange = { autoTrimPrompts = it },
+          checked = vm.autoTrimPrompts,
+          onCheckedChange = { vm.autoTrimPrompts = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2594,14 +2219,14 @@ fun SettingsScreen(
       }
 
       // Ignore client sampler parameters toggle
-      if (settingVisible("ignore_client_params")) {
+      if (vm.settingVisible("ignore_client_params")) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Ignore Client Sampler Parameters", searchQuery = searchQuery)
+          SettingLabel(text = "Ignore Client Sampler Parameters", searchQuery = vm.searchQuery)
           Text(
             text = "Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server's own Inference Settings will always be used instead.",
             style = MaterialTheme.typography.bodySmall,
@@ -2609,8 +2234,8 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = ignoreClientSamplerParams,
-          onCheckedChange = { ignoreClientSamplerParams = it },
+          checked = vm.ignoreClientSamplerParams,
+          onCheckedChange = { vm.ignoreClientSamplerParams = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
       }
@@ -2620,14 +2245,14 @@ fun SettingsScreen(
 
     // Developer card — verbose debug toggle (immediate-apply, no save/cancel)
     AnimatedVisibility(
-      visible = cardVisible("developer"),
+      visible = vm.cardVisible("developer"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
       icon = Icons.Outlined.Code,
       title = "Developer",
-      searchQuery = searchQuery,
+      searchQuery = vm.searchQuery,
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -2635,7 +2260,7 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Verbose Debug Mode", searchQuery = searchQuery)
+          SettingLabel(text = "Verbose Debug Mode", searchQuery = vm.searchQuery)
           Text(
             text = "Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance.",
             style = MaterialTheme.typography.bodySmall,
@@ -2643,9 +2268,9 @@ fun SettingsScreen(
           )
         }
         Switch(
-          checked = verboseDebugEnabled,
+          checked = vm.verboseDebugEnabled,
           onCheckedChange = {
-            verboseDebugEnabled = it
+            vm.verboseDebugEnabled = it
             LlmHttpPrefs.setVerboseDebugEnabled(context, it)
             RequestLogStore.addEvent(
               "Settings updated (1 change)",
@@ -2664,14 +2289,14 @@ fun SettingsScreen(
 
     // Reset to Defaults
     AnimatedVisibility(
-      visible = cardVisible("reset"),
+      visible = vm.cardVisible("reset"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     Column {
     Spacer(modifier = Modifier.height(16.dp))
     Button(
-      onClick = { showResetDialog = true },
+      onClick = { vm.showResetDialog = true },
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(50),
       colors = ButtonDefaults.buttonColors(
@@ -2773,7 +2398,7 @@ fun SettingsScreen(
       Row(
         modifier = Modifier
           .clip(RoundedCornerShape(8.dp))
-          .clickable { showDonateDialog = true }
+          .clickable { vm.showDonateDialog = true }
           .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -2809,7 +2434,7 @@ fun SettingsScreen(
 
     // Unsaved changes banner
     androidx.compose.animation.AnimatedVisibility(
-      visible = hasUnsavedChanges,
+      visible = vm.hasUnsavedChanges,
       enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) +
         androidx.compose.animation.fadeIn(),
       exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) +
