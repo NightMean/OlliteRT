@@ -48,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.ui.theme.customColors
 import java.util.Locale
@@ -60,7 +61,7 @@ fun BenchmarkValueSeriesViewer(title: String, valueSeries: ValueSeries, onDismis
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
-    sheetMaxWidth = 640.dp,
+    sheetMaxWidth = SHEET_MAX_WIDTH,
     containerColor = MaterialTheme.colorScheme.surface,
   ) {
     Column(

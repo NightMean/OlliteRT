@@ -52,6 +52,10 @@ import kotlin.math.roundToInt
 
 private const val TAG = "OlliteRTUtils"
 
+/** Fail fast so local fallback kicks in quickly. */
+const val HTTP_CONNECT_TIMEOUT_MS = 5_000
+const val HTTP_READ_TIMEOUT_MS = 10_000
+
 const val LOCAL_URL_BASE = "https://appassets.androidplatform.net"
 
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
@@ -70,8 +74,8 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
   try {
     val connection = URL(url).openConnection() as HttpURLConnection
     connection.requestMethod = "GET"
-    connection.connectTimeout = 5_000  // 5s — fail fast so local fallback kicks in quickly
-    connection.readTimeout = 10_000    // 10s
+    connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+    connection.readTimeout = HTTP_READ_TIMEOUT_MS
     connection.connect()
 
     val responseCode = connection.responseCode

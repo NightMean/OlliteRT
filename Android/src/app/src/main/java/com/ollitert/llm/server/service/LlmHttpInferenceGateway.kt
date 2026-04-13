@@ -31,9 +31,14 @@ object LlmHttpInferenceGateway {
    *   stack traces when debug mode is enabled. The gateway itself only forwards [Throwable.message]
    *   via [onError] — this callback preserves the full stack trace for diagnostics.
    */
+  /** Default timeout for streaming inference (seconds). */
+  private const val STREAMING_TIMEOUT_SECONDS = 90L
+  /** Default timeout for non-streaming (blocking) inference (seconds). */
+  private const val BLOCKING_TIMEOUT_SECONDS = 30L
+
   fun executeStreaming(
     prompt: String,
-    timeoutSeconds: Long = 90,
+    timeoutSeconds: Long = STREAMING_TIMEOUT_SECONDS,
     executor: Executor,
     inferenceLock: Any,
     resetConversation: () -> Unit,
@@ -88,7 +93,7 @@ object LlmHttpInferenceGateway {
    */
   fun execute(
     prompt: String,
-    timeoutSeconds: Long = 30,
+    timeoutSeconds: Long = BLOCKING_TIMEOUT_SECONDS,
     executor: Executor,
     inferenceLock: Any,
     resetConversation: () -> Unit,

@@ -65,6 +65,12 @@ import kotlinx.coroutines.delay
 
 private const val TAG = "OlliteRTUiUtils"
 
+// ── Shared UI dimension constants ──────────────────────────────────────────────
+/** Max width for ModalBottomSheet content across the app. */
+val SHEET_MAX_WIDTH = 640.dp
+/** Max width for screen-level scrollable content (Models, Status, Logs, Settings). */
+val SCREEN_CONTENT_MAX_WIDTH = 840.dp
+
 /**
  * Copy text to the system clipboard with a standardized toast notification.
  *

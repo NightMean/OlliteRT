@@ -149,7 +149,7 @@ fun ModelPickerChip(
   // Model picker.
   val curModelPickerModel = modelPickerModel
   if (showModelPicker && curModelPickerModel != null) {
-    ModalBottomSheet(onDismissRequest = { showModelPicker = false }, sheetState = sheetState, sheetMaxWidth = 640.dp) {
+    ModalBottomSheet(onDismissRequest = { showModelPicker = false }, sheetState = sheetState, sheetMaxWidth = SHEET_MAX_WIDTH) {
       ModelPicker(
         task = task,
         modelManagerViewModel = modelManagerViewModel,

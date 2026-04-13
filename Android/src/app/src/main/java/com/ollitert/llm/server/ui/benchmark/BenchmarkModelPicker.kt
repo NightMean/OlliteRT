@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -95,7 +96,7 @@ fun BenchmarkModelPicker(
     ModalBottomSheet(
       onDismissRequest = { showBottomSheet = false },
       sheetState = sheetState,
-      sheetMaxWidth = 640.dp,
+      sheetMaxWidth = SHEET_MAX_WIDTH,
       containerColor = MaterialTheme.colorScheme.surface,
     ) {
       Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {

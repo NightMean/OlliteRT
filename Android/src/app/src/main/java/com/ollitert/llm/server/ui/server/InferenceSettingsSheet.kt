@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.RestartAlt
+import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
@@ -187,7 +188,7 @@ fun InferenceSettingsSheet(
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
-    sheetMaxWidth = 640.dp,
+    sheetMaxWidth = SHEET_MAX_WIDTH,
     containerColor = MaterialTheme.colorScheme.surfaceContainer,
     shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
   ) {

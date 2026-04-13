@@ -129,6 +129,8 @@ import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.proto.ImportedModel
+import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
+import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.modelitem.ModelItem
@@ -371,7 +373,7 @@ fun GlobalModelManager(
     LazyColumn(
       modifier = Modifier
         .background(MaterialTheme.colorScheme.surface)
-        .widthIn(max = 840.dp)
+        .widthIn(max = SCREEN_CONTENT_MAX_WIDTH)
         .fillMaxWidth()
         .align(Alignment.TopCenter)
         .padding(horizontal = 16.dp),
@@ -764,7 +766,7 @@ fun GlobalModelManager(
 
   // Import model bottom sheet
   if (showImportModelSheet) {
-    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState, sheetMaxWidth = 640.dp) {
+    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState, sheetMaxWidth = SHEET_MAX_WIDTH) {
       Text(
         "Import model",
         style = MaterialTheme.typography.titleLarge,

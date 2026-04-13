@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.copyToClipboard
 import androidx.compose.material.icons.outlined.DeleteSweep
@@ -513,7 +514,7 @@ fun LogsScreen(
     modifier = modifier.fillMaxSize(),
     contentAlignment = Alignment.TopCenter,
   ) {
-  Column(modifier = Modifier.widthIn(max = 840.dp).fillMaxWidth()) {
+  Column(modifier = Modifier.widthIn(max = SCREEN_CONTENT_MAX_WIDTH).fillMaxWidth()) {
     // ── Header row ────────────────────────────────────────────────────────
     Row(
       modifier = Modifier

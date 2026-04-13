@@ -28,9 +28,15 @@ object LlmHttpPromptCompactor {
     val strategies: List<String>,
   )
 
-  /** Rough token estimate: ~4 characters per token. */
+  /**
+   * Approximate characters per token for English text (~3.5–4 for Gemma/GPT tokenizers).
+   * Drifts for code (~2.5) and multilingual text. No tokenizer API exists in LiteRT LM.
+   */
+  private const val CHARS_PER_TOKEN_ESTIMATE = 4
+
+  /** Rough token estimate based on [CHARS_PER_TOKEN_ESTIMATE]. */
   fun estimateTokens(text: String): Int =
-    (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+    (text.length / CHARS_PER_TOKEN_ESTIMATE).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
 
   /**
    * Progressive compaction for /v1/chat/completions requests.
