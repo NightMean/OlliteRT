@@ -58,7 +58,7 @@ object LlmHttpPromptCompactor {
 
     // Build the full (uncompacted) prompt
     val fullPrompt = if (hasTools) {
-      LlmHttpRequestAdapter.buildToolAwarePrompt(messages, tools!!, toolChoice, chatTemplate)
+      LlmHttpRequestAdapter.buildToolAwarePrompt(messages, tools, toolChoice, chatTemplate)
     } else {
       LlmHttpRequestAdapter.buildChatPrompt(messages, chatTemplate)
     }
@@ -89,7 +89,7 @@ object LlmHttpPromptCompactor {
         for (keep in (nonSystemMsgs.size - 1) downTo 1) {
           val truncatedMsgs = systemMsgs + nonSystemMsgs.takeLast(keep)
           val candidate = if (hasTools) {
-            LlmHttpRequestAdapter.buildToolAwarePrompt(truncatedMsgs, tools!!, toolChoice, chatTemplate)
+            LlmHttpRequestAdapter.buildToolAwarePrompt(truncatedMsgs, tools, toolChoice, chatTemplate)
           } else {
             LlmHttpRequestAdapter.buildChatPrompt(truncatedMsgs, chatTemplate)
           }
@@ -109,7 +109,7 @@ object LlmHttpPromptCompactor {
     if (hasTools && compactToolSchemas) {
       // Try compact tool schemas (names + descriptions only)
       val compactPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(
-        currentMessages, tools!!, toolChoice, chatTemplate, compact = true,
+        currentMessages, tools, toolChoice, chatTemplate, compact = true,
       )
       if (estimateTokens(compactPrompt) <= maxContext) {
         strategies.add("tools:compacted")
@@ -132,9 +132,9 @@ object LlmHttpPromptCompactor {
       // Build the best prompt we have so far (with whatever messages/tools remain)
       val currentPrompt = when {
         hasTools && !currentToolsRemoved && currentToolsCompact ->
-          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools!!, toolChoice, chatTemplate, compact = true)
+          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true)
         hasTools && !currentToolsRemoved ->
-          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools!!, toolChoice, chatTemplate)
+          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate)
         else ->
           LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate)
       }
@@ -152,9 +152,9 @@ object LlmHttpPromptCompactor {
     // Compaction strategies exhausted or not enabled — return best effort
     val bestPrompt = when {
       hasTools && !currentToolsRemoved && currentToolsCompact ->
-        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools!!, toolChoice, chatTemplate, compact = true)
+        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true)
       hasTools && !currentToolsRemoved ->
-        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools!!, toolChoice, chatTemplate)
+        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate)
       else ->
         LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate)
     }
