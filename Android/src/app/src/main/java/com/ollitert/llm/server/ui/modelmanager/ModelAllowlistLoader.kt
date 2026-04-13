@@ -22,16 +22,10 @@ private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 class ModelAllowlistLoader(
   private val context: Context,
   private val externalFilesDir: File?,
-) {
-
-  data class LoadResult(
-    val allowlist: ModelAllowlist?,
-    val source: AllowlistSource?,
-    val rawJson: String? = null,
-  )
+) : AllowlistLoader {
 
   /** Try to load the test allowlist from /data/local/tmp. */
-  fun readTestAllowlist(): ModelAllowlist? {
+  override fun readTestAllowlist(): ModelAllowlist? {
     return readFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
   }
 
@@ -39,21 +33,21 @@ class ModelAllowlistLoader(
    * Fetch allowlist from GitHub. Returns the parsed allowlist and raw JSON
    * (for caching to disk), or null on failure.
    */
-  fun fetchFromNetwork(version: String): LoadResult {
+  override fun fetchFromNetwork(version: String): AllowlistLoader.LoadResult {
     val url = "${GitHubConfig.ALLOWLIST_BASE_URL}/${version}.json"
     Log.d(TAG, "Loading model allowlist from internet. Url: $url")
     val data = getJsonResponse<ModelAllowlist>(url = url)
     return if (data?.jsonObj != null) {
       Log.d(TAG, "Done: loading model allowlist from internet")
-      LoadResult(data.jsonObj, AllowlistSource.NETWORK, data.textContent)
+      AllowlistLoader.LoadResult(data.jsonObj, AllowlistSource.NETWORK, data.textContent)
     } else {
       Log.w(TAG, "Failed to load model allowlist from internet")
-      LoadResult(null, null)
+      AllowlistLoader.LoadResult(null, null)
     }
   }
 
   /** Save allowlist JSON to disk for future offline use. */
-  fun saveToDisk(content: String) {
+  override fun saveToDisk(content: String) {
     try {
       Log.d(TAG, "Saving model allowlist to disk...")
       val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
@@ -65,12 +59,12 @@ class ModelAllowlistLoader(
   }
 
   /** Read allowlist from disk cache. */
-  fun readFromDiskCache(): ModelAllowlist? {
+  override fun readFromDiskCache(): ModelAllowlist? {
     return readFromDisk(MODEL_ALLOWLIST_FILENAME)
   }
 
   /** Read allowlist from APK's bundled assets (fallback for fresh install). */
-  fun readFromAssets(): ModelAllowlist? {
+  override fun readFromAssets(): ModelAllowlist? {
     return try {
       val content = context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }
       Log.d(TAG, "Loaded bundled model allowlist from assets")

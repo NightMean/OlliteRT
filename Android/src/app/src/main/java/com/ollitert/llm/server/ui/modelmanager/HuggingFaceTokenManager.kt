@@ -25,15 +25,15 @@ private const val TAG = "HFTokenManager"
 class HuggingFaceTokenManager(
   private val dataStoreRepository: DataStoreRepository,
   context: Context,
-) {
-  val authService = AuthorizationService(context)
-  var curAccessToken: String = ""
+) : TokenManager {
+  override val authService = AuthorizationService(context)
+  override var curAccessToken: String = ""
 
-  fun dispose() {
+  override fun dispose() {
     authService.dispose()
   }
 
-  fun getTokenStatusAndData(): TokenStatusAndData {
+  override fun getTokenStatusAndData(): TokenStatusAndData {
     var tokenStatus = TokenStatus.NOT_STORED
     Log.d(TAG, "Reading token data from data store...")
     val tokenData = dataStoreRepository.readAccessTokenData()
@@ -58,7 +58,7 @@ class HuggingFaceTokenManager(
     return TokenStatusAndData(status = tokenStatus, data = tokenData)
   }
 
-  fun getAuthorizationRequest(): AuthorizationRequest {
+  override fun getAuthorizationRequest(): AuthorizationRequest {
     return AuthorizationRequest.Builder(
         ProjectConfig.authServiceConfig,
         ProjectConfig.clientId,
@@ -69,7 +69,7 @@ class HuggingFaceTokenManager(
       .build()
   }
 
-  fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
+  override fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
     val dataIntent = result.data
     if (dataIntent == null) {
       onTokenRequested(
@@ -142,7 +142,7 @@ class HuggingFaceTokenManager(
     }
   }
 
-  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
+  override fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
     dataStoreRepository.saveAccessTokenData(
       accessToken = accessToken,
       refreshToken = refreshToken,
@@ -150,7 +150,7 @@ class HuggingFaceTokenManager(
     )
   }
 
-  fun clearAccessToken() {
+  override fun clearAccessToken() {
     dataStoreRepository.clearAccessTokenData()
   }
 }
