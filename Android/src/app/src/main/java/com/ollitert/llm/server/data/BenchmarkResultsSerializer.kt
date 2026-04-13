@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server
+package com.ollitert.llm.server.data
 
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer

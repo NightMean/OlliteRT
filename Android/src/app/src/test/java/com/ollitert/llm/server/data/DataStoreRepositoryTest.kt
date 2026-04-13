@@ -1,9 +1,7 @@
 package com.ollitert.llm.server.data
 
 import androidx.datastore.core.DataStoreFactory
-import com.ollitert.llm.server.BenchmarkResultsSerializer
-import com.ollitert.llm.server.SettingsSerializer
-import com.ollitert.llm.server.UserDataSerializer
+// Serializers now in same package (data) — no explicit import needed
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.ImportedModel
 import java.io.FileOutputStream
