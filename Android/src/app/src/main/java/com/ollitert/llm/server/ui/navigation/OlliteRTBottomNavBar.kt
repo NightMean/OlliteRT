@@ -36,9 +36,6 @@ import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -400,47 +397,3 @@ private fun OlliteRTNavItem(
   }
 }
 
-/**
- * Navigation Rail for medium/expanded windows (tablets, foldables, landscape large phones).
- * Replaces the bottom nav bar when window width ≥ 600dp.
- */
-@Composable
-fun OlliteRTNavRail(
-  currentRoute: String?,
-  onTabSelected: (OlliteRTTab) -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  NavigationRail(
-    modifier = modifier,
-    containerColor = OlliteRTSurfaceContainerLowest,
-  ) {
-    Spacer(Modifier.weight(1f))
-    OlliteRTTab.entries.forEach { tab ->
-      NavigationRailItem(
-        selected = currentRoute == tab.route,
-        onClick = { onTabSelected(tab) },
-        icon = {
-          Icon(
-            imageVector = tab.icon,
-            contentDescription = tab.label,
-            modifier = Modifier.size(22.dp),
-          )
-        },
-        label = {
-          Text(
-            text = tab.label,
-            style = MaterialTheme.typography.labelSmall,
-          )
-        },
-        colors = NavigationRailItemDefaults.colors(
-          selectedIconColor = OlliteRTPrimary,
-          selectedTextColor = OlliteRTPrimary,
-          unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-          unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-          indicatorColor = OlliteRTPrimary.copy(alpha = 0.20f),
-        ),
-      )
-    }
-    Spacer(Modifier.weight(1f))
-  }
-}
