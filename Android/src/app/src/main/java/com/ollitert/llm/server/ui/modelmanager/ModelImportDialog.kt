@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -179,7 +180,7 @@ fun ModelImportDialog(
     val focusManager = LocalFocusManager.current
     Card(
       modifier =
-        Modifier.fillMaxWidth().clickable(
+        Modifier.widthIn(max = 560.dp).fillMaxWidth().clickable(
           interactionSource = interactionSource,
           indication = null, // Disable the ripple effect
         ) {
@@ -338,7 +339,7 @@ fun ModelImportingDialog(
     properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     onDismissRequest = onDismiss,
   ) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    Card(modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
       Column(
         modifier = Modifier.padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -95,6 +95,7 @@ fun BenchmarkModelPicker(
     ModalBottomSheet(
       onDismissRequest = { showBottomSheet = false },
       sheetState = sheetState,
+      sheetMaxWidth = 640.dp,
       containerColor = MaterialTheme.colorScheme.surface,
     ) {
       Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {

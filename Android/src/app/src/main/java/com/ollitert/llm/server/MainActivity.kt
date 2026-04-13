@@ -42,8 +42,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.core.animation.doOnEnd
+import com.ollitert.llm.server.ui.common.LocalWindowWidthSizeClass
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.ollitert.llm.server.data.LlmHttpPrefs
@@ -67,32 +71,37 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     fun setContent() {
       if (contentSet) {
         return
       }
 
       setContent {
+        val windowSizeClass = calculateWindowSizeClass(this@MainActivity)
         OlliteRTTheme {
-          Surface(modifier = Modifier.fillMaxSize()) {
-            OlliteRTApp(
-              modelManagerViewModel = modelManagerViewModel,
-              serverViewModel = serverViewModel,
-            )
-
-            // Fade out a "mask" that has the same color as the background of the splash screen
-            // to reveal the actual app content.
-            var startMaskFadeout by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { startMaskFadeout = true }
-            AnimatedVisibility(
-              !startMaskFadeout,
-              enter = fadeIn(animationSpec = snap(0)),
-              exit =
-                fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
-            ) {
-              Box(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+          // Provide window width size class to all composables for adaptive layouts
+          CompositionLocalProvider(LocalWindowWidthSizeClass provides windowSizeClass.widthSizeClass) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+              OlliteRTApp(
+                modelManagerViewModel = modelManagerViewModel,
+                serverViewModel = serverViewModel,
               )
+
+              // Fade out a "mask" that has the same color as the background of the splash screen
+              // to reveal the actual app content.
+              var startMaskFadeout by remember { mutableStateOf(false) }
+              LaunchedEffect(Unit) { startMaskFadeout = true }
+              AnimatedVisibility(
+                !startMaskFadeout,
+                enter = fadeIn(animationSpec = snap(0)),
+                exit =
+                  fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
+              ) {
+                Box(
+                  modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+                )
+              }
             }
           }
         }

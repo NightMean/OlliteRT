@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -169,6 +170,8 @@ fun BenchmarkScreen(
     Scaffold(
       topBar = {
         CenterAlignedTopAppBar(
+          // Zero out — outer Scaffold already handles system bar insets
+          windowInsets = WindowInsets(0, 0, 0, 0),
           // Title icon and label.
           title = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -198,6 +201,9 @@ fun BenchmarkScreen(
         )
       },
       modifier = Modifier.imePadding(),
+      // Zero out insets — the outer OlliteRTApp Scaffold already consumes system bar padding.
+      // Without this, the navigation bar inset is applied twice, creating a visible gap in landscape.
+      contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
       Box(
         modifier = Modifier.padding(innerPadding).fillMaxSize(),

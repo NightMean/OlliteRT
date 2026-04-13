@@ -1,8 +1,12 @@
 package com.ollitert.llm.server
 
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,8 +31,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollitert.llm.server.ui.common.LocalWindowWidthSizeClass
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar
 import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
+import com.ollitert.llm.server.ui.navigation.OlliteRTNavRail
 import com.ollitert.llm.server.ui.navigation.OlliteRTRoutes
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.navigation.OlliteRTTab
@@ -117,7 +123,7 @@ fun OlliteRTApp(
   var topBarTrailingContent: (@Composable () -> Unit)? by remember { mutableStateOf(null) }
 
   // Determine which screens show the bottom nav and top bar
-  val showBottomBar = currentRoute in listOf(
+  val showNav = currentRoute in listOf(
     OlliteRTRoutes.MODELS,
     OlliteRTRoutes.STATUS,
     OlliteRTRoutes.LOGS,
@@ -126,6 +132,29 @@ fun OlliteRTApp(
     OlliteRTRoutes.GETTING_STARTED,
     OlliteRTRoutes.BENCHMARK,
   )
+
+  // Use NavigationRail on tablets/foldables, but NOT on phones in landscape.
+  // A phone in landscape has Medium width (~700dp) but very short height (~360dp).
+  // A real tablet has Medium+ width AND tall height. Distinguish by checking orientation:
+  // landscape + Medium = phone rotated → keep bottom nav; portrait + Medium = small tablet → use rail.
+  // Expanded (≥840dp) always uses rail regardless of orientation (large tablet or desktop).
+  val widthSizeClass = LocalWindowWidthSizeClass.current
+  val configuration = LocalConfiguration.current
+  val isLandscapePhone = widthSizeClass == WindowWidthSizeClass.Medium
+      && configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+  val useNavRail = widthSizeClass == WindowWidthSizeClass.Expanded
+      || (widthSizeClass == WindowWidthSizeClass.Medium && !isLandscapePhone)
+
+  // Shared tab navigation lambda
+  val onTabSelected: (OlliteRTTab) -> Unit = { tab ->
+    navController.navigate(tab.route) {
+      popUpTo(navController.graph.findStartDestination().id) {
+        saveState = true
+      }
+      launchSingleTop = true
+      restoreState = true
+    }
+  }
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
@@ -156,7 +185,8 @@ fun OlliteRTApp(
       }
     },
     bottomBar = {
-      if (showBottomBar) {
+      // Bottom nav only on compact (phone) windows — medium+ uses NavigationRail
+      if (showNav && !useNavRail) {
         // Only collect the storage trigger — not the full uiState — to avoid
         // recomposing the entire bottom bar on every model download progress update.
         val storageTrigger by remember {
@@ -164,27 +194,31 @@ fun OlliteRTApp(
         }.collectAsState(initial = 0L)
         OlliteRTBottomNavBar(
           currentRoute = currentRoute,
-          onTabSelected = { tab ->
-            navController.navigate(tab.route) {
-              popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-              }
-              launchSingleTop = true
-              restoreState = true
-            }
-          },
+          onTabSelected = onTabSelected,
           storageUpdateTrigger = storageTrigger,
         )
       }
     },
   ) { innerPadding ->
-    OlliteRTNavHost(
-      navController = navController,
-      modelManagerViewModel = modelManagerViewModel,
-      serverViewModel = serverViewModel,
-      startDestination = startDestination,
-      modifier = Modifier.padding(innerPadding),
-      onSetTopBarTrailingContent = { topBarTrailingContent = it },
-    )
+    // Tablet/foldable: NavigationRail sits beside the content in a Row.
+    // The rail visibility is driven by showNav (which changes per-route), so it
+    // must be evaluated INSIDE the Row — not used to choose between two NavHosts.
+    // A single NavHost is always rendered; the rail appears/disappears beside it.
+    Row(modifier = Modifier.padding(innerPadding)) {
+      if (useNavRail && showNav) {
+        OlliteRTNavRail(
+          currentRoute = currentRoute,
+          onTabSelected = onTabSelected,
+        )
+      }
+      OlliteRTNavHost(
+        navController = navController,
+        modelManagerViewModel = modelManagerViewModel,
+        serverViewModel = serverViewModel,
+        startDestination = startDestination,
+        modifier = Modifier.weight(1f),
+        onSetTopBarTrailingContent = { topBarTrailingContent = it },
+      )
+    }
   }
 }

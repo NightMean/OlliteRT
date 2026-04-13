@@ -60,6 +60,7 @@ fun BenchmarkValueSeriesViewer(title: String, valueSeries: ValueSeries, onDismis
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
+    sheetMaxWidth = 640.dp,
     containerColor = MaterialTheme.colorScheme.surface,
   ) {
     Column(

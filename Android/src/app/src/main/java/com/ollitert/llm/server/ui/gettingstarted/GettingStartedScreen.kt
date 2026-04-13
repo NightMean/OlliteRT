@@ -39,6 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.widthIn
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -62,6 +65,9 @@ fun GettingStartedScreen(
 ) {
   val scrollState = rememberScrollState()
   val context = LocalContext.current
+  val configuration = LocalConfiguration.current
+  // Landscape phones have very limited vertical space — reduce padding and spacers
+  val isShortScreen = configuration.screenHeightDp < 500
 
   // After notification permission is handled, request battery optimization exemption
   // so the OS doesn't throttle/kill the foreground service while serving inference.
@@ -98,15 +104,27 @@ fun GettingStartedScreen(
     requestBatteryOptimizationExemption()
   }
 
+  // Centered max-width container for tablets — onboarding should feel focused, not stretched
+  Box(
+    modifier = modifier.fillMaxSize(),
+    contentAlignment = Alignment.TopCenter,
+  ) {
   Column(
-    modifier = modifier
-      .fillMaxSize()
+    modifier = Modifier
+      .widthIn(max = 600.dp)
+      .fillMaxWidth()
       .navigationBarsPadding()
       .verticalScroll(scrollState)
-      .padding(horizontal = 24.dp, vertical = 48.dp),
+      .padding(horizontal = 24.dp, vertical = if (isShortScreen) 16.dp else 48.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Spacer(modifier = Modifier.weight(0.8f))
+    // On short screens (landscape phones) use a fixed spacer instead of weight
+    // to prevent the content from being pushed below the fold
+    if (isShortScreen) {
+      Spacer(modifier = Modifier.height(16.dp))
+    } else {
+      Spacer(modifier = Modifier.weight(0.8f))
+    }
 
     // Hero title with gradient highlight on "On-Device"
     HeroTitle()
@@ -157,8 +175,9 @@ fun GettingStartedScreen(
         }
       },
       modifier = Modifier
+        .widthIn(max = 400.dp)
         .fillMaxWidth()
-        .height(64.dp),
+        .height(if (isShortScreen) 52.dp else 64.dp),
       shape = RoundedCornerShape(50),
       colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
     ) {
@@ -212,7 +231,8 @@ fun GettingStartedScreen(
     }
 
     Spacer(modifier = Modifier.height(24.dp))
-  }
+  } // Column
+  } // Box (max-width wrapper)
 }
 
 @Composable

@@ -661,6 +661,7 @@ fun DownloadAndTryButton(
         downloadStarted = false
       },
       sheetState = sheetState,
+      sheetMaxWidth = 640.dp,
       modifier = Modifier.wrapContentHeight(),
     ) {
       Column(

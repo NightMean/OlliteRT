@@ -656,10 +656,12 @@ fun SettingsScreen(
     modifier = modifier
       .fillMaxSize()
       .imePadding(),
+    contentAlignment = Alignment.TopCenter,
   ) {
   Column(
     modifier = Modifier
-      .fillMaxSize()
+      .widthIn(max = 840.dp)
+      .fillMaxWidth()
       .verticalScroll(rememberScrollState())
       .padding(horizontal = 20.dp, vertical = 16.dp)
       .padding(bottom = 16.dp),
