@@ -26,6 +26,7 @@ import android.os.PowerManager
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -337,10 +338,10 @@ fun GlobalModelManager(
   val handleClickModel: (Model) -> Unit = { model ->
     if (serverStatus == ServerStatus.LOADING) {
       // Block model selection while a model is loading to prevent OOM from concurrent warmups
-      android.widget.Toast.makeText(
+      Toast.makeText(
         context,
         "Please wait for the current model to finish loading",
-        android.widget.Toast.LENGTH_SHORT,
+        Toast.LENGTH_SHORT,
       ).show()
     } else {
       val tasks = viewModel.uiState.value.tasks

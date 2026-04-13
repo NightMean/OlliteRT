@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -114,7 +115,7 @@ fun DownloadModelPanel(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
               ) {
-                android.widget.Toast.makeText(context, "Stop the server first to run benchmarks", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Stop the server first to run benchmarks", Toast.LENGTH_SHORT).show()
               },
           )
         }

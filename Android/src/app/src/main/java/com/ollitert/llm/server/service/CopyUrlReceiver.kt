@@ -1,11 +1,9 @@
 package com.ollitert.llm.server.service
 
 import android.content.BroadcastReceiver
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
+import com.ollitert.llm.server.ui.common.copyToClipboard
 
 /**
  * BroadcastReceiver that copies the server endpoint URL to the clipboard.
@@ -15,9 +13,7 @@ class CopyUrlReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
     val url = intent.getStringExtra(EXTRA_URL) ?: return
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Endpoint", url))
-    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+    copyToClipboard(context, "OlliteRT Endpoint", url)
   }
 
   companion object {

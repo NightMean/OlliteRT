@@ -16,10 +16,6 @@
 
 package com.ollitert.llm.server.ui.benchmark
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -101,6 +97,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.ui.common.Accordions
+import com.ollitert.llm.server.ui.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
@@ -635,9 +632,7 @@ fun BenchmarkResultsViewer(
                                       llmResult = llmResult,
                                       aggregation = result.aggregation,
                                     )
-                                  val clipboard = copyContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                  clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Benchmark Results", csv))
-                                  Toast.makeText(copyContext, "Copied to clipboard (CSV)", Toast.LENGTH_SHORT).show()
+                                  copyToClipboard(copyContext, "OlliteRT Benchmark Results", csv, formatSuffix = "CSV")
                                 }
                               },
                               colors =
