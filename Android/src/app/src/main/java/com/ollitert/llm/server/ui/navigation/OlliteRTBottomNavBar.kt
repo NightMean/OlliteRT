@@ -17,12 +17,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +36,9 @@ import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -151,10 +156,11 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
       modifier = Modifier.weight(1f),
     )
     Spacer(modifier = Modifier.width(8.dp))
-    // Custom drawn progress bar to avoid LinearProgressIndicator artifacts
+    // Progress bar shares space with text via weight — min/max keeps it readable at extremes
     Box(
       modifier = Modifier
-        .width(140.dp)
+        .weight(0.4f)
+        .widthIn(min = 80.dp, max = 200.dp)
         .height(5.dp)
         .clip(RoundedCornerShape(3.dp))
         .drawBehind {
@@ -283,10 +289,11 @@ private fun MemoryBar() {
       }
     }
     Spacer(modifier = Modifier.width(8.dp))
-    // Custom drawn progress bar matching StorageBar style
+    // Progress bar shares space with text via weight — min/max keeps it readable at extremes
     Box(
       modifier = Modifier
-        .width(140.dp)
+        .weight(0.4f)
+        .widthIn(min = 80.dp, max = 200.dp)
         .height(5.dp)
         .clip(RoundedCornerShape(3.dp))
         .drawBehind {
@@ -349,10 +356,10 @@ private fun OlliteRTNavItem(
     label = "navItemColor",
   )
 
-  // Full touch area
+  // Full touch area — defaultMinSize instead of fixed height to save vertical space on landscape
   Box(
     modifier = modifier
-      .height(64.dp)
+      .defaultMinSize(minHeight = 56.dp)
       .padding(horizontal = 4.dp)
       .clip(RoundedCornerShape(16.dp))
       .clickable(
@@ -390,5 +397,50 @@ private fun OlliteRTNavItem(
         modifier = Modifier.padding(top = 2.dp),
       )
     }
+  }
+}
+
+/**
+ * Navigation Rail for medium/expanded windows (tablets, foldables, landscape large phones).
+ * Replaces the bottom nav bar when window width ≥ 600dp.
+ */
+@Composable
+fun OlliteRTNavRail(
+  currentRoute: String?,
+  onTabSelected: (OlliteRTTab) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  NavigationRail(
+    modifier = modifier,
+    containerColor = OlliteRTSurfaceContainerLowest,
+  ) {
+    Spacer(Modifier.weight(1f))
+    OlliteRTTab.entries.forEach { tab ->
+      NavigationRailItem(
+        selected = currentRoute == tab.route,
+        onClick = { onTabSelected(tab) },
+        icon = {
+          Icon(
+            imageVector = tab.icon,
+            contentDescription = tab.label,
+            modifier = Modifier.size(22.dp),
+          )
+        },
+        label = {
+          Text(
+            text = tab.label,
+            style = MaterialTheme.typography.labelSmall,
+          )
+        },
+        colors = NavigationRailItemDefaults.colors(
+          selectedIconColor = OlliteRTPrimary,
+          selectedTextColor = OlliteRTPrimary,
+          unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+          unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+          indicatorColor = OlliteRTPrimary.copy(alpha = 0.20f),
+        ),
+      )
+    }
+    Spacer(Modifier.weight(1f))
   }
 }

@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -369,7 +370,9 @@ fun GlobalModelManager(
     LazyColumn(
       modifier = Modifier
         .background(MaterialTheme.colorScheme.surface)
+        .widthIn(max = 840.dp)
         .fillMaxWidth()
+        .align(Alignment.TopCenter)
         .padding(horizontal = 16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
       contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
@@ -428,51 +431,66 @@ fun GlobalModelManager(
       // Filter chips + sort button
       item(key = "filter_chips") {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          // Horizontally scrollable so chips remain usable at large font scaling
+          // Outer Row: scrollable chips on the left, fixed action buttons pinned right.
+          // weight() doesn't work inside a horizontalScroll Row (infinite width),
+          // so the chips and buttons must be in separate siblings.
           Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            ModelFilterChip(
-              label = stringResource(R.string.filter_all),
-              selected = activeFilter == ModelFilter.ALL,
-              onClick = { activeFilter = ModelFilter.ALL },
-            )
-            ModelFilterChip(
-              label = stringResource(R.string.filter_downloaded),
-              selected = activeFilter == ModelFilter.DOWNLOADED,
-              onClick = { activeFilter = ModelFilter.DOWNLOADED },
-            )
-            ModelFilterChip(
-              label = stringResource(R.string.filter_available),
-              selected = activeFilter == ModelFilter.AVAILABLE,
-              onClick = { activeFilter = ModelFilter.AVAILABLE },
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            // "More Filters" toggle
-            MoreFiltersButton(
-              active = showMoreFilters || activeCapabilities.isNotEmpty(),
-              onClick = { showMoreFilters = !showMoreFilters },
-            )
-            SortButton(
-              activeSort = activeSort,
-              sortAscending = sortAscending,
-              showDropdown = showSortDropdown,
-              onToggleDropdown = { showSortDropdown = !showSortDropdown },
-              onDismissDropdown = { showSortDropdown = false },
-              onSortSelected = { sort ->
-                if (sort == ModelSort.DEFAULT) {
-                  activeSort = sort
-                } else if (activeSort == sort) {
-                  sortAscending = !sortAscending
-                } else {
-                  activeSort = sort
-                  sortAscending = true
-                }
-                showSortDropdown = false
-              },
-            )
+            // Scrollable filter chips — takes remaining space
+            Row(
+              modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              ModelFilterChip(
+                label = stringResource(R.string.filter_all),
+                selected = activeFilter == ModelFilter.ALL,
+                onClick = { activeFilter = ModelFilter.ALL },
+              )
+              ModelFilterChip(
+                label = stringResource(R.string.filter_downloaded),
+                selected = activeFilter == ModelFilter.DOWNLOADED,
+                onClick = { activeFilter = ModelFilter.DOWNLOADED },
+              )
+              ModelFilterChip(
+                label = stringResource(R.string.filter_available),
+                selected = activeFilter == ModelFilter.AVAILABLE,
+                onClick = { activeFilter = ModelFilter.AVAILABLE },
+              )
+            }
+            // Fixed action buttons — always pinned to the right edge
+            Row(
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              // "More Filters" toggle
+              MoreFiltersButton(
+                active = showMoreFilters || activeCapabilities.isNotEmpty(),
+                onClick = { showMoreFilters = !showMoreFilters },
+              )
+              SortButton(
+                activeSort = activeSort,
+                sortAscending = sortAscending,
+                showDropdown = showSortDropdown,
+                onToggleDropdown = { showSortDropdown = !showSortDropdown },
+                onDismissDropdown = { showSortDropdown = false },
+                onSortSelected = { sort ->
+                  if (sort == ModelSort.DEFAULT) {
+                    activeSort = sort
+                  } else if (activeSort == sort) {
+                    sortAscending = !sortAscending
+                  } else {
+                    activeSort = sort
+                    sortAscending = true
+                  }
+                  showSortDropdown = false
+                },
+              )
+            }
           }
           // Expandable capability filters
           AnimatedVisibility(
@@ -745,7 +763,7 @@ fun GlobalModelManager(
 
   // Import model bottom sheet
   if (showImportModelSheet) {
-    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState, sheetMaxWidth = 640.dp) {
       Text(
         "Import model",
         style = MaterialTheme.typography.titleLarge,

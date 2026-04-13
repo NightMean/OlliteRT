@@ -730,6 +730,7 @@ fun BenchmarkResultsViewer(
     ModalBottomSheet(
       onDismissRequest = { showBenchmarkComparisonHelpBottomSheet = false },
       sheetState = sheetState,
+      sheetMaxWidth = 640.dp,
     ) {
       Column(
         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),

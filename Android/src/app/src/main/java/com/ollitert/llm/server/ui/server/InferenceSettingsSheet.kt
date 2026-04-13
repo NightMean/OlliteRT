@@ -187,6 +187,7 @@ fun InferenceSettingsSheet(
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
+    sheetMaxWidth = 640.dp,
     containerColor = MaterialTheme.colorScheme.surfaceContainer,
     shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
   ) {

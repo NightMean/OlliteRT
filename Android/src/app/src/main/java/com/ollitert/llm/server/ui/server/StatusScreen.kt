@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -138,9 +139,15 @@ fun StatusScreen(
     if (uptimeSeconds > 0) "%.1f".format(tokensGenerated.toDouble() / uptimeSeconds) else "0.0"
   }
 
+  // Centered container with max width for tablets — prevents cards from stretching to 1000dp+
+  Box(
+    modifier = modifier.fillMaxSize(),
+    contentAlignment = Alignment.TopCenter,
+  ) {
   Column(
-    modifier = modifier
-      .fillMaxSize()
+    modifier = Modifier
+      .widthIn(max = 840.dp)
+      .fillMaxWidth()
       .verticalScroll(rememberScrollState())
       .padding(horizontal = 20.dp, vertical = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -553,7 +560,8 @@ fun StatusScreen(
       }
 
     }
-  }
+  } // Column
+  } // Box (max-width wrapper)
 
   // Reload model confirmation dialog
   if (showReloadDialog) {

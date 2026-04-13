@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Favorite
@@ -51,7 +53,10 @@ fun DonateDialog(
     onDismissRequest = onDismiss,
     title = { Text("Support OlliteRT") },
     text = {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
         Text(
           text = "If you find OlliteRT useful, consider supporting its development.",
           style = MaterialTheme.typography.bodyMedium,
@@ -104,7 +109,10 @@ fun EngagementPromptDialog(
       )
     },
     text = {
-      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
         Text(
           text = "This app is built and maintained by a solo developer in their spare time. If it's been useful to you, consider supporting its development.",
           style = MaterialTheme.typography.bodyMedium,

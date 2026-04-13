@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -506,7 +507,12 @@ fun LogsScreen(
     )
   }
 
-  Column(modifier = modifier.fillMaxSize()) {
+  // Centered container with max width for tablets
+  Box(
+    modifier = modifier.fillMaxSize(),
+    contentAlignment = Alignment.TopCenter,
+  ) {
+  Column(modifier = Modifier.widthIn(max = 840.dp).fillMaxWidth()) {
     // ── Header row ────────────────────────────────────────────────────────
     Row(
       modifier = Modifier
@@ -888,7 +894,8 @@ fun LogsScreen(
         }
       }
     }
-  }
+  } // Column
+  } // Box (max-width wrapper)
 }
 
 /** Toggle an element in a set — add if absent, remove if present. */

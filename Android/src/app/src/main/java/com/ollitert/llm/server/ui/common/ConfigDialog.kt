@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
@@ -141,7 +142,8 @@ fun ConfigDialog(
     val focusManager = LocalFocusManager.current
     Card(
       modifier =
-        Modifier.fillMaxWidth()
+        Modifier.widthIn(max = 560.dp)
+          .fillMaxWidth()
           .clickable(
             interactionSource = interactionSource,
             indication = null, // Disable the ripple effect
@@ -584,6 +586,7 @@ fun BottomSheetSelectorRow(
     ModalBottomSheet(
       onDismissRequest = { showBottomSheet = false },
       sheetState = sheetState,
+      sheetMaxWidth = 640.dp,
       containerColor = MaterialTheme.colorScheme.surface,
     ) {
       Column(modifier = Modifier.fillMaxWidth()) {
