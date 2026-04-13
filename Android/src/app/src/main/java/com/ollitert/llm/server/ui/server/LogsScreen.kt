@@ -1884,7 +1884,6 @@ private fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "") 
         val batchChanges = when (parsedEvent) {
           is ParsedEventType.SettingsBatch -> parsedEvent.changes
           is ParsedEventType.ApiConfigChange -> parsedEvent.changes
-          else -> emptyList()
         }
         val toggleValues = setOf("enabled", "disabled")
         SettingsChangeRows(

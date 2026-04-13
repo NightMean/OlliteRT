@@ -167,24 +167,26 @@ object RequestLogStore {
   /** Update an existing entry by ID. */
   fun update(id: String, transform: (RequestLogEntry) -> RequestLogEntry) {
     // Capture old/new for the persistence callback outside the atomic update.
-    var old: RequestLogEntry? = null
-    var updated: RequestLogEntry? = null
+    var oldEntry: RequestLogEntry? = null
+    var newEntry: RequestLogEntry? = null
 
     _entries.update { current ->
       val index = current.indexOfFirst { it.id == id }
       if (index < 0) return@update current
-      old = current[index]
-      updated = transform(old!!)
-      current.toMutableList().also { it[index] = updated!! }
+      val found = current[index]
+      val transformed = transform(found)
+      oldEntry = found
+      newEntry = transformed
+      current.toMutableList().also { it[index] = transformed }
     }
 
-    if (updated != null) {
-      // Only notify persistence for terminal state changes (pending→complete or cancelled).
-      // This skips the high-frequency partialText streaming updates (~300ms intervals).
-      val isTerminal = (old!!.isPending && !updated!!.isPending) ||
-        (!old!!.isCancelled && updated!!.isCancelled)
-      persistenceCallback?.onEntryUpdated(updated!!, isTerminal)
-    }
+    val old = oldEntry ?: return
+    val updated = newEntry ?: return
+    // Only notify persistence for terminal state changes (pending→complete or cancelled).
+    // This skips the high-frequency partialText streaming updates (~300ms intervals).
+    val isTerminal = (old.isPending && !updated.isPending) ||
+      (!old.isCancelled && updated.isCancelled)
+    persistenceCallback?.onEntryUpdated(updated, isTerminal)
   }
 
   /** Register a cancellation callback for an in-flight request. */

@@ -344,19 +344,20 @@ fun DownloadAndTryButton(
 
             // If token is still valid...
             TokenStatus.NOT_EXPIRED -> {
+              val accessToken = tokenStatusAndData.data?.accessToken ?: return@launch
               // Use the current token to check the download url.
               Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
               val responseCode =
                 modelManagerViewModel.getModelUrlResponse(
                   model = model,
-                  accessToken = tokenStatusAndData.data!!.accessToken,
+                  accessToken = accessToken,
                 )
               if (responseCode == HttpURLConnection.HTTP_OK) {
                 // Download url is accessible. Download the model.
                 Log.d(TAG, "Download url is accessible with the current token.")
 
                 withContext(Dispatchers.Main) {
-                  startDownload(tokenStatusAndData.data!!.accessToken)
+                  startDownload(accessToken)
                 }
               }
               // Download url is NOT accessible. Request a new token.
