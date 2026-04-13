@@ -21,9 +21,9 @@ private const val TAG = "ModelFileManager"
 class ModelFileManager(
   private val context: Context,
   private val externalFilesDir: File?,
-) {
+) : ModelFileOps {
 
-  fun isFileInExternalFilesDir(fileName: String): Boolean {
+  override fun isFileInExternalFilesDir(fileName: String): Boolean {
     if (externalFilesDir != null) {
       val file = File(externalFilesDir, fileName)
       return file.exists()
@@ -32,12 +32,12 @@ class ModelFileManager(
     }
   }
 
-  fun isFileInDataLocalTmpDir(fileName: String): Boolean {
+  override fun isFileInDataLocalTmpDir(fileName: String): Boolean {
     val file = File("/data/local/tmp", fileName)
     return file.exists()
   }
 
-  fun deleteFileFromExternalFilesDir(fileName: String) {
+  override fun deleteFileFromExternalFilesDir(fileName: String) {
     if (isFileInExternalFilesDir(fileName)) {
       val file = File(externalFilesDir, fileName)
       file.delete()
@@ -47,7 +47,7 @@ class ModelFileManager(
   /**
    * Deletes files from the model imports directory whose absolute paths start with a given prefix.
    */
-  fun deleteFilesFromImportDir(fileName: String) {
+  override fun deleteFilesFromImportDir(fileName: String) {
     val dir = context.getExternalFilesDir(null) ?: return
 
     val prefixAbsolutePath = "${context.getExternalFilesDir(null)}${File.separator}$fileName"
@@ -61,14 +61,14 @@ class ModelFileManager(
     }
   }
 
-  fun deleteDirFromExternalFilesDir(dir: String) {
+  override fun deleteDirFromExternalFilesDir(dir: String) {
     if (isFileInExternalFilesDir(dir)) {
       val file = File(externalFilesDir, dir)
       file.deleteRecursively()
     }
   }
 
-  fun isModelPartiallyDownloaded(model: Model): Boolean {
+  override fun isModelPartiallyDownloaded(model: Model): Boolean {
     if (model.localModelFilePathOverride.isNotEmpty()) {
       return false
     }
@@ -77,7 +77,7 @@ class ModelFileManager(
     return File(tmpFilePath).exists()
   }
 
-  fun isModelDownloaded(model: Model): Boolean {
+  override fun isModelDownloaded(model: Model): Boolean {
     val modelRelativePath =
       listOf(model.normalizedName, model.version, model.downloadFileName)
         .joinToString(File.separator)
@@ -98,7 +98,7 @@ class ModelFileManager(
     return downloadedFileExists || unzippedDirectoryExists
   }
 
-  fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
+  override fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
     Log.d(TAG, "Checking model ${model.name} download status...")
 
     if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
