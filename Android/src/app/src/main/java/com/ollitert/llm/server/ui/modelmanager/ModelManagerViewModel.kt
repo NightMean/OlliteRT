@@ -186,11 +186,19 @@ constructor(
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
 
-  val authService = AuthorizationService(context)
-  var curAccessToken: String = ""
+  // Extracted managers — isolate token, file, and allowlist concerns
+  val tokenManager = HuggingFaceTokenManager(dataStoreRepository, context)
+  val fileManager = ModelFileManager(context, externalFilesDir)
+  private val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
+
+  // Delegated token state — kept as top-level for backward compatibility with UI code
+  val authService get() = tokenManager.authService
+  var curAccessToken: String
+    get() = tokenManager.curAccessToken
+    set(value) { tokenManager.curAccessToken = value }
 
   override fun onCleared() {
-    authService.dispose()
+    tokenManager.dispose()
   }
 
   fun getTaskById(id: String): Task? {
@@ -606,135 +614,14 @@ constructor(
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
   }
 
-  fun getTokenStatusAndData(): TokenStatusAndData {
-    // Try to load token data from DataStore.
-    var tokenStatus = TokenStatus.NOT_STORED
-    Log.d(TAG, "Reading token data from data store...")
-    val tokenData = dataStoreRepository.readAccessTokenData()
-
-    // Token exists.
-    if (tokenData != null && tokenData.accessToken.isNotEmpty()) {
-      Log.d(TAG, "Token exists and loaded.")
-
-      // Check expiration (with 5-minute buffer).
-      val curTs = System.currentTimeMillis()
-      val expirationTs = tokenData.expiresAtMs - 5 * 60
-      Log.d(
-        TAG,
-        "Checking whether token has expired or not. Current ts: $curTs, expires at: $expirationTs",
-      )
-      if (curTs >= expirationTs) {
-        Log.d(TAG, "Token expired!")
-        tokenStatus = TokenStatus.EXPIRED
-      } else {
-        Log.d(TAG, "Token not expired.")
-        tokenStatus = TokenStatus.NOT_EXPIRED
-        curAccessToken = tokenData.accessToken
-      }
-    } else {
-      Log.d(TAG, "Token doesn't exists.")
-    }
-
-    return TokenStatusAndData(status = tokenStatus, data = tokenData)
-  }
-
-  fun getAuthorizationRequest(): AuthorizationRequest {
-    return AuthorizationRequest.Builder(
-        ProjectConfig.authServiceConfig,
-        ProjectConfig.clientId,
-        ResponseTypeValues.CODE,
-        ProjectConfig.redirectUri.toUri(),
-      )
-      .setScope("read-repos")
-      .build()
-  }
-
-  fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
-    val dataIntent = result.data
-    if (dataIntent == null) {
-      onTokenRequested(
-        TokenRequestResult(
-          status = TokenRequestResultType.FAILED,
-          errorMessage = "Empty auth result",
-        )
-      )
-      return
-    }
-
-    val response = AuthorizationResponse.fromIntent(dataIntent)
-    val exception = AuthorizationException.fromIntent(dataIntent)
-
-    when {
-      response?.authorizationCode != null -> {
-        // Authorization successful, exchange the code for tokens
-        var errorMessage: String? = null
-        authService.performTokenRequest(response.createTokenExchangeRequest()) {
-          tokenResponse,
-          tokenEx ->
-          if (tokenResponse != null) {
-            if (tokenResponse.accessToken == null) {
-              errorMessage = "Empty access token"
-            } else if (tokenResponse.refreshToken == null) {
-              errorMessage = "Empty refresh token"
-            } else if (tokenResponse.accessTokenExpirationTime == null) {
-              errorMessage = "Empty expiration time"
-            } else {
-              // Token exchange successful. Store the tokens securely
-              Log.d(TAG, "Token exchange successful. Storing tokens...")
-              saveAccessToken(
-                accessToken = tokenResponse.accessToken!!,
-                refreshToken = tokenResponse.refreshToken!!,
-                expiresAt = tokenResponse.accessTokenExpirationTime!!,
-              )
-              curAccessToken = tokenResponse.accessToken!!
-              Log.d(TAG, "Token successfully saved.")
-            }
-          } else if (tokenEx != null) {
-            errorMessage = "Token exchange failed: ${tokenEx.message}"
-          } else {
-            errorMessage = "Token exchange failed"
-          }
-          if (errorMessage == null) {
-            onTokenRequested(TokenRequestResult(status = TokenRequestResultType.SUCCEEDED))
-          } else {
-            onTokenRequested(
-              TokenRequestResult(
-                status = TokenRequestResultType.FAILED,
-                errorMessage = errorMessage,
-              )
-            )
-          }
-        }
-      }
-
-      exception != null -> {
-        onTokenRequested(
-          TokenRequestResult(
-            status =
-              if (exception.message == "User cancelled flow") TokenRequestResultType.USER_CANCELLED
-              else TokenRequestResultType.FAILED,
-            errorMessage = exception.message,
-          )
-        )
-      }
-
-      else -> {
-        onTokenRequested(TokenRequestResult(status = TokenRequestResultType.USER_CANCELLED))
-      }
-    }
-  }
-
-  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
-    dataStoreRepository.saveAccessTokenData(
-      accessToken = accessToken,
-      refreshToken = refreshToken,
-      expiresAt = expiresAt,
-    )
-  }
-
-  fun clearAccessToken() {
-    dataStoreRepository.clearAccessTokenData()
-  }
+  // Token management — delegated to HuggingFaceTokenManager
+  fun getTokenStatusAndData() = tokenManager.getTokenStatusAndData()
+  fun getAuthorizationRequest() = tokenManager.getAuthorizationRequest()
+  fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) =
+    tokenManager.handleAuthResult(result, onTokenRequested)
+  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) =
+    tokenManager.saveAccessToken(accessToken, refreshToken, expiresAt)
+  fun clearAccessToken() = tokenManager.clearAccessToken()
 
   private fun processPendingDownloads() {
     // Cancel all pending downloads for the retrieved models.
@@ -951,61 +838,14 @@ constructor(
     lifecycleProvider.isAppInForeground = foreground
   }
 
-  private fun saveModelAllowlistToDisk(modelAllowlistContent: String) {
-    try {
-      Log.d(TAG, "Saving model allowlist to disk...")
-      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
-      file.writeText(modelAllowlistContent)
-      Log.d(TAG, "Done: saving model allowlist to disk.")
-    } catch (e: Exception) {
-      Log.e(TAG, "failed to write model allowlist to disk", e)
-    }
-  }
+  // Allowlist I/O — delegated to ModelAllowlistLoader
+  private fun saveModelAllowlistToDisk(modelAllowlistContent: String) = allowlistLoader.saveToDisk(modelAllowlistContent)
+  private fun readModelAllowlistFromDisk(fileName: String = "") =
+    if (fileName.isNotEmpty() && fileName.contains("test")) allowlistLoader.readTestAllowlist()
+    else allowlistLoader.readFromDiskCache()
+  private fun readModelAllowlistFromAssets() = allowlistLoader.readFromAssets()
 
-  private fun readModelAllowlistFromDisk(
-    fileName: String = MODEL_ALLOWLIST_FILENAME
-  ): ModelAllowlist? {
-    try {
-      Log.d(TAG, "Reading model allowlist from disk: $fileName")
-      val baseDir =
-        if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) File("/data/local/tmp") else externalFilesDir
-      val file = File(baseDir, fileName)
-      if (file.exists()) {
-        val content = file.readText()
-        Log.d(TAG, "Model allowlist content from local file: $content")
-
-        val gson = Gson()
-        return gson.fromJson(content, ModelAllowlist::class.java)
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "failed to read model allowlist from disk", e)
-      return null
-    }
-
-    return null
-  }
-
-  private fun readModelAllowlistFromAssets(): ModelAllowlist? {
-    return try {
-      val content = context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }
-      Log.d(TAG, "Loaded bundled model allowlist from assets")
-      Gson().fromJson(content, ModelAllowlist::class.java)
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to read bundled model allowlist from assets", e)
-      null
-    }
-  }
-
-  private fun isModelPartiallyDownloaded(model: Model): Boolean {
-    if (model.localModelFilePathOverride.isNotEmpty()) {
-      return false
-    }
-
-    // A model is partially downloaded when the tmp file exists.
-    val tmpFilePath =
-      model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
-    return File(tmpFilePath).exists()
-  }
+  private fun isModelPartiallyDownloaded(model: Model) = fileManager.isModelPartiallyDownloaded(model)
 
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState(
@@ -1167,94 +1007,14 @@ constructor(
    * downloaded, partially downloaded, or not downloaded at all. It also retrieves the received and
    * total bytes for partially downloaded models.
    */
-  private fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
-    Log.d(TAG, "Checking model ${model.name} download status...")
+  private fun getModelDownloadStatus(model: Model) = fileManager.getModelDownloadStatus(model)
 
-    if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
-      Log.d(TAG, "Model has localFileRelativeDirPathOverride set. Set status to SUCCEEDED")
-      return ModelDownloadStatus(
-        status = ModelDownloadStatusType.SUCCEEDED,
-        receivedBytes = 0,
-        totalBytes = 0,
-      )
-    }
-
-    var status = ModelDownloadStatusType.NOT_DOWNLOADED
-    var receivedBytes = 0L
-    var totalBytes = 0L
-
-    // Partially downloaded.
-    if (isModelPartiallyDownloaded(model = model)) {
-      status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-      val tmpFilePath =
-        model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
-      val tmpFile = File(tmpFilePath)
-      receivedBytes = tmpFile.length()
-      totalBytes = model.totalBytes
-      Log.d(TAG, "${model.name} is partially downloaded. $receivedBytes/$totalBytes")
-    }
-    // Fully downloaded.
-    else if (isModelDownloaded(model = model)) {
-      status = ModelDownloadStatusType.SUCCEEDED
-      Log.d(TAG, "${model.name} has been downloaded.")
-    }
-    // Not downloaded.
-    else {
-      Log.d(TAG, "${model.name} has not been downloaded.")
-    }
-
-    return ModelDownloadStatus(
-      status = status,
-      receivedBytes = receivedBytes,
-      totalBytes = totalBytes,
-    )
-  }
-
-  private fun isFileInExternalFilesDir(fileName: String): Boolean {
-    if (externalFilesDir != null) {
-      val file = File(externalFilesDir, fileName)
-      return file.exists()
-    } else {
-      return false
-    }
-  }
-
-  private fun isFileInDataLocalTmpDir(fileName: String): Boolean {
-    val file = File("/data/local/tmp", fileName)
-    return file.exists()
-  }
-
-  private fun deleteFileFromExternalFilesDir(fileName: String) {
-    if (isFileInExternalFilesDir(fileName)) {
-      val file = File(externalFilesDir, fileName)
-      file.delete()
-    }
-  }
-
-  /**
-   * Deletes files from the the model imports directory whose absolute paths start with a given
-   * prefix.
-   */
-  private fun deleteFilesFromImportDir(fileName: String) {
-    val dir = context.getExternalFilesDir(null) ?: return
-
-    val prefixAbsolutePath = "${context.getExternalFilesDir(null)}${File.separator}$fileName"
-    val filesToDelete =
-      File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
-        File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath)
-      } ?: arrayOf()
-    for (file in filesToDelete) {
-      Log.d(TAG, "Deleting file: ${file.name}")
-      file.delete()
-    }
-  }
-
-  private fun deleteDirFromExternalFilesDir(dir: String) {
-    if (isFileInExternalFilesDir(dir)) {
-      val file = File(externalFilesDir, dir)
-      file.deleteRecursively()
-    }
-  }
+  // File management — delegated to ModelFileManager
+  private fun isFileInExternalFilesDir(fileName: String) = fileManager.isFileInExternalFilesDir(fileName)
+  private fun isFileInDataLocalTmpDir(fileName: String) = fileManager.isFileInDataLocalTmpDir(fileName)
+  private fun deleteFileFromExternalFilesDir(fileName: String) = fileManager.deleteFileFromExternalFilesDir(fileName)
+  private fun deleteFilesFromImportDir(fileName: String) = fileManager.deleteFilesFromImportDir(fileName)
+  private fun deleteDirFromExternalFilesDir(dir: String) = fileManager.deleteDirFromExternalFilesDir(dir)
 
   private fun updateModelInitializationStatus(
     model: Model,
@@ -1281,26 +1041,7 @@ constructor(
     _uiState.update { newUiState }
   }
 
-  private fun isModelDownloaded(model: Model): Boolean {
-    val modelRelativePath =
-      listOf(model.normalizedName, model.version, model.downloadFileName)
-        .joinToString(File.separator)
-    val downloadedFileExists =
-      model.downloadFileName.isNotEmpty() &&
-        ((model.localModelFilePathOverride.isEmpty() &&
-          isFileInExternalFilesDir(modelRelativePath)) ||
-          (model.localModelFilePathOverride.isNotEmpty() &&
-            File(model.localModelFilePathOverride).exists()))
-
-    val unzippedDirectoryExists =
-      model.isZip &&
-        model.unzipDir.isNotEmpty() &&
-        isFileInExternalFilesDir(
-          listOf(model.normalizedName, model.version, model.unzipDir).joinToString(File.separator)
-        )
-
-    return downloadedFileExists || unzippedDirectoryExists
-  }
+  private fun isModelDownloaded(model: Model) = fileManager.isModelDownloaded(model)
 }
 
 /** Builds the remote URL for a version-specific model allowlist file (e.g. "1_0_11" → "1_0_11.json"). */
