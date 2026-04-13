@@ -24,14 +24,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-
-private val DeleteRedTint = Color(0xFFE57373)
+import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 
 /** Composable function to display a button for deleting the downloaded model. */
 @Composable
@@ -46,7 +44,7 @@ fun DeleteModelButton(
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
 
   if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED && showDeleteButton) {
-    val tint = if (isModelInUse) DeleteRedTint.copy(alpha = 0.3f) else DeleteRedTint
+    val tint = if (isModelInUse) OlliteRTDeleteRed.copy(alpha = 0.3f) else OlliteRTDeleteRed
     TooltipIconButton(
       icon = Icons.Outlined.Delete,
       tooltip = "Delete model",
