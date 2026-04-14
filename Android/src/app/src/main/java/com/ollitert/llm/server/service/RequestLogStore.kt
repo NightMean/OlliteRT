@@ -208,6 +208,29 @@ object RequestLogStore {
     pendingCancellations.remove(id)?.invoke()
   }
 
+  /**
+   * Marks all in-flight (isPending=true) entries as cancelled and invokes their
+   * inference callbacks. Called when the server stops or restarts so that pending
+   * "Generating…" cards do not stay stuck forever if the service is killed mid-inference.
+   *
+   * Unlike [cancelRequest] (user-initiated), this sets [RequestLogEntry.isCancelled] without
+   * [RequestLogEntry.cancelledByUser], so the card renders as server-cancelled rather than
+   * user-cancelled.
+   */
+  fun cancelAllPending() {
+    // Invoke all registered inference callbacks first (signals the running inference to stop).
+    val callbacks = pendingCancellations.values.toList()
+    pendingCancellations.clear()
+    callbacks.forEach { it.invoke() }
+
+    // Finalize all still-pending entries in the list.
+    _entries.update { current ->
+      current.map { entry ->
+        if (entry.isPending) entry.copy(isPending = false, isCancelled = true) else entry
+      }
+    }
+  }
+
   fun clear() {
     _entries.update { emptyList() }
     pendingCancellations.clear()
