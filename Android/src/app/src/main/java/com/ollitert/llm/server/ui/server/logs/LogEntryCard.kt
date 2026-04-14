@@ -119,12 +119,12 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
   // trigger recomposition when badges overflow the weight(1f) area.
   val footerScrollState = rememberScrollState()
 
-  // Hoisted to detect whether the path text wraps to multiple lines.
-  // When true, IP + action buttons move to a second row below the path.
+  // Latch: pathIsMultiLine only ever goes false→true (never resets). This prevents the
+  // layout flip-flop where IP inline narrows the path → wraps → IP below → path widens
+  // → single line → IP inline → repeat. Once wrapping is detected, layout stays stable.
   var pathIsMultiLine by remember { mutableStateOf(false) }
   val hasInfoButton = entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0
   val hasCopyButton = !entry.isPending
-  val hasSecondRow = pathIsMultiLine && (entry.clientIp != null || hasInfoButton || hasCopyButton)
 
   Column(
     modifier = Modifier
@@ -133,14 +133,14 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       .background(cardBg)
       .padding(16.dp),
   ) {
-    // Method badge + path (+ optional inline IP/buttons when path fits on one line)
+    // Row 1: [METHOD] [path] [IP — inline only when path fits] [ⓘ] [copy]
+    // ⓘ and copy always stay in the right corner. Only IP moves below when path wraps.
     Row(
       verticalAlignment = if (pathIsMultiLine) Alignment.Top else Alignment.CenterVertically,
     ) {
       MethodBadge(method = entry.method)
       Spacer(modifier = Modifier.width(8.dp))
-      // Path text — fully visible, no truncation. onTextLayout detects when it wraps so
-      // the IP and action buttons can be moved to a second row below.
+      // Path text — fully visible, no truncation. Latch detects wrap to reposition IP.
       if (searchQuery.isNotEmpty()) {
         val highlighted = remember(entry.path, searchQuery) {
           buildHighlightedString(entry.path, searchQuery, baseColor = Color(0xFFE5E2E3))
@@ -164,17 +164,20 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           onTextLayout = { if (it.lineCount > 1) pathIsMultiLine = true },
         )
       }
-      // Inline (non-overflow): IP + buttons on the same row as the path
-      if (!pathIsMultiLine) {
-        EntryHeaderActions(entry, searchQuery, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
+      // IP inline only when path fits on one line
+      if (!pathIsMultiLine && entry.clientIp != null) {
+        Spacer(modifier = Modifier.width(4.dp))
+        EntryIpPill(entry, searchQuery)
       }
+      // Buttons always stay in the top-right corner regardless of path length
+      EntryActionButtons(entry, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
     }
 
-    // Below (overflow): IP + buttons on a second row when path wraps to multiple lines
-    if (hasSecondRow) {
+    // Row 2: IP below when path wraps to multiple lines
+    if (pathIsMultiLine && entry.clientIp != null) {
       Spacer(modifier = Modifier.height(4.dp))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        EntryHeaderActions(entry, searchQuery, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
+        EntryIpPill(entry, searchQuery)
       }
     }
 
@@ -630,51 +633,52 @@ internal fun ExpandableBodySection(
   }
 }
 
+/** The client IP address pill shown in the log entry card header. */
+@Composable
+private fun EntryIpPill(entry: RequestLogEntry, searchQuery: String) {
+  if (entry.clientIp == null) return
+  if (searchQuery.isNotEmpty()) {
+    val highlighted = remember(entry.clientIp, searchQuery) {
+      buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
+    }
+    Text(
+      text = highlighted,
+      style = MaterialTheme.typography.labelSmall,
+      fontFamily = SpaceGroteskFontFamily,
+      maxLines = 1,
+      modifier = Modifier
+        .clip(RoundedCornerShape(6.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+        .padding(horizontal = 8.dp, vertical = 3.dp),
+    )
+  } else {
+    Text(
+      text = entry.clientIp,
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      fontFamily = SpaceGroteskFontFamily,
+      maxLines = 1,
+      modifier = Modifier
+        .clip(RoundedCornerShape(6.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+        .padding(horizontal = 8.dp, vertical = 3.dp),
+    )
+  }
+}
+
 /**
- * The IP pill + info + copy action buttons shown in the log entry card header.
- * Extracted so the same content can be placed inline (when the path fits on one line)
- * or below (when the path wraps to multiple lines).
+ * The ⓘ and copy action buttons shown in the log entry card header.
+ * These always stay in the top-right corner regardless of whether the path wraps.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EntryHeaderActions(
+private fun EntryActionButtons(
   entry: RequestLogEntry,
-  searchQuery: String,
   hasInfoButton: Boolean,
   hasCopyButton: Boolean,
   onInfoClick: () -> Unit,
 ) {
   val context = LocalContext.current
-  if (entry.clientIp != null) {
-    Spacer(modifier = Modifier.width(4.dp))
-    if (searchQuery.isNotEmpty()) {
-      val highlighted = remember(entry.clientIp, searchQuery) {
-        buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
-      }
-      Text(
-        text = highlighted,
-        style = MaterialTheme.typography.labelSmall,
-        fontFamily = SpaceGroteskFontFamily,
-        maxLines = 1,
-        modifier = Modifier
-          .clip(RoundedCornerShape(6.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-          .padding(horizontal = 8.dp, vertical = 3.dp),
-      )
-    } else {
-      Text(
-        text = entry.clientIp,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontFamily = SpaceGroteskFontFamily,
-        maxLines = 1,
-        modifier = Modifier
-          .clip(RoundedCornerShape(6.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-          .padding(horizontal = 8.dp, vertical = 3.dp),
-      )
-    }
-  }
   if (hasInfoButton) {
     Spacer(modifier = Modifier.width(2.dp))
     TooltipBox(
