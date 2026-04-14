@@ -27,7 +27,11 @@ object LlmHttpNotificationHelper {
   /** Creates the notification channel (required on Android O+). Safe to call multiple times. */
   fun createChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      if (mgr == null) {
+        android.util.Log.e("LlmHttpNotification", "NotificationManager unavailable — cannot create channel")
+        return
+      }
       val ch = NotificationChannel(
         CHANNEL_ID,
         context.getString(R.string.llm_http_channel_name),
@@ -54,7 +58,7 @@ object LlmHttpNotificationHelper {
       .setContentTitle(title)
       .setContentText(text)
       .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-      .setSmallIcon(R.mipmap.ic_launcher_foreground)
+      .setSmallIcon(R.mipmap.ic_launcher_monochrome)
       .setContentIntent(contentIntent)
       .setOngoing(true)
     if (stopIntent != null) {
@@ -84,7 +88,11 @@ object LlmHttpNotificationHelper {
     showProgress: Boolean = false,
   ) {
     val notification = build(context, title, text, contentIntent, stopIntent, copyIntent, showProgress)
-    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    if (mgr == null) {
+      android.util.Log.e("LlmHttpNotification", "NotificationManager unavailable — cannot update notification")
+      return
+    }
     mgr.notify(NOTIFICATION_ID, notification)
   }
 

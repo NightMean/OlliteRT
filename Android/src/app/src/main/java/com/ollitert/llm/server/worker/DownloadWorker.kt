@@ -23,11 +23,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.util.Log
+import com.ollitert.llm.server.R
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.ollitert.llm.server.data.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
@@ -71,7 +73,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   private val externalFilesDir = context.getExternalFilesDir(null)
 
   private val notificationManager =
-    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
   // Unique notification id.
   private val notificationId: Int = params.id.hashCode()
@@ -87,7 +89,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             NotificationManager.IMPORTANCE_LOW,
           )
           .apply { description = "Notifications for model downloading" }
-      notificationManager.createNotificationChannel(channel)
+      notificationManager?.createNotificationChannel(channel)
       channelCreated = true
     }
   }
@@ -95,9 +97,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   override suspend fun doWork(): Result {
     val fileUrl = inputData.getString(KEY_MODEL_URL)
     val modelName = inputData.getString(KEY_MODEL_NAME) ?: "Model"
-    val version = inputData.getString(KEY_MODEL_COMMIT_HASH)!!
+    val version = inputData.getString(KEY_MODEL_COMMIT_HASH)
+      ?: return Result.failure(workDataOf("error" to "Missing commit hash in download input"))
     val fileName = inputData.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)
-    val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)!!
+    val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)
+      ?: return Result.failure(workDataOf("error" to "Missing model directory in download input"))
     val isZip = inputData.getBoolean(KEY_MODEL_IS_ZIP, false)
     val unzippedDir = inputData.getString(KEY_MODEL_UNZIPPED_DIR)
     val extraDataFileUrls = inputData.getString(KEY_MODEL_EXTRA_DATA_URLS)?.split(",") ?: listOf()
@@ -182,8 +186,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 // Parse the Content-Range header
                 val rangeParts = contentRange.substringAfter("bytes ").split("/")
                 val byteRange = rangeParts[0].split("-")
-                val startByte = byteRange[0].toLong()
-                val endByte = byteRange[1].toLong()
+                val startByte = byteRange.getOrNull(0)?.toLongOrNull()
+                  ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
+                val endByte = byteRange.getOrNull(1)?.toLongOrNull()
+                  ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
 
                 Log.d(
                   TAG,
@@ -394,7 +400,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       NotificationCompat.Builder(applicationContext, FOREGROUND_NOTIFICATION_CHANNEL_ID)
         .setContentTitle(title)
         .setContentText(content)
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setSmallIcon(R.mipmap.ic_launcher_monochrome)
         .setOngoing(true) // Makes the notification non-dismissable
         .setProgress(100, progress, false) // Show progress
         .setContentIntent(pendingIntent)
