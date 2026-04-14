@@ -33,6 +33,19 @@ val gitHash: String = providers.exec {
   commandLine("git", "rev-parse", "--short", "HEAD")
 }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
+// Auto versionCode: when APP_VERSION_CODE is "auto", derive from git commit count.
+// CI can pass an explicit number via -PAPP_VERSION_CODE=N to override.
+val resolvedVersionCode: Int = run {
+  val raw = findProperty("APP_VERSION_CODE") as String
+  if (raw == "auto") {
+    providers.exec {
+      commandLine("git", "rev-list", "--count", "HEAD")
+    }.standardOutput.asText.map { it.trim().toInt() }.getOrElse(1)
+  } else {
+    raw.toInt()
+  }
+}
+
 android {
   namespace = "com.ollitert.llm.server"
   compileSdk = 36
@@ -41,7 +54,7 @@ android {
     applicationId = "com.ollitert.llm.server"
     minSdk = 31
     targetSdk = 35
-    versionCode = (findProperty("APP_VERSION_CODE") as String).toInt()
+    versionCode = resolvedVersionCode
     versionName = findProperty("APP_VERSION_NAME") as String
 
     // Needed for HuggingFace auth workflows.
