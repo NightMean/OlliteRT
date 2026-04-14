@@ -290,4 +290,113 @@ class RequestLogStoreTest {
     assertEquals("should fire one update", 1, cb.updated.size)
     assertFalse("cancelledByUser alone is not terminal (isCancelled unchanged)", cb.updated[0].second)
   }
+
+  // ── removeOlderThan() ────────────────────────────────────────────────────
+
+  @Test
+  fun removeOlderThanFiltersOldEntries() {
+    val now = System.currentTimeMillis()
+    RequestLogStore.add(RequestLogEntry(id = "old", method = "GET", path = "/", timestamp = now - 10_000))
+    RequestLogStore.add(RequestLogEntry(id = "new", method = "GET", path = "/", timestamp = now))
+    // Cutoff at now - 5000 → only "new" survives
+    RequestLogStore.removeOlderThan(now - 5_000)
+    val ids = RequestLogStore.entries.value.map { it.id }
+    assertEquals(listOf("new"), ids)
+  }
+
+  @Test
+  fun removeOlderThanKeepsExactCutoff() {
+    val cutoff = 1000L
+    RequestLogStore.add(RequestLogEntry(id = "exact", method = "GET", path = "/", timestamp = cutoff))
+    RequestLogStore.add(RequestLogEntry(id = "before", method = "GET", path = "/", timestamp = cutoff - 1))
+    RequestLogStore.removeOlderThan(cutoff)
+    val ids = RequestLogStore.entries.value.map { it.id }
+    assertEquals("entry at exact cutoff should survive (>= check)", listOf("exact"), ids)
+  }
+
+  @Test
+  fun removeOlderThanEmptyStoreIsNoOp() {
+    RequestLogStore.removeOlderThan(System.currentTimeMillis())
+    assertTrue(RequestLogStore.entries.value.isEmpty())
+  }
+
+  @Test
+  fun removeOlderThanDoesNotTriggerPersistenceCallback() {
+    val cb = TestCallback()
+    val now = System.currentTimeMillis()
+    RequestLogStore.add(RequestLogEntry(id = "a", method = "GET", path = "/", timestamp = now - 10_000))
+    RequestLogStore.setPersistenceCallback(cb)
+    cb.added.clear() // ignore the add
+
+    RequestLogStore.removeOlderThan(now)
+
+    assertEquals("removeOlderThan should not fire onEntryUpdated", 0, cb.updated.size)
+    assertEquals("removeOlderThan should not fire onEntriesCleared", 0, cb.clearCount)
+  }
+
+  // ── setMaxEntries(0) — no limit mode ─────────────────────────────────────
+
+  @Test
+  fun setMaxEntriesZeroMeansNoLimit() {
+    RequestLogStore.setMaxEntries(0)
+    repeat(200) { RequestLogStore.add(entry("e$it")) }
+    assertEquals("0 = no limit, all 200 entries should survive", 200, RequestLogStore.entries.value.size)
+  }
+
+  @Test
+  fun setMaxEntriesZeroDoesNotTrimExisting() {
+    repeat(10) { RequestLogStore.add(entry("e$it")) }
+    RequestLogStore.setMaxEntries(0)
+    assertEquals("setting 0 should not trim existing entries", 10, RequestLogStore.entries.value.size)
+  }
+
+  @Test
+  fun addRespectsNoLimitWhenMaxIsZero() {
+    RequestLogStore.setMaxEntries(0)
+    repeat(5) { RequestLogStore.add(entry("e$it")) }
+    assertEquals(5, RequestLogStore.entries.value.size)
+    // Add more — nothing should be evicted
+    repeat(5) { RequestLogStore.add(entry("f$it")) }
+    assertEquals(10, RequestLogStore.entries.value.size)
+  }
+
+  // ── updatePartialText() ──────────────────────────────────────────────────
+
+  @Test
+  fun updatePartialTextEmitsToFlow() {
+    RequestLogStore.updatePartialText("entry-1", "streaming tokens...")
+    val (id, text) = RequestLogStore.pendingPartialText.value
+    assertEquals("entry-1", id)
+    assertEquals("streaming tokens...", text)
+  }
+
+  @Test
+  fun updatePartialTextDoesNotModifyEntriesList() {
+    RequestLogStore.add(entry("a"))
+    val sizeBefore = RequestLogStore.entries.value.size
+    RequestLogStore.updatePartialText("a", "some text")
+    assertEquals("entries list should be unchanged", sizeBefore, RequestLogStore.entries.value.size)
+    // The entry in the list should NOT have partialText set
+    assertEquals(null, RequestLogStore.entries.value[0].partialText)
+  }
+
+  // ── registerCancellation / unregisterCancellation ────────────────────────
+
+  @Test
+  fun unregisterCancellationPreventsCallbackOnCancel() {
+    var invoked = false
+    RequestLogStore.add(entry("x", isPending = true))
+    RequestLogStore.registerCancellation("x") { invoked = true }
+    RequestLogStore.unregisterCancellation("x")
+    RequestLogStore.cancelRequest("x")
+    assertFalse("callback should NOT be invoked after unregister", invoked)
+  }
+
+  @Test
+  fun cancelRequestWithNoRegistrationIsNoOp() {
+    RequestLogStore.add(entry("y", isPending = true))
+    // No registerCancellation — should not crash
+    RequestLogStore.cancelRequest("y")
+    assertTrue("cancelledByUser should still be set", RequestLogStore.entries.value[0].cancelledByUser)
+  }
 }

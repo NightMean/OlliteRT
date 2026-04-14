@@ -222,4 +222,48 @@ class LlmHttpPrometheusRendererTest {
       assertTrue("Metric name '$name' has invalid characters", name.matches(Regex("[a-zA-Z_:][a-zA-Z0-9_:]*")))
     }
   }
+
+  // ── Memory gauge metrics ─────────────────────────────────────────────────
+
+  @Test
+  fun renderContainsMemoryGauges() {
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("should contain native heap gauge", output.contains("ollitert_memory_native_heap_bytes"))
+    assertTrue("should contain app heap gauge", output.contains("ollitert_memory_app_heap_used_bytes"))
+    assertTrue("should contain app pss gauge", output.contains("ollitert_memory_app_total_pss_bytes"))
+    assertTrue("should contain device avail gauge", output.contains("ollitert_memory_device_available_bytes"))
+    assertTrue("should contain device total gauge", output.contains("ollitert_memory_device_total_bytes"))
+  }
+
+  @Test
+  fun renderReflectsMemorySnapshotValues() {
+    ServerMetrics.updateMemorySnapshot(
+      nativeHeapBytes = 1234567,
+      appHeapUsedBytes = 2345678,
+      appTotalPssBytes = 3456789,
+      deviceAvailRamBytes = 4000000000,
+      deviceTotalRamBytes = 8000000000,
+    )
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("native heap value", output.contains("ollitert_memory_native_heap_bytes 1234567"))
+    assertTrue("app heap value", output.contains("ollitert_memory_app_heap_used_bytes 2345678"))
+    assertTrue("app pss value", output.contains("ollitert_memory_app_total_pss_bytes 3456789"))
+    assertTrue("device avail value", output.contains("ollitert_memory_device_available_bytes 4000000000"))
+    assertTrue("device total value", output.contains("ollitert_memory_device_total_bytes 8000000000"))
+  }
+
+  // ── Idle unloaded gauge ──────────────────────────────────────────────────
+
+  @Test
+  fun renderShowsIdleUnloadedZeroByDefault() {
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("should default to 0", output.contains("ollitert_model_idle_unloaded 0"))
+  }
+
+  @Test
+  fun renderShowsIdleUnloadedState() {
+    ServerMetrics.onModelIdleUnloaded()
+    val output = LlmHttpPrometheusRenderer.render()
+    assertTrue("should show 1 when idle unloaded", output.contains("ollitert_model_idle_unloaded 1"))
+  }
 }
