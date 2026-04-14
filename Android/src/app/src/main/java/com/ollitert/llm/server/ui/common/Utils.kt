@@ -81,7 +81,11 @@ val SCREEN_CONTENT_MAX_WIDTH = 840.dp
  *                     Omit for simple values like URLs or tokens.
  */
 fun copyToClipboard(context: Context, label: String, text: String, formatSuffix: String? = null) {
-  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+  if (clipboard == null) {
+    Toast.makeText(context, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+    return
+  }
   clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
   val toast = if (formatSuffix != null) "Copied to clipboard ($formatSuffix)" else "Copied to clipboard"
   Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
