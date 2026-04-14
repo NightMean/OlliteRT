@@ -55,58 +55,12 @@ val AppTypography =
     labelSmall = baseline.labelSmall.copy(fontFamily = ManropeFontFamily, fontWeight = FontWeight.Medium),
   )
 
-// Extended styles used by existing components (kept for compatibility)
-
-val titleMediumNarrow =
-  baseline.titleMedium.copy(fontFamily = SpaceGroteskFontFamily, letterSpacing = 0.0.sp)
-
-val titleSmaller =
-  baseline.titleSmall.copy(
-    fontFamily = SpaceGroteskFontFamily,
-    fontSize = 12.sp,
-    fontWeight = FontWeight.Bold,
-  )
+// Extended styles used by existing components
 
 val labelSmallNarrow =
   baseline.labelSmall.copy(fontFamily = ManropeFontFamily, letterSpacing = 0.0.sp)
-
-val labelSmallNarrowMedium =
-  baseline.labelSmall.copy(
-    fontFamily = ManropeFontFamily,
-    fontWeight = FontWeight.Medium,
-    letterSpacing = 0.0.sp,
-  )
-
-val bodySmallNarrow =
-  baseline.bodySmall.copy(fontFamily = ManropeFontFamily, letterSpacing = 0.0.sp)
-
-val bodySmallMediumNarrow =
-  baseline.bodySmall.copy(fontFamily = ManropeFontFamily, letterSpacing = 0.0.sp, fontSize = 14.sp)
-
-val bodySmallMediumNarrowBold =
-  baseline.bodySmall.copy(
-    fontFamily = ManropeFontFamily,
-    letterSpacing = 0.0.sp,
-    fontSize = 14.sp,
-    fontWeight = FontWeight.Bold,
-  )
-
-val homePageTitleStyle =
-  baseline.displayMedium.copy(
-    fontFamily = SpaceGroteskFontFamily,
-    fontSize = 48.sp,
-    lineHeight = 48.sp,
-    letterSpacing = (-1).sp,
-    fontWeight = FontWeight.Bold,
-  )
 
 val bodyLargeNarrow = baseline.bodyLarge.copy(fontFamily = ManropeFontFamily, letterSpacing = 0.2.sp)
 
 val headlineLargeMedium =
   baseline.headlineLarge.copy(fontFamily = SpaceGroteskFontFamily, fontWeight = FontWeight.Medium)
-
-val emptyStateTitle =
-  baseline.headlineSmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 37.sp, lineHeight = 50.sp)
-
-val emptyStateContent =
-  baseline.headlineSmall.copy(fontFamily = ManropeFontFamily, fontSize = 16.sp, lineHeight = 22.sp)
