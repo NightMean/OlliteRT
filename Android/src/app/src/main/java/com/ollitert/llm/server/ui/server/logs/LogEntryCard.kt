@@ -151,7 +151,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Medium,
           modifier = Modifier.weight(1f),
-          onTextLayout = { pathIsMultiLine = it.lineCount > 1 },
+          onTextLayout = { if (it.lineCount > 1) pathIsMultiLine = true },
         )
       } else {
         Text(
@@ -161,7 +161,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Medium,
           modifier = Modifier.weight(1f),
-          onTextLayout = { pathIsMultiLine = it.lineCount > 1 },
+          onTextLayout = { if (it.lineCount > 1) pathIsMultiLine = true },
         )
       }
       // Inline (non-overflow): IP + buttons on the same row as the path
