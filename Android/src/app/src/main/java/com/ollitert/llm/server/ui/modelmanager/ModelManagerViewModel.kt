@@ -699,17 +699,17 @@ constructor(
         if (modelAllowlist == null) {
           // Load from github.
           // Strip flavor suffixes (-dev, -beta) so the version maps to the remote
-          // allowlist file (e.g. "1.0.11-beta" → "1_0_11" → "1_0_11.json").
+          // allowlist file (e.g. "0.8.0-beta" → "0_8_0" → "v1/0_8_0.json").
           // When beta needs different models, it will have a bumped version number
-          // (e.g. 1.0.12) with its own allowlist — the suffix is not part of the
+          // (e.g. 0.9.0) with its own allowlist — the suffix is not part of the
           // allowlist versioning scheme.
           //
           // IMPORTANT: Every new app version release MUST have a corresponding
-          // allowlist file in the repo's model_allowlists/ directory (e.g. 2_0_0.json
-          // for version 2.0.0). Without it, the app falls back to the disk cache or
-          // the bundled asset, which may be outdated. The file can be a copy of the
-          // previous version's allowlist if models haven't changed.
-          // See: model_allowlists/ in the repo root and GitHubConfig.ALLOWLIST_BASE_URL.
+          // allowlist file in model_allowlists/v1/ (e.g. v1/0_9_0.json for
+          // version 0.9.0). Without it, the app falls back to the disk cache or
+          // the bundled asset, which may be outdated. The file can be a copy of
+          // the previous version's allowlist if models haven't changed.
+          // See: model_allowlists/v1/ in the repo root and GitHubConfig.ALLOWLIST_BASE_URL.
           var version = BuildConfig.VERSION_NAME
             .replace(Regex("-(dev|beta)$"), "")
             .replace(".", "_")
@@ -989,7 +989,7 @@ constructor(
     val groupedSortedTasks: MutableMap<String, List<Task>> = mutableMapOf()
     // Sort tasks by label.
     for (categoryId in groupedTasks.keys) {
-      val sortedTasks = groupedTasks[categoryId]!!.sortedBy { it.label }
+      val sortedTasks = (groupedTasks[categoryId] ?: continue).sortedBy { it.label }
       for ((index, task) in sortedTasks.withIndex()) {
         task.index = index
       }
@@ -1054,7 +1054,7 @@ constructor(
   private fun isModelDownloaded(model: Model) = fileManager.isModelDownloaded(model)
 }
 
-/** Builds the remote URL for a version-specific model allowlist file (e.g. "1_0_11" → "1_0_11.json"). */
+/** Builds the remote URL for a version-specific model allowlist file (e.g. "0_8_0" → "v1/0_8_0.json"). */
 private fun getAllowlistUrl(version: String): String {
   return "$ALLOWLIST_BASE_URL/${version}.json"
 }

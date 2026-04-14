@@ -35,11 +35,12 @@ object GitHubConfig {
 
   /**
    * Base URL for fetching remote model allowlist JSON files.
-   * Each app version requires a corresponding file (e.g. 2_0_0.json for v2.0.0).
-   * The file can be a copy of the previous version if models haven't changed.
+   * Versioned by format generation (v1/, v2/, etc.) so breaking schema changes
+   * don't affect older app versions. Each app release needs a matching file
+   * (e.g. v1/0_8_0.json for v0.8.0). Copy the previous file if models haven't changed.
    */
   const val ALLOWLIST_BASE_URL =
-    "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/master/model_allowlists"
+    "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/master/model_allowlists/v1"
 
   /** LiteRT-LM SDK documentation base URL (used in model descriptions). */
   const val LITERT_LM_DOCS_URL = "https://github.com/google-ai-edge/LiteRT-LM"
