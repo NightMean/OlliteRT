@@ -114,7 +114,7 @@ constructor(
         )
       Log.d(TAG, "Running benchmark: ${parts.joinToString("\n")}")
 
-      // TODO: handle error.
+      try {
       val startMs = System.currentTimeMillis()
       val prefillSpeeds = mutableListOf<Double>()
       val decodeSpeeds = mutableListOf<Double>()
@@ -200,8 +200,13 @@ constructor(
       val newId = addBenchmarkResult(result = result)
       collapseAll()
       setExpanded(id = newId, expanded = true)
-
-      setRunning(running = false)
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e  // Preserve structured concurrency — never swallow cancellation
+      } catch (e: Exception) {
+        Log.e(TAG, "Benchmark failed: ${e.message}", e)
+      } finally {
+        setRunning(running = false)
+      }
     }
   }
 

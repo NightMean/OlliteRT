@@ -395,8 +395,8 @@ class RequestLogStoreTest {
   @Test
   fun cancelRequestWithNoRegistrationIsNoOp() {
     RequestLogStore.add(entry("y", isPending = true))
-    // No registerCancellation — should not crash
+    // No registerCancellation — cancelRequest should be a no-op (nothing to cancel)
     RequestLogStore.cancelRequest("y")
-    assertTrue("cancelledByUser should still be set", RequestLogStore.entries.value[0].cancelledByUser)
+    assertFalse("cancelledByUser should NOT be set when no callback was registered", RequestLogStore.entries.value[0].cancelledByUser)
   }
 }

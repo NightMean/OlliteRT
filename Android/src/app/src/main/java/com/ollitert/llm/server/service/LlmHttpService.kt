@@ -176,15 +176,20 @@ class LlmHttpService : Service() {
           modelName = model.name,
           category = EventCategory.MODEL,
         )
+        // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
+        // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
+        // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
+        synchronized(modelLifecycle.keepAliveLock) {
+          model.initializing = false
+          defaultModel = null
+        }
         try {
           ServerLlmModelHelper.cleanUp(model) {}
         } catch (e: Exception) {
           Log.w(logTag, "Error cleaning up model during reload: ${e.message}")
         }
         model.instance = null
-        model.initializing = false
       }
-      defaultModel = null
       // Close any secondary models' native Engines before dropping references.
       // Without this, modelCache.clear() orphans Engine instances with GB-scale native memory.
       for ((_, cachedModel) in modelCache) {
@@ -227,15 +232,15 @@ class LlmHttpService : Service() {
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
-      pendingConfigOverrides = null
+      pendingConfigOverrides.set(null)
       stopSelf()
       return START_NOT_STICKY
     }
     // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
-    pendingConfigOverrides?.let { overrides ->
+    // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
+    pendingConfigOverrides.getAndSet(null)?.let { overrides ->
       model.configValues = overrides.toMutableMap()
       Log.i(logTag, "Applied ${overrides.size} config overrides from reload caller")
-      pendingConfigOverrides = null
     }
     // Verify model files actually exist on disk.
     val modelPath = model.getPath(context = this)
@@ -342,7 +347,7 @@ class LlmHttpService : Service() {
       return START_NOT_STICKY
     }
 
-    defaultModel = model
+    synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
 
     Thread {
       try {
@@ -368,10 +373,12 @@ class LlmHttpService : Service() {
         // Wait for the previous service instance's background cleanup to finish before
         // initializing. Without this, the new Engine.initialize() races with the old
         // Engine/Conversation.close() on native LiteRT resources, causing the load to hang.
-        cleanupLatch?.let { latch ->
-          Log.i(logTag, "Waiting for previous model cleanup to finish...")
-          latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
-          Log.i(logTag, "Previous cleanup finished, proceeding with model load")
+        cleanupLatch.get()?.let { latch ->
+          if (latch.count > 0) {
+            Log.i(logTag, "Waiting for previous model cleanup to finish...")
+            latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
+            Log.i(logTag, "Previous cleanup finished, proceeding with model load")
+          }
         }
 
         val loadStart = SystemClock.elapsedRealtime()
@@ -437,10 +444,10 @@ class LlmHttpService : Service() {
           }.toString()
           RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugBody)
         }
-        // Check for queued reload (user changed reinit settings while model was loading)
-        val queued = pendingReloadAfterLoad
+        // Check for queued reload (user changed reinit settings while model was loading).
+        // getAndSet(null) is atomic — prevents the UI thread's write from being lost between read and clear.
+        val queued = pendingReloadAfterLoad.getAndSet(null)
         if (queued != null) {
-          pendingReloadAfterLoad = null
           if (queued.modelName == model.name) {
             Log.i(logTag, "Executing queued reload for ${queued.modelName}")
             RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName, category = EventCategory.SETTINGS)
@@ -517,7 +524,7 @@ class LlmHttpService : Service() {
         }
         Log.e(logTag, "Failed to load model ${model.name}", t)
         emitDebugStackTrace(t, "model_load", model.name)
-        pendingReloadAfterLoad = null  // Clear queued reload — don't apply stale config to a future model
+        pendingReloadAfterLoad.set(null)  // Clear queued reload — don't apply stale config to a future model
         val msg = t.message?.take(120) ?: "Unknown error during model initialization"
         val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
         ServerMetrics.onServerError(msg)
@@ -579,7 +586,7 @@ class LlmHttpService : Service() {
       modelsToCleanUp.add(model)
       model.initializing = false
     }
-    defaultModel = null
+    synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
     for ((_, cachedModel) in modelCache) {
       if (cachedModel.instance != null) {
         modelsToCleanUp.add(cachedModel)
@@ -592,7 +599,7 @@ class LlmHttpService : Service() {
     // to finish before initializing — prevents racing on native LiteRT resources.
     if (modelsToCleanUp.isNotEmpty()) {
       val latch = java.util.concurrent.CountDownLatch(1)
-      cleanupLatch = latch
+      cleanupLatch.set(latch)
       Thread {
         try {
           for (model in modelsToCleanUp) {
@@ -606,8 +613,10 @@ class LlmHttpService : Service() {
           // GC hint after releasing large native allocations
           System.gc()
         } finally {
+          // Count down but do NOT null the reference — the next service instance reads
+          // the latch and if count==0, await() returns immediately. Nulling it creates a
+          // race where the new instance misses the latch entirely.
           latch.countDown()
-          cleanupLatch = null
         }
       }.start()
     }
@@ -617,7 +626,7 @@ class LlmHttpService : Service() {
     notifCopyIntent = null
     notifEndpointUrl = null
     notifModelName = null
-    pendingReloadAfterLoad = null
+    pendingReloadAfterLoad.set(null)
     // Cancel any in-flight requests so pending log cards resolve when the service is destroyed.
     RequestLogStore.cancelAllPending()
     ServerMetrics.onServerStopped()
@@ -713,11 +722,16 @@ class LlmHttpService : Service() {
      *  LiteRT's Engine creates XNNPack weight caches that can be hundreds of MB. */
     private const val MIN_STORAGE_FOR_MODEL_INIT_BYTES = 500L * 1024 * 1024
 
-    /** Latch that the background cleanup thread in onDestroy signals when native memory is released.
-     *  The next service instance's model load thread waits on this before initializing to avoid
-     *  racing with the old instance's Engine/Conversation cleanup. */
-    @Volatile
-    private var cleanupLatch: java.util.concurrent.CountDownLatch? = null
+    /**
+     * Latch that the background cleanup thread in onDestroy signals when native memory is released.
+     * The next service instance's model load thread waits on this before initializing to avoid
+     * racing with the old instance's Engine/Conversation cleanup.
+     *
+     * Uses AtomicReference instead of @Volatile to avoid race conditions where the latch is
+     * nulled out between the new instance's read and wait. The latch is never nulled — once
+     * counted down, it stays counted-down and await() returns immediately.
+     */
+    private val cleanupLatch = java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch?>(null)
 
     fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null) {
       val intent = Intent(context, LlmHttpService::class.java).apply {
@@ -738,9 +752,9 @@ class LlmHttpService : Service() {
     /**
      * Pending config values to apply after the next reload creates a fresh model.
      * Set by [reload] before sending the intent, consumed in [onStartCommand].
+     * Uses AtomicReference to prevent race conditions when two rapid reloads overwrite each other.
      */
-    @Volatile
-    private var pendingConfigOverrides: Map<String, Any>? = null
+    private val pendingConfigOverrides = java.util.concurrent.atomic.AtomicReference<Map<String, Any>?>(null)
 
     /**
      * Queued reload request to execute after the current model finishes loading.
@@ -748,19 +762,19 @@ class LlmHttpService : Service() {
      * while a model is still loading. Consumed in the warmup thread after [onServerRunning].
      */
     private data class PendingReload(val port: Int, val modelName: String, val configValues: Map<String, Any>?)
-    @Volatile
-    private var pendingReloadAfterLoad: PendingReload? = null
+    /** Atomic to prevent lost updates when the UI thread writes a new reload while the warmup thread reads and clears. */
+    private val pendingReloadAfterLoad = java.util.concurrent.atomic.AtomicReference<PendingReload?>(null)
 
     /**
      * Queue a reload to execute automatically after the current model finishes loading.
      * If the model is not currently loading, this is a no-op — use [reload] instead.
      */
     fun queueReloadAfterLoad(port: Int, modelName: String, configValues: Map<String, Any>?) {
-      pendingReloadAfterLoad = PendingReload(port, modelName, configValues)
+      pendingReloadAfterLoad.set(PendingReload(port, modelName, configValues))
     }
 
     fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null) {
-      pendingConfigOverrides = configValues
+      pendingConfigOverrides.set(configValues)
       val intent = Intent(context, LlmHttpService::class.java).apply {
         action = ACTION_RELOAD
         putExtra(EXTRA_PORT, port)

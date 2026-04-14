@@ -59,8 +59,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
@@ -185,6 +187,11 @@ constructor(
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
+
+  // One-shot error toast events for manual user actions (e.g. Retry on allowlist banner).
+  // Only emits on error — success produces no toast.
+  private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
+  val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
 
   // Extracted managers — isolate token, file, and allowlist concerns
   val tokenManager = HuggingFaceTokenManager(dataStoreRepository, context)
@@ -661,12 +668,14 @@ constructor(
     }
   }
 
-  fun loadModelAllowlist() {
+  fun loadModelAllowlist(isManualRetry: Boolean = false) {
     _uiState.update {
       uiState.value.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "")
     }
 
     viewModelScope.launch(Dispatchers.IO) {
+      // Clean up stale .tmp files from interrupted model imports on startup
+      fileManager.cleanupStaleImportTmpFiles()
       try {
         // Load model allowlist json.
         var modelAllowlist: ModelAllowlist? = null
@@ -715,8 +724,9 @@ constructor(
             Log.d(TAG, "Done: loading model allowlist from internet")
             saveModelAllowlistToDisk(modelAllowlistContent = data.textContent)
           } else {
-            // Network failed — try disk cache.
+            // Network failed — try disk cache. If this was a manual retry, notify the user.
             Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
+            if (isManualRetry) _toastErrorChannel.trySend("Could not reach model server")
             modelAllowlist = readModelAllowlistFromDisk()
 
             if (modelAllowlist != null) {

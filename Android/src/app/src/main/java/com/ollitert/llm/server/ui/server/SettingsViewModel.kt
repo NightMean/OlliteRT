@@ -353,7 +353,11 @@ class SettingsViewModel @Inject constructor(
     savedUpdateCheckEnabled = updateCheckEnabled
     savedUpdateCheckIntervalHours = updateCheckIntervalHours
 
-    return if (needsRestart && isServerActive) {
+    // Re-check live server status before triggering restart — the server may have crashed
+    // or stopped between when the user opened Settings and when they pressed Save.
+    val liveStatus = com.ollitert.llm.server.service.ServerMetrics.status.value
+    val isStillActive = liveStatus == ServerStatus.RUNNING || liveStatus == ServerStatus.LOADING
+    return if (needsRestart && isServerActive && isStillActive) {
       SaveResult.NeedsRestart(keepScreenOn = keepScreenOn)
     } else {
       SaveResult.Success

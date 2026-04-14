@@ -56,40 +56,55 @@ class LlmHttpModelLifecycle(
   // triggers a synchronous model reload (blocking the HTTP thread until ready).
 
   private val keepAliveHandler = android.os.Handler(android.os.Looper.getMainLooper())
-  /** Lock protecting the idle-unload and reload-from-idle transitions against concurrent requests. */
-  private val keepAliveLock = Any()
+  /**
+   * Lock protecting the idle-unload, reload-from-idle, and model selection transitions against
+   * concurrent access. ALL reads and writes to [defaultModel] from service lifecycle paths
+   * (onStartCommand, ACTION_RELOAD, onDestroy) and the inference hot path (selectModel) must
+   * hold this lock. Without it, a keep-alive unload can race with an in-flight request, causing
+   * the request thread to use a Model whose native Engine is being destroyed concurrently.
+   */
+  val keepAliveLock = Any()
 
   private val keepAliveRunnable = Runnable { onKeepAliveTimeout() }
 
   /** Called when the keep-alive idle timer fires. */
   private fun onKeepAliveTimeout() {
-    // Don't unload if currently inferring — reschedule and recheck after a short delay
-    if (ServerMetrics.isInferring.value) {
-      keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_RECHECK_MS)
-      Log.i(LOG_TAG, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
-      return
-    }
-    synchronized(keepAliveLock) {
-      val model = defaultModel ?: return@synchronized
-      val minutes = LlmHttpPrefs.getKeepAliveMinutes(context)
-      Log.i(LOG_TAG, "Keep-alive: unloading model ${model.name} after ${minutes}m idle")
-      keepAliveUnloadedModelName = model.name
-      try {
-        ServerLlmModelHelper.cleanUp(model) {}
-      } catch (e: Exception) {
-        Log.w(LOG_TAG, "Keep-alive: error cleaning up model: ${e.message}")
+    // Capture the model and null the reference inside the lock (fast — no blocking I/O).
+    // This prevents selectModel() from returning a model that we're about to destroy.
+    // The actual native cleanup (Engine.close) runs OUTSIDE the lock to avoid blocking
+    // request threads for seconds while multi-GB native memory is freed.
+    data class UnloadInfo(val model: Model, val minutes: Int)
+    val info: UnloadInfo = synchronized(keepAliveLock) {
+      if (ServerMetrics.isInferring.value) {
+        keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_RECHECK_MS)
+        Log.i(LOG_TAG, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
+        return
       }
-      model.instance = null
+      val model = defaultModel ?: return
+      val mins = LlmHttpPrefs.getKeepAliveMinutes(context)
+      Log.i(LOG_TAG, "Keep-alive: unloading model ${model.name} after ${mins}m idle")
+      keepAliveUnloadedModelName = model.name
+      // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
+      // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
       model.initializing = false
       defaultModel = null
-      System.gc()
       ServerMetrics.onModelIdleUnloaded()
-      RequestLogStore.addEvent(
-        "Model unloaded: ${model.name} (after ${minutes}m idle, keep_alive)",
-        modelName = keepAliveUnloadedModelName,
-        category = EventCategory.MODEL,
-      )
+      UnloadInfo(model, mins)
     }
+    // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
+    // selectModel() will see defaultModel==null and isIdleUnloaded==true, triggering a reload.
+    try {
+      ServerLlmModelHelper.cleanUp(info.model) {}
+    } catch (e: Exception) {
+      Log.w(LOG_TAG, "Keep-alive: error cleaning up model: ${e.message}")
+    }
+    info.model.instance = null
+    System.gc()
+    RequestLogStore.addEvent(
+      "Model unloaded: ${info.model.name} (after ${info.minutes}m idle, keep_alive)",
+      modelName = keepAliveUnloadedModelName,
+      category = EventCategory.MODEL,
+    )
   }
 
   /** Cancel any pending keep-alive unload timer. */
@@ -231,37 +246,41 @@ class LlmHttpModelLifecycle(
    * active model, and returns a descriptive error if there's a mismatch.
    */
   fun selectModel(requestedModel: String?): ModelSelection {
-    // If model was unloaded due to keep_alive idle timeout, auto-reload it regardless of
-    // what model the client requested. The keep_alive reload restores the same model that was
-    // previously active, with its persisted config.
-    if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
-      val reloaded = reloadModelFromIdle()
-        ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry")
-      return ModelSelection.Ok(reloaded)
-    }
+    // Hold keepAliveLock to prevent the keep-alive timer from unloading the model between
+    // our read of defaultModel and the caller's use of the returned Model object.
+    synchronized(keepAliveLock) {
+      // If model was unloaded due to keep_alive idle timeout, auto-reload it regardless of
+      // what model the client requested. The keep_alive reload restores the same model that was
+      // previously active, with its persisted config.
+      if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
+        val reloaded = reloadModelFromIdle()
+          ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry")
+        return ModelSelection.Ok(reloaded)
+      }
 
-    val active = defaultModel
-      ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "No model is currently loaded")
+      val active = defaultModel
+        ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "No model is currently loaded")
 
-    val requested = requestedModel?.trim().orEmpty()
-    if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
-      requested.equals("default", ignoreCase = true)
-    ) {
-      return ModelSelection.Ok(active)
+      val requested = requestedModel?.trim().orEmpty()
+      if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
+        requested.equals("default", ignoreCase = true)
+      ) {
+        return ModelSelection.Ok(active)
+      }
+      // Check if the requested model matches the currently loaded model. We normalize both
+      // names to handle variations (e.g. "gemma-4-e2b" vs "Gemma_4_E2B_it").
+      val requestedKey = LlmHttpBridgeUtils.normalizeModelKey(requested)
+      val activeKey = LlmHttpBridgeUtils.normalizeModelKey(active.name)
+      if (requestedKey == activeKey) {
+        return ModelSelection.Ok(active)
+      }
+      // The requested model doesn't match the active model. Return a descriptive error.
+      return ModelSelection.Error(
+        NanoHTTPD.Response.Status.BAD_REQUEST,
+        "Model '${requested}' is not loaded. Currently loaded: '${active.name}'. " +
+          "Please select '${active.name}' in your client or load the requested model on the device first."
+      )
     }
-    // Check if the requested model matches the currently loaded model. We normalize both
-    // names to handle variations (e.g. "gemma-4-e2b" vs "Gemma_4_E2B_it").
-    val requestedKey = LlmHttpBridgeUtils.normalizeModelKey(requested)
-    val activeKey = LlmHttpBridgeUtils.normalizeModelKey(active.name)
-    if (requestedKey == activeKey) {
-      return ModelSelection.Ok(active)
-    }
-    // The requested model doesn't match the active model. Return a descriptive error.
-    return ModelSelection.Error(
-      NanoHTTPD.Response.Status.BAD_REQUEST,
-      "Model '${requested}' is not loaded. Currently loaded: '${active.name}'. " +
-        "Please select '${active.name}' in your client or load the requested model on the device first."
-    )
   }
 
   // ── Utilities ──────────────────────────────────────────────────────────────

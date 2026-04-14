@@ -89,7 +89,7 @@ fun BenchmarkScreen(
   onBackClicked: () -> Unit,
 ) {
   val uiState by viewModel.uiState.collectAsState()
-  var enableBackButton by remember { mutableStateOf(true) }
+  val enableBackButton = !uiState.running
   var showRunBenchmarkConfirmationDialog by remember { mutableStateOf(false) }
   val downloadedLlmModelNames = remember {
     modelManagerViewModel.getAllDownloadedModels().filter { it.isLlm }.map { it.name }
@@ -163,6 +163,11 @@ fun BenchmarkScreen(
         it.benchmarkResult.llmResult?.baiscInfo?.modelName == selectedModelName
       }
     )
+  }
+
+  // Prevent accidental back navigation while benchmark is running
+  if (uiState.running) {
+    androidx.activity.compose.BackHandler { /* consume back press while running */ }
   }
 
   Box(modifier = Modifier.fillMaxSize()) {

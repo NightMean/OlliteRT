@@ -201,11 +201,16 @@ object RequestLogStore {
 
   /**
    * Cancel a pending request from the UI (user tapped Stop).
-   * Sets [RequestLogEntry.cancelledByUser] and invokes the registered callback.
+   * Uses [ConcurrentHashMap.remove] as the single source of truth — if the callback was
+   * already removed (inference completed normally), we don't mark the entry as cancelled.
+   * This prevents a race where the entry shows "cancelled" but the full response was sent.
    */
   fun cancelRequest(id: String) {
-    update(id) { it.copy(cancelledByUser = true) }
-    pendingCancellations.remove(id)?.invoke()
+    val callback = pendingCancellations.remove(id)
+    if (callback != null) {
+      update(id) { it.copy(cancelledByUser = true) }
+      callback.invoke()
+    }
   }
 
   /**
