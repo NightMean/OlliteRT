@@ -59,6 +59,10 @@ private const val DEFAULT_LOG_PERSISTENCE_ENABLED = false
 private const val DEFAULT_LOG_MAX_ENTRIES = 500
 private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 
+// --- Compact Image Data (replace base64 image payloads with size placeholders in logs) ---
+private const val KEY_COMPACT_IMAGE_DATA = "compact_image_data"
+private const val DEFAULT_COMPACT_IMAGE_DATA = true
+
 // --- Engagement Prompt (donation/support prompt shown after N manual server starts) ---
 private const val KEY_MANUAL_START_COUNT = "manual_start_count"
 private const val KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED = "engagement_prompt_permanently_dismissed"
@@ -511,6 +515,15 @@ object LlmHttpPrefs {
       .edit()
       .putLong(KEY_LOG_AUTO_DELETE_MINUTES, minutes)
       .apply()
+  }
+
+  // --- Compact Image Data ---
+
+  fun isCompactImageData(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_COMPACT_IMAGE_DATA, DEFAULT_COMPACT_IMAGE_DATA)
+
+  fun setCompactImageData(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_COMPACT_IMAGE_DATA, enabled).apply()
   }
 
   // --- Update Check ---

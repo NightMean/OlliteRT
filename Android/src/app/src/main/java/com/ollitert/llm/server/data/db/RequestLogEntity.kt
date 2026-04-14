@@ -53,6 +53,7 @@ data class RequestLogEntity(
   @JsonClass(generateAdapter = true)
   data class ExtrasJson(
     val requestBody: String? = null,
+    val originalRequestBodySize: Int = 0,
     val responseBody: String? = null,
     val tokens: Long = 0,
     val clientIp: String? = null,
@@ -86,6 +87,7 @@ data class RequestLogEntity(
       method = method,
       path = path,
       requestBody = ext.requestBody,
+      originalRequestBodySize = ext.originalRequestBodySize,
       responseBody = ext.responseBody,
       statusCode = statusCode,
       tokens = ext.tokens,
@@ -119,6 +121,7 @@ data class RequestLogEntity(
       val adapter = moshi.adapter(ExtrasJson::class.java)
       val ext = ExtrasJson(
         requestBody = entry.requestBody,
+        originalRequestBodySize = entry.originalRequestBodySize,
         responseBody = entry.responseBody,
         tokens = entry.tokens,
         clientIp = entry.clientIp,

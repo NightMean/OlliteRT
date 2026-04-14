@@ -189,7 +189,12 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     if (!entry.requestBody.isNullOrBlank()) {
       val formatted = remember(entry.requestBody) { prettyPrintJson(entry.requestBody) }
       val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
-      val requestSize = remember(entry.requestBody) { formatByteSize(entry.requestBody.length) }
+      // Use the original body size (before base64 compaction) when available,
+      // so the badge reflects the true request size, not the smaller compacted version.
+      val requestSize = remember(entry.requestBody, entry.originalRequestBodySize) {
+        val sizeChars = if (entry.originalRequestBodySize > 0) entry.originalRequestBodySize else entry.requestBody.length
+        formatByteSize(sizeChars)
+      }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
         label = "Request · $requestSize",
@@ -557,9 +562,10 @@ internal fun ExpandableBodySection(
             .padding(12.dp)
             .horizontalScroll(rememberScrollState()),
         ) {
-          if (fullHighlighted != null) {
+          val highlighted = fullHighlighted
+          if (highlighted != null) {
             Text(
-              text = fullHighlighted!!,
+              text = highlighted,
               style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = SpaceGroteskFontFamily,
                 fontSize = 11.sp,
