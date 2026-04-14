@@ -101,6 +101,27 @@ class RequestLogStoreTest {
     assertEquals("db-1", RequestLogStore.entries.value[0].id)
   }
 
+  @Test
+  fun loadEntriesClampsStalePendingEntriesToCancelled() {
+    val loaded = listOf(
+      entry("ok", isPending = false),
+      entry("stuck", isPending = true),
+      entry("already-cancelled", isPending = false, isCancelled = true),
+    )
+    RequestLogStore.loadEntries(loaded)
+    val entries = RequestLogStore.entries.value
+    assertEquals(3, entries.size)
+    // Non-pending entry is untouched
+    assertFalse(entries[0].isPending)
+    assertFalse(entries[0].isCancelled)
+    // Stale pending entry is clamped to cancelled
+    assertFalse("stale pending entry should have isPending=false", entries[1].isPending)
+    assertTrue("stale pending entry should be marked cancelled", entries[1].isCancelled)
+    // Already-cancelled entry is untouched
+    assertFalse(entries[2].isPending)
+    assertTrue(entries[2].isCancelled)
+  }
+
   // --- Dynamic maxEntries ---
 
   @Test
