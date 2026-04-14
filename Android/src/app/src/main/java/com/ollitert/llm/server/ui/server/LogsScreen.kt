@@ -106,6 +106,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -520,10 +521,13 @@ fun LogsScreen(
     //   Overflow: single horizontally scrollable row with groups at natural (intrinsic) width.
     // Overflow is detected via onTextOverflow callbacks on SegmentItem labels — when any label
     // is clipped (typically at large system font scaling), filterOverflowing flips to true and
-    // the layout switches to scrollable. It never reverts (once overflowing, stays scrollable)
-    // because reducing font scale requires an app restart.
+    // the layout switches to scrollable.
+    // The state is keyed on screen width so it resets on rotation — without the key, the first
+    // layout pass during rotation may measure at portrait width (triggering overflow), then the
+    // latch stays true even after the landscape width is fully applied.
     if (entries.isNotEmpty()) {
-      var filterOverflowing by remember { mutableStateOf(false) }
+      val screenWidthDp = LocalConfiguration.current.screenWidthDp
+      var filterOverflowing by remember(screenWidthDp) { mutableStateOf(false) }
       val onOverflow: (Boolean) -> Unit = { if (it) filterOverflowing = true }
 
       if (!filterOverflowing) {
