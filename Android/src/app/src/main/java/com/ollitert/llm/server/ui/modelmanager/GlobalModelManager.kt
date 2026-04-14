@@ -97,7 +97,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -181,7 +181,7 @@ fun GlobalModelManager(
   lastError: String? = null,
   onStopServer: () -> Unit = {},
 ) {
-  val uiState by viewModel.uiState.collectAsState()
+  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val builtInModels = remember { mutableStateListOf<Model>() }
   val importedModels = remember { mutableStateListOf<Model>() }
   var showImportModelSheet by remember { mutableStateOf(false) }
@@ -195,6 +195,14 @@ fun GlobalModelManager(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
+
+  // Show a toast when a manual retry fails to reach the model server
+  LaunchedEffect(viewModel) {
+    viewModel.toastErrorEvents.collect { message ->
+      Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+  }
+
   // Switch model confirmation state
   var showSwitchModelDialog by remember { mutableStateOf(false) }
   var pendingSwitchModel by remember { mutableStateOf<Model?>(null) }
@@ -224,8 +232,8 @@ fun GlobalModelManager(
     )
   }
   val missingBatteryExemption by remember(resumeCount) {
-    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    mutableStateOf(!pm.isIgnoringBatteryOptimizations(context.packageName))
+    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    mutableStateOf(pm?.let { !it.isIgnoringBatteryOptimizations(context.packageName) } ?: true)
   }
 
   // Search, filter, and sort state
@@ -622,7 +630,7 @@ fun GlobalModelManager(
               color = MaterialTheme.colorScheme.primary,
               modifier = Modifier
                 .clip(RoundedCornerShape(50))
-                .clickable { viewModel.loadModelAllowlist() }
+                .clickable { viewModel.loadModelAllowlist(isManualRetry = true) }
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             )
           }

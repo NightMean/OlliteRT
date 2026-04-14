@@ -91,7 +91,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -284,7 +284,7 @@ private object GeneratingMessages {
 fun LogsScreen(
   modifier: Modifier = Modifier,
 ) {
-  val entries by RequestLogStore.entries.collectAsState()
+  val entries by RequestLogStore.entries.collectAsStateWithLifecycle()
   val context = LocalContext.current
   val autoExpand = remember { LlmHttpPrefs.isAutoExpandLogs(context) }
   var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -928,7 +928,7 @@ internal fun PendingResponseSection(entryId: String, partialText: String?) {
   // Collect the lightweight partial-text flow directly here so only this composable
   // recomposes on streaming updates (~300ms), not the entire LazyColumn.
   // Falls back to the entry's partialText from the list for the initial render.
-  val pendingPartial by RequestLogStore.pendingPartialText.collectAsState()
+  val pendingPartial by RequestLogStore.pendingPartialText.collectAsStateWithLifecycle()
   val liveText = if (pendingPartial.first == entryId) pendingPartial.second else partialText
 
   Column(

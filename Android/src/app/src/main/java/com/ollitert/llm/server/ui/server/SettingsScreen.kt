@@ -80,7 +80,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1153,8 +1153,8 @@ fun SettingsScreen(
       if (vm.settingVisible("update_check")) {
 
       // Observe update availability from ServerMetrics to swap refresh → download icon
-      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsState()
-      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsState()
+      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
+      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
       val hasUpdate = availableVersion != null
 
       // Track the work request ID to observe results and show toast feedback
@@ -1165,7 +1165,7 @@ fun SettingsScreen(
       // Includes a 15-second timeout for cases where WorkManager can't run
       // the work (e.g. no network — work stays ENQUEUED indefinitely).
       checkWorkId?.let { id ->
-        val workInfo by workManager.getWorkInfoByIdFlow(id).collectAsState(initial = null)
+        val workInfo by workManager.getWorkInfoByIdFlow(id).collectAsStateWithLifecycle(initialValue = null)
         LaunchedEffect(workInfo?.state) {
           val info = workInfo ?: return@LaunchedEffect
           if (info.state.isFinished) {

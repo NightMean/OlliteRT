@@ -11,7 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,14 +67,14 @@ fun OlliteRTApp(
   // ── Server error dialog ──────────────────────────────────────────────────
   // Collected here because the dialog must overlay all screens. These flows only
   // emit on status transitions (rare), not per-token, so recomposition cost is minimal.
-  val serverStatus by serverViewModel.status.collectAsState()
-  val lastError by serverViewModel.lastError.collectAsState()
+  val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
+  val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
 
   LaunchedEffect(serverStatus, lastError) {
     if (serverStatus == ServerStatus.ERROR && !lastError.isNullOrBlank()) {
-      errorDialogMessage = lastError!!
+      errorDialogMessage = lastError ?: ""
       showErrorDialog = true
     }
   }
@@ -172,7 +172,7 @@ fun OlliteRTApp(
         // recomposing the entire bottom bar on every model download progress update.
         val storageTrigger by remember {
           modelManagerViewModel.uiState.map { it.storageUpdateTrigger }
-        }.collectAsState(initial = 0L)
+        }.collectAsStateWithLifecycle(initialValue = 0L)
         OlliteRTBottomNavBar(
           currentRoute = currentRoute,
           onTabSelected = onTabSelected,

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -36,7 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,7 +85,7 @@ fun ModelPageAppBar(
   onSystemPromptChanged: (String) -> Unit = {},
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
@@ -108,7 +109,7 @@ fun ModelPageAppBar(
             if (useThemeColor) MaterialTheme.colorScheme.onSurface
             else getTaskIconColor(task = task)
           Icon(
-            task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
+            task.icon ?: task.iconVectorResourceId?.let { ImageVector.vectorResource(it) } ?: Icons.Default.SmartToy,
             tint = tintColor,
             modifier = Modifier.size(24.dp),
             contentDescription = null,
