@@ -21,6 +21,8 @@ data class RequestLogEntry(
   val method: String,
   val path: String,
   val requestBody: String? = null,
+  /** Original request body size in chars before base64 compaction. 0 = no compaction applied. */
+  val originalRequestBodySize: Int = 0,
   val responseBody: String? = null,
   val statusCode: Int = 200,
   val tokens: Long = 0,

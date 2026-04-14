@@ -365,7 +365,7 @@ fun SettingsScreen(
       searchQuery = vm.searchQuery,
     ) {
       // Divider logic: only show between consecutive visible settings
-      val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
+      val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "compact_image_data", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
       val generalVisible = generalKeys.map { vm.settingVisible(it) }
 
       fun showGeneralDivider(index: Int): Boolean {
@@ -462,6 +462,37 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
       }
 
+      // Compact image data toggle — replaces base64 payloads with size placeholders at capture time
+      if (vm.settingVisible("compact_image_data")) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          SettingLabel(text = "Compact Image Data in Logs", searchQuery = vm.searchQuery)
+          Text(
+            text = "Replace inline base64 image data with a size placeholder when storing log entries. " +
+              "Prevents UI lag from rendering multi-MB image payloads. " +
+              "Disable for full raw data in logs (may cause lag with large images).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = vm.compactImageData,
+          onCheckedChange = { vm.compactImageData = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+      } // if: compact_image_data
+
+      if (showGeneralDivider(4)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
       // Clear logs on stop toggle
       if (vm.settingVisible("clear_logs_on_stop")) {
       Row(
@@ -485,7 +516,7 @@ fun SettingsScreen(
       }
       } // if: clear_logs_on_stop
 
-      if (showGeneralDivider(4)) {
+      if (showGeneralDivider(5)) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
@@ -514,7 +545,7 @@ fun SettingsScreen(
       }
       } // if: confirm_clear_logs
 
-      if (showGeneralDivider(5)) {
+      if (showGeneralDivider(6)) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
@@ -1173,7 +1204,7 @@ fun SettingsScreen(
         if (hasUpdate && !availableUrl.isNullOrBlank()) {
           // Update available — show download button that opens Play Store or GitHub
           val uriHandler = LocalUriHandler.current
-          val url = availableUrl!! // Safe — guarded by isNullOrBlank check above
+          val url = availableUrl ?: ""
           TooltipIconButton(
             icon = Icons.Outlined.FileDownload,
             tooltip = "Download $availableVersion",

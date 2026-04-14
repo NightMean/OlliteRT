@@ -126,10 +126,18 @@ class LlmHttpServer(
         } else if (authError != null) {
           authError
         } else {
-          // Update the pending entry with the request body once parsed
+          // Update the pending entry with the request body once parsed.
+          // When "Compact Image Data" is enabled, replace inline base64 data URIs
+          // with size placeholders before storing — a 4K image is ~5-10 MB of base64
+          // text that freezes the Logs tab when Compose tries to render it.
+          val compactImages = LlmHttpPrefs.isCompactImageData(serviceContext)
           val captureBody = { body: String ->
-            requestBodySnapshot = body
-            RequestLogStore.update(logId) { it.copy(requestBody = body) }
+            val stored = if (compactImages) LlmHttpBridgeUtils.compactBase64DataUris(body) else body
+            // Track original body size so the Logs badge shows the true request size,
+            // not the smaller compacted size after base64 placeholder replacement.
+            val originalSize = if (compactImages && stored.length != body.length) body.length else 0
+            requestBodySnapshot = stored
+            RequestLogStore.update(logId) { it.copy(requestBody = stored, originalRequestBodySize = originalSize) }
           }
           when (route.handler) {
             LlmHttpRouteHandler.PING -> {

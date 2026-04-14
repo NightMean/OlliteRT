@@ -56,6 +56,7 @@ class SettingsViewModel @Inject constructor(
   private var savedAutoTruncateHistory by mutableStateOf(LlmHttpPrefs.isAutoTruncateHistory(context))
   private var savedAutoTrimPrompts by mutableStateOf(LlmHttpPrefs.isAutoTrimPrompts(context))
   private var savedCompactToolSchemas by mutableStateOf(LlmHttpPrefs.isCompactToolSchemas(context))
+  private var savedCompactImageData by mutableStateOf(LlmHttpPrefs.isCompactImageData(context))
   private var savedClearLogsOnStop by mutableStateOf(LlmHttpPrefs.isClearLogsOnStop(context))
   private var savedConfirmClearLogs by mutableStateOf(LlmHttpPrefs.isConfirmClearLogs(context))
   private var savedShowRequestTypes by mutableStateOf(LlmHttpPrefs.isShowRequestTypes(context))
@@ -91,6 +92,7 @@ class SettingsViewModel @Inject constructor(
   var autoTruncateHistory by mutableStateOf(savedAutoTruncateHistory)
   var autoTrimPrompts by mutableStateOf(savedAutoTrimPrompts)
   var compactToolSchemas by mutableStateOf(savedCompactToolSchemas)
+  var compactImageData by mutableStateOf(savedCompactImageData)
   var clearLogsOnStop by mutableStateOf(savedClearLogsOnStop)
   var confirmClearLogs by mutableStateOf(savedConfirmClearLogs)
   var showRequestTypes by mutableStateOf(savedShowRequestTypes)
@@ -131,6 +133,7 @@ class SettingsViewModel @Inject constructor(
     "keep_screen_awake" to "Keep Screen Awake Prevent screen from turning off while app is open",
     "auto_expand_logs" to "Auto-Expand Logs Show full request and response bodies in the Logs tab",
     "stream_response_preview" to "Stream Response Preview Show model output as it generates in the Logs tab for streaming requests",
+    "compact_image_data" to "Compact Image Data Replace base64 image data with size placeholder logs multimodal vision performance lag",
     "clear_logs_on_stop" to "Clear Logs on Stop Automatically clear in-memory logs when the server stops",
     "confirm_clear_logs" to "Confirm Before Clearing Logs Show a confirmation dialog before clearing logs",
     "keep_partial_response" to "Keep Partial Response Preserve incomplete response text in logs when a streaming request is cancelled by the client",
@@ -160,7 +163,7 @@ class SettingsViewModel @Inject constructor(
 
   /** Which settings belong to which card — used to derive card visibility. */
   private val settingsByCard = mapOf(
-    "general" to listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response"),
+    "general" to listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "compact_image_data", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response"),
     "hf_token" to listOf("hf_token"),
     "server_config" to listOf("host_port", "bearer_token", "cors_origins"),
     "auto_launch" to listOf("default_model", "start_on_boot", "keep_alive", "dontkillmyapp", "update_check"),
@@ -208,6 +211,7 @@ class SettingsViewModel @Inject constructor(
     autoTruncateHistory != savedAutoTruncateHistory ||
     autoTrimPrompts != savedAutoTrimPrompts ||
     compactToolSchemas != savedCompactToolSchemas ||
+    compactImageData != savedCompactImageData ||
     clearLogsOnStop != savedClearLogsOnStop ||
     confirmClearLogs != savedConfirmClearLogs ||
     showRequestTypes != savedShowRequestTypes ||
@@ -305,6 +309,7 @@ class SettingsViewModel @Inject constructor(
       if (updateCheckEnabled) UpdateCheckWorker.scheduleUpdateCheck(context)
       else UpdateCheckWorker.cancelUpdateCheck(context)
     }
+    LlmHttpPrefs.setCompactImageData(context, compactImageData)
     LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
     LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
     LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
@@ -339,6 +344,7 @@ class SettingsViewModel @Inject constructor(
     savedAutoTruncateHistory = autoTruncateHistory
     savedAutoTrimPrompts = autoTrimPrompts
     savedCompactToolSchemas = compactToolSchemas
+    savedCompactImageData = compactImageData
     savedClearLogsOnStop = clearLogsOnStop
     savedConfirmClearLogs = confirmClearLogs
     savedShowRequestTypes = showRequestTypes
@@ -390,6 +396,8 @@ class SettingsViewModel @Inject constructor(
       changes.add("Trim Prompt: ${fmtToggle(savedAutoTrimPrompts)} → ${fmtToggle(autoTrimPrompts)}")
     if (corsAllowedOrigins != savedCorsAllowedOrigins)
       changes.add("CORS Allowed Origins: ${savedCorsAllowedOrigins.ifBlank { "disabled" }} → ${corsAllowedOrigins.ifBlank { "disabled" }}")
+    if (compactImageData != savedCompactImageData)
+      changes.add("Compact Image Data: ${fmtToggle(savedCompactImageData)} → ${fmtToggle(compactImageData)}")
     if (logPersistenceEnabled != savedLogPersistenceEnabled)
       changes.add("Log Persistence: ${fmtToggle(savedLogPersistenceEnabled)} → ${fmtToggle(logPersistenceEnabled)}")
     if (logMaxEntries != savedLogMaxEntries)
@@ -452,6 +460,7 @@ class SettingsViewModel @Inject constructor(
     savedAutoTruncateHistory = true; autoTruncateHistory = true
     savedAutoTrimPrompts = false; autoTrimPrompts = false
     savedCompactToolSchemas = true; compactToolSchemas = true
+    savedCompactImageData = true; compactImageData = true
     savedClearLogsOnStop = false; clearLogsOnStop = false
     savedConfirmClearLogs = true; confirmClearLogs = true
     savedShowRequestTypes = false; showRequestTypes = false
