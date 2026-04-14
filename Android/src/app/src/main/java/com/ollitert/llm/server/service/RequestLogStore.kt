@@ -255,9 +255,17 @@ object RequestLogStore {
    * Bulk-load entries from the database on startup.
    * Replaces the current in-memory list without triggering persistence callbacks
    * (the data is already in the DB).
+   *
+   * Any entry with [RequestLogEntry.isPending] = true is stale — the inference that
+   * was generating died with the old process. These are clamped to cancelled state
+   * so the card shows "Cancelled" instead of staying stuck on "Generating..." forever.
    */
   fun loadEntries(entries: List<RequestLogEntry>) {
-    _entries.update { entries }
+    _entries.update {
+      entries.map { entry ->
+        if (entry.isPending) entry.copy(isPending = false, isCancelled = true) else entry
+      }
+    }
   }
 
   /**
