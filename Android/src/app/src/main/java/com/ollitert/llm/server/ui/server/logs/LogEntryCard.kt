@@ -115,6 +115,9 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
   var compactedExpanded by remember { mutableStateOf(autoExpand) }
   var responseExpanded by remember { mutableStateOf(autoExpand) }
   var showMetricsDialog by remember { mutableStateOf(false) }
+  // Hoisted here (not inline in the footer Row) so isOverflowing can observe maxValue and
+  // trigger recomposition when badges overflow the weight(1f) area.
+  val footerScrollState = rememberScrollState()
 
   Column(
     modifier = Modifier
@@ -123,8 +126,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       .background(cardBg)
       .padding(16.dp),
   ) {
-    // Method badge + path + info/copy buttons (top row)
-    // Client IP shown on a second row so it doesn't squeeze the path at large font
+    // Method badge + path + client IP + info/copy buttons (top row)
     Row(
       verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -155,6 +157,39 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f),
         )
+      }
+      // Client IP — shown inline before the action buttons. The path's weight(1f) ensures the
+      // path always shrinks to accommodate the IP rather than the IP pushing into the buttons.
+      // Only drops to a second row at extreme font scaling where IP + buttons exceed ~half the card.
+      if (entry.clientIp != null) {
+        Spacer(modifier = Modifier.width(4.dp))
+        if (searchQuery.isNotEmpty()) {
+          val highlighted = remember(entry.clientIp, searchQuery) {
+            buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
+          }
+          Text(
+            text = highlighted,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = SpaceGroteskFontFamily,
+            maxLines = 1,
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .padding(horizontal = 8.dp, vertical = 3.dp),
+          )
+        } else {
+          Text(
+            text = entry.clientIp,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = SpaceGroteskFontFamily,
+            maxLines = 1,
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+              .padding(horizontal = 8.dp, vertical = 3.dp),
+          )
+        }
       }
       // Per-request metrics info button — only shown when metrics are available
       if (entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0) {
@@ -198,43 +233,6 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
               modifier = Modifier.size(16.dp),
             )
           }
-        }
-      }
-    }
-
-    // Client IP on its own row, right-aligned, so it's visible at large font scaling
-    if (entry.clientIp != null) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-      ) {
-        if (searchQuery.isNotEmpty()) {
-          val highlighted = remember(entry.clientIp, searchQuery) {
-            buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
-          }
-          Text(
-            text = highlighted,
-            style = MaterialTheme.typography.labelSmall,
-            fontFamily = SpaceGroteskFontFamily,
-            maxLines = 1,
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .padding(horizontal = 8.dp, vertical = 3.dp),
-          )
-        } else {
-          Text(
-            text = entry.clientIp,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontFamily = SpaceGroteskFontFamily,
-            maxLines = 1,
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .padding(horizontal = 8.dp, vertical = 3.dp),
-          )
         }
       }
     }
@@ -377,78 +375,59 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
 
       Spacer(modifier = Modifier.height(10.dp))
 
-      // Footer: status · latency · SSE · Thinking · Cancelled  ···  model · time
+      // Footer: [scrollable badges] ··· [model · time right-aligned]
+      // Status badges are horizontally scrollable so they remain visible at large font scaling.
       // Context overflow is shown in the StatusBadge as "Context Exceeded" instead of "400 Bad Request".
       // Compaction badges (Compacted, Truncated, Trimmed) are shown below the
       // Compacted Prompt text box instead of here.
-      // Horizontally scrollable so all badges remain visible at large font scaling.
+      //
+      // Two-branch layout driven by overflow detection (footerScrollState.maxValue > 0):
+      //   Non-overflow: badges scroll in weight(1f) area; model·time pinned to the right.
+      //   Overflow: everything in one wide scrollable row — model·time visible by scrolling right,
+      //             with overflow indicated by partial clipping at the right edge.
+      val footerOverflowing = footerScrollState.maxValue > 0
+      val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
+
       Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .horizontalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
       ) {
-        StatusBadge(statusCode = entry.statusCode, contextOverflow = contextOverflow)
-        FooterDot()
-        Text(
-          text = "${entry.latencyMs}ms",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (entry.isStreaming) {
-          FooterDot()
-          Text(
-            text = "SSE",
-            style = MaterialTheme.typography.labelSmall,
-            color = OlliteRTPrimary,
-            fontWeight = FontWeight.SemiBold,
-          )
-        }
-        if (entry.isThinking) {
-          FooterDot()
-          Text(
-            text = "Thinking",
-            style = MaterialTheme.typography.labelSmall,
-            color = ThinkingColor,
-            fontWeight = FontWeight.SemiBold,
-          )
-        }
-        if (entry.isCancelled) {
-          FooterDot()
-          Text(
-            text = "Cancelled",
-            style = MaterialTheme.typography.labelSmall,
-            color = CancelledColor,
-            fontWeight = FontWeight.SemiBold,
-          )
-        }
-        // Per-request context utilization (e.g. "~258 / 1024 ctx")
-        // Color-coded: white ≤50%, yellow 50–80%, red >80%
-        if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
-          val utilPct = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
-          val ctxColor = when {
-            utilPct > 0.8 -> MaterialTheme.colorScheme.error
-            utilPct > 0.5 -> WarningColor
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        if (!footerOverflowing) {
+          // Normal: badges scroll within weight(1f), model·time pinned to the right
+          Row(
+            modifier = Modifier
+              .weight(1f)
+              .horizontalScroll(footerScrollState),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            FooterBadges(entry = entry, contextOverflow = contextOverflow)
           }
-          FooterDot()
+          Spacer(modifier = Modifier.width(6.dp))
           Text(
-            text = "${if (entry.isExactTokenCount) "" else "~"}${entry.inputTokenEstimate} / ${entry.maxContextTokens} ctx",
+            text = modelTimeText,
             style = MaterialTheme.typography.labelSmall,
-            color = ctxColor,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
           )
+        } else {
+          // Overflow: badges + model·time in one scrollable row so everything is reachable.
+          // The right edge is visibly clipped, signalling to the user that content continues.
+          Row(
+            modifier = Modifier.horizontalScroll(footerScrollState),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            FooterBadges(entry = entry, contextOverflow = contextOverflow)
+            FooterDot()
+            Text(
+              text = modelTimeText,
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+            )
+          }
         }
-        FooterDot()
-        Text(
-          text = listOfNotNull(
-            entry.modelName,
-            formatTimestamp(entry.timestamp),
-          ).joinToString(" · "),
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 1,
-        )
       }
     }
   }
@@ -710,3 +689,61 @@ internal fun ExpandableBodySection(
   }
 }
 
+/**
+ * The badge items that appear in the log entry card footer.
+ * Extracted so the same content can be rendered in both the non-overflow (inside weight(1f) row)
+ * and overflow (single scrollable row with model·time appended) layout branches.
+ */
+@Composable
+private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
+  StatusBadge(statusCode = entry.statusCode, contextOverflow = contextOverflow)
+  FooterDot()
+  Text(
+    text = "${entry.latencyMs}ms",
+    style = MaterialTheme.typography.labelSmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+  if (entry.isStreaming) {
+    FooterDot()
+    Text(
+      text = "SSE",
+      style = MaterialTheme.typography.labelSmall,
+      color = OlliteRTPrimary,
+      fontWeight = FontWeight.SemiBold,
+    )
+  }
+  if (entry.isThinking) {
+    FooterDot()
+    Text(
+      text = "Thinking",
+      style = MaterialTheme.typography.labelSmall,
+      color = ThinkingColor,
+      fontWeight = FontWeight.SemiBold,
+    )
+  }
+  if (entry.isCancelled) {
+    FooterDot()
+    Text(
+      text = "Cancelled",
+      style = MaterialTheme.typography.labelSmall,
+      color = CancelledColor,
+      fontWeight = FontWeight.SemiBold,
+    )
+  }
+  // Per-request context utilization (e.g. "~258 / 1024 ctx")
+  // Color-coded: white ≤50%, yellow 50–80%, red >80%
+  if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
+    val utilPct = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
+    val ctxColor = when {
+      utilPct > 0.8 -> MaterialTheme.colorScheme.error
+      utilPct > 0.5 -> WarningColor
+      else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    FooterDot()
+    Text(
+      text = "${if (entry.isExactTokenCount) "" else "~"}${entry.inputTokenEstimate} / ${entry.maxContextTokens} ctx",
+      style = MaterialTheme.typography.labelSmall,
+      color = ctxColor,
+    )
+  }
+}
