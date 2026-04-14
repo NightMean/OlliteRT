@@ -3,6 +3,7 @@ package com.ollitert.llm.server.service
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -52,6 +53,102 @@ class LlmHttpRequestAdapterTest {
       )
 
     assertEquals("User: first\n\nAssistant: ignore\n\nUser: keep me final", prompt)
+  }
+
+  // ── Image placeholder interleaving ──────────────────────────────────────
+
+  @Test
+  fun `buildChatPrompt - single image inserts placeholder before text`() {
+    // Vision models expect image-first ordering: image content before the referencing text.
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("what is this", parts = listOf(
+        ContentPart(type = "text", text = "what is this"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,abc")),
+      )))
+    )
+    val prompt = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = true)
+    val placeholder = LlmHttpRequestAdapter.IMAGE_PLACEHOLDER
+    assertEquals("${placeholder}what is this", prompt)
+  }
+
+  @Test
+  fun `buildChatPrompt - multi-turn images insert placeholders before text at each turn`() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("what is this", parts = listOf(
+        ContentPart(type = "text", text = "what is this"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img1")),
+      ))),
+      ChatMessage("assistant", ChatContent("It's a cat.")),
+      ChatMessage("user", ChatContent("and this", parts = listOf(
+        ContentPart(type = "text", text = "and this"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img2")),
+      ))),
+    )
+    val prompt = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = true)
+    val placeholder = LlmHttpRequestAdapter.IMAGE_PLACEHOLDER
+    // Each turn's placeholder should come before its text
+    assertTrue("First turn: placeholder before text", prompt.contains("${placeholder}what is this"))
+    assertTrue("Second turn: placeholder before text", prompt.contains("${placeholder}and this"))
+    // Verify ordering across turns: placeholder1 → text1 → assistant → placeholder2 → text2
+    val firstIdx = prompt.indexOf(placeholder)
+    val assistantIdx = prompt.indexOf("It's a cat.")
+    val secondIdx = prompt.indexOf(placeholder, firstIdx + 1)
+    assertTrue("First placeholder before assistant", firstIdx < assistantIdx)
+    assertTrue("Second placeholder after assistant", secondIdx > assistantIdx)
+  }
+
+  @Test
+  fun `buildChatPrompt - no placeholders when flag is false`() {
+    // text field is populated by the serializer from text parts (matches real deserialization)
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("what is this", parts = listOf(
+        ContentPart(type = "text", text = "what is this"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,abc")),
+      )))
+    )
+    val prompt = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = false)
+    assertFalse("Should not contain placeholder", prompt.contains(LlmHttpRequestAdapter.IMAGE_PLACEHOLDER))
+    assertEquals("what is this", prompt)
+  }
+
+  @Test
+  fun `buildChatPrompt - text-only messages unaffected by placeholder flag`() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("hello")),
+      ChatMessage("assistant", ChatContent("hi there")),
+    )
+    val withFlag = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = true)
+    val withoutFlag = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = false)
+    assertEquals("Flag should not affect text-only messages", withoutFlag, withFlag)
+  }
+
+  @Test
+  fun `buildChatPrompt - image-first parts order also puts placeholder before text`() {
+    // Even when client sends [image, text], placeholder is still before text
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("describe this", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,abc")),
+        ContentPart(type = "text", text = "describe this"),
+      )))
+    )
+    val prompt = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = true)
+    val placeholder = LlmHttpRequestAdapter.IMAGE_PLACEHOLDER
+    assertEquals("${placeholder}describe this", prompt)
+  }
+
+  @Test
+  fun `buildChatPrompt - multiple images in one message all precede text`() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("compare these", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img1")),
+        ContentPart(type = "text", text = "compare these"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img2")),
+      )))
+    )
+    val prompt = LlmHttpRequestAdapter.buildChatPrompt(msgs, interleaveImagePlaceholders = true)
+    val placeholder = LlmHttpRequestAdapter.IMAGE_PLACEHOLDER
+    // Both placeholders should come before the text
+    assertEquals("${placeholder}${placeholder}compare these", prompt)
   }
 
   // ── Tool-aware prompt building ───────────────────────────────────────────
@@ -260,17 +357,51 @@ class LlmHttpRequestAdapterTest {
   }
 
   @Test
-  fun extractImageDataUrisAcrossMultipleMessages() {
+  fun `extractImageDataUris - extracts from all messages in order`() {
+    // The API is stateless — clients resend the full conversation history including all
+    // images, and the server processes all images from all turns.
     val msgs = listOf(
       ChatMessage("user", ChatContent("", parts = listOf(
-        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img1")),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,old_img")),
+        ContentPart(type = "text", text = "what is this?"),
       ))),
+      ChatMessage("assistant", ChatContent("It's a cat.")),
       ChatMessage("user", ChatContent("", parts = listOf(
-        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img2")),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,new_img")),
+        ContentPart(type = "text", text = "what about this one?"),
       ))),
     )
     val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
-    assertEquals(2, result.size)
+    assertEquals("Should extract from all user messages", 2, result.size)
+    assertEquals("data:image/png;base64,old_img", result[0])
+    assertEquals("data:image/png;base64,new_img", result[1])
+  }
+
+  @Test
+  fun `extractImageDataUris - multiple images in last user message`() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img1")),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/jpeg;base64,img2")),
+        ContentPart(type = "text", text = "compare these two"),
+      ))),
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertEquals("Both images from same message should be extracted", 2, result.size)
+  }
+
+  @Test
+  fun `extractImageDataUris - extracts from all roles including assistant`() {
+    // Images are extracted from all messages regardless of role, preserving order.
+    val msgs = listOf(
+      ChatMessage("assistant", ChatContent("", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,assistant_img")),
+      ))),
+      ChatMessage("user", ChatContent("hello")),
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertEquals("Should extract images from all roles", 1, result.size)
+    assertEquals("data:image/png;base64,assistant_img", result[0])
   }
 
   @Test

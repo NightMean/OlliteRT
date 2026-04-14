@@ -59,14 +59,15 @@ object LlmHttpPromptCompactor {
     truncateHistory: Boolean,
     compactToolSchemas: Boolean,
     trimPrompts: Boolean,
+    interleaveImagePlaceholders: Boolean = false,
   ): CompactionResult {
     val hasTools = !tools.isNullOrEmpty() && toolChoice != "none"
 
     // Build the full (uncompacted) prompt
     val fullPrompt = if (hasTools) {
-      LlmHttpRequestAdapter.buildToolAwarePrompt(messages, tools, toolChoice, chatTemplate)
+      LlmHttpRequestAdapter.buildToolAwarePrompt(messages, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
     } else {
-      LlmHttpRequestAdapter.buildChatPrompt(messages, chatTemplate)
+      LlmHttpRequestAdapter.buildChatPrompt(messages, chatTemplate, interleaveImagePlaceholders)
     }
 
     // If no context limit is known, or prompt fits, return as-is
@@ -95,9 +96,9 @@ object LlmHttpPromptCompactor {
         for (keep in (nonSystemMsgs.size - 1) downTo 1) {
           val truncatedMsgs = systemMsgs + nonSystemMsgs.takeLast(keep)
           val candidate = if (hasTools) {
-            LlmHttpRequestAdapter.buildToolAwarePrompt(truncatedMsgs, tools, toolChoice, chatTemplate)
+            LlmHttpRequestAdapter.buildToolAwarePrompt(truncatedMsgs, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
           } else {
-            LlmHttpRequestAdapter.buildChatPrompt(truncatedMsgs, chatTemplate)
+            LlmHttpRequestAdapter.buildChatPrompt(truncatedMsgs, chatTemplate, interleaveImagePlaceholders)
           }
           if (estimateTokens(candidate) <= maxContext) {
             val dropped = nonSystemMsgs.size - keep
@@ -115,7 +116,7 @@ object LlmHttpPromptCompactor {
     if (hasTools && compactToolSchemas) {
       // Try compact tool schemas (names + descriptions only)
       val compactPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(
-        currentMessages, tools, toolChoice, chatTemplate, compact = true,
+        currentMessages, tools, toolChoice, chatTemplate, compact = true, interleaveImagePlaceholders = interleaveImagePlaceholders,
       )
       if (estimateTokens(compactPrompt) <= maxContext) {
         strategies.add("tools:compacted")
@@ -124,7 +125,7 @@ object LlmHttpPromptCompactor {
       currentToolsCompact = true
 
       // Compact tools still too large — remove tools entirely
-      val noToolsPrompt = LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate)
+      val noToolsPrompt = LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
       if (estimateTokens(noToolsPrompt) <= maxContext) {
         strategies.add("tools:removed")
         return CompactionResult(noToolsPrompt, true, strategies)
@@ -138,11 +139,11 @@ object LlmHttpPromptCompactor {
       // Build the best prompt we have so far (with whatever messages/tools remain)
       val currentPrompt = when {
         hasTools && !currentToolsRemoved && currentToolsCompact ->
-          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true)
+          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true, interleaveImagePlaceholders = interleaveImagePlaceholders)
         hasTools && !currentToolsRemoved ->
-          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate)
+          LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
         else ->
-          LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate)
+          LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
       }
 
       val maxChars = maxContext * 4 // Reverse the token estimate
@@ -158,11 +159,11 @@ object LlmHttpPromptCompactor {
     // Compaction strategies exhausted or not enabled — return best effort
     val bestPrompt = when {
       hasTools && !currentToolsRemoved && currentToolsCompact ->
-        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true)
+        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true, interleaveImagePlaceholders = interleaveImagePlaceholders)
       hasTools && !currentToolsRemoved ->
-        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate)
+        LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
       else ->
-        LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate)
+        LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
     }
     return CompactionResult(bestPrompt, strategies.isNotEmpty(), strategies)
   }
