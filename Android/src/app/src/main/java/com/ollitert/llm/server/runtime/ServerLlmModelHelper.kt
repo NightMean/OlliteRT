@@ -19,6 +19,7 @@ package com.ollitert.llm.server.runtime
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import java.io.File
 import com.ollitert.llm.server.common.cleanUpMediapipeTaskErrorMessage
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
@@ -98,6 +99,22 @@ object ServerLlmModelHelper : LlmModelHelper {
     Log.d(TAG, "Preferred backend: $preferredBackend")
 
     val modelPath = model.getPath(context = context)
+
+    // Pre-load validation: verify the model file exists and has a reasonable size
+    // before passing it to the native Engine constructor, which can SIGABRT on
+    // corrupt/truncated files — unrecoverable from Java.
+    val modelFile = File(modelPath)
+    if (!modelFile.exists()) {
+      onDone("Model file not found: ${modelFile.name}")
+      return
+    }
+    // Minimum size check — a valid .litertlm or .task file is always > 1KB.
+    // Truncated files (e.g. from interrupted downloads) trigger native abort().
+    if (modelFile.length() < 1024) {
+      onDone("Model file appears corrupted or truncated (${modelFile.length()} bytes): ${modelFile.name}")
+      return
+    }
+
     val engineConfig =
       EngineConfig(
         modelPath = modelPath,

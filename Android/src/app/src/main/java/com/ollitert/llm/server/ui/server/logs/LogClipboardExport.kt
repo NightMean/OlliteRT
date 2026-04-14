@@ -97,7 +97,11 @@ internal fun buildLogsJson(entries: List<RequestLogEntry>): String {
 internal suspend fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
   try {
     val json = withContext(Dispatchers.Default) { buildLogsJson(entries) }
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    if (clipboard == null) {
+      Toast.makeText(context, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+      return
+    }
     clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
     Toast.makeText(context, "Copied ${entries.size} entries (JSON)", Toast.LENGTH_SHORT).show()
   } catch (_: Exception) {
