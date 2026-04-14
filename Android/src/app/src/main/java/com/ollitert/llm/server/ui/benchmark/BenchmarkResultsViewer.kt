@@ -72,7 +72,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -119,7 +119,7 @@ fun BenchmarkResultsViewer(
   onClose: () -> Unit,
 ) {
   val scope = rememberCoroutineScope()
-  val uiState by viewModel.uiState.collectAsState()
+  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
   var showLazyListPlacementAnimation by remember { mutableStateOf(false) }
   var showBenchmarkComparisonHelpBottomSheet by remember { mutableStateOf(false) }

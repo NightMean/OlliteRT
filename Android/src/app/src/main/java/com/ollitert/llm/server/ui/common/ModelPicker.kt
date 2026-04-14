@@ -28,11 +28,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +61,7 @@ fun ModelPicker(
   modelManagerViewModel: ModelManagerViewModel,
   onModelSelected: (Model) -> Unit,
 ) {
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   var showMemoryWarning by remember { mutableStateOf(false) }
   var modelToPick by remember { mutableStateOf<Model?>(null) }
   val context = LocalContext.current
@@ -73,7 +74,7 @@ fun ModelPicker(
       horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Icon(
-        task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
+        task.icon ?: task.iconVectorResourceId?.let { ImageVector.vectorResource(it) } ?: Icons.Default.SmartToy,
         tint = getTaskIconColor(task = task),
         modifier = Modifier.size(16.dp),
         contentDescription = null,
@@ -151,10 +152,10 @@ fun ModelPicker(
     MemoryWarningAlert(
       modelName = modelToPick?.name ?: "",
       onProceeded = { dontAskAgain ->
-        if (dontAskAgain && modelToPick != null) {
-          suppressMemoryWarning(context, modelToPick!!.name)
-        }
         val curModelToPick = modelToPick
+        if (dontAskAgain && curModelToPick != null) {
+          suppressMemoryWarning(context, curModelToPick.name)
+        }
         if (curModelToPick != null) {
           onModelSelected(curModelToPick)
         }

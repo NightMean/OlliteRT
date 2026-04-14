@@ -39,7 +39,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -203,39 +205,45 @@ private fun MemoryBar() {
   var deviceTotalBytes by remember { mutableLongStateOf(0L) }
   var appPssBytes by remember { mutableLongStateOf(0L) }
 
-  LaunchedEffect(Unit) {
+  // Lifecycle-aware polling: stops reading /proc when the app is backgrounded (STOPPED),
+  // resumes automatically when foregrounded (STARTED). Without this, the while(true) loop
+  // continues polling memory stats every 3s even when the UI is invisible — wasting CPU/battery.
+  val lifecycleOwner = LocalLifecycleOwner.current
+  LaunchedEffect(lifecycleOwner) {
     val activityManager = context.getSystemService(Activity.ACTIVITY_SERVICE) as? ActivityManager
-    while (true) {
-      // Run all memory reads on IO thread — getMemoryInfo reads /proc, getPss reads /proc/self/smaps
-      kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        // Device-level RAM
-        val memInfo = ActivityManager.MemoryInfo()
-        activityManager?.getMemoryInfo(memInfo)
-        deviceAvailBytes = memInfo.availMem
-        deviceTotalBytes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-          memInfo.advertisedMem
-        } else {
-          memInfo.totalMem
+    lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+      while (true) {
+        // Run all memory reads on IO thread — getMemoryInfo reads /proc, getPss reads /proc/self/smaps
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+          // Device-level RAM
+          val memInfo = ActivityManager.MemoryInfo()
+          activityManager?.getMemoryInfo(memInfo)
+          deviceAvailBytes = memInfo.availMem
+          deviceTotalBytes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            memInfo.advertisedMem
+          } else {
+            memInfo.totalMem
+          }
+
+          // Process PSS via Debug.getPss() — returns KB, not rate-limited.
+          // Unlike ActivityManager.getProcessMemoryInfo() which Android throttles
+          // to ~5 minute intervals, Debug.getPss() reads /proc/self/smaps_rollup
+          // directly and reflects changes within seconds.
+          val pssKb = android.os.Debug.getPss()
+          appPssBytes = pssKb * 1024L
+
+          // Push to ServerMetrics for Prometheus /metrics exposure
+          val rt = Runtime.getRuntime()
+          ServerMetrics.updateMemorySnapshot(
+            nativeHeapBytes = android.os.Debug.getNativeHeapAllocatedSize(),
+            appHeapUsedBytes = rt.totalMemory() - rt.freeMemory(),
+            appTotalPssBytes = appPssBytes,
+            deviceAvailRamBytes = deviceAvailBytes,
+            deviceTotalRamBytes = deviceTotalBytes,
+          )
         }
-
-        // Process PSS via Debug.getPss() — returns KB, not rate-limited.
-        // Unlike ActivityManager.getProcessMemoryInfo() which Android throttles
-        // to ~5 minute intervals, Debug.getPss() reads /proc/self/smaps_rollup
-        // directly and reflects changes within seconds.
-        val pssKb = android.os.Debug.getPss()
-        appPssBytes = pssKb * 1024L
-
-        // Push to ServerMetrics for Prometheus /metrics exposure
-        val rt = Runtime.getRuntime()
-        ServerMetrics.updateMemorySnapshot(
-          nativeHeapBytes = android.os.Debug.getNativeHeapAllocatedSize(),
-          appHeapUsedBytes = rt.totalMemory() - rt.freeMemory(),
-          appTotalPssBytes = appPssBytes,
-          deviceAvailRamBytes = deviceAvailBytes,
-          deviceTotalRamBytes = deviceTotalBytes,
-        )
+        delay(3000)
       }
-      delay(3000)
     }
   }
 

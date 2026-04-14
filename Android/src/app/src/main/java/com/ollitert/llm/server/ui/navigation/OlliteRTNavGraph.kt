@@ -16,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,7 +92,7 @@ fun OlliteRTNavHost(
   // --- Engagement prompt (donation/support) ---
   // State lives at the NavHost level so it persists across tab navigation.
   // The server may reach RUNNING after the user navigates away from the Models screen.
-  val engagementServerStatus by serverViewModel.status.collectAsState()
+  val engagementServerStatus by serverViewModel.status.collectAsStateWithLifecycle()
   var manualStartPending by remember { mutableStateOf(false) }
   var showEngagementPrompt by remember { mutableStateOf(false) }
   var showDonateFromEngagement by remember { mutableStateOf(false) }
@@ -146,9 +146,9 @@ fun OlliteRTNavHost(
     // Models tab (main screen, reusing GlobalModelManager)
     composable(OlliteRTRoutes.MODELS) {
       val modelsContext = LocalContext.current
-      val serverStatus by serverViewModel.status.collectAsState()
-      val activeModelName by serverViewModel.activeModelName.collectAsState()
-      val lastError by serverViewModel.lastError.collectAsState()
+      val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
+      val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
+      val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
@@ -192,8 +192,8 @@ fun OlliteRTNavHost(
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) {
-      val settingsServerStatus by serverViewModel.status.collectAsState()
-      val settingsActiveModel by serverViewModel.activeModelName.collectAsState()
+      val settingsServerStatus by serverViewModel.status.collectAsStateWithLifecycle()
+      val settingsActiveModel by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val downloadedModelNames = modelManagerViewModel.getAllDownloadedModels().map { it.name }
       SettingsScreen(
         onBackClick = { navController.navigateUp() },

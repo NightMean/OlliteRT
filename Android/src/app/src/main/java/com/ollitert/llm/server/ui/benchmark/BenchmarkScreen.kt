@@ -51,7 +51,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -88,7 +88,7 @@ fun BenchmarkScreen(
   viewModel: BenchmarkViewModel = hiltViewModel(),
   onBackClicked: () -> Unit,
 ) {
-  val uiState by viewModel.uiState.collectAsState()
+  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val enableBackButton = !uiState.running
   var showRunBenchmarkConfirmationDialog by remember { mutableStateOf(false) }
   val downloadedLlmModelNames = remember {
@@ -97,7 +97,8 @@ fun BenchmarkScreen(
   var selectedModelName by remember { mutableStateOf(initialModel.name) }
   var selectedModel by
     remember(selectedModelName) {
-      mutableStateOf(modelManagerViewModel.getModelByName(name = selectedModelName)!!)
+      mutableStateOf(modelManagerViewModel.getModelByName(name = selectedModelName)
+        ?: initialModel)
     }
   val filteredResults = remember { mutableStateListOf<BenchmarkResultInfo>() }
   val configs =
