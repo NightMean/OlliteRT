@@ -173,10 +173,14 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       EntryActionButtons(entry, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
     }
 
-    // Row 2: IP below when path wraps to multiple lines
+    // Row 2: IP right-aligned below the buttons when path wraps to multiple lines
     if (pathIsMultiLine && entry.clientIp != null) {
       Spacer(modifier = Modifier.height(4.dp))
-      Row(verticalAlignment = Alignment.CenterVertically) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
         EntryIpPill(entry, searchQuery)
       }
     }
