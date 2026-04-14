@@ -33,7 +33,6 @@ internal fun notFound(error: String = "not_found") = jsonError(NanoHTTPD.Respons
 internal fun unauthorized(error: String) =
   jsonError(NanoHTTPD.Response.Status.UNAUTHORIZED, error).also { it.addHeader("WWW-Authenticate", "Bearer") }
 internal fun methodNotAllowed() = jsonError(NanoHTTPD.Response.Status.METHOD_NOT_ALLOWED, "method_not_allowed")
-internal fun payloadTooLarge() = jsonError(NanoHTTPD.Response.Status.BAD_REQUEST, "payload_too_large")
 
 /** SSE response from a pre-built payload string. Uses fixed-length since the full content is known. */
 internal fun sseFixedResponse(payload: String): NanoHTTPD.Response {
@@ -104,10 +103,26 @@ class LlmHttpServer(
         val route = LlmHttpRouteResolver.resolve(session.method, session.uri)
         val authError = if (route?.requiresAuth == true) requireAuth(session) else null
         if (route == null) {
+          // Browsers auto-request /favicon.ico when visiting the server URL — serve the app icon.
+          // Future: add a "Hide browser requests (favicon, etc.)" toggle in Settings that moves
+          // this handler above the RequestLogStore.add() call to suppress it from the Logs tab.
+          if (path == "/favicon.ico") {
+            try {
+              val stream = serviceContext.assets.open("favicon.png")
+              val bytes = stream.readBytes()
+              stream.close()
+              responseBodySnapshot = "[favicon.png ${bytes.size} bytes]"
+              NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "image/png", bytes.inputStream(), bytes.size.toLong())
+            } catch (e: Exception) {
+              notFound()
+            }
+          }
           // Check if it's a known OpenAI endpoint we don't support
-          val unsupportedMsg = LlmHttpRouteResolver.getUnsupportedEndpointMessage(session.uri)
-          if (unsupportedMsg != null) jsonError(Response.Status.NOT_FOUND, unsupportedMsg)
-          else notFound()
+          else {
+            val unsupportedMsg = LlmHttpRouteResolver.getUnsupportedEndpointMessage(session.uri)
+            if (unsupportedMsg != null) jsonError(Response.Status.NOT_FOUND, unsupportedMsg)
+            else notFound()
+          }
         } else if (authError != null) {
           authError
         } else {
@@ -179,7 +194,14 @@ class LlmHttpServer(
               val stopIntent = Intent(serviceContext, LlmHttpService::class.java).apply {
                 action = LlmHttpService.ACTION_STOP
               }
-              serviceContext.startService(stopIntent)
+              try {
+                serviceContext.startService(stopIntent)
+              } catch (e: Exception) {
+                Log.e("LlmHttpServer", "Failed to send stop intent", e)
+                val errBody = """{"success":false,"message":"Failed to stop server: ${e.message}"}"""
+                responseBodySnapshot = errBody
+                return@serve jsonError(NanoHTTPD.Response.Status.INTERNAL_ERROR, "Failed to stop server: ${e.message}")
+              }
               val body = """{"success":true,"message":"Server stopping"}"""
               responseBodySnapshot = body
               okJsonText(body)

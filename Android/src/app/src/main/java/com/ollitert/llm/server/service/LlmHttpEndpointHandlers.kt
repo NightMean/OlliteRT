@@ -47,11 +47,7 @@ class LlmHttpEndpointHandlers(
     val payload = HashMap<String, String>()
     session.parseBody(payload)
     val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw, MAX_BODY_BYTES)
-      ?: run {
-        logEvent("request_rejected id=$requestId endpoint=/generate reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
-        return payloadTooLarge()
-      }
+    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
     captureBody(parsed.body)
     logPayload("POST /generate raw", parsed.body, requestId)
     val req = json.decodeFromString<GenReq>(parsed.body)
@@ -108,11 +104,7 @@ class LlmHttpEndpointHandlers(
     val payload = HashMap<String, String>()
     session.parseBody(payload)
     val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw, MAX_BODY_BYTES)
-      ?: run {
-        logEvent("request_rejected id=$requestId endpoint=/v1/chat/completions reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
-        return payloadTooLarge()
-      }
+    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
     captureBody(parsed.body)
     logPayload("POST /v1/chat/completions raw", parsed.body, requestId)
     val req = json.decodeFromString<ChatRequest>(parsed.body)
@@ -254,11 +246,7 @@ class LlmHttpEndpointHandlers(
     val payload = HashMap<String, String>()
     session.parseBody(payload)
     val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw, MAX_BODY_BYTES)
-      ?: run {
-        logEvent("request_rejected id=$requestId endpoint=/v1/completions reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
-        return payloadTooLarge()
-      }
+    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
     captureBody(parsed.body)
     logPayload("POST /v1/completions raw", parsed.body, requestId)
     val req = json.decodeFromString<CompletionRequest>(parsed.body)
@@ -360,11 +348,7 @@ class LlmHttpEndpointHandlers(
     val payload = HashMap<String, String>()
     session.parseBody(payload)
     val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw, MAX_BODY_BYTES)
-      ?: run {
-        logEvent("request_rejected id=$requestId endpoint=/v1/responses reason=payload_too_large bytes=${LlmHttpBodyParser.bodySizeBytes(raw)}")
-        return payloadTooLarge()
-      }
+    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
     captureBody(parsed.body)
     logPayload("POST /v1/responses raw", parsed.body, requestId)
     val req = json.decodeFromString<ResponsesRequest>(parsed.body)
@@ -568,8 +552,6 @@ class LlmHttpEndpointHandlers(
   }
 
   companion object {
-    /** Max HTTP request body size (512 KB). */
-    private const val MAX_BODY_BYTES = 512 * 1024
     /** Inference timeout for /v1/chat/completions and /v1/completions (seconds). */
     private const val CHAT_COMPLETIONS_TIMEOUT_SECONDS = 120L
     /** Inference timeout for /v1/responses (seconds). */
