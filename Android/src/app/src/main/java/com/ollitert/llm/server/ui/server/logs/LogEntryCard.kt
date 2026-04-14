@@ -119,6 +119,13 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
   // trigger recomposition when badges overflow the weight(1f) area.
   val footerScrollState = rememberScrollState()
 
+  // Hoisted to detect whether the path text wraps to multiple lines.
+  // When true, IP + action buttons move to a second row below the path.
+  var pathIsMultiLine by remember { mutableStateOf(false) }
+  val hasInfoButton = entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0
+  val hasCopyButton = !entry.isPending
+  val hasSecondRow = pathIsMultiLine && (entry.clientIp != null || hasInfoButton || hasCopyButton)
+
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -126,13 +133,14 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       .background(cardBg)
       .padding(16.dp),
   ) {
-    // Method badge + path + client IP + info/copy buttons (top row)
+    // Method badge + path (+ optional inline IP/buttons when path fits on one line)
     Row(
-      verticalAlignment = Alignment.CenterVertically,
+      verticalAlignment = if (pathIsMultiLine) Alignment.Top else Alignment.CenterVertically,
     ) {
       MethodBadge(method = entry.method)
       Spacer(modifier = Modifier.width(8.dp))
-      // Path text with optional search highlighting
+      // Path text — fully visible, no truncation. onTextLayout detects when it wraps so
+      // the IP and action buttons can be moved to a second row below.
       if (searchQuery.isNotEmpty()) {
         val highlighted = remember(entry.path, searchQuery) {
           buildHighlightedString(entry.path, searchQuery, baseColor = Color(0xFFE5E2E3))
@@ -142,9 +150,8 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           style = MaterialTheme.typography.bodyMedium,
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Medium,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f),
+          onTextLayout = { pathIsMultiLine = it.lineCount > 1 },
         )
       } else {
         Text(
@@ -153,87 +160,21 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           color = MaterialTheme.colorScheme.onSurface,
           fontFamily = SpaceGroteskFontFamily,
           fontWeight = FontWeight.Medium,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f),
+          onTextLayout = { pathIsMultiLine = it.lineCount > 1 },
         )
       }
-      // Client IP — shown inline before the action buttons. The path's weight(1f) ensures the
-      // path always shrinks to accommodate the IP rather than the IP pushing into the buttons.
-      // Only drops to a second row at extreme font scaling where IP + buttons exceed ~half the card.
-      if (entry.clientIp != null) {
-        Spacer(modifier = Modifier.width(4.dp))
-        if (searchQuery.isNotEmpty()) {
-          val highlighted = remember(entry.clientIp, searchQuery) {
-            buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
-          }
-          Text(
-            text = highlighted,
-            style = MaterialTheme.typography.labelSmall,
-            fontFamily = SpaceGroteskFontFamily,
-            maxLines = 1,
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .padding(horizontal = 8.dp, vertical = 3.dp),
-          )
-        } else {
-          Text(
-            text = entry.clientIp,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontFamily = SpaceGroteskFontFamily,
-            maxLines = 1,
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-              .padding(horizontal = 8.dp, vertical = 3.dp),
-          )
-        }
+      // Inline (non-overflow): IP + buttons on the same row as the path
+      if (!pathIsMultiLine) {
+        EntryHeaderActions(entry, searchQuery, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
       }
-      // Per-request metrics info button — only shown when metrics are available
-      if (entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0) {
-        Spacer(modifier = Modifier.width(2.dp))
-        @OptIn(ExperimentalMaterial3Api::class)
-        TooltipBox(
-          positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-          tooltip = { PlainTooltip { Text("Request metrics") } },
-          state = rememberTooltipState(),
-        ) {
-          IconButton(
-            onClick = { showMetricsDialog = true },
-            modifier = Modifier.size(32.dp),
-          ) {
-            Icon(
-              imageVector = Icons.Outlined.Info,
-              contentDescription = "Request metrics",
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.size(16.dp),
-            )
-          }
-        }
-      }
-      // Hide copy while response is still generating — entry has no response body yet
-      if (!entry.isPending) {
-        Spacer(modifier = Modifier.width(2.dp))
-        @OptIn(ExperimentalMaterial3Api::class)
-        TooltipBox(
-          positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-          tooltip = { PlainTooltip { Text("Copy log entry") } },
-          state = rememberTooltipState(),
-        ) {
-          IconButton(
-            onClick = { copyEntryToClipboard(context, entry) },
-            modifier = Modifier.size(32.dp),
-          ) {
-            Icon(
-              imageVector = Icons.Outlined.ContentCopy,
-              contentDescription = "Copy log entry",
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.size(16.dp),
-            )
-          }
-        }
+    }
+
+    // Below (overflow): IP + buttons on a second row when path wraps to multiple lines
+    if (hasSecondRow) {
+      Spacer(modifier = Modifier.height(4.dp))
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        EntryHeaderActions(entry, searchQuery, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
       }
     }
 
@@ -683,6 +624,90 @@ internal fun ExpandableBodySection(
             .size(22.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.85f)),
+        )
+      }
+    }
+  }
+}
+
+/**
+ * The IP pill + info + copy action buttons shown in the log entry card header.
+ * Extracted so the same content can be placed inline (when the path fits on one line)
+ * or below (when the path wraps to multiple lines).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EntryHeaderActions(
+  entry: RequestLogEntry,
+  searchQuery: String,
+  hasInfoButton: Boolean,
+  hasCopyButton: Boolean,
+  onInfoClick: () -> Unit,
+) {
+  val context = LocalContext.current
+  if (entry.clientIp != null) {
+    Spacer(modifier = Modifier.width(4.dp))
+    if (searchQuery.isNotEmpty()) {
+      val highlighted = remember(entry.clientIp, searchQuery) {
+        buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
+      }
+      Text(
+        text = highlighted,
+        style = MaterialTheme.typography.labelSmall,
+        fontFamily = SpaceGroteskFontFamily,
+        maxLines = 1,
+        modifier = Modifier
+          .clip(RoundedCornerShape(6.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .padding(horizontal = 8.dp, vertical = 3.dp),
+      )
+    } else {
+      Text(
+        text = entry.clientIp,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontFamily = SpaceGroteskFontFamily,
+        maxLines = 1,
+        modifier = Modifier
+          .clip(RoundedCornerShape(6.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .padding(horizontal = 8.dp, vertical = 3.dp),
+      )
+    }
+  }
+  if (hasInfoButton) {
+    Spacer(modifier = Modifier.width(2.dp))
+    TooltipBox(
+      positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+      tooltip = { PlainTooltip { Text("Request metrics") } },
+      state = rememberTooltipState(),
+    ) {
+      IconButton(onClick = onInfoClick, modifier = Modifier.size(32.dp)) {
+        Icon(
+          imageVector = Icons.Outlined.Info,
+          contentDescription = "Request metrics",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(16.dp),
+        )
+      }
+    }
+  }
+  if (hasCopyButton) {
+    Spacer(modifier = Modifier.width(2.dp))
+    TooltipBox(
+      positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+      tooltip = { PlainTooltip { Text("Copy log entry") } },
+      state = rememberTooltipState(),
+    ) {
+      IconButton(
+        onClick = { copyEntryToClipboard(context, entry) },
+        modifier = Modifier.size(32.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.ContentCopy,
+          contentDescription = "Copy log entry",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(16.dp),
         )
       }
     }

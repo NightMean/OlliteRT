@@ -515,43 +515,87 @@ fun LogsScreen(
     }
 
     // ── Filter segmented groups ─────────────────────────────────────────
-    // Horizontally scrollable so filters remain usable at large font scaling.
+    // Two-branch layout driven by text overflow detection:
+    //   Normal: three groups share the full width equally via weight(1f) — fills the card.
+    //   Overflow: single horizontally scrollable row with groups at natural (intrinsic) width.
+    // Overflow is detected via onTextOverflow callbacks on SegmentItem labels — when any label
+    // is clipped (typically at large system font scaling), filterOverflowing flips to true and
+    // the layout switches to scrollable. It never reverts (once overflowing, stays scrollable)
+    // because reducing font scale requires an app restart.
     if (entries.isNotEmpty()) {
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .horizontalScroll(rememberScrollState())
-          .padding(horizontal = 20.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        // Method group
-        SegmentedToggleGroup(segmentCount = 3) { segmentShape ->
-          SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0)) {
-            filter = filter.copy(methods = filter.methods.toggle("POST"))
+      var filterOverflowing by remember { mutableStateOf(false) }
+      val onOverflow: (Boolean) -> Unit = { if (it) filterOverflowing = true }
+
+      if (!filterOverflowing) {
+        // Normal: groups fill card width equally
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          SegmentedToggleGroup(segmentCount = 3, modifier = Modifier.weight(1f)) { segmentShape ->
+            SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0), modifier = Modifier.weight(1f), onTextOverflow = onOverflow) {
+              filter = filter.copy(methods = filter.methods.toggle("POST"))
+            }
+            SegmentItem("GET", "GET" in filter.methods, shape = segmentShape(1), modifier = Modifier.weight(1f), onTextOverflow = onOverflow) {
+              filter = filter.copy(methods = filter.methods.toggle("GET"))
+            }
+            SegmentItem("EVENT", "EVENT" in filter.methods, shape = segmentShape(2), modifier = Modifier.weight(1f), onTextOverflow = onOverflow) {
+              filter = filter.copy(methods = filter.methods.toggle("EVENT"))
+            }
           }
-          SegmentItem("GET", "GET" in filter.methods, shape = segmentShape(1)) {
-            filter = filter.copy(methods = filter.methods.toggle("GET"))
+          SegmentedToggleGroup(segmentCount = StatusRange.entries.size, modifier = Modifier.weight(1f)) { segmentShape ->
+            StatusRange.entries.forEachIndexed { index, range ->
+              SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index), modifier = Modifier.weight(1f), onTextOverflow = onOverflow) {
+                filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
+              }
+            }
           }
-          SegmentItem("EVENT", "EVENT" in filter.methods, shape = segmentShape(2)) {
-            filter = filter.copy(methods = filter.methods.toggle("EVENT"))
-          }
-        }
-        // Status group
-        SegmentedToggleGroup(segmentCount = StatusRange.entries.size) { segmentShape ->
-          StatusRange.entries.forEachIndexed { index, range ->
-            SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index)) {
-              filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
+          SegmentedToggleGroup(segmentCount = 2, modifier = Modifier.weight(1f)) { segmentShape ->
+            SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed, modifier = Modifier.weight(1f), onTextOverflow = onOverflow) {
+              filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
+            }
+            SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor, modifier = Modifier.weight(1f), onTextOverflow = onOverflow) {
+              filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING))
             }
           }
         }
-        // Level group
-        SegmentedToggleGroup(segmentCount = 2) { segmentShape ->
-          SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed) {
-            filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
+      } else {
+        // Overflow: single scrollable row, groups at natural (intrinsic) width
+        Row(
+          modifier = Modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          SegmentedToggleGroup(segmentCount = 3) { segmentShape ->
+            SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0)) {
+              filter = filter.copy(methods = filter.methods.toggle("POST"))
+            }
+            SegmentItem("GET", "GET" in filter.methods, shape = segmentShape(1)) {
+              filter = filter.copy(methods = filter.methods.toggle("GET"))
+            }
+            SegmentItem("EVENT", "EVENT" in filter.methods, shape = segmentShape(2)) {
+              filter = filter.copy(methods = filter.methods.toggle("EVENT"))
+            }
           }
-          SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor) {
-            filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING))
+          SegmentedToggleGroup(segmentCount = StatusRange.entries.size) { segmentShape ->
+            StatusRange.entries.forEachIndexed { index, range ->
+              SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index)) {
+                filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
+              }
+            }
+          }
+          SegmentedToggleGroup(segmentCount = 2) { segmentShape ->
+            SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed) {
+              filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
+            }
+            SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor) {
+              filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING))
+            }
           }
         }
       }
@@ -795,6 +839,7 @@ internal fun <T> Set<T>.toggle(element: T): Set<T> =
 @Composable
 internal fun SegmentedToggleGroup(
   segmentCount: Int,
+  modifier: Modifier = Modifier,
   content: @Composable RowScope.(segmentShape: (index: Int) -> Shape) -> Unit,
 ) {
   val r = 12.dp
@@ -808,7 +853,7 @@ internal fun SegmentedToggleGroup(
     }
   }
   Row(
-    modifier = Modifier
+    modifier = modifier
       .height(32.dp)
       .clip(RoundedCornerShape(r))
       .background(MaterialTheme.colorScheme.surfaceContainerHighest),
@@ -830,6 +875,9 @@ private fun RowScope.SegmentItem(
   selected: Boolean,
   shape: Shape = RoundedCornerShape(0.dp),
   accentColor: Color? = null,
+  modifier: Modifier = Modifier,
+  /** Called with true when the label text is clipped by its container (used to detect overflow). */
+  onTextOverflow: ((Boolean) -> Unit)? = null,
   onClick: () -> Unit,
 ) {
   val selectedColor = accentColor ?: OlliteRTPrimary
@@ -840,12 +888,12 @@ private fun RowScope.SegmentItem(
   )
 
   Box(
-    modifier = Modifier
+    modifier = modifier
       .fillMaxHeight()
       .clip(shape)
       .background(bgColor)
       .clickable(onClick = onClick)
-      .padding(horizontal = 12.dp),
+      .padding(horizontal = 8.dp),
     contentAlignment = Alignment.Center,
   ) {
     Text(
@@ -858,6 +906,9 @@ private fun RowScope.SegmentItem(
       },
       fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
       fontFamily = SpaceGroteskFontFamily,
+      onTextLayout = if (onTextOverflow != null) { result ->
+        onTextOverflow(result.hasVisualOverflow)
+      } else null,
     )
   }
 }
