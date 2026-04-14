@@ -79,6 +79,8 @@ internal sealed class ParsedEventType {
   data class UpdateCurrent(val body: String?) : ParsedEventType()
   /** Update check auto-disabled after consecutive failures. */
   data class UpdateAutoDisabled(val body: String?) : ParsedEventType()
+  /** Android system memory pressure — fired by onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL). */
+  data object MemoryPressure : ParsedEventType()
 }
 
 internal val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -307,6 +309,11 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
   // Update check auto-disabled
   if (message.startsWith("Update check auto-disabled")) {
     return ParsedEventType.UpdateAutoDisabled(eventBody)
+  }
+
+  // Android memory pressure from onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL)
+  if (message == "System memory pressure (critical)") {
+    return ParsedEventType.MemoryPressure
   }
 
   // Settings toggle: "SettingName enabled" / "SettingName disabled"

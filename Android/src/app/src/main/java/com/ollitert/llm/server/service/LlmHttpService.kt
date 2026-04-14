@@ -2,6 +2,7 @@ package com.ollitert.llm.server.service
 
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -536,8 +537,21 @@ class LlmHttpService : Service() {
 
   override fun onTrimMemory(level: Int) {
     super.onTrimMemory(level)
-    // TRIM_MEMORY_RUNNING_CRITICAL = 15
-    if (level >= 15) System.gc()
+    // TRIM_MEMORY_RUNNING_CRITICAL = 15: the system is critically low on memory and the process
+    // is running. This fires just before the OOM killer would kill the process. Log it so users
+    // can see "System memory pressure" in the Logs tab before a crash, rather than the app dying
+    // silently. The GC hint doesn't free the model's native memory (which is the bulk of our
+    // footprint) but helps release JVM wrapper objects sooner.
+    @Suppress("DEPRECATION")
+    if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+      RequestLogStore.addEvent(
+        "System memory pressure (critical)",
+        modelName = defaultModel?.name,
+        category = EventCategory.SERVER,
+        level = LogLevel.WARNING,
+      )
+      System.gc()
+    }
   }
 
   override fun onTaskRemoved(rootIntent: Intent?) {

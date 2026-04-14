@@ -165,8 +165,13 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
     is ParsedEventType.UpdateAvailable -> "Update Available"
     is ParsedEventType.UpdateCurrent -> "Up to Date"
     is ParsedEventType.UpdateAutoDisabled -> "Update Check Disabled"
+    is ParsedEventType.MemoryPressure -> "Memory Pressure"
     null -> if (isDebug) "Debug" else null
   }
+
+  // Hoisted here so footerOverflowing can observe maxValue and trigger recomposition
+  // when the timing badges overflow the weight(1f) area.
+  val footerScrollState = rememberScrollState()
 
   Column(
     modifier = Modifier
@@ -572,6 +577,17 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         )
       }
 
+      is ParsedEventType.MemoryPressure -> {
+        // Android fired TRIM_MEMORY_RUNNING_CRITICAL — the system is critically low on RAM.
+        // This is an early warning that the OOM killer may terminate the process shortly.
+        Text(
+          text = "Android is critically low on RAM — the app may be killed soon. Close other apps or use a smaller model.",
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = accentColor,
+          fontWeight = FontWeight.Medium,
+        )
+      }
+
       null -> {
         // Default: styled text with highlighted values
         val isLong = message.length > 120 || message.count { it == '\n' } > 2
@@ -630,53 +646,54 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       }
     }
 
-    // ── Footer — horizontally scrollable so all badges remain visible at large font ──
+    // ── Footer — scrollable badges on the left, model · time pinned to the right ──
+    // Two-branch layout driven by overflow detection (footerScrollState.maxValue > 0):
+    //   Non-overflow: badges scroll in weight(1f) area; model·time pinned to the right.
+    //   Overflow: everything in one wide scrollable row — model·time visible by scrolling right.
     Spacer(modifier = Modifier.height(8.dp))
+    val footerOverflowing = footerScrollState.maxValue > 0
+    val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
+
     Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .horizontalScroll(rememberScrollState()),
+      modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-      // Timing in footer for model ready and warmup (mirrors request card latency)
-      when (parsedEvent) {
-        is ParsedEventType.Ready -> {
-          Text(
-            text = "Ready",
-            style = MaterialTheme.typography.labelSmall,
-            color = OlliteRTGreen400,
-            fontWeight = FontWeight.SemiBold,
-          )
+      if (!footerOverflowing) {
+        // Normal: timing badges scroll within weight(1f), model·time pinned to the right
+        Row(
+          modifier = Modifier
+            .weight(1f)
+            .horizontalScroll(footerScrollState),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          EventFooterBadges(parsedEvent = parsedEvent)
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+          text = modelTimeText,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+        )
+      } else {
+        // Overflow: badges + model·time in one scrollable row so everything is reachable.
+        // The right edge is visibly clipped, signalling to the user that content continues.
+        Row(
+          modifier = Modifier.horizontalScroll(footerScrollState),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          EventFooterBadges(parsedEvent = parsedEvent)
           FooterDot()
           Text(
-            text = "${parsedEvent.timeMs}ms",
+            text = modelTimeText,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
           )
         }
-        is ParsedEventType.Warmup -> {
-          Text(
-            text = "${parsedEvent.timeMs}ms",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        else -> {}
       }
-      // Separator dot — only shown when there's timing content before the timestamp
-      if (parsedEvent is ParsedEventType.Ready || parsedEvent is ParsedEventType.Warmup) {
-        FooterDot()
-      }
-      Text(
-        text = listOfNotNull(
-          entry.modelName,
-          formatTimestamp(entry.timestamp),
-        ).joinToString(" · "),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-      )
     }
   }
 }
@@ -891,5 +908,39 @@ internal fun ExpandablePromptBox(
 internal fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
   val json = entryToJson(entry).toString(2)
   copyToClipboard(context, "OlliteRT Event", json, formatSuffix = "JSON")
+}
+
+/**
+ * The timing badge items that appear in the event card footer.
+ * Extracted so the same content can be rendered in both the non-overflow (inside weight(1f) row)
+ * and overflow (single scrollable row with model·time appended) layout branches.
+ */
+@Composable
+private fun EventFooterBadges(parsedEvent: ParsedEventType?) {
+  // Timing shown for model ready and warmup events (mirrors request card latency footer)
+  when (parsedEvent) {
+    is ParsedEventType.Ready -> {
+      Text(
+        text = "Ready",
+        style = MaterialTheme.typography.labelSmall,
+        color = OlliteRTGreen400,
+        fontWeight = FontWeight.SemiBold,
+      )
+      FooterDot()
+      Text(
+        text = "${parsedEvent.timeMs}ms",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    is ParsedEventType.Warmup -> {
+      Text(
+        text = "${parsedEvent.timeMs}ms",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    else -> {}
+  }
 }
 
