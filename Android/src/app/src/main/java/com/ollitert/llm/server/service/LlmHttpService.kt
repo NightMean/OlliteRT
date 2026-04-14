@@ -194,6 +194,8 @@ class LlmHttpService : Service() {
         }
       }
       modelCache.clear()
+      // Cancel any in-flight requests so pending log cards resolve before the reload.
+      RequestLogStore.cancelAllPending()
       // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
       ServerMetrics.onServerStopped()
       // Hint GC to reclaim native memory from the closed Engine/Conversation.
@@ -616,6 +618,8 @@ class LlmHttpService : Service() {
     notifEndpointUrl = null
     notifModelName = null
     pendingReloadAfterLoad = null
+    // Cancel any in-flight requests so pending log cards resolve when the service is destroyed.
+    RequestLogStore.cancelAllPending()
     ServerMetrics.onServerStopped()
     if (modelName != null) {
       RequestLogStore.addEvent("Server stopped", modelName = modelName, category = EventCategory.SERVER)
