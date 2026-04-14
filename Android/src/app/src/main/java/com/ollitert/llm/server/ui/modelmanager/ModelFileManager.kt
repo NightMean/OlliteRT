@@ -23,6 +23,24 @@ class ModelFileManager(
   private val externalFilesDir: File?,
 ) : ModelFileOps {
 
+  /**
+   * Delete stale .tmp files left by interrupted model imports.
+   * Called on startup to reclaim storage from partially-copied models.
+   */
+  fun cleanupStaleImportTmpFiles() {
+    try {
+      val importsDir = File(externalFilesDir ?: return, IMPORTS_DIR)
+      if (!importsDir.exists()) return
+      val tmpFiles = importsDir.listFiles { _, name -> name.endsWith(".tmp") } ?: return
+      for (file in tmpFiles) {
+        Log.i(TAG, "Cleaning up stale import temp file: ${file.name} (${file.length() / (1024 * 1024)}MB)")
+        file.delete()
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to clean up stale import temp files: ${e.message}")
+    }
+  }
+
   override fun isFileInExternalFilesDir(fileName: String): Boolean {
     if (externalFilesDir != null) {
       val file = File(externalFilesDir, fileName)

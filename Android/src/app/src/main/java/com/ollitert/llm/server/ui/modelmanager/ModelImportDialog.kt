@@ -418,9 +418,11 @@ private fun importModel(
       importsDir.mkdirs()
     }
 
-    // Import by copying the file over.
-    val outputFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/$fileName")
-    val outputStream = FileOutputStream(outputFile)
+    // Import by copying to a .tmp file first, then rename on success.
+    // If the app is killed mid-copy, the .tmp file is cleaned up on next launch.
+    val finalFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/$fileName")
+    val tmpFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/${fileName}.tmp")
+    val outputStream = FileOutputStream(tmpFile)
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     var bytesRead: Int
     var lastSetProgressTs: Long = 0
@@ -445,11 +447,25 @@ private fun importModel(
       }
     } catch (e: Exception) {
       e.printStackTrace()
+      // Clean up partial .tmp file on failure
+      try { tmpFile.delete() } catch (_: Exception) {}
       onError(e.message ?: "Failed to import")
       return@launch
     } finally {
       inputStream?.close()
       outputStream.close()
+    }
+    // Atomic rename: only creates the final file if the copy completed successfully
+    if (!tmpFile.renameTo(finalFile)) {
+      // renameTo can fail on some filesystems — fall back to copy + delete
+      try {
+        tmpFile.copyTo(finalFile, overwrite = true)
+        tmpFile.delete()
+      } catch (e: Exception) {
+        try { tmpFile.delete() } catch (_: Exception) {}
+        onError("Failed to finalize import: ${e.message}")
+        return@launch
+      }
     }
     Log.d(TAG, "import done")
     onProgress(1f)

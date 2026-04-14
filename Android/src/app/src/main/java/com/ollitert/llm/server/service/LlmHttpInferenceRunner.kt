@@ -75,7 +75,14 @@ class LlmHttpInferenceRunner(
       if (needsReinit) {
         if (model.instance != null) {
           Log.i(logTag, "Re-initializing model with vision support")
-          ServerLlmModelHelper.cleanUp(model) {}
+          try {
+            ServerLlmModelHelper.cleanUp(model) {}
+          } catch (e: Exception) {
+            Log.w(logTag, "Error cleaning up model for reinit: ${e.message}")
+          }
+          // Always null instance after cleanup attempt to prevent using a half-destroyed Engine
+          model.instance = null
+          System.gc()
         }
         var err = ""
         ServerLlmModelHelper.initialize(
@@ -86,7 +93,10 @@ class LlmHttpInferenceRunner(
           onDone = { err = it },
           systemInstruction = buildSystemInstruction(model.name),
         )
-        if (err.isNotEmpty()) return null to "Model initialization failed: $err"
+        if (err.isNotEmpty()) {
+          model.instance = null  // Ensure null on failed init
+          return null to "Model initialization failed: $err"
+        }
         model.initializedWithVision = supportImage
       }
     }
@@ -133,6 +143,7 @@ class LlmHttpInferenceRunner(
     // If the user tapped Stop in the Logs screen, return a cancellation error
     // instead of the (potentially partial) inference output.
     if (userCancelFlag.get()) {
+      if (logId != null) RequestLogStore.unregisterCancellation(logId)
       val keepPartial = LlmHttpPrefs.isKeepPartialResponse(context)
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
       if (logId != null) {
@@ -209,7 +220,13 @@ class LlmHttpInferenceRunner(
       if (needsReinit) {
         if (model.instance != null) {
           Log.i(logTag, "Re-initializing model with vision support (stream)")
-          ServerLlmModelHelper.cleanUp(model) {}
+          try {
+            ServerLlmModelHelper.cleanUp(model) {}
+          } catch (e: Exception) {
+            Log.w(logTag, "Error cleaning up model for reinit (stream): ${e.message}")
+          }
+          model.instance = null
+          System.gc()
         }
         var err = ""
         ServerLlmModelHelper.initialize(
@@ -221,6 +238,7 @@ class LlmHttpInferenceRunner(
           systemInstruction = buildSystemInstruction(model.name),
         )
         if (err.isNotEmpty()) {
+          model.instance = null
           if (logId != null) {
             val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $err")
             RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
@@ -260,6 +278,8 @@ class LlmHttpInferenceRunner(
     }
 
     // Capture original config so we can restore after streaming completes.
+    // Only restore if the model's Engine is still alive — if a reload happened during
+    // streaming, the model was re-initialized with new config and restoring would revert it.
     val originalConfig = if (configSnapshot != null) model.configValues else null
 
     LlmHttpInferenceGateway.executeStreaming(
@@ -287,7 +307,7 @@ class LlmHttpInferenceRunner(
       onToken = { partial, done, thought ->
         if (stream.isCancelled) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          if (originalConfig != null) model.configValues = originalConfig
+          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerLlmModelHelper.stopResponse(model)
           ServerMetrics.onInferenceCompleted()
           if (logId != null) {
@@ -369,7 +389,7 @@ class LlmHttpInferenceRunner(
           }
           if (done) {
             if (logId != null) RequestLogStore.unregisterCancellation(logId)
-            if (originalConfig != null) model.configValues = originalConfig
+            if (originalConfig != null && model.instance != null) model.configValues = originalConfig
             // Close thinking tag if still open (thinking-only response with no regular content)
             if (thinkingTagOpened) {
               thinkingTagOpened = false
@@ -426,7 +446,7 @@ class LlmHttpInferenceRunner(
           }
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          if (originalConfig != null) model.configValues = originalConfig
+          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
           if (logId != null) {
@@ -438,7 +458,7 @@ class LlmHttpInferenceRunner(
       },
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        if (originalConfig != null) model.configValues = originalConfig
+        if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
         val (enrichedError, kind) = enrichLlmError(error)
         ServerMetrics.incrementErrorCount(kind.category)
@@ -510,7 +530,13 @@ class LlmHttpInferenceRunner(
       if (needsReinit) {
         if (model.instance != null) {
           Log.i(logTag, "Re-initializing model with vision support (stream-chat)")
-          ServerLlmModelHelper.cleanUp(model) {}
+          try {
+            ServerLlmModelHelper.cleanUp(model) {}
+          } catch (e: Exception) {
+            Log.w(logTag, "Error cleaning up model for reinit (stream-chat): ${e.message}")
+          }
+          model.instance = null
+          System.gc()
         }
         var err = ""
         ServerLlmModelHelper.initialize(
@@ -522,6 +548,7 @@ class LlmHttpInferenceRunner(
           systemInstruction = buildSystemInstruction(model.name),
         )
         if (err.isNotEmpty()) {
+          model.instance = null
           if (logId != null) {
             val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $err")
             RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
@@ -593,7 +620,7 @@ class LlmHttpInferenceRunner(
       onToken = { partial, done, thought ->
         if (stream.isCancelled) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          if (originalConfig != null) model.configValues = originalConfig
+          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerLlmModelHelper.stopResponse(model)
           ServerMetrics.onInferenceCompleted()
           if (logId != null) {
@@ -692,7 +719,7 @@ class LlmHttpInferenceRunner(
           }
           if (done) {
             if (logId != null) RequestLogStore.unregisterCancellation(logId)
-            if (originalConfig != null) model.configValues = originalConfig
+            if (originalConfig != null && model.instance != null) model.configValues = originalConfig
             val outputLen = fullText.length
             val inputTokens = (prompt.length / 4).toLong().coerceAtLeast(1)
             val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
@@ -778,7 +805,7 @@ class LlmHttpInferenceRunner(
           }
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          if (originalConfig != null) model.configValues = originalConfig
+          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
           if (logId != null) {
@@ -790,7 +817,7 @@ class LlmHttpInferenceRunner(
       },
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        if (originalConfig != null) model.configValues = originalConfig
+        if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
         val (enrichedError, kind) = enrichLlmError(error)
         ServerMetrics.incrementErrorCount(kind.category)
