@@ -399,13 +399,17 @@ class UpdateCheckWorker(
     val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
       .setContentTitle("OlliteRT Update Available")
       .setContentText("Version $versionDisplay is available")
-      .setSmallIcon(R.mipmap.ic_launcher_foreground)
+      .setSmallIcon(R.mipmap.ic_launcher_monochrome)
       .setContentIntent(contentIntent)
       .setDeleteIntent(dismissIntent)
       .setAutoCancel(true)
       .build()
 
-    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    if (mgr == null) {
+      Log.e(TAG, "NotificationManager unavailable — cannot post update notification")
+      return
+    }
     mgr.notify(UPDATE_NOTIFICATION_ID, notification)
   }
 
@@ -477,7 +481,8 @@ class UpdateCheckWorker(
      */
     fun canPostUpdateNotification(context: Context): Boolean {
       if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
-      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        ?: return false
       val channel = mgr.getNotificationChannel(UPDATE_CHANNEL_ID)
       // channel == null means not created yet — will be created with IMPORTANCE_DEFAULT
       return channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE
@@ -489,7 +494,8 @@ class UpdateCheckWorker(
      */
     fun isUpdateChannelMuted(context: Context): Boolean {
       if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
-      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        ?: return false
       val channel = mgr.getNotificationChannel(UPDATE_CHANNEL_ID) ?: return false
       return channel.importance == NotificationManager.IMPORTANCE_NONE
     }
@@ -504,7 +510,11 @@ class UpdateCheckWorker(
         ).apply {
           description = "Notifies when a new version of OlliteRT is available"
         }
-        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        if (mgr == null) {
+          Log.e(TAG, "NotificationManager unavailable — cannot create update channel")
+          return
+        }
         mgr.createNotificationChannel(channel)
       }
     }
@@ -537,8 +547,8 @@ class UpdateCheckWorker(
     fun cancelUpdateCheck(context: Context) {
       WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
       // Clear any pending notification and cached state
-      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-      mgr.cancel(UPDATE_NOTIFICATION_ID)
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      mgr?.cancel(UPDATE_NOTIFICATION_ID)
       ServerMetrics.setAvailableUpdate(null, null)
     }
 
@@ -568,8 +578,8 @@ class UpdateCheckWorker(
       val cached = LlmHttpPrefs.getCachedLatestVersion(context) ?: return
       if (!SemVer.isNewer(BuildConfig.VERSION_NAME, cached)) {
         // Cached "latest" is no longer newer than installed — update happened
-        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        mgr.cancel(UPDATE_NOTIFICATION_ID)
+        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        mgr?.cancel(UPDATE_NOTIFICATION_ID)
         LlmHttpPrefs.clearUpdateState(context)
         ServerMetrics.setAvailableUpdate(null, null)
         if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {

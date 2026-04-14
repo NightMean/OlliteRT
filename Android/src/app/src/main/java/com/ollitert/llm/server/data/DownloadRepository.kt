@@ -256,14 +256,15 @@ class DefaultDownloadRepository(
     // the NotificationChannel class is new and not in the support library
     val importance = NotificationManager.IMPORTANCE_HIGH
     val channel = NotificationChannel(channelId, channelName, importance)
-    val notificationManager: NotificationManager =
-      context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    notificationManager.createNotificationChannel(channel)
+    val notificationManager =
+      context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    notificationManager?.createNotificationChannel(channel)
 
     val intent: Intent
     if (taskId.isEmpty()) {
       // If taskId is empty, it's a failed download. Just open the app's main screen.
-      intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+      intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        ?: Intent(context, context.javaClass) // Fallback if launch intent unavailable
     }
     // Download from global model manager. Open the global model manager screen.
     else if (taskId == DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID) {
@@ -292,8 +293,7 @@ class DefaultDownloadRepository(
 
     val builder =
       NotificationCompat.Builder(context, channelId)
-        // TODO: replace icon.
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setSmallIcon(R.mipmap.ic_launcher_monochrome)
         .setContentTitle(title)
         .setContentText(text)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
