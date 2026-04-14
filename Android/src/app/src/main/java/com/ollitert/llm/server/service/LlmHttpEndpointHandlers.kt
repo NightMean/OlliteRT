@@ -130,6 +130,13 @@ class LlmHttpEndpointHandlers(
     val trimPrompts = LlmHttpPrefs.isAutoTrimPrompts(context)
     val maxContext = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
 
+    // Insert image placeholder tokens in the prompt when the model supports vision and the
+    // request contains image_url parts. This allows the inference layer to interleave
+    // Content.Text and Content.ImageBytes at the correct conversation positions.
+    val hasImageParts = model.llmSupportImage && req.messages.any { msg ->
+      msg.content.parts.any { it.type == "image_url" }
+    }
+
     val compactionResult = LlmHttpPromptCompactor.compactChatPrompt(
       messages = req.messages,
       tools = if (hasTools) tools else null,
@@ -139,6 +146,7 @@ class LlmHttpEndpointHandlers(
       truncateHistory = truncateHistory,
       compactToolSchemas = compactToolSchemas,
       trimPrompts = trimPrompts,
+      interleaveImagePlaceholders = hasImageParts,
     )
 
     if (compactionResult.compacted) {

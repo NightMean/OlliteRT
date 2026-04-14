@@ -29,6 +29,7 @@ import com.ollitert.llm.server.data.DEFAULT_TOPK
 import com.ollitert.llm.server.data.DEFAULT_TOPP
 import com.ollitert.llm.server.data.DEFAULT_VISION_ACCELERATOR
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.service.LlmHttpRequestAdapter
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.google.ai.edge.litertlm.Backend
@@ -297,14 +298,39 @@ object ServerLlmModelHelper : LlmModelHelper {
     val conversation = instance.conversation
 
     val contents = mutableListOf<Content>()
-    for (image in images) {
-      contents.add(Content.ImageBytes(image.toPngByteArray()))
+    if (images.isNotEmpty() && input.contains(LlmHttpRequestAdapter.IMAGE_PLACEHOLDER)) {
+      // Multi-image interleaving: the prompt contains placeholder tokens at the exact
+      // positions where images appeared in the conversation. Split on placeholders and
+      // interleave Content.Text / Content.ImageBytes so each image is associated with
+      // its correct conversation turn.
+      val segments = input.split(LlmHttpRequestAdapter.IMAGE_PLACEHOLDER)
+      var imageIndex = 0
+      for ((i, segment) in segments.withIndex()) {
+        if (segment.trim().isNotEmpty()) {
+          contents.add(Content.Text(segment.trim()))
+        }
+        // After each segment except the last, insert the corresponding image
+        if (i < segments.size - 1 && imageIndex < images.size) {
+          contents.add(Content.ImageBytes(images[imageIndex].toPngByteArray()))
+          imageIndex++
+        }
+      }
+      // Append any remaining images that had no placeholder (shouldn't happen, but safe)
+      while (imageIndex < images.size) {
+        contents.add(Content.ImageBytes(images[imageIndex].toPngByteArray()))
+        imageIndex++
+      }
+    } else {
+      // Single-image or non-chat path: images before text (matches reference app behavior)
+      for (image in images) {
+        contents.add(Content.ImageBytes(image.toPngByteArray()))
+      }
+      if (input.trim().isNotEmpty()) {
+        contents.add(Content.Text(input))
+      }
     }
     for (audioClip in audioClips) {
       contents.add(Content.AudioBytes(audioClip))
-    }
-    if (input.trim().isNotEmpty()) {
-      contents.add(Content.Text(input))
     }
 
     conversation.sendMessageAsync(

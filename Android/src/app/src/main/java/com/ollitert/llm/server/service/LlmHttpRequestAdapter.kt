@@ -12,6 +12,13 @@ object LlmHttpRequestAdapter {
   private val json = Json { ignoreUnknownKeys = true }
 
   /**
+   * Placeholder token inserted into the prompt at positions where images appear.
+   * Used to interleave images at the correct conversation positions in the LiteRT
+   * Contents list, so multi-turn image conversations associate each image with its turn.
+   */
+  const val IMAGE_PLACEHOLDER = "<|image|>"
+
+  /**
    * Builds a prompt from a Responses API message list.
    * A single-message list returns the text without role decoration (backward-compatible).
    * Multi-turn lists are formatted as "Role: text" paragraphs so the model sees the
@@ -39,10 +46,20 @@ object LlmHttpRequestAdapter {
    *
    * @param chatTemplate optional per-model template with {role} and {content} placeholders.
    *   When blank/null, uses the default "Role: content" format.
+   * @param interleaveImagePlaceholders when true, inserts [IMAGE_PLACEHOLDER] tokens at the
+   *   exact position each image_url part appears in the conversation. This allows the inference
+   *   layer to split on the placeholders and interleave Content.Text / Content.ImageBytes
+   *   so multi-turn image conversations associate each image with its correct turn.
    */
-  fun buildChatPrompt(msgs: List<ChatMessage>, chatTemplate: String? = null): String {
+  fun buildChatPrompt(
+    msgs: List<ChatMessage>,
+    chatTemplate: String? = null,
+    interleaveImagePlaceholders: Boolean = false,
+  ): String {
     if (msgs.isEmpty()) return ""
-    if (msgs.size == 1 && msgs.first().role != "tool" && msgs.first().tool_calls.isNullOrEmpty() && chatTemplate.isNullOrBlank()) return msgs.first().content.text
+    if (msgs.size == 1 && msgs.first().role != "tool" && msgs.first().tool_calls.isNullOrEmpty() && chatTemplate.isNullOrBlank()) {
+      return extractChatContent(msgs.first(), interleaveImagePlaceholders)
+    }
     return msgs
       .mapNotNull { msg ->
         when (msg.role) {
@@ -61,7 +78,7 @@ object LlmHttpRequestAdapter {
             val toolCallsText = msg.tool_calls?.takeIf { it.isNotEmpty() }?.joinToString("\n") { tc ->
               "Tool Call [${tc.function.name}] (call_id: ${tc.id}): ${tc.function.arguments}"
             }
-            val contentText = msg.content.text.takeIf { it.isNotBlank() }
+            val contentText = extractChatContent(msg, interleaveImagePlaceholders).takeIf { it.isNotBlank() }
             val combined = listOfNotNull(contentText, toolCallsText).joinToString("\n")
             if (combined.isNotBlank()) formatMessage(msg.role, combined, chatTemplate)
             else null
@@ -86,6 +103,7 @@ object LlmHttpRequestAdapter {
     toolChoice: String?,
     chatTemplate: String?,
     compact: Boolean = false,
+    interleaveImagePlaceholders: Boolean = false,
   ): String {
     val toolSchemas = if (compact) {
       tools.joinToString("\n") { tool ->
@@ -122,7 +140,7 @@ $toolSchemas"""
     // Inject as a system message at the start
     val systemMsg = ChatMessage("system", ChatContent(toolInstruction))
     val augmentedMessages = listOf(systemMsg) + msgs
-    return buildChatPrompt(augmentedMessages, chatTemplate)
+    return buildChatPrompt(augmentedMessages, chatTemplate, interleaveImagePlaceholders)
   }
 
   /**
@@ -143,13 +161,38 @@ $toolSchemas"""
     }
   }
 
-  /** Extracts base64-encoded image data URIs from multimodal chat messages. */
+  /**
+   * Extracts base64-encoded image data URIs from all messages.
+   *
+   * The API is stateless — clients resend the full conversation history (including all
+   * images), and the server processes all images from all turns. Images are extracted in
+   * message order so they can be associated with their position in the conversation.
+   */
   fun extractImageDataUris(msgs: List<ChatMessage>): List<String> {
     return msgs.flatMap { msg ->
       msg.content.parts
-        .filter { it.type == "image_url" && it.image_url != null }
-        .map { it.image_url!!.url }
+        .filter { it.type == "image_url" }
+        .mapNotNull { it.image_url?.url }
     }
+  }
+
+  /**
+   * Extracts text content from a chat message. When [interleaveImagePlaceholders] is true
+   * and the message has multimodal parts, inserts [IMAGE_PLACEHOLDER] tokens before the text.
+   * Image placeholders are placed before text because LiteRT vision models expect to process
+   * the image content before the text that references it (image-first ordering).
+   */
+  private fun extractChatContent(msg: ChatMessage, interleaveImagePlaceholders: Boolean): String {
+    if (!interleaveImagePlaceholders || msg.content.parts.isEmpty()) return msg.content.text
+    val imageCount = msg.content.parts.count { it.type == "image_url" }
+    if (imageCount == 0) return msg.content.text
+    // Images before text — vision models need to "see" the image before the referencing text.
+    val text = msg.content.parts
+      .filter { it.type == "text" }
+      .mapNotNull { it.text }
+      .joinToString(" ")
+      .trim()
+    return IMAGE_PLACEHOLDER.repeat(imageCount) + text
   }
 
   private fun formatJsonElement(element: JsonElement): String =
