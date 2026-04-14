@@ -173,7 +173,15 @@ object ServerLlmModelHelper : LlmModelHelper {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
 
       val instance = model.instance as LlmModelInstance? ?: return
-      instance.conversation.close()
+
+      // Close old conversation in an inner try-catch — if it fails (e.g. already destroyed
+      // by another thread), we still proceed to create a new one. The old native memory
+      // will be reclaimed when the Engine is eventually closed or GC finalizes the wrapper.
+      try {
+        instance.conversation.close()
+      } catch (e: Exception) {
+        Log.w(TAG, "Old conversation close failed (proceeding with new): ${e.message}")
+      }
 
       val engine = instance.engine
       val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
@@ -210,12 +218,17 @@ object ServerLlmModelHelper : LlmModelHelper {
 
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
-      Log.d(TAG, "Failed to reset conversation", e)
+      Log.e(TAG, "Failed to reset conversation completely", e)
       RequestLogStore.addEvent(
         "Failed to reset conversation: ${e.message?.take(80) ?: "Unknown error"}",
         level = LogLevel.ERROR,
         modelName = model.name,
       )
+      // If new Conversation creation failed, the model is in a broken state —
+      // null the instance so the next request triggers a full re-initialization
+      // rather than using a model with a dead/missing Conversation.
+      model.instance = null
+      System.gc()
     }
   }
 

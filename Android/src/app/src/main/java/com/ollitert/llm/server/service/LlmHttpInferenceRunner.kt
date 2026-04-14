@@ -138,6 +138,10 @@ class LlmHttpInferenceRunner(
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
     )
+    // Recycle Bitmaps after inference — toPngByteArray() already extracted the bytes,
+    // so the native Bitmap memory is no longer needed. Without this, multi-MB Bitmaps
+    // from multimodal requests linger until GC finalizes them.
+    images.forEach { it.recycle() }
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     // If the user tapped Stop in the Logs screen, return a cancellation error
@@ -301,6 +305,9 @@ class LlmHttpInferenceRunner(
           images = images,
           extraContext = extraContext,
         )
+        // Recycle Bitmaps after sendMessageAsync — PNG bytes already extracted by toPngByteArray().
+        // This runs on the executor thread after inference starts, so the Bitmaps are no longer needed.
+        images.forEach { it.recycle() }
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
       elapsedMs = { SystemClock.elapsedRealtime() },
@@ -614,6 +621,8 @@ class LlmHttpInferenceRunner(
           images = images,
           extraContext = extraContext,
         )
+        // Recycle Bitmaps after sendMessageAsync — PNG bytes already extracted by toPngByteArray().
+        images.forEach { it.recycle() }
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
       elapsedMs = { SystemClock.elapsedRealtime() },
