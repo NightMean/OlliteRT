@@ -316,4 +316,38 @@ class LlmHttpResponseRendererTest {
     // 5. [DONE]
     assertEquals("data: [DONE]\n\n", LlmHttpResponseRenderer.SSE_DONE)
   }
+
+  // ── buildChatStreamUsageChunk with timings ───────────────────────────────
+
+  @Test
+  fun chatStreamUsageChunkWithTimingsIncludesTimingsJson() {
+    val timings = """{"prompt_ms":200,"predicted_ms":1000}"""
+    val result = LlmHttpResponseRenderer.buildChatStreamUsageChunk(
+      "chat-1", "model-1", 100L, 10, 5, timings,
+    )
+    assertTrue("should contain timings field", result.contains(""""timings":{"prompt_ms":200,"predicted_ms":1000}"""))
+    assertTrue("should contain usage", result.contains(""""total_tokens":15"""))
+  }
+
+  @Test
+  fun chatStreamUsageChunkWithNullTimingsOmitsField() {
+    val result = LlmHttpResponseRenderer.buildChatStreamUsageChunk(
+      "chat-1", "model-1", 100L, 10, 5, null,
+    )
+    assertTrue("should contain usage", result.contains(""""total_tokens":15"""))
+    assertTrue("should not contain timings", !result.contains("timings"))
+  }
+
+  // ── buildChatStreamToolCallChunks with empty list ────────────────────────
+
+  @Test
+  fun chatStreamToolCallChunksEmptyListReturnsOnlyFinalChunk() {
+    val result = LlmHttpResponseRenderer.buildChatStreamToolCallChunks(
+      "chat-1", "model-1", 100L, emptyList(),
+    )
+    // With empty tool calls, only the final finish_reason chunk should be emitted
+    assertTrue("should contain finish_reason", result.contains(""""finish_reason":"tool_calls""""))
+    // Should not contain function name/arguments chunks (those come from the for loop)
+    assertTrue("should not contain function field", !result.contains(""""function":{"name":"""))
+  }
 }

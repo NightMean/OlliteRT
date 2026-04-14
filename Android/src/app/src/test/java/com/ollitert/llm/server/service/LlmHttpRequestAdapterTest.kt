@@ -233,4 +233,73 @@ class LlmHttpRequestAdapterTest {
     val result = LlmHttpRequestAdapter.resolveToolChoice(element)
     assertEquals("auto", result) // Falls back to "auto"
   }
+
+  // ── extractImageDataUris() ───────────────────────────────────────────────
+
+  @Test
+  fun extractImageDataUrisSingleUri() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,abc123"))
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertEquals(listOf("data:image/png;base64,abc123"), result)
+  }
+
+  @Test
+  fun extractImageDataUrisMultipleUrisInOneMessage() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img1")),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/jpeg;base64,img2")),
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertEquals(2, result.size)
+  }
+
+  @Test
+  fun extractImageDataUrisAcrossMultipleMessages() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img1")),
+      ))),
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,img2")),
+      ))),
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertEquals(2, result.size)
+  }
+
+  @Test
+  fun extractImageDataUrisIgnoresTextParts() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("hello", parts = listOf(
+        ContentPart(type = "text", text = "describe this image"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,abc")),
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertEquals(1, result.size)
+    assertEquals("data:image/png;base64,abc", result[0])
+  }
+
+  @Test
+  fun extractImageDataUrisReturnsEmptyForTextOnly() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("hello", parts = listOf(
+        ContentPart(type = "text", text = "just text"),
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractImageDataUris(msgs)
+    assertTrue(result.isEmpty())
+  }
+
+  @Test
+  fun extractImageDataUrisReturnsEmptyForEmptyMessages() {
+    val result = LlmHttpRequestAdapter.extractImageDataUris(emptyList())
+    assertTrue(result.isEmpty())
+  }
 }
