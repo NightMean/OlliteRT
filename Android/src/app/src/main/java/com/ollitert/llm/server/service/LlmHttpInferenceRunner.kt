@@ -84,6 +84,18 @@ class LlmHttpInferenceRunner(
           model.instance = null
           System.gc()
         }
+        // initialize() reads configValues[MAX_TOKENS] to set EngineConfig.maxNumTokens (the
+        // engine's context window). If a per-request override (withPerRequestConfig) is active,
+        // configValues may contain the client's small max_tokens (e.g. 69) instead of the
+        // model's configured context window (e.g. 4000) — which would permanently create the
+        // Engine with a tiny context window. Save the full overridden configValues, restore the
+        // persisted base config for initialize(), then put the override back so
+        // resetConversation() picks up the per-request sampler values.
+        val overriddenConfig = model.configValues
+        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
+        if (savedConfig != null) {
+          model.configValues = savedConfig
+        }
         var err = ""
         ServerLlmModelHelper.initialize(
           context = context,
@@ -93,6 +105,8 @@ class LlmHttpInferenceRunner(
           onDone = { err = it },
           systemInstruction = buildSystemInstruction(model.name),
         )
+        // Restore the per-request overridden config so resetConversation() picks up sampler values
+        model.configValues = overriddenConfig
         if (err.isNotEmpty()) {
           model.instance = null  // Ensure null on failed init
           return null to "Model initialization failed: $err"
@@ -232,6 +246,13 @@ class LlmHttpInferenceRunner(
           model.instance = null
           System.gc()
         }
+        // Protect against per-request config override poisoning EngineConfig.maxNumTokens —
+        // see detailed comment in runLlm's reinit block.
+        val overriddenConfig = model.configValues
+        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
+        if (savedConfig != null) {
+          model.configValues = savedConfig
+        }
         var err = ""
         ServerLlmModelHelper.initialize(
           context = context,
@@ -241,6 +262,7 @@ class LlmHttpInferenceRunner(
           onDone = { err = it },
           systemInstruction = buildSystemInstruction(model.name),
         )
+        model.configValues = overriddenConfig
         if (err.isNotEmpty()) {
           model.instance = null
           if (logId != null) {
@@ -545,6 +567,13 @@ class LlmHttpInferenceRunner(
           model.instance = null
           System.gc()
         }
+        // Protect against per-request config override poisoning EngineConfig.maxNumTokens —
+        // see detailed comment in runLlm's reinit block.
+        val overriddenConfig = model.configValues
+        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
+        if (savedConfig != null) {
+          model.configValues = savedConfig
+        }
         var err = ""
         ServerLlmModelHelper.initialize(
           context = context,
@@ -554,6 +583,7 @@ class LlmHttpInferenceRunner(
           onDone = { err = it },
           systemInstruction = buildSystemInstruction(model.name),
         )
+        model.configValues = overriddenConfig
         if (err.isNotEmpty()) {
           model.instance = null
           if (logId != null) {
