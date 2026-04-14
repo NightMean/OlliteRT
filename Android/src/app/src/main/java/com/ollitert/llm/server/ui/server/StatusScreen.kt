@@ -598,36 +598,6 @@ fun StatusScreen(
 }
 
 @Composable
-private fun LoadingStatusScreen(modelName: String?, modifier: Modifier = Modifier) {
-  Box(
-    modifier = modifier.fillMaxSize(),
-    contentAlignment = Alignment.Center,
-  ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      CircularProgressIndicator(
-        modifier = Modifier.size(48.dp),
-        color = OlliteRTPrimary,
-        strokeWidth = 4.dp,
-      )
-      Spacer(modifier = Modifier.height(16.dp))
-      Text(
-        text = "Loading model…",
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-      if (modelName != null) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = modelName,
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
-    }
-  }
-}
-
-@Composable
 private fun StatusCard(
   modifier: Modifier = Modifier,
   content: @Composable () -> Unit,

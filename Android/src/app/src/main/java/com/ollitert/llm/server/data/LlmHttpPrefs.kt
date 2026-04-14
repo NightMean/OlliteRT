@@ -128,20 +128,6 @@ object LlmHttpPrefs {
     prefs(context).getString(KEY_BEARER_TOKEN, "")
       ?: ""
 
-  fun setPayloadLoggingEnabled(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_PAYLOAD_LOGGING_ENABLED, enabled)
-      .apply()
-  }
-
-  fun setAcceleratorFallbackEnabled(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_ACCELERATOR_FALLBACK_ENABLED, enabled)
-      .apply()
-  }
-
   fun setBearerToken(context: Context, token: String) {
     prefs(context)
       .edit()
@@ -244,13 +230,6 @@ object LlmHttpPrefs {
   fun isNotifShowRequestCount(context: Context): Boolean =
     prefs(context)
       .getBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
-
-  fun setNotifShowRequestCount(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, enabled)
-      .apply()
-  }
 
   fun isWarmupEnabled(context: Context): Boolean =
     prefs(context)
