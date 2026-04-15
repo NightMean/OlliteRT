@@ -196,4 +196,150 @@
   <string name="toast_clipboard_too_large">Log data too large for clipboard (%1$d entries) — use Export instead.</string>
   <string name="toast_export_failed">Export failed: %1$s</string>
 
+  <!-- Settings screen labels -->
+
+  <!-- Settings heading -->
+  <string name="settings_heading" translatable="false">Global Settings</string>
+  <string name="settings_subheading" translatable="false">Configure server behavior, authentication, and preferences.</string>
+  <string name="settings_search_placeholder" translatable="false">Search settings…</string>
+  <string name="settings_search_clear" translatable="false">Clear search</string>
+  <string name="settings_no_results" translatable="false">No settings match \"%1$s\"</string>
+
+  <!-- Settings: Save tooltip -->
+  <string name="settings_save_tooltip" translatable="false">Save settings</string>
+
+  <!-- Settings: Unsaved changes banner -->
+  <string name="settings_unsaved_changes_banner" translatable="false">You have unsaved changes</string>
+
+  <!-- Settings: General card -->
+  <string name="settings_card_general" translatable="false">General</string>
+  <string name="settings_keep_screen_awake" translatable="false">Keep Screen Awake</string>
+  <string name="settings_keep_screen_awake_desc" translatable="false">Prevent screen from turning off while app is open.</string>
+  <string name="settings_auto_expand_logs" translatable="false">Auto-Expand Logs</string>
+  <string name="settings_auto_expand_logs_desc" translatable="false">Show full request and response bodies in the Logs tab.</string>
+  <string name="settings_stream_response_preview" translatable="false">Stream Response Preview</string>
+  <string name="settings_stream_response_preview_desc" translatable="false">Show model output as it generates in the Logs tab for streaming requests.</string>
+  <string name="settings_compact_image_data" translatable="false">Compact Image Data in Logs</string>
+  <string name="settings_compact_image_data_desc" translatable="false">Replace inline base64 image data with a size placeholder when storing log entries. Prevents UI lag from rendering multi-MB image payloads. Disable for full raw data in logs (may cause lag with large images).</string>
+  <string name="settings_clear_logs_on_stop" translatable="false">Clear Logs on Stop</string>
+  <string name="settings_clear_logs_on_stop_desc" translatable="false">Automatically clear in-memory logs when the server stops.</string>
+  <string name="settings_confirm_clear_logs" translatable="false">Confirm Before Clearing Logs</string>
+  <string name="settings_confirm_clear_logs_desc" translatable="false">Show a confirmation dialog before clearing logs.</string>
+  <string name="settings_keep_partial_response" translatable="false">Keep Partial Response</string>
+  <string name="settings_keep_partial_response_desc" translatable="false">Preserve incomplete response text in logs when a streaming request is cancelled by the client.</string>
+
+  <!-- Settings: Hugging Face Token card -->
+  <string name="settings_card_hf_token" translatable="false">Hugging Face Token</string>
+  <string name="settings_hf_token_desc" translatable="false">Required for downloading models from Hugging Face. Get your token from</string>
+  <string name="settings_hf_token_link_text" translatable="false">huggingface.co/settings/tokens</string>
+  <string name="settings_hf_token_placeholder" translatable="false">hf_…</string>
+  <string name="settings_hf_token_hide" translatable="false">Hide token</string>
+  <string name="settings_hf_token_show" translatable="false">Show token</string>
+  <string name="settings_hf_token_clear" translatable="false">Clear token</string>
+
+  <!-- Settings: Server Configuration card -->
+  <string name="settings_card_server_config" translatable="false">Server Configuration</string>
+  <string name="settings_host_port_label" translatable="false">Host Port (1024–65535)</string>
+  <string name="settings_host_port_placeholder" translatable="false">8000</string>
+  <string name="settings_host_port_desc" translatable="false">Default: 8000. Requires server restart to take effect.</string>
+  <string name="settings_bearer_token" translatable="false">Require Bearer Token</string>
+  <string name="settings_bearer_token_desc" translatable="false">Protect the API with a bearer token. Clients must include it in the Authorization header.</string>
+  <string name="settings_bearer_copy_tooltip" translatable="false">Copy token</string>
+  <string name="settings_bearer_regenerate_tooltip" translatable="false">Regenerate token</string>
+  <string name="settings_cors_label" translatable="false">CORS Allowed Origins</string>
+  <string name="settings_cors_placeholder" translatable="false">*</string>
+  <string name="settings_cors_clear" translatable="false">Clear origins</string>
+  <string name="settings_cors_desc" translatable="false">Origins allowed to make cross-origin requests. Use * to allow all, comma-separated URLs for specific origins (e.g. http://localhost:3000, https://my-app.com), or leave blank to disable CORS.</string>
+
+  <!-- Settings: Auto-Launch &amp; Behavior card -->
+  <string name="settings_card_auto_launch" translatable="false">Auto-Launch &amp; Behavior</string>
+  <string name="settings_default_model_label" translatable="false">Default Model</string>
+  <string name="settings_no_downloaded_models" translatable="false">No downloaded models. Download a model first from the Models tab.</string>
+  <string name="settings_none_manual_start" translatable="false">None (manual start)</string>
+  <string name="settings_default_model_desc" translatable="false">Automatically load this model when the app is launched.</string>
+  <string name="settings_start_on_boot" translatable="false">Start on Boot</string>
+  <string name="settings_start_on_boot_desc_no_model" translatable="false">Select a default model above to enable.</string>
+  <string name="settings_start_on_boot_desc" translatable="false">Launch server automatically when device starts.</string>
+  <string name="settings_keep_alive" translatable="false">Keep Alive</string>
+  <string name="settings_keep_alive_desc" translatable="false">Unload model after idle timeout to free RAM. Next request auto-reloads (cold start).</string>
+  <string name="settings_idle_timeout_label" translatable="false">Idle Timeout</string>
+  <string name="settings_idle_timeout_desc" translatable="false">How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size).</string>
+  <string name="settings_unit_minutes" translatable="false">minutes</string>
+  <string name="settings_unit_hours" translatable="false">hours</string>
+  <string name="settings_unit_days" translatable="false">days</string>
+  <string name="settings_dontkillmyapp_title" translatable="false">Device background settings</string>
+  <string name="settings_dontkillmyapp_desc" translatable="false">Some manufacturers kill background apps aggressively. Check dontkillmyapp.com for device-specific fixes.</string>
+  <string name="settings_dontkillmyapp_cd" translatable="false">Open dontkillmyapp.com</string>
+
+  <!-- Settings: Check for Updates -->
+  <string name="settings_check_for_updates" translatable="false">Check for Updates</string>
+  <string name="settings_check_for_updates_desc" translatable="false">Check for a newer version of OlliteRT.</string>
+  <string name="settings_download_version" translatable="false">Download %1$s</string>
+  <string name="settings_check_now_tooltip" translatable="false">Check now</string>
+  <string name="settings_checking_for_updates" translatable="false">Checking for updates…</string>
+  <string name="settings_update_check_timeout" translatable="false">Update check timed out — check your network connection</string>
+  <string name="settings_auto_update_check" translatable="false">Automatic Update Check</string>
+  <string name="settings_auto_update_check_desc" translatable="false">Periodically check in the background and notify when an update is available.</string>
+  <string name="settings_notif_permission_warning" translatable="false">Notification access not enabled. Grant notification permission in system settings to receive update alerts.</string>
+  <string name="settings_notif_channel_muted" translatable="false">Update notification channel is muted in system settings.</string>
+  <string name="settings_check_frequency_label" translatable="false">Check Frequency</string>
+  <string name="settings_check_frequency_desc" translatable="false">How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days.</string>
+
+  <!-- Settings: Metrics card -->
+  <string name="settings_card_metrics" translatable="false">Metrics</string>
+  <string name="settings_show_request_types" translatable="false">Show Request Types</string>
+  <string name="settings_show_request_types_desc" translatable="false">Show text, vision, and audio request counts on the Status screen.</string>
+  <string name="settings_show_advanced_metrics" translatable="false">Show Advanced Metrics</string>
+  <string name="settings_show_advanced_metrics_desc" translatable="false">Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen.</string>
+
+  <!-- Settings: Log Persistence card -->
+  <string name="settings_card_log_persistence" translatable="false">Log Persistence</string>
+  <string name="settings_persist_logs" translatable="false">Persist Logs to Database</string>
+  <string name="settings_persist_logs_desc" translatable="false">Save activity logs to a local database so they survive app restarts. Disabled by default.</string>
+  <string name="settings_max_log_entries_label" translatable="false">Maximum Log Entries</string>
+  <string name="settings_max_log_entries_desc" translatable="false">Maximum entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit.</string>
+  <string name="settings_auto_delete_label" translatable="false">Auto-Delete After</string>
+  <string name="settings_auto_delete_desc" translatable="false">Persisted logs older than this are automatically removed from the database. Does not affect the current session\'s in-memory logs.\nSet to 0 to disable.</string>
+  <string name="settings_clear_all_logs_button" translatable="false">Clear All Logs</string>
+  <string name="settings_clear_all_logs_desc" translatable="false">Remove all logs from the database and current session.</string>
+
+  <!-- Settings: Home Assistant card -->
+  <string name="settings_card_home_assistant" translatable="false">Home Assistant</string>
+  <string name="settings_ha_rest_api" translatable="false">REST API Integration</string>
+  <string name="settings_ha_rest_api_desc" translatable="false">Generate a ready-made configuration.yaml snippet for Home Assistant. Creates REST sensors for server status, model info, and performance metrics, plus a command to stop the server remotely.</string>
+  <string name="settings_ha_config_preview" translatable="false">Generates a configuration.yaml snippet with your current IP (%1$s), port (%2$d)%3$s.</string>
+  <string name="settings_ha_config_preview_token_suffix" translatable="false">, and bearer token</string>
+  <string name="settings_ha_copy_config" translatable="false">Copy Configuration</string>
+
+  <!-- Settings: Advanced card -->
+  <string name="settings_card_advanced" translatable="false">Advanced</string>
+  <string name="settings_warmup_message" translatable="false">Warmup Message</string>
+  <string name="settings_warmup_message_desc" translatable="false">Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup.</string>
+  <string name="settings_pre_init_vision" translatable="false">Pre-initialize Vision</string>
+  <string name="settings_pre_init_vision_desc" translatable="false">Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start.</string>
+  <string name="settings_custom_prompts" translatable="false">Custom System Prompt &amp; Chat Template</string>
+  <string name="settings_custom_prompts_desc" translatable="false">Enable per-model system prompt and chat template fields in Inference Settings. Useful for models with non-standard prompt formats.</string>
+  <string name="settings_truncate_history" translatable="false">Truncate Conversation History</string>
+  <string name="settings_truncate_history_desc" translatable="false">When a request exceeds the model\'s context window, drop older messages from the conversation while keeping system prompts and the most recent messages.</string>
+  <string name="settings_compact_tool_schemas" translatable="false">Compact Tool Schemas</string>
+  <string name="settings_compact_tool_schemas_desc" translatable="false">When a request with tools exceeds the model\'s context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for Home Assistant integration which sends many tool definitions.</string>
+  <string name="settings_trim_prompt" translatable="false">Trim Prompt</string>
+  <string name="settings_trim_prompt_desc" translatable="false">Last resort when other strategies aren\'t enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.</string>
+  <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>
+  <string name="settings_ignore_client_params_desc" translatable="false">Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server\'s own Inference Settings will always be used instead.</string>
+
+  <!-- Settings: Developer card -->
+  <string name="settings_card_developer" translatable="false">Developer</string>
+  <string name="settings_verbose_debug" translatable="false">Verbose Debug Mode</string>
+  <string name="settings_verbose_debug_desc" translatable="false">Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance.</string>
+  <string name="settings_debug_enabled_toast" translatable="false">Debug mode enabled — additional details will appear in Logs</string>
+  <string name="settings_debug_disabled_toast" translatable="false">Debug mode disabled</string>
+
+  <!-- Settings: Reset &amp; Footer -->
+  <string name="settings_reset_to_defaults" translatable="false">Reset to Defaults</string>
+  <string name="settings_whats_new" translatable="false">What\'s New</string>
+  <string name="settings_report_issue" translatable="false">Report Issue</string>
+  <string name="settings_donate" translatable="false">Donate</string>
+  <string name="settings_version_footer" translatable="false">OlliteRT v%1$s (%2$s)</string>
+
 </resources>
