@@ -7,7 +7,7 @@ package com.ollitert.llm.server.common
  */
 object GitHubConfig {
   const val OWNER = "NightMean"
-  const val REPO = "ollitert"
+  const val REPO = "OlliteRT"
 
   /** Repository homepage (e.g. for "Learn More" links). */
   const val REPO_URL = "https://github.com/$OWNER/$REPO"
@@ -40,7 +40,7 @@ object GitHubConfig {
    * (e.g. v1/0_8_0.json for v0.8.0). Copy the previous file if models haven't changed.
    */
   const val ALLOWLIST_BASE_URL =
-    "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/master/model_allowlists/v1"
+    "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/main/model_allowlists/v1"
 
   /** LiteRT-LM SDK documentation base URL (used in model descriptions). */
   const val LITERT_LM_DOCS_URL = "https://github.com/google-ai-edge/LiteRT-LM"
