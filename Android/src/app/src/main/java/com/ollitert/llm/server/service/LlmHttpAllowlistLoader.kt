@@ -8,8 +8,7 @@ import java.io.File
 /**
  * Loads the model allowlist from the filesystem. Resolution order:
  * 1. [externalFilesDir]/model_allowlist.json
- * 2. /sdcard/Android/data/[packageName]/files/model_allowlist.json
- * 3. [assetReader] (bundled asset, optional)
+ * 2. [assetReader] (bundled asset, optional)
  *
  * Caches the last successful load so callers always get a valid list even
  * when the external file is temporarily unavailable.
@@ -41,10 +40,7 @@ class LlmHttpAllowlistLoader(
       // when a write is interrupted by a crash (e.g. disk full during model
       // switch). Without the length check, the empty file shadows the bundled
       // asset fallback, causing "model not found" errors on restart.
-      if (file == null || !file.exists() || file.length() == 0L) {
-        file = File("/sdcard/Android/data/$packageName/files", "model_allowlist.json")
-      }
-      if (file.exists() && file.length() > 0L) {
+      if (file != null && file.exists() && file.length() > 0L) {
         val allowlist = ModelAllowlistJson.decode(file.readText())
         lastSource = "external:${file.absolutePath}"
         return allowlist

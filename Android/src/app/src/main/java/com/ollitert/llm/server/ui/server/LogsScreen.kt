@@ -66,10 +66,6 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StopCircle
-// TODO: Uncomment these imports when model-based compaction is implemented (CompactingIcon)
-// import androidx.compose.foundation.Canvas
-// import androidx.compose.ui.graphics.StrokeCap
-// import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -1055,51 +1051,6 @@ internal fun BouncingDots() {
 
 // TODO: Model-based prompt compaction. When implemented, this animation will be used
 // in the pending state to indicate the model is actively compacting/summarizing the prompt.
-// Currently unused because compaction is instant (string manipulation, not model inference).
-// See CLAUDE.md backlog for the full design concept.
-//
-// /**
-//  * Animated compaction icon — two inward-pointing chevrons squeezing a box between them.
-//  * The box shrinks horizontally as the chevrons compress, visually representing
-//  * content being compacted to fit the context window.
-//  */
-// @Composable
-// private fun CompactingIcon() {
-//   val transition = rememberInfiniteTransition(label = "compact")
-//   val spread by transition.animateFloat(
-//     initialValue = 1f,
-//     targetValue = 0.15f,
-//     animationSpec = infiniteRepeatable(
-//       animation = tween(durationMillis = 1000),
-//       repeatMode = RepeatMode.Reverse,
-//     ),
-//     label = "squeeze",
-//   )
-//   Canvas(modifier = Modifier.size(width = 22.dp, height = 16.dp)) {
-//     val midY = size.height / 2f
-//     val midX = size.width / 2f
-//     val chevronH = size.height * 0.32f
-//     val strokeW = 1.8f.dp.toPx()
-//     val color = WarningColor
-//     val boxHalfW = spread * 3.5f.dp.toPx()
-//     val boxHalfH = 4.dp.toPx()
-//     drawRect(
-//       color = color,
-//       topLeft = Offset(midX - boxHalfW, midY - boxHalfH),
-//       size = androidx.compose.ui.geometry.Size(boxHalfW * 2f, boxHalfH * 2f),
-//     )
-//     val gap = 2.dp.toPx()
-//     val leftTip = midX - boxHalfW - gap
-//     val leftBack = leftTip - 4.dp.toPx()
-//     drawLine(color, Offset(leftBack, midY - chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
-//     drawLine(color, Offset(leftBack, midY + chevronH), Offset(leftTip, midY), strokeW, StrokeCap.Round)
-//     val rightTip = midX + boxHalfW + gap
-//     val rightBack = rightTip + 4.dp.toPx()
-//     drawLine(color, Offset(rightBack, midY - chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
-//     drawLine(color, Offset(rightBack, midY + chevronH), Offset(rightTip, midY), strokeW, StrokeCap.Round)
-//   }
-// }
-
 // Event message parsing, highlighting — moved to logs/LogEventParsers.kt
 
 // Event card and entry card composables — moved to logs/LogEventCard.kt and logs/LogEntryCard.kt
