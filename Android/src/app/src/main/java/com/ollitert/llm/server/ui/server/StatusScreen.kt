@@ -50,8 +50,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.navigation.ServerStatus
@@ -164,14 +166,14 @@ fun StatusScreen(
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(
-            text = "Server not running",
+            text = stringResource(R.string.status_server_not_running),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
           )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = "Start a model from the Models tab to begin serving requests.",
+            text = stringResource(R.string.status_server_not_running_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -207,7 +209,7 @@ fun StatusScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Text(
-              text = if (isStopped) "No model loaded" else (modelName ?: "Loading…"),
+              text = if (isStopped) stringResource(R.string.status_no_model_loaded) else (modelName ?: stringResource(R.string.status_model_loading)),
               style = MaterialTheme.typography.titleMedium,
               color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.weight(1f, fill = false),
@@ -238,7 +240,7 @@ fun StatusScreen(
               ) {
                 Icon(
                   imageVector = Icons.Outlined.Psychology,
-                  contentDescription = "Thinking enabled",
+                  contentDescription = stringResource(R.string.status_cd_thinking_enabled),
                   tint = OlliteRTPrimary,
                   modifier = Modifier.size(16.dp),
                 )
@@ -271,31 +273,33 @@ fun StatusScreen(
             }
           } else if (isLoading) {
             Text(
-              text = buildString {
-                if (modelSizeBytes > 0) append("${modelSizeBytes.humanReadableSize()} · ")
-                append("Loading… ${loadingElapsedSeconds}s")
+              text = if (modelSizeBytes > 0) {
+                stringResource(R.string.status_loading_elapsed_with_size, modelSizeBytes.humanReadableSize(), loadingElapsedSeconds)
+              } else {
+                stringResource(R.string.status_loading_elapsed, loadingElapsedSeconds)
               },
               style = MaterialTheme.typography.labelSmall,
               color = OlliteRTPrimary.copy(alpha = 0.7f),
             )
           } else if (!isStopped && isIdleUnloaded) {
             Text(
-              text = "Idle — model unloaded to free RAM",
+              text = stringResource(R.string.status_idle_unloaded),
               style = MaterialTheme.typography.labelSmall,
               color = Color(0xFFFFF176).copy(alpha = 0.8f),
             )
           } else if (!isStopped && modelLoadTimeMs > 0) {
             Text(
-              text = buildString {
-                if (modelSizeBytes > 0) append("${modelSizeBytes.humanReadableSize()} · ")
-                append("Loaded in ${formatLoadTime(modelLoadTimeMs)}")
+              text = if (modelSizeBytes > 0) {
+                stringResource(R.string.status_loaded_in_with_size, modelSizeBytes.humanReadableSize(), formatLoadTime(modelLoadTimeMs))
+              } else {
+                stringResource(R.string.status_loaded_in, formatLoadTime(modelLoadTimeMs))
               },
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
           } else if (isStopped) {
             Text(
-              text = "Start a model from the Models tab",
+              text = stringResource(R.string.status_start_model_hint),
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             )
@@ -319,7 +323,7 @@ fun StatusScreen(
           } else {
             TooltipIconButton(
               icon = Icons.Outlined.Refresh,
-              tooltip = "Reload model",
+              tooltip = stringResource(R.string.status_reload_model_tooltip),
               onClick = { showReloadDialog = true },
               tint = OlliteRTPrimary,
             )
@@ -353,13 +357,13 @@ fun StatusScreen(
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Active API Endpoint",
+            text = stringResource(R.string.status_active_api_endpoint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
           Spacer(modifier = Modifier.height(2.dp))
           Text(
-            text = endpointUrl ?: "—",
+            text = endpointUrl ?: stringResource(R.string.status_endpoint_placeholder),
             style = MaterialTheme.typography.bodyMedium,
             color = if (endpointUrl != null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
             fontFamily = SpaceGroteskFontFamily,
@@ -370,7 +374,7 @@ fun StatusScreen(
         if (endpointUrl != null) {
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
-            tooltip = "Copy endpoint URL",
+            tooltip = stringResource(R.string.status_copy_endpoint_tooltip),
             onClick = { copyToClipboard(context, "OlliteRT Endpoint", endpointUrl) },
             tint = OlliteRTPrimary,
           )
@@ -380,7 +384,7 @@ fun StatusScreen(
 
     // ── Core metrics (always shown) ──
     Text(
-      text = "Metrics",
+      text = stringResource(R.string.status_section_metrics),
       style = MaterialTheme.typography.titleSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.padding(top = 4.dp),
@@ -391,12 +395,12 @@ fun StatusScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       MetricCard(
-        label = "Uptime",
+        label = stringResource(R.string.status_metric_uptime),
         value = formatUptime(uptimeSeconds),
         modifier = Modifier.weight(1f),
       )
       MetricCard(
-        label = "Requests",
+        label = stringResource(R.string.status_metric_requests),
         value = requestCount.toString(),
         modifier = Modifier.weight(1f),
       )
@@ -407,12 +411,12 @@ fun StatusScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       MetricCard(
-        label = "Tokens In",
+        label = stringResource(R.string.status_metric_tokens_in),
         value = tokensIn.toString(),
         modifier = Modifier.weight(1f),
       )
       MetricCard(
-        label = "Tokens Out",
+        label = stringResource(R.string.status_metric_tokens_out),
         value = tokensGenerated.toString(),
         modifier = Modifier.weight(1f),
       )
@@ -422,30 +426,15 @@ fun StatusScreen(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+      val noData = stringResource(R.string.status_value_no_data)
       MetricCard(
-        label = "Decode Speed",
-        value = remember(lastDecodeSpeed) { if (lastDecodeSpeed > 0) "%.1f t/s".format(lastDecodeSpeed) else "—" },
+        label = stringResource(R.string.status_metric_decode_speed),
+        value = remember(lastDecodeSpeed, noData) { if (lastDecodeSpeed > 0) "%.1f t/s".format(lastDecodeSpeed) else noData },
         modifier = Modifier.weight(1f),
       )
       MetricCard(
-        label = "Peak Decode",
-        value = remember(peakDecodeSpeed) { if (peakDecodeSpeed > 0) "%.1f t/s".format(peakDecodeSpeed) else "—" },
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = "Last TTFB",
-        value = if (lastTtfbMs > 0) "${lastTtfbMs}ms" else "—",
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = "Avg TTFB",
-        value = if (avgTtfbMs > 0) "${avgTtfbMs}ms" else "—",
+        label = stringResource(R.string.status_metric_peak_decode),
+        value = remember(peakDecodeSpeed, noData) { if (peakDecodeSpeed > 0) "%.1f t/s".format(peakDecodeSpeed) else noData },
         modifier = Modifier.weight(1f),
       )
     }
@@ -454,12 +443,29 @@ fun StatusScreen(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      val successRate = remember(requestCount, errorCount) {
-        if (requestCount > 0) "%.0f%%".format(((requestCount - errorCount).toDouble() / requestCount) * 100) else "—"
+      MetricCard(
+        label = stringResource(R.string.status_metric_last_ttfb),
+        value = if (lastTtfbMs > 0) stringResource(R.string.status_value_ms, lastTtfbMs) else stringResource(R.string.status_value_no_data),
+        modifier = Modifier.weight(1f),
+      )
+      MetricCard(
+        label = stringResource(R.string.status_metric_avg_ttfb),
+        value = if (avgTtfbMs > 0) stringResource(R.string.status_value_ms, avgTtfbMs) else stringResource(R.string.status_value_no_data),
+        modifier = Modifier.weight(1f),
+      )
+    }
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      val noDataText = stringResource(R.string.status_value_no_data)
+      val successRate = remember(requestCount, errorCount, noDataText) {
+        if (requestCount > 0) "%.0f%%".format(((requestCount - errorCount).toDouble() / requestCount) * 100) else noDataText
       }
       MetricCard(
-        label = "Success Rate",
-        value = if (requestCount > 0) "$successRate (${errorCount} err)" else "—",
+        label = stringResource(R.string.status_metric_success_rate),
+        value = if (requestCount > 0) stringResource(R.string.status_value_success_rate, successRate, errorCount) else stringResource(R.string.status_value_no_data),
         modifier = Modifier.weight(1f),
       )
     }
@@ -468,7 +474,7 @@ fun StatusScreen(
     val showRequestTypes = remember { LlmHttpPrefs.isShowRequestTypes(context) }
     if (showRequestTypes) {
       Text(
-        text = "Request Types",
+        text = stringResource(R.string.status_section_request_types),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -479,17 +485,17 @@ fun StatusScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         MetricCard(
-          label = "Text",
+          label = stringResource(R.string.status_metric_text),
           value = textRequests.toString(),
           modifier = Modifier.weight(1f),
         )
         MetricCard(
-          label = "Vision",
+          label = stringResource(R.string.status_metric_vision),
           value = imageRequests.toString(),
           modifier = Modifier.weight(1f),
         )
         MetricCard(
-          label = "Audio",
+          label = stringResource(R.string.status_metric_audio),
           value = audioRequests.toString(),
           modifier = Modifier.weight(1f),
         )
@@ -500,24 +506,25 @@ fun StatusScreen(
     val showAdvancedMetrics = remember { LlmHttpPrefs.isShowAdvancedMetrics(context) }
     if (showAdvancedMetrics) {
       Text(
-        text = "Advanced",
+        text = stringResource(R.string.status_section_advanced),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
       )
 
+      val advNoData = stringResource(R.string.status_value_no_data)
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         MetricCard(
-          label = "Prefill Speed",
-          value = remember(lastPrefillSpeed) { if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else "—" },
+          label = stringResource(R.string.status_metric_prefill_speed),
+          value = remember(lastPrefillSpeed, advNoData) { if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else advNoData },
           modifier = Modifier.weight(1f),
         )
         MetricCard(
-          label = "Avg Throughput",
-          value = "${avgThroughput} t/s",
+          label = stringResource(R.string.status_metric_avg_throughput),
+          value = stringResource(R.string.status_value_throughput, avgThroughput),
           modifier = Modifier.weight(1f),
         )
       }
@@ -527,13 +534,13 @@ fun StatusScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         MetricCard(
-          label = "Inter-Token Latency",
-          value = remember(lastItlMs) { if (lastItlMs > 0) "%.1fms".format(lastItlMs) else "—" },
+          label = stringResource(R.string.status_metric_inter_token_latency),
+          value = remember(lastItlMs, advNoData) { if (lastItlMs > 0) "%.1fms".format(lastItlMs) else advNoData },
           modifier = Modifier.weight(1f),
         )
         MetricCard(
-          label = "Last Latency",
-          value = if (lastLatencyMs > 0) "${lastLatencyMs}ms" else "—",
+          label = stringResource(R.string.status_metric_last_latency),
+          value = if (lastLatencyMs > 0) stringResource(R.string.status_value_ms, lastLatencyMs) else stringResource(R.string.status_value_no_data),
           modifier = Modifier.weight(1f),
         )
       }
@@ -543,13 +550,13 @@ fun StatusScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         MetricCard(
-          label = "Avg Latency",
-          value = if (avgLatencyMs > 0) "${avgLatencyMs}ms" else "—",
+          label = stringResource(R.string.status_metric_avg_latency),
+          value = if (avgLatencyMs > 0) stringResource(R.string.status_value_ms, avgLatencyMs) else stringResource(R.string.status_value_no_data),
           modifier = Modifier.weight(1f),
         )
         MetricCard(
-          label = "Peak Latency",
-          value = if (peakLatencyMs > 0) "${peakLatencyMs}ms" else "—",
+          label = stringResource(R.string.status_metric_peak_latency),
+          value = if (peakLatencyMs > 0) stringResource(R.string.status_value_ms, peakLatencyMs) else stringResource(R.string.status_value_no_data),
           modifier = Modifier.weight(1f),
         )
       }
@@ -564,13 +571,13 @@ fun StatusScreen(
       onDismissRequest = { showReloadDialog = false },
       title = {
         Text(
-          text = "Reload Model",
+          text = stringResource(R.string.status_dialog_reload_title),
           style = MaterialTheme.typography.titleMedium,
         )
       },
       text = {
         Text(
-          text = "This will restart the server and reload ${modelName ?: "the model"}. Any in-flight requests will be interrupted.",
+          text = stringResource(R.string.status_dialog_reload_body, modelName ?: stringResource(R.string.status_model_loading)),
           style = MaterialTheme.typography.bodyMedium,
         )
       },
@@ -579,7 +586,7 @@ fun StatusScreen(
           showReloadDialog = false
           onReloadModel()
         }) {
-          Text("Reload")
+          Text(stringResource(R.string.status_dialog_reload_confirm))
         }
       },
       dismissButton = {
@@ -590,7 +597,7 @@ fun StatusScreen(
             contentColor = MaterialTheme.colorScheme.onSurface,
           ),
         ) {
-          Text("Cancel")
+          Text(stringResource(R.string.cancel))
         }
       },
     )
