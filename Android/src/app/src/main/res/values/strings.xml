@@ -537,20 +537,22 @@
   <string name="logs_tooltip_copy_event" translatable="false">Copy event</string>
 
   <!-- LogEventCard: Body text fragments -->
-  <string name="logs_event_loading_prefix" translatable="false">Loading </string>
-  <string name="logs_event_loading_suffix" translatable="false"> into memory</string>
-  <string name="logs_event_loaded_suffix" translatable="false"> loaded into memory</string>
-  <string name="logs_event_model_unloaded_prefix" translatable="false">Model </string>
-  <string name="logs_event_model_unloaded_suffix" translatable="false"> unloaded from memory</string>
-  <string name="logs_event_reloading_prefix" translatable="false">Restarting </string>
-  <string name="logs_event_unloading_prefix" translatable="false">Unloading </string>
-  <string name="logs_event_unloading_suffix" translatable="false"> from memory</string>
-  <string name="logs_event_keepalive_unloaded_suffix" translatable="false"> unloaded after %1$sm idle to free RAM</string>
-  <string name="logs_event_keepalive_reloading_prefix" translatable="false">Reloading </string>
-  <string name="logs_event_keepalive_reloading_suffix" translatable="false"> (request received while idle)</string>
-  <string name="logs_event_keepalive_reloaded_suffix" translatable="false"> reloaded in %1$sms</string>
-  <string name="logs_event_version_prefix" translatable="false">Version </string>
-  <string name="logs_event_version_suffix" translatable="false"> is available</string>
+  <!-- AAPT strips leading/trailing whitespace from <string> resources, so strings that need
+       a space adjacent to a dynamically inserted model name use \u0020 to preserve it. -->
+  <string name="logs_event_loading_prefix" translatable="false">Loading\u0020</string>
+  <string name="logs_event_loading_suffix" translatable="false">\u0020into memory</string>
+  <string name="logs_event_loaded_suffix" translatable="false">\u0020loaded into memory</string>
+  <string name="logs_event_model_unloaded_prefix" translatable="false">Model\u0020</string>
+  <string name="logs_event_model_unloaded_suffix" translatable="false">\u0020unloaded from memory</string>
+  <string name="logs_event_reloading_prefix" translatable="false">Restarting\u0020</string>
+  <string name="logs_event_unloading_prefix" translatable="false">Unloading\u0020</string>
+  <string name="logs_event_unloading_suffix" translatable="false">\u0020from memory</string>
+  <string name="logs_event_keepalive_unloaded_suffix" translatable="false">\u0020unloaded after %1$sm idle to free RAM</string>
+  <string name="logs_event_keepalive_reloading_prefix" translatable="false">Reloading\u0020</string>
+  <string name="logs_event_keepalive_reloading_suffix" translatable="false">\u0020(request received while idle)</string>
+  <string name="logs_event_keepalive_reloaded_suffix" translatable="false">\u0020reloaded in %1$sms</string>
+  <string name="logs_event_version_prefix" translatable="false">Version\u0020</string>
+  <string name="logs_event_version_suffix" translatable="false">\u0020is available</string>
   <string name="logs_event_update_none" translatable="false">No newer version found</string>
   <string name="logs_event_update_auto_disabled" translatable="false">Too many consecutive failures</string>
   <string name="logs_event_memory_pressure_body" translatable="false">Android is critically low on RAM — the app may be killed soon. Close other apps or use a smaller model.</string>
@@ -609,7 +611,7 @@
 
   <!-- Navigation: Storage/memory bars -->
   <string name="nav_storage_free_of" translatable="false">%1$s free of %2$s</string>
-  <string name="nav_memory_app_pss" translatable="false"> · App %1$s</string>
+  <string name="nav_memory_app_pss" translatable="false">\u0020· App %1$s</string>
 
   <!-- Top bar -->
   <string name="topbar_back" translatable="false">Back</string>
@@ -672,7 +674,7 @@
 
   <!-- Model status labels -->
   <string name="model_status_unzipping" translatable="false">Unzipping…</string>
-  <string name="model_status_resuming_suffix" translatable="false"> (resuming…)</string>
+  <string name="model_status_resuming_suffix" translatable="false">\u0020(resuming…)</string>
 
   <!-- Model download panel -->
   <string name="model_stop_server_for_benchmark" translatable="false">Stop the server first to run benchmarks</string>
