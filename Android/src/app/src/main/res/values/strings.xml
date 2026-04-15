@@ -342,4 +342,69 @@
   <string name="settings_donate" translatable="false">Donate</string>
   <string name="settings_version_footer" translatable="false">OlliteRT v%1$s (%2$s)</string>
 
+  <!-- Status screen labels -->
+
+  <!-- Status: Server not running banner -->
+  <string name="status_server_not_running" translatable="false">Server not running</string>
+  <string name="status_server_not_running_hint" translatable="false">Start a model from the Models tab to begin serving requests.</string>
+
+  <!-- Status: Model info card -->
+  <string name="status_no_model_loaded" translatable="false">No model loaded</string>
+  <string name="status_model_loading" translatable="false">Loading…</string>
+  <string name="status_cd_thinking_enabled" translatable="false">Thinking enabled</string>
+  <string name="status_loading_elapsed" translatable="false">Loading… %1$ds</string>
+  <string name="status_loading_elapsed_with_size" translatable="false">%1$s · Loading… %2$ds</string>
+  <string name="status_idle_unloaded" translatable="false">Idle — model unloaded to free RAM</string>
+  <string name="status_loaded_in" translatable="false">Loaded in %1$s</string>
+  <string name="status_loaded_in_with_size" translatable="false">%1$s · Loaded in %2$s</string>
+  <string name="status_start_model_hint" translatable="false">Start a model from the Models tab</string>
+  <string name="status_reload_model_tooltip" translatable="false">Reload model</string>
+
+  <!-- Status: Endpoint card -->
+  <string name="status_active_api_endpoint" translatable="false">Active API Endpoint</string>
+  <string name="status_endpoint_placeholder" translatable="false">—</string>
+  <string name="status_copy_endpoint_tooltip" translatable="false">Copy endpoint URL</string>
+
+  <!-- Status: Section headers -->
+  <string name="status_section_metrics" translatable="false">Metrics</string>
+  <string name="status_section_request_types" translatable="false">Request Types</string>
+  <string name="status_section_advanced" translatable="false">Advanced</string>
+
+  <!-- Status: Core metric labels -->
+  <string name="status_metric_uptime" translatable="false">Uptime</string>
+  <string name="status_metric_requests" translatable="false">Requests</string>
+  <string name="status_metric_tokens_in" translatable="false">Tokens In</string>
+  <string name="status_metric_tokens_out" translatable="false">Tokens Out</string>
+  <string name="status_metric_decode_speed" translatable="false">Decode Speed</string>
+  <string name="status_metric_peak_decode" translatable="false">Peak Decode</string>
+  <string name="status_metric_last_ttfb" translatable="false">Last TTFB</string>
+  <string name="status_metric_avg_ttfb" translatable="false">Avg TTFB</string>
+  <string name="status_metric_success_rate" translatable="false">Success Rate</string>
+
+  <!-- Status: Request type labels -->
+  <string name="status_metric_text" translatable="false">Text</string>
+  <string name="status_metric_vision" translatable="false">Vision</string>
+  <string name="status_metric_audio" translatable="false">Audio</string>
+
+  <!-- Status: Advanced metric labels -->
+  <string name="status_metric_prefill_speed" translatable="false">Prefill Speed</string>
+  <string name="status_metric_avg_throughput" translatable="false">Avg Throughput</string>
+  <string name="status_metric_inter_token_latency" translatable="false">Inter-Token Latency</string>
+  <string name="status_metric_last_latency" translatable="false">Last Latency</string>
+  <string name="status_metric_avg_latency" translatable="false">Avg Latency</string>
+  <string name="status_metric_peak_latency" translatable="false">Peak Latency</string>
+
+  <!-- Status: Metric value formats -->
+  <string name="status_value_tokens_per_sec" translatable="false">%1$.1f t/s</string>
+  <string name="status_value_ms" translatable="false">%1$dms</string>
+  <string name="status_value_ms_float" translatable="false">%1$.1fms</string>
+  <string name="status_value_throughput" translatable="false">%1$s t/s</string>
+  <string name="status_value_success_rate" translatable="false">%1$s (%2$d err)</string>
+  <string name="status_value_no_data" translatable="false">—</string>
+
+  <!-- Status: Reload dialog -->
+  <string name="status_dialog_reload_title" translatable="false">Reload Model</string>
+  <string name="status_dialog_reload_body" translatable="false">This will restart the server and reload %1$s. Any in-flight requests will be interrupted.</string>
+  <string name="status_dialog_reload_confirm" translatable="false">Reload</string>
+
 </resources>
