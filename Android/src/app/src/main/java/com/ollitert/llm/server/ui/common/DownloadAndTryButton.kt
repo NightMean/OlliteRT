@@ -565,8 +565,9 @@ fun DownloadAndTryButton(
   }
   // Download progress.
   else {
-    curDownloadProgress =
-      downloadStatus!!.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
+    curDownloadProgress = if (downloadStatus != null && downloadStatus.totalBytes > 0) {
+      downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
+    } else 0f
     if (curDownloadProgress.isNaN()) {
       curDownloadProgress = 0f
     }

@@ -80,8 +80,8 @@ fun GettingStartedScreen(
 
   /** Request battery optimization exemption, or proceed directly if already exempt. */
   fun requestBatteryOptimizationExemption() {
-    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    if (pm == null || !pm.isIgnoringBatteryOptimizations(context.packageName)) {
       // Show the system dialog asking the user to exempt this app from Doze mode.
       // Uses ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS which is allowed by Google Play
       // for apps that need sustained background work (HTTP servers, media players, etc.).

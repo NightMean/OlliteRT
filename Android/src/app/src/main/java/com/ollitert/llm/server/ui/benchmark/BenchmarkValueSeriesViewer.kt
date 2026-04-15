@@ -172,7 +172,7 @@ fun BenchmarkValueSeriesViewer(title: String, valueSeries: ValueSeries, onDismis
 
             // Draw dashed line for tapped value
             if (tappedValue != null) {
-              val y = size.height - ((tappedValue!! - effectiveMin) / scaledYRange) * size.height
+              val y = size.height - (((tappedValue ?: effectiveMin) - effectiveMin) / scaledYRange) * size.height
               val start = Offset(0f, y.toFloat())
               val end = Offset(size.width, y.toFloat())
               val dashIntervals = floatArrayOf(10f, 10f) // 10px on, 10px off

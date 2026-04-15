@@ -74,29 +74,42 @@ class LlmHttpService : Service() {
   override fun onCreate() {
     super.onCreate()
     activeInstance = this
-    logger = LlmHttpLogger(
-      logDir = { getExternalFilesDir(null)?.let { File(it, "ollitert") } },
-      isEnabled = { LlmHttpPrefs.isPayloadLoggingEnabled(this) },
-      isVerboseDebug = { LlmHttpPrefs.isVerboseDebugEnabled(this) },
-    )
-    allowlistLoader = LlmHttpAllowlistLoader(
-      externalFilesDir = getExternalFilesDir(null),
-      packageName = packageName,
-      assetReader = {
-        try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
-      },
-    )
-    modelLifecycle = LlmHttpModelLifecycle(context = this, allowlistLoader = allowlistLoader)
-    // Create a partial wake lock to keep the CPU awake while the server is running.
-    // Acquired in onStartCommand once the server starts, released in onDestroy.
-    val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
-    wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "OlliteRT::Server").apply {
-      setReferenceCounted(false)
+    try {
+      logger = LlmHttpLogger(
+        logDir = { getExternalFilesDir(null)?.let { File(it, "ollitert") } },
+        isEnabled = { LlmHttpPrefs.isPayloadLoggingEnabled(this) },
+        isVerboseDebug = { LlmHttpPrefs.isVerboseDebugEnabled(this) },
+      )
+      allowlistLoader = LlmHttpAllowlistLoader(
+        externalFilesDir = getExternalFilesDir(null),
+        packageName = packageName,
+        assetReader = {
+          try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
+        },
+      )
+      modelLifecycle = LlmHttpModelLifecycle(context = this, allowlistLoader = allowlistLoader)
+      // Create a partial wake lock to keep the CPU awake while the server is running.
+      // Acquired in onStartCommand once the server starts, released in onDestroy.
+      val pm = getSystemService(POWER_SERVICE) as? android.os.PowerManager
+      wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "OlliteRT::Server")?.apply {
+        setReferenceCounted(false)
+      }
+      LlmHttpNotificationHelper.createChannel(this)
+    } catch (e: Exception) {
+      Log.e(logTag, "Service initialization failed — stopping immediately", e)
+      stopSelf()
     }
-    LlmHttpNotificationHelper.createChannel(this)
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    // Guard: if onCreate() failed partway through, the service is in a zombie state.
+    // Stop immediately to prevent UninitializedPropertyAccessException crashes.
+    if (!::modelLifecycle.isInitialized) {
+      Log.e(logTag, "Service not initialized — stopping")
+      stopSelf()
+      return START_NOT_STICKY
+    }
+
     // Handle stop action from notification
     if (intent?.action == ACTION_STOP) {
       stopSelf()
@@ -712,6 +725,7 @@ class LlmHttpService : Service() {
   }
 
   companion object {
+    private const val TAG = "LlmHttpService"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
     const val DEFAULT_PORT = 8000
@@ -733,20 +747,30 @@ class LlmHttpService : Service() {
      */
     private val cleanupLatch = java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch?>(null)
 
-    fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null) {
+    fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null): Boolean {
       val intent = Intent(context, LlmHttpService::class.java).apply {
         putExtra(EXTRA_PORT, port)
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
-      } else {
-        context.startService(intent)
+      return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          context.startForegroundService(intent)
+        } else {
+          context.startService(intent)
+        }
+        true
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to start service", e)
+        false
       }
     }
 
     fun stop(context: Context) {
-      context.stopService(Intent(context, LlmHttpService::class.java))
+      try {
+        context.stopService(Intent(context, LlmHttpService::class.java))
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to stop service", e)
+      }
     }
 
     /**
@@ -773,17 +797,23 @@ class LlmHttpService : Service() {
       pendingReloadAfterLoad.set(PendingReload(port, modelName, configValues))
     }
 
-    fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null) {
+    fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null): Boolean {
       pendingConfigOverrides.set(configValues)
       val intent = Intent(context, LlmHttpService::class.java).apply {
         action = ACTION_RELOAD
         putExtra(EXTRA_PORT, port)
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
-      } else {
-        context.startService(intent)
+      return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          context.startForegroundService(intent)
+        } else {
+          context.startService(intent)
+        }
+        true
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to reload service", e)
+        false
       }
     }
 
@@ -794,9 +824,13 @@ class LlmHttpService : Service() {
      * in the foreground — this just delivers the intent without triggering a new foreground start.
      */
     fun resetKeepAliveTimer(context: Context) {
-      context.startService(
-        Intent(context, LlmHttpService::class.java).apply { action = ACTION_RESET_KEEP_ALIVE }
-      )
+      try {
+        context.startService(
+          Intent(context, LlmHttpService::class.java).apply { action = ACTION_RESET_KEEP_ALIVE }
+        )
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to reset keep-alive timer — service may not be running", e)
+      }
     }
 
     /**

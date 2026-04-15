@@ -208,7 +208,7 @@ class LlmHttpModelLifecycle(
    */
   fun pickModelByName(name: String): Model? {
     val allowlist = allowlistLoader.load()
-    val importsDir = File(context.getExternalFilesDir(null), "__imports")
+    val importsDir = File(context.getExternalFilesDir(null) ?: return null, "__imports")
     val match = allowlist.firstOrNull { it.name.equals(name, ignoreCase = true) }
       ?: return null
     val model = LlmHttpModelFactory.buildAllowedModel(match, importsDir)

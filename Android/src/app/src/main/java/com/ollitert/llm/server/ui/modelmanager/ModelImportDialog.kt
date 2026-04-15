@@ -85,6 +85,7 @@ import com.ollitert.llm.server.ui.common.ensureValidFileName
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineScope
@@ -413,15 +414,17 @@ private fun importModel(
     Log.d(TAG, "importing model from $decodedUri. File name: $fileName. File size: $fileSize")
 
     // Create <app_external_dir>/imports if not exist.
-    val importsDir = File(context.getExternalFilesDir(null), IMPORTS_DIR)
+    val externalDir = context.getExternalFilesDir(null)
+      ?: throw IOException("External storage unavailable — cannot import model")
+    val importsDir = File(externalDir, IMPORTS_DIR)
     if (!importsDir.exists()) {
       importsDir.mkdirs()
     }
 
     // Import by copying to a .tmp file first, then rename on success.
     // If the app is killed mid-copy, the .tmp file is cleaned up on next launch.
-    val finalFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/$fileName")
-    val tmpFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/${fileName}.tmp")
+    val finalFile = File(externalDir, "$IMPORTS_DIR/$fileName")
+    val tmpFile = File(externalDir, "$IMPORTS_DIR/${fileName}.tmp")
     val outputStream = FileOutputStream(tmpFile)
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     var bytesRead: Int
