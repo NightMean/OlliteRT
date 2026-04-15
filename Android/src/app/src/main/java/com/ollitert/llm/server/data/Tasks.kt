@@ -16,11 +16,9 @@
 
 package com.ollitert.llm.server.data
 
-import androidx.annotation.StringRes
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.ollitert.llm.server.R
 
 /**
  * Data class for a task displayed on the home screen
@@ -62,9 +60,6 @@ data class Task(
    */
   val description: String,
 
-  /** Shorter description (within 6 words) of the task. */
-  val shortDescription: String = "",
-
   /**
    * (optional)
    *
@@ -94,33 +89,11 @@ data class Task(
    */
   val modelNames: List<String> = listOf(),
 
-  /**
-   * Whether to handel model config changes in task's screen itself. The default behavior is to
-   * automatically re-initialize the model.
-   */
-  val handleModelConfigChangesInTask: Boolean = false,
-
   /** Whether the task is experimental. */
   val experimental: Boolean = false,
 
-  /** Whether the task should have a "new" badge on home screen. */
-  val newFeature: Boolean = false,
-
-  /** Whether to use theme color instead of the task tint color. */
-  val useThemeColor: Boolean = false,
-
   /** The default system prompt for this task. */
   val defaultSystemPrompt: String = "",
-
-  // The following fields are only used for built-in tasks. Can ignore if you are creating your own
-  // custom tasks.
-  //
-
-  /** Placeholder text for the name of the agent shown above chat messages. */
-  @param:StringRes val agentNameRes: Int = R.string.chat_generic_agent_name,
-
-  /** Placeholder text for the text input field. */
-  @param:StringRes val textInputPlaceHolderRes: Int = R.string.chat_textinput_placeholder,
 
   // The following fields are managed by the app. Don't need to set manually.
   //

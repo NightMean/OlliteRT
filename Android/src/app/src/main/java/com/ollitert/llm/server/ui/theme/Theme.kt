@@ -11,7 +11,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -95,9 +94,6 @@ val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
 
 val MaterialTheme.customColors: CustomColors
   @Composable @ReadOnlyComposable get() = LocalCustomColors.current
-
-/** Action gradient brush used for primary buttons. */
-val OlliteRTActionGradient = Brush.linearGradient(listOf(OlliteRTPrimary, OlliteRTDeepBlue))
 
 @Composable
 fun OlliteRTTheme(content: @Composable () -> Unit) {

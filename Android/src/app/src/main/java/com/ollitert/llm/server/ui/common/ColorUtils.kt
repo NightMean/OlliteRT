@@ -23,12 +23,6 @@ import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.theme.customColors
 
 @Composable
-fun getTaskBgColor(task: Task): Color {
-  val colorIndex: Int = (task.index.coerceAtLeast(0)) % MaterialTheme.customColors.taskBgColors.size
-  return MaterialTheme.customColors.taskBgColors[colorIndex]
-}
-
-@Composable
 fun getTaskBgGradientColors(task: Task): List<Color> {
   val colorIndex: Int = (task.index.coerceAtLeast(0)) % MaterialTheme.customColors.taskBgColors.size
   return MaterialTheme.customColors.taskBgGradientColors[colorIndex]

@@ -50,11 +50,6 @@ class ModelFileManager(
     }
   }
 
-  override fun isFileInDataLocalTmpDir(fileName: String): Boolean {
-    val file = File("/data/local/tmp", fileName)
-    return file.exists()
-  }
-
   override fun deleteFileFromExternalFilesDir(fileName: String) {
     if (isFileInExternalFilesDir(fileName)) {
       val file = File(externalFilesDir, fileName)
@@ -68,7 +63,7 @@ class ModelFileManager(
   override fun deleteFilesFromImportDir(fileName: String) {
     val dir = context.getExternalFilesDir(null) ?: return
 
-    val prefixAbsolutePath = "${context.getExternalFilesDir(null)}${File.separator}$fileName"
+    val prefixAbsolutePath = "${dir.absolutePath}${File.separator}$fileName"
     val filesToDelete =
       File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
         File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath)

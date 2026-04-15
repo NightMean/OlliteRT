@@ -2,8 +2,6 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.google.gson.Gson
 import java.io.File
@@ -27,23 +25,6 @@ class ModelAllowlistLoader(
   /** Try to load the test allowlist from /data/local/tmp. */
   override fun readTestAllowlist(): ModelAllowlist? {
     return readFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
-  }
-
-  /**
-   * Fetch allowlist from GitHub. Returns the parsed allowlist and raw JSON
-   * (for caching to disk), or null on failure.
-   */
-  override fun fetchFromNetwork(version: String): AllowlistLoader.LoadResult {
-    val url = "${GitHubConfig.ALLOWLIST_BASE_URL}/${version}.json"
-    Log.d(TAG, "Loading model allowlist from internet. Url: $url")
-    val data = getJsonResponse<ModelAllowlist>(url = url)
-    return if (data?.jsonObj != null) {
-      Log.d(TAG, "Done: loading model allowlist from internet")
-      AllowlistLoader.LoadResult(data.jsonObj, AllowlistSource.NETWORK, data.textContent)
-    } else {
-      Log.w(TAG, "Failed to load model allowlist from internet")
-      AllowlistLoader.LoadResult(null, null)
-    }
   }
 
   /** Save allowlist JSON to disk for future offline use. */

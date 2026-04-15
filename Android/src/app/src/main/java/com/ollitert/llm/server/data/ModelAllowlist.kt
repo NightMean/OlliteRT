@@ -156,10 +156,8 @@ data class AllowedModel(
 
     // Misc.
     var showBenchmarkButton = true
-    var showRunAgainButton = true
     if (isLlmModel) {
       showBenchmarkButton = false
-      showRunAgainButton = false
     }
     return Model(
       name = name,
@@ -171,7 +169,6 @@ data class AllowedModel(
       configs = configs,
       downloadFileName = downloadedFileName,
       showBenchmarkButton = showBenchmarkButton,
-      showRunAgainButton = showRunAgainButton,
       learnMoreUrl = learnMoreUrl,
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,

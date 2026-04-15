@@ -61,7 +61,6 @@ import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.ClickableLink
 import com.ollitert.llm.server.ui.common.RevealingText
 import com.ollitert.llm.server.ui.common.TaskIcon
-import com.ollitert.llm.server.ui.common.getTaskBgColor
 import com.ollitert.llm.server.ui.common.getTaskBgGradientColors
 import com.ollitert.llm.server.ui.common.modelitem.ModelItem
 import com.ollitert.llm.server.ui.common.rememberDelayedAnimationProgress
