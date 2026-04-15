@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.ui.server
 
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -159,8 +161,8 @@ fun InferenceSettingsSheet(
   if (showResetDialog) {
     AlertDialog(
       onDismissRequest = { showResetDialog = false },
-      title = { Text("Reset to Defaults") },
-      text = { Text("This will reset all inference settings to their default values for this model. The model will reload to apply the changes.") },
+      title = { Text(stringResource(R.string.dialog_reset_inference_title)) },
+      text = { Text(stringResource(R.string.dialog_reset_inference_body)) },
       confirmButton = {
         Button(onClick = {
           showResetDialog = false
@@ -172,14 +174,14 @@ fun InferenceSettingsSheet(
           useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
           systemPrompt = ""
           chatTemplate = ""
-          Toast.makeText(context, "Model settings reset to defaults", Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, context.getString(R.string.toast_model_settings_reset), Toast.LENGTH_SHORT).show()
         }) {
-          Text("Reset")
+          Text(stringResource(R.string.button_reset))
         }
       },
       dismissButton = {
         TextButton(onClick = { showResetDialog = false }) {
-          Text("Cancel")
+          Text(stringResource(R.string.cancel))
         }
       },
     )

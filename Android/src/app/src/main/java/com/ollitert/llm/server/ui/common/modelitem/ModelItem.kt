@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
+import com.ollitert.llm.server.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -308,18 +309,18 @@ fun ModelItem(
             val port = LlmHttpPrefs.getPort(context)
             if (isLoading) {
               LlmHttpService.queueReloadAfterLoad(port, model.name, newConfigValues)
-              Toast.makeText(context, "Settings saved — model will reload after loading finishes", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.toast_settings_saved_reload_pending), Toast.LENGTH_SHORT).show()
             } else {
               LlmHttpService.reload(context, port, model.name, configValues = newConfigValues)
-              Toast.makeText(context, "Settings saved — model is reloading", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.toast_settings_saved_reloading), Toast.LENGTH_SHORT).show()
             }
           } else {
             // Push config changes to the running service model without reloading
             LlmHttpService.updateConfigValues(newConfigValues)
-            Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
           }
         } else if (changes.isNotEmpty()) {
-          Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
         }
 
         showInferenceSettings = false

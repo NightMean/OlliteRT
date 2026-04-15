@@ -90,7 +90,7 @@ fun MemoryWarningAlert(
             colors = CheckboxDefaults.colors(checkedColor = OlliteRTPrimary),
           )
           Text(
-            text = "Don't ask again for this model",
+            text = stringResource(R.string.label_dont_ask_again_for_model),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )

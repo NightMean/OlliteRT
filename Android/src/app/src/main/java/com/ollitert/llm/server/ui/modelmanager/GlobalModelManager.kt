@@ -746,7 +746,7 @@ fun GlobalModelManager(
     ) {
       TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = { PlainTooltip { Text("Import model") } },
+        tooltip = { PlainTooltip { Text(stringResource(R.string.label_import_model)) } },
         state = rememberTooltipState(),
       ) {
         FloatingActionButton(
@@ -775,7 +775,7 @@ fun GlobalModelManager(
   if (showImportModelSheet) {
     ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState, sheetMaxWidth = SHEET_MAX_WIDTH) {
       Text(
-        "Import model",
+        stringResource(R.string.label_import_model),
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
       )
@@ -807,7 +807,7 @@ fun GlobalModelManager(
             .padding(16.dp),
         ) {
           Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
-          Text("From local model file (.task, .litertlm)", modifier = Modifier.clearAndSetSemantics {})
+          Text(stringResource(R.string.label_import_from_local_file), modifier = Modifier.clearAndSetSemantics {})
         }
       }
     }
@@ -849,8 +849,8 @@ fun GlobalModelManager(
   // Alert dialog for unsupported file type
   if (showUnsupportedFileTypeDialog) {
     ErrorAlertDialog(
-      title = "Unsupported file type",
-      text = "Only \".task\" or \".litertlm\" file type is supported.",
+      title = stringResource(R.string.dialog_unsupported_file_type_title),
+      text = stringResource(R.string.dialog_unsupported_file_type_body),
       onDismiss = { showUnsupportedFileTypeDialog = false },
     )
   }
@@ -858,8 +858,8 @@ fun GlobalModelManager(
   // Alert dialog for unsupported web model
   if (showUnsupportedWebModelDialog) {
     ErrorAlertDialog(
-      title = "Unsupported model type",
-      text = "Looks like the model is a web-only model and is not supported by the app.",
+      title = stringResource(R.string.dialog_unsupported_web_model_title),
+      text = stringResource(R.string.dialog_unsupported_web_model_body),
       onDismiss = { showUnsupportedWebModelDialog = false },
     )
   }
@@ -874,10 +874,14 @@ fun GlobalModelManager(
         pendingSwitchModel = null
         pendingSwitchTask = null
       },
-      title = { Text("Switch model?") },
+      title = { Text(stringResource(R.string.dialog_switch_model_title)) },
       text = {
         Text(
-          "This will unload \"${activeModelName ?: "current model"}\" and load \"${switchModel.displayName.ifEmpty { switchModel.name }}\".\n\nThe server will restart."
+          stringResource(
+            R.string.dialog_switch_model_body,
+            activeModelName ?: stringResource(R.string.label_current_model),
+            switchModel.displayName.ifEmpty { switchModel.name },
+          )
         )
       },
       confirmButton = {
@@ -888,7 +892,7 @@ fun GlobalModelManager(
           onStopServer()
           onModelSelected(switchTask, switchModel)
         }) {
-          Text("Switch")
+          Text(stringResource(R.string.button_switch))
         }
       },
       dismissButton = {
@@ -903,7 +907,7 @@ fun GlobalModelManager(
             contentColor = MaterialTheme.colorScheme.onSurface,
           ),
         ) {
-          Text("Cancel")
+          Text(stringResource(R.string.cancel))
         }
       },
     )

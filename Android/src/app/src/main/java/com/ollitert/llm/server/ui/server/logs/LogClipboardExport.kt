@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.ui.server.logs
 
+import com.ollitert.llm.server.R
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -99,17 +100,17 @@ internal suspend fun copyAllLogsToClipboard(context: Context, entries: List<Requ
     val json = withContext(Dispatchers.Default) { buildLogsJson(entries) }
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
     if (clipboard == null) {
-      Toast.makeText(context, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+      Toast.makeText(context, context.getString(R.string.toast_clipboard_unavailable), Toast.LENGTH_SHORT).show()
       return
     }
     clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
-    Toast.makeText(context, "Copied ${entries.size} entries (JSON)", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.toast_copied_entries_json, entries.size), Toast.LENGTH_SHORT).show()
   } catch (_: Exception) {
     // TransactionTooLargeException (or similar) — clipboard has a ~1MB Binder limit.
     // With many entries and large request/response bodies, the JSON can exceed this.
     Toast.makeText(
       context,
-      "Log data too large for clipboard (${entries.size} entries) — use Export instead.",
+      context.getString(R.string.toast_clipboard_too_large, entries.size),
       Toast.LENGTH_LONG,
     ).show()
   }
@@ -140,7 +141,7 @@ internal suspend fun exportLogsAsJson(context: Context, entries: List<RequestLog
     }
     context.startActivity(Intent.createChooser(shareIntent, "Export OlliteRT Logs"))
   } catch (e: Exception) {
-    Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+    Toast.makeText(context, context.getString(R.string.toast_export_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
   }
 }
 

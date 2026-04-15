@@ -107,4 +107,76 @@
   <!-- Fork: LLM HTTP foreground service notification channel -->
   <string name="llm_http_channel_name" translatable="false">OlliteRT Server</string>
 
+  <!-- Dialog titles and body text -->
+  <string name="dialog_clear_logs_title">Clear All Logs</string>
+  <string name="dialog_clear_logs_body">This will permanently delete all logs — both the current session and the database. This cannot be undone.</string>
+  <string name="button_clear">Clear</string>
+  <string name="dialog_reduce_log_limit_title">Reduce Log Limit</string>
+  <string name="dialog_reduce_log_limit_body">You currently have %1$d logs. Reducing the limit to %2$d will remove the %3$d oldest entries after saving.</string>
+  <string name="dialog_unsaved_changes_title">Unsaved Changes</string>
+  <string name="dialog_unsaved_changes_body">You have unsaved changes. Would you like to save or discard them?</string>
+  <string name="button_save">Save</string>
+  <string name="button_discard">Discard</string>
+  <string name="dialog_restart_server_title">Restart server?</string>
+  <string name="dialog_restart_server_body">Some of the changed settings require a server restart to take effect.</string>
+  <string name="button_restart">Restart</string>
+  <string name="button_later">Later</string>
+  <string name="dialog_reset_defaults_title">Reset to Defaults</string>
+  <string name="dialog_reset_defaults_body">This will reset all settings to their default values, including port, bearer token, HuggingFace token, inference configs, system prompts, and all toggles.</string>
+  <string name="dialog_reset_defaults_body_server_active">This will reset all settings to their default values, including port, bearer token, HuggingFace token, inference configs, system prompts, and all toggles.\n\nThe server will be stopped.</string>
+  <string name="button_reset">Reset</string>
+  <string name="dialog_reset_inference_title">Reset to Defaults</string>
+  <string name="dialog_reset_inference_body">This will reset all inference settings to their default values for this model. The model will reload to apply the changes.</string>
+  <string name="dialog_user_agreement_title">Acknowledge user agreement</string>
+  <string name="dialog_user_agreement_body">This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.</string>
+  <string name="button_open_user_agreement">Open user agreement</string>
+  <string name="dialog_network_error_title">Unknown network error</string>
+  <string name="dialog_network_error_body">Please check your internet connection.</string>
+  <string name="dialog_hf_token_required_title">HuggingFace Token Required</string>
+  <string name="dialog_hf_token_required_body">This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Settings.</string>
+  <string name="button_go_to_settings">Go to Settings</string>
+  <string name="dialog_storage_warning_title">Not Enough Storage</string>
+  <string name="dialog_storage_warning_body">This download requires %1$.1f GB total:\n  \u2022 Model size: %2$.1f GB\n  \u2022 System reserve: %3$.0f GB\n\nAvailable: %4$.1f GB\n\nFree up at least %5$.1f GB to continue, or tap \"Download Anyway\" to skip the safety check.</string>
+  <string name="button_download_anyway">Download Anyway</string>
+  <string name="label_loading_model">Loading Model</string>
+  <string name="button_stop_server">Stop Server</string>
+  <string name="dialog_unsupported_file_type_title">Unsupported file type</string>
+  <string name="dialog_unsupported_file_type_body">Only \".task\" or \".litertlm\" file type is supported.</string>
+  <string name="dialog_unsupported_web_model_title">Unsupported model type</string>
+  <string name="dialog_unsupported_web_model_body">Looks like the model is a web-only model and is not supported by the app.</string>
+  <string name="dialog_switch_model_title">Switch model?</string>
+  <string name="dialog_switch_model_body">This will unload \"%1$s\" and load \"%2$s\".\n\nThe server will restart.</string>
+  <string name="label_current_model">current model</string>
+  <string name="button_switch">Switch</string>
+  <string name="label_import_model">Import model</string>
+  <string name="label_import_from_local_file">From local model file (.task, .litertlm)</string>
+  <string name="dialog_import_model_title">Import Model</string>
+  <string name="button_import">Import</string>
+  <string name="dialog_donate_title">Support OlliteRT</string>
+  <string name="dialog_donate_body">If you find OlliteRT useful, consider supporting its development.</string>
+  <string name="dialog_engagement_title">Enjoying OlliteRT?</string>
+  <string name="dialog_engagement_body">This app is built and maintained by a solo developer in their spare time. If it\'s been useful to you, consider supporting its development.</string>
+  <string name="label_support_development">Support Development</string>
+  <string name="label_star_on_github">Star on GitHub</string>
+  <string name="label_dont_show_again">Don\'t show this again</string>
+  <string name="button_not_now">Not now</string>
+  <string name="label_dont_ask_again_for_model">Don\'t ask again for this model</string>
+  <string name="label_please_wait_model_loading">Please wait for the current model to finish loading</string>
+
+  <!-- Toast messages -->
+  <string name="toast_settings_saved">Settings saved</string>
+  <string name="toast_settings_saved_restart_manual">Settings saved. Restart the server manually for changes to take effect.</string>
+  <string name="toast_server_restarting">Server restarting with updated settings</string>
+  <string name="toast_settings_reset">All settings reset to defaults</string>
+  <string name="toast_logs_cleared">All logs cleared</string>
+  <string name="toast_token_cleared">Token cleared</string>
+  <string name="toast_token_regenerated">Token regenerated — save to apply</string>
+  <string name="toast_settings_saved_reload_pending">Settings saved — model will reload after loading finishes</string>
+  <string name="toast_settings_saved_reloading">Settings saved — model is reloading</string>
+  <string name="toast_model_settings_reset">Model settings reset to defaults</string>
+  <string name="toast_clipboard_unavailable">Clipboard unavailable</string>
+  <string name="toast_copied_entries_json">Copied %1$d entries (JSON)</string>
+  <string name="toast_clipboard_too_large">Log data too large for clipboard (%1$d entries) — use Export instead.</string>
+  <string name="toast_export_failed">Export failed: %1$s</string>
+
 </resources>

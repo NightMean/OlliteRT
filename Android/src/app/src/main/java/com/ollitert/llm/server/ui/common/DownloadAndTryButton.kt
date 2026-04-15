@@ -433,7 +433,7 @@ fun DownloadAndTryButton(
           )
           if (!compact) {
             Text(
-              "Loading Model",
+              stringResource(R.string.label_loading_model),
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,
@@ -465,7 +465,7 @@ fun DownloadAndTryButton(
           )
           if (!compact) {
             Text(
-              "Stop Server",
+              stringResource(R.string.button_stop_server),
               color = MaterialTheme.colorScheme.error,
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,
@@ -658,9 +658,9 @@ fun DownloadAndTryButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(horizontal = 16.dp),
       ) {
-        Text("Acknowledge user agreement", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.dialog_user_agreement_title), style = MaterialTheme.typography.titleLarge)
         Text(
-          "This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.",
+          stringResource(R.string.dialog_user_agreement_body),
           style = MaterialTheme.typography.bodyMedium,
           modifier = Modifier.padding(vertical = 16.dp),
         )
@@ -681,7 +681,7 @@ fun DownloadAndTryButton(
             showAgreementAckSheet = false
           }
         ) {
-          Text("Open user agreement")
+          Text(stringResource(R.string.button_open_user_agreement))
         }
       }
     }
@@ -689,10 +689,10 @@ fun DownloadAndTryButton(
 
   if (showErrorDialog) {
     ErrorAlertDialog(
-      title = "Unknown network error",
-      text = "Please check your internet connection.",
+      title = stringResource(R.string.dialog_network_error_title),
+      text = stringResource(R.string.dialog_network_error_body),
       onDismiss = { showErrorDialog = false },
-      confirmLabel = "Close",
+      confirmLabel = stringResource(R.string.close),
     )
   }
 
@@ -705,17 +705,17 @@ fun DownloadAndTryButton(
           tint = OlliteRTPrimary,
         )
       },
-      title = { Text("HuggingFace Token Required") },
-      text = { Text("This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Settings.") },
+      title = { Text(stringResource(R.string.dialog_hf_token_required_title)) },
+      text = { Text(stringResource(R.string.dialog_hf_token_required_body)) },
       onDismissRequest = { showHfTokenRequired = false },
       confirmButton = {
         TextButton(onClick = {
           showHfTokenRequired = false
           onNavigateToSettings()
-        }) { Text("Go to Settings") }
+        }) { Text(stringResource(R.string.button_go_to_settings)) }
       },
       dismissButton = {
-        TextButton(onClick = { showHfTokenRequired = false }) { Text("Cancel") }
+        TextButton(onClick = { showHfTokenRequired = false }) { Text(stringResource(R.string.cancel)) }
       },
     )
   }
@@ -756,15 +756,17 @@ fun DownloadAndTryButton(
           tint = MaterialTheme.colorScheme.error,
         )
       },
-      title = { Text("Not Enough Storage") },
+      title = { Text(stringResource(R.string.dialog_storage_warning_title)) },
       text = {
         Text(
-          "This download requires %.1f GB total:\n".format(totalRequiredGb) +
-          "  • Model size: %.1f GB\n".format(modelSizeGb) +
-          "  • System reserve: %.0f GB\n\n".format(reserveGb) +
-          "Available: %.1f GB\n\n".format(availableGb) +
-          "Free up at least %.1f GB to continue, or tap \"Download Anyway\" to skip the safety check."
-            .format((totalRequiredGb - availableGb).coerceAtLeast(0f))
+          stringResource(
+            R.string.dialog_storage_warning_body,
+            totalRequiredGb,
+            modelSizeGb,
+            reserveGb,
+            availableGb,
+            (totalRequiredGb - availableGb).coerceAtLeast(0f),
+          )
         )
       },
       onDismissRequest = { showStorageWarning = false },
@@ -778,7 +780,7 @@ fun DownloadAndTryButton(
         TextButton(onClick = {
           showStorageWarning = false
           handleClickButton()
-        }) { Text("Download Anyway") }
+        }) { Text(stringResource(R.string.button_download_anyway)) }
       },
     )
   }
