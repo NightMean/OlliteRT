@@ -130,6 +130,20 @@ android {
     }
   }
 
+  // Only arm64-v8a and x86_64 are supported — LiteRT LM does not ship native
+  // libraries for armeabi-v7a or x86, so the app would crash on inference.
+  // Per-ABI APK splits reduce download size by ~50% (each ABI carries ~20-24 MB
+  // of native libraries). The universal APK is also produced as a fallback.
+  splits {
+    abi {
+      isEnable = true
+      // Reset the default ABI list, then include only the supported ones.
+      reset()
+      include("arm64-v8a", "x86_64")
+      isUniversalApk = true
+    }
+  }
+
   buildTypes {
     release {
       isMinifyEnabled = true

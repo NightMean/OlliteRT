@@ -100,25 +100,34 @@ jobs:
             -PAPP_VERSION_NAME=${{ steps.tag.outputs.version }} \
             -PAPP_VERSION_CODE=${{ github.run_number }}
 
-      - name: Find APK
-        id: apk
+      - name: Rename APKs
+        id: apks
         run: |
-          APK=$(find app/build/outputs/apk/${{ steps.tag.outputs.flavor }}/release -name '*.apk' | head -1)
-          if [ -z "$APK" ]; then
-            echo "::error::No APK found in app/build/outputs/apk/${{ steps.tag.outputs.flavor }}/release/"
-            exit 1
-          fi
-          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          TAG="${{ steps.tag.outputs.tag }}"
+          FLAVOR="${{ steps.tag.outputs.flavor }}"
+          OUT_DIR="app/build/outputs/apk/${FLAVOR}/release"
+          RELEASE_DIR="release-apks"
+          mkdir -p "$RELEASE_DIR"
 
-          # Rename to a user-friendly filename: OlliteRT-v1.2.3.apk
-          DEST="app/build/outputs/apk/${{ steps.tag.outputs.flavor }}/release/OlliteRT-${{ steps.tag.outputs.tag }}.apk"
-          mv "$APK" "$DEST"
-          echo "dest=$DEST" >> "$GITHUB_OUTPUT"
+          # ABI splits produce multiple APKs: app-<flavor>-arm64-v8a-release.apk, etc.
+          # Rename to user-friendly filenames for the GitHub Release.
+          for APK in "$OUT_DIR"/*.apk; do
+            BASENAME=$(basename "$APK")
+            if [[ "$BASENAME" == *"universal"* ]]; then
+              DEST="$RELEASE_DIR/OlliteRT-${TAG}-universal.apk"
+            elif [[ "$BASENAME" == *"arm64-v8a"* ]]; then
+              DEST="$RELEASE_DIR/OlliteRT-${TAG}-arm64-v8a.apk"
+            elif [[ "$BASENAME" == *"x86_64"* ]]; then
+              DEST="$RELEASE_DIR/OlliteRT-${TAG}-x86_64.apk"
+            else
+              DEST="$RELEASE_DIR/OlliteRT-${TAG}.apk"
+            fi
+            cp "$APK" "$DEST"
+            SIZE=$(stat -c%s "$DEST")
+            echo "$(basename "$DEST"): $(numfmt --to=iec-i --suffix=B $SIZE)"
+          done
 
-          # Report APK size for tracking
-          SIZE=$(stat -c%s "$DEST")
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "APK size: $(numfmt --to=iec-i --suffix=B $SIZE)"
+          echo "dir=$RELEASE_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -127,6 +136,6 @@ jobs:
           name: OlliteRT ${{ steps.tag.outputs.tag }}
           prerelease: ${{ steps.tag.outputs.prerelease }}
           generate_release_notes: true
-          files: Android/src/${{ steps.apk.outputs.dest }}
+          files: Android/src/${{ steps.apks.outputs.dir }}/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
