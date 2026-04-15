@@ -29,8 +29,9 @@ object LlmHttpPayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null): String {
     val status = ServerMetrics.status.value
+    val isIdle = ServerMetrics.isIdleUnloaded.value
     val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
       (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
     val info = buildMap {
@@ -38,8 +39,14 @@ object LlmHttpPayloadBuilders {
       put("version", JsonPrimitive(BuildConfig.VERSION_NAME))
       put("build", JsonPrimitive(BuildConfig.VERSION_CODE))
       put("git_hash", JsonPrimitive(BuildConfig.GIT_HASH))
-      put("status", JsonPrimitive(status.name.lowercase()))
-      activeModel?.let { put("model", JsonPrimitive(it.name)) }
+      // Report "idle" when model is unloaded due to keep_alive, matching /health behavior
+      val statusStr = when {
+        isIdle -> "idle"
+        else -> status.name.lowercase()
+      }
+      put("status", JsonPrimitive(statusStr))
+      val modelName = activeModel?.name ?: idleUnloadedModelName
+      modelName?.let { put("model", JsonPrimitive(it)) }
       uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
       val latestVersion = ServerMetrics.availableUpdateVersion.value
@@ -135,22 +142,29 @@ object LlmHttpPayloadBuilders {
 
   /**
    * Builds the JSON response for GET /v1/models/{id}.
-   * Returns null if the model ID doesn't match the active model.
+   * Returns null if the model ID doesn't match the active or idle-unloaded model.
    */
-  fun modelDetail(activeModel: Model?, uri: String, json: Json): String? {
+  fun modelDetail(activeModel: Model?, uri: String, json: Json, idleUnloadedModelName: String? = null): String? {
     val modelId = uri.removePrefix("/v1/models/")
     if (modelId.isBlank()) return null
-    val model = activeModel ?: return null
-    // Match against the currently loaded model
-    if (!model.name.equals(modelId, ignoreCase = true)) return null
-    val item = LlmHttpModelItem(
-      id = model.name,
-      capabilities = LlmHttpModelCapabilities(
-        image = model.llmSupportImage,
-        audio = model.llmSupportAudio,
-        thinking = model.llmSupportThinking && (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false,
-      ),
-    )
+    if (activeModel != null) {
+      // Match against the currently loaded model
+      if (!activeModel.name.equals(modelId, ignoreCase = true)) return null
+      val item = LlmHttpModelItem(
+        id = activeModel.name,
+        capabilities = LlmHttpModelCapabilities(
+          image = activeModel.llmSupportImage,
+          audio = activeModel.llmSupportAudio,
+          thinking = activeModel.llmSupportThinking && (activeModel.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false,
+        ),
+      )
+      return json.encodeToString(LlmHttpModelItem.serializer(), item)
+    }
+    // Model is idle-unloaded by keep_alive — return basic info without capabilities
+    // (capabilities require the Model object which isn't available when unloaded)
+    val idleName = idleUnloadedModelName ?: return null
+    if (!idleName.equals(modelId, ignoreCase = true)) return null
+    val item = LlmHttpModelItem(id = idleName)
     return json.encodeToString(LlmHttpModelItem.serializer(), item)
   }
 

@@ -145,13 +145,13 @@ class LlmHttpServer(
               okJsonText(body)
             }
             LlmHttpRouteHandler.SERVER_INFO -> {
-              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel)
+              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName)
               responseBodySnapshot = body
               okJsonText(body)
             }
             LlmHttpRouteHandler.VERSION -> {
               // Enhanced /api/version with update info from background UpdateCheckWorker
-              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel)
+              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName)
               responseBodySnapshot = body
               okJsonText(body)
             }
@@ -170,7 +170,7 @@ class LlmHttpServer(
               okJsonText(body)
             }
             LlmHttpRouteHandler.MODEL_DETAIL -> {
-              val body = LlmHttpPayloadBuilders.modelDetail(defaultModel, session.uri, json)
+              val body = LlmHttpPayloadBuilders.modelDetail(defaultModel, session.uri, json, keepAliveUnloadedModelName)
               if (body != null) {
                 responseBodySnapshot = body
                 okJsonText(body)
@@ -208,14 +208,15 @@ class LlmHttpServer(
             }
             LlmHttpRouteHandler.SERVER_RELOAD -> {
               // Trigger a model reload via the same intent the UI uses.
-              val model = defaultModel
-              if (model == null) {
+              // Also works when model is idle-unloaded by keep_alive — wakes it up.
+              val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
+              if (modelName == null) {
                 responseBodySnapshot = """{"success":false,"message":"No model loaded"}"""
                 badRequest("No model loaded")
               } else {
                 val reloadPort = ServerMetrics.port.value
-                LlmHttpService.reload(serviceContext, reloadPort, model.name)
-                val body = """{"success":true,"message":"Model reloading","model":"${model.name}"}"""
+                LlmHttpService.reload(serviceContext, reloadPort, modelName)
+                val body = """{"success":true,"message":"Model reloading","model":"$modelName"}"""
                 responseBodySnapshot = body
                 okJsonText(body)
               }
