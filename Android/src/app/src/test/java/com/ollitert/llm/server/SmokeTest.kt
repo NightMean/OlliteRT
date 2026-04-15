@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Basic JVM smoke tests for the gallery app.
+ * Basic JVM smoke tests for OlliteRT.
  */
 class SmokeTest {
 
