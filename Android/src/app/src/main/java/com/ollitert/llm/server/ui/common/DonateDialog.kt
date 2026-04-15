@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.ui.common
 
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import androidx.compose.foundation.background
@@ -51,14 +53,14 @@ fun DonateDialog(
   val uriHandler = LocalUriHandler.current
   AlertDialog(
     onDismissRequest = onDismiss,
-    title = { Text("Support OlliteRT") },
+    title = { Text(stringResource(R.string.dialog_donate_title)) },
     text = {
       Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         Text(
-          text = "If you find OlliteRT useful, consider supporting its development.",
+          text = stringResource(R.string.dialog_donate_body),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -77,7 +79,7 @@ fun DonateDialog(
           contentColor = MaterialTheme.colorScheme.onSurface,
         ),
       ) {
-        Text("Close")
+        Text(stringResource(R.string.close))
       }
     },
   )
@@ -103,7 +105,7 @@ fun EngagementPromptDialog(
     onDismissRequest = { onDismiss(dontShowAgain) },
     title = {
       Text(
-        text = "Enjoying OlliteRT?",
+        text = stringResource(R.string.dialog_engagement_title),
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.Bold,
       )
@@ -114,7 +116,7 @@ fun EngagementPromptDialog(
         verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         Text(
-          text = "This app is built and maintained by a solo developer in their spare time. If it's been useful to you, consider supporting its development.",
+          text = stringResource(R.string.dialog_engagement_body),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -139,7 +141,7 @@ fun EngagementPromptDialog(
             modifier = Modifier.size(20.dp),
           )
           Text(
-            text = "Support Development",
+            text = stringResource(R.string.label_support_development),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = OlliteRTPrimary,
@@ -165,7 +167,7 @@ fun EngagementPromptDialog(
             modifier = Modifier.size(20.dp),
           )
           Text(
-            text = "Star on GitHub",
+            text = stringResource(R.string.label_star_on_github),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -194,7 +196,7 @@ fun EngagementPromptDialog(
             colors = CheckboxDefaults.colors(checkedColor = OlliteRTPrimary),
           )
           Text(
-            text = "Don't show this again",
+            text = stringResource(R.string.label_dont_show_again),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -205,7 +207,7 @@ fun EngagementPromptDialog(
     dismissButton = {
       TextButton(onClick = { onDismiss(dontShowAgain) }) {
         Text(
-          text = "Not now",
+          text = stringResource(R.string.button_not_now),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }

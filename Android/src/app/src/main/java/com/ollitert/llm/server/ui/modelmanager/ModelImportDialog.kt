@@ -195,7 +195,7 @@ fun ModelImportDialog(
       ) {
         // Title.
         Text(
-          "Import Model",
+          stringResource(R.string.dialog_import_model_title),
           style = MaterialTheme.typography.titleLarge,
           modifier = Modifier.padding(bottom = 8.dp),
         )
@@ -214,7 +214,7 @@ fun ModelImportDialog(
           horizontalArrangement = Arrangement.End,
         ) {
           // Cancel button.
-          TextButton(onClick = { onDismiss() }) { Text("Cancel") }
+          TextButton(onClick = { onDismiss() }) { Text(stringResource(R.string.cancel)) }
 
           // Import button
           Button(
@@ -302,7 +302,7 @@ fun ModelImportDialog(
               onDone(importedModel)
             }
           ) {
-            Text("Import")
+            Text(stringResource(R.string.button_import))
           }
         }
       }
@@ -347,7 +347,7 @@ fun ModelImportingDialog(
       ) {
         // Title.
         Text(
-          "Import Model",
+          stringResource(R.string.dialog_import_model_title),
           style = MaterialTheme.typography.titleLarge,
           modifier = Modifier.padding(bottom = 8.dp),
         )
@@ -389,7 +389,7 @@ fun ModelImportingDialog(
             )
           }
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = { onDismiss() }) { Text("Close") }
+            Button(onClick = { onDismiss() }) { Text(stringResource(R.string.close)) }
           }
         }
       }

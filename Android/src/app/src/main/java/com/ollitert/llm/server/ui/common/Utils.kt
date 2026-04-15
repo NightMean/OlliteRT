@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.common
 
+import com.ollitert.llm.server.R
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -82,7 +83,7 @@ val SCREEN_CONTENT_MAX_WIDTH = 840.dp
 fun copyToClipboard(context: Context, label: String, text: String, formatSuffix: String? = null) {
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
   if (clipboard == null) {
-    Toast.makeText(context, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.toast_clipboard_unavailable), Toast.LENGTH_SHORT).show()
     return
   }
   clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
