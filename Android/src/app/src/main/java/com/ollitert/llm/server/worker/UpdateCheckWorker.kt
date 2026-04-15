@@ -127,7 +127,7 @@ class UpdateCheckWorker(
         Log.d(TAG, "User dismissed notification for ${release.tagName} — skipping notification")
         return Result.success(workDataOf(
           KEY_RESULT to RESULT_UPDATE_AVAILABLE,
-          KEY_MESSAGE to "Version $versionDisplay is available",
+          KEY_MESSAGE to context.getString(R.string.notif_update_available_body, versionDisplay),
         ))
       }
 
@@ -135,7 +135,7 @@ class UpdateCheckWorker(
 
       return Result.success(workDataOf(
         KEY_RESULT to RESULT_UPDATE_AVAILABLE,
-        KEY_MESSAGE to "Version $versionDisplay is available",
+        KEY_MESSAGE to context.getString(R.string.notif_update_available_body, versionDisplay),
       ))
 
     } catch (e: UpdateCheckException) {
@@ -397,8 +397,8 @@ class UpdateCheckWorker(
 
     val versionDisplay = release.tagName.removePrefix("v")
     val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
-      .setContentTitle("OlliteRT Update Available")
-      .setContentText("Version $versionDisplay is available")
+      .setContentTitle(context.getString(R.string.notif_update_available_title))
+      .setContentText(context.getString(R.string.notif_update_available_body, versionDisplay))
       .setSmallIcon(R.mipmap.ic_launcher_monochrome)
       .setContentIntent(contentIntent)
       .setDeleteIntent(dismissIntent)
