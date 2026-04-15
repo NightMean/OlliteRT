@@ -3,7 +3,9 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.copyToClipboard
@@ -204,7 +206,7 @@ fun SettingsScreen(
         val window = (context as? android.app.Activity)?.window
         if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
         val window = (context as? android.app.Activity)?.window
@@ -223,7 +225,7 @@ fun SettingsScreen(
         val window = (context as? android.app.Activity)?.window
         if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
         val window = (context as? android.app.Activity)?.window
@@ -610,7 +612,7 @@ fun SettingsScreen(
             if (vm.hfToken.isNotBlank()) {
               IconButton(onClick = {
                 vm.hfToken = ""
-                Toast.makeText(context, "Token cleared", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_token_cleared), Toast.LENGTH_SHORT).show()
               }) {
                 Icon(
                   imageVector = Icons.Outlined.Close,
@@ -816,7 +818,7 @@ fun SettingsScreen(
             tooltip = "Regenerate token",
             onClick = {
               vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
-              Toast.makeText(context, "Token regenerated — save to apply", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.toast_token_regenerated), Toast.LENGTH_SHORT).show()
             },
           )
         }
@@ -1646,8 +1648,8 @@ fun SettingsScreen(
     if (vm.showClearPersistedDialog) {
       AlertDialog(
         onDismissRequest = { vm.showClearPersistedDialog = false },
-        title = { Text("Clear All Logs") },
-        text = { Text("This will permanently delete all logs — both the current session and the database. This cannot be undone.") },
+        title = { Text(stringResource(R.string.dialog_clear_logs_title)) },
+        text = { Text(stringResource(R.string.dialog_clear_logs_body)) },
         confirmButton = {
           Button(
             onClick = {
@@ -1660,11 +1662,11 @@ fun SettingsScreen(
                 com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
               )
               persistenceEntryPoint.requestLogPersistence().clearPersistedLogs()
-              Toast.makeText(context, "All logs cleared", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
             },
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
           ) {
-            Text("Clear")
+            Text(stringResource(R.string.button_clear))
           }
         },
         dismissButton = {
@@ -1675,7 +1677,7 @@ fun SettingsScreen(
               contentColor = MaterialTheme.colorScheme.onSurface,
             ),
           ) {
-            Text("Cancel")
+            Text(stringResource(R.string.cancel))
           }
         },
       )
@@ -1683,13 +1685,13 @@ fun SettingsScreen(
 
     // Trim logs confirmation — shown when max entries is reduced below current count
     if (vm.showTrimLogsDialog) {
-      val currentCount = RequestLogStore.entries.value.size
+      val currentCount = RequestLogStore.entries.collectAsStateWithLifecycle().value.size
       val toRemove = currentCount - vm.logMaxEntries
       AlertDialog(
         onDismissRequest = { vm.showTrimLogsDialog = false },
-        title = { Text("Reduce Log Limit") },
+        title = { Text(stringResource(R.string.dialog_reduce_log_limit_title)) },
         text = {
-          Text("You currently have $currentCount logs. Reducing the limit to $vm.logMaxEntries will remove the $toRemove oldest entries after saving.")
+          Text(stringResource(R.string.dialog_reduce_log_limit_body, currentCount, vm.logMaxEntries, toRemove))
         },
         confirmButton = {
           Button(
@@ -1699,7 +1701,7 @@ fun SettingsScreen(
             },
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
           ) {
-            Text("Continue")
+            Text(stringResource(R.string.continue_button_label))
           }
         },
         dismissButton = {
@@ -1710,7 +1712,7 @@ fun SettingsScreen(
               contentColor = MaterialTheme.colorScheme.onSurface,
             ),
           ) {
-            Text("Cancel")
+            Text(stringResource(R.string.cancel))
           }
         },
       )
@@ -1720,15 +1722,15 @@ fun SettingsScreen(
     if (vm.showDiscardDialog) {
       AlertDialog(
         onDismissRequest = { vm.showDiscardDialog = false },
-        title = { Text("Unsaved Changes") },
-        text = { Text("You have unsaved changes. Would you like to save or discard them?") },
+        title = { Text(stringResource(R.string.dialog_unsaved_changes_title)) },
+        text = { Text(stringResource(R.string.dialog_unsaved_changes_body)) },
         confirmButton = {
           Button(onClick = {
             vm.showDiscardDialog = false
             performSave()
             onBackClick()
           }) {
-            Text("Save")
+            Text(stringResource(R.string.button_save))
           }
         },
         dismissButton = {
@@ -1739,7 +1741,7 @@ fun SettingsScreen(
           colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.error,
           )) {
-            Text("Discard")
+            Text(stringResource(R.string.button_discard))
           }
         },
       )
@@ -1750,33 +1752,33 @@ fun SettingsScreen(
       AlertDialog(
         onDismissRequest = {
           vm.showRestartDialog = false
-          Toast.makeText(context, "Settings saved. Restart the server manually for changes to take effect.", Toast.LENGTH_LONG).show()
+          Toast.makeText(context, context.getString(R.string.toast_settings_saved_restart_manual), Toast.LENGTH_LONG).show()
         },
-        title = { Text("Restart server?") },
+        title = { Text(stringResource(R.string.dialog_restart_server_title)) },
         text = {
-          Text("Some of the changed settings require a server restart to take effect.")
+          Text(stringResource(R.string.dialog_restart_server_body))
         },
         confirmButton = {
           Button(onClick = {
             vm.showRestartDialog = false
             onRestartServer()
-            Toast.makeText(context, "Server restarting with updated settings", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_server_restarting), Toast.LENGTH_SHORT).show()
           }) {
-            Text("Restart")
+            Text(stringResource(R.string.button_restart))
           }
         },
         dismissButton = {
           Button(
             onClick = {
               vm.showRestartDialog = false
-              Toast.makeText(context, "Settings saved. Restart the server manually for changes to take effect.", Toast.LENGTH_LONG).show()
+              Toast.makeText(context, context.getString(R.string.toast_settings_saved_restart_manual), Toast.LENGTH_LONG).show()
             },
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
               contentColor = MaterialTheme.colorScheme.onSurface,
             ),
           ) {
-            Text("Later")
+            Text(stringResource(R.string.button_later))
           }
         },
       )
@@ -1787,13 +1789,13 @@ fun SettingsScreen(
       val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
       AlertDialog(
         onDismissRequest = { vm.showResetDialog = false },
-        title = { Text("Reset to Defaults") },
+        title = { Text(stringResource(R.string.dialog_reset_defaults_title)) },
         text = {
           Text(
-            "This will reset all settings to their default values, including port, " +
-              "bearer token, HuggingFace token, inference configs, system prompts, " +
-              "and all toggles." +
-              if (isServerActive) "\n\nThe server will be stopped." else "",
+            stringResource(
+              if (isServerActive) R.string.dialog_reset_defaults_body_server_active
+              else R.string.dialog_reset_defaults_body,
+            ),
           )
         },
         confirmButton = {
@@ -1813,7 +1815,7 @@ fun SettingsScreen(
               val window = (context as? android.app.Activity)?.window
               window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-              Toast.makeText(context, "All settings reset to defaults", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.toast_settings_reset), Toast.LENGTH_SHORT).show()
 
               // Navigate to the Models screen
               onNavigateToModels()
@@ -1822,7 +1824,7 @@ fun SettingsScreen(
               containerColor = MaterialTheme.colorScheme.error,
             ),
           ) {
-            Text("Reset")
+            Text(stringResource(R.string.button_reset))
           }
         },
         dismissButton = {
@@ -1833,7 +1835,7 @@ fun SettingsScreen(
               contentColor = MaterialTheme.colorScheme.onSurface,
             ),
           ) {
-            Text("Cancel")
+            Text(stringResource(R.string.cancel))
           }
         },
       )

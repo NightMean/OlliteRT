@@ -1,4 +1,4 @@
-name: OlliteRT JVM Tests
+name: OlliteRT Build & Test
 
 on:
   push:
@@ -18,11 +18,11 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
-  group: jvm-tests-${{ github.ref }}
+  group: build-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test-jvm:
+  build-and-test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,6 +31,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # Needed for git rev-list --count (auto versionCode)
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -50,16 +53,31 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
+      - name: Build prodDebug APK
+        run: ./gradlew --no-daemon :app:assembleProdDebug
+
       - name: Run JVM unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        run: ./gradlew --no-daemon :app:testProdDebugUnitTest
+
+      - name: Run lint
+        run: ./gradlew --no-daemon :app:lintProdDebug
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: jvm-test-reports-${{ github.sha }}
+          name: test-reports-${{ github.sha }}
           path: |
-            Android/src/app/build/reports/tests/testDebugUnitTest/
-            Android/src/app/build/test-results/testDebugUnitTest/
+            Android/src/app/build/reports/tests/testProdDebugUnitTest/
+            Android/src/app/build/test-results/testProdDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lint-report-${{ github.sha }}
+          path: Android/src/app/build/reports/lint-results-prodDebug.html
           if-no-files-found: ignore
           retention-days: 14

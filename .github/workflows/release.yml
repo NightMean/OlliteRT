@@ -1,0 +1,132 @@
+name: Release OlliteRT APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.0.0, v1.0.0-beta.1)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Android/src
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # Full history needed for git rev-list --count (auto versionCode)
+          fetch-depth: 0
+
+      - name: Determine tag and channel
+        id: tag
+        run: |
+          # Use the pushed tag, or the manual input
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          # Extract version name: v1.2.3-beta.1 → 1.2.3-beta.1
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Determine channel and Gradle task from tag pattern
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "channel=prod" >> "$GITHUB_OUTPUT"
+            echo "task=assembleProdRelease" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "flavor=prod" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+            echo "task=assembleBetaRelease" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "flavor=beta" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$ ]]; then
+            echo "channel=dev" >> "$GITHUB_OUTPUT"
+            echo "task=assembleDevRelease" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "flavor=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unrecognized tag format: $TAG (expected vX.Y.Z, vX.Y.Z-beta.N, or vX.Y.Z-dev.N)"
+            exit 1
+          fi
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --licenses < /dev/null > /dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/release.keystore
+        working-directory: .
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Build signed APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon ${{ steps.tag.outputs.task }} \
+            -PAPP_VERSION_NAME=${{ steps.tag.outputs.version }} \
+            -PAPP_VERSION_CODE=${{ github.run_number }}
+
+      - name: Find APK
+        id: apk
+        run: |
+          APK=$(find app/build/outputs/apk/${{ steps.tag.outputs.flavor }}/release -name '*.apk' | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK found in app/build/outputs/apk/${{ steps.tag.outputs.flavor }}/release/"
+            exit 1
+          fi
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+
+          # Rename to a user-friendly filename: OlliteRT-v1.2.3.apk
+          DEST="app/build/outputs/apk/${{ steps.tag.outputs.flavor }}/release/OlliteRT-${{ steps.tag.outputs.tag }}.apk"
+          mv "$APK" "$DEST"
+          echo "dest=$DEST" >> "$GITHUB_OUTPUT"
+
+          # Report APK size for tracking
+          SIZE=$(stat -c%s "$DEST")
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "APK size: $(numfmt --to=iec-i --suffix=B $SIZE)"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: OlliteRT ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ steps.tag.outputs.prerelease }}
+          generate_release_notes: true
+          files: Android/src/${{ steps.apk.outputs.dest }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
