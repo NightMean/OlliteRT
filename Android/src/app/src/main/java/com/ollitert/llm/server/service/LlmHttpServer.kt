@@ -313,18 +313,28 @@ class LlmHttpServer(
    */
   private fun handleServerThinking(session: IHTTPSession): Pair<Response, String?> {
     val model = defaultModel
-    if (model == null) {
+    val isIdle = ServerMetrics.isIdleUnloaded.value
+    // Resolve model name: active model, or the model that was unloaded by keep_alive.
+    // Config is persisted in SharedPreferences so it can be read/written even when the model
+    // is idle-unloaded — no need to reload the model just to toggle thinking.
+    val modelName = model?.name ?: keepAliveUnloadedModelName
+    if (modelName == null) {
       val body = """{"success":false,"message":"No model loaded"}"""
       return badRequest("No model loaded") to body
     }
-    if (!model.llmSupportThinking) {
+    // When model is loaded, check thinking support. When idle-unloaded, skip the check —
+    // we can't inspect model capabilities without the Model object, but the saved config
+    // will be applied when the model reloads.
+    if (model != null && !model.llmSupportThinking) {
       val body = """{"success":false,"message":"Model does not support thinking"}"""
       return badRequest("Model does not support thinking") to body
     }
     val payload = HashMap<String, String>()
     session.parseBody(payload)
     val raw = payload["postData"] ?: ""
-    val currentState = model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
+    // Read current state from model if loaded, otherwise from persisted prefs
+    val currentConfig = model?.configValues ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName)
+    val currentState = (currentConfig?.get(ConfigKeys.ENABLE_THINKING.label) as? Boolean) ?: false
     // Parse { "enabled": true/false } — default to toggling current state
     val requestedState = if (raw.isNotBlank()) {
       try {
@@ -337,11 +347,14 @@ class LlmHttpServer(
       // No body = toggle
       !currentState
     }
-    model.configValues = model.configValues.toMutableMap().apply {
+    // Update in-memory config if model is loaded, always persist to prefs
+    val updatedConfig = (currentConfig ?: emptyMap()).toMutableMap().apply {
       put(ConfigKeys.ENABLE_THINKING.label, requestedState)
     }
-    // Persist and update metrics
-    LlmHttpPrefs.setInferenceConfig(serviceContext, model.name, model.configValues)
+    if (model != null) {
+      model.configValues = updatedConfig
+    }
+    LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
     // Log using the same "Settings updated" format as the Settings UI,
     // so the LogsScreen parser renders it with the proper card headline and arrow format.
@@ -349,11 +362,17 @@ class LlmHttpServer(
     val newLabel = if (requestedState) "enabled" else "disabled"
     RequestLogStore.addEvent(
       "Config via REST API (1 change)",
-      modelName = model.name,
+      modelName = modelName,
       category = EventCategory.SETTINGS,
       body = "Thinking: $oldLabel → $newLabel",
     )
-    val body = """{"success":true,"thinking_enabled":$requestedState,"model":"${model.name}"}"""
+    val result = org.json.JSONObject().apply {
+      put("success", true)
+      put("thinking_enabled", requestedState)
+      put("model", modelName)
+      put("model_loaded", !isIdle)
+    }
+    val body = result.toString()
     return okJsonText(body) to body
   }
 
@@ -363,61 +382,69 @@ class LlmHttpServer(
    */
   private fun handleServerConfig(session: IHTTPSession): Pair<Response, String?> {
     val model = defaultModel
-    if (model == null) {
+    val isIdle = ServerMetrics.isIdleUnloaded.value
+    // Resolve model name: active model, or the model that was unloaded by keep_alive.
+    // Config is persisted in SharedPreferences so it can be read/written even when the model
+    // is idle-unloaded — no need to reload the model just to change inference settings.
+    val modelName = model?.name ?: keepAliveUnloadedModelName
+    if (modelName == null) {
       val body = """{"success":false,"message":"No model loaded"}"""
       return badRequest("No model loaded") to body
     }
+    // Read config from model if loaded, otherwise from persisted prefs
+    val currentConfig = model?.configValues ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName) ?: emptyMap()
     val payload = HashMap<String, String>()
     session.parseBody(payload)
     val raw = payload["postData"] ?: ""
     if (raw.isBlank()) {
       // GET-like: return current config
       val current = org.json.JSONObject().apply {
-        val cfg = model.configValues
-        put("temperature", (cfg[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
-        put("max_tokens", (cfg[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
-        put("top_k", (cfg[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
-        put("top_p", (cfg[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
-        put("thinking_enabled", cfg[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
-        put("model", model.name)
+        put("temperature", (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+        put("max_tokens", (currentConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+        put("top_k", (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
+        put("top_p", (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
+        put("thinking_enabled", currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+        put("model", modelName)
+        put("model_loaded", !isIdle)
       }
       val body = current.toString()
       return okJsonText(body) to body
     }
     return try {
       val obj = org.json.JSONObject(raw)
-      val oldConfig = model.configValues
-      val updated = oldConfig.toMutableMap()
+      val updated = currentConfig.toMutableMap()
       // Each change is logged as "Name: old → new" to match the Settings UI format
       val changes = mutableListOf<String>()
       if (obj.has("temperature")) {
-        val old = (oldConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat()
+        val old = (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat()
         val v = obj.getDouble("temperature").toFloat()
         updated[ConfigKeys.TEMPERATURE.label] = v
         changes.add("Temperature: ${old ?: "unset"} → $v")
       }
       if (obj.has("max_tokens")) {
-        val old = (oldConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+        val old = (currentConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
         val v = obj.getInt("max_tokens")
         updated[ConfigKeys.MAX_TOKENS.label] = v
         changes.add("Max Tokens: ${old ?: "unset"} → $v")
       }
       if (obj.has("top_k")) {
-        val old = (oldConfig[ConfigKeys.TOPK.label] as? Number)?.toInt()
+        val old = (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt()
         val v = obj.getInt("top_k")
         updated[ConfigKeys.TOPK.label] = v
         changes.add("Top-K: ${old ?: "unset"} → $v")
       }
       if (obj.has("top_p")) {
-        val old = (oldConfig[ConfigKeys.TOPP.label] as? Number)?.toFloat()
+        val old = (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toFloat()
         val v = obj.getDouble("top_p").toFloat()
         updated[ConfigKeys.TOPP.label] = v
         changes.add("Top-P: ${old ?: "unset"} → $v")
       }
       if (obj.has("thinking_enabled")) {
         val v = obj.getBoolean("thinking_enabled")
-        if (model.llmSupportThinking) {
-          val old = oldConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
+        // When model is loaded, only allow thinking toggle if model supports it.
+        // When idle-unloaded, allow the change — it will be validated on model reload.
+        if (model == null || model.llmSupportThinking) {
+          val old = currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
           updated[ConfigKeys.ENABLE_THINKING.label] = v
           ServerMetrics.setThinkingEnabled(v)
           changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
@@ -427,20 +454,24 @@ class LlmHttpServer(
         val body = """{"success":false,"message":"No recognized fields in request. Supported: temperature, max_tokens, top_k, top_p, thinking_enabled"}"""
         badRequest("No recognized config fields") to body
       } else {
-        model.configValues = updated
-        LlmHttpPrefs.setInferenceConfig(serviceContext, model.name, updated)
+        // Update in-memory config if model is loaded, always persist to prefs
+        if (model != null) {
+          model.configValues = updated
+        }
+        LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updated)
         // Log using the same format as the Settings UI so the LogsScreen parser
         // renders it with the proper card headline and old→new arrow format.
         RequestLogStore.addEvent(
           "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
-          modelName = model.name,
+          modelName = modelName,
           category = EventCategory.SETTINGS,
           body = changes.joinToString("\n"),
         )
         // Return the full current config after applying changes
         val current = org.json.JSONObject().apply {
           put("success", true)
-          put("model", model.name)
+          put("model", modelName)
+          put("model_loaded", !isIdle)
           put("temperature", (updated[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
           put("max_tokens", (updated[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
           put("top_k", (updated[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
