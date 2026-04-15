@@ -62,10 +62,10 @@ object LlmHttpNotificationHelper {
       .setContentIntent(contentIntent)
       .setOngoing(true)
     if (stopIntent != null) {
-      builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Server", stopIntent)
+      builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, context.getString(R.string.notif_action_stop_server), stopIntent)
     }
     if (copyIntent != null) {
-      builder.addAction(android.R.drawable.ic_menu_share, "Copy URL", copyIntent)
+      builder.addAction(android.R.drawable.ic_menu_share, context.getString(R.string.notif_action_copy_url), copyIntent)
     }
     if (showProgress) {
       builder.setProgress(0, 0, true) // indeterminate progress bar
@@ -114,13 +114,14 @@ object LlmHttpNotificationHelper {
     cachedUpdateVersion: String?,
   ) {
     val count = ServerMetrics.requestCount.value
-    val reqLabel = if (count == 1L) "1 request" else "$count requests"
+    val reqLabel = if (count == 1L) context.getString(R.string.notif_server_body_requests_one)
+      else context.getString(R.string.notif_server_body_requests_many, count)
     // Append subtle "update available" line if a newer version was found by the background checker
-    val updateLine = if (cachedUpdateVersion != null) "\nUpdate available: ${cachedUpdateVersion.removePrefix("v")}" else ""
+    val updateLine = if (cachedUpdateVersion != null) "\n${context.getString(R.string.notif_server_body_update, cachedUpdateVersion.removePrefix("v"))}" else ""
     update(
       context = context,
-      title = "OlliteRT Server Running",
-      text = "Model: $modelName\nRequests: $reqLabel\nAPI URL: $endpointUrl$updateLine",
+      title = context.getString(R.string.notif_server_running_title),
+      text = "${context.getString(R.string.notif_server_body_model, modelName)}\n$reqLabel\n${context.getString(R.string.notif_server_body_url, endpointUrl)}$updateLine",
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,

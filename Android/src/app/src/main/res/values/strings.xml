@@ -163,6 +163,23 @@
   <string name="label_dont_ask_again_for_model">Don\'t ask again for this model</string>
   <string name="label_please_wait_model_loading">Please wait for the current model to finish loading</string>
 
+  <!-- Notification strings -->
+  <string name="notif_action_stop_server">Stop Server</string>
+  <string name="notif_action_copy_url">Copy URL</string>
+  <string name="notif_server_running_title">OlliteRT Server Running</string>
+  <string name="notif_server_body_model">Model: %1$s</string>
+  <string name="notif_server_body_requests_one">Requests: 1 request</string>
+  <string name="notif_server_body_requests_many">Requests: %1$d requests</string>
+  <string name="notif_server_body_url">API URL: %1$s</string>
+  <string name="notif_server_body_update">Update available: %1$s</string>
+  <string name="notif_starting_title">OlliteRT</string>
+  <string name="notif_starting_body">Starting…</string>
+  <string name="notif_loading_model_title">Loading model: %1$s</string>
+  <string name="notif_loading_model_body">Please wait, this may take a moment…</string>
+  <string name="notif_model_load_failed_title">Model Load Failed</string>
+  <string name="notif_update_available_title">OlliteRT Update Available</string>
+  <string name="notif_update_available_body">Version %1$s is available</string>
+
   <!-- Toast messages -->
   <string name="toast_settings_saved">Settings saved</string>
   <string name="toast_settings_saved_restart_manual">Settings saved. Restart the server manually for changes to take effect.</string>

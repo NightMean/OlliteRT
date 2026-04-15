@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.os.StatFs
 import android.os.SystemClock
 import android.util.Log
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
@@ -145,8 +146,8 @@ class LlmHttpService : Service() {
     )
     val placeholderNotification = LlmHttpNotificationHelper.build(
       context = this,
-      title = "OlliteRT",
-      text = "Starting…",
+      title = getString(R.string.notif_starting_title),
+      text = getString(R.string.notif_starting_body),
       contentIntent = placeholderContentIntent,
       showProgress = true,
     )
@@ -307,8 +308,8 @@ class LlmHttpService : Service() {
     // Replace the placeholder notification with the full loading notification
     LlmHttpNotificationHelper.update(
       context = this,
-      title = "Loading model: ${model.name}",
-      text = "Please wait, this may take a moment...",
+      title = getString(R.string.notif_loading_model_title, model.name),
+      text = getString(R.string.notif_loading_model_body),
       contentIntent = contentIntent,
       showProgress = true,
     )
@@ -511,8 +512,8 @@ class LlmHttpService : Service() {
         // Update notification to show running state with full actions
         LlmHttpNotificationHelper.update(
           context = this@LlmHttpService,
-          title = "OlliteRT Server Running",
-          text = "Model: ${model.name}\nAPI URL: $endpointUrl",
+          title = getString(R.string.notif_server_running_title),
+          text = "${getString(R.string.notif_server_body_model, model.name)}\n${getString(R.string.notif_server_body_url, endpointUrl)}",
           contentIntent = contentIntent,
           stopIntent = stopIntent,
           copyIntent = copyIntent,
@@ -546,7 +547,7 @@ class LlmHttpService : Service() {
         // Update notification to show error state
         LlmHttpNotificationHelper.update(
           context = this@LlmHttpService,
-          title = "Model Load Failed",
+          title = getString(R.string.notif_model_load_failed_title),
           text = msg,
           contentIntent = contentIntent,
           stopIntent = stopIntent,
