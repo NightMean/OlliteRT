@@ -73,6 +73,16 @@ class LlmHttpServer(
       return corsOk(requestOrigin)
     }
 
+    // Suppress /health log entries when the user has enabled "Hide Health Logs"
+    if (LlmHttpPrefs.isHideHealthLogs(serviceContext)) {
+      val route = LlmHttpRouteResolver.resolve(session.method, session.uri)
+      if (route?.handler == LlmHttpRouteHandler.HEALTH) {
+        val includeMetrics = session.parameters?.get("metrics")?.firstOrNull()?.equals("true", ignoreCase = true) == true
+        val body = LlmHttpPayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics)
+        return addCorsHeaders(okJsonText(body), requestOrigin)
+      }
+    }
+
     // Add a pending log entry immediately so it appears in the Logs tab
     val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
     RequestLogStore.add(

@@ -221,6 +221,8 @@
   <string name="settings_stream_response_preview_desc" translatable="false">Show model output as it generates in the Logs tab for streaming requests.</string>
   <string name="settings_compact_image_data" translatable="false">Compact Image Data in Logs</string>
   <string name="settings_compact_image_data_desc" translatable="false">Replace inline base64 image data with a size placeholder when storing log entries. Prevents UI lag from rendering multi-MB image payloads. Disable for full raw data in logs (may cause lag with large images).</string>
+  <string name="settings_hide_health_logs" translatable="false">Hide Health Logs</string>
+  <string name="settings_hide_health_logs_desc" translatable="false">Suppress /health endpoint entries from the Logs tab. Useful when monitoring tools poll frequently and create noise.</string>
   <string name="settings_clear_logs_on_stop" translatable="false">Clear Logs on Stop</string>
   <string name="settings_clear_logs_on_stop_desc" translatable="false">Automatically clear in-memory logs when the server stops.</string>
   <string name="settings_confirm_clear_logs" translatable="false">Confirm Before Clearing Logs</string>

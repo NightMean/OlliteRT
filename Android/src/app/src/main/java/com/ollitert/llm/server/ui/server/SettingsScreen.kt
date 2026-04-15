@@ -341,7 +341,7 @@ fun SettingsScreen(
       searchQuery = vm.searchQuery,
     ) {
       // Divider logic: only show between consecutive visible settings
-      val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "compact_image_data", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
+      val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "compact_image_data", "hide_health_logs", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
       val generalVisible = generalKeys.map { vm.settingVisible(it) }
 
       fun showGeneralDivider(index: Int): Boolean {
@@ -467,6 +467,35 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
       }
 
+      // Hide health logs toggle
+      if (vm.settingVisible("hide_health_logs")) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          SettingLabel(text = stringResource(R.string.settings_hide_health_logs), searchQuery = vm.searchQuery)
+          Text(
+            text = stringResource(R.string.settings_hide_health_logs_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Switch(
+          checked = vm.hideHealthLogs,
+          onCheckedChange = { vm.hideHealthLogs = it },
+          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+        )
+      }
+      } // if: hide_health_logs
+
+      if (showGeneralDivider(5)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
       // Clear logs on stop toggle
       if (vm.settingVisible("clear_logs_on_stop")) {
       Row(
@@ -490,7 +519,7 @@ fun SettingsScreen(
       }
       } // if: clear_logs_on_stop
 
-      if (showGeneralDivider(5)) {
+      if (showGeneralDivider(6)) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
@@ -519,7 +548,7 @@ fun SettingsScreen(
       }
       } // if: confirm_clear_logs
 
-      if (showGeneralDivider(6)) {
+      if (showGeneralDivider(7)) {
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
