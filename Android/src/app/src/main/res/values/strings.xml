@@ -324,7 +324,7 @@
   <string name="settings_truncate_history" translatable="false">Truncate Conversation History</string>
   <string name="settings_truncate_history_desc" translatable="false">When a request exceeds the model\'s context window, drop older messages from the conversation while keeping system prompts and the most recent messages.</string>
   <string name="settings_compact_tool_schemas" translatable="false">Compact Tool Schemas</string>
-  <string name="settings_compact_tool_schemas_desc" translatable="false">When a request with tools exceeds the model\'s context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for Home Assistant integration which sends many tool definitions.</string>
+  <string name="settings_compact_tool_schemas_desc" translatable="false">When a request with tools exceeds the model\'s context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for integrations that send many tool definitions.</string>
   <string name="settings_trim_prompt" translatable="false">Trim Prompt</string>
   <string name="settings_trim_prompt_desc" translatable="false">Last resort when other strategies aren\'t enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.</string>
   <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>
