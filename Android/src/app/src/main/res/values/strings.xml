@@ -260,8 +260,8 @@
   <string name="settings_start_on_boot" translatable="false">Start on Boot</string>
   <string name="settings_start_on_boot_desc_no_model" translatable="false">Select a default model above to enable.</string>
   <string name="settings_start_on_boot_desc" translatable="false">Launch server automatically when device starts.</string>
-  <string name="settings_keep_alive" translatable="false">Keep Alive</string>
-  <string name="settings_keep_alive_desc" translatable="false">Unload model after idle timeout to free RAM. Next request auto-reloads (cold start).</string>
+  <string name="settings_keep_alive" translatable="false">Keep Alive Timeout</string>
+  <string name="settings_keep_alive_desc" translatable="false">Model stays in RAM by default. Enable to unload after idle timeout and free memory. Next request auto-reloads (cold start).</string>
   <string name="settings_idle_timeout_label" translatable="false">Idle Timeout</string>
   <string name="settings_idle_timeout_desc" translatable="false">How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size).</string>
   <string name="settings_unit_minutes" translatable="false">minutes</string>
