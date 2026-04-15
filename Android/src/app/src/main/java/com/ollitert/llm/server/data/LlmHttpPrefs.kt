@@ -60,6 +60,10 @@ private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 private const val KEY_COMPACT_IMAGE_DATA = "compact_image_data"
 private const val DEFAULT_COMPACT_IMAGE_DATA = true
 
+// --- Hide Health Logs (suppress /health endpoint entries from the Logs tab) ---
+private const val KEY_HIDE_HEALTH_LOGS = "hide_health_logs"
+private const val DEFAULT_HIDE_HEALTH_LOGS = false
+
 // --- Engagement Prompt (donation/support prompt shown after N manual server starts) ---
 private const val KEY_MANUAL_START_COUNT = "manual_start_count"
 private const val KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED = "engagement_prompt_permanently_dismissed"
@@ -483,6 +487,13 @@ object LlmHttpPrefs {
 
   fun setCompactImageData(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_COMPACT_IMAGE_DATA, enabled).apply()
+  }
+
+  fun isHideHealthLogs(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_HIDE_HEALTH_LOGS, DEFAULT_HIDE_HEALTH_LOGS)
+
+  fun setHideHealthLogs(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_HIDE_HEALTH_LOGS, enabled).apply()
   }
 
   // --- Update Check ---
