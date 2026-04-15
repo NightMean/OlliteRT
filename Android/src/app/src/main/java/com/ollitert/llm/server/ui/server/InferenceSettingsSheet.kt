@@ -143,10 +143,10 @@ fun InferenceSettingsSheet(
       "topP" to (range(ConfigKeys.TOPP) ?: (0f to 1f)),
     )
   }
-  val tempRange = limits["temp"]!!
-  val maxTokensRange = limits["maxTokens"]!!
-  val topKRange = limits["topK"]!!
-  val topPRange = limits["topP"]!!
+  val tempRange = limits.getValue("temp")
+  val maxTokensRange = limits.getValue("maxTokens")
+  val topKRange = limits.getValue("topK")
+  val topPRange = limits.getValue("topP")
 
   // Build default values map from model's config definitions
   val defaults = remember(model) {
