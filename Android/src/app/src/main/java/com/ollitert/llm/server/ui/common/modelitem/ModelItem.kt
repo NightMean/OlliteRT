@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.Model
@@ -145,7 +146,7 @@ fun ModelItem(
 
       // Loading hint / error text
       if (isModelError) {
-        val errorText = formatModelError(lastError)
+        val errorText = formatModelError(LocalContext.current, lastError)
         Text(
           text = errorText,
           style = MaterialTheme.typography.bodySmall,
@@ -156,7 +157,7 @@ fun ModelItem(
         )
       } else if (isModelLoading) {
         Text(
-          text = "Sit tight — this may take a couple of minutes depending on your device",
+          text = stringResource(R.string.model_loading_hint),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           textAlign = TextAlign.Center,
@@ -185,7 +186,7 @@ fun ModelItem(
       if (isActiveModel || isModelLoading || downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED || model.imported) {
         TooltipIconButton(
           icon = Icons.Outlined.Settings,
-          tooltip = "Inference settings",
+          tooltip = stringResource(R.string.model_tooltip_inference_settings),
           onClick = { showInferenceSettings = true },
         )
       }

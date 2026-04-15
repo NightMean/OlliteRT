@@ -600,4 +600,107 @@
   <!-- LogClipboardExport -->
   <string name="logs_export_chooser_title" translatable="false">Export OlliteRT Logs</string>
 
+  <!-- Models screen, navigation & common UI labels -->
+
+  <!-- Navigation: Bottom bar tab labels -->
+  <string name="nav_tab_models" translatable="false">Models</string>
+  <string name="nav_tab_status" translatable="false">Status</string>
+  <string name="nav_tab_logs" translatable="false">Logs</string>
+
+  <!-- Navigation: Storage/memory bars -->
+  <string name="nav_storage_free_of" translatable="false">%1$s free of %2$s</string>
+  <string name="nav_memory_app_pss" translatable="false"> · App %1$s</string>
+
+  <!-- Top bar -->
+  <string name="topbar_back" translatable="false">Back</string>
+  <string name="topbar_brand_dev" translatable="false">OlliteRT Dev</string>
+  <string name="topbar_brand_beta" translatable="false">OlliteRT Beta</string>
+  <string name="topbar_brand" translatable="false">OlliteRT</string>
+  <string name="topbar_settings" translatable="false">Settings</string>
+
+  <!-- Status pill labels -->
+  <string name="status_pill_stopped" translatable="false">STOPPED</string>
+  <string name="status_pill_starting" translatable="false">STARTING</string>
+  <string name="status_pill_running" translatable="false">RUNNING</string>
+  <string name="status_pill_error" translatable="false">ERROR</string>
+
+  <!-- Getting Started screen -->
+  <string name="getting_started_subtitle" translatable="false">Turn your device into a local OpenAI-compatible server capable of hosting powerful, optimized LLMs</string>
+  <string name="getting_started_permission_notice" translatable="false">You\u2019ll be asked for notification and battery optimization permissions to keep the server running reliably.</string>
+  <string name="getting_started_button" translatable="false">Get Started</string>
+  <string name="getting_started_learn_more" translatable="false">Learn More</string>
+  <string name="getting_started_hero_line1" translatable="false">Your Private\n</string>
+  <string name="getting_started_hero_highlight" translatable="false">On-Device</string>
+  <string name="getting_started_hero_line3" translatable="false">\nLLM Server</string>
+  <string name="getting_started_step1_title" translatable="false">Download a model</string>
+  <string name="getting_started_step1_desc" translatable="false">Select from our optimized catalog or import local files</string>
+  <string name="getting_started_step2_title" translatable="false">Start the server</string>
+  <string name="getting_started_step2_desc" translatable="false">Initialize the inference engine with local hardware</string>
+  <string name="getting_started_step3_title" translatable="false">Connect your client</string>
+  <string name="getting_started_step3_desc" translatable="false">Point any OpenAI-compatible app to your local IP</string>
+
+  <!-- Models screen: Search & filters -->
+  <string name="models_clear_search" translatable="false">Clear search</string>
+  <string name="models_filter_capabilities" translatable="false">Capabilities</string>
+  <string name="models_tooltip_more_filters" translatable="false">More filters</string>
+  <string name="models_tooltip_sort" translatable="false">Sort models</string>
+  <string name="models_sort_default" translatable="false">Default</string>
+  <string name="models_sort_name" translatable="false">Name</string>
+  <string name="models_sort_size" translatable="false">Size</string>
+
+  <!-- Models screen: Capability chip labels -->
+  <string name="capability_text" translatable="false">Text</string>
+  <string name="capability_vision" translatable="false">Vision</string>
+  <string name="capability_audio" translatable="false">Audio</string>
+  <string name="capability_thinking" translatable="false">Thinking</string>
+
+  <!-- Models screen: Error/empty states -->
+  <string name="models_failed_to_load" translatable="false">Failed to load models</string>
+
+  <!-- Models screen: Import -->
+  <string name="toast_model_imported" translatable="false">Model imported successfully</string>
+
+  <!-- Models screen: Permission warning -->
+  <string name="models_permission_notification" translatable="false">notification access</string>
+  <string name="models_permission_battery" translatable="false">battery optimization exemption</string>
+  <string name="models_permission_warning" translatable="false">Missing %1$s — the server may be stopped by the system while running in the background. Tap to open settings.</string>
+
+  <!-- Model item: Loading/status hints -->
+  <string name="model_loading_hint" translatable="false">Sit tight — this may take a couple of minutes depending on your device</string>
+  <string name="model_tooltip_inference_settings" translatable="false">Inference settings</string>
+  <string name="model_tooltip_delete" translatable="false">Delete model</string>
+
+  <!-- Model status labels -->
+  <string name="model_status_unzipping" translatable="false">Unzipping…</string>
+  <string name="model_status_resuming_suffix" translatable="false"> (resuming…)</string>
+
+  <!-- Model download panel -->
+  <string name="model_stop_server_for_benchmark" translatable="false">Stop the server first to run benchmarks</string>
+  <string name="model_loading_hint_wait" translatable="false">Please wait for the current model to finish loading</string>
+
+  <!-- Model list: Links -->
+  <string name="model_link_api_docs" translatable="false">API Documentation</string>
+  <string name="model_link_example_code" translatable="false">Example code</string>
+
+  <!-- Model picker -->
+  <string name="model_picker_section_title" translatable="false">%1$s models</string>
+
+  <!-- Donate dialog: Platform labels -->
+  <string name="donate_github_sponsors" translatable="false">GitHub Sponsors</string>
+  <string name="donate_buy_me_a_coffee" translatable="false">Buy Me a Coffee</string>
+  <string name="donate_kofi" translatable="false">Ko-fi</string>
+
+  <!-- Common: Clipboard toast -->
+  <string name="toast_copied_to_clipboard" translatable="false">Copied to clipboard</string>
+  <string name="toast_copied_to_clipboard_format" translatable="false">Copied to clipboard (%1$s)</string>
+
+  <!-- Common: Model error messages -->
+  <string name="error_model_load_failed" translatable="false">Failed to load model</string>
+  <string name="error_model_load_failed_short" translatable="false">Failed to load — check Logs for details</string>
+  <string name="error_model_load_failed_detail" translatable="false">Failed to load: %1$s</string>
+
+  <!-- Common: Import errors -->
+  <string name="error_import_failed" translatable="false">Failed to import</string>
+  <string name="error_import_finalize_failed" translatable="false">Failed to finalize import: %1$s</string>
+
 </resources>

@@ -452,7 +452,7 @@ private fun importModel(
       e.printStackTrace()
       // Clean up partial .tmp file on failure
       try { tmpFile.delete() } catch (_: Exception) {}
-      onError(e.message ?: "Failed to import")
+      onError(e.message ?: context.getString(R.string.error_import_failed))
       return@launch
     } finally {
       inputStream?.close()
@@ -466,7 +466,7 @@ private fun importModel(
         tmpFile.delete()
       } catch (e: Exception) {
         try { tmpFile.delete() } catch (_: Exception) {}
-        onError("Failed to finalize import: ${e.message}")
+        onError(context.getString(R.string.error_import_finalize_failed, e.message ?: ""))
         return@launch
       }
     }

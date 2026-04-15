@@ -49,9 +49,11 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTSurfaceContainerHigh
@@ -133,7 +135,7 @@ fun GettingStartedScreen(
 
     // Subtitle
     Text(
-      text = "Turn your device into a local OpenAI-compatible server capable of hosting powerful, optimized LLMs",
+      text = stringResource(R.string.getting_started_subtitle),
       style = MaterialTheme.typography.bodyLarge.copy(
         fontSize = 17.sp,
         lineHeight = 26.sp,
@@ -152,7 +154,7 @@ fun GettingStartedScreen(
 
     // Permission notice — notification + battery optimization
     Text(
-      text = "You\u2019ll be asked for notification and battery optimization permissions to keep the server running reliably.",
+      text = stringResource(R.string.getting_started_permission_notice),
       style = MaterialTheme.typography.bodyLarge.copy(
         fontSize = 14.sp,
         lineHeight = 20.sp,
@@ -191,7 +193,7 @@ fun GettingStartedScreen(
         contentAlignment = Alignment.Center,
       ) {
         Text(
-          text = "Get Started",
+          text = stringResource(R.string.getting_started_button),
           style = MaterialTheme.typography.labelLarge.copy(
             fontFamily = SpaceGroteskFontFamily,
             fontSize = 18.sp,
@@ -214,7 +216,7 @@ fun GettingStartedScreen(
       },
     ) {
       Text(
-        text = "Learn More",
+        text = stringResource(R.string.getting_started_learn_more),
         style = MaterialTheme.typography.bodyMedium.copy(
           fontSize = 14.sp,
           fontWeight = FontWeight.Bold,
@@ -242,13 +244,13 @@ private fun HeroTitle() {
   Text(
     text = buildAnnotatedString {
       withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) {
-        append("Your Private\n")
+        append(stringResource(R.string.getting_started_hero_line1))
       }
       withStyle(SpanStyle(brush = gradientBrush, fontWeight = FontWeight.Bold)) {
-        append("On-Device")
+        append(stringResource(R.string.getting_started_hero_highlight))
       }
       withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) {
-        append("\nLLM Server")
+        append(stringResource(R.string.getting_started_hero_line3))
       }
     },
     style = MaterialTheme.typography.displayLarge.copy(
@@ -265,9 +267,9 @@ private fun HeroTitle() {
 @Composable
 private fun SetupSteps() {
   val steps = listOf(
-    Pair("Download a model", "Select from our optimized catalog or import local files"),
-    Pair("Start the server", "Initialize the inference engine with local hardware"),
-    Pair("Connect your client", "Point any OpenAI-compatible app to your local IP"),
+    Pair(stringResource(R.string.getting_started_step1_title), stringResource(R.string.getting_started_step1_desc)),
+    Pair(stringResource(R.string.getting_started_step2_title), stringResource(R.string.getting_started_step2_desc)),
+    Pair(stringResource(R.string.getting_started_step3_title), stringResource(R.string.getting_started_step3_desc)),
   )
 
   Column(

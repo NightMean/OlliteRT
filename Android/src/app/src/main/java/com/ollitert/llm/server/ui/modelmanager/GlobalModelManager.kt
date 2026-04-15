@@ -153,17 +153,17 @@ enum class ModelFilter {
 }
 
 /** Capability filter for models. */
-enum class CapabilityFilter(val label: String) {
-  VISION("Vision"),
-  AUDIO("Audio"),
-  THINKING("Thinking"),
+enum class CapabilityFilter(val labelResId: Int) {
+  VISION(R.string.capability_vision),
+  AUDIO(R.string.capability_audio),
+  THINKING(R.string.capability_thinking),
 }
 
 /** Sort mode for the models list. */
-enum class ModelSort(val label: String) {
-  DEFAULT("Default"),
-  ALPHABETICAL("Name"),
-  SIZE("Size"),
+enum class ModelSort(val labelResId: Int) {
+  DEFAULT(R.string.models_sort_default),
+  ALPHABETICAL(R.string.models_sort_name),
+  SIZE(R.string.models_sort_size),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -349,7 +349,7 @@ fun GlobalModelManager(
       // Block model selection while a model is loading to prevent OOM from concurrent warmups
       Toast.makeText(
         context,
-        "Please wait for the current model to finish loading",
+        context.getString(R.string.label_please_wait_model_loading),
         Toast.LENGTH_SHORT,
       ).show()
     } else {
@@ -413,7 +413,7 @@ fun GlobalModelManager(
               IconButton(onClick = { searchQuery = "" }) {
                 Icon(
                   Icons.Outlined.Close,
-                  contentDescription = "Clear search",
+                  contentDescription = stringResource(R.string.models_clear_search),
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
@@ -511,7 +511,7 @@ fun GlobalModelManager(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
               // Capability section
               Text(
-                "Capabilities",
+                stringResource(R.string.models_filter_capabilities),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -523,7 +523,7 @@ fun GlobalModelManager(
                 CapabilityFilter.entries.forEach { cap ->
                   val isSelected = cap in activeCapabilities
                   ModelFilterChip(
-                    label = cap.label,
+                    label = stringResource(cap.labelResId),
                     selected = isSelected,
                     onClick = {
                       activeCapabilities = if (isSelected) activeCapabilities - cap
@@ -550,9 +550,11 @@ fun GlobalModelManager(
       if ((missingNotifPermission || missingBatteryExemption) && !uiState.loadingModelAllowlist) {
         item(key = "permission_warning_banner") {
           // Build a message tailored to which permissions are missing
+          val notifLabel = stringResource(R.string.models_permission_notification)
+          val batteryLabel = stringResource(R.string.models_permission_battery)
           val issues = buildList {
-            if (missingNotifPermission) add("notification access")
-            if (missingBatteryExemption) add("battery optimization exemption")
+            if (missingNotifPermission) add(notifLabel)
+            if (missingBatteryExemption) add(batteryLabel)
           }
           val issueText = issues.joinToString(" and ")
 
@@ -581,7 +583,7 @@ fun GlobalModelManager(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              text = "Missing $issueText — the server may be stopped by the system while running in the background. Tap to open settings.",
+              text = stringResource(R.string.models_permission_warning, issueText),
               style = MaterialTheme.typography.bodySmall,
               color = OlliteRTWarningText,
               modifier = Modifier.weight(1f),
@@ -694,7 +696,7 @@ fun GlobalModelManager(
               horizontalAlignment = Alignment.CenterHorizontally,
             ) {
               Text(
-                text = "Failed to load models",
+                text = stringResource(R.string.models_failed_to_load),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
@@ -714,7 +716,7 @@ fun GlobalModelManager(
                   viewModel.loadModelAllowlist()
                 },
               ) {
-                Text("Retry")
+                Text(stringResource(R.string.retry))
               }
             }
           } else {
@@ -839,7 +841,7 @@ fun GlobalModelManager(
           onDone = {
             viewModel.addImportedLlmModel(info = it)
             showImportingDialog = false
-            scope.launch { snackbarHostState.showSnackbar("Model imported successfully") }
+            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.toast_model_imported)) }
           },
         )
       }
@@ -964,7 +966,7 @@ private fun MoreFiltersButton(
 ) {
   TooltipIconButton(
     icon = Icons.Outlined.FilterList,
-    tooltip = "More filters",
+    tooltip = stringResource(R.string.models_tooltip_more_filters),
     onClick = onClick,
     backgroundColor = if (active) OlliteRTPrimary else MaterialTheme.colorScheme.surfaceContainerHigh,
     tint = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -983,7 +985,7 @@ private fun SortButton(
   Box {
     TooltipIconButton(
       icon = Icons.AutoMirrored.Outlined.Sort,
-      tooltip = "Sort models",
+      tooltip = stringResource(R.string.models_tooltip_sort),
       onClick = { onToggleDropdown() },
       backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     )
@@ -998,7 +1000,7 @@ private fun SortButton(
         DropdownMenuItem(
           text = {
             Text(
-              sort.label,
+              stringResource(sort.labelResId),
               color = if (isActive) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
             )
           },

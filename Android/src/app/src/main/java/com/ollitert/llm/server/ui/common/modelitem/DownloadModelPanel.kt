@@ -105,7 +105,7 @@ fun DownloadModelPanel(
         }
         // Invisible overlay to show toast when disabled
         if (isServerActive) {
-          LoadingBlockingOverlay("Stop the server first to run benchmarks")
+          LoadingBlockingOverlay(stringResource(R.string.model_stop_server_for_benchmark))
         }
       }
 

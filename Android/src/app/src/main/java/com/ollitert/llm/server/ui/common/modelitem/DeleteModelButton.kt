@@ -24,6 +24,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
@@ -47,7 +49,7 @@ fun DeleteModelButton(
     val tint = if (isModelInUse) OlliteRTDeleteRed.copy(alpha = 0.3f) else OlliteRTDeleteRed
     TooltipIconButton(
       icon = Icons.Outlined.Delete,
-      tooltip = "Delete model",
+      tooltip = stringResource(R.string.model_tooltip_delete),
       onClick = { showConfirmDeleteDialog = true },
       modifier = modifier,
       tint = tint,
