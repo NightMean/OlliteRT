@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
@@ -950,32 +951,61 @@ internal fun PendingResponseSection(entryId: String, partialText: String?) {
   val pendingPartial by RequestLogStore.pendingPartialText.collectAsStateWithLifecycle()
   val liveText = if (pendingPartial.first == entryId) pendingPartial.second else partialText
 
-  Column(
+  Box(
     modifier = Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(12.dp))
       .background(MaterialTheme.colorScheme.surfaceContainerLowest)
       .padding(horizontal = 12.dp, vertical = 14.dp),
   ) {
-    // Show partial text if tokens have started arriving.
-    // Strip <think>...</think> tags so they don't appear as raw text to the user.
-    val displayText = remember(liveText) {
-      liveText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+    // Text content — end padding prevents overlap with the stop button
+    Column(modifier = Modifier.fillMaxWidth().padding(end = 34.dp)) {
+      // Show partial text if tokens have started arriving.
+      // Strip <think>...</think> tags so they don't appear as raw text to the user.
+      val displayText = remember(liveText) {
+        liveText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+      }
+      if (!displayText.isNullOrEmpty()) {
+        Text(
+          text = displayText,
+          style = MaterialTheme.typography.bodySmall.copy(
+            fontFamily = SpaceGroteskFontFamily,
+            fontSize = 11.sp,
+          ),
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+      }
+      // Isolated into its own composable so the dots animation isn't invalidated
+      // by partialText layout changes above.
+      GeneratingStatusRow(entryId = entryId)
     }
-    if (!displayText.isNullOrEmpty()) {
-      Text(
-        text = displayText,
-        style = MaterialTheme.typography.bodySmall.copy(
-          fontFamily = SpaceGroteskFontFamily,
-          fontSize = 11.sp,
-        ),
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-      Spacer(modifier = Modifier.height(10.dp))
+    // Stop button — pinned to the top-right corner of the response container.
+    // Wrapped in a Box with align so the TooltipBox inherits the correct position.
+    @OptIn(ExperimentalMaterial3Api::class)
+    Box(modifier = Modifier.align(Alignment.TopEnd)) {
+      TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_stop_generation)) } },
+        state = rememberTooltipState(),
+      ) {
+        Box(
+          modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(CancelledColor.copy(alpha = 0.15f))
+            .clickable { RequestLogStore.cancelRequest(entryId) },
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.StopCircle,
+            contentDescription = stringResource(R.string.logs_tooltip_stop_generation),
+            tint = CancelledColor,
+            modifier = Modifier.size(16.dp),
+          )
+        }
+      }
     }
-    // Isolated into its own composable so the dots animation isn't invalidated
-    // by partialText layout changes above.
-    GeneratingStatusRow(entryId = entryId)
   }
 }
 
@@ -987,6 +1017,9 @@ internal fun PendingResponseSection(entryId: String, partialText: String?) {
 internal fun GeneratingStatusRow(entryId: String) {
   val generatingText = remember(entryId) { GeneratingMessages.pick() }
   Row(
+    // minHeight matches the 28dp stop button that overlays this row via the parent Box,
+    // keeping the generating text vertically centered at the same position as before.
+    modifier = Modifier.defaultMinSize(minHeight = 28.dp),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
@@ -1000,30 +1033,6 @@ internal fun GeneratingStatusRow(entryId: String) {
       fontWeight = FontWeight.SemiBold,
     )
     BouncingDots()
-    Spacer(modifier = Modifier.weight(1f))
-    // Stop button — cancels the in-flight inference from the Logs screen
-    @OptIn(ExperimentalMaterial3Api::class)
-    TooltipBox(
-      positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-      tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_stop_generation)) } },
-      state = rememberTooltipState(),
-    ) {
-      Box(
-        modifier = Modifier
-          .size(28.dp)
-          .clip(RoundedCornerShape(8.dp))
-          .background(CancelledColor.copy(alpha = 0.15f))
-          .clickable { RequestLogStore.cancelRequest(entryId) },
-        contentAlignment = Alignment.Center,
-      ) {
-        Icon(
-          imageVector = Icons.Outlined.StopCircle,
-          contentDescription = stringResource(R.string.logs_tooltip_stop_generation),
-          tint = CancelledColor,
-          modifier = Modifier.size(16.dp),
-        )
-      }
-    }
   }
 }
 
