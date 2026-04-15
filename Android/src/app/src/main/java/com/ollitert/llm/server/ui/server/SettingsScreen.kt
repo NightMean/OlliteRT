@@ -244,7 +244,7 @@ fun SettingsScreen(
     onSetTopBarTrailingContent {
       TooltipIconButton(
         icon = Icons.Outlined.Save,
-        tooltip = "Save settings",
+        tooltip = stringResource(R.string.settings_save_tooltip),
         onClick = { currentSave() },
         tint = OlliteRTPrimary,
       )
@@ -270,12 +270,12 @@ fun SettingsScreen(
   ) {
     // Heading
     Text(
-      text = "Global Settings",
+      text = stringResource(R.string.settings_heading),
       style = MaterialTheme.typography.headlineMedium,
       color = MaterialTheme.colorScheme.onSurface,
     )
     Text(
-      text = "Configure server behavior, authentication, and preferences.",
+      text = stringResource(R.string.settings_subheading),
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -287,7 +287,7 @@ fun SettingsScreen(
       value = vm.searchQuery,
       onValueChange = { vm.searchQuery = it },
       modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-      placeholder = { Text("Search settings...", style = MaterialTheme.typography.bodyLarge) },
+      placeholder = { Text(stringResource(R.string.settings_search_placeholder), style = MaterialTheme.typography.bodyLarge) },
       leadingIcon = {
         Icon(
           Icons.Outlined.Search,
@@ -300,7 +300,7 @@ fun SettingsScreen(
           IconButton(onClick = { vm.searchQuery = "" }) {
             Icon(
               Icons.Outlined.Close,
-              contentDescription = "Clear search",
+              contentDescription = stringResource(R.string.settings_search_clear),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
@@ -322,7 +322,7 @@ fun SettingsScreen(
     // "No results" message when search has no matches
     if (vm.searchQuery.isNotBlank() && listOf("general","hf_token","server_config","auto_launch","metrics","log_persistence","home_assistant","advanced","developer","reset").none { vm.cardVisible(it) }) {
       Text(
-        text = "No settings match \"$vm.searchQuery\"",
+        text = stringResource(R.string.settings_no_results, vm.searchQuery),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 32.dp).align(Alignment.CenterHorizontally),
@@ -337,7 +337,7 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.PhoneAndroid,
-      title = "General",
+      title = stringResource(R.string.settings_card_general),
       searchQuery = vm.searchQuery,
     ) {
       // Divider logic: only show between consecutive visible settings
@@ -357,9 +357,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Keep Screen Awake", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_keep_screen_awake), searchQuery = vm.searchQuery)
           Text(
-            text = "Prevent screen from turning off while app is open.",
+            text = stringResource(R.string.settings_keep_screen_awake_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -388,9 +388,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Auto-Expand Logs", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_auto_expand_logs), searchQuery = vm.searchQuery)
           Text(
-            text = "Show full request and response bodies in the Logs tab.",
+            text = stringResource(R.string.settings_auto_expand_logs_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -417,9 +417,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Stream Response Preview", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_stream_response_preview), searchQuery = vm.searchQuery)
           Text(
-            text = "Show model output as it generates in the Logs tab for streaming requests.",
+            text = stringResource(R.string.settings_stream_response_preview_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -446,11 +446,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Compact Image Data in Logs", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_compact_image_data), searchQuery = vm.searchQuery)
           Text(
-            text = "Replace inline base64 image data with a size placeholder when storing log entries. " +
-              "Prevents UI lag from rendering multi-MB image payloads. " +
-              "Disable for full raw data in logs (may cause lag with large images).",
+            text = stringResource(R.string.settings_compact_image_data_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -477,9 +475,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Clear Logs on Stop", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_clear_logs_on_stop), searchQuery = vm.searchQuery)
           Text(
-            text = "Automatically clear in-memory logs when the server stops.",
+            text = stringResource(R.string.settings_clear_logs_on_stop_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -506,9 +504,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Confirm Before Clearing Logs", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_confirm_clear_logs), searchQuery = vm.searchQuery)
           Text(
-            text = "Show a confirmation dialog before clearing logs.",
+            text = stringResource(R.string.settings_confirm_clear_logs_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -535,9 +533,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Keep Partial Response", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_keep_partial_response), searchQuery = vm.searchQuery)
           Text(
-            text = "Preserve incomplete response text in logs when a streaming request is cancelled by the client.",
+            text = stringResource(R.string.settings_keep_partial_response_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -561,11 +559,11 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.Key,
-      title = "Hugging Face Token",
+      title = stringResource(R.string.settings_card_hf_token),
       searchQuery = vm.searchQuery,
     ) {
       Text(
-        text = "Required for downloading models from Hugging Face. Get your token from",
+        text = stringResource(R.string.settings_hf_token_desc),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -582,7 +580,7 @@ fun SettingsScreen(
               ),
             ),
           ) {
-            append("huggingface.co/settings/tokens")
+            append(context.getString(R.string.settings_hf_token_link_text))
           }
         },
         style = MaterialTheme.typography.bodySmall,
@@ -595,7 +593,7 @@ fun SettingsScreen(
         visualTransformation = if (vm.hfTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
         placeholder = {
           Text(
-            "hf_...",
+            stringResource(R.string.settings_hf_token_placeholder),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
           )
@@ -605,7 +603,7 @@ fun SettingsScreen(
             IconButton(onClick = { vm.hfTokenVisible = !vm.hfTokenVisible }) {
               Icon(
                 imageVector = if (vm.hfTokenVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                contentDescription = if (vm.hfTokenVisible) "Hide token" else "Show token",
+                contentDescription = stringResource(if (vm.hfTokenVisible) R.string.settings_hf_token_hide else R.string.settings_hf_token_show),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
@@ -616,7 +614,7 @@ fun SettingsScreen(
               }) {
                 Icon(
                   imageVector = Icons.Outlined.Close,
-                  contentDescription = "Clear token",
+                  contentDescription = stringResource(R.string.settings_hf_token_clear),
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
@@ -640,12 +638,12 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.Tune,
-      title = "Server Configuration",
+      title = stringResource(R.string.settings_card_server_config),
       searchQuery = vm.searchQuery,
     ) {
       if (vm.settingVisible("host_port")) {
       Text(
-        text = highlightSearchMatches("Host Port (1024–65535)", vm.searchQuery, OlliteRTPrimary),
+        text = highlightSearchMatches(stringResource(R.string.settings_host_port_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -661,7 +659,7 @@ fun SettingsScreen(
         isError = vm.portError,
         placeholder = {
           Text(
-            "8000",
+            stringResource(R.string.settings_host_port_placeholder),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
           )
@@ -675,7 +673,7 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = "Default: 8000. Requires server restart to take effect.",
+        text = stringResource(R.string.settings_host_port_desc),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -695,9 +693,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Require Bearer Token", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_bearer_token), searchQuery = vm.searchQuery)
           Text(
-            text = "Protect the API with a bearer token. Clients must include it in the Authorization header.",
+            text = stringResource(R.string.settings_bearer_token_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -724,7 +722,7 @@ fun SettingsScreen(
       // CORS allowed origins
       if (vm.settingVisible("cors_origins")) {
       Text(
-        text = highlightSearchMatches("CORS Allowed Origins", vm.searchQuery, OlliteRTPrimary),
+        text = highlightSearchMatches(stringResource(R.string.settings_cors_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -740,7 +738,7 @@ fun SettingsScreen(
         isError = vm.corsError,
         placeholder = {
           Text(
-            "*",
+            stringResource(R.string.settings_cors_placeholder),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
           )
@@ -753,7 +751,7 @@ fun SettingsScreen(
             }) {
               Icon(
                 imageVector = Icons.Outlined.Close,
-                contentDescription = "Clear origins",
+                contentDescription = stringResource(R.string.settings_cors_clear),
                 tint = if (vm.corsError) MaterialTheme.colorScheme.error
                        else MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -768,7 +766,7 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = "Origins allowed to make cross-origin requests. Use * to allow all, comma-separated URLs for specific origins (e.g. http://localhost:3000, https://my-app.com), or leave blank to disable CORS.",
+        text = stringResource(R.string.settings_cors_desc),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -804,7 +802,7 @@ fun SettingsScreen(
           // Copy button
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
-            tooltip = "Copy token",
+            tooltip = stringResource(R.string.settings_bearer_copy_tooltip),
             onClick = {
               copyToClipboard(context, "OlliteRT Bearer Token", vm.bearerToken)
             },
@@ -815,7 +813,7 @@ fun SettingsScreen(
           // Regenerate button
           TooltipIconButton(
             icon = Icons.Outlined.Refresh,
-            tooltip = "Regenerate token",
+            tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
             onClick = {
               vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
               Toast.makeText(context, context.getString(R.string.toast_token_regenerated), Toast.LENGTH_SHORT).show()
@@ -834,20 +832,20 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.PlayArrow,
-      title = "Auto-Launch & Behavior",
+      title = stringResource(R.string.settings_card_auto_launch),
       searchQuery = vm.searchQuery,
     ) {
       // Default model picker
       if (vm.settingVisible("default_model")) {
       Text(
-        text = highlightSearchMatches("Default Model", vm.searchQuery, OlliteRTPrimary),
+        text = highlightSearchMatches(stringResource(R.string.settings_default_model_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(modifier = Modifier.height(4.dp))
       if (downloadedModelNames.isEmpty()) {
         Text(
-          text = "No downloaded models. Download a model first from the Models tab.",
+          text = stringResource(R.string.settings_no_downloaded_models),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
@@ -855,7 +853,7 @@ fun SettingsScreen(
         // Dropdown trigger
         Column {
           OutlinedTextField(
-            value = vm.defaultModelName ?: "None (manual start)",
+            value = vm.defaultModelName ?: stringResource(R.string.settings_none_manual_start),
             onValueChange = {},
             readOnly = true,
             singleLine = true,
@@ -876,7 +874,7 @@ fun SettingsScreen(
             DropdownMenuItem(
               text = {
                 Text(
-                  "None (manual start)",
+                  stringResource(R.string.settings_none_manual_start),
                   color = if (vm.defaultModelName == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
                 )
               },
@@ -906,7 +904,7 @@ fun SettingsScreen(
       }
       Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = "Automatically load this model when the app is launched.",
+        text = stringResource(R.string.settings_default_model_desc),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -927,10 +925,10 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Start on Boot", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_start_on_boot), searchQuery = vm.searchQuery)
           Text(
-            text = if (vm.defaultModelName == null) "Select a default model above to enable."
-                   else "Launch server automatically when device starts.",
+            text = stringResource(if (vm.defaultModelName == null) R.string.settings_start_on_boot_desc_no_model
+                   else R.string.settings_start_on_boot_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -960,9 +958,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Keep Alive", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_keep_alive), searchQuery = vm.searchQuery)
           Text(
-            text = "Unload model after idle timeout to free RAM. Next request auto-reloads (cold start).",
+            text = stringResource(R.string.settings_keep_alive_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -983,7 +981,7 @@ fun SettingsScreen(
 
       Column(modifier = Modifier.alpha(keepAliveChildAlpha)) {
         Text(
-          text = highlightSearchMatches("Idle Timeout", vm.searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches(stringResource(R.string.settings_idle_timeout_label), vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1074,7 +1072,7 @@ fun SettingsScreen(
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size).",
+          text = stringResource(R.string.settings_idle_timeout_desc),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1099,12 +1097,12 @@ fun SettingsScreen(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = highlightSearchMatches("Device background settings", vm.searchQuery, OlliteRTPrimary),
+            text = highlightSearchMatches(stringResource(R.string.settings_dontkillmyapp_title), vm.searchQuery, OlliteRTPrimary),
             style = MaterialTheme.typography.bodyMedium,
             color = OlliteRTPrimary,
           )
           Text(
-            text = "Some manufacturers kill background apps aggressively. Check dontkillmyapp.com for device-specific fixes.",
+            text = stringResource(R.string.settings_dontkillmyapp_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1112,7 +1110,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.width(8.dp))
         Icon(
           imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-          contentDescription = "Open dontkillmyapp.com",
+          contentDescription = stringResource(R.string.settings_dontkillmyapp_cd),
           tint = OlliteRTPrimary,
           modifier = Modifier.size(18.dp),
         )
@@ -1156,7 +1154,7 @@ fun SettingsScreen(
         LaunchedEffect(id) {
           kotlinx.coroutines.delay(15_000)
           if (checkWorkId == id) {
-            Toast.makeText(context, "Update check timed out — check your network connection", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_update_check_timeout), Toast.LENGTH_SHORT).show()
             workManager.cancelWorkById(id)
             checkWorkId = null
           }
@@ -1170,9 +1168,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Check for Updates", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
           Text(
-            text = "Check for a newer version of OlliteRT.",
+            text = stringResource(R.string.settings_check_for_updates_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1183,7 +1181,7 @@ fun SettingsScreen(
           val url = availableUrl ?: ""
           TooltipIconButton(
             icon = Icons.Outlined.FileDownload,
-            tooltip = "Download $availableVersion",
+            tooltip = stringResource(R.string.settings_download_version, availableVersion ?: ""),
             onClick = {
               val intent = UpdateCheckWorker.buildUpdateIntent(context, url)
               intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
@@ -1193,9 +1191,9 @@ fun SettingsScreen(
           // No update pending — show check now button
           TooltipIconButton(
             icon = Icons.Outlined.Refresh,
-            tooltip = "Check now",
+            tooltip = stringResource(R.string.settings_check_now_tooltip),
             onClick = {
-              Toast.makeText(context, "Checking for updates…", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.settings_checking_for_updates), Toast.LENGTH_SHORT).show()
               checkWorkId = UpdateCheckWorker.checkNow(context)
             },
           )
@@ -1217,9 +1215,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Automatic Update Check", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_auto_update_check), searchQuery = vm.searchQuery)
           Text(
-            text = "Periodically check in the background and notify when an update is available.",
+            text = stringResource(R.string.settings_auto_update_check_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1236,14 +1234,14 @@ fun SettingsScreen(
       if (!notifPermissionGranted) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "Notification access not enabled. Grant notification permission in system settings to receive update alerts.",
+          text = stringResource(R.string.settings_notif_permission_warning),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.error,
         )
       } else if (updateChannelMuted) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "Update notification channel is muted in system settings.",
+          text = stringResource(R.string.settings_notif_channel_muted),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.error,
           modifier = Modifier.clickable {
@@ -1265,7 +1263,7 @@ fun SettingsScreen(
 
       Column(modifier = Modifier.alpha(updateChildAlpha)) {
         Text(
-          text = highlightSearchMatches("Check Frequency", vm.searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches(stringResource(R.string.settings_check_frequency_label), vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1356,7 +1354,7 @@ fun SettingsScreen(
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days.",
+          text = stringResource(R.string.settings_check_frequency_desc),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1374,7 +1372,7 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.BarChart,
-      title = "Metrics",
+      title = stringResource(R.string.settings_card_metrics),
       searchQuery = vm.searchQuery,
     ) {
       // Show Request Types on Status screen
@@ -1385,9 +1383,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Show Request Types", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_show_request_types), searchQuery = vm.searchQuery)
           Text(
-            text = "Show text, vision, and audio request counts on the Status screen.",
+            text = stringResource(R.string.settings_show_request_types_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1414,9 +1412,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Show Advanced Metrics", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_show_advanced_metrics), searchQuery = vm.searchQuery)
           Text(
-            text = "Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen.",
+            text = stringResource(R.string.settings_show_advanced_metrics_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1439,7 +1437,7 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.Storage,
-      title = "Log Persistence",
+      title = stringResource(R.string.settings_card_log_persistence),
       searchQuery = vm.searchQuery,
     ) {
       // Master toggle
@@ -1449,9 +1447,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Persist Logs to Database", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_persist_logs), searchQuery = vm.searchQuery)
           Text(
-            text = "Save activity logs to a local database so they survive app restarts. Disabled by default.",
+            text = stringResource(R.string.settings_persist_logs_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1473,7 +1471,7 @@ fun SettingsScreen(
       // Max Entries — simple number input, value updates live into unsaved state
       Column(modifier = Modifier.alpha(childAlpha)) {
         Text(
-          text = highlightSearchMatches("Maximum Log Entries", vm.searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches(stringResource(R.string.settings_max_log_entries_label), vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1498,7 +1496,7 @@ fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "Maximum entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit.",
+          text = stringResource(R.string.settings_max_log_entries_desc),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1511,7 +1509,7 @@ fun SettingsScreen(
       // Auto-Delete — number input + unit dropdown (minutes/hours/days)
       Column(modifier = Modifier.alpha(childAlpha)) {
         Text(
-          text = highlightSearchMatches("Auto-Delete After", vm.searchQuery, OlliteRTPrimary),
+          text = highlightSearchMatches(stringResource(R.string.settings_auto_delete_label), vm.searchQuery, OlliteRTPrimary),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1609,7 +1607,7 @@ fun SettingsScreen(
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "Persisted logs older than this are automatically removed from the database. Does not affect the current session's in-memory logs.\nSet to 0 to disable.",
+          text = stringResource(R.string.settings_auto_delete_desc),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1632,11 +1630,11 @@ fun SettingsScreen(
           shape = RoundedCornerShape(50),
           modifier = Modifier.fillMaxWidth(),
         ) {
-          Text("Clear All Logs", fontWeight = FontWeight.Bold)
+          Text(stringResource(R.string.settings_clear_all_logs_button), fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = "Remove all logs from the database and current session.",
+          text = stringResource(R.string.settings_clear_all_logs_desc),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1859,7 +1857,7 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       iconRes = com.ollitert.llm.server.R.drawable.ic_home_assistant,
-      title = "Home Assistant",
+      title = stringResource(R.string.settings_card_home_assistant),
       searchQuery = vm.searchQuery,
     ) {
       // Toggle for HA integration
@@ -1869,9 +1867,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "REST API Integration", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_ha_rest_api), searchQuery = vm.searchQuery)
           Text(
-            text = "Generate a ready-made configuration.yaml snippet for Home Assistant. Creates REST sensors for server status, model info, and performance metrics, plus a command to stop the server remotely.",
+            text = stringResource(R.string.settings_ha_rest_api_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -1987,7 +1985,7 @@ fun SettingsScreen(
 
         // Preview of what will be copied (truncated)
         Text(
-          text = "Generates a configuration.yaml snippet with your current IP ($currentIp), port ($currentPort)${if (currentToken.isNotBlank()) ", and bearer token" else ""}.",
+          text = stringResource(R.string.settings_ha_config_preview, currentIp, currentPort, if (currentToken.isNotBlank()) stringResource(R.string.settings_ha_config_preview_token_suffix) else ""),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -2012,7 +2010,7 @@ fun SettingsScreen(
           )
           Spacer(modifier = Modifier.width(8.dp))
           Text(
-            text = "Copy Configuration",
+            text = stringResource(R.string.settings_ha_copy_config),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
           )
@@ -2030,7 +2028,7 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.Science,
-      title = "Advanced",
+      title = stringResource(R.string.settings_card_advanced),
       searchQuery = vm.searchQuery,
     ) {
       // Track which advanced settings are visible to control dividers between them.
@@ -2051,9 +2049,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Warmup Message", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_warmup_message), searchQuery = vm.searchQuery)
           Text(
-            text = "Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup.",
+            text = stringResource(R.string.settings_warmup_message_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2080,9 +2078,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Pre-initialize Vision", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_pre_init_vision), searchQuery = vm.searchQuery)
           Text(
-            text = "Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start.",
+            text = stringResource(R.string.settings_pre_init_vision_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2109,9 +2107,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Custom System Prompt & Chat Template", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_custom_prompts), searchQuery = vm.searchQuery)
           Text(
-            text = "Enable per-model system prompt and chat template fields in Inference Settings. Useful for models with non-standard prompt formats.",
+            text = stringResource(R.string.settings_custom_prompts_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2138,9 +2136,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Truncate Conversation History", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_truncate_history), searchQuery = vm.searchQuery)
           Text(
-            text = "When a request exceeds the model's context window, drop older messages from the conversation while keeping system prompts and the most recent messages.",
+            text = stringResource(R.string.settings_truncate_history_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2167,9 +2165,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Compact Tool Schemas", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_compact_tool_schemas), searchQuery = vm.searchQuery)
           Text(
-            text = "When a request with tools exceeds the model's context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). Especially useful for Home Assistant integration which sends many tool definitions.",
+            text = stringResource(R.string.settings_compact_tool_schemas_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2196,9 +2194,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Trim Prompt", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_trim_prompt), searchQuery = vm.searchQuery)
           Text(
-            text = "Last resort when other strategies aren't enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.",
+            text = stringResource(R.string.settings_trim_prompt_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2225,9 +2223,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Ignore Client Sampler Parameters", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_ignore_client_params), searchQuery = vm.searchQuery)
           Text(
-            text = "Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server's own Inference Settings will always be used instead.",
+            text = stringResource(R.string.settings_ignore_client_params_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2250,7 +2248,7 @@ fun SettingsScreen(
     ) {
     SettingsCard(
       icon = Icons.Outlined.Code,
-      title = "Developer",
+      title = stringResource(R.string.settings_card_developer),
       searchQuery = vm.searchQuery,
     ) {
       Row(
@@ -2259,9 +2257,9 @@ fun SettingsScreen(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = "Verbose Debug Mode", searchQuery = vm.searchQuery)
+          SettingLabel(text = stringResource(R.string.settings_verbose_debug), searchQuery = vm.searchQuery)
           Text(
-            text = "Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance.",
+            text = stringResource(R.string.settings_verbose_debug_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -2276,8 +2274,8 @@ fun SettingsScreen(
               category = EventCategory.SETTINGS,
               body = "Verbose Debug Mode: ${if (!it) "enabled" else "disabled"} → ${if (it) "enabled" else "disabled"}",
             )
-            val msg = if (it) "Debug mode enabled — additional details will appear in Logs"
-              else "Debug mode disabled"
+            val msg = if (it) context.getString(R.string.settings_debug_enabled_toast)
+              else context.getString(R.string.settings_debug_disabled_toast)
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
           },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
@@ -2309,7 +2307,7 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.width(8.dp))
       Text(
-        text = "Reset to Defaults",
+        text = stringResource(R.string.settings_reset_to_defaults),
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
       )
@@ -2344,7 +2342,7 @@ fun SettingsScreen(
           modifier = Modifier.size(18.dp),
         )
         Text(
-          text = "What's New",
+          text = stringResource(R.string.settings_whats_new),
           style = MaterialTheme.typography.bodyMedium,
           color = OlliteRTPrimary,
         )
@@ -2377,7 +2375,7 @@ fun SettingsScreen(
           modifier = Modifier.size(18.dp),
         )
         Text(
-          text = "Report Issue",
+          text = stringResource(R.string.settings_report_issue),
           style = MaterialTheme.typography.bodyMedium,
           color = OlliteRTPrimary,
         )
@@ -2414,7 +2412,7 @@ fun SettingsScreen(
             },
         )
         Text(
-          text = "Donate",
+          text = stringResource(R.string.settings_donate),
           style = MaterialTheme.typography.bodyMedium,
           color = OlliteRTPrimary,
         )
@@ -2424,7 +2422,7 @@ fun SettingsScreen(
     // Footer
     Spacer(modifier = Modifier.height(4.dp))
     Text(
-      text = "OlliteRT v${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_HASH})",
+      text = stringResource(R.string.settings_version_footer, BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH),
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -2462,7 +2460,7 @@ fun SettingsScreen(
           modifier = Modifier.size(16.dp),
         )
         Text(
-          text = "You have unsaved changes",
+          text = stringResource(R.string.settings_unsaved_changes_banner),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurface,
         )
