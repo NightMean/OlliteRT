@@ -50,6 +50,8 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -113,12 +115,12 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
   val message = entry.path
 
   val categoryLabel = when (entry.eventCategory) {
-    EventCategory.MODEL -> "MODEL"
-    EventCategory.SETTINGS -> "SETTINGS"
-    EventCategory.SERVER -> "SERVER"
-    EventCategory.PROMPT -> "PROMPT"
-    EventCategory.UPDATE -> "UPDATE"
-    EventCategory.GENERAL -> "EVENT"
+    EventCategory.MODEL -> stringResource(R.string.logs_event_category_model)
+    EventCategory.SETTINGS -> stringResource(R.string.logs_event_category_settings)
+    EventCategory.SERVER -> stringResource(R.string.logs_event_category_server)
+    EventCategory.PROMPT -> stringResource(R.string.logs_event_category_prompt)
+    EventCategory.UPDATE -> stringResource(R.string.logs_event_category_update)
+    EventCategory.GENERAL -> stringResource(R.string.logs_event_category_general)
   }
   val categoryIcon = when (entry.eventCategory) {
     EventCategory.MODEL -> Icons.Outlined.Memory
@@ -140,33 +142,33 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
   // Headline text shown next to the category badge
   val headline = when (parsedEvent) {
-    is ParsedEventType.Loading -> "Model Loading"
-    is ParsedEventType.Ready -> "Model Loaded"
-    is ParsedEventType.Warmup -> "Internal Warmup Message"
-    is ParsedEventType.InferenceSettings -> "Settings changed"
-    is ParsedEventType.SettingsToggle -> "Settings changed"
-    is ParsedEventType.PromptActive -> "${parsedEvent.promptType} active"
-    is ParsedEventType.ServerStopped -> "Server Stopped"
-    is ParsedEventType.WarmupSkipped -> "Warmup Skipped"
-    is ParsedEventType.ModelLoadFailed -> "Model Load Failed"
-    is ParsedEventType.ServerFailed -> "Server Failed"
-    is ParsedEventType.ModelNotFound -> "Model Not Found"
-    is ParsedEventType.ImageDecodeFailed -> "Image Decode Failed"
-    is ParsedEventType.QueuedReload -> "Queued Reload"
-    is ParsedEventType.CorsChanged -> "Settings changed"
-    is ParsedEventType.ConversationResetFailed -> "Conversation Reset Failed"
-    is ParsedEventType.SettingsBatch -> "Settings updated"
-    is ParsedEventType.ApiConfigChange -> "Config via REST API"
-    is ParsedEventType.RestartRequested -> "Model Restart"
-    is ParsedEventType.Unloading -> "Model Unloading"
-    is ParsedEventType.KeepAliveUnloaded -> "Model Idle Unloaded"
-    is ParsedEventType.KeepAliveReloading -> "Model Reloading"
-    is ParsedEventType.KeepAliveReloaded -> "Model Reloaded"
-    is ParsedEventType.UpdateAvailable -> "Update Available"
-    is ParsedEventType.UpdateCurrent -> "Up to Date"
-    is ParsedEventType.UpdateAutoDisabled -> "Update Check Disabled"
-    is ParsedEventType.MemoryPressure -> "Memory Pressure"
-    null -> if (isDebug) "Debug" else null
+    is ParsedEventType.Loading -> stringResource(R.string.logs_headline_model_loading)
+    is ParsedEventType.Ready -> stringResource(R.string.logs_headline_model_loaded)
+    is ParsedEventType.Warmup -> stringResource(R.string.logs_headline_warmup_message)
+    is ParsedEventType.InferenceSettings -> stringResource(R.string.logs_headline_settings_changed)
+    is ParsedEventType.SettingsToggle -> stringResource(R.string.logs_headline_settings_changed)
+    is ParsedEventType.PromptActive -> stringResource(R.string.logs_headline_prompt_active, parsedEvent.promptType)
+    is ParsedEventType.ServerStopped -> stringResource(R.string.logs_headline_server_stopped)
+    is ParsedEventType.WarmupSkipped -> stringResource(R.string.logs_headline_warmup_skipped)
+    is ParsedEventType.ModelLoadFailed -> stringResource(R.string.logs_headline_model_load_failed)
+    is ParsedEventType.ServerFailed -> stringResource(R.string.logs_headline_server_failed)
+    is ParsedEventType.ModelNotFound -> stringResource(R.string.logs_headline_model_not_found)
+    is ParsedEventType.ImageDecodeFailed -> stringResource(R.string.logs_headline_image_decode_failed)
+    is ParsedEventType.QueuedReload -> stringResource(R.string.logs_headline_queued_reload)
+    is ParsedEventType.CorsChanged -> stringResource(R.string.logs_headline_settings_changed)
+    is ParsedEventType.ConversationResetFailed -> stringResource(R.string.logs_headline_conversation_reset_failed)
+    is ParsedEventType.SettingsBatch -> stringResource(R.string.logs_headline_settings_updated)
+    is ParsedEventType.ApiConfigChange -> stringResource(R.string.logs_headline_config_via_api)
+    is ParsedEventType.RestartRequested -> stringResource(R.string.logs_headline_model_restart)
+    is ParsedEventType.Unloading -> stringResource(R.string.logs_headline_model_unloading)
+    is ParsedEventType.KeepAliveUnloaded -> stringResource(R.string.logs_headline_model_idle_unloaded)
+    is ParsedEventType.KeepAliveReloading -> stringResource(R.string.logs_headline_model_reloading)
+    is ParsedEventType.KeepAliveReloaded -> stringResource(R.string.logs_headline_model_reloaded)
+    is ParsedEventType.UpdateAvailable -> stringResource(R.string.logs_headline_update_available)
+    is ParsedEventType.UpdateCurrent -> stringResource(R.string.logs_headline_up_to_date)
+    is ParsedEventType.UpdateAutoDisabled -> stringResource(R.string.logs_headline_update_check_disabled)
+    is ParsedEventType.MemoryPressure -> stringResource(R.string.logs_headline_memory_pressure)
+    null -> if (isDebug) stringResource(R.string.logs_headline_debug) else null
   }
 
   // Hoisted here so footerOverflowing can observe maxValue and trigger recomposition
@@ -224,7 +226,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       // Copy button
       TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = { PlainTooltip { Text("Copy event") } },
+        tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_copy_event)) } },
         state = rememberTooltipState(),
       ) {
         IconButton(
@@ -233,7 +235,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         ) {
           Icon(
             imageVector = Icons.Outlined.ContentCopy,
-            contentDescription = "Copy event",
+            contentDescription = stringResource(R.string.logs_tooltip_copy_event),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
           )
@@ -248,11 +250,11 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.Loading -> {
         Text(
           text = buildAnnotatedString {
-            append("Loading ")
+            append(stringResource(R.string.logs_event_loading_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
-            append(" into memory")
+            append(stringResource(R.string.logs_event_loading_suffix))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -265,7 +267,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
-            append(" loaded into memory")
+            append(stringResource(R.string.logs_event_loaded_suffix))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -275,7 +277,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.Warmup -> {
         // Request/response style — mirrors LogEntryCard sections
         Text(
-          text = "Request",
+          text = stringResource(R.string.logs_entry_request),
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           fontWeight = FontWeight.SemiBold,
@@ -296,7 +298,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-          text = "Response",
+          text = stringResource(R.string.logs_entry_response),
           style = MaterialTheme.typography.labelSmall,
           color = OlliteRTPrimary,
           fontWeight = FontWeight.SemiBold,
@@ -355,11 +357,11 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         if (entry.modelName != null) {
           Text(
             text = buildAnnotatedString {
-              append("Model ")
+              append(stringResource(R.string.logs_event_model_unloaded_prefix))
               withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
                 append(entry.modelName)
               }
-              append(" unloaded from memory")
+              append(stringResource(R.string.logs_event_model_unloaded_suffix))
             },
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -413,8 +415,9 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       }
 
       is ParsedEventType.QueuedReload -> {
-        val modelText = if (entry.modelName != null) "Reloading ${entry.modelName} with updated settings"
-                        else "Reloading model with updated settings"
+        val name = entry.modelName
+        val modelText = if (name != null) stringResource(R.string.logs_event_queued_reload_model, name)
+                        else stringResource(R.string.logs_event_queued_reload_generic)
         Text(
           text = modelText,
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
@@ -472,7 +475,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         if (entry.modelName != null) {
           Text(
             text = buildAnnotatedString {
-              append("Restarting ")
+              append(stringResource(R.string.logs_event_reloading_prefix))
               withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
                 append(entry.modelName)
               }
@@ -486,11 +489,11 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.Unloading -> {
         Text(
           text = buildAnnotatedString {
-            append("Unloading ")
+            append(stringResource(R.string.logs_event_unloading_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
-            append(" from memory")
+            append(stringResource(R.string.logs_event_unloading_suffix))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -503,7 +506,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
-            append(" unloaded after ${parsedEvent.idleMinutes}m idle to free RAM")
+            append(stringResource(R.string.logs_event_keepalive_unloaded_suffix, parsedEvent.idleMinutes))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -513,11 +516,11 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.KeepAliveReloading -> {
         Text(
           text = buildAnnotatedString {
-            append("Reloading ")
+            append(stringResource(R.string.logs_event_keepalive_reloading_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
-            append(" (request received while idle)")
+            append(stringResource(R.string.logs_event_keepalive_reloading_suffix))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -530,7 +533,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
-            append(" reloaded in ${parsedEvent.timeMs}ms")
+            append(stringResource(R.string.logs_event_keepalive_reloaded_suffix, parsedEvent.timeMs))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -540,11 +543,11 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.UpdateAvailable -> {
         Text(
           text = buildAnnotatedString {
-            append("Version ")
+            append(stringResource(R.string.logs_event_version_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.version)
             }
-            append(" is available")
+            append(stringResource(R.string.logs_event_version_suffix))
           },
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -562,7 +565,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.UpdateCurrent -> {
         Text(
-          text = parsedEvent.body ?: "No newer version found",
+          text = parsedEvent.body ?: stringResource(R.string.logs_event_update_none),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -570,7 +573,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.UpdateAutoDisabled -> {
         Text(
-          text = parsedEvent.body ?: "Too many consecutive failures",
+          text = parsedEvent.body ?: stringResource(R.string.logs_event_update_auto_disabled),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = accentColor,
           fontWeight = FontWeight.Medium,
@@ -581,7 +584,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         // Android fired TRIM_MEMORY_RUNNING_CRITICAL — the system is critically low on RAM.
         // This is an early warning that the OOM killer may terminate the process shortly.
         Text(
-          text = "Android is critically low on RAM — the app may be killed soon. Close other apps or use a smaller model.",
+          text = stringResource(R.string.logs_event_memory_pressure_body),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = accentColor,
           fontWeight = FontWeight.Medium,
@@ -615,7 +618,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         if (isLong) {
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = if (expanded) "Show less" else "Show more",
+            text = if (expanded) stringResource(R.string.logs_event_show_less) else stringResource(R.string.logs_event_show_more),
             style = MaterialTheme.typography.labelSmall,
             color = accentColor,
             fontWeight = FontWeight.SemiBold,
@@ -822,7 +825,7 @@ internal fun PromptBeforeAfterBoxes(diff: PromptDiff) {
   // Before
   if (diff.oldText.isNotBlank()) {
     Text(
-      text = "Before",
+      text = stringResource(R.string.logs_prompt_before),
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
     )
@@ -837,14 +840,14 @@ internal fun PromptBeforeAfterBoxes(diff: PromptDiff) {
 
   // After
   Text(
-    text = if (diff.oldText.isNotBlank()) "After" else "Set to",
+    text = if (diff.oldText.isNotBlank()) stringResource(R.string.logs_prompt_after) else stringResource(R.string.logs_prompt_set_to),
     style = MaterialTheme.typography.labelSmall,
     color = OlliteRTPrimary,
   )
   Spacer(modifier = Modifier.height(2.dp))
   if (diff.newText.isBlank()) {
     Text(
-      text = "(empty)",
+      text = stringResource(R.string.logs_prompt_empty),
       style = textStyle,
       color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
       fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
@@ -895,7 +898,7 @@ internal fun ExpandablePromptBox(
     if (isLong) {
       Icon(
         imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-        contentDescription = if (expanded) "Collapse" else "Expand",
+        contentDescription = if (expanded) stringResource(R.string.logs_body_collapse_cd) else stringResource(R.string.logs_body_expand_cd),
         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         modifier = Modifier
           .align(Alignment.TopEnd)
@@ -921,7 +924,7 @@ private fun EventFooterBadges(parsedEvent: ParsedEventType?) {
   when (parsedEvent) {
     is ParsedEventType.Ready -> {
       Text(
-        text = "Ready",
+        text = stringResource(R.string.logs_event_ready),
         style = MaterialTheme.typography.labelSmall,
         color = OlliteRTGreen400,
         fontWeight = FontWeight.SemiBold,

@@ -6,6 +6,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -51,22 +53,22 @@ internal fun StatusBadge(statusCode: Int, contextOverflow: Boolean = false) {
   }
   val label = when {
     // Context overflow gets a specific label regardless of status code
-    contextOverflow -> "Context Exceeded"
+    contextOverflow -> stringResource(R.string.logs_status_context_exceeded)
     else -> {
       val reasonPhrase = when (statusCode) {
-        400 -> "Bad Request"
-        401 -> "Unauthorized"
-        403 -> "Forbidden"
-        404 -> "Not Found"
-        405 -> "Method Not Allowed"
-        408 -> "Request Timeout"
-        413 -> "Payload Too Large"
-        429 -> "Too Many Requests"
-        500 -> "Internal Server Error"
-        502 -> "Bad Gateway"
-        503 -> "Service Unavailable"
-        504 -> "Gateway Timeout"
-        else -> if (!isSuccess) "Error" else "OK"
+        400 -> stringResource(R.string.logs_status_bad_request)
+        401 -> stringResource(R.string.logs_status_unauthorized)
+        403 -> stringResource(R.string.logs_status_forbidden)
+        404 -> stringResource(R.string.logs_status_not_found)
+        405 -> stringResource(R.string.logs_status_method_not_allowed)
+        408 -> stringResource(R.string.logs_status_request_timeout)
+        413 -> stringResource(R.string.logs_status_payload_too_large)
+        429 -> stringResource(R.string.logs_status_too_many_requests)
+        500 -> stringResource(R.string.logs_status_internal_server_error)
+        502 -> stringResource(R.string.logs_status_bad_gateway)
+        503 -> stringResource(R.string.logs_status_service_unavailable)
+        504 -> stringResource(R.string.logs_status_gateway_timeout)
+        else -> if (!isSuccess) stringResource(R.string.logs_status_error) else stringResource(R.string.logs_status_ok)
       }
       "$statusCode $reasonPhrase"
     }
