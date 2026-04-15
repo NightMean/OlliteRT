@@ -19,17 +19,13 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import android.util.Log
 import androidx.activity.result.ActivityResult
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
-import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.common.ProjectConfig
 import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.Accelerator
-import com.ollitert.llm.server.data.CategoryInfo
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
@@ -65,11 +61,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.openid.appauth.AuthorizationException
-import net.openid.appauth.AuthorizationRequest
-import net.openid.appauth.AuthorizationResponse
-import net.openid.appauth.AuthorizationService
-import net.openid.appauth.ResponseTypeValues
 
 private const val TAG = "OlliteRTModelManagerVM"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
@@ -83,13 +74,7 @@ data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   var error: String = "",
   var initializedBackends: Set<String> = setOf(),
-) {
-  fun isFirstInitialization(model: Model): Boolean {
-    val backend =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    return !initializedBackends.contains(backend)
-  }
-}
+)
 
 enum class ModelInitializationStatusType {
   NOT_INITIALIZED,
@@ -208,18 +193,6 @@ constructor(
     tokenManager.dispose()
   }
 
-  fun getTaskById(id: String): Task? {
-    return uiState.value.tasks.find { it.id == id }
-  }
-
-  fun getTasksByIds(ids: Set<String>): List<Task> {
-    return uiState.value.tasks.filter { ids.contains(it.id) }
-  }
-
-  fun getSelectedModel(): Model? {
-    return uiState.value.selectedModel
-  }
-
   fun getModelByName(name: String): Model? {
     for (task in uiState.value.tasks) {
       for (model in task.models) {
@@ -247,8 +220,6 @@ constructor(
         it.isLlm
     }
   }
-
-  fun getFirstDownloadedModelName(): String? = getAllDownloadedModels().firstOrNull()?.name
 
   fun processTasks() {
     for (task in uiState.value.tasks) {
@@ -492,26 +463,6 @@ constructor(
     _uiState.update { newUiState }
   }
 
-  fun setInitializationStatus(model: Model, status: ModelInitializationStatus) {
-    val curStatus = uiState.value.modelInitializationStatus.toMutableMap()
-    if (curStatus.containsKey(model.name)) {
-      val initializedBackends = curStatus[model.name]?.initializedBackends ?: setOf()
-      val backend =
-        model.getStringConfigValue(
-          key = ConfigKeys.ACCELERATOR,
-          defaultValue = Accelerator.GPU.label,
-        )
-      val newInitializedBackends =
-        if (status.status == ModelInitializationStatusType.INITIALIZED) {
-          initializedBackends + backend
-        } else {
-          initializedBackends
-        }
-      curStatus[model.name] = status.copy(initializedBackends = newInitializedBackends)
-      _uiState.update { _uiState.value.copy(modelInitializationStatus = curStatus) }
-    }
-  }
-
   fun addTextInputHistory(text: String) {
     if (uiState.value.textInputHistory.indexOf(text) < 0) {
       val newHistory = uiState.value.textInputHistory.toMutableList()
@@ -532,16 +483,6 @@ constructor(
       val newHistory = uiState.value.textInputHistory.toMutableList()
       newHistory.removeAt(index)
       newHistory.add(0, text)
-      _uiState.update { _uiState.value.copy(textInputHistory = newHistory) }
-      dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
-    }
-  }
-
-  fun deleteTextInputHistory(text: String) {
-    val index = uiState.value.textInputHistory.indexOf(text)
-    if (index >= 0) {
-      val newHistory = uiState.value.textInputHistory.toMutableList()
-      newHistory.removeAt(index)
       _uiState.update { _uiState.value.copy(textInputHistory = newHistory) }
       dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
     }
@@ -628,7 +569,6 @@ constructor(
     tokenManager.handleAuthResult(result, onTokenRequested)
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) =
     tokenManager.saveAccessToken(accessToken, refreshToken, expiresAt)
-  fun clearAccessToken() = tokenManager.clearAccessToken()
 
   private fun processPendingDownloads() {
     // Cancel all pending downloads for the retrieved models.
@@ -855,8 +795,6 @@ constructor(
     else allowlistLoader.readFromDiskCache()
   private fun readModelAllowlistFromAssets() = allowlistLoader.readFromAssets()
 
-  private fun isModelPartiallyDownloaded(model: Model) = fileManager.isModelPartiallyDownloaded(model)
-
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState(
       tasks = createBuiltInTasks(),
@@ -950,7 +888,6 @@ constructor(
         sizeInBytes = info.fileSize,
         downloadFileName = "$IMPORTS_DIR/${info.fileName}",
         showBenchmarkButton = false,
-        showRunAgainButton = false,
         imported = true,
         llmSupportImage = llmSupportImage,
         llmSupportAudio = llmSupportAudio,
@@ -999,17 +936,6 @@ constructor(
     return groupedSortedTasks
   }
 
-  private fun getCategoryLabel(context: Context, category: CategoryInfo): String {
-    val stringRes = category.labelStringRes
-    val label = category.label
-    if (stringRes != null) {
-      return context.getString(stringRes)
-    } else if (label != null) {
-      return label
-    }
-    return context.getString(R.string.category_unlabeled)
-  }
-
   /**
    * Retrieves the download status of a model.
    *
@@ -1020,8 +946,6 @@ constructor(
   private fun getModelDownloadStatus(model: Model) = fileManager.getModelDownloadStatus(model)
 
   // File management — delegated to ModelFileManager
-  private fun isFileInExternalFilesDir(fileName: String) = fileManager.isFileInExternalFilesDir(fileName)
-  private fun isFileInDataLocalTmpDir(fileName: String) = fileManager.isFileInDataLocalTmpDir(fileName)
   private fun deleteFileFromExternalFilesDir(fileName: String) = fileManager.deleteFileFromExternalFilesDir(fileName)
   private fun deleteFilesFromImportDir(fileName: String) = fileManager.deleteFilesFromImportDir(fileName)
   private fun deleteDirFromExternalFilesDir(dir: String) = fileManager.deleteDirFromExternalFilesDir(dir)
@@ -1051,7 +975,6 @@ constructor(
     _uiState.update { newUiState }
   }
 
-  private fun isModelDownloaded(model: Model) = fileManager.isModelDownloaded(model)
 }
 
 /** Builds the remote URL for a version-specific model allowlist file (e.g. "0_8_0" → "v1/0_8_0.json"). */

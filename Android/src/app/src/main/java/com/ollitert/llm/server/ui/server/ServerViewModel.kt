@@ -4,7 +4,6 @@ import android.content.Context
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.ServerMetrics
-import com.ollitert.llm.server.ui.navigation.ServerStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -87,5 +86,4 @@ class ServerViewModel @Inject constructor(
     }
   }
 
-  fun isRunning(): Boolean = status.value == ServerStatus.RUNNING
 }

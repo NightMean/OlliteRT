@@ -19,20 +19,6 @@ package com.ollitert.llm.server.data
 import androidx.annotation.StringRes
 import kotlin.math.abs
 
-/**
- * The types of configuration editors available.
- *
- * This enum defines the different UI components used to edit configuration values. Each type
- * corresponds to a specific editor widget, such as a slider or a switch.
- */
-enum class ConfigEditorType {
-  LABEL,
-  NUMBER_SLIDER,
-  BOOLEAN_SWITCH,
-  SEGMENTED_BUTTON,
-  BOTTOMSHEET_SELECTOR,
-}
-
 /** The data types of configuration values. */
 enum class ValueType {
   INT,
@@ -81,7 +67,6 @@ object ConfigKeys {
 /**
  * Base class for configuration settings.
  *
- * @param type The type of configuration editor.
  * @param key The unique key for the configuration setting.
  * @param defaultValue The default value for the configuration setting.
  * @param valueType The data type of the configuration value.
@@ -89,7 +74,6 @@ object ConfigKeys {
  *   this config.
  */
 open class Config(
-  val type: ConfigEditorType,
   open val key: ConfigKey,
   open val defaultValue: Any,
   open val valueType: ValueType,
@@ -101,7 +85,6 @@ open class Config(
 /** Configuration setting for a label. */
 class LabelConfig(override val key: ConfigKey, override val defaultValue: String = "") :
   Config(
-    type = ConfigEditorType.LABEL,
     key = key,
     defaultValue = defaultValue,
     valueType = ValueType.STRING,
@@ -122,7 +105,6 @@ class NumberSliderConfig(
   override val needReinitialization: Boolean = true,
 ) :
   Config(
-    type = ConfigEditorType.NUMBER_SLIDER,
     key = key,
     defaultValue = defaultValue,
     valueType = valueType,
@@ -135,7 +117,6 @@ class BooleanSwitchConfig(
   override val needReinitialization: Boolean = true,
 ) :
   Config(
-    type = ConfigEditorType.BOOLEAN_SWITCH,
     key = key,
     defaultValue = defaultValue,
     valueType = ValueType.BOOLEAN,
@@ -149,7 +130,6 @@ class SegmentedButtonConfig(
   val allowMultiple: Boolean = false,
 ) :
   Config(
-    type = ConfigEditorType.SEGMENTED_BUTTON,
     key = key,
     defaultValue = defaultValue,
     // The emitted value will be comma-separated labels when allowMultiple=true.
@@ -164,7 +144,6 @@ class BottomSheetSelectorConfig(
   @param:StringRes val bottomSheetTitleResId: Int? = null,
 ) :
   Config(
-    type = ConfigEditorType.BOTTOMSHEET_SELECTOR,
     key = key,
     defaultValue = defaultValue,
     valueType = ValueType.STRING,
@@ -297,12 +276,4 @@ fun createLlmChatConfigsForNpuModel(
       options = accelerators.map { it.label },
     ),
   )
-}
-
-fun getConfigValueString(value: Any, config: Config): String {
-  var strNewValue = "$value"
-  if (config.valueType == ValueType.FLOAT) {
-    strNewValue = "%.2f".format(value)
-  }
-  return strNewValue
 }

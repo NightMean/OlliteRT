@@ -150,7 +150,4 @@ class HuggingFaceTokenManager(
     )
   }
 
-  override fun clearAccessToken() {
-    dataStoreRepository.clearAccessTokenData()
-  }
 }

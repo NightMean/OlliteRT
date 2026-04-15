@@ -130,32 +130,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 
-/** Formats a duration in minutes into human-readable text (e.g. 10080 → "7 days", 120 → "2 hours", 45 → "45 minutes"). */
-private fun formatMinutesHumanReadable(minutes: Long): String = when {
-  minutes == 0L -> "disabled"
-  minutes % (24 * 60) == 0L -> "${minutes / (24 * 60)} ${if (minutes / (24 * 60) == 1L) "day" else "days"}"
-  minutes % 60 == 0L -> "${minutes / 60} ${if (minutes / 60 == 1L) "hour" else "hours"}"
-  else -> "$minutes ${if (minutes == 1L) "minute" else "minutes"}"
-}
-
-/**
- * Validates CORS allowed origins input.
- * Valid formats: blank (disabled), "*" (allow all), or comma-separated origin URLs.
- * Each origin must have a scheme (http:// or https://) and a host.
- */
-private fun isValidCorsOrigins(input: String): Boolean {
-  val trimmed = input.trim()
-  if (trimmed.isEmpty() || trimmed == "*") return true
-  return trimmed.split(",").all { entry ->
-    val origin = entry.trim()
-    origin.isNotEmpty() && (origin.startsWith("http://") || origin.startsWith("https://")) &&
-      origin.substringAfter("://").let { host ->
-        // Must have at least a host portion (e.g. "localhost", "example.com", "192.168.1.1:3000")
-        host.isNotEmpty() && !host.startsWith("/") && !host.contains(" ")
-      }
-  }
-}
-
 /** Highlights all occurrences of search query words in the given text with the specified color. */
 private fun highlightSearchMatches(
   text: String,

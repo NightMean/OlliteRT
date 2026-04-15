@@ -30,8 +30,6 @@ data class ModelDataFile(
 const val IMPORTS_DIR = "__imports"
 private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
-data class PromptTemplate(val title: String, val description: String, val prompt: String)
-
 enum class RuntimeType {
   @SerializedName("unknown") UNKNOWN,
   @SerializedName("litert_lm") LITERT_LM,
@@ -201,9 +199,6 @@ data class Model(
   // custom tasks.
   //
 
-  /** Whether to show the "run again" button in the UI. */
-  val showRunAgainButton: Boolean = true,
-
   /** Whether to show the "benchmark" button in the UI. */
   val showBenchmarkButton: Boolean = true,
 
@@ -212,9 +207,6 @@ data class Model(
 
   /** The name of the directory to unzip the model to (if it's a zip file). */
   val unzipDir: String = "",
-
-  /** The prompt templates for the model (only for LLM). */
-  val llmPromptTemplates: List<PromptTemplate> = listOf(),
 
   /** Whether the LLM model supports image input. */
   val llmSupportImage: Boolean = false,
@@ -244,7 +236,7 @@ data class Model(
   var instance: Any? = null,
   var initializedWithVision: Boolean = false,
   var initializing: Boolean = false,
-  // TODO(jingjin): use a "queue" system to manage model init and cleanup.
+  // TODO: use a "queue" system to manage model init and cleanup.
   var cleanUpAfterInit: Boolean = false,
   var configValues: Map<String, Any> = mapOf(),
   var prevConfigValues: Map<String, Any> = mapOf(),
@@ -267,8 +259,11 @@ data class Model(
   }
 
   fun getPath(context: Context, fileName: String = downloadFileName): String {
+    val externalDir = context.getExternalFilesDir(null)?.absolutePath
+      ?: throw IllegalStateException("External storage unavailable — cannot access model files")
+
     if (imported) {
-      return listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", fileName)
+      return listOf(externalDir, fileName)
         .joinToString(File.separator)
     }
 
@@ -277,16 +272,12 @@ data class Model(
     }
 
     if (localFileRelativeDirPathOverride.isNotEmpty()) {
-      return listOf(
-          context.getExternalFilesDir(null)?.absolutePath ?: "",
-          localFileRelativeDirPathOverride,
-          fileName,
-        )
+      return listOf(externalDir, localFileRelativeDirPathOverride, fileName)
         .joinToString(File.separator)
     }
 
     val baseDir =
-      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, version)
+      listOf(externalDir, normalizedName, version)
         .joinToString(File.separator)
     return if (this.isZip && this.unzipDir.isNotEmpty()) {
       listOf(baseDir, this.unzipDir).joinToString(File.separator)
@@ -305,22 +296,9 @@ data class Model(
       as Float
   }
 
-  fun getBooleanConfigValue(key: ConfigKey, defaultValue: Boolean = false): Boolean {
-    return getTypedConfigValue(
-      key = key,
-      valueType = ValueType.BOOLEAN,
-      defaultValue = defaultValue,
-    )
-      as Boolean
-  }
-
   fun getStringConfigValue(key: ConfigKey, defaultValue: String = ""): String {
     return getTypedConfigValue(key = key, valueType = ValueType.STRING, defaultValue = defaultValue)
       as String
-  }
-
-  fun getExtraDataFile(name: String): ModelDataFile? {
-    return extraDataFiles.find { it.name == name }
   }
 
   private fun getTypedConfigValue(key: ConfigKey, valueType: ValueType, defaultValue: Any): Any {

@@ -27,7 +27,6 @@ import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -116,25 +115,6 @@ fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolea
   return formatString.format(bytes / unit.toDouble().pow(exp.toDouble()), pre)
 }
 
-fun Float.humanReadableDuration(): String {
-  val milliseconds = this
-  if (milliseconds < 1000) {
-    return "$milliseconds ms"
-  }
-  val seconds = milliseconds / 1000f
-  if (seconds < 60) {
-    return "%.1f s".format(seconds)
-  }
-
-  val minutes = seconds / 60f
-  if (minutes < 60) {
-    return "%.1f min".format(minutes)
-  }
-
-  val hours = minutes / 60f
-  return "%.1f h".format(hours)
-}
-
 fun Long.formatToHourMinSecond(): String {
   val ms = this
   if (ms < 0) {
@@ -159,32 +139,6 @@ fun Long.formatToHourMinSecond(): String {
   }
 
   return parts.joinToString(" ")
-}
-
-fun getDistinctiveColor(index: Int): Color {
-  val colors =
-    listOf(
-      //      Color(0xffe6194b),
-      Color(0xff3cb44b),
-      Color(0xffffe119),
-      Color(0xff4363d8),
-      Color(0xfff58231),
-      Color(0xff911eb4),
-      Color(0xff46f0f0),
-      Color(0xfff032e6),
-      Color(0xffbcf60c),
-      Color(0xfffabebe),
-      Color(0xff008080),
-      Color(0xffe6beff),
-      Color(0xff9a6324),
-      Color(0xfffffac8),
-      Color(0xff800000),
-      Color(0xffaaffc3),
-      Color(0xff808000),
-      Color(0xffffd8b1),
-      Color(0xff000075),
-    )
-  return colors[index % colors.size]
 }
 
 fun Context.createTempPictureUri(
@@ -225,47 +179,6 @@ fun checkNotificationPermissionAndStartDownload(
 
 fun ensureValidFileName(fileName: String): String {
   return fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-}
-
-/**
- * A composable that animates text appearing to "swipe" into view from left to right.
- *
- * This effect is created by animating a linear gradient brush that colors the text, combined with
- * an alpha animation for fading. The text gradually becomes visible as the gradient moves across
- * it, revealing the full text by the end of the animation.
- */
-@Composable
-fun SwipingText(
-  text: String,
-  style: TextStyle,
-  color: Color,
-  modifier: Modifier = Modifier,
-  animationDelay: Long = 0,
-  animationDurationMs: Int = 300,
-  edgeGradientRelativeSize: Float = 1.0f,
-) {
-  val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = animationDelay,
-      animationDurationMs = animationDurationMs,
-      animationLabel = "swiping text",
-      easing = LinearEasing,
-    )
-  Text(
-    text,
-    style =
-      style.copy(
-        brush =
-          linearGradient(
-            colorStops =
-              arrayOf(
-                (1f + edgeGradientRelativeSize) * progress - edgeGradientRelativeSize to color,
-                (1f + edgeGradientRelativeSize) * progress to Color.Transparent,
-              )
-          )
-      ),
-    modifier = modifier.graphicsLayer { alpha = progress },
-  )
 }
 
 /**

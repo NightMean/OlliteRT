@@ -7,7 +7,7 @@ import org.junit.Test
 
 /**
  * Tests for [convertValueToTargetType], [createLlmChatConfigs],
- * [createLlmChatConfigsForNpuModel], and [getConfigValueString].
+ * and [createLlmChatConfigsForNpuModel].
  */
 class ConfigTest {
 
@@ -232,33 +232,4 @@ class ConfigTest {
     assertTrue("NPU max_tokens should be LabelConfig (no slider)", maxTokensConfig is LabelConfig)
   }
 
-  // ── getConfigValueString() ───────────────────────────────────────────────
-
-  @Test
-  fun getConfigValueStringFormatsFloat() {
-    val config = NumberSliderConfig(
-      key = ConfigKeys.TEMPERATURE,
-      sliderMin = 0f, sliderMax = 2f,
-      defaultValue = 1.0f, valueType = ValueType.FLOAT,
-    )
-    // Source uses "%.2f".format() which is locale-dependent
-    val expected = "%.2f".format(0.78f)
-    assertEquals(expected, getConfigValueString(0.78f, config))
-  }
-
-  @Test
-  fun getConfigValueStringFormatsInt() {
-    val config = NumberSliderConfig(
-      key = ConfigKeys.TOPK,
-      sliderMin = 5f, sliderMax = 100f,
-      defaultValue = 64f, valueType = ValueType.INT,
-    )
-    assertEquals("42", getConfigValueString(42, config))
-  }
-
-  @Test
-  fun getConfigValueStringFormatsString() {
-    val config = LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "1024")
-    assertEquals("GPU", getConfigValueString("GPU", config))
-  }
 }

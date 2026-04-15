@@ -1,13 +1,11 @@
 package com.ollitert.llm.server.data
 
 import android.content.Context
-import java.util.UUID
 
 private const val PREFS_NAME = "llm_http_prefs"
 private const val KEY_ENABLED = "enabled"
 private const val KEY_PORT = "port"
 private const val KEY_PAYLOAD_LOGGING_ENABLED = "payload_logging_enabled"
-private const val KEY_ACCELERATOR_FALLBACK_ENABLED = "accelerator_fallback_enabled"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
 private const val KEY_LAST_MODEL_NAME = "last_model_name"
@@ -35,7 +33,6 @@ private const val KEY_PREFIX_CHAT_TEMPLATE = "chat_template_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
 private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
-private const val DEFAULT_ACCELERATOR_FALLBACK_ENABLED = true
 
 // --- Developer / Debug ---
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
@@ -109,10 +106,6 @@ object LlmHttpPrefs {
     prefs(context)
       .getBoolean(KEY_PAYLOAD_LOGGING_ENABLED, DEFAULT_PAYLOAD_LOGGING_ENABLED)
 
-  fun isAcceleratorFallbackEnabled(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_ACCELERATOR_FALLBACK_ENABLED, DEFAULT_ACCELERATOR_FALLBACK_ENABLED)
-
   fun getHfToken(context: Context): String =
     prefs(context).getString(KEY_HF_TOKEN, "")
       ?: ""
@@ -134,19 +127,6 @@ object LlmHttpPrefs {
       .putString(KEY_BEARER_TOKEN, token.trim())
       .apply()
   }
-
-  fun ensureBearerToken(context: Context): String {
-    val current = getBearerToken(context)
-    if (current.isNotBlank()) return current
-
-    val generated = UUID.randomUUID().toString().replace("-", "")
-    setBearerToken(context, generated)
-    return generated
-  }
-
-  fun getLastModelName(context: Context): String? =
-    prefs(context)
-      .getString(KEY_LAST_MODEL_NAME, null)
 
   fun setLastModelName(context: Context, modelName: String?) {
     prefs(context)

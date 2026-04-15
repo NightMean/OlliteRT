@@ -34,14 +34,6 @@ internal fun unauthorized(error: String) =
   jsonError(NanoHTTPD.Response.Status.UNAUTHORIZED, error).also { it.addHeader("WWW-Authenticate", "Bearer") }
 internal fun methodNotAllowed() = jsonError(NanoHTTPD.Response.Status.METHOD_NOT_ALLOWED, "method_not_allowed")
 
-/** SSE response from a pre-built payload string. Uses fixed-length since the full content is known. */
-internal fun sseFixedResponse(payload: String): NanoHTTPD.Response {
-  val resp = NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "text/event-stream", payload)
-  resp.addHeader("Cache-Control", "no-cache")
-  resp.addHeader("Connection", "keep-alive")
-  return resp
-}
-
 // ── LlmHttpServer ────────────────────────────────────────────────────────────
 
 /**

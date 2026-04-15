@@ -22,7 +22,6 @@ interface TokenManager {
   fun getAuthorizationRequest(): AuthorizationRequest
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit)
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long)
-  fun clearAccessToken()
 }
 
 /** Loads the model allowlist from network, disk cache, or bundled assets. */
@@ -33,7 +32,6 @@ interface AllowlistLoader {
     val rawJson: String? = null,
   )
   fun readTestAllowlist(): ModelAllowlist?
-  fun fetchFromNetwork(version: String): LoadResult
   fun saveToDisk(content: String)
   fun readFromDiskCache(): ModelAllowlist?
   fun readFromAssets(): ModelAllowlist?
@@ -42,7 +40,6 @@ interface AllowlistLoader {
 /** Manages model file operations on the local file system. */
 interface ModelFileOps {
   fun isFileInExternalFilesDir(fileName: String): Boolean
-  fun isFileInDataLocalTmpDir(fileName: String): Boolean
   fun deleteFileFromExternalFilesDir(fileName: String)
   fun deleteFilesFromImportDir(fileName: String)
   fun deleteDirFromExternalFilesDir(dir: String)
