@@ -82,7 +82,7 @@ class UpdateCheckWorker(
         }
         return Result.success(workDataOf(
           KEY_RESULT to RESULT_UP_TO_DATE,
-          KEY_MESSAGE to "No updates available",
+          KEY_MESSAGE to context.getString(R.string.update_check_no_updates),
         ))
       }
 
@@ -104,7 +104,7 @@ class UpdateCheckWorker(
         ServerMetrics.setAvailableUpdate(null, null)
         return Result.success(workDataOf(
           KEY_RESULT to RESULT_UP_TO_DATE,
-          KEY_MESSAGE to "You're on the latest version ($currentVersion)",
+          KEY_MESSAGE to context.getString(R.string.update_check_up_to_date, currentVersion),
         ))
       }
 
@@ -156,7 +156,7 @@ class UpdateCheckWorker(
       }
       return Result.success(workDataOf(
         KEY_RESULT to RESULT_ERROR,
-        KEY_MESSAGE to "Update check failed — check your network connection",
+        KEY_MESSAGE to context.getString(R.string.update_check_failed_network),
       ))
     }
   }
@@ -315,7 +315,7 @@ class UpdateCheckWorker(
             body = "HTTP 403: Rate limit exceeded.",
           )
         }
-        return "Update check failed — rate limited, try again later"
+        return context.getString(R.string.update_check_failed_rate_limited)
       }
       404 -> {
         // Repository not found — increment consecutive failure counter
@@ -343,7 +343,7 @@ class UpdateCheckWorker(
             body = "$MAX_CONSECUTIVE_FAILURES consecutive 404 errors. Re-enable in Settings or update the repository URL.",
           )
         }
-        return "Update check failed — repository or releases not found"
+        return context.getString(R.string.update_check_failed_not_found)
       }
       in 500..599 -> {
         // GitHub server error — transient, try again next cycle
@@ -356,11 +356,11 @@ class UpdateCheckWorker(
             body = "HTTP ${e.httpCode}: ${e.url}",
           )
         }
-        return "Update check failed — server error, try again later"
+        return context.getString(R.string.update_check_failed_server_error)
       }
       else -> {
         Log.w(TAG, "Update check HTTP error: ${e.httpCode}")
-        return "Update check failed — HTTP error ${e.httpCode}"
+        return context.getString(R.string.update_check_failed_http, e.httpCode)
       }
     }
   }
@@ -505,10 +505,10 @@ class UpdateCheckWorker(
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val channel = NotificationChannel(
           UPDATE_CHANNEL_ID,
-          "Update Available",
+          context.getString(R.string.notif_channel_update_name),
           NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
-          description = "Notifies when a new version of OlliteRT is available"
+          description = context.getString(R.string.notif_channel_update_desc)
         }
         val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         if (mgr == null) {

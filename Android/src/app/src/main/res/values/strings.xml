@@ -703,4 +703,19 @@
   <string name="error_import_failed" translatable="false">Failed to import</string>
   <string name="error_import_finalize_failed" translatable="false">Failed to finalize import: %1$s</string>
 
+  <!-- Error and status messages -->
+
+  <!-- UpdateCheckWorker: Toast result messages (shown via WorkManager KEY_MESSAGE → Settings UI toast) -->
+  <string name="update_check_no_updates" translatable="false">No updates available</string>
+  <string name="update_check_up_to_date" translatable="false">You\'re on the latest version (%1$s)</string>
+  <string name="update_check_failed_network" translatable="false">Update check failed — check your network connection</string>
+  <string name="update_check_failed_rate_limited" translatable="false">Update check failed — rate limited, try again later</string>
+  <string name="update_check_failed_not_found" translatable="false">Update check failed — repository or releases not found</string>
+  <string name="update_check_failed_server_error" translatable="false">Update check failed — server error, try again later</string>
+  <string name="update_check_failed_http" translatable="false">Update check failed — HTTP error %1$d</string>
+
+  <!-- UpdateCheckWorker: Notification channel (visible in Android system notification settings) -->
+  <string name="notif_channel_update_name" translatable="false">Update Available</string>
+  <string name="notif_channel_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>
+
 </resources>
