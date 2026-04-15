@@ -41,8 +41,15 @@ data class LogFilter(
 /** Check chip-only filters (method, status range, log level). */
 internal fun RequestLogEntry.matchesChipFilters(filter: LogFilter): Boolean {
   if (filter.methods.isNotEmpty() && method !in filter.methods) return false
-  if (filter.statusRanges.isNotEmpty() && method != "EVENT") {
-    if (filter.statusRanges.none { it.contains(statusCode) }) return false
+  // Status range filters (2xx/4xx/5xx) only apply to HTTP request entries.
+  // EVENT entries have no status code — they should be excluded when status
+  // filters are active unless the EVENT method is also explicitly selected.
+  if (filter.statusRanges.isNotEmpty()) {
+    if (method == "EVENT") {
+      if ("EVENT" !in filter.methods) return false
+    } else {
+      if (filter.statusRanges.none { it.contains(statusCode) }) return false
+    }
   }
   if (filter.levels.isNotEmpty() && level !in filter.levels) return false
   return true
