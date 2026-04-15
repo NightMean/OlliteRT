@@ -249,7 +249,7 @@ fun StatusScreen(
           }
           Spacer(modifier = Modifier.height(2.dp))
           if (status == ServerStatus.ERROR) {
-            val errorText = formatModelError(lastError)
+            val errorText = formatModelError(context, lastError)
             Text(
               text = errorText,
               style = MaterialTheme.typography.labelSmall,

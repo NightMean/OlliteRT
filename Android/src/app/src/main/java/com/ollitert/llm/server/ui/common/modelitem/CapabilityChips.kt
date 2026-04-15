@@ -13,7 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
 
 /**
@@ -30,15 +32,15 @@ fun CapabilityChips(
     modifier = modifier.horizontalScroll(rememberScrollState()),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    CapabilityChip(label = "Text")
+    CapabilityChip(label = stringResource(R.string.capability_text))
     if (model.llmSupportImage) {
-      CapabilityChip(label = "Vision")
+      CapabilityChip(label = stringResource(R.string.capability_vision))
     }
     if (model.llmSupportAudio) {
-      CapabilityChip(label = "Audio")
+      CapabilityChip(label = stringResource(R.string.capability_audio))
     }
     if (model.llmSupportThinking) {
-      CapabilityChip(label = "Thinking")
+      CapabilityChip(label = stringResource(R.string.capability_thinking))
     }
   }
 }

@@ -87,15 +87,15 @@ fun copyToClipboard(context: Context, label: String, text: String, formatSuffix:
     return
   }
   clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-  val toast = if (formatSuffix != null) "Copied to clipboard ($formatSuffix)" else "Copied to clipboard"
+  val toast = if (formatSuffix != null) context.getString(R.string.toast_copied_to_clipboard_format, formatSuffix) else context.getString(R.string.toast_copied_to_clipboard)
   Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
 }
 
 /** Consistent error text for model loading failures across all screens. */
-fun formatModelError(error: String?): String = when {
-  error.isNullOrBlank() -> "Failed to load model"
-  error.length > 80 -> "Failed to load — check Logs for details"
-  else -> "Failed to load: $error"
+fun formatModelError(context: Context, error: String?): String = when {
+  error.isNullOrBlank() -> context.getString(R.string.error_model_load_failed)
+  error.length > 80 -> context.getString(R.string.error_model_load_failed_short)
+  else -> context.getString(R.string.error_model_load_failed_detail, error)
 }
 
 val SMALL_BUTTON_CONTENT_PADDING =

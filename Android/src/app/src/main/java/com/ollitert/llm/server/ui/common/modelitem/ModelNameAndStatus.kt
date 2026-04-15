@@ -45,6 +45,7 @@ import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.ClickableLink
+import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.customColors
 import com.ollitert.llm.server.ui.theme.labelSmallNarrow
@@ -69,6 +70,7 @@ fun ModelNameAndStatus(
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   var curDownloadProgress = 0f
 
+  val context = LocalContext.current
   Column(modifier = modifier) {
     // Show "Best Overall" badge only for Gemma 4 models.
     val isGemma4 = (model.displayName.ifEmpty { model.name }).contains("gemma-4", ignoreCase = true)
@@ -163,7 +165,7 @@ fun ModelNameAndStatus(
                 // }
               }
               if (isPartiallyDownloaded) {
-                sizeLabel = "$sizeLabel (resuming...)"
+                sizeLabel = "$sizeLabel${context.getString(R.string.model_status_resuming_suffix)}"
               }
               curDownloadProgress =
                 downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
@@ -173,7 +175,7 @@ fun ModelNameAndStatus(
             }
             // Status for unzipping.
             else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
-              sizeLabel = "Unzipping..."
+              sizeLabel = context.getString(R.string.model_status_unzipping)
             }
           }
 

@@ -58,16 +58,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTSurfaceContainerLowest
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.delay
 
-enum class OlliteRTTab(val label: String, val icon: ImageVector, val route: String) {
-  Models("Models", Icons.Outlined.ViewInAr, OlliteRTRoutes.MODELS),
-  Status("Status", Icons.Outlined.Analytics, OlliteRTRoutes.STATUS),
-  Logs("Logs", Icons.Outlined.Terminal, OlliteRTRoutes.LOGS),
+enum class OlliteRTTab(val labelResId: Int, val icon: ImageVector, val route: String) {
+  Models(R.string.nav_tab_models, Icons.Outlined.ViewInAr, OlliteRTRoutes.MODELS),
+  Status(R.string.nav_tab_status, Icons.Outlined.Analytics, OlliteRTRoutes.STATUS),
+  Logs(R.string.nav_tab_logs, Icons.Outlined.Terminal, OlliteRTRoutes.LOGS),
 }
 
 @Composable
@@ -145,7 +147,7 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
     // sees what's actually usable for model downloads — matches the check in
     // DownloadAndTryButton.isStorageLow() which also subtracts the reserve.
     Text(
-      text = "${storageInfo.effectiveFreeBytes.humanReadableSize()} free of ${storageInfo.totalBytes.humanReadableSize()}",
+      text = stringResource(R.string.nav_storage_free_of, storageInfo.effectiveFreeBytes.humanReadableSize(), storageInfo.totalBytes.humanReadableSize()),
       style = MaterialTheme.typography.labelMedium,
       fontFamily = SpaceGroteskFontFamily,
       fontWeight = FontWeight.SemiBold,
@@ -275,7 +277,7 @@ private fun MemoryBar() {
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        text = "${deviceAvailBytes.humanReadableSize()} free of ${deviceTotalBytes.humanReadableSize()}",
+        text = stringResource(R.string.nav_storage_free_of, deviceAvailBytes.humanReadableSize(), deviceTotalBytes.humanReadableSize()),
         style = MaterialTheme.typography.labelMedium,
         fontFamily = SpaceGroteskFontFamily,
         fontWeight = FontWeight.SemiBold,
@@ -286,7 +288,7 @@ private fun MemoryBar() {
       // Show actual app RAM (PSS) — includes resident mmap'd model pages
       if (appPssBytes > 0) {
         Text(
-          text = " · App ${appPssBytes.humanReadableSize()}",
+          text = stringResource(R.string.nav_memory_app_pss, appPssBytes.humanReadableSize()),
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           maxLines = 1,
@@ -389,14 +391,15 @@ private fun OlliteRTNavItem(
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center,
     ) {
+      val label = stringResource(tab.labelResId)
       Icon(
         imageVector = tab.icon,
-        contentDescription = tab.label,
+        contentDescription = label,
         tint = animatedTextColor,
         modifier = Modifier.size(22.dp),
       )
       Text(
-        text = tab.label,
+        text = label,
         style = MaterialTheme.typography.labelSmall,
         color = animatedTextColor,
         modifier = Modifier.padding(top = 2.dp),

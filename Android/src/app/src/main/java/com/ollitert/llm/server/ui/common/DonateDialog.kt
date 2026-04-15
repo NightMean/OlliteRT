@@ -65,9 +65,9 @@ fun DonateDialog(
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(4.dp))
-        DonateOption("GitHub Sponsors", GitHubConfig.DONATE_GITHUB_SPONSORS, uriHandler, onDismiss)
-        DonateOption("Buy Me a Coffee", GitHubConfig.DONATE_BUY_ME_A_COFFEE, uriHandler, onDismiss)
-        DonateOption("Ko-fi", GitHubConfig.DONATE_KOFI, uriHandler, onDismiss)
+        DonateOption(stringResource(R.string.donate_github_sponsors), GitHubConfig.DONATE_GITHUB_SPONSORS, uriHandler, onDismiss)
+        DonateOption(stringResource(R.string.donate_buy_me_a_coffee), GitHubConfig.DONATE_BUY_ME_A_COFFEE, uriHandler, onDismiss)
+        DonateOption(stringResource(R.string.donate_kofi), GitHubConfig.DONATE_KOFI, uriHandler, onDismiss)
       }
     },
     confirmButton = {},

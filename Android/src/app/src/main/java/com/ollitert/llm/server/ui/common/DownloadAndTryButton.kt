@@ -558,7 +558,7 @@ fun DownloadAndTryButton(
     }
     // Invisible overlay to show toast when disabled
     if (isStartDisabled) {
-      LoadingBlockingOverlay("Please wait for the current model to finish loading")
+      LoadingBlockingOverlay(stringResource(R.string.model_loading_hint_wait))
     }
     }
     }

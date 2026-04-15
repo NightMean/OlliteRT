@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,7 +75,7 @@ fun OlliteRTTopBar(
       ) {
         Icon(
           imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-          contentDescription = "Back",
+          contentDescription = stringResource(R.string.topbar_back),
           tint = MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.size(24.dp),
         )
@@ -95,9 +96,9 @@ fun OlliteRTTopBar(
         // Brand name — includes channel suffix for dev/beta builds
         Text(
           text = when (BuildConfig.CHANNEL) {
-            "dev" -> "OlliteRT Dev"
-            "beta" -> "OlliteRT Beta"
-            else -> "OlliteRT"
+            "dev" -> stringResource(R.string.topbar_brand_dev)
+            "beta" -> stringResource(R.string.topbar_brand_beta)
+            else -> stringResource(R.string.topbar_brand)
           },
           color = OlliteRTPrimary,
           fontFamily = SpaceGroteskFontFamily,
@@ -118,13 +119,13 @@ fun OlliteRTTopBar(
       Box(modifier = Modifier.align(Alignment.CenterEnd)) {
         TooltipBox(
           positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-          tooltip = { PlainTooltip { Text("Settings") } },
+          tooltip = { PlainTooltip { Text(stringResource(R.string.topbar_settings)) } },
           state = rememberTooltipState(),
         ) {
           IconButton(onClick = onSettingsClick) {
             Icon(
               imageVector = Icons.Outlined.Settings,
-              contentDescription = "Settings",
+              contentDescription = stringResource(R.string.topbar_settings),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(24.dp),
             )
@@ -145,10 +146,10 @@ fun StatusPill(
   modifier: Modifier = Modifier,
 ) {
   val (dotColor, label) = when (serverStatus) {
-    ServerStatus.STOPPED -> MaterialTheme.colorScheme.error to "STOPPED"
-    ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to "STARTING"
-    ServerStatus.RUNNING -> OlliteRTGreen400 to "RUNNING"
-    ServerStatus.ERROR -> MaterialTheme.colorScheme.error to "ERROR"
+    ServerStatus.STOPPED -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_stopped)
+    ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to stringResource(R.string.status_pill_starting)
+    ServerStatus.RUNNING -> OlliteRTGreen400 to stringResource(R.string.status_pill_running)
+    ServerStatus.ERROR -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_error)
   }
 
   val animatedDotColor by animateColorAsState(
