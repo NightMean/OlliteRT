@@ -139,7 +139,7 @@ internal suspend fun exportLogsAsJson(context: Context, entries: List<RequestLog
       putExtra(Intent.EXTRA_STREAM, uri)
       addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(shareIntent, "Export OlliteRT Logs"))
+    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.logs_export_chooser_title)))
   } catch (e: Exception) {
     Toast.makeText(context, context.getString(R.string.toast_export_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
   }

@@ -51,6 +51,8 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -197,7 +199,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
-        label = "Request · $requestSize",
+        label = stringResource(R.string.logs_entry_request_label, requestSize),
         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         body = formatted,
         expanded = requestExpanded,
@@ -215,7 +217,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       val badges = remember(entry.compactionDetails) { parseCompactionBadges(entry.compactionDetails) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
-        label = "Compacted Prompt · $compactedSize",
+        label = stringResource(R.string.logs_entry_compacted_prompt_label, compactedSize),
         labelColor = WarningColor,
         body = entry.compactedPrompt,
         expanded = compactedExpanded,
@@ -250,7 +252,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     if (entry.isPending) {
       Spacer(modifier = Modifier.height(10.dp))
       Text(
-        text = "Response",
+        text = stringResource(R.string.logs_entry_response),
         style = MaterialTheme.typography.labelSmall,
         color = OlliteRTPrimary,
         fontWeight = FontWeight.SemiBold,
@@ -284,8 +286,8 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
           Spacer(modifier = Modifier.height(10.dp))
         }
         Text(
-          text = if (entry.cancelledByUser) "Generation stopped by user"
-                 else "Client disconnected — generation stopped",
+          text = if (entry.cancelledByUser) stringResource(R.string.logs_entry_stopped_by_user)
+                 else stringResource(R.string.logs_entry_client_disconnected),
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
             fontSize = 11.sp,
@@ -300,7 +302,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       val responseSize = remember(entry.responseBody) { formatByteSize(entry.responseBody.length) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
-        label = "Response · $responseSize",
+        label = stringResource(R.string.logs_entry_response_label, responseSize),
         labelColor = OlliteRTPrimary,
         body = formatted,
         expanded = responseExpanded,
@@ -314,7 +316,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     if (entry.ignoredClientParams != null) {
       Spacer(modifier = Modifier.height(6.dp))
       Text(
-        text = "Client params ignored: ${entry.ignoredClientParams}",
+        text = stringResource(R.string.logs_entry_ignored_params, entry.ignoredClientParams),
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
         color = WarningColor,
       )
@@ -402,33 +404,33 @@ internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit)
     onDismissRequest = onDismiss,
     title = {
       Text(
-        text = "Request Metrics",
+        text = stringResource(R.string.logs_metrics_title),
         style = MaterialTheme.typography.titleMedium,
       )
     },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (entry.ttfbMs > 0) {
-          MetricsRow("Time to First Token", "${entry.ttfbMs}ms")
+          MetricsRow(stringResource(R.string.logs_metrics_ttfb), stringResource(R.string.logs_metrics_value_ms, entry.ttfbMs))
         }
         if (entry.decodeSpeed > 0) {
-          MetricsRow("Decode Speed", "%.1f t/s".format(entry.decodeSpeed))
+          MetricsRow(stringResource(R.string.logs_metrics_decode_speed), "%.1f t/s".format(entry.decodeSpeed))
         }
         if (entry.prefillSpeed > 0) {
-          MetricsRow("Prefill Speed", "%.1f t/s".format(entry.prefillSpeed))
+          MetricsRow(stringResource(R.string.logs_metrics_prefill_speed), "%.1f t/s".format(entry.prefillSpeed))
         }
         if (entry.itlMs > 0) {
-          MetricsRow("Inter-Token Latency", "%.1fms".format(entry.itlMs))
+          MetricsRow(stringResource(R.string.logs_metrics_itl), "%.1fms".format(entry.itlMs))
         }
         if (entry.latencyMs > 0) {
-          MetricsRow("Total Latency", "${entry.latencyMs}ms")
+          MetricsRow(stringResource(R.string.logs_metrics_total_latency), stringResource(R.string.logs_metrics_value_ms, entry.latencyMs))
         }
         if (entry.inputTokenEstimate > 0) {
           val prefix = if (entry.isExactTokenCount) "" else "~"
-          MetricsRow("Input Tokens", "$prefix${entry.inputTokenEstimate}")
+          MetricsRow(stringResource(R.string.logs_metrics_input_tokens), "$prefix${entry.inputTokenEstimate}")
         }
         if (entry.tokens > 0) {
-          MetricsRow("Output Tokens", "~${entry.tokens}")
+          MetricsRow(stringResource(R.string.logs_metrics_output_tokens), "~${entry.tokens}")
         }
         if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
           val utilPct = (entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()) * 100.0
@@ -438,17 +440,17 @@ internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit)
             else -> MaterialTheme.colorScheme.onSurface
           }
           MetricsRow(
-            label = "Context Utilization",
+            label = stringResource(R.string.logs_metrics_context_util),
             value = "%.1f%%".format(utilPct),
             valueColor = utilColor,
-            detail = "${entry.inputTokenEstimate} / ${entry.maxContextTokens}",
+            detail = stringResource(R.string.logs_metrics_ctx_detail, entry.inputTokenEstimate, entry.maxContextTokens),
           )
         }
       }
     },
     confirmButton = {
       TextButton(onClick = onDismiss) {
-        Text("Close")
+        Text(stringResource(R.string.logs_metrics_close))
       }
     },
   )
@@ -588,7 +590,7 @@ internal fun ExpandableBodySection(
         if (showToggle) {
           Icon(
             imageVector = Icons.Outlined.ExpandLess,
-            contentDescription = "Collapse",
+            contentDescription = stringResource(R.string.logs_body_collapse_cd),
             tint = labelColor.copy(alpha = 0.7f),
             modifier = Modifier
               .align(Alignment.TopEnd)
@@ -629,7 +631,7 @@ internal fun ExpandableBodySection(
       if (showToggle) {
         Icon(
           imageVector = Icons.Outlined.ExpandMore,
-          contentDescription = "Expand",
+          contentDescription = stringResource(R.string.logs_body_expand_cd),
           tint = labelColor.copy(alpha = 0.7f),
           modifier = Modifier
             .align(Alignment.TopEnd)
@@ -693,13 +695,13 @@ private fun EntryActionButtons(
     Spacer(modifier = Modifier.width(2.dp))
     TooltipBox(
       positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-      tooltip = { PlainTooltip { Text("Request metrics") } },
+      tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_request_metrics)) } },
       state = rememberTooltipState(),
     ) {
       IconButton(onClick = onInfoClick, modifier = Modifier.size(32.dp)) {
         Icon(
           imageVector = Icons.Outlined.Info,
-          contentDescription = "Request metrics",
+          contentDescription = stringResource(R.string.logs_tooltip_request_metrics),
           tint = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.size(16.dp),
         )
@@ -710,7 +712,7 @@ private fun EntryActionButtons(
     Spacer(modifier = Modifier.width(2.dp))
     TooltipBox(
       positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-      tooltip = { PlainTooltip { Text("Copy log entry") } },
+      tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_copy_entry)) } },
       state = rememberTooltipState(),
     ) {
       IconButton(
@@ -719,7 +721,7 @@ private fun EntryActionButtons(
       ) {
         Icon(
           imageVector = Icons.Outlined.ContentCopy,
-          contentDescription = "Copy log entry",
+          contentDescription = stringResource(R.string.logs_tooltip_copy_entry),
           tint = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.size(16.dp),
         )
@@ -745,7 +747,7 @@ private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
   if (entry.isStreaming) {
     FooterDot()
     Text(
-      text = "SSE",
+      text = stringResource(R.string.logs_badge_sse),
       style = MaterialTheme.typography.labelSmall,
       color = OlliteRTPrimary,
       fontWeight = FontWeight.SemiBold,
@@ -754,7 +756,7 @@ private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
   if (entry.isThinking) {
     FooterDot()
     Text(
-      text = "Thinking",
+      text = stringResource(R.string.logs_badge_thinking),
       style = MaterialTheme.typography.labelSmall,
       color = ThinkingColor,
       fontWeight = FontWeight.SemiBold,
@@ -763,7 +765,7 @@ private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
   if (entry.isCancelled) {
     FooterDot()
     Text(
-      text = "Cancelled",
+      text = stringResource(R.string.logs_badge_cancelled),
       style = MaterialTheme.typography.labelSmall,
       color = CancelledColor,
       fontWeight = FontWeight.SemiBold,
@@ -780,7 +782,7 @@ private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
     }
     FooterDot()
     Text(
-      text = "${if (entry.isExactTokenCount) "" else "~"}${entry.inputTokenEstimate} / ${entry.maxContextTokens} ctx",
+      text = stringResource(R.string.logs_badge_ctx_format, if (entry.isExactTokenCount) "" else "~", entry.inputTokenEstimate, entry.maxContextTokens),
       style = MaterialTheme.typography.labelSmall,
       color = ctxColor,
     )

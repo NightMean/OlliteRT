@@ -407,4 +407,197 @@
   <string name="status_dialog_reload_body" translatable="false">This will restart the server and reload %1$s. Any in-flight requests will be interrupted.</string>
   <string name="status_dialog_reload_confirm" translatable="false">Reload</string>
 
+  <!-- Logs screen labels -->
+
+  <!-- LogsScreen: Header & toolbar -->
+  <string name="logs_header_title" translatable="false">Activity Log</string>
+  <string name="logs_tooltip_clear_all" translatable="false">Clear all logs</string>
+  <string name="logs_tooltip_copy_filtered_json" translatable="false">Copy filtered logs (JSON)</string>
+  <string name="logs_tooltip_copy_all_json" translatable="false">Copy all logs (JSON)</string>
+  <string name="logs_tooltip_export_filtered_json" translatable="false">Export filtered logs as JSON</string>
+  <string name="logs_tooltip_export_all_json" translatable="false">Export logs as JSON</string>
+  <string name="logs_tooltip_close_search" translatable="false">Close search</string>
+  <string name="logs_tooltip_search" translatable="false">Search logs</string>
+  <string name="logs_search_placeholder" translatable="false">Search logs…</string>
+  <string name="logs_search_clear_cd" translatable="false">Clear search</string>
+
+  <!-- LogsScreen: Clear logs dialog -->
+  <string name="logs_dialog_clear_title" translatable="false">Clear All Logs</string>
+  <string name="logs_dialog_clear_body_filtered" translatable="false">This will delete all %1$d log entries (not just the %2$d shown). This action cannot be undone.</string>
+  <string name="logs_dialog_clear_body" translatable="false">This will delete all %1$d log entries. This action cannot be undone.</string>
+  <string name="logs_dialog_clear_confirm" translatable="false">Clear</string>
+  <string name="logs_dialog_clear_cancel" translatable="false">Cancel</string>
+
+  <!-- LogsScreen: Filter labels -->
+  <string name="logs_filter_post" translatable="false">POST</string>
+  <string name="logs_filter_get" translatable="false">GET</string>
+  <string name="logs_filter_event" translatable="false">EVENT</string>
+  <string name="logs_filter_error" translatable="false">ERROR</string>
+  <string name="logs_filter_warn" translatable="false">WARN</string>
+
+  <!-- LogsScreen: Result count banner -->
+  <string name="logs_searching" translatable="false">Searching…</string>
+  <string name="logs_showing_count" translatable="false">Showing %1$d of %2$d</string>
+  <string name="logs_clear_filters" translatable="false">Clear filters</string>
+
+  <!-- LogsScreen: Empty states -->
+  <string name="logs_empty_title" translatable="false">No activity yet</string>
+  <string name="logs_empty_body" translatable="false">Server activity will appear here.</string>
+  <string name="logs_no_match_title" translatable="false">No matching entries</string>
+  <string name="logs_no_match_body" translatable="false">No logs match the current filters.</string>
+
+  <!-- LogsScreen: New activity indicator -->
+  <string name="logs_new_activity_single" translatable="false">New activity</string>
+  <string name="logs_new_activity_count" translatable="false">%1$d new entries</string>
+
+  <!-- LogsScreen: Stop generation -->
+  <string name="logs_tooltip_stop_generation" translatable="false">Stop generation</string>
+
+  <!-- LogEntryCard: Section labels -->
+  <string name="logs_entry_request_label" translatable="false">Request · %1$s</string>
+  <string name="logs_entry_compacted_prompt_label" translatable="false">Compacted Prompt · %1$s</string>
+  <string name="logs_entry_response_label" translatable="false">Response · %1$s</string>
+  <string name="logs_entry_response" translatable="false">Response</string>
+  <string name="logs_entry_request" translatable="false">Request</string>
+
+  <!-- LogEntryCard: Cancelled state -->
+  <string name="logs_entry_stopped_by_user" translatable="false">Generation stopped by user</string>
+  <string name="logs_entry_client_disconnected" translatable="false">Client disconnected — generation stopped</string>
+
+  <!-- LogEntryCard: Ignored client params -->
+  <string name="logs_entry_ignored_params" translatable="false">Client params ignored: %1$s</string>
+
+  <!-- LogEntryCard: Expandable body -->
+  <string name="logs_body_collapse_cd" translatable="false">Collapse</string>
+  <string name="logs_body_expand_cd" translatable="false">Expand</string>
+
+  <!-- LogEntryCard: Footer badges -->
+  <string name="logs_badge_sse" translatable="false">SSE</string>
+  <string name="logs_badge_thinking" translatable="false">Thinking</string>
+  <string name="logs_badge_cancelled" translatable="false">Cancelled</string>
+  <string name="logs_badge_ctx_format" translatable="false">%1$s%2$d / %3$d ctx</string>
+
+  <!-- LogEntryCard: Action button tooltips -->
+  <string name="logs_tooltip_request_metrics" translatable="false">Request metrics</string>
+  <string name="logs_tooltip_copy_entry" translatable="false">Copy log entry</string>
+
+  <!-- LogEntryCard: Request metrics dialog -->
+  <string name="logs_metrics_title" translatable="false">Request Metrics</string>
+  <string name="logs_metrics_ttfb" translatable="false">Time to First Token</string>
+  <string name="logs_metrics_decode_speed" translatable="false">Decode Speed</string>
+  <string name="logs_metrics_prefill_speed" translatable="false">Prefill Speed</string>
+  <string name="logs_metrics_itl" translatable="false">Inter-Token Latency</string>
+  <string name="logs_metrics_total_latency" translatable="false">Total Latency</string>
+  <string name="logs_metrics_input_tokens" translatable="false">Input Tokens</string>
+  <string name="logs_metrics_output_tokens" translatable="false">Output Tokens</string>
+  <string name="logs_metrics_context_util" translatable="false">Context Utilization</string>
+  <string name="logs_metrics_close" translatable="false">Close</string>
+  <string name="logs_metrics_value_ms" translatable="false">%1$dms</string>
+  <string name="logs_metrics_value_tps" translatable="false">%.1f t/s</string>
+  <string name="logs_metrics_value_ms_float" translatable="false">%.1fms</string>
+  <string name="logs_metrics_value_pct" translatable="false">%.1f%%</string>
+  <string name="logs_metrics_ctx_detail" translatable="false">%1$d / %2$d</string>
+
+  <!-- LogEventCard: Category labels -->
+  <string name="logs_event_category_model" translatable="false">MODEL</string>
+  <string name="logs_event_category_settings" translatable="false">SETTINGS</string>
+  <string name="logs_event_category_server" translatable="false">SERVER</string>
+  <string name="logs_event_category_prompt" translatable="false">PROMPT</string>
+  <string name="logs_event_category_update" translatable="false">UPDATE</string>
+  <string name="logs_event_category_general" translatable="false">EVENT</string>
+
+  <!-- LogEventCard: Headline strings -->
+  <string name="logs_headline_model_loading" translatable="false">Model Loading</string>
+  <string name="logs_headline_model_loaded" translatable="false">Model Loaded</string>
+  <string name="logs_headline_warmup_message" translatable="false">Internal Warmup Message</string>
+  <string name="logs_headline_settings_changed" translatable="false">Settings changed</string>
+  <string name="logs_headline_prompt_active" translatable="false">%1$s active</string>
+  <string name="logs_headline_server_stopped" translatable="false">Server Stopped</string>
+  <string name="logs_headline_warmup_skipped" translatable="false">Warmup Skipped</string>
+  <string name="logs_headline_model_load_failed" translatable="false">Model Load Failed</string>
+  <string name="logs_headline_server_failed" translatable="false">Server Failed</string>
+  <string name="logs_headline_model_not_found" translatable="false">Model Not Found</string>
+  <string name="logs_headline_image_decode_failed" translatable="false">Image Decode Failed</string>
+  <string name="logs_headline_queued_reload" translatable="false">Queued Reload</string>
+  <string name="logs_headline_conversation_reset_failed" translatable="false">Conversation Reset Failed</string>
+  <string name="logs_headline_settings_updated" translatable="false">Settings updated</string>
+  <string name="logs_headline_config_via_api" translatable="false">Config via REST API</string>
+  <string name="logs_headline_model_restart" translatable="false">Model Restart</string>
+  <string name="logs_headline_model_unloading" translatable="false">Model Unloading</string>
+  <string name="logs_headline_model_idle_unloaded" translatable="false">Model Idle Unloaded</string>
+  <string name="logs_headline_model_reloading" translatable="false">Model Reloading</string>
+  <string name="logs_headline_model_reloaded" translatable="false">Model Reloaded</string>
+  <string name="logs_headline_update_available" translatable="false">Update Available</string>
+  <string name="logs_headline_up_to_date" translatable="false">Up to Date</string>
+  <string name="logs_headline_update_check_disabled" translatable="false">Update Check Disabled</string>
+  <string name="logs_headline_memory_pressure" translatable="false">Memory Pressure</string>
+  <string name="logs_headline_debug" translatable="false">Debug</string>
+
+  <!-- LogEventCard: Tooltip -->
+  <string name="logs_tooltip_copy_event" translatable="false">Copy event</string>
+
+  <!-- LogEventCard: Body text fragments -->
+  <string name="logs_event_loading_prefix" translatable="false">Loading </string>
+  <string name="logs_event_loading_suffix" translatable="false"> into memory</string>
+  <string name="logs_event_loaded_suffix" translatable="false"> loaded into memory</string>
+  <string name="logs_event_model_unloaded_prefix" translatable="false">Model </string>
+  <string name="logs_event_model_unloaded_suffix" translatable="false"> unloaded from memory</string>
+  <string name="logs_event_reloading_prefix" translatable="false">Restarting </string>
+  <string name="logs_event_unloading_prefix" translatable="false">Unloading </string>
+  <string name="logs_event_unloading_suffix" translatable="false"> from memory</string>
+  <string name="logs_event_keepalive_unloaded_suffix" translatable="false"> unloaded after %1$sm idle to free RAM</string>
+  <string name="logs_event_keepalive_reloading_prefix" translatable="false">Reloading </string>
+  <string name="logs_event_keepalive_reloading_suffix" translatable="false"> (request received while idle)</string>
+  <string name="logs_event_keepalive_reloaded_suffix" translatable="false"> reloaded in %1$sms</string>
+  <string name="logs_event_version_prefix" translatable="false">Version </string>
+  <string name="logs_event_version_suffix" translatable="false"> is available</string>
+  <string name="logs_event_update_none" translatable="false">No newer version found</string>
+  <string name="logs_event_update_auto_disabled" translatable="false">Too many consecutive failures</string>
+  <string name="logs_event_memory_pressure_body" translatable="false">Android is critically low on RAM — the app may be killed soon. Close other apps or use a smaller model.</string>
+  <string name="logs_event_queued_reload_model" translatable="false">Reloading %1$s with updated settings</string>
+  <string name="logs_event_queued_reload_generic" translatable="false">Reloading model with updated settings</string>
+  <string name="logs_event_model_not_found_detail" translatable="false">%1$s (not in downloaded or available models)</string>
+  <string name="logs_event_model_files_missing" translatable="false">Model files missing from device storage</string>
+
+  <!-- LogEventCard: Show more/less toggle -->
+  <string name="logs_event_show_less" translatable="false">Show less</string>
+  <string name="logs_event_show_more" translatable="false">Show more</string>
+
+  <!-- LogEventCard: Prompt before/after -->
+  <string name="logs_prompt_before" translatable="false">Before</string>
+  <string name="logs_prompt_after" translatable="false">After</string>
+  <string name="logs_prompt_set_to" translatable="false">Set to</string>
+  <string name="logs_prompt_empty" translatable="false">(empty)</string>
+
+  <!-- LogEventCard: Footer badge -->
+  <string name="logs_event_ready" translatable="false">Ready</string>
+
+  <!-- LogBadges: HTTP status labels -->
+  <string name="logs_status_context_exceeded" translatable="false">Context Exceeded</string>
+  <string name="logs_status_bad_request" translatable="false">Bad Request</string>
+  <string name="logs_status_unauthorized" translatable="false">Unauthorized</string>
+  <string name="logs_status_forbidden" translatable="false">Forbidden</string>
+  <string name="logs_status_not_found" translatable="false">Not Found</string>
+  <string name="logs_status_method_not_allowed" translatable="false">Method Not Allowed</string>
+  <string name="logs_status_request_timeout" translatable="false">Request Timeout</string>
+  <string name="logs_status_payload_too_large" translatable="false">Payload Too Large</string>
+  <string name="logs_status_too_many_requests" translatable="false">Too Many Requests</string>
+  <string name="logs_status_internal_server_error" translatable="false">Internal Server Error</string>
+  <string name="logs_status_bad_gateway" translatable="false">Bad Gateway</string>
+  <string name="logs_status_service_unavailable" translatable="false">Service Unavailable</string>
+  <string name="logs_status_gateway_timeout" translatable="false">Gateway Timeout</string>
+  <string name="logs_status_error" translatable="false">Error</string>
+  <string name="logs_status_ok" translatable="false">OK</string>
+
+  <!-- LogBadges: Compaction badges -->
+  <string name="logs_badge_compacted" translatable="false">Compacted</string>
+  <string name="logs_badge_compacted_tools" translatable="false">Compacted: Tools</string>
+  <string name="logs_badge_compacted_tools_removed" translatable="false">Compacted: Tools removed</string>
+  <string name="logs_badge_truncated" translatable="false">Truncated</string>
+  <string name="logs_badge_truncated_detail" translatable="false">Truncated: %1$s</string>
+  <string name="logs_badge_trimmed" translatable="false">Trimmed</string>
+
+  <!-- LogClipboardExport -->
+  <string name="logs_export_chooser_title" translatable="false">Export OlliteRT Logs</string>
+
 </resources>

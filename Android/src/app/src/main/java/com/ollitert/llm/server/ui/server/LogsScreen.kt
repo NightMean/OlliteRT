@@ -52,6 +52,8 @@ import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.ui.res.stringResource
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.copyToClipboard
@@ -353,16 +355,16 @@ fun LogsScreen(
       onDismissRequest = { showClearConfirmDialog = false },
       title = {
         Text(
-          text = "Clear All Logs",
+          text = stringResource(R.string.logs_dialog_clear_title),
           style = MaterialTheme.typography.titleMedium,
         )
       },
       text = {
         Text(
           text = if (isFiltered) {
-            "This will delete all $totalCount log entries (not just the $filteredCount shown). This action cannot be undone."
+            stringResource(R.string.logs_dialog_clear_body_filtered, totalCount, filteredCount)
           } else {
-            "This will delete all $totalCount log entries. This action cannot be undone."
+            stringResource(R.string.logs_dialog_clear_body, totalCount)
           },
           style = MaterialTheme.typography.bodyMedium,
         )
@@ -378,12 +380,12 @@ fun LogsScreen(
             containerColor = MaterialTheme.colorScheme.error,
           ),
         ) {
-          Text("Clear")
+          Text(stringResource(R.string.logs_dialog_clear_confirm))
         }
       },
       dismissButton = {
         TextButton(onClick = { showClearConfirmDialog = false }) {
-          Text("Cancel")
+          Text(stringResource(R.string.logs_dialog_clear_cancel))
         }
       },
     )
@@ -404,7 +406,7 @@ fun LogsScreen(
       horizontalArrangement = Arrangement.SpaceBetween,
     ) {
       Text(
-        text = "Activity Log",
+        text = stringResource(R.string.logs_header_title),
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 2,
@@ -415,7 +417,7 @@ fun LogsScreen(
           // Clear all logs (with optional confirmation)
           TooltipIconButton(
             icon = Icons.Outlined.DeleteSweep,
-            tooltip = "Clear all logs",
+            tooltip = stringResource(R.string.logs_tooltip_clear_all),
             onClick = {
               if (LlmHttpPrefs.isConfirmClearLogs(context)) {
                 showClearConfirmDialog = true
@@ -430,21 +432,21 @@ fun LogsScreen(
           // Copy visible logs (filtered if active) as JSON
           TooltipIconButton(
             icon = Icons.Outlined.ContentCopy,
-            tooltip = if (filter.isActive) "Copy filtered logs (JSON)" else "Copy all logs (JSON)",
+            tooltip = if (filter.isActive) stringResource(R.string.logs_tooltip_copy_filtered_json) else stringResource(R.string.logs_tooltip_copy_all_json),
             onClick = { scope.launch { copyAllLogsToClipboard(context, displayedEntries) } },
             tint = OlliteRTPrimary,
           )
           // Export visible logs as JSON file
           TooltipIconButton(
             icon = Icons.Outlined.Share,
-            tooltip = if (filter.isActive) "Export filtered logs as JSON" else "Export logs as JSON",
+            tooltip = if (filter.isActive) stringResource(R.string.logs_tooltip_export_filtered_json) else stringResource(R.string.logs_tooltip_export_all_json),
             onClick = { scope.launch { exportLogsAsJson(context, displayedEntries) } },
             tint = OlliteRTPrimary,
           )
           // Search toggle
           TooltipIconButton(
             icon = if (searchBarVisible) Icons.Outlined.Close else Icons.Outlined.Search,
-            tooltip = if (searchBarVisible) "Close search" else "Search logs",
+            tooltip = if (searchBarVisible) stringResource(R.string.logs_tooltip_close_search) else stringResource(R.string.logs_tooltip_search),
             onClick = {
               searchBarVisible = !searchBarVisible
               if (!searchBarVisible) clearSearch()
@@ -474,7 +476,7 @@ fun LogsScreen(
           .padding(bottom = 8.dp)
           .focusRequester(focusRequester),
         placeholder = {
-          Text("Search logs...", style = MaterialTheme.typography.bodyLarge)
+          Text(stringResource(R.string.logs_search_placeholder), style = MaterialTheme.typography.bodyLarge)
         },
         leadingIcon = {
           Icon(
@@ -488,7 +490,7 @@ fun LogsScreen(
             IconButton(onClick = { clearSearch() }) {
               Icon(
                 imageVector = Icons.Outlined.Close,
-                contentDescription = "Clear search",
+                contentDescription = stringResource(R.string.logs_search_clear_cd),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
@@ -640,13 +642,13 @@ fun LogsScreen(
             color = OlliteRTPrimary,
           )
           Text(
-            text = "Searching...",
+            text = stringResource(R.string.logs_searching),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         } else {
           Text(
-            text = "Showing ${displayedEntries.size} of ${entries.size}",
+            text = stringResource(R.string.logs_showing_count, displayedEntries.size, entries.size),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -658,7 +660,7 @@ fun LogsScreen(
           contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
         ) {
           Text(
-            text = "Clear filters",
+            text = stringResource(R.string.logs_clear_filters),
             style = MaterialTheme.typography.labelSmall,
             color = OlliteRTPrimary,
           )
@@ -674,13 +676,13 @@ fun LogsScreen(
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(
-            text = "No activity yet",
+            text = stringResource(R.string.logs_empty_title),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
           )
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = "Server activity will appear here.",
+            text = stringResource(R.string.logs_empty_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -694,19 +696,19 @@ fun LogsScreen(
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(
-            text = "No matching entries",
+            text = stringResource(R.string.logs_no_match_title),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
           )
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = "No logs match the current filters.",
+            text = stringResource(R.string.logs_no_match_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
           Spacer(modifier = Modifier.height(12.dp))
           TextButton(onClick = { clearAllFilters() }) {
-            Text("Clear filters", color = OlliteRTPrimary)
+            Text(stringResource(R.string.logs_clear_filters), color = OlliteRTPrimary)
           }
         }
       }
@@ -835,7 +837,7 @@ fun LogsScreen(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              text = if (unseenCount == 1) "New activity" else "$unseenCount new entries",
+              text = if (unseenCount == 1) stringResource(R.string.logs_new_activity_single) else stringResource(R.string.logs_new_activity_count, unseenCount),
               style = MaterialTheme.typography.labelMedium,
               color = Color.Black,
               fontWeight = FontWeight.SemiBold,
@@ -1003,7 +1005,7 @@ internal fun GeneratingStatusRow(entryId: String) {
     @OptIn(ExperimentalMaterial3Api::class)
     TooltipBox(
       positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-      tooltip = { PlainTooltip { Text("Stop generation") } },
+      tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_stop_generation)) } },
       state = rememberTooltipState(),
     ) {
       Box(
@@ -1016,7 +1018,7 @@ internal fun GeneratingStatusRow(entryId: String) {
       ) {
         Icon(
           imageVector = Icons.Outlined.StopCircle,
-          contentDescription = "Stop generation",
+          contentDescription = stringResource(R.string.logs_tooltip_stop_generation),
           tint = CancelledColor,
           modifier = Modifier.size(16.dp),
         )
