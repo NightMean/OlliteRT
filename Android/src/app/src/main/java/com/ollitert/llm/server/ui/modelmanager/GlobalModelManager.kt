@@ -99,7 +99,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -183,8 +182,6 @@ fun GlobalModelManager(
   onSwitchModel: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-  val builtInModels = remember { mutableStateListOf<Model>() }
-  val importedModels = remember { mutableStateListOf<Model>() }
   var showImportModelSheet by remember { mutableStateOf(false) }
   var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
   var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
@@ -240,12 +237,6 @@ fun GlobalModelManager(
   // Search, filter, and sort state
   var searchQuery by remember { mutableStateOf("") }
   var activeFilter by remember { mutableStateOf(ModelFilter.ALL) }
-  // Reset to ALL if the Imported filter is active but all imported models have been deleted
-  LaunchedEffect(importedModels.size) {
-    if (activeFilter == ModelFilter.IMPORTED && importedModels.isEmpty()) {
-      activeFilter = ModelFilter.ALL
-    }
-  }
   var activeCapabilities by remember { mutableStateOf(emptySet<CapabilityFilter>()) }
   var showMoreFilters by remember { mutableStateOf(false) }
   var activeSort by remember { mutableStateOf(ModelSort.DEFAULT) }
@@ -276,35 +267,43 @@ fun GlobalModelManager(
       }
     }
 
-  val totalModelCount = uiState.tasks.sumOf { it.models.size }
-  LaunchedEffect(uiState.modelImportingUpdateTrigger, uiState.loadingModelAllowlist, totalModelCount) {
-    val allModelsSet = mutableSetOf<Model>()
-    for (task in uiState.tasks) {
-      for (model in task.models) {
-        allModelsSet.add(model)
-      }
+  // Derive model lists reactively from uiState — any change to tasks, models, or download
+  // status automatically propagates without manual trigger bumping.
+  val sortedAllModels by remember {
+    derivedStateOf {
+      // Read modelImportingUpdateTrigger so this derivedStateOf invalidates when
+      // in-place task.models mutations are signaled via trigger bump (MutableStateFlow
+      // conflates structurally-equal values, so the trigger makes them differ).
+      @Suppress("UNUSED_VARIABLE")
+      val importTrigger = uiState.modelImportingUpdateTrigger
+      val downloadStatus = uiState.modelDownloadStatus
+      val allModels = uiState.tasks.flatMap { it.models }.distinctBy { it.name }
+      allModels.sortedWith(
+        compareBy<Model> { model ->
+          val name = model.displayName.ifEmpty { model.name }
+          val isGemma4 = name.contains("gemma-4", ignoreCase = true) || name.contains("gemma 4", ignoreCase = true)
+          val isDownloaded = downloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
+          when {
+            isDownloaded -> 0
+            isGemma4 -> 1
+            else -> 2
+          }
+        }.thenBy { it.displayName.ifEmpty { it.name } }
+      )
     }
-    // Sort priority: Downloaded → Gemma 4 (Best Overall) → Available, then alphabetical within each group
-    val sortedModels = allModelsSet.toList().sortedWith(
-      compareBy<Model> { model ->
-        val name = model.displayName.ifEmpty { model.name }
-        val isGemma4 = name.contains("gemma-4", ignoreCase = true) || name.contains("gemma 4", ignoreCase = true)
-        val isDownloaded = uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
-        when {
-          isDownloaded -> 0
-          isGemma4 -> 1
-          else -> 2
-        }
-      }.thenBy { it.displayName.ifEmpty { it.name } }
-    )
-    builtInModels.clear()
-    builtInModels.addAll(sortedModels.filter { !it.imported })
-    importedModels.clear()
-    importedModels.addAll(sortedModels.filter { it.imported })
+  }
+  val builtInModels by remember { derivedStateOf { sortedAllModels.filter { !it.imported } } }
+  val importedModels by remember { derivedStateOf { sortedAllModels.filter { it.imported } } }
+
+  // Reset to ALL if the Imported filter is active but all imported models have been deleted
+  LaunchedEffect(importedModels.size) {
+    if (activeFilter == ModelFilter.IMPORTED && importedModels.isEmpty()) {
+      activeFilter = ModelFilter.ALL
+    }
   }
 
   // Filtered and sorted models
-  val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels.toList()) {
+  val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels) {
     derivedStateOf {
       builtInModels.filter { model ->
         val matchesSearch = searchQuery.isEmpty() ||
@@ -331,7 +330,7 @@ fun GlobalModelManager(
     }
   }
 
-  val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels.toList()) {
+  val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels) {
     derivedStateOf {
       importedModels.filter { model ->
         val matchesSearch = searchQuery.isEmpty() ||
