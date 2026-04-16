@@ -72,6 +72,11 @@ object LlmHttpModelFactory {
       // All imported models are assumed to be LLM for now.
       isLlm = true,
       runtimeType = RuntimeType.LITERT_LM,
+      // Estimate minimum device RAM from file size since imported models have no allowlist
+      // metadata. LiteRT needs substantial headroom for the Android OS, app, GPU buffers,
+      // and scratch space on top of the raw model weights. Thresholds derived from the
+      // allowlist: 0.58GB→6GB, 1.6GB→6GB, 2.6GB→8GB, 3.7GB→12GB, 4.9GB→12GB.
+      minDeviceMemoryInGb = estimateMinMemoryGb(info.fileSize),
     )
     model.preProcess()
     return model
@@ -96,6 +101,23 @@ object LlmHttpModelFactory {
       }
     }
     model.configValues = restored
+  }
+
+  /**
+   * Estimates the minimum device RAM (in GB) needed to run an imported model based on its
+   * file size. Imported models lack allowlist metadata, so this heuristic provides a
+   * reasonable memory warning threshold. Derived from the allowlist's known file-size-to-RAM
+   * ratios: small models (< 1 GB) still need ~6 GB for Android + GPU overhead; larger models
+   * scale up because LiteRT allocates GPU buffers and scratch space proportional to model size.
+   */
+  private fun estimateMinMemoryGb(fileSizeBytes: Long): Int {
+    val fileSizeGb = fileSizeBytes / (1024.0 * 1024 * 1024)
+    return when {
+      fileSizeGb < 1.0 -> 6
+      fileSizeGb < 3.0 -> 8
+      fileSizeGb < 5.0 -> 12
+      else -> 16
+    }
   }
 
   private fun withImportOverride(base: Model, importedFile: File): Model {
