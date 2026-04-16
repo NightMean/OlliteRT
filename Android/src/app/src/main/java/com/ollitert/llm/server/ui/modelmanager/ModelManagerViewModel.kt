@@ -41,7 +41,11 @@ import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.data.createBuiltInTasks
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
+import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LlmHttpModelFactory
+import com.ollitert.llm.server.service.LogLevel
+import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -277,6 +281,14 @@ constructor(
     } else {
       deleteDirFromExternalFilesDir(model.normalizedName)
     }
+
+    val action = if (model.imported) "Imported model deleted" else "Model deleted"
+    RequestLogStore.addEvent(
+      "$action: ${model.name} (${model.sizeInBytes.humanReadableSize()})",
+      level = LogLevel.DEBUG,
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
 
     // Update model download status to NotDownloaded.
     val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
@@ -541,6 +553,13 @@ constructor(
     }
     importedModels.add(info)
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
+
+    RequestLogStore.addEvent(
+      "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
+      level = LogLevel.DEBUG,
+      modelName = info.fileName,
+      category = EventCategory.MODEL,
+    )
   }
 
   // Token management — delegated to HuggingFaceTokenManager
