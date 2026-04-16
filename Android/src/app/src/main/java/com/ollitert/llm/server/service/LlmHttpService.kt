@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.os.StatFs
 import android.os.SystemClock
 import android.util.Log
+import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.common.ErrorCategory
@@ -88,7 +89,23 @@ class LlmHttpService : Service() {
           try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
         },
       )
-      modelLifecycle = LlmHttpModelLifecycle(context = this, allowlistLoader = allowlistLoader)
+      // Access DataStoreRepository via Hilt EntryPoint so imported models can be resolved
+      // when starting the server. The DataStore singleton is managed by Hilt; creating a
+      // second instance would corrupt the protobuf file.
+      val dataStoreRepo = try {
+        val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+          applicationContext, OlliteRTApplication.DataStoreEntryPoint::class.java
+        )
+        entryPoint.dataStoreRepository()
+      } catch (e: Exception) {
+        Log.w(logTag, "Failed to access DataStoreRepository — imported models won't be loadable", e)
+        null
+      }
+      modelLifecycle = LlmHttpModelLifecycle(
+        context = this,
+        allowlistLoader = allowlistLoader,
+        readImportedModels = { dataStoreRepo?.readImportedModels() ?: emptyList() },
+      )
       // Create a partial wake lock to keep the CPU awake while the server is running.
       // Acquired in onStartCommand once the server starts, released in onDestroy.
       val pm = getSystemService(POWER_SERVICE) as? android.os.PowerManager

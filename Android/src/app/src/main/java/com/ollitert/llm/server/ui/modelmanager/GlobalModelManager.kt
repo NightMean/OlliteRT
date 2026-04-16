@@ -179,6 +179,7 @@ fun GlobalModelManager(
   activeModelName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
+  onSwitchModel: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val builtInModels = remember { mutableStateListOf<Model>() }
@@ -891,8 +892,7 @@ fun GlobalModelManager(
           showSwitchModelDialog = false
           pendingSwitchModel = null
           pendingSwitchTask = null
-          onStopServer()
-          onModelSelected(switchTask, switchModel)
+          onSwitchModel(switchModel.name)
         }) {
           Text(stringResource(R.string.button_switch))
         }
