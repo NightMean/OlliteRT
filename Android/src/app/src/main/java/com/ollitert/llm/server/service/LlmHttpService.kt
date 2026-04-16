@@ -256,10 +256,18 @@ class LlmHttpService : Service() {
     }
 
     val resolvedModelName = requestedModelName
+    val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
     val model = pickModelByName(resolvedModelName)
     if (model == null) {
-      val msg = "Model '$resolvedModelName' not found"
-      Log.e(logTag, "Model '$resolvedModelName' not found — cannot start server")
+      // Include the trigger source in the error message so users understand what happened
+      // (e.g. "Auto-start failed" vs just "Model not found").
+      val sourcePrefix = when (startSource) {
+        SOURCE_BOOT -> "Auto-start on boot failed: "
+        SOURCE_LAUNCH -> "Auto-start on launch failed: "
+        else -> ""
+      }
+      val msg = "${sourcePrefix}Model '$resolvedModelName' not found. Check that the model is still downloaded or update the default model in Settings."
+      Log.e(logTag, "Model '$resolvedModelName' not found — cannot start server (source=$startSource)")
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
@@ -276,8 +284,13 @@ class LlmHttpService : Service() {
     // Verify model files actually exist on disk.
     val modelPath = model.getPath(context = this)
     if (!java.io.File(modelPath).exists()) {
-      val msg = "Model files not found on disk"
-      Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server")
+      val sourcePrefix = when (startSource) {
+        SOURCE_BOOT -> "Auto-start on boot failed: "
+        SOURCE_LAUNCH -> "Auto-start on launch failed: "
+        else -> ""
+      }
+      val msg = "${sourcePrefix}Model file not found on disk. The model may have been deleted — re-download or update the default model in Settings."
+      Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
@@ -746,6 +759,10 @@ class LlmHttpService : Service() {
     private const val TAG = "LlmHttpService"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
+    /** Optional: identifies what triggered the start (e.g. "boot", "launch") for better error messages. */
+    const val EXTRA_START_SOURCE = "extra_start_source"
+    const val SOURCE_BOOT = "boot"
+    const val SOURCE_LAUNCH = "launch"
     const val DEFAULT_PORT = 8000
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
@@ -765,10 +782,11 @@ class LlmHttpService : Service() {
      */
     private val cleanupLatch = java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch?>(null)
 
-    fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null): Boolean {
+    fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, source: String? = null): Boolean {
       val intent = Intent(context, LlmHttpService::class.java).apply {
         putExtra(EXTRA_PORT, port)
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
+        if (source != null) putExtra(EXTRA_START_SOURCE, source)
       }
       return try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

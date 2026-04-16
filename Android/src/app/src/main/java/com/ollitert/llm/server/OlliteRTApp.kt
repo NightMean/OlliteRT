@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.LlmHttpService
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -59,7 +60,7 @@ fun OlliteRTApp(
     if (startDestination == OlliteRTRoutes.MODELS) {
       val defaultModel = LlmHttpPrefs.getDefaultModelName(context)
       if (!defaultModel.isNullOrBlank() && serverViewModel.status.value == ServerStatus.STOPPED) {
-        serverViewModel.startServer(modelName = defaultModel)
+        serverViewModel.startServer(modelName = defaultModel, source = LlmHttpService.SOURCE_LAUNCH)
       }
     }
   }

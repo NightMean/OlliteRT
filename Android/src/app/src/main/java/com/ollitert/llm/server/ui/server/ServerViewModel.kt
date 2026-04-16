@@ -59,10 +59,10 @@ class ServerViewModel @Inject constructor(
   /** Debounce guard to prevent duplicate start/stop/reload intents from rapid taps. */
   private var actionInFlight = false
 
-  fun startServer(port: Int = LlmHttpPrefs.getPort(context), modelName: String? = null) {
+  fun startServer(port: Int = LlmHttpPrefs.getPort(context), modelName: String? = null, source: String? = null) {
     if (actionInFlight) return
     setActionInFlight()
-    LlmHttpService.start(context, port, modelName)
+    LlmHttpService.start(context, port, modelName, source = source)
   }
 
   fun stopServer() {
