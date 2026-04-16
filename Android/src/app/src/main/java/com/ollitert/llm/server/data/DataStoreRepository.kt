@@ -36,6 +36,7 @@ interface DataStoreRepository {
 
   fun saveImportedModels(importedModels: List<ImportedModel>)
   fun readImportedModels(): List<ImportedModel>
+  fun updateImportedModel(fileName: String, updatedModel: ImportedModel)
 
   fun setHasSeenBenchmarkComparisonHelp(seen: Boolean)
   fun getHasSeenBenchmarkComparisonHelp(): Boolean
@@ -118,6 +119,17 @@ class DefaultDataStoreRepository(
     return runBlocking {
       val settings = dataStore.data.first()
       settings.importedModelList
+    }
+  }
+
+  override fun updateImportedModel(fileName: String, updatedModel: ImportedModel) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        val models = settings.importedModelList.toMutableList()
+        val index = models.indexOfFirst { it.fileName == fileName }
+        if (index >= 0) models[index] = updatedModel else models.add(updatedModel)
+        settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
+      }
     }
   }
 

@@ -30,6 +30,7 @@ import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.EMPTY_MODEL
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
@@ -561,6 +562,42 @@ constructor(
       "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
       level = LogLevel.DEBUG,
       modelName = info.fileName,
+      category = EventCategory.MODEL,
+    )
+  }
+
+  /**
+   * Updates the stored defaults for an imported model (capabilities, inference params).
+   * Clears any saved inference config overrides so the user starts fresh from the new defaults.
+   * The in-memory Model object is rebuilt and the model list is refreshed.
+   */
+  fun updateImportedModelDefaults(updatedInfo: ImportedModel) {
+    Log.d(TAG, "updating imported model defaults: ${updatedInfo.fileName}")
+
+    // Persist updated proto entry
+    dataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
+
+    // Clear inference config overrides so saved values don't conflict with new defaults
+    LlmHttpPrefs.clearInferenceConfig(context, updatedInfo.fileName)
+
+    // Rebuild the Model object from updated proto
+    val updatedModel = LlmHttpModelFactory.buildImportedModel(updatedInfo)
+
+    // Replace the model in all task lists
+    for (task in uiState.value.tasks) {
+      val modelIndex = task.models.indexOfFirst { it.name == updatedInfo.fileName && it.imported }
+      if (modelIndex >= 0) {
+        task.models[modelIndex] = updatedModel
+        task.updateTrigger.value = System.currentTimeMillis()
+      }
+    }
+
+    _uiState.update { it.copy(tasks = uiState.value.tasks.toList()) }
+
+    RequestLogStore.addEvent(
+      "Imported model defaults updated: ${updatedInfo.fileName}",
+      level = LogLevel.DEBUG,
+      modelName = updatedInfo.fileName,
       category = EventCategory.MODEL,
     )
   }
