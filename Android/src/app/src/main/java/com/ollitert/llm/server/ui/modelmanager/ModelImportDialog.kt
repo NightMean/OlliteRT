@@ -69,6 +69,7 @@ import com.ollitert.llm.server.data.BooleanSwitchConfig
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKey
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.EditableTextConfig
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
 import com.ollitert.llm.server.data.MAX_MAX_TOKENS
 import com.ollitert.llm.server.data.MIN_MAX_TOKENS
@@ -110,9 +111,13 @@ private val SUPPORTED_ACCELERATORS: List<Accelerator> =
     listOf(Accelerator.CPU, Accelerator.GPU, Accelerator.NPU)
   }
 
-private val IMPORT_CONFIGS_LLM: List<Config> =
+/**
+ * Builds the import config list with the file extension passed to the editable name field,
+ * so the extension is shown as a read-only suffix next to the text input.
+ */
+private fun buildImportConfigsLlm(fileExtension: String): List<Config> =
   listOf(
-    LabelConfig(key = ConfigKeys.NAME),
+    EditableTextConfig(key = ConfigKeys.NAME, suffix = fileExtension),
     LabelConfig(key = ConfigKeys.MODEL_TYPE),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_MAX_TOKENS,
@@ -167,16 +172,30 @@ fun ModelImportDialog(
   val fileSize by remember { mutableLongStateOf(info.first) }
   val fileName by remember { mutableStateOf(ensureValidFileName(info.second)) }
 
+  // Split into editable stem and read-only extension so the user can rename
+  // the model without accidentally changing or removing the file extension.
+  val fileExtension = remember {
+    val dotIndex = fileName.lastIndexOf('.')
+    if (dotIndex > 0) fileName.substring(dotIndex) else ""
+  }
+  val fileStem = remember {
+    val dotIndex = fileName.lastIndexOf('.')
+    if (dotIndex > 0) fileName.substring(0, dotIndex) else fileName
+  }
+
   // Pending model to import — set when the user taps Import on a duplicate name.
   // The confirmation dialog reads this and either proceeds or cancels.
   var pendingReplaceModel by remember { mutableStateOf<ImportedModel?>(null) }
 
+  val importConfigs = remember { buildImportConfigsLlm(fileExtension) }
+
   val initialValues: Map<String, Any> = remember {
     mutableMapOf<String, Any>().apply {
-      for (config in IMPORT_CONFIGS_LLM) {
+      for (config in importConfigs) {
         put(config.key.label, config.defaultValue)
       }
-      put(ConfigKeys.NAME.label, fileName)
+      // Only the stem is editable; the extension is appended on import.
+      put(ConfigKeys.NAME.label, fileStem)
       // TODO: support other types.
       put(ConfigKeys.MODEL_TYPE.label, "LLM")
 
@@ -218,7 +237,7 @@ fun ModelImportDialog(
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           // Default configs for users to set.
-          ConfigEditorsPanel(configs = IMPORT_CONFIGS_LLM, values = values)
+          ConfigEditorsPanel(configs = importConfigs, values = values)
         }
 
         // Button row.
@@ -281,9 +300,14 @@ fun ModelImportDialog(
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
+              // Rejoin the user-edited stem with the original extension and sanitize.
+              val editedStem = ensureValidFileName(
+                (values[ConfigKeys.NAME.label] as? String) ?: fileStem
+              )
+              val editedName = editedStem + fileExtension
               val importedModel: ImportedModel =
                 ImportedModel.newBuilder()
-                  .setFileName(fileName)
+                  .setFileName(editedName)
                   .setFileSize(fileSize)
                   .setLlmConfig(
                     LlmConfig.newBuilder()
@@ -299,7 +323,7 @@ fun ModelImportDialog(
                   )
                   .build()
               // Check if a model with this name already exists
-              if (fileName in existingImportedModelNames) {
+              if (editedName in existingImportedModelNames) {
                 pendingReplaceModel = importedModel
               } else {
                 onDone(importedModel)
@@ -320,7 +344,7 @@ fun ModelImportDialog(
       onDismissRequest = { pendingReplaceModel = null },
       title = { Text(stringResource(R.string.dialog_replace_model_title)) },
       text = {
-        Text(stringResource(R.string.dialog_replace_model_body, fileName))
+        Text(stringResource(R.string.dialog_replace_model_body, replaceModel.fileName))
       },
       confirmButton = {
         Button(onClick = {

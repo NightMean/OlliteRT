@@ -88,6 +88,20 @@ class LabelConfig(override val key: ConfigKey, override val defaultValue: String
     valueType = ValueType.STRING,
   )
 
+/** Configuration setting for an editable text field. */
+class EditableTextConfig(
+  override val key: ConfigKey,
+  override val defaultValue: String = "",
+  /** Optional read-only suffix displayed after the text field (e.g. file extension). */
+  val suffix: String = "",
+  override val needReinitialization: Boolean = true,
+) :
+  Config(
+    key = key,
+    defaultValue = defaultValue,
+    valueType = ValueType.STRING,
+  )
+
 /**
  * Configuration setting for a number slider.
  *

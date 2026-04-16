@@ -76,6 +76,7 @@ import com.ollitert.llm.server.data.BottomSheetSelectorConfig
 import com.ollitert.llm.server.data.BottomSheetSelectorItem
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.EditableTextConfig
 import com.ollitert.llm.server.data.LabelConfig
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.SegmentedButtonConfig
@@ -88,6 +89,11 @@ import kotlinx.coroutines.launch
 fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, Any>) {
   for (config in configs) {
     when (config) {
+      // Editable text field.
+      is EditableTextConfig -> {
+        EditableTextRow(config = config, values = values)
+      }
+
       // Label.
       is LabelConfig -> {
         LabelRow(config = config, values = values)
@@ -131,6 +137,69 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
         ""
       }
     Text(label, style = MaterialTheme.typography.bodyMedium)
+  }
+}
+
+@Composable
+fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String, Any>) {
+  val focusManager = LocalFocusManager.current
+  var isFocused by remember { mutableStateOf(false) }
+  val focusRequester = remember { FocusRequester() }
+  var textValue by remember {
+    mutableStateOf(
+      try {
+        values[config.key.label] as String
+      } catch (e: Exception) {
+        ""
+      }
+    )
+  }
+
+  Column(modifier = Modifier.fillMaxWidth()) {
+    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Spacer(modifier = Modifier.height(4.dp))
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      BasicTextField(
+        value = textValue,
+        modifier =
+          Modifier.weight(1f).focusRequester(focusRequester).onFocusChanged {
+            isFocused = it.isFocused
+          },
+        keyboardOptions = KeyboardOptions.Default,
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+        singleLine = true,
+        onValueChange = {
+          textValue = it
+          values[config.key.label] = it
+        },
+        textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+      ) { innerTextField ->
+        Box(
+          modifier =
+            Modifier.border(
+              width = if (isFocused) 2.dp else 1.dp,
+              color =
+                if (isFocused) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.outline,
+              shape = RoundedCornerShape(4.dp),
+            )
+        ) {
+          Box(modifier = Modifier.padding(8.dp)) { innerTextField() }
+        }
+      }
+      if (config.suffix.isNotEmpty()) {
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+          config.suffix,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
   }
 }
 
