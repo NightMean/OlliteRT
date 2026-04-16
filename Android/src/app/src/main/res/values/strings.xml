@@ -154,6 +154,9 @@
   <string name="label_import_from_local_file">From local model file (.task, .litertlm)</string>
   <string name="dialog_import_model_title">Import Model</string>
   <string name="button_import">Import</string>
+  <string name="button_replace">Replace</string>
+  <string name="dialog_replace_model_title">Replace existing model?</string>
+  <string name="dialog_replace_model_body">A model named \"%1$s\" is already imported. Replacing it will overwrite the existing model file and settings.</string>
   <string name="dialog_donate_title">Support OlliteRT</string>
   <string name="dialog_donate_body">If you find OlliteRT useful, consider supporting its development.</string>
   <string name="dialog_engagement_title">Enjoying OlliteRT?</string>

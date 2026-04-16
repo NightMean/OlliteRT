@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -108,14 +109,14 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_MAX_TOKENS,
       sliderMin = 100f,
-      sliderMax = 4096f,
+      sliderMax = 32768f,
       defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_TOPK,
       sliderMin = 5f,
-      sliderMax = 40f,
+      sliderMax = 100f,
       defaultValue = DEFAULT_TOPK.toFloat(),
       valueType = ValueType.INT,
     ),
@@ -135,8 +136,6 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     ),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_IMAGE, defaultValue = false),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_TINY_GARDEN, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_MOBILE_ACTIONS, defaultValue = false),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_THINKING, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKeys.COMPATIBLE_ACCELERATORS,
@@ -152,11 +151,17 @@ fun ModelImportDialog(
   onDismiss: () -> Unit,
   onDone: (ImportedModel) -> Unit,
   defaultValues: Map<ConfigKey, Any> = emptyMap(),
+  /** Names of already-imported models — used to show a replace confirmation dialog. */
+  existingImportedModelNames: Set<String> = emptySet(),
 ) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
   val fileSize by remember { mutableLongStateOf(info.first) }
   val fileName by remember { mutableStateOf(ensureValidFileName(info.second)) }
+
+  // Pending model to import — set when the user taps Import on a duplicate name.
+  // The confirmation dialog reads this and either proceeds or cancels.
+  var pendingReplaceModel by remember { mutableStateOf<ImportedModel?>(null) }
 
   val initialValues: Map<String, Any> = remember {
     mutableMapOf<String, Any>().apply {
@@ -262,18 +267,6 @@ fun ModelImportDialog(
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
-              val supportTinyGarden =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_TINY_GARDEN.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportMobileActions =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_MOBILE_ACTIONS.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
               val supportThinking =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.SUPPORT_THINKING.label)!!,
@@ -293,13 +286,16 @@ fun ModelImportDialog(
                       .setDefaultTemperature(defaultTemperature)
                       .setSupportImage(supportImage)
                       .setSupportAudio(supportAudio)
-                      .setSupportMobileActions(supportMobileActions)
                       .setSupportThinking(supportThinking)
-                      .setSupportTinyGarden(supportTinyGarden)
                       .build()
                   )
                   .build()
-              onDone(importedModel)
+              // Check if a model with this name already exists
+              if (fileName in existingImportedModelNames) {
+                pendingReplaceModel = importedModel
+              } else {
+                onDone(importedModel)
+              }
             }
           ) {
             Text(stringResource(R.string.button_import))
@@ -307,6 +303,31 @@ fun ModelImportDialog(
         }
       }
     }
+  }
+
+  // Confirmation dialog when re-importing a model that already exists
+  val replaceModel = pendingReplaceModel
+  if (replaceModel != null) {
+    AlertDialog(
+      onDismissRequest = { pendingReplaceModel = null },
+      title = { Text(stringResource(R.string.dialog_replace_model_title)) },
+      text = {
+        Text(stringResource(R.string.dialog_replace_model_body, fileName))
+      },
+      confirmButton = {
+        Button(onClick = {
+          pendingReplaceModel = null
+          onDone(replaceModel)
+        }) {
+          Text(stringResource(R.string.button_replace))
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { pendingReplaceModel = null }) {
+          Text(stringResource(R.string.cancel))
+        }
+      },
+    )
   }
 }
 

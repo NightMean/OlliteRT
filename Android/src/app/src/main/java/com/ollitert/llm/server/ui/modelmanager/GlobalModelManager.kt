@@ -857,6 +857,7 @@ fun GlobalModelManager(
           showImportDialog = false
           showImportingDialog = true
         },
+        existingImportedModelNames = importedModels.map { it.name }.toSet(),
       )
     }
   }
