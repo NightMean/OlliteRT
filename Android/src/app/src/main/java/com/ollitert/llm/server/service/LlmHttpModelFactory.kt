@@ -39,8 +39,15 @@ object LlmHttpModelFactory {
       }
     }.toMutableList()
 
+    // Use the user-configured max tokens as both the default and the context window upper bound,
+    // so the inference settings sheet shows a slider the user can adjust up to their chosen limit.
+    // Only pass defaultMaxContextLength when the value exceeds the slider minimum (2000) used in
+    // createLlmChatConfigs — otherwise the slider range would be inverted (min > max).
+    val maxTokens = info.llmConfig.defaultMaxTokens
+    val contextLength = if (maxTokens > 2000) maxTokens else null
     val configs = createLlmChatConfigs(
-      defaultMaxToken = info.llmConfig.defaultMaxTokens,
+      defaultMaxToken = maxTokens,
+      defaultMaxContextLength = contextLength,
       defaultTopK = info.llmConfig.defaultTopk,
       defaultTopP = info.llmConfig.defaultTopp,
       defaultTemperature = info.llmConfig.defaultTemperature,
