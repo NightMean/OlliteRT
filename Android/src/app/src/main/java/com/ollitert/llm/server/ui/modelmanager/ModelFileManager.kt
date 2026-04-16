@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.IMPORTS_DIR
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.TMP_FILE_EXT
@@ -25,20 +26,10 @@ class ModelFileManager(
 
   /**
    * Delete stale .tmp files left by interrupted model imports.
-   * Called on startup to reclaim storage from partially-copied models.
+   * Delegates to the data-layer function in Consts.kt.
    */
   fun cleanupStaleImportTmpFiles() {
-    try {
-      val importsDir = File(externalFilesDir ?: return, IMPORTS_DIR)
-      if (!importsDir.exists()) return
-      val tmpFiles = importsDir.listFiles { _, name -> name.endsWith(".tmp") } ?: return
-      for (file in tmpFiles) {
-        Log.i(TAG, "Cleaning up stale import temp file: ${file.name} (${file.length() / (1024 * 1024)}MB)")
-        file.delete()
-      }
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to clean up stale import temp files: ${e.message}")
-    }
+    cleanupStaleImportTmpFiles(externalFilesDir)
   }
 
   override fun isFileInExternalFilesDir(fileName: String): Boolean {
