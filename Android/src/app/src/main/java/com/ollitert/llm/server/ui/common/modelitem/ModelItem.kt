@@ -96,6 +96,7 @@ fun ModelItem(
   val isActiveModel = isServerRunning && activeModelName == model.name
 
   var showInferenceSettings by remember { mutableStateOf(false) }
+  var showEditDefaults by remember { mutableStateOf(false) }
 
   var boxModifier =
     modifier
@@ -193,12 +194,33 @@ fun ModelItem(
     }
   }
 
+  // Edit imported model defaults dialog
+  if (showEditDefaults && model.imported) {
+    val existingInfo = modelManagerViewModel.dataStoreRepository.readImportedModels()
+      .firstOrNull { it.fileName == model.name }
+    if (existingInfo != null) {
+      com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog(
+        existingModel = existingInfo,
+        isCurrentlyActive = activeModelName == model.name && serverStatus != ServerStatus.STOPPED,
+        onDismiss = { showEditDefaults = false },
+        onDone = { updated ->
+          modelManagerViewModel.updateImportedModelDefaults(updated)
+          showEditDefaults = false
+          showInferenceSettings = false
+        },
+      )
+    }
+  }
+
   // Inference Settings bottom sheet
   if (showInferenceSettings) {
     val context = LocalContext.current
     InferenceSettingsSheet(
       model = model,
       onDismiss = { showInferenceSettings = false },
+      onEditDefaults = if (model.imported) {
+        { showEditDefaults = true }
+      } else null,
       onApply = { newConfigValues, systemPrompt, chatTemplate ->
         // Persist system prompt and chat template for this model
         val oldSystemPrompt = LlmHttpPrefs.getSystemPrompt(context, model.name)

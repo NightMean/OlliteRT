@@ -93,6 +93,8 @@ fun InferenceSettingsSheet(
   model: Model,
   onDismiss: () -> Unit,
   onApply: (configValues: Map<String, Any>, systemPrompt: String, chatTemplate: String) -> Unit,
+  /** Called when the user taps the edit-defaults pencil button (imported models only). */
+  onEditDefaults: (() -> Unit)? = null,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val configValues = model.configValues
@@ -214,11 +216,20 @@ fun InferenceSettingsSheet(
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurface,
         )
-        TooltipIconButton(
-          icon = Icons.Outlined.RestartAlt,
-          tooltip = "Reset to defaults",
-          onClick = { showResetDialog = true },
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          if (onEditDefaults != null) {
+            TooltipIconButton(
+              icon = Icons.Outlined.Edit,
+              tooltip = "Edit model defaults",
+              onClick = { onEditDefaults() },
+            )
+          }
+          TooltipIconButton(
+            icon = Icons.Outlined.RestartAlt,
+            tooltip = "Reset to defaults",
+            onClick = { showResetDialog = true },
+          )
+        }
       }
 
       Spacer(modifier = Modifier.height(4.dp))

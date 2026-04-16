@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -422,6 +423,171 @@ fun ModelImportDialog(
         }) { Text(stringResource(R.string.button_import_anyway)) }
       },
     )
+  }
+}
+
+/**
+ * Edit-mode variant of [ModelImportDialog] for updating an already-imported model's defaults
+ * (capabilities, inference params, accelerators). Does not re-copy the file — only updates
+ * the stored metadata. Shows a warning if the model is currently active on the server.
+ */
+@Composable
+fun EditImportedModelDialog(
+  existingModel: ImportedModel,
+  isCurrentlyActive: Boolean,
+  onDismiss: () -> Unit,
+  onDone: (ImportedModel) -> Unit,
+) {
+  val fileExtension = remember {
+    val dotIndex = existingModel.fileName.lastIndexOf('.')
+    if (dotIndex > 0) existingModel.fileName.substring(dotIndex) else ""
+  }
+
+  // Build configs without the name field — file name is fixed and cannot be changed here
+  val editConfigs = remember {
+    buildImportConfigsLlm(fileExtension).filter { it.key != ConfigKeys.NAME && it.key != ConfigKeys.MODEL_TYPE }
+  }
+
+  // Pre-populate from existing proto values
+  val initialValues: Map<String, Any> = remember {
+    mutableMapOf<String, Any>().apply {
+      for (config in editConfigs) put(config.key.label, config.defaultValue)
+      existingModel.llmConfig?.let { cfg ->
+        put(ConfigKeys.DEFAULT_MAX_TOKENS.label, cfg.defaultMaxTokens)
+        put(ConfigKeys.DEFAULT_TOPK.label, cfg.defaultTopk)
+        put(ConfigKeys.DEFAULT_TOPP.label, cfg.defaultTopp)
+        put(ConfigKeys.DEFAULT_TEMPERATURE.label, cfg.defaultTemperature)
+        put(ConfigKeys.SUPPORT_IMAGE.label, cfg.supportImage)
+        put(ConfigKeys.SUPPORT_AUDIO.label, cfg.supportAudio)
+        put(ConfigKeys.SUPPORT_THINKING.label, cfg.supportThinking)
+        if (cfg.compatibleAcceleratorsList.isNotEmpty()) {
+          put(ConfigKeys.COMPATIBLE_ACCELERATORS.label, cfg.compatibleAcceleratorsList.joinToString(","))
+        }
+      }
+    }
+  }
+  val values: SnapshotStateMap<String, Any> = remember {
+    mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
+  }
+  val interactionSource = remember { MutableInteractionSource() }
+
+  Dialog(onDismissRequest = onDismiss) {
+    val focusManager = LocalFocusManager.current
+    Card(
+      modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().clickable(
+        interactionSource = interactionSource,
+        indication = null,
+      ) { focusManager.clearFocus() },
+      shape = RoundedCornerShape(16.dp),
+    ) {
+      Column(
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+      ) {
+        Text(
+          "Edit Model Defaults",
+          style = MaterialTheme.typography.titleLarge,
+          modifier = Modifier.padding(bottom = 4.dp),
+        )
+
+        // Warn if this model is currently loaded on the server — changes take effect on reload
+        if (isCurrentlyActive) {
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Icon(
+              Icons.Rounded.Error,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(18.dp),
+            )
+            Text(
+              "Server is running this model — changes take effect after it reloads. Saved inference customizations will be reset to these new defaults.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        } else {
+          Text(
+            "Saved inference customizations will be reset to these new defaults.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp),
+          )
+        }
+
+        Column(
+          modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+          ConfigEditorsPanel(configs = editConfigs, values = values)
+        }
+
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+          horizontalArrangement = Arrangement.End,
+        ) {
+          TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+          Button(
+            onClick = {
+              val supportedAccelerators = (convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.COMPATIBLE_ACCELERATORS.label, SUPPORTED_ACCELERATORS[0].label),
+                valueType = ValueType.STRING,
+              ) as String).split(",")
+              val defaultMaxTokens = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.DEFAULT_MAX_TOKENS.label, DEFAULT_MAX_TOKEN),
+                valueType = ValueType.INT,
+              ) as Int
+              val defaultTopk = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.DEFAULT_TOPK.label, DEFAULT_TOPK),
+                valueType = ValueType.INT,
+              ) as Int
+              val defaultTopp = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.DEFAULT_TOPP.label, DEFAULT_TOPP),
+                valueType = ValueType.FLOAT,
+              ) as Float
+              val defaultTemperature = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.DEFAULT_TEMPERATURE.label, DEFAULT_TEMPERATURE),
+                valueType = ValueType.FLOAT,
+              ) as Float
+              val supportImage = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.SUPPORT_IMAGE.label, false),
+                valueType = ValueType.BOOLEAN,
+              ) as Boolean
+              val supportAudio = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.SUPPORT_AUDIO.label, false),
+                valueType = ValueType.BOOLEAN,
+              ) as Boolean
+              val supportThinking = convertValueToTargetType(
+                value = values.getOrDefault(ConfigKeys.SUPPORT_THINKING.label, false),
+                valueType = ValueType.BOOLEAN,
+              ) as Boolean
+              val updated = ImportedModel.newBuilder()
+                .setFileName(existingModel.fileName)
+                .setFileSize(existingModel.fileSize)
+                .setLlmConfig(
+                  LlmConfig.newBuilder()
+                    .addAllCompatibleAccelerators(supportedAccelerators)
+                    .setDefaultMaxTokens(defaultMaxTokens)
+                    .setDefaultTopk(defaultTopk)
+                    .setDefaultTopp(defaultTopp)
+                    .setDefaultTemperature(defaultTemperature)
+                    .setSupportImage(supportImage)
+                    .setSupportAudio(supportAudio)
+                    .setSupportThinking(supportThinking)
+                    .build()
+                )
+                .build()
+              onDone(updated)
+            }
+          ) {
+            Text("Save")
+          }
+        }
+      }
+    }
   }
 }
 

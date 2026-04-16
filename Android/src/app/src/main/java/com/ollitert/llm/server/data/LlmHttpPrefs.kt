@@ -392,6 +392,14 @@ object LlmHttpPrefs {
     }
   }
 
+  /** Removes any saved inference config overrides for a model, reverting it to defaults. */
+  fun clearInferenceConfig(context: Context, modelName: String) {
+    prefs(context)
+      .edit()
+      .remove(KEY_PREFIX_INFERENCE_CONFIG + modelName)
+      .apply()
+  }
+
   fun getCorsAllowedOrigins(context: Context): String =
     prefs(context)
       .getString(KEY_CORS_ALLOWED_ORIGINS, DEFAULT_CORS_ALLOWED_ORIGINS)
