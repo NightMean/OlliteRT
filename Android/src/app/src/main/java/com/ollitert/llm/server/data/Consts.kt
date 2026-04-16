@@ -38,9 +38,17 @@ const val KEY_MODEL_UNZIPPED_DIR = "KEY_MODEL_UNZIPPED_DIR"
 const val KEY_MODEL_START_UNZIPPING = "KEY_MODEL_START_UNZIPPING"
 
 // Default values for LLM models.
+const val MIN_MAX_TOKENS = 100
+const val MAX_MAX_TOKENS = 32768
 const val DEFAULT_MAX_TOKEN = 1024
+const val MIN_TOPK = 5
+const val MAX_TOPK = 100
 const val DEFAULT_TOPK = 64
+const val MIN_TOPP = 0.0f
+const val MAX_TOPP = 1.0f
 const val DEFAULT_TOPP = 0.95f
+const val MIN_TEMPERATURE = 0.0f
+const val MAX_TEMPERATURE = 2.0f
 const val DEFAULT_TEMPERATURE = 1.0f
 val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
 val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU

@@ -4,6 +4,7 @@ import android.content.Context
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.IMPORTS_DIR
+import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RuntimeType
@@ -41,10 +42,10 @@ object LlmHttpModelFactory {
 
     // Use the user-configured max tokens as both the default and the context window upper bound,
     // so the inference settings sheet shows a slider the user can adjust up to their chosen limit.
-    // Only pass defaultMaxContextLength when the value exceeds the slider minimum (2000) used in
+    // Only pass defaultMaxContextLength when the value exceeds the slider minimum used in
     // createLlmChatConfigs — otherwise the slider range would be inverted (min > max).
     val maxTokens = info.llmConfig.defaultMaxTokens
-    val contextLength = if (maxTokens > 2000) maxTokens else null
+    val contextLength = if (maxTokens > MIN_MAX_TOKENS) maxTokens else null
     val configs = createLlmChatConfigs(
       defaultMaxToken = maxTokens,
       defaultMaxContextLength = contextLength,
