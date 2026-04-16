@@ -106,10 +106,12 @@ fun GettingStartedScreen(
     requestBatteryOptimizationExemption()
   }
 
-  // Centered max-width container for tablets — onboarding should feel focused, not stretched
+  // Centered max-width container for tablets — onboarding should feel focused, not stretched.
+  // verticalScroll requires unbounded height, so weight() doesn't work for centering — the Box
+  // with Alignment.Center handles vertical centering instead.
   Box(
     modifier = modifier.fillMaxSize(),
-    contentAlignment = Alignment.TopCenter,
+    contentAlignment = Alignment.Center,
   ) {
   Column(
     modifier = Modifier
@@ -120,12 +122,10 @@ fun GettingStartedScreen(
       .padding(horizontal = 24.dp, vertical = if (isShortScreen) 16.dp else 48.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    // On short screens (landscape phones) use a fixed spacer instead of weight
-    // to prevent the content from being pushed below the fold
     if (isShortScreen) {
       Spacer(modifier = Modifier.height(16.dp))
     } else {
-      Spacer(modifier = Modifier.weight(0.8f))
+      Spacer(modifier = Modifier.height(32.dp))
     }
 
     // Hero title with gradient highlight on "On-Device"
@@ -150,7 +150,7 @@ fun GettingStartedScreen(
     // Setup steps card
     SetupSteps()
 
-    Spacer(modifier = Modifier.height(36.dp))
+    Spacer(modifier = Modifier.height(40.dp))
 
     // Permission notice — notification + battery optimization
     Text(
@@ -164,7 +164,7 @@ fun GettingStartedScreen(
       modifier = Modifier.padding(horizontal = 4.dp),
     )
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(28.dp))
 
     Button(
       onClick = {
