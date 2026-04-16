@@ -56,6 +56,7 @@
   <string name="memory_warning_title" translatable="false">Memory Warning</string>
   <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
+  <string name="model_list_built_in_models_title" translatable="false">Built-in models</string>
   <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
@@ -74,6 +75,7 @@
   <string name="filter_all" translatable="false">All</string>
   <string name="filter_downloaded" translatable="false">Downloaded</string>
   <string name="filter_available" translatable="false">Available</string>
+  <string name="filter_imported" translatable="false">Imported</string>
   <string name="no_models_match_search" translatable="false">No models match your search</string>
   <string name="models_offline_cached" translatable="false">Showing previously fetched model list — tap Retry to check for updates</string>
   <string name="models_offline_bundled" translatable="false">Could not reach model server — showing models bundled with this version</string>

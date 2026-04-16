@@ -150,6 +150,7 @@ enum class ModelFilter {
   ALL,
   DOWNLOADED,
   AVAILABLE,
+  IMPORTED,
 }
 
 /** Capability filter for models. */
@@ -239,6 +240,12 @@ fun GlobalModelManager(
   // Search, filter, and sort state
   var searchQuery by remember { mutableStateOf("") }
   var activeFilter by remember { mutableStateOf(ModelFilter.ALL) }
+  // Reset to ALL if the Imported filter is active but all imported models have been deleted
+  LaunchedEffect(importedModels.size) {
+    if (activeFilter == ModelFilter.IMPORTED && importedModels.isEmpty()) {
+      activeFilter = ModelFilter.ALL
+    }
+  }
   var activeCapabilities by remember { mutableStateOf(emptySet<CapabilityFilter>()) }
   var showMoreFilters by remember { mutableStateOf(false) }
   var activeSort by remember { mutableStateOf(ModelSort.DEFAULT) }
@@ -308,6 +315,7 @@ fun GlobalModelManager(
           ModelFilter.ALL -> true
           ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
           ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
+          ModelFilter.IMPORTED -> false // built-in models are hidden when Imported filter is active
         }
         val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
         matchesSearch && matchesFilter && matchesCaps
@@ -331,7 +339,7 @@ fun GlobalModelManager(
           model.name.contains(searchQuery, ignoreCase = true) ||
           modelMatchesCapabilitySearch(model, searchQuery)
         val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
-        // Imported models are always downloaded
+        // Imported models are always downloaded — hide only for "Available" filter
         activeFilter != ModelFilter.AVAILABLE && matchesSearch && matchesCaps
       }.let { filtered ->
         when (activeSort) {
@@ -472,6 +480,14 @@ fun GlobalModelManager(
                 selected = activeFilter == ModelFilter.AVAILABLE,
                 onClick = { activeFilter = ModelFilter.AVAILABLE },
               )
+              // Show "Imported" filter chip only when imported models exist
+              if (importedModels.isNotEmpty()) {
+                ModelFilterChip(
+                  label = stringResource(R.string.filter_imported),
+                  selected = activeFilter == ModelFilter.IMPORTED,
+                  onClick = { activeFilter = ModelFilter.IMPORTED },
+                )
+              }
             }
             // Fixed action buttons — always pinned to the right edge
             Row(
@@ -639,8 +655,20 @@ fun GlobalModelManager(
         }
       }
 
-      // Built-in models
-      items(filteredBuiltInModels, key = { "builtin_${it.name}" }) { model ->
+      // Imported models section — shown first so user's own models are immediately visible
+      if (filteredImportedModels.isNotEmpty()) {
+        item(key = "imported_models_label") {
+          Text(
+            stringResource(R.string.model_list_imported_models_title),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier
+              .padding(horizontal = 16.dp)
+              .padding(top = 8.dp, bottom = 8.dp),
+          )
+        }
+      }
+      items(filteredImportedModels, key = { "imported_${it.name}" }) { model ->
         ModelItem(
           model = model,
           task = null,
@@ -656,20 +684,22 @@ fun GlobalModelManager(
         )
       }
 
-      // Imported models section
-      if (filteredImportedModels.isNotEmpty()) {
-        item(key = "imported_models_label") {
+      // Built-in models section header — only shown when imported models are also visible
+      if (filteredBuiltInModels.isNotEmpty() && filteredImportedModels.isNotEmpty()) {
+        item(key = "built_in_models_label") {
           Text(
-            stringResource(R.string.model_list_imported_models_title),
+            stringResource(R.string.model_list_built_in_models_title),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier
               .padding(horizontal = 16.dp)
-              .padding(top = 32.dp, bottom = 8.dp),
+              .padding(top = 24.dp, bottom = 8.dp),
           )
         }
       }
-      items(filteredImportedModels, key = { "imported_${it.name}" }) { model ->
+
+      // Built-in models
+      items(filteredBuiltInModels, key = { "builtin_${it.name}" }) { model ->
         ModelItem(
           model = model,
           task = null,
