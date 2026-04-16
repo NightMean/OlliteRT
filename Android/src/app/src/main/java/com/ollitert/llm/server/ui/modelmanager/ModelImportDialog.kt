@@ -453,8 +453,9 @@ fun EditImportedModelDialog(
     mutableMapOf<String, Any>().apply {
       for (config in editConfigs) put(config.key.label, config.defaultValue)
       existingModel.llmConfig?.let { cfg ->
-        put(ConfigKeys.DEFAULT_MAX_TOKENS.label, cfg.defaultMaxTokens)
-        put(ConfigKeys.DEFAULT_TOPK.label, cfg.defaultTopk)
+        // NumberSliderConfig stores values as Float — cast Int proto fields accordingly
+        put(ConfigKeys.DEFAULT_MAX_TOKENS.label, cfg.defaultMaxTokens.toFloat())
+        put(ConfigKeys.DEFAULT_TOPK.label, cfg.defaultTopk.toFloat())
         put(ConfigKeys.DEFAULT_TOPP.label, cfg.defaultTopp)
         put(ConfigKeys.DEFAULT_TEMPERATURE.label, cfg.defaultTemperature)
         put(ConfigKeys.SUPPORT_IMAGE.label, cfg.supportImage)
