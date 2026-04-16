@@ -32,7 +32,7 @@ class BootReceiver : BroadcastReceiver() {
       }
 
       Log.i(TAG, "Auto-starting server on boot: model=$modelName, port=$port")
-      LlmHttpService.start(context, port, modelName)
+      LlmHttpService.start(context, port, modelName, source = LlmHttpService.SOURCE_BOOT)
     } catch (e: Exception) {
       Log.e(TAG, "Auto-start on boot failed: ${e.message}", e)
     }
