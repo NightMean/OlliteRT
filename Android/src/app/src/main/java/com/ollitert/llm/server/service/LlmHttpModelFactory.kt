@@ -56,8 +56,14 @@ object LlmHttpModelFactory {
       supportThinking = info.llmConfig.supportThinking,
     ).toMutableList()
 
+    // Strip .litertlm / .task extension for the display name shown on model cards,
+    // status screen, and logs. The full filename (with extension) stays in `name` for
+    // identity/lookup since pickModelByName and DataStore match by fileName.
+    val stem = info.fileName.substringBeforeLast('.')
+
     val model = Model(
       name = info.fileName,
+      displayName = stem,
       url = "",
       configs = configs,
       sizeInBytes = info.fileSize,
