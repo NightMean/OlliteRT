@@ -140,6 +140,8 @@
   <string name="dialog_storage_warning_title">Not Enough Storage</string>
   <string name="dialog_storage_warning_body">This download requires %1$.1f GB total:\n  \u2022 Model size: %2$.1f GB\n  \u2022 System reserve: %3$.0f GB\n\nAvailable: %4$.1f GB\n\nFree up at least %5$.1f GB to continue, or tap \"Download Anyway\" to skip the safety check.</string>
   <string name="button_download_anyway">Download Anyway</string>
+  <string name="dialog_storage_warning_import_body">This import requires %1$.1f GB total:\n  \u2022 Model size: %2$.1f GB\n  \u2022 System reserve: %3$.0f GB\n\nAvailable: %4$.1f GB\n\nFree up at least %5$.1f GB to continue, or tap \"Import Anyway\" to skip the safety check.</string>
+  <string name="button_import_anyway">Import Anyway</string>
   <string name="label_loading_model">Loading Model</string>
   <string name="button_stop_server">Stop Server</string>
   <string name="dialog_unsupported_file_type_title">Unsupported file type</string>

@@ -797,15 +797,18 @@ fun DownloadAndTryButton(
 
 }
 
-/** Returns true when available storage is less than the model's total download size. */
-private fun isStorageLow(model: Model): Boolean {
-  if (model.totalBytes <= 0) return false
+/** Returns true when available storage is less than the given size plus the system reserve. */
+internal fun isStorageLow(sizeInBytes: Long): Boolean {
+  if (sizeInBytes <= 0) return false
   return try {
     val stat = StatFs(Environment.getDataDirectory().path)
     val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
-    availableBytes < model.totalBytes + SYSTEM_RESERVED_MEMORY_IN_BYTES
+    availableBytes < sizeInBytes + SYSTEM_RESERVED_MEMORY_IN_BYTES
   } catch (e: Exception) {
     android.util.Log.w("DownloadAndTryButton", "Failed to check storage availability", e)
     false
   }
 }
+
+/** Returns true when available storage is less than the model's total download size. */
+private fun isStorageLow(model: Model): Boolean = isStorageLow(model.totalBytes)
