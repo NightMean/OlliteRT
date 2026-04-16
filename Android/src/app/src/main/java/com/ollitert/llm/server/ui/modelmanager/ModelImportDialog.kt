@@ -109,11 +109,14 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "OlliteRTModelImportDialog"
 
+// NPU requires SoC-specific model files and vendor native libraries (Qualcomm QAIRT / MediaTek
+// NeuroPilot). No models currently ship with NPU support. Re-enable Accelerator.NPU here when
+// NPU-compiled models become available in the allowlist.
 private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   if (isPixel10()) {
     listOf(Accelerator.CPU)
   } else {
-    listOf(Accelerator.CPU, Accelerator.GPU, Accelerator.NPU)
+    listOf(Accelerator.CPU, Accelerator.GPU)
   }
 
 /**
