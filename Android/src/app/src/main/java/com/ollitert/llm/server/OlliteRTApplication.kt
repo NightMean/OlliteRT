@@ -18,6 +18,7 @@ package com.ollitert.llm.server
 
 import android.app.Application
 import android.util.Log
+import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.worker.UpdateCheckWorker
@@ -39,6 +40,13 @@ class OlliteRTApplication : Application() {
   @InstallIn(SingletonComponent::class)
   interface PersistenceEntryPoint {
     fun requestLogPersistence(): RequestLogPersistence
+  }
+
+  /** Entry point for accessing [DataStoreRepository] from non-Hilt components (e.g. Service). */
+  @EntryPoint
+  @InstallIn(SingletonComponent::class)
+  interface DataStoreEntryPoint {
+    fun dataStoreRepository(): DataStoreRepository
   }
 
   override fun onCreate() {

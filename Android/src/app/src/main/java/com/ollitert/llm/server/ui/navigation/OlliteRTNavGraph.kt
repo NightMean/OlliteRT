@@ -161,6 +161,12 @@ fun OlliteRTNavHost(
         activeModelName = activeModelName,
         lastError = lastError,
         onStopServer = { serverViewModel.stopServer() },
+        onSwitchModel = { modelName ->
+          // Track model switches the same way as fresh starts for the engagement prompt
+          LlmHttpPrefs.incrementManualStartCount(modelsContext)
+          manualStartPending = true
+          serverViewModel.switchModel(modelName)
+        },
         onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) },
       )
     }

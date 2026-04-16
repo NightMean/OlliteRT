@@ -78,6 +78,17 @@ class ServerViewModel @Inject constructor(
     LlmHttpService.reload(context, port, currentModel)
   }
 
+  /**
+   * Switches to a different model while the server is running. Sends a single reload
+   * intent with the new model name, which cleans up the old model and starts the new one.
+   * This avoids the stop + start race condition where the debounce guard drops the start.
+   */
+  fun switchModel(modelName: String, port: Int = LlmHttpPrefs.getPort(context)) {
+    if (actionInFlight) return
+    setActionInFlight()
+    LlmHttpService.reload(context, port, modelName)
+  }
+
   private fun setActionInFlight() {
     actionInFlight = true
     viewModelScope.launch {

@@ -8,8 +8,10 @@ import android.util.Base64
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.ollitert.llm.server.data.IMPORTS_DIR
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
@@ -27,6 +29,8 @@ import java.io.File
 class LlmHttpModelLifecycle(
   private val context: Context,
   private val allowlistLoader: LlmHttpAllowlistLoader,
+  /** Reads imported models from DataStore. Provided by the service via Hilt EntryPoint. */
+  private val readImportedModels: () -> List<ImportedModel> = { emptyList() },
 ) {
 
   companion object {
@@ -144,19 +148,10 @@ class LlmHttpModelLifecycle(
       )
       ServerMetrics.onModelReloadedFromIdle()
 
+      // pickModelByName already restores persisted inference config via restoreInferenceConfig
       val model = pickModelByName(modelName) ?: run {
         Log.e(LOG_TAG, "Keep-alive: model '$modelName' not found during reload")
         return null
-      }
-
-      // Restore persisted inference config
-      val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-      if (savedConfig != null) {
-        val restored = model.configValues.toMutableMap()
-        for ((key, savedValue) in savedConfig) {
-          restored[key] = savedValue
-        }
-        model.configValues = restored
       }
 
       val loadStart = SystemClock.elapsedRealtime()
@@ -202,33 +197,43 @@ class LlmHttpModelLifecycle(
   // ── Model lookup ───────────────────────────────────────────────────────────
 
   /**
-   * Looks up a model by name from the allowlist, builds it, and restores its
-   * persisted inference config. Does NOT initialize the LiteRT Engine — the caller
-   * must call [ServerLlmModelHelper.initialize] separately.
+   * Looks up a model by name from the allowlist or imported models registry, builds it,
+   * and restores its persisted inference config. Does NOT initialize the LiteRT Engine —
+   * the caller must call [ServerLlmModelHelper.initialize] separately.
+   *
+   * Resolution order:
+   * 1. Allowlist models (from model_allowlist.json)
+   * 2. Imported models (from DataStore, stored via the Import dialog)
    */
   fun pickModelByName(name: String): Model? {
+    val externalDir = context.getExternalFilesDir(null) ?: return null
+    val importsDir = File(externalDir, IMPORTS_DIR)
+
+    // 1. Try allowlist models first
     val allowlist = allowlistLoader.load()
-    val importsDir = File(context.getExternalFilesDir(null) ?: return null, "__imports")
-    val match = allowlist.firstOrNull { it.name.equals(name, ignoreCase = true) }
-      ?: return null
-    val model = LlmHttpModelFactory.buildAllowedModel(match, importsDir)
-    model.preProcess()
-    // Restore persisted inference config so settings survive app/service restarts
-    val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-    if (savedConfig != null) {
-      val restored = model.configValues.toMutableMap()
-      for ((key, savedValue) in savedConfig) {
-        if (key in restored) {
-          val config = model.configs.find { it.key.label == key }
-          if (config != null) {
-            restored[key] = com.ollitert.llm.server.data.convertValueToTargetType(savedValue, config.valueType)
-          } else {
-            restored[key] = savedValue
-          }
-        }
+    val allowlistMatch = allowlist.firstOrNull { it.name.equals(name, ignoreCase = true) }
+    val model = if (allowlistMatch != null) {
+      val built = LlmHttpModelFactory.buildAllowedModel(allowlistMatch, importsDir)
+      built.preProcess()
+      built
+    } else {
+      // 2. Fall back to imported models from DataStore
+      val importedMatch = try {
+        readImportedModels().firstOrNull { it.fileName.equals(name, ignoreCase = true) }
+      } catch (e: Exception) {
+        Log.w(LOG_TAG, "Failed to read imported models from DataStore", e)
+        null
       }
-      model.configValues = restored
-    }
+      if (importedMatch != null) {
+        Log.i(LOG_TAG, "Model '$name' found in imported models registry")
+        LlmHttpModelFactory.buildImportedModel(importedMatch)
+      } else {
+        null
+      }
+    } ?: return null
+
+    // Restore persisted inference config so settings survive app/service restarts
+    LlmHttpModelFactory.restoreInferenceConfig(context, model)
     return model
   }
 

@@ -28,24 +28,20 @@ import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
-import com.ollitert.llm.server.data.IMPORTS_DIR
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.SOC
 import com.ollitert.llm.server.data.TMP_FILE_EXT
 import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.data.createBuiltInTasks
-import com.ollitert.llm.server.data.createLlmChatConfigs
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
+import com.ollitert.llm.server.service.LlmHttpModelFactory
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -227,23 +223,7 @@ constructor(
         model.preProcess()
         // Restore persisted inference config (temperature, max tokens, etc.) so settings
         // survive app restarts. Overlays saved values on top of model defaults.
-        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-        if (savedConfig != null) {
-          val restored = model.configValues.toMutableMap()
-          for ((key, savedValue) in savedConfig) {
-            // Only restore keys that exist in the model's config definitions
-            if (key in restored) {
-              // Normalize to the target type expected by the model config
-              val config = model.configs.find { it.key.label == key }
-              if (config != null) {
-                restored[key] = convertValueToTargetType(savedValue, config.valueType)
-              } else {
-                restored[key] = savedValue
-              }
-            }
-          }
-          model.configValues = restored
-        }
+        LlmHttpModelFactory.restoreInferenceConfig(context, model)
       }
       // Move the model that is best for this task to the front.
       val bestModel = task.models.find { it.bestForTaskIds.contains(task.id) }
@@ -516,7 +496,8 @@ constructor(
     Log.d(TAG, "adding imported llm model: $info")
 
     // Create model.
-    val model = createModelFromImportedModelInfo(info = info)
+    val model = LlmHttpModelFactory.buildImportedModel(info)
+    LlmHttpModelFactory.restoreInferenceConfig(context, model)
 
     for (task in uiState.value.tasks) {
       // Remove duplicated imported model if existed.
@@ -825,7 +806,8 @@ constructor(
       Log.d(TAG, "stored imported model: $importedModel")
 
       // Create model.
-      val model = createModelFromImportedModelInfo(info = importedModel)
+      val model = LlmHttpModelFactory.buildImportedModel(importedModel)
+      LlmHttpModelFactory.restoreInferenceConfig(context, model)
 
       // Add to all tasks.
       for (task in uiState.value.tasks) {
@@ -854,70 +836,6 @@ constructor(
     )
   }
 
-  private fun createModelFromImportedModelInfo(info: ImportedModel): Model {
-    val accelerators: MutableList<Accelerator> =
-      info.llmConfig.compatibleAcceleratorsList
-        .mapNotNull { acceleratorLabel ->
-          when (acceleratorLabel.trim()) {
-            Accelerator.GPU.label -> Accelerator.GPU
-            Accelerator.CPU.label -> Accelerator.CPU
-            Accelerator.NPU.label -> Accelerator.NPU
-            else -> null // Ignore unknown accelerator labels
-          }
-        }
-        .toMutableList()
-    val llmMaxToken = info.llmConfig.defaultMaxTokens
-    val llmSupportImage = info.llmConfig.supportImage
-    val llmSupportAudio = info.llmConfig.supportAudio
-    val llmSupportThinking = info.llmConfig.supportThinking
-    val configs: MutableList<Config> =
-      createLlmChatConfigs(
-          defaultMaxToken = llmMaxToken,
-          defaultTopK = info.llmConfig.defaultTopk,
-          defaultTopP = info.llmConfig.defaultTopp,
-          defaultTemperature = info.llmConfig.defaultTemperature,
-          accelerators = accelerators,
-          supportThinking = llmSupportThinking,
-        )
-        .toMutableList()
-    val model =
-      Model(
-        name = info.fileName,
-        url = "",
-        configs = configs,
-        sizeInBytes = info.fileSize,
-        downloadFileName = "$IMPORTS_DIR/${info.fileName}",
-        showBenchmarkButton = false,
-        imported = true,
-        llmSupportImage = llmSupportImage,
-        llmSupportAudio = llmSupportAudio,
-        llmSupportThinking = llmSupportThinking,
-        llmMaxToken = llmMaxToken,
-        accelerators = accelerators,
-        // We assume all imported models are LLM for now.
-        isLlm = true,
-        runtimeType = RuntimeType.LITERT_LM,
-      )
-    model.preProcess()
-    // Restore persisted inference config for imported models too
-    val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-    if (savedConfig != null) {
-      val restored = model.configValues.toMutableMap()
-      for ((key, savedValue) in savedConfig) {
-        if (key in restored) {
-          val config = model.configs.find { it.key.label == key }
-          if (config != null) {
-            restored[key] = convertValueToTargetType(savedValue, config.valueType)
-          } else {
-            restored[key] = savedValue
-          }
-        }
-      }
-      model.configValues = restored
-    }
-
-    return model
-  }
 
   private fun groupTasksByCategory(): Map<String, List<Task>> {
     val tasks = uiState.value.tasks
