@@ -210,7 +210,7 @@ fun createLlmChatConfigs(
     maxTokensConfig =
       NumberSliderConfig(
         key = ConfigKeys.MAX_TOKENS,
-        sliderMin = 2000f,
+        sliderMin = MIN_MAX_TOKENS.toFloat(),
         sliderMax = defaultMaxContextLength.toFloat(),
         defaultValue = defaultMaxToken.toFloat(),
         valueType = ValueType.INT,
@@ -221,24 +221,24 @@ fun createLlmChatConfigs(
         maxTokensConfig,
         NumberSliderConfig(
           key = ConfigKeys.TOPK,
-          sliderMin = 5f,
-          sliderMax = 100f,
+          sliderMin = MIN_TOPK.toFloat(),
+          sliderMax = MAX_TOPK.toFloat(),
           defaultValue = defaultTopK.toFloat(),
           valueType = ValueType.INT,
           needReinitialization = false, // Applied per-conversation via resetConversation()
         ),
         NumberSliderConfig(
           key = ConfigKeys.TOPP,
-          sliderMin = 0.0f,
-          sliderMax = 1.0f,
+          sliderMin = MIN_TOPP,
+          sliderMax = MAX_TOPP,
           defaultValue = defaultTopP,
           valueType = ValueType.FLOAT,
           needReinitialization = false, // Applied per-conversation via resetConversation()
         ),
         NumberSliderConfig(
           key = ConfigKeys.TEMPERATURE,
-          sliderMin = 0.0f,
-          sliderMax = 2.0f,
+          sliderMin = MIN_TEMPERATURE,
+          sliderMax = MAX_TEMPERATURE,
           defaultValue = defaultTemperature,
           valueType = ValueType.FLOAT,
           needReinitialization = false, // Applied per-conversation via resetConversation()

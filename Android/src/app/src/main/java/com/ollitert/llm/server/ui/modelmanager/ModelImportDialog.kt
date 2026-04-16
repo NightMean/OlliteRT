@@ -70,10 +70,18 @@ import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKey
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
+import com.ollitert.llm.server.data.MAX_MAX_TOKENS
+import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.DEFAULT_TEMPERATURE
 import com.ollitert.llm.server.data.DEFAULT_TOPK
 import com.ollitert.llm.server.data.DEFAULT_TOPP
 import com.ollitert.llm.server.data.IMPORTS_DIR
+import com.ollitert.llm.server.data.MAX_TEMPERATURE
+import com.ollitert.llm.server.data.MAX_TOPK
+import com.ollitert.llm.server.data.MAX_TOPP
+import com.ollitert.llm.server.data.MIN_TEMPERATURE
+import com.ollitert.llm.server.data.MIN_TOPK
+import com.ollitert.llm.server.data.MIN_TOPP
 import com.ollitert.llm.server.data.LabelConfig
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.SegmentedButtonConfig
@@ -108,29 +116,29 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     LabelConfig(key = ConfigKeys.MODEL_TYPE),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_MAX_TOKENS,
-      sliderMin = 100f,
-      sliderMax = 32768f,
+      sliderMin = MIN_MAX_TOKENS.toFloat(),
+      sliderMax = MAX_MAX_TOKENS.toFloat(),
       defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_TOPK,
-      sliderMin = 5f,
-      sliderMax = 100f,
+      sliderMin = MIN_TOPK.toFloat(),
+      sliderMax = MAX_TOPK.toFloat(),
       defaultValue = DEFAULT_TOPK.toFloat(),
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_TOPP,
-      sliderMin = 0.0f,
-      sliderMax = 1.0f,
+      sliderMin = MIN_TOPP,
+      sliderMax = MAX_TOPP,
       defaultValue = DEFAULT_TOPP,
       valueType = ValueType.FLOAT,
     ),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_TEMPERATURE,
-      sliderMin = 0.0f,
-      sliderMax = 2.0f,
+      sliderMin = MIN_TEMPERATURE,
+      sliderMax = MAX_TEMPERATURE,
       defaultValue = DEFAULT_TEMPERATURE,
       valueType = ValueType.FLOAT,
     ),
