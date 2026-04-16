@@ -91,8 +91,12 @@ import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import com.ollitert.llm.server.ui.common.ConfigEditorsPanel
+import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
 import com.ollitert.llm.server.ui.common.ensureValidFileName
 import com.ollitert.llm.server.ui.common.humanReadableSize
+import com.ollitert.llm.server.ui.common.isStorageLow
+import android.os.Environment
+import android.os.StatFs
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -186,6 +190,9 @@ fun ModelImportDialog(
   // Pending model to import — set when the user taps Import on a duplicate name.
   // The confirmation dialog reads this and either proceeds or cancels.
   var pendingReplaceModel by remember { mutableStateOf<ImportedModel?>(null) }
+
+  // Pending model to import when storage is low — shows a warning before proceeding.
+  var pendingStorageModel by remember { mutableStateOf<ImportedModel?>(null) }
 
   val importConfigs = remember { buildImportConfigsLlm(fileExtension) }
 
@@ -322,8 +329,12 @@ fun ModelImportDialog(
                       .build()
                   )
                   .build()
-              // Check if a model with this name already exists
-              if (editedName in existingImportedModelNames) {
+              // Check available storage before proceeding.
+              if (isStorageLow(fileSize)) {
+                pendingStorageModel = importedModel
+              }
+              // Check if a model with this name already exists.
+              else if (editedName in existingImportedModelNames) {
                 pendingReplaceModel = importedModel
               } else {
                 onDone(importedModel)
@@ -358,6 +369,57 @@ fun ModelImportDialog(
         TextButton(onClick = { pendingReplaceModel = null }) {
           Text(stringResource(R.string.cancel))
         }
+      },
+    )
+  }
+
+  // Storage warning dialog — shown when there isn't enough space to import.
+  val storageModel = pendingStorageModel
+  if (storageModel != null) {
+    val modelSizeGb = fileSize / (1024f * 1024 * 1024)
+    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES / (1024f * 1024 * 1024)
+    val totalRequiredGb = modelSizeGb + reserveGb
+    val availableBytes = try {
+      val stat = StatFs(Environment.getDataDirectory().path)
+      stat.availableBlocksLong * stat.blockSizeLong
+    } catch (_: Exception) { 0L }
+    val availableGb = availableBytes / (1024f * 1024 * 1024)
+
+    AlertDialog(
+      icon = {
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
+      },
+      title = { Text(stringResource(R.string.dialog_storage_warning_title)) },
+      text = {
+        Text(
+          stringResource(
+            R.string.dialog_storage_warning_import_body,
+            totalRequiredGb,
+            modelSizeGb,
+            reserveGb,
+            availableGb,
+            (totalRequiredGb - availableGb).coerceAtLeast(0f),
+          )
+        )
+      },
+      onDismissRequest = { pendingStorageModel = null },
+      confirmButton = {
+        TextButton(onClick = { pendingStorageModel = null }) { Text(stringResource(R.string.cancel)) }
+      },
+      dismissButton = {
+        TextButton(onClick = {
+          pendingStorageModel = null
+          // Proceed despite low storage — still check for duplicate name.
+          if (storageModel.fileName in existingImportedModelNames) {
+            pendingReplaceModel = storageModel
+          } else {
+            onDone(storageModel)
+          }
+        }) { Text(stringResource(R.string.button_import_anyway)) }
       },
     )
   }
