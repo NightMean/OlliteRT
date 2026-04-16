@@ -573,7 +573,12 @@ private fun importModel(
       inputStream?.close()
       outputStream.close()
     }
-    // Atomic rename: only creates the final file if the copy completed successfully
+    // Atomic rename: only creates the final file if the copy completed successfully.
+    // Delete existing file first — renameTo won't overwrite on most Android filesystems,
+    // and a previous import of the same model name may have left a file here.
+    if (finalFile.exists()) {
+      finalFile.delete()
+    }
     if (!tmpFile.renameTo(finalFile)) {
       // renameTo can fail on some filesystems — fall back to copy + delete
       try {

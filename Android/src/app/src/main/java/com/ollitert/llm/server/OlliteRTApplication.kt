@@ -21,6 +21,7 @@ import android.util.Log
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
+import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -59,6 +60,15 @@ class OlliteRTApplication : Application() {
       entryPoint.requestLogPersistence().initialize()
     } catch (e: Exception) {
       Log.e("OlliteRTApp", "Failed to initialize log persistence — logs will be in-memory only", e)
+    }
+
+    // Clean up stale .tmp files from interrupted model imports to reclaim storage.
+    // Runs early in startup so disk space is freed before the server or UI tries to load models.
+    // Wrapped in try-catch so file system errors don't crash the app on startup.
+    try {
+      cleanupStaleImportTmpFiles(getExternalFilesDir(null))
+    } catch (e: Exception) {
+      Log.e("OlliteRTApp", "Failed to clean up stale import temp files", e)
     }
 
     // Create the update notification channel (safe to call on every start — no-ops if it exists).

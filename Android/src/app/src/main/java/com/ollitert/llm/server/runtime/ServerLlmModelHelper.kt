@@ -18,12 +18,15 @@ package com.ollitert.llm.server.runtime
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Environment
+import android.os.StatFs
 import android.util.Log
 import java.io.File
 import com.ollitert.llm.server.common.cleanUpMediapipeTaskErrorMessage
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
+import com.ollitert.llm.server.data.MIN_ENGINE_STORAGE_BYTES
 import com.ollitert.llm.server.data.DEFAULT_TEMPERATURE
 import com.ollitert.llm.server.data.DEFAULT_TOPK
 import com.ollitert.llm.server.data.DEFAULT_TOPP
@@ -114,6 +117,26 @@ object ServerLlmModelHelper : LlmModelHelper {
     if (modelFile.length() < 1024) {
       onDone("Model file appears corrupted or truncated (${modelFile.length()} bytes): ${modelFile.name}")
       return
+    }
+
+    // Pre-flight storage check: LiteRT needs scratch space for memory-mapping, temp files,
+    // and GPU buffer allocation during Engine initialization. If the device is critically
+    // low on storage (e.g. after a failed import filled the disk), Engine() will fail with
+    // a cryptic native "Failed to create engine: INTERNAL" error. Check early and provide
+    // a clear, actionable error message instead.
+    try {
+      val stat = StatFs(Environment.getDataDirectory().path)
+      val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
+      if (availableBytes < MIN_ENGINE_STORAGE_BYTES) {
+        val availableMb = availableBytes / (1024 * 1024)
+        val requiredMb = MIN_ENGINE_STORAGE_BYTES / (1024 * 1024)
+        onDone("Insufficient storage to load model (${availableMb}MB free, need at least ${requiredMb}MB). " +
+          "Free up space by deleting unused models or files, then try again.")
+        return
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to check storage before engine creation: ${e.message}")
+      // Don't block model loading if StatFs fails — let the Engine attempt proceed
     }
 
     val engineConfig =

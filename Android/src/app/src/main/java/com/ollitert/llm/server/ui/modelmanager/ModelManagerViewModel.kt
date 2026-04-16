@@ -534,13 +534,16 @@ constructor(
     modelInstances[model.name] =
       ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
 
-    // Update ui state.
+    // Update ui state — bump both import trigger and storage trigger so the
+    // storage bar reflects the space consumed by the newly imported model.
+    val now = System.currentTimeMillis()
     _uiState.update {
       uiState.value.copy(
         tasks = uiState.value.tasks.toList(),
         modelDownloadStatus = modelDownloadStatus,
         modelInitializationStatus = modelInstances,
-        modelImportingUpdateTrigger = System.currentTimeMillis(),
+        modelImportingUpdateTrigger = now,
+        storageUpdateTrigger = now,
       )
     }
 
