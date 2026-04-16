@@ -1,26 +1,39 @@
-OlliteRT turns your Android device into a local LLM inference server with an OpenAI-compatible API. Run AI models entirely on-device with no cloud dependency.
+OlliteRT turns your Android phone into a local LLM inference server with an OpenAI-compatible API. Run AI models entirely on-device — no cloud, no API keys, no root required.
+
+Think of it as Ollama for Android. If you've used Ollama on a PC or llama.cpp on a server, OlliteRT brings the same concept to your phone — powered by Google's LiteRT runtime.
 
 Features:
 - OpenAI-compatible REST API (Chat Completions, Completions, Responses)
-- Support for Gemma, DeepSeek-R1, and Qwen models via LiteRT
+- Gemma 4, Gemma 3n, Gemma 3, DeepSeek-R1, and Qwen 2.5 models
+- Multimodal — send images and audio to models that see, hear, and think
+- Chain-of-thought thinking mode for complex reasoning
+- Tool/function calling for smart home control and automations
 - Streaming responses (Server-Sent Events)
-- Tool/function calling support
-- Multimodal support (vision) for capable models
-- Prometheus /metrics endpoint for monitoring
+- Built-in model benchmark to find the best fit for your hardware
+- Prometheus /metrics endpoint (22 metrics) for Grafana dashboards
+- Home Assistant REST API for remote server monitoring and control
 - Configurable inference settings per model (temperature, top-k, top-p, max tokens)
-- Bearer token authentication
-- CORS configuration
+- Keep-alive with idle timeout — auto-unloads model to free RAM
+- Bearer token authentication and CORS configuration
+- Auto-start server on boot
 - Foreground service with notification controls
-- Auto-start on boot
-- Keep-alive with idle timeout (auto-unload to free RAM)
-- Home Assistant integration support
-- Dark theme UI with model management, logs, and status screens
-- Log persistence with configurable retention
+- Log persistence with search, filtering, and JSON highlighting
+- Dark theme UI with model management, live status dashboard, and structured logs
+- Download models from HuggingFace or import your own .litertlm files
+
+Works with:
+- Home Assistant (via Extended OpenAI Conversation or Local OpenAI LLM)
+- Open WebUI
+- OpenClaw
+- Python (OpenAI SDK)
+- curl
+- Any tool that supports the OpenAI API
 
 Perfect for:
-- Home automation (Home Assistant, Open WebUI)
-- Privacy-focused AI assistants
+- Home automation and voice assistants
+- Privacy-focused AI — your data never leaves your device
 - Local development and testing
 - Self-hosted AI on mobile hardware
+- Repurposing an old phone as an always-on AI server
 
-No internet required for inference. Your data stays on your device.
+No internet required for inference. No telemetry. No analytics. Your data stays on your device.
