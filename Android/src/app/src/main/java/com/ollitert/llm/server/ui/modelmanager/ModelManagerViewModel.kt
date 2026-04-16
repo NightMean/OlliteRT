@@ -592,8 +592,9 @@ constructor(
       }
     }
 
-    // Bump modelImportingUpdateTrigger so GlobalModelManager's LaunchedEffect re-populates
-    // its importedModels list with the rebuilt Model object (capability flags, configs, etc.)
+    // Bump modelImportingUpdateTrigger to force StateFlow emission. Without this,
+    // _uiState.update produces a structurally equal value (same Task references with
+    // in-place mutated MutableList) and MutableStateFlow drops the update.
     _uiState.update {
       it.copy(
         tasks = uiState.value.tasks.toList(),
