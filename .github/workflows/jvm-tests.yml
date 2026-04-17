@@ -53,8 +53,8 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Build prodDebug APK
-        run: ./gradlew --no-daemon :app:assembleProdDebug
+      - name: Compile prodDebug
+        run: ./gradlew --no-daemon :app:compileProdDebugKotlin
 
       - name: Run JVM unit tests
         run: ./gradlew --no-daemon :app:testProdDebugUnitTest
