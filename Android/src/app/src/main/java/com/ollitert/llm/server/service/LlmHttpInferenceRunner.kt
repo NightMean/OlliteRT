@@ -9,6 +9,7 @@ import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.LOG_STREAMING_PREVIEW_DEBOUNCE_MS
 import com.ollitert.llm.server.data.WARMUP_MESSAGE
 import com.ollitert.llm.server.data.WARMUP_TIMEOUT_SECONDS
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
@@ -960,8 +961,6 @@ class LlmHttpInferenceRunner(
   }
 
   companion object {
-    /** Debounce interval for updating the Logs screen preview during streaming inference. */
-    private const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
 
     /**
      * Truncates model output at the first occurrence of any stop sequence.

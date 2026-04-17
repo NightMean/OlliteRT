@@ -9,6 +9,7 @@ import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.IMPORTS_DIR
+import com.ollitert.llm.server.data.KEEP_ALIVE_RECHECK_MS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.proto.ImportedModel
@@ -35,8 +36,6 @@ class LlmHttpModelLifecycle(
 
   companion object {
     private const val LOG_TAG = "LlmHttpModelLifecycle"
-    /** When model is inferring at keep-alive timeout, recheck after this delay. */
-    const val KEEP_ALIVE_RECHECK_MS = 30_000L
   }
 
   // ── State ──────────────────────────────────────────────────────────────────

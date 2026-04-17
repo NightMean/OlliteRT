@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
@@ -31,10 +33,6 @@ object LlmHttpInferenceGateway {
    *   stack traces when debug mode is enabled. The gateway itself only forwards [Throwable.message]
    *   via [onError] — this callback preserves the full stack trace for diagnostics.
    */
-  /** Default timeout for streaming inference (seconds). */
-  private const val STREAMING_TIMEOUT_SECONDS = 90L
-  /** Default timeout for non-streaming (blocking) inference (seconds). */
-  private const val BLOCKING_TIMEOUT_SECONDS = 30L
 
   fun executeStreaming(
     prompt: String,

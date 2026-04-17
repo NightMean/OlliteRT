@@ -64,6 +64,39 @@ const val WARMUP_MESSAGE = "Hello"
 // Maximum time (seconds) to wait for the warmup inference pass to complete.
 const val WARMUP_TIMEOUT_SECONDS = 10L
 
+// Inference timeouts (seconds).
+// Timeout for /v1/chat/completions and /v1/completions endpoints.
+const val CHAT_COMPLETIONS_TIMEOUT_SECONDS = 120L
+// Timeout for /v1/responses endpoint.
+const val RESPONSES_TIMEOUT_SECONDS = 90L
+// Default timeout for streaming inference.
+const val STREAMING_TIMEOUT_SECONDS = 90L
+// Default timeout for non-streaming (blocking) inference.
+const val BLOCKING_TIMEOUT_SECONDS = 30L
+// Maximum time (seconds) to wait for previous model cleanup before initializing a new one.
+const val CLEANUP_AWAIT_TIMEOUT_SECONDS = 15L
+
+// Keep-alive settings.
+// When model is inferring at keep-alive timeout, recheck after this delay (ms).
+const val KEEP_ALIVE_RECHECK_MS = 30_000L
+
+// Storage threshold — conservative minimum free storage before attempting model init.
+// LiteRT's Engine creates XNNPack weight caches that can be hundreds of MB.
+const val MIN_STORAGE_FOR_MODEL_INIT_BYTES = 500L * 1024 * 1024
+
+// File logger settings.
+// Max characters logged per payload before truncation (bypassed in verbose debug mode).
+const val MAX_PAYLOAD_LOG_CHARS = 2000
+// Log file rotation threshold — rotates to .log.1 when exceeded.
+const val LOG_FILE_MAX_BYTES = 512 * 1024L
+
+// Debounce interval (ms) for updating the Logs screen preview during streaming inference.
+const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
+
+// Approximate characters per token for English text (~3.5–4 for Gemma/GPT tokenizers).
+// Drifts for code (~2.5) and multilingual text. No tokenizer API exists in LiteRT LM.
+const val CHARS_PER_TOKEN_ESTIMATE = 4
+
 // Current device's SOC in lowercase.
 val SOC =
   (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
