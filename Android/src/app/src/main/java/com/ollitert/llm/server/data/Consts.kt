@@ -59,6 +59,11 @@ val MODEL_INFO_ICON_SIZE = 18.dp
 // The extension of the tmp download files.
 const val TMP_FILE_EXT = "olliterttmp"
 
+// Warmup inference settings — sent after model load to pre-fill caches and verify the engine works.
+const val WARMUP_MESSAGE = "Hello"
+// Maximum time (seconds) to wait for the warmup inference pass to complete.
+const val WARMUP_TIMEOUT_SECONDS = 10L
+
 // Current device's SOC in lowercase.
 val SOC =
   (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

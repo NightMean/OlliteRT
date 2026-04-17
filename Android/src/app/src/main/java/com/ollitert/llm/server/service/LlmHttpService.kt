@@ -433,7 +433,7 @@ class LlmHttpService : Service() {
           inferenceRunner?.warmUpModel(model)
         } else {
           // Still initialize the model engine so it's ready for requests;
-          // only the test inference message ("Hola") is skipped.
+          // only the test inference message is skipped.
           var initErr = ""
           ServerLlmModelHelper.initialize(
             context = this@LlmHttpService,
