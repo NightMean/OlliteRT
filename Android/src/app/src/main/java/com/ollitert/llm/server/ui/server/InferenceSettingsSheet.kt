@@ -160,6 +160,7 @@ fun InferenceSettingsSheet(
   var showResetDialog by remember { mutableStateOf(false) }
 
   // Reset confirmation dialog
+  val modelSettingsResetText = stringResource(R.string.toast_model_settings_reset)
   if (showResetDialog) {
     AlertDialog(
       onDismissRequest = { showResetDialog = false },
@@ -176,7 +177,7 @@ fun InferenceSettingsSheet(
           useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
           systemPrompt = ""
           chatTemplate = ""
-          Toast.makeText(context, context.getString(R.string.toast_model_settings_reset), Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, modelSettingsResetText, Toast.LENGTH_SHORT).show()
         }) {
           Text(stringResource(R.string.button_reset))
         }
