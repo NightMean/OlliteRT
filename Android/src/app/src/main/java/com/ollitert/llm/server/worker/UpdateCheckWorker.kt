@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
  * Background WorkManager worker that checks GitHub Releases for newer versions.
  * Runs periodically (default: every 24 hours) with network + battery constraints.
  *
- * Channel-aware: prod checks /releases/latest (stable only), beta/dev fetch the
+ * Channel-aware: stable checks /releases/latest (stable only), beta/dev fetch the
  * releases list and filter by tag pattern. See [fetchLatestRelease] for details.
  */
 class UpdateCheckWorker(

@@ -123,7 +123,7 @@ android {
       dimension = "channel"
       // No suffix — this is the production release
       resValue("string", "app_label", "OlliteRT")
-      buildConfigField("String", "CHANNEL", "\"prod\"")
+      buildConfigField("String", "CHANNEL", "\"stable\"")
       // Update channel: stable only (GitHub's /releases/latest auto-skips pre-releases)
       buildConfigField("String", "UPDATE_CHANNEL", "\"stable\"")
       // Default applicationId, no override needed

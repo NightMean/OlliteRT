@@ -14,7 +14,7 @@ class BuildConfigFlavorTest {
   @Test
   fun channelFieldIsPresent() {
     // BuildConfig.CHANNEL must be one of the defined flavors
-    val validChannels = setOf("dev", "beta", "prod")
+    val validChannels = setOf("dev", "beta", "stable")
     assertTrue(
       "BuildConfig.CHANNEL ('${BuildConfig.CHANNEL}') must be one of $validChannels",
       BuildConfig.CHANNEL in validChannels,
@@ -33,7 +33,7 @@ class BuildConfigFlavorTest {
         "Beta applicationId should end with .beta",
         BuildConfig.APPLICATION_ID.endsWith(".beta"),
       )
-      "prod" -> assertEquals(
+      "stable" -> assertEquals(
         "Prod applicationId should have no suffix",
         "com.ollitert.llm.server",
         BuildConfig.APPLICATION_ID,
@@ -52,7 +52,7 @@ class BuildConfigFlavorTest {
         "Beta versionName should contain -beta suffix",
         BuildConfig.VERSION_NAME.endsWith("-beta"),
       )
-      "prod" -> assertTrue(
+      "stable" -> assertTrue(
         "Prod versionName should not contain channel suffix",
         !BuildConfig.VERSION_NAME.contains("-dev") && !BuildConfig.VERSION_NAME.contains("-beta"),
       )
