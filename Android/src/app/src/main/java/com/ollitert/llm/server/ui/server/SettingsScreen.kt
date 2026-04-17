@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.BugReport
@@ -86,6 +87,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -113,6 +115,7 @@ import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.server.logs.exportLogcat
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import androidx.work.WorkInfo
@@ -131,6 +134,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
+import kotlinx.coroutines.launch
 
 /** Highlights all occurrences of search query words in the given text with the specified color. */
 private fun highlightSearchMatches(
@@ -2295,20 +2299,43 @@ fun SettingsScreen(
         }
         Switch(
           checked = vm.verboseDebugEnabled,
-          onCheckedChange = {
-            vm.verboseDebugEnabled = it
-            LlmHttpPrefs.setVerboseDebugEnabled(context, it)
-            RequestLogStore.addEvent(
-              "Settings updated (1 change)",
-              category = EventCategory.SETTINGS,
-              body = "Verbose Debug Mode: ${if (!it) "enabled" else "disabled"} → ${if (it) "enabled" else "disabled"}",
-            )
-            val msg = if (it) context.getString(R.string.settings_debug_enabled_toast)
-              else context.getString(R.string.settings_debug_disabled_toast)
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-          },
+          onCheckedChange = { vm.verboseDebugEnabled = it },
           colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
         )
+      }
+
+      // Export Debug Logs button — visible only when verbose debug is enabled
+      AnimatedVisibility(
+        visible = vm.verboseDebugEnabled,
+        enter = expandVertically(),
+        exit = shrinkVertically(),
+      ) {
+        val logcatScope = rememberCoroutineScope()
+        Column {
+          Spacer(modifier = Modifier.height(12.dp))
+          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+          Spacer(modifier = Modifier.height(12.dp))
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Column(modifier = Modifier.weight(1f)) {
+              SettingLabel(text = stringResource(R.string.settings_export_logcat), searchQuery = vm.searchQuery)
+              Text(
+                text = stringResource(R.string.settings_export_logcat_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            TooltipIconButton(
+              onClick = { logcatScope.launch { exportLogcat(context) } },
+              icon = Icons.Outlined.Share,
+              tooltip = stringResource(R.string.settings_export_logcat),
+            )
+          }
+        }
       }
     }
     } // AnimatedVisibility: Developer
