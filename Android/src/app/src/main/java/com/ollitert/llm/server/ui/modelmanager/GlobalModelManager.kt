@@ -253,7 +253,7 @@ fun GlobalModelManager(
         result.data?.data?.let { uri ->
           val fileName = getFileName(context = context, uri = uri)
           Log.d(TAG, "Selected file: $fileName")
-          if (fileName != null && !fileName.endsWith(".task") && !fileName.endsWith(".litertlm")) {
+          if (fileName != null && !fileName.endsWith(".litertlm")) {
             showUnsupportedFileTypeDialog = true
           } else if (fileName != null && fileName.lowercase().contains("-web")) {
             showUnsupportedWebModelDialog = true
