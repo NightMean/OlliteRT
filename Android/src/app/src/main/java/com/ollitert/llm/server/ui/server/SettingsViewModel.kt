@@ -331,6 +331,12 @@ class SettingsViewModel @Inject constructor(
     // ── Log changes ──
     logSettingsChanges(port)
 
+    // Write a full settings snapshot to logcat when verbose debug is turned on,
+    // so exported debug logs contain the active configuration for diagnosis.
+    if (verboseDebugEnabled && !savedVerboseDebugEnabled) {
+      LlmHttpPrefs.dumpToLogcat(context)
+    }
+
     // ── Sync persistence layer ──
     if (logPersistenceEnabled && !savedLogPersistenceEnabled) {
       persistence.persistCurrentEntries()
