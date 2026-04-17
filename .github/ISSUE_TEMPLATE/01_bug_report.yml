@@ -97,7 +97,7 @@ body:
     attributes:
       label: Device & app information
       description: >-
-        If you used the "Report Issue" button in the app, this is filled in automatically.
+        If you used the "Report Issue" button in the app settings, this is filled in automatically.
         Otherwise, please fill it in manually.
       placeholder: |
         - App version: OlliteRT v___ (e.g. v0.8.0)
@@ -111,15 +111,42 @@ body:
     attributes:
       value: "## Additional Information"
 
-  - type: textarea
-    id: logs
+  - type: markdown
     attributes:
-      label: Error message or logs
+      value: |
+        ### How to collect logs
+
+        **Debug logs** — for crashes, model loading failures, startup issues, settings problems:
+        1. Go to **Settings → Developer**
+        2. Enable **Verbose Debug Mode** and tap **Save**
+        3. Reproduce the bug
+        4. Go back to **Settings → Developer** and tap the **Export Debug Logs** button (share icon)
+        5. Share the text file and attach it below
+
+        > **Tip:** This includes a snapshot of all your active settings, which helps diagnose configuration-related issues.
+
+        **Request/response logs** — for API issues, wrong responses, tool calling problems:
+        1. Reproduce the bug
+        2. Go to the **Logs** tab
+        3. Tap the **Export** button (share icon) in the toolbar
+        4. Share the JSON file and attach it below
+
+  - type: textarea
+    id: debug-logs
+    attributes:
+      label: Debug logs
       description: >-
-        Paste any error messages from the app's Logs screen, Status screen, or your client.
-        For full device logs, see the
-        [Bug Reporting Guide](https://github.com/NightMean/ollitert/blob/master/docs/Bug_Reporting_Guide.md).
+        Attach the exported debug log file from Settings → Developer → Export Debug Logs,
+        or paste any error messages from the Status screen.
       render: shell
+
+  - type: textarea
+    id: request-logs
+    attributes:
+      label: Request/response logs
+      description: >-
+        Attach the exported JSON file from the Logs tab Export button,
+        or paste the relevant request/response entries.
 
   - type: textarea
     id: screenshots
