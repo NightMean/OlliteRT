@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.CHARS_PER_TOKEN_ESTIMATE
+
 /**
  * Progressive prompt compaction to handle context window overflow.
  *
@@ -27,12 +29,6 @@ object LlmHttpPromptCompactor {
     val compacted: Boolean,
     val strategies: List<String>,
   )
-
-  /**
-   * Approximate characters per token for English text (~3.5–4 for Gemma/GPT tokenizers).
-   * Drifts for code (~2.5) and multilingual text. No tokenizer API exists in LiteRT LM.
-   */
-  private const val CHARS_PER_TOKEN_ESTIMATE = 4
 
   /** Rough token estimate based on [CHARS_PER_TOKEN_ESTIMATE]. */
   fun estimateTokens(text: String): Int =

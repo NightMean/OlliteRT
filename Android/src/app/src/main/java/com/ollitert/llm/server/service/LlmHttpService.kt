@@ -16,7 +16,9 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
+import com.ollitert.llm.server.data.CLEANUP_AWAIT_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.serialization.json.Json
@@ -420,7 +422,7 @@ class LlmHttpService : Service() {
         cleanupLatch.get()?.let { latch ->
           if (latch.count > 0) {
             Log.i(logTag, "Waiting for previous model cleanup to finish...")
-            latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
+            latch.await(CLEANUP_AWAIT_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
             Log.i(logTag, "Previous cleanup finished, proceeding with model load")
           }
         }
@@ -751,9 +753,6 @@ class LlmHttpService : Service() {
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
-    /** Conservative minimum free storage before attempting model init.
-     *  LiteRT's Engine creates XNNPack weight caches that can be hundreds of MB. */
-    private const val MIN_STORAGE_FOR_MODEL_INIT_BYTES = 500L * 1024 * 1024
 
     /**
      * Latch that the background cleanup thread in onDestroy signals when native memory is released.

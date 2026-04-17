@@ -1,9 +1,11 @@
 package com.ollitert.llm.server.service
 
 import android.content.Context
+import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -554,10 +556,4 @@ class LlmHttpEndpointHandlers(
     }
   }
 
-  companion object {
-    /** Inference timeout for /v1/chat/completions and /v1/completions (seconds). */
-    private const val CHAT_COMPLETIONS_TIMEOUT_SECONDS = 120L
-    /** Inference timeout for /v1/responses (seconds). */
-    private const val RESPONSES_TIMEOUT_SECONDS = 90L
-  }
 }

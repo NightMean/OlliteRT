@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.LOG_FILE_MAX_BYTES
+import com.ollitert.llm.server.data.MAX_PAYLOAD_LOG_CHARS
 import java.io.File
 import java.io.FileWriter
 import java.util.concurrent.Executors
@@ -21,12 +23,6 @@ class LlmHttpLogger(
   private val maxLogChars = MAX_PAYLOAD_LOG_CHARS
   private val logFileMaxBytes = LOG_FILE_MAX_BYTES
 
-  companion object {
-    /** Max characters logged per payload before truncation (bypassed in verbose debug mode). */
-    private const val MAX_PAYLOAD_LOG_CHARS = 2000
-    /** Log file rotation threshold — rotates to .log.1 when exceeded. */
-    private const val LOG_FILE_MAX_BYTES = 512 * 1024L
-  }
   private val executor = Executors.newSingleThreadExecutor()
 
   fun logEvent(message: String) {
