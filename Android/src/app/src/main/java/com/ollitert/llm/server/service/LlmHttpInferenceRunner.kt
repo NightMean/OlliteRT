@@ -9,6 +9,8 @@ import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.WARMUP_MESSAGE
+import com.ollitert.llm.server.data.WARMUP_TIMEOUT_SECONDS
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.encodeToString
@@ -894,17 +896,17 @@ class LlmHttpInferenceRunner(
   // ── Warmup ───────────────────────────────────────────────────────────────
 
   /**
-   * Warm up the model with a short test inference ("Hola").
+   * Warm up the model with a short test inference.
    * Used during model loading to pre-fill caches and verify the model works.
    */
   fun warmUpModel(model: Model) {
     val startMs = SystemClock.elapsedRealtime()
     val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
-    val (result, _) = runLlm(model, "Hola", "warmup", "warmup", timeoutSeconds = WARMUP_TIMEOUT_SECONDS, eagerVisionInit = eagerVision)
+    val (result, _) = runLlm(model, WARMUP_MESSAGE, "warmup", "warmup", timeoutSeconds = WARMUP_TIMEOUT_SECONDS, eagerVisionInit = eagerVision)
     val elapsedMs = SystemClock.elapsedRealtime() - startMs
     val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
     RequestLogStore.addEvent(
-      "Sending a warmup message: \"Hola\" → \"$snippet\" (${elapsedMs}ms)",
+      "Sending a warmup message: \"$WARMUP_MESSAGE\" → \"$snippet\" (${elapsedMs}ms)",
       modelName = model.name,
       category = EventCategory.MODEL,
     )
@@ -960,8 +962,6 @@ class LlmHttpInferenceRunner(
   companion object {
     /** Debounce interval for updating the Logs screen preview during streaming inference. */
     private const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
-    /** Inference timeout for the warmup pass after model load (seconds). */
-    private const val WARMUP_TIMEOUT_SECONDS = 10L
 
     /**
      * Truncates model output at the first occurrence of any stop sequence.
