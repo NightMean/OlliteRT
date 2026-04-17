@@ -487,21 +487,49 @@ constructor(
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
+    var connection: HttpURLConnection? = null
+    var redirectConn: HttpURLConnection? = null
     try {
       val url = URL(model.url)
-      val connection = url.openConnection() as HttpURLConnection
+      connection = url.openConnection() as HttpURLConnection
       connection.requestMethod = "HEAD"
-      connection.instanceFollowRedirects = true
+      // Disable auto-redirect so we can distinguish a valid CDN redirect (3xx with
+      // binary content) from an auth failure redirect (3xx to HTML login page).
+      // HuggingFace returns 302 to login page for invalid/expired tokens, which
+      // with followRedirects=true would appear as 200 — masking the auth failure.
+      connection.instanceFollowRedirects = false
       if (accessToken != null) {
         connection.setRequestProperty("Authorization", "Bearer $accessToken")
       }
       connection.connect()
 
-      // Report the result.
-      return connection.responseCode
+      val responseCode = connection.responseCode
+      // HuggingFace CDN uses 302 redirects for both valid downloads (→ CDN binary)
+      // and auth failures (→ HTML login page). Follow one level and check content type.
+      if (responseCode in 300..399) {
+        val redirectUrl = connection.getHeaderField("Location")
+        if (redirectUrl == null) {
+          return if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+        }
+        redirectConn = URL(redirectUrl).openConnection() as HttpURLConnection
+        redirectConn.requestMethod = "HEAD"
+        redirectConn.instanceFollowRedirects = true
+        redirectConn.connect()
+        val contentType = redirectConn.contentType ?: ""
+        // HTML page = login/error page, not a valid model file.
+        if (contentType.contains("text/html", ignoreCase = true)) {
+          Log.d(TAG, "Redirect landed on HTML page — auth required or token invalid")
+          return if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+        }
+        return redirectConn.responseCode
+      }
+      return responseCode
     } catch (e: Exception) {
       Log.e(TAG, "$e")
       return -1
+    } finally {
+      connection?.disconnect()
+      redirectConn?.disconnect()
     }
   }
 

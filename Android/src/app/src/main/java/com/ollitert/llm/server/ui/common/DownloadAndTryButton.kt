@@ -46,6 +46,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Key
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import androidx.compose.material.icons.outlined.StopCircle
@@ -101,6 +102,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "OlliteRTDownloadAndTryButton"
+
+private enum class HfTokenDialogReason { MISSING, INVALID }
 /**
  * 3 GB reserved for system stability. Downloads are blocked unless
  * availableBytes > modelSize + this reserve, preventing the device from
@@ -163,7 +166,7 @@ fun DownloadAndTryButton(
   var checkingToken by remember { mutableStateOf(false) }
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
-  var showHfTokenRequired by remember { mutableStateOf(false) }
+  var hfTokenDialogReason by remember { mutableStateOf<HfTokenDialogReason?>(null) }
   var showMemoryWarning by remember { mutableStateOf(false) }
   var showStorageWarning by remember { mutableStateOf(false) }
   var showWifiWarning by remember { mutableStateOf(false) }
@@ -322,13 +325,17 @@ fun DownloadAndTryButton(
               showAgreementAckSheet = true
               return@launch
             }
-            Log.d(TAG, "Stored HF token didn't work (response=$hfResponse). Trying OAuth...")
+            Log.d(TAG, "Stored HF token is invalid (response=$hfResponse).")
+            checkingToken = false
+            downloadStarted = false
+            hfTokenDialogReason = HfTokenDialogReason.INVALID
+            return@launch
           } else {
             // No HF token stored — prompt user to set one in Settings.
             Log.d(TAG, "No HF token stored. Prompting user to set one in Settings.")
             checkingToken = false
             downloadStarted = false
-            showHfTokenRequired = true
+            hfTokenDialogReason = HfTokenDialogReason.MISSING
             return@launch
           }
 
@@ -696,26 +703,26 @@ fun DownloadAndTryButton(
     )
   }
 
-  if (showHfTokenRequired) {
+  hfTokenDialogReason?.let { reason ->
+    val isInvalid = reason == HfTokenDialogReason.INVALID
+    val titleRes = if (isInvalid) R.string.dialog_hf_token_invalid_title else R.string.dialog_hf_token_required_title
+    val bodyRes = if (isInvalid) R.string.dialog_hf_token_invalid_body else R.string.dialog_hf_token_required_body
+    val icon = if (isInvalid) Icons.Outlined.ErrorOutline else Icons.Outlined.Key
+    val iconTint = if (isInvalid) MaterialTheme.colorScheme.error else OlliteRTPrimary
+    val dismiss = { hfTokenDialogReason = null }
+
     AlertDialog(
-      icon = {
-        Icon(
-          Icons.Outlined.Key,
-          contentDescription = null,
-          tint = OlliteRTPrimary,
-        )
-      },
-      title = { Text(stringResource(R.string.dialog_hf_token_required_title)) },
-      text = { Text(stringResource(R.string.dialog_hf_token_required_body)) },
-      onDismissRequest = { showHfTokenRequired = false },
+      icon = { Icon(icon, contentDescription = null, tint = iconTint) },
+      title = { Text(stringResource(titleRes)) },
+      text = { Text(stringResource(bodyRes)) },
+      onDismissRequest = dismiss,
       confirmButton = {
-        TextButton(onClick = {
-          showHfTokenRequired = false
-          onNavigateToSettings()
-        }) { Text(stringResource(R.string.button_go_to_settings)) }
+        TextButton(onClick = { dismiss(); onNavigateToSettings() }) {
+          Text(stringResource(R.string.button_go_to_settings))
+        }
       },
       dismissButton = {
-        TextButton(onClick = { showHfTokenRequired = false }) { Text(stringResource(R.string.cancel)) }
+        TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) }
       },
     )
   }
