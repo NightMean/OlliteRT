@@ -165,7 +165,7 @@ fun ModelNameAndStatus(
                 // }
               }
               if (isPartiallyDownloaded) {
-                sizeLabel = "$sizeLabel${context.getString(R.string.model_status_resuming_suffix)}"
+                sizeLabel = "$sizeLabel${stringResource(R.string.model_status_resuming_suffix)}"
               }
               curDownloadProgress =
                 downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
@@ -175,7 +175,7 @@ fun ModelNameAndStatus(
             }
             // Status for unzipping.
             else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
-              sizeLabel = context.getString(R.string.model_status_unzipping)
+              sizeLabel = stringResource(R.string.model_status_unzipping)
             }
           }
 

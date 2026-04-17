@@ -352,12 +352,13 @@ fun GlobalModelManager(
     }
   }
 
+  val pleaseWaitModelLoadingText = stringResource(R.string.label_please_wait_model_loading)
   val handleClickModel: (Model) -> Unit = { model ->
     if (serverStatus == ServerStatus.LOADING) {
       // Block model selection while a model is loading to prevent OOM from concurrent warmups
       Toast.makeText(
         context,
-        context.getString(R.string.label_please_wait_model_loading),
+        pleaseWaitModelLoadingText,
         Toast.LENGTH_SHORT,
       ).show()
     } else {
@@ -862,6 +863,7 @@ fun GlobalModelManager(
   }
 
   // Importing in progress dialog
+  val modelImportedText = stringResource(R.string.toast_model_imported)
   if (showImportingDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
       selectedImportedModelInfo.value?.let { info ->
@@ -872,7 +874,7 @@ fun GlobalModelManager(
           onDone = {
             viewModel.addImportedLlmModel(info = it)
             showImportingDialog = false
-            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.toast_model_imported)) }
+            scope.launch { snackbarHostState.showSnackbar(modelImportedText) }
           },
         )
       }

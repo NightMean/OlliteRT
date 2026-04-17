@@ -215,6 +215,9 @@ fun ModelItem(
   // Inference Settings bottom sheet
   if (showInferenceSettings) {
     val context = LocalContext.current
+    val settingsSavedReloadPendingText = stringResource(R.string.toast_settings_saved_reload_pending)
+    val settingsSavedReloadingText = stringResource(R.string.toast_settings_saved_reloading)
+    val settingsSavedText = stringResource(R.string.toast_settings_saved)
     InferenceSettingsSheet(
       model = model,
       onDismiss = { showInferenceSettings = false },
@@ -332,18 +335,18 @@ fun ModelItem(
             val port = LlmHttpPrefs.getPort(context)
             if (isLoading) {
               LlmHttpService.queueReloadAfterLoad(port, model.name, newConfigValues)
-              Toast.makeText(context, context.getString(R.string.toast_settings_saved_reload_pending), Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, settingsSavedReloadPendingText, Toast.LENGTH_SHORT).show()
             } else {
               LlmHttpService.reload(context, port, model.name, configValues = newConfigValues)
-              Toast.makeText(context, context.getString(R.string.toast_settings_saved_reloading), Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, settingsSavedReloadingText, Toast.LENGTH_SHORT).show()
             }
           } else {
             // Push config changes to the running service model without reloading
             LlmHttpService.updateConfigValues(newConfigValues)
-            Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
           }
         } else if (changes.isNotEmpty()) {
-          Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
         }
 
         showInferenceSettings = false
