@@ -203,6 +203,18 @@ fun SettingsScreen(
   // All state, change detection, search, validation, and save logic in SettingsViewModel
   val vm: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 
+  // Hoist string resources for use inside non-composable callbacks (onClick, onDismissRequest, etc.)
+  val settingsSavedText = stringResource(R.string.toast_settings_saved)
+  val hfTokenLinkText = stringResource(R.string.settings_hf_token_link_text)
+  val tokenClearedText = stringResource(R.string.toast_token_cleared)
+  val tokenRegeneratedText = stringResource(R.string.toast_token_regenerated)
+  val updateCheckTimeoutText = stringResource(R.string.settings_update_check_timeout)
+  val checkingForUpdatesText = stringResource(R.string.settings_checking_for_updates)
+  val logsClearedText = stringResource(R.string.toast_logs_cleared)
+  val settingsSavedRestartManualText = stringResource(R.string.toast_settings_saved_restart_manual)
+  val serverRestartingText = stringResource(R.string.toast_server_restarting)
+  val settingsResetText = stringResource(R.string.toast_settings_reset)
+
   val performSave: () -> Unit = {
     val result = vm.trySave(serverStatus)
     when (result) {
@@ -210,7 +222,7 @@ fun SettingsScreen(
         val window = (context as? android.app.Activity)?.window
         if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
         val window = (context as? android.app.Activity)?.window
@@ -229,7 +241,7 @@ fun SettingsScreen(
         val window = (context as? android.app.Activity)?.window
         if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
         val window = (context as? android.app.Activity)?.window
@@ -613,7 +625,7 @@ fun SettingsScreen(
               ),
             ),
           ) {
-            append(context.getString(R.string.settings_hf_token_link_text))
+            append(hfTokenLinkText)
           }
         },
         style = MaterialTheme.typography.bodySmall,
@@ -643,7 +655,7 @@ fun SettingsScreen(
             if (vm.hfToken.isNotBlank()) {
               IconButton(onClick = {
                 vm.hfToken = ""
-                Toast.makeText(context, context.getString(R.string.toast_token_cleared), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, tokenClearedText, Toast.LENGTH_SHORT).show()
               }) {
                 Icon(
                   imageVector = Icons.Outlined.Close,
@@ -849,7 +861,7 @@ fun SettingsScreen(
             tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
             onClick = {
               vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
-              Toast.makeText(context, context.getString(R.string.toast_token_regenerated), Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
             },
           )
         }
@@ -1187,7 +1199,7 @@ fun SettingsScreen(
         LaunchedEffect(id) {
           kotlinx.coroutines.delay(15_000)
           if (checkWorkId == id) {
-            Toast.makeText(context, context.getString(R.string.settings_update_check_timeout), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, updateCheckTimeoutText, Toast.LENGTH_SHORT).show()
             workManager.cancelWorkById(id)
             checkWorkId = null
           }
@@ -1226,7 +1238,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.Refresh,
             tooltip = stringResource(R.string.settings_check_now_tooltip),
             onClick = {
-              Toast.makeText(context, context.getString(R.string.settings_checking_for_updates), Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, checkingForUpdatesText, Toast.LENGTH_SHORT).show()
               checkWorkId = UpdateCheckWorker.checkNow(context)
             },
           )
@@ -1693,7 +1705,7 @@ fun SettingsScreen(
                 com.ollitert.llm.server.OlliteRTApplication.PersistenceEntryPoint::class.java,
               )
               persistenceEntryPoint.requestLogPersistence().clearPersistedLogs()
-              Toast.makeText(context, context.getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, logsClearedText, Toast.LENGTH_SHORT).show()
             },
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
           ) {
@@ -1783,7 +1795,7 @@ fun SettingsScreen(
       AlertDialog(
         onDismissRequest = {
           vm.showRestartDialog = false
-          Toast.makeText(context, context.getString(R.string.toast_settings_saved_restart_manual), Toast.LENGTH_LONG).show()
+          Toast.makeText(context, settingsSavedRestartManualText, Toast.LENGTH_LONG).show()
         },
         title = { Text(stringResource(R.string.dialog_restart_server_title)) },
         text = {
@@ -1793,7 +1805,7 @@ fun SettingsScreen(
           Button(onClick = {
             vm.showRestartDialog = false
             onRestartServer()
-            Toast.makeText(context, context.getString(R.string.toast_server_restarting), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, serverRestartingText, Toast.LENGTH_SHORT).show()
           }) {
             Text(stringResource(R.string.button_restart))
           }
@@ -1802,7 +1814,7 @@ fun SettingsScreen(
           Button(
             onClick = {
               vm.showRestartDialog = false
-              Toast.makeText(context, context.getString(R.string.toast_settings_saved_restart_manual), Toast.LENGTH_LONG).show()
+              Toast.makeText(context, settingsSavedRestartManualText, Toast.LENGTH_LONG).show()
             },
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -1846,7 +1858,7 @@ fun SettingsScreen(
               val window = (context as? android.app.Activity)?.window
               window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-              Toast.makeText(context, context.getString(R.string.toast_settings_reset), Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, settingsResetText, Toast.LENGTH_SHORT).show()
 
               // Navigate to the Models screen
               onNavigateToModels()
@@ -2417,7 +2429,14 @@ fun SettingsScreen(
               "- LLM Model: $activeModel",
             ).joinToString("\n")
             val encoded = URLEncoder.encode(deviceInfo, "UTF-8")
-            val url = "${GitHubConfig.NEW_BUG_REPORT_URL}&device-info=$encoded"
+            val flavorDropdown = when (BuildConfig.CHANNEL) {
+              "stable" -> "stable (OlliteRT)"
+              "beta" -> "beta (OlliteRT Beta)"
+              "dev" -> "dev (OlliteRT Dev)"
+              else -> ""
+            }
+            val flavorParam = if (flavorDropdown.isNotEmpty()) "&flavor=$flavorDropdown" else ""
+            val url = "${GitHubConfig.NEW_BUG_REPORT_URL}&device-info=$encoded$flavorParam"
             uriHandler.openUri(url)
           }
           .padding(horizontal = 10.dp, vertical = 6.dp),
