@@ -136,6 +136,8 @@
   <string name="dialog_network_error_body">Please check your internet connection.</string>
   <string name="dialog_hf_token_required_title">HuggingFace Token Required</string>
   <string name="dialog_hf_token_required_body">This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Settings.</string>
+  <string name="dialog_hf_token_invalid_title">HuggingFace Token Invalid</string>
+  <string name="dialog_hf_token_invalid_body">Your HuggingFace token was rejected by the server. It may be expired, revoked, or incorrect.\n\nPlease check your token in Settings.</string>
   <string name="button_go_to_settings">Go to Settings</string>
   <string name="dialog_storage_warning_title">Not Enough Storage</string>
   <string name="dialog_storage_warning_body">This download requires %1$.1f GB total:\n  \u2022 Model size: %2$.1f GB\n  \u2022 System reserve: %3$.0f GB\n\nAvailable: %4$.1f GB\n\nFree up at least %5$.1f GB to continue, or tap \"Download Anyway\" to skip the safety check.</string>
