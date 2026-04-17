@@ -14,38 +14,6 @@ body:
 
   - type: markdown
     attributes:
-      value: "## The Problem"
-
-  - type: textarea
-    id: description
-    attributes:
-      label: Bug description
-      description: A clear and concise description of what the bug is.
-    validations:
-      required: true
-
-  - type: textarea
-    id: steps
-    attributes:
-      label: Steps to reproduce
-      placeholder: |
-        1. Open the app
-        2. Go to '...'
-        3. Tap on '...'
-        4. See error
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
-    validations:
-      required: true
-
-  - type: markdown
-    attributes:
       value: "## Classification"
 
   - type: dropdown
@@ -90,6 +58,38 @@ body:
 
   - type: markdown
     attributes:
+      value: "## The Problem"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the app
+        2. Go to '...'
+        3. Tap on '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
       value: "## Environment"
 
   - type: textarea
@@ -114,22 +114,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        ### How to collect logs
-
-        **Debug logs** — for crashes, model loading failures, startup issues, settings problems:
+        ### Debug logs
+        For crashes, model loading failures, startup issues, or settings problems:
         1. Go to **Settings → Developer**
         2. Enable **Verbose Debug Mode** and tap **Save**
         3. Reproduce the bug
         4. Go back to **Settings → Developer** and tap the **Export Debug Logs** button (share icon)
         5. Share the text file and attach it below
 
-        > **Tip:** This includes a snapshot of all your active settings, which helps diagnose configuration-related issues.
-
-        **Request/response logs** — for API issues, wrong responses, tool calling problems:
-        1. Reproduce the bug
-        2. Go to the **Logs** tab
-        3. Tap the **Export** button (share icon) in the toolbar
-        4. Share the JSON file and attach it below
+        > **Tip:** This includes a snapshot of all your active settings (sensitive values like tokens are automatically redacted), which helps diagnose configuration-related issues.
 
   - type: textarea
     id: debug-logs
@@ -140,6 +133,16 @@ body:
         or paste any error messages from the Status screen.
       render: shell
 
+  - type: markdown
+    attributes:
+      value: |
+        ### Request/response logs
+        For API issues, wrong responses, or tool calling problems:
+        1. Reproduce the bug
+        2. Go to the **Logs** tab
+        3. Tap the **Export** button (share icon) in the toolbar
+        4. Share the JSON file and attach it below
+
   - type: textarea
     id: request-logs
     attributes:
@@ -149,15 +152,9 @@ body:
         or paste the relevant request/response entries.
 
   - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots or recordings
-      description: If applicable, drag and drop screenshots or screen recordings here.
-
-  - type: textarea
     id: additional
     attributes:
       label: Additional context
       description: >-
-        Anything else that might help: workarounds tried, how often it happens,
-        which client is connecting, relevant non-default settings, etc.
+        Anything else that might help: screenshots, screen recordings, workarounds tried,
+        how often it happens, which client is connecting, relevant non-default settings, etc.
