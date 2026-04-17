@@ -1,6 +1,7 @@
 package com.ollitert.llm.server.data
 
 import android.content.Context
+import android.util.Log
 
 private const val PREFS_NAME = "llm_http_prefs"
 private const val KEY_ENABLED = "enabled"
@@ -630,5 +631,21 @@ object LlmHttpPrefs {
   fun resetToDefaults(context: Context) {
     prefs(context).edit().clear().apply()
     cachedPrefs = null
+  }
+
+  private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN)
+
+  fun dumpToLogcat(context: Context) {
+    val tag = "OlliteRT.Settings"
+    Log.i(tag, "=== Active Settings Snapshot ===")
+    for ((key, value) in prefs(context).all.toSortedMap()) {
+      val display = if (key in SENSITIVE_KEYS) {
+        if (value.toString().isBlank()) "not set" else "configured (redacted)"
+      } else {
+        value.toString()
+      }
+      Log.i(tag, "$key = $display")
+    }
+    Log.i(tag, "================================")
   }
 }
