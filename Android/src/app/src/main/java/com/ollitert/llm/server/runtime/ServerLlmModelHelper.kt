@@ -112,7 +112,7 @@ object ServerLlmModelHelper : LlmModelHelper {
       onDone("Model file not found: ${modelFile.name}")
       return
     }
-    // Minimum size check — a valid .litertlm or .task file is always > 1KB.
+    // Minimum size check — a valid .litertlm file is always > 1KB.
     // Truncated files (e.g. from interrupted downloads) trigger native abort().
     if (modelFile.length() < 1024) {
       onDone("Model file appears corrupted or truncated (${modelFile.length()} bytes): ${modelFile.name}")

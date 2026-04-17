@@ -145,7 +145,7 @@
   <string name="label_loading_model">Loading Model</string>
   <string name="button_stop_server">Stop Server</string>
   <string name="dialog_unsupported_file_type_title">Unsupported file type</string>
-  <string name="dialog_unsupported_file_type_body">Only \".task\" or \".litertlm\" file type is supported.</string>
+  <string name="dialog_unsupported_file_type_body">Only \".litertlm\" file type is supported.</string>
   <string name="dialog_unsupported_web_model_title">Unsupported model type</string>
   <string name="dialog_unsupported_web_model_body">Looks like the model is a web-only model and is not supported by the app.</string>
   <string name="dialog_switch_model_title">Switch model?</string>
@@ -153,7 +153,7 @@
   <string name="label_current_model">current model</string>
   <string name="button_switch">Switch</string>
   <string name="label_import_model">Import model</string>
-  <string name="label_import_from_local_file">From local model file (.task, .litertlm)</string>
+  <string name="label_import_from_local_file">From local model file (.litertlm)</string>
   <string name="dialog_import_model_title">Import Model</string>
   <string name="button_import">Import</string>
   <string name="button_replace">Replace</string>

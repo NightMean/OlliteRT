@@ -361,7 +361,7 @@ class LlmHttpResponseRendererTest {
     audio: Boolean? = null,
     thinking: Boolean? = null,
   ) = AllowedModel(
-    name = name, modelId = "test/$name", modelFile = "$name.task",
+    name = name, modelId = "test/$name", modelFile = "$name.litertlm",
     description = "Test", sizeInBytes = 1000L,
     defaultConfig = DefaultConfig(), taskTypes = listOf("llm_chat"),
     llmSupportImage = image, llmSupportAudio = audio, llmSupportThinking = thinking,

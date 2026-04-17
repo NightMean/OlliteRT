@@ -50,7 +50,7 @@ class DataStoreRepositoryTest {
       try {
         val repository = createRepository(tempDir.toString())
         val importedModel =
-          ImportedModel.newBuilder().setFileName("demo.task").setFileSize(42L).build()
+          ImportedModel.newBuilder().setFileName("demo.litertlm").setFileSize(42L).build()
 
         repository.saveImportedModels(listOf(importedModel))
         repository.saveAccessTokenData(
