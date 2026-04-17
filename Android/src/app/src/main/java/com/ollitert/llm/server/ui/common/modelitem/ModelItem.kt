@@ -224,13 +224,11 @@ fun ModelItem(
       onEditDefaults = if (model.imported) {
         { showEditDefaults = true }
       } else null,
-      onApply = { newConfigValues, systemPrompt, chatTemplate ->
-        // Persist system prompt and chat template for this model
+      onApply = { newConfigValues, systemPrompt ->
+        // Persist system prompt for this model
         val oldSystemPrompt = LlmHttpPrefs.getSystemPrompt(context, model.name)
-        val oldChatTemplate = LlmHttpPrefs.getChatTemplate(context, model.name)
         LlmHttpPrefs.setSystemPrompt(context, model.name, systemPrompt)
-        LlmHttpPrefs.setChatTemplate(context, model.name, chatTemplate)
-        val promptsChanged = systemPrompt != oldSystemPrompt || chatTemplate != oldChatTemplate
+        val promptsChanged = systemPrompt != oldSystemPrompt
 
         // Detect changed configs and whether reinitialization is needed.
         // Normalize both sides to the config's target type before comparing,
@@ -252,12 +250,10 @@ fun ModelItem(
             }
           }
         }
-        // System prompt and chat template changes are picked up automatically via
-        // buildSystemInstruction() which reads from prefs on every resetConversation() call.
-        // No model reload needed.
+        // System prompt changes are picked up automatically via buildSystemInstruction()
+        // which reads from prefs on every resetConversation() call. No model reload needed.
         if (promptsChanged) {
-          if (systemPrompt != oldSystemPrompt) changes.add("system_prompt: changed")
-          if (chatTemplate != oldChatTemplate) changes.add("chat_template: changed")
+          changes.add("system_prompt: changed")
         }
 
         model.prevConfigValues = model.configValues
@@ -305,12 +301,6 @@ fun ModelItem(
               promptDiffsObj.put("system_prompt", org.json.JSONObject().apply {
                 put("old", oldSystemPrompt)
                 put("new", systemPrompt)
-              })
-            }
-            if (chatTemplate != oldChatTemplate) {
-              promptDiffsObj.put("chat_template", org.json.JSONObject().apply {
-                put("old", oldChatTemplate)
-                put("new", chatTemplate)
               })
             }
             if (promptDiffsObj.length() > 0) put("prompt_diffs", promptDiffsObj)

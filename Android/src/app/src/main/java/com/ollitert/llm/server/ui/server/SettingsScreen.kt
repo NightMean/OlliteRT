@@ -2144,7 +2144,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
       }
 
-      // Custom system prompt & chat template toggle
+      // Custom system prompt toggle
       if (vm.settingVisible("custom_prompts")) {
       Row(
         modifier = Modifier.fillMaxWidth(),

@@ -116,9 +116,6 @@ class LlmHttpEndpointHandlers(
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message)
     }
-    val chatTemplate = if (LlmHttpPrefs.isCustomPromptsEnabled(context))
-      LlmHttpPrefs.getChatTemplate(context, model.name).ifBlank { null } else null
-
     // Build prompt with progressive compaction if context window is exceeded.
     // Three independent toggles for progressive prompt compaction:
     // "Truncate History" (drop older messages), "Compact Tool Schemas" (reduce tool definitions,
@@ -141,7 +138,7 @@ class LlmHttpEndpointHandlers(
       messages = req.messages,
       tools = if (hasTools) tools else null,
       toolChoice = toolChoiceStr,
-      chatTemplate = chatTemplate,
+      chatTemplate = null,
       maxContext = maxContext,
       truncateHistory = truncateHistory,
       compactToolSchemas = compactToolSchemas,
@@ -368,15 +365,13 @@ class LlmHttpEndpointHandlers(
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message)
     }
-    val chatTemplateResp = if (LlmHttpPrefs.isCustomPromptsEnabled(context))
-      LlmHttpPrefs.getChatTemplate(context, model.name).ifBlank { null } else null
     // Build prompt with progressive compaction if context window is exceeded
     val truncateHistoryResp = LlmHttpPrefs.isAutoTruncateHistory(context)
     val trimPromptsResp = LlmHttpPrefs.isAutoTrimPrompts(context)
     val maxContextResp = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultResp = LlmHttpPromptCompactor.compactConversationPrompt(
       messages = req.messages ?: req.input,
-      chatTemplate = chatTemplateResp,
+      chatTemplate = null,
       maxContext = maxContextResp,
       truncateHistory = truncateHistoryResp,
       trimPrompts = trimPromptsResp,

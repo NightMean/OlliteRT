@@ -92,7 +92,7 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 fun InferenceSettingsSheet(
   model: Model,
   onDismiss: () -> Unit,
-  onApply: (configValues: Map<String, Any>, systemPrompt: String, chatTemplate: String) -> Unit,
+  onApply: (configValues: Map<String, Any>, systemPrompt: String) -> Unit,
   /** Called when the user taps the edit-defaults pencil button (imported models only). */
   onEditDefaults: (() -> Unit)? = null,
 ) {
@@ -105,9 +105,6 @@ fun InferenceSettingsSheet(
 
   var systemPrompt by remember {
     mutableStateOf(LlmHttpPrefs.getSystemPrompt(context, model.name))
-  }
-  var chatTemplate by remember {
-    mutableStateOf(LlmHttpPrefs.getChatTemplate(context, model.name))
   }
   var advancedExpanded by remember { mutableStateOf(false) }
 
@@ -176,7 +173,6 @@ fun InferenceSettingsSheet(
           enableThinking = (defaults[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
           useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
           systemPrompt = ""
-          chatTemplate = ""
           Toast.makeText(context, modelSettingsResetText, Toast.LENGTH_SHORT).show()
         }) {
           Text(stringResource(R.string.button_reset))
@@ -358,7 +354,7 @@ fun InferenceSettingsSheet(
         )
       }
 
-      // Advanced section — system prompt & chat template (gated by Settings toggle)
+      // Advanced section — custom system prompt (gated by Settings toggle)
       if (customPromptsEnabled) {
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -381,13 +377,13 @@ fun InferenceSettingsSheet(
           Spacer(modifier = Modifier.width(12.dp))
           Column(modifier = Modifier.weight(1f)) {
             Text(
-              text = "Advanced Prompt Settings",
+              text = "Custom System Prompt",
               style = MaterialTheme.typography.bodyLarge,
               fontWeight = FontWeight.Medium,
               color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-              text = "Custom system prompt and chat template",
+              text = "Prepended to every conversation as a system instruction",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -406,25 +402,14 @@ fun InferenceSettingsSheet(
           exit = shrinkVertically(),
         ) {
           Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(top = 12.dp),
           ) {
-            // System Prompt
             PromptTextArea(
               label = "SYSTEM PROMPT",
               hint = "Prepended to every conversation as a system instruction",
               value = systemPrompt,
               onValueChange = { systemPrompt = it },
               placeholder = "e.g. You are a helpful coding assistant...",
-            )
-
-            // Chat Template
-            PromptTextArea(
-              label = "CHAT TEMPLATE",
-              hint = "Use {role} and {content} placeholders. Leave empty for default format.",
-              value = chatTemplate,
-              onValueChange = { chatTemplate = it },
-              placeholder = "e.g. <|{role}|>\n{content}\n<|end|>",
             )
           }
         }
@@ -462,7 +447,7 @@ fun InferenceSettingsSheet(
           newValues[ConfigKeys.TOPP.label] = clampedTopP
           newValues[ConfigKeys.ENABLE_THINKING.label] = enableThinking
           newValues[ConfigKeys.ACCELERATOR.label] = if (useGpu) "GPU" else "CPU"
-          onApply(newValues, systemPrompt, chatTemplate)
+          onApply(newValues, systemPrompt)
         },
         modifier = Modifier
           .fillMaxWidth()

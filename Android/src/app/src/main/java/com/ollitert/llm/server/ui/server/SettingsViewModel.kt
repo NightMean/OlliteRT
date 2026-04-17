@@ -156,7 +156,7 @@ class SettingsViewModel @Inject constructor(
     "ha_integration" to "Home Assistant REST API Integration configuration yaml sensors commands stop reload thinking config",
     "warmup_message" to "Warmup Message Send test message when model loads verify engine working startup",
     "pre_init_vision" to "Pre-initialize Vision Load vision backend multimodal model starts image request memory GPU",
-    "custom_prompts" to "Custom System Prompt Chat Template per-model prompt formats Inference Settings",
+    "custom_prompts" to "Custom System Prompt per-model prompt instruction Inference Settings",
     "truncate_history" to "Truncate Conversation History request exceeds context window drop older messages system prompts",
     "compact_tool_schemas" to "Compact Tool Schemas reduce tool schemas names descriptions context window Home Assistant tool definitions",
     "trim_prompt" to "Trim Prompt last resort hard-cuts prompt fit context window recent content discarding beginning",

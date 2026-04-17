@@ -503,8 +503,6 @@ class LlmHttpService : Service() {
         }
         val sysPrompt = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
           LlmHttpPrefs.getSystemPrompt(this@LlmHttpService, model.name) else ""
-        val chatTpl = if (LlmHttpPrefs.isCustomPromptsEnabled(this@LlmHttpService))
-          LlmHttpPrefs.getChatTemplate(this@LlmHttpService, model.name) else ""
         if (sysPrompt.isNotBlank()) {
           RequestLogStore.addEvent(
             "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
@@ -516,20 +514,6 @@ class LlmHttpService : Service() {
               put("type", "prompt_active")
               put("prompt_type", "system_prompt")
               put("text", sysPrompt)
-            }.toString(),
-          )
-        }
-        if (chatTpl.isNotBlank()) {
-          RequestLogStore.addEvent(
-            "Chat template active: \"${chatTpl.take(120)}\"${if (chatTpl.length > 120) "…" else ""}",
-            modelName = model.name,
-            category = EventCategory.PROMPT,
-            // Structured JSON body — full prompt text for the log card's expandable text box.
-            // Schema: {"type":"prompt_active","prompt_type":"chat_template","text":"..."}
-            body = org.json.JSONObject().apply {
-              put("type", "prompt_active")
-              put("prompt_type", "chat_template")
-              put("text", chatTpl)
             }.toString(),
           )
         }
