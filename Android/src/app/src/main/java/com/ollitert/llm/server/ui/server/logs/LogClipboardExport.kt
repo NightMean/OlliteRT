@@ -150,3 +150,45 @@ internal fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
   copyToClipboard(context, "OlliteRT Log Entry", json, formatSuffix = "JSON")
 }
 
+/** Dump the app's logcat buffer to a file and open the system share sheet. */
+internal suspend fun exportLogcat(context: Context) {
+  try {
+    val file = withContext(Dispatchers.IO) {
+      val cacheDir = File(context.cacheDir, "log_exports")
+      cacheDir.mkdirs()
+      // Clean up old logcat exports (keep at most 3)
+      cacheDir.listFiles { f -> f.name.startsWith("ollitert_logcat_") }
+        ?.sortedByDescending { it.lastModified() }
+        ?.drop(3)
+        ?.forEach { it.delete() }
+
+      val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+      val f = File(cacheDir, "ollitert_logcat_$timestamp.txt")
+      // Redirect stderr to stdout so the process can't deadlock on a full stderr buffer
+      val process = ProcessBuilder("logcat", "-d", "-v", "threadtime")
+        .redirectErrorStream(true)
+        .start()
+      // Stream directly from process to file to avoid holding the entire buffer in memory
+      process.inputStream.use { input ->
+        f.outputStream().use { output -> input.copyTo(output) }
+      }
+      process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+      f
+    }
+
+    val uri = FileProvider.getUriForFile(
+      context,
+      "${context.packageName}.provider",
+      file,
+    )
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+      type = "text/plain"
+      putExtra(Intent.EXTRA_STREAM, uri)
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.logcat_export_chooser_title)))
+  } catch (e: Exception) {
+    Toast.makeText(context, context.getString(R.string.toast_export_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
+  }
+}
+

@@ -117,7 +117,8 @@ class SettingsViewModel @Inject constructor(
   var updateCheckUnit by mutableStateOf(
     if (savedUpdateCheckIntervalHours > 0 && savedUpdateCheckIntervalHours % 24 == 0) "days" else "hours"
   )
-  var verboseDebugEnabled by mutableStateOf(LlmHttpPrefs.isVerboseDebugEnabled(context))
+  private var savedVerboseDebugEnabled by mutableStateOf(LlmHttpPrefs.isVerboseDebugEnabled(context))
+  var verboseDebugEnabled by mutableStateOf(savedVerboseDebugEnabled)
 
   // ─── Dialog State ────────────────────────────────────────────────────────
   var showRestartDialog by mutableStateOf(false)
@@ -161,6 +162,7 @@ class SettingsViewModel @Inject constructor(
     "trim_prompt" to "Trim Prompt last resort hard-cuts prompt fit context window recent content discarding beginning",
     "ignore_client_params" to "Ignore Client Sampler Parameters Discard temperature top_p top_k max_tokens API clients server Inference Settings",
     "verbose_debug" to "Verbose Debug Mode Logs additional details stack traces memory snapshots model config per-request timing performance",
+    "export_logcat" to "Export Debug Logs logcat share system log buffer diagnose issues",
     "reset" to "Reset to Defaults reset all settings port token inference",
   )
 
@@ -174,7 +176,7 @@ class SettingsViewModel @Inject constructor(
     "log_persistence" to listOf("log_persistence"),
     "home_assistant" to listOf("ha_integration"),
     "advanced" to listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
-    "developer" to listOf("verbose_debug"),
+    "developer" to listOf("verbose_debug", "export_logcat"),
     "reset" to listOf("reset"),
   )
 
@@ -228,7 +230,8 @@ class SettingsViewModel @Inject constructor(
     keepAliveEnabled != savedKeepAliveEnabled ||
     keepAliveMinutes != savedKeepAliveMinutes ||
     updateCheckEnabled != savedUpdateCheckEnabled ||
-    updateCheckIntervalHours != savedUpdateCheckIntervalHours
+    updateCheckIntervalHours != savedUpdateCheckIntervalHours ||
+    verboseDebugEnabled != savedVerboseDebugEnabled
 
   // ─── Save Logic ──────────────────────────────────────────────────────────
 
@@ -323,6 +326,7 @@ class SettingsViewModel @Inject constructor(
     LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabled)
     LlmHttpPrefs.setLogMaxEntries(context, logMaxEntries)
     LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutes)
+    LlmHttpPrefs.setVerboseDebugEnabled(context, verboseDebugEnabled)
 
     // ── Log changes ──
     logSettingsChanges(port)
@@ -364,6 +368,7 @@ class SettingsViewModel @Inject constructor(
     savedKeepAliveMinutes = keepAliveMinutes
     savedUpdateCheckEnabled = updateCheckEnabled
     savedUpdateCheckIntervalHours = updateCheckIntervalHours
+    savedVerboseDebugEnabled = verboseDebugEnabled
 
     // Re-check live server status before triggering restart — the server may have crashed
     // or stopped between when the user opened Settings and when they pressed Save.
@@ -425,6 +430,8 @@ class SettingsViewModel @Inject constructor(
       }
       changes.add("Update Check Frequency: ${fmtInterval(savedUpdateCheckIntervalHours)} → ${fmtInterval(updateCheckIntervalHours)}")
     }
+    if (verboseDebugEnabled != savedVerboseDebugEnabled)
+      changes.add("Verbose Debug Mode: ${fmtToggle(savedVerboseDebugEnabled)} → ${fmtToggle(verboseDebugEnabled)}")
     if (changes.isNotEmpty()) {
       RequestLogStore.addEvent(
         "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
@@ -489,8 +496,7 @@ class SettingsViewModel @Inject constructor(
     savedUpdateCheckEnabled = true; updateCheckEnabled = true
     savedUpdateCheckIntervalHours = 24; updateCheckIntervalHours = 24
     updateCheckError = false; updateCheckUnit = "hours"
-    verboseDebugEnabled = false
-    LlmHttpPrefs.setVerboseDebugEnabled(context, false)
+    savedVerboseDebugEnabled = false; verboseDebugEnabled = false
 
     // Reset persistence and update check
     persistence.updateMaxEntries()

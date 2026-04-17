@@ -345,6 +345,9 @@
   <string name="settings_verbose_debug_desc" translatable="false">Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance.</string>
   <string name="settings_debug_enabled_toast" translatable="false">Debug mode enabled — additional details will appear in Logs</string>
   <string name="settings_debug_disabled_toast" translatable="false">Debug mode disabled</string>
+  <string name="settings_export_logcat" translatable="false">Export Debug Logs</string>
+  <string name="settings_export_logcat_desc" translatable="false">Share the system log buffer for this app. Useful for diagnosing issues.</string>
+  <string name="logcat_export_chooser_title" translatable="false">Share debug logs</string>
 
   <!-- Settings: Reset &amp; Footer -->
   <string name="settings_reset_to_defaults" translatable="false">Reset to Defaults</string>
