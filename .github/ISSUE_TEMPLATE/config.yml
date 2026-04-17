@@ -1,1 +1,11 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Frequently Asked Questions
+    url: https://github.com/NightMean/ollitert/blob/main/docs/FAQ.md
+    about: Check if your question is already answered
+  - name: Troubleshooting
+    url: https://github.com/NightMean/ollitert/blob/main/docs/TROUBLESHOOTING.md
+    about: Common issues and solutions for connection, performance, and crashes
+  - name: Client Setup Guide
+    url: https://github.com/NightMean/ollitert/blob/main/docs/CLIENT_SETUP.md
+    about: Setup guides for Home Assistant, Open WebUI, Python, curl, and more
