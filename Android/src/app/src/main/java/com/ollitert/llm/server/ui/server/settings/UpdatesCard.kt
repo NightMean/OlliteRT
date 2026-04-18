@@ -1,0 +1,172 @@
+package com.ollitert.llm.server.ui.server.settings
+
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.work.WorkManager
+import com.ollitert.llm.server.R
+import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.worker.UpdateCheckWorker
+
+@Composable
+internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
+  val updateCheckTimeoutText = stringResource(R.string.settings_update_check_timeout)
+  val checkingForUpdatesText = stringResource(R.string.settings_checking_for_updates)
+
+  SettingsCard(
+    icon = Icons.Outlined.SystemUpdate,
+    title = stringResource(R.string.settings_card_updates),
+    searchQuery = vm.searchQuery,
+  ) {
+    if (vm.settingVisible("auto_update_check")) {
+      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+      val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
+      val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
+
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_auto_update_check),
+        description = stringResource(R.string.settings_auto_update_check_desc),
+        checked = vm.updateCheckEnabledEntry.current,
+        onCheckedChange = { vm.updateCheckEnabledEntry.update(it) },
+        searchQuery = vm.searchQuery,
+        enabled = updateControlsEnabled,
+      )
+
+      if (!notifPermissionGranted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_permission_warning),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+      } else if (updateChannelMuted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_channel_muted),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+              putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, UpdateCheckWorker.UPDATE_CHANNEL_ID)
+            }
+            context.startActivity(intent)
+          },
+        )
+      }
+
+      SettingDivider(verticalPadding = 8)
+
+      NumericWithUnitRow(
+        def = CHECK_FREQUENCY,
+        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
+        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
+        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
+        searchQuery = vm.searchQuery,
+        isError = vm.hasError("check_frequency"),
+        enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
+        modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
+        onErrorClear = { vm.clearError("check_frequency") },
+      )
+    }
+
+    if (vm.settingVisible("auto_update_check") && vm.settingVisible("check_for_updates")) {
+      SettingDivider()
+    }
+
+    if (vm.settingVisible("check_for_updates")) {
+      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
+      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
+      val hasUpdate = availableVersion != null
+
+      var checkWorkId by remember { mutableStateOf<java.util.UUID?>(null) }
+      val workManager = remember { WorkManager.getInstance(context) }
+
+      checkWorkId?.let { id ->
+        val workInfo by workManager.getWorkInfoByIdFlow(id).collectAsStateWithLifecycle(initialValue = null)
+        LaunchedEffect(workInfo?.state) {
+          val info = workInfo ?: return@LaunchedEffect
+          if (info.state.isFinished) {
+            val message = info.outputData.getString(UpdateCheckWorker.KEY_MESSAGE)
+            if (message != null) {
+              Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+            checkWorkId = null
+          }
+        }
+        LaunchedEffect(id) {
+          kotlinx.coroutines.delay(15_000)
+          if (checkWorkId == id) {
+            Toast.makeText(context, updateCheckTimeoutText, Toast.LENGTH_SHORT).show()
+            workManager.cancelWorkById(id)
+            checkWorkId = null
+          }
+        }
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+          SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
+          Text(
+            text = stringResource(R.string.settings_check_for_updates_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        if (hasUpdate && !availableUrl.isNullOrBlank()) {
+          val uriHandler = LocalUriHandler.current
+          val url = availableUrl ?: ""
+          TooltipIconButton(
+            icon = Icons.Outlined.FileDownload,
+            tooltip = stringResource(R.string.settings_download_version, availableVersion ?: ""),
+            onClick = {
+              val intent = UpdateCheckWorker.buildUpdateIntent(context, url)
+              intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
+            },
+          )
+        } else {
+          TooltipIconButton(
+            icon = Icons.Outlined.Refresh,
+            tooltip = stringResource(R.string.settings_check_now_tooltip),
+            onClick = {
+              Toast.makeText(context, checkingForUpdatesText, Toast.LENGTH_SHORT).show()
+              checkWorkId = UpdateCheckWorker.checkNow(context)
+            },
+          )
+        }
+      }
+    }
+  }
+}

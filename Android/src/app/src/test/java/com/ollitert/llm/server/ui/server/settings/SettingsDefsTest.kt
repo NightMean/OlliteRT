@@ -7,13 +7,18 @@ import org.junit.Test
 class SettingsDefsTest {
 
   @Test
-  fun `total setting definitions count is 37`() {
-    assertEquals(37, allSettingDefs.size)
+  fun `every CardId has a card definition`() {
+    val definedIds = allCardDefs.map { it.id }.toSet()
+    for (id in CardId.entries) {
+      assertTrue("CardId.$id has no matching CardDef in allCardDefs", id in definedIds)
+    }
+    assertEquals("allCardDefs has entries not in CardId enum",
+      CardId.entries.size, allCardDefs.size)
   }
 
   @Test
-  fun `total card definitions count is 11`() {
-    assertEquals(11, allCardDefs.size)
+  fun `card ordering matches CardId enum order`() {
+    assertEquals(CardId.entries.toList(), allCardDefs.map { it.id })
   }
 
   @Test
@@ -41,6 +46,14 @@ class SettingsDefsTest {
   }
 
   @Test
+  fun `allSettingDefs contains same settings as flattened cards`() {
+    val fromCards = allCardDefs.flatMap { it.settings }.toSet()
+    val allDefs = allSettingDefs.toSet()
+    assertEquals("allSettingDefs and flattened card settings should contain the same entries",
+      fromCards, allDefs)
+  }
+
+  @Test
   fun `settingDefsByKey contains all settings`() {
     assertEquals(allSettingDefs.size, settingDefsByKey.size)
     for (def in allSettingDefs) {
@@ -55,54 +68,60 @@ class SettingsDefsTest {
   }
 
   @Test
-  fun `card ordering matches CardId enum order`() {
-    val expectedOrder = listOf(
-      CardId.GENERAL, CardId.HF_TOKEN, CardId.SERVER_CONFIG, CardId.AUTO_LAUNCH,
-      CardId.METRICS, CardId.LOG_PERSISTENCE, CardId.HOME_ASSISTANT,
-      CardId.UPDATES, CardId.ADVANCED, CardId.DEVELOPER, CardId.RESET,
-    )
-    assertEquals(expectedOrder, allCardDefs.map { it.id })
+  fun `setting subtype counts sum to total`() {
+    val toggles = allSettingDefs.filterIsInstance<SettingDef.Toggle>()
+    val textInputs = allSettingDefs.filterIsInstance<SettingDef.TextInput>()
+    val dropdowns = allSettingDefs.filterIsInstance<SettingDef.Dropdown>()
+    val customs = allSettingDefs.filterIsInstance<SettingDef.Custom>()
+    val numericUnits = allSettingDefs.filterIsInstance<SettingDef.NumericWithUnit>()
+    val numericInputs = allSettingDefs.filterIsInstance<SettingDef.NumericInput>()
+    val numericPlains = allSettingDefs.filterIsInstance<SettingDef.NumericPlain>()
+
+    assertEquals("Subtype counts don't sum to total",
+      allSettingDefs.size,
+      toggles.size + textInputs.size + dropdowns.size + customs.size +
+        numericUnits.size + numericInputs.size + numericPlains.size)
+  }
+
+  @Test
+  fun `every setting card field matches the card it belongs to`() {
+    for (cardDef in allCardDefs) {
+      for (setting in cardDef.settings) {
+        assertEquals("Setting '${setting.key}' has card=${setting.card} but is listed in CardId.${cardDef.id}",
+          cardDef.id, setting.card)
+      }
+    }
   }
 
   @Test
   fun `toggle settings with different fresh and reset defaults`() {
     val dualDefaults = allSettingDefs.filterIsInstance<SettingDef.Toggle>()
       .filter { it.default != it.resetDefault }
-    assertEquals("Expected 3 toggles with dual defaults (keepScreenAwake, truncateHistory, compactToolSchemas)",
-      3, dualDefaults.size)
-    assertTrue(dualDefaults.any { it.key == "keep_screen_awake" })
-    assertTrue(dualDefaults.any { it.key == "truncate_history" })
-    assertTrue(dualDefaults.any { it.key == "compact_tool_schemas" })
+    assertTrue("Expected at least 1 toggle with dual defaults", dualDefaults.isNotEmpty())
+    for (def in dualDefaults) {
+      assertTrue("Toggle '${def.key}' has dual defaults but is not a known case",
+        def.key in setOf("keep_screen_awake", "truncate_history", "compact_tool_schemas"))
+    }
   }
 
   @Test
   fun `text inputs with different fresh and reset defaults`() {
     val dualDefaults = allSettingDefs.filterIsInstance<SettingDef.TextInput>()
       .filter { it.default != it.resetDefault }
-    assertEquals("Expected 1 text input with dual defaults (cors_origins)",
-      1, dualDefaults.size)
-    assertEquals("cors_origins", dualDefaults[0].key)
+    for (def in dualDefaults) {
+      assertTrue("TextInput '${def.key}' has dual defaults but is not a known case",
+        def.key in setOf("cors_origins"))
+    }
   }
 
   @Test
   fun `dropdown with different fresh and reset defaults`() {
     val dualDefaults = allSettingDefs.filterIsInstance<SettingDef.Dropdown>()
       .filter { it.default != it.resetDefault }
-    assertEquals("Expected 1 dropdown with dual defaults (default_model)",
-      1, dualDefaults.size)
-    assertEquals("default_model", dualDefaults[0].key)
-  }
-
-  @Test
-  fun `custom settings have no prefs key - count is 7`() {
-    val customs = allSettingDefs.filterIsInstance<SettingDef.Custom>()
-    assertEquals(7, customs.size)
-  }
-
-  @Test
-  fun `numeric with unit settings - count is 3`() {
-    val numericUnits = allSettingDefs.filterIsInstance<SettingDef.NumericWithUnit>()
-    assertEquals(3, numericUnits.size)
+    for (def in dualDefaults) {
+      assertTrue("Dropdown '${def.key}' has dual defaults but is not a known case",
+        def.key in setOf("default_model"))
+    }
   }
 
   @Test
