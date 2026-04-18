@@ -273,10 +273,11 @@ fun NumericWithUnitRow(
  */
 @Composable
 internal fun ToggleCardContent(
-  keys: List<String>,
+  cardId: CardId,
   vm: SettingsViewModel,
   dividerPadding: Int = 16,
 ) {
+  val keys = cardDefsById[cardId]?.settings?.map { it.key } ?: return
   val visible = keys.map { vm.settingVisible(it) }
   var visibleCount = 0
   keys.forEachIndexed { index, key ->

@@ -14,10 +14,6 @@ internal fun MetricsCard(vm: SettingsViewModel) {
     title = stringResource(R.string.settings_card_metrics),
     searchQuery = vm.searchQuery,
   ) {
-    ToggleCardContent(
-      keys = listOf("show_request_types", "show_advanced_metrics"),
-      vm = vm,
-      dividerPadding = 8,
-    )
+    ToggleCardContent(cardId = CardId.METRICS, vm = vm, dividerPadding = 8)
   }
 }

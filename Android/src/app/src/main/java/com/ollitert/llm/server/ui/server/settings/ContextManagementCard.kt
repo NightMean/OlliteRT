@@ -14,9 +14,6 @@ internal fun ContextManagementCard(vm: SettingsViewModel) {
     title = stringResource(R.string.settings_card_context_management),
     searchQuery = vm.searchQuery,
   ) {
-    ToggleCardContent(
-      keys = listOf("truncate_history", "compact_tool_schemas", "trim_prompt"),
-      vm = vm,
-    )
+    ToggleCardContent(cardId = CardId.CONTEXT_MANAGEMENT, vm = vm)
   }
 }

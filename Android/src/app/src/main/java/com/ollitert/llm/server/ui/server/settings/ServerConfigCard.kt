@@ -46,7 +46,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
     title = stringResource(R.string.settings_card_server_config),
     searchQuery = vm.searchQuery,
   ) {
-    if (vm.settingVisible("host_port")) {
+    if (vm.settingVisible(HOST_PORT.key)) {
       Text(
         text = highlightSearchMatches(stringResource(R.string.settings_host_port_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
@@ -57,10 +57,10 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         value = vm.portText,
         onValueChange = { input ->
           vm.portText = input.filter { it.isDigit() }.take(5)
-          vm.clearError("host_port")
+          vm.clearError(HOST_PORT.key)
         },
         singleLine = true,
-        isError = vm.hasError("host_port"),
+        isError = vm.hasError(HOST_PORT.key),
         placeholder = {
           Text(
             stringResource(R.string.settings_host_port_placeholder),
@@ -70,8 +70,8 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (vm.hasError("host_port")) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (vm.hasError("host_port")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (vm.hasError(HOST_PORT.key)) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (vm.hasError(HOST_PORT.key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
@@ -83,11 +83,11 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
       )
     }
 
-    if (vm.settingVisible("host_port") && vm.settingVisible("bearer_token")) {
+    if (vm.settingVisible(HOST_PORT.key) && vm.settingVisible(BEARER_TOKEN.key)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible("bearer_token")) {
+    if (vm.settingVisible(BEARER_TOKEN.key)) {
       ToggleSettingRow(
         label = stringResource(R.string.settings_bearer_token),
         description = stringResource(R.string.settings_bearer_token_desc),
@@ -100,7 +100,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         },
         searchQuery = vm.searchQuery,
       )
-      if (vm.bearerEnabledEntry.current && vm.settingVisible("bearer_token")) {
+      if (vm.bearerEnabledEntry.current && vm.settingVisible(BEARER_TOKEN.key)) {
         SettingDivider()
 
         Row(
@@ -145,11 +145,11 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
       }
     }
 
-    if (vm.settingVisible("bearer_token") && vm.settingVisible("cors_origins")) {
+    if (vm.settingVisible(BEARER_TOKEN.key) && vm.settingVisible(CORS_ORIGINS.key)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible("cors_origins")) {
+    if (vm.settingVisible(CORS_ORIGINS.key)) {
       Text(
         text = highlightSearchMatches(stringResource(R.string.settings_cors_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
@@ -160,10 +160,10 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         value = vm.corsAllowedOriginsEntry.current,
         onValueChange = {
           vm.corsAllowedOriginsEntry.update(it)
-          if (vm.hasError("cors_origins")) vm.clearError("cors_origins")
+          if (vm.hasError(CORS_ORIGINS.key)) vm.clearError(CORS_ORIGINS.key)
         },
         singleLine = true,
-        isError = vm.hasError("cors_origins"),
+        isError = vm.hasError(CORS_ORIGINS.key),
         placeholder = {
           Text(
             stringResource(R.string.settings_cors_placeholder),
@@ -175,20 +175,20 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
           if (vm.corsAllowedOriginsEntry.current.isNotBlank()) {
             IconButton(onClick = {
               vm.corsAllowedOriginsEntry.update("")
-              if (vm.hasError("cors_origins")) vm.clearError("cors_origins")
+              if (vm.hasError(CORS_ORIGINS.key)) vm.clearError(CORS_ORIGINS.key)
             }) {
               Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.settings_cors_clear),
-                tint = if (vm.hasError("cors_origins")) MaterialTheme.colorScheme.error
+                tint = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error
                        else MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
           }
         },
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (vm.hasError("cors_origins")) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (vm.hasError("cors_origins")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )

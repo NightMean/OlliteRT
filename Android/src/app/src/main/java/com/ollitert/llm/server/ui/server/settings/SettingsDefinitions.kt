@@ -579,3 +579,6 @@ val allCardDefs: List<CardDef> = listOf(
     settings = listOf(RESET_TO_DEFAULTS),
   ),
 )
+
+/** Lookup table: CardId → CardDef. */
+val cardDefsById: Map<CardId, CardDef> = allCardDefs.associateBy { it.id }

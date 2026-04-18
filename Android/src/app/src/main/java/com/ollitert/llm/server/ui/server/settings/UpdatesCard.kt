@@ -46,7 +46,7 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
     title = stringResource(R.string.settings_card_updates),
     searchQuery = vm.searchQuery,
   ) {
-    if (vm.settingVisible("auto_update_check")) {
+    if (vm.settingVisible(AUTO_UPDATE_CHECK.key)) {
       val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
       val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
       val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
@@ -91,18 +91,18 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
         savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
         onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
         searchQuery = vm.searchQuery,
-        isError = vm.hasError("check_frequency"),
+        isError = vm.hasError(CHECK_FREQUENCY.key),
         enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
         modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
-        onErrorClear = { vm.clearError("check_frequency") },
+        onErrorClear = { vm.clearError(CHECK_FREQUENCY.key) },
       )
     }
 
-    if (vm.settingVisible("auto_update_check") && vm.settingVisible("check_for_updates")) {
+    if (vm.settingVisible(AUTO_UPDATE_CHECK.key) && vm.settingVisible(CHECK_FOR_UPDATES.key)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible("check_for_updates")) {
+    if (vm.settingVisible(CHECK_FOR_UPDATES.key)) {
       val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
       val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
       val hasUpdate = availableVersion != null
