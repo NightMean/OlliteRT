@@ -2,6 +2,7 @@ package com.ollitert.llm.server.ui.server
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -16,6 +17,7 @@ import com.ollitert.llm.server.ui.server.settings.SettingDef
 import com.ollitert.llm.server.ui.server.settings.SettingEntry
 import com.ollitert.llm.server.ui.server.settings.allCardDefs
 import com.ollitert.llm.server.ui.server.settings.allSettingDefs
+import com.ollitert.llm.server.ui.server.settings.isValidCorsOrigins
 import com.ollitert.llm.server.ui.server.settings.settingDefsByKey
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -110,12 +112,13 @@ class SettingsViewModel @Inject constructor(
   // ─── UI State (non-persisted) ────────────────────────────────────────────
 
   var portText by mutableStateOf(portEntry.saved.toString())
-  var portError by mutableStateOf(false)
   var hfTokenVisible by mutableStateOf(false)
   var showModelDropdown by mutableStateOf(false)
-  var corsError by mutableStateOf(false)
-  var keepAliveError by mutableStateOf(false)
-  var updateCheckError by mutableStateOf(false)
+
+  /** Validation errors keyed by setting key. Compose-observable — reads trigger recomposition. */
+  val validationErrors = mutableStateMapOf<String, String>()
+  fun hasError(key: String): Boolean = key in validationErrors
+  fun clearError(key: String) { validationErrors.remove(key) }
 
   // ─── Dialog State ────────────────────────────────────────────────────────
   var showRestartDialog by mutableStateOf(false)
@@ -184,7 +187,8 @@ class SettingsViewModel @Inject constructor(
   fun isSettingEnabled(key: String): Boolean = when (key) {
     "start_on_boot" -> defaultModelEntry.current != null
     "keep_alive_timeout" -> keepAliveEnabledEntry.current
-    "check_frequency", "auto_update_check" -> true
+    "check_frequency" -> updateCheckEnabledEntry.current
+    "auto_update_check" -> true
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> logPersistenceEnabledEntry.current
     else -> true
   }
@@ -236,31 +240,14 @@ class SettingsViewModel @Inject constructor(
   /** Validates and persists all settings. Returns a result for the UI to act on. */
   fun save(serverStatus: ServerStatus): SaveResult {
     // ── Validation ──
-    if (portText.isBlank()) {
-      portError = true
-      return SaveResult.ValidationError("A port number is required")
+    validationErrors.clear()
+    for (def in allSettingDefs) {
+      val entry = entryByKey[def.key] ?: continue
+      validateSetting(def, entry)?.let { validationErrors[def.key] = it }
     }
-    if (portText.toIntOrNull().let { it == null || it !in 1024..65535 }) {
-      portError = true
-      return SaveResult.ValidationError("Port must be between 1024 and 65535")
+    if (validationErrors.isNotEmpty()) {
+      return SaveResult.ValidationError(validationErrors.values.first())
     }
-    if (!isValidCorsOrigins(corsAllowedOriginsEntry.current)) {
-      corsError = true
-      return SaveResult.ValidationError("Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://")
-    }
-    if (keepAliveEnabledEntry.current && keepAliveMinutesEntry.current !in 1..7200) {
-      keepAliveError = true
-      return SaveResult.ValidationError("Keep-alive timeout must be between 1 and 7200 minutes")
-    }
-    if (updateCheckEnabledEntry.current && updateCheckIntervalHoursEntry.current !in 1..720) {
-      updateCheckError = true
-      return SaveResult.ValidationError("Update check interval must be between 1 and 720 hours")
-    }
-
-    // ── Clear validation errors ──
-    corsError = false
-    keepAliveError = false
-    updateCheckError = false
 
     val port = portText.toInt()
     val isPortChanged = port != portEntry.saved
@@ -514,10 +501,7 @@ class SettingsViewModel @Inject constructor(
 
     // Reset UI state
     portText = portEntry.saved.toString()
-    portError = false
-    corsError = false
-    keepAliveError = false
-    updateCheckError = false
+    validationErrors.clear()
 
     // Side effects
     persistence.updateMaxEntries()
@@ -525,26 +509,58 @@ class SettingsViewModel @Inject constructor(
     UpdateCheckWorker.scheduleUpdateCheck(context)
   }
 
+  // ─── Validation ──────────────────────────────────────────────────────────
+
+  /** Validates a single setting against its definition's constraints. Returns an error message or null. */
+  @Suppress("UNCHECKED_CAST")
+  private fun validateSetting(def: SettingDef, entry: SettingEntry<*>): String? {
+    if (!isSettingEnabled(def.key)) return null
+
+    return when (def) {
+      is SettingDef.NumericInput -> {
+        // Port is edited as String (portText), not directly from entry
+        if (def.key == "host_port") {
+          if (portText.isBlank()) return "A port number is required"
+          val port = portText.toIntOrNull()
+          if (port == null || port !in def.min..def.max)
+            return "Port must be between ${def.min} and ${def.max}"
+          null
+        } else {
+          val value = (entry as SettingEntry<Int>).current
+          if (value !in def.min..def.max) {
+            val label = context.getString(def.labelRes)
+            "$label must be between ${def.min} and ${def.max}"
+          } else null
+        }
+      }
+      is SettingDef.NumericWithUnit -> {
+        val value = when (val v = entry.current) {
+          is Int -> v.toLong()
+          is Long -> v
+          else -> return null
+        }
+        if (value !in def.min..def.max) {
+          val label = context.getString(def.labelRes)
+          "$label must be between ${def.min} and ${def.max} ${def.baseUnitLabel}"
+        } else null
+      }
+      is SettingDef.NumericPlain -> {
+        val value = (entry as SettingEntry<Int>).current
+        if (value !in def.min..def.max) {
+          val label = context.getString(def.labelRes)
+          "$label must be between ${def.min} and ${def.max}"
+        } else null
+      }
+      is SettingDef.TextInput -> {
+        def.validate?.invoke((entry as SettingEntry<String>).current)
+      }
+      else -> null
+    }
+  }
+
   // ─── Utility ─────────────────────────────────────────────────────────────
 
   companion object {
     private fun fmtToggle(enabled: Boolean) = if (enabled) "enabled" else "disabled"
-
-    /**
-     * Validates CORS allowed origins input.
-     * Valid formats: blank (disabled), "*" (allow all), or comma-separated origin URLs.
-     */
-    fun isValidCorsOrigins(input: String): Boolean {
-      val trimmed = input.trim()
-      if (trimmed.isEmpty() || trimmed == "*") return true
-      return trimmed.split(",").all { entry ->
-        val origin = entry.trim()
-        origin.isNotEmpty() && (origin.startsWith("http://") || origin.startsWith("https://")) &&
-          origin.substringAfter("://").let { host ->
-            host.isNotEmpty() && !host.startsWith("/") && !host.contains(" ")
-          }
-      }
-    }
-
   }
 }

@@ -79,6 +79,7 @@ sealed class SettingDef(
     val resetDefault: String = default,
     val prefsKey: String,
     val isPassword: Boolean = false,
+    val validate: ((String) -> String?)? = null,
   ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
 
   class NumericInput(
@@ -108,6 +109,7 @@ sealed class SettingDef(
     val fromBaseUnit: (base: Long) -> Pair<Long, String>,
     val min: Long,
     val max: Long,
+    val baseUnitLabel: String,
   ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
 
   class NumericPlain(
