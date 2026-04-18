@@ -16,7 +16,9 @@ object LlmHttpBridgeUtils {
 
   fun isBearerAuthorized(expectedToken: String, authorizationHeader: String?): Boolean {
     if (expectedToken.isBlank()) return true
-    return authorizationHeader == "Bearer $expectedToken"
+    val expected = "Bearer $expectedToken".toByteArray(Charsets.UTF_8)
+    val actual = (authorizationHeader ?: "").toByteArray(Charsets.UTF_8)
+    return java.security.MessageDigest.isEqual(expected, actual)
   }
 
   fun escapeSseText(value: String): String =

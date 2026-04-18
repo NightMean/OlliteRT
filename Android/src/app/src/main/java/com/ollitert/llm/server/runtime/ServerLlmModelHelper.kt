@@ -58,7 +58,7 @@ private const val TAG = "ServerLlmModelHelper"
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
 
 object ServerLlmModelHelper : LlmModelHelper {
-  private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
+  private val cleanUpListeners: MutableMap<String, CleanUpListener> = java.util.concurrent.ConcurrentHashMap()
 
   @OptIn(ExperimentalApi::class)
   override fun initialize(

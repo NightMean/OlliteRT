@@ -143,12 +143,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           for (file in allFiles) {
             val url = URL(file.url)
 
-            val connection = url.openConnection() as HttpURLConnection
-            if (accessToken != null) {
-              Log.d(TAG, "Using access token: ${accessToken.subSequence(0, 10)}...")
-              connection.setRequestProperty("Authorization", "Bearer $accessToken")
-            }
-
             // Prepare output file's dir.
             val outputDir =
               File(
@@ -168,102 +162,112 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               )
             createdTmpFiles.add(outputTmpFile)
             val outputFileBytes = outputTmpFile.length()
-            if (outputFileBytes > 0) {
-              Log.d(
-                TAG,
-                "File '${outputTmpFile.name}' partial size: ${outputFileBytes}. Trying to resume download",
-              )
-              connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
-              // Force the server to send non-compressed data to make download resuming work.
-              connection.setRequestProperty("Accept-Encoding", "identity")
-            }
-            connection.connect()
-            Log.d(TAG, "response code: ${connection.responseCode}")
 
-            if (
-              connection.responseCode == HttpURLConnection.HTTP_OK ||
-                connection.responseCode == HttpURLConnection.HTTP_PARTIAL
-            ) {
-              val contentRange = connection.getHeaderField("Content-Range")
-
-              if (contentRange != null) {
-                // Parse the Content-Range header
-                val rangeParts = contentRange.substringAfter("bytes ").split("/")
-                val byteRange = rangeParts[0].split("-")
-                val startByte = byteRange.getOrNull(0)?.toLongOrNull()
-                  ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
-                val endByte = byteRange.getOrNull(1)?.toLongOrNull()
-                  ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
-
+            val connection = url.openConnection() as HttpURLConnection
+            try {
+              if (accessToken != null) {
+                Log.d(TAG, "Using access token: ${accessToken.subSequence(0, 10)}...")
+                connection.setRequestProperty("Authorization", "Bearer $accessToken")
+              }
+              if (outputFileBytes > 0) {
                 Log.d(
                   TAG,
-                  "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte",
+                  "File '${outputTmpFile.name}' partial size: ${outputFileBytes}. Trying to resume download",
                 )
-
-                downloadedBytes += startByte
-              } else {
-                Log.d(TAG, "Download starts from beginning.")
+                connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
+                // Force the server to send non-compressed data to make download resuming work.
+                connection.setRequestProperty("Accept-Encoding", "identity")
               }
-            } else {
-              throw IOException("HTTP error code: ${connection.responseCode}")
-            }
+              connection.connect()
+              Log.d(TAG, "response code: ${connection.responseCode}")
 
-            val inputStream = connection.inputStream
-            val outputStream = FileOutputStream(outputTmpFile, true /* append */)
+              if (
+                connection.responseCode == HttpURLConnection.HTTP_OK ||
+                  connection.responseCode == HttpURLConnection.HTTP_PARTIAL
+              ) {
+                val contentRange = connection.getHeaderField("Content-Range")
 
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var bytesRead: Int
-            var lastSetProgressTs: Long = 0
-            var deltaBytes = 0L
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-              outputStream.write(buffer, 0, bytesRead)
-              downloadedBytes += bytesRead
-              deltaBytes += bytesRead
+                if (contentRange != null) {
+                  // Parse the Content-Range header
+                  val rangeParts = contentRange.substringAfter("bytes ").split("/")
+                  val byteRange = rangeParts[0].split("-")
+                  val startByte = byteRange.getOrNull(0)?.toLongOrNull()
+                    ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
+                  val endByte = byteRange.getOrNull(1)?.toLongOrNull()
+                    ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
 
-              // Report progress every 200 ms.
-              val curTs = System.currentTimeMillis()
-              if (curTs - lastSetProgressTs > DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS) {
-                // Calculate download rate.
-                var bytesPerMs = 0f
-                if (lastSetProgressTs != 0L) {
-                  if (bytesReadSizeBuffer.size == DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE) {
-                    bytesReadSizeBuffer.removeAt(0)
-                  }
-                  bytesReadSizeBuffer.add(deltaBytes)
-                  if (bytesReadLatencyBuffer.size == DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE) {
-                    bytesReadLatencyBuffer.removeAt(0)
-                  }
-                  bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
-                  deltaBytes = 0L
-                  bytesPerMs = bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
-                }
-
-                // Calculate remaining seconds
-                var remainingMs = 0f
-                if (bytesPerMs > 0f && totalBytes > 0L) {
-                  remainingMs = (totalBytes - downloadedBytes) / bytesPerMs
-                }
-
-                setProgress(
-                  Data.Builder()
-                    .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
-                    .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
-                    .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
-                    .build()
-                )
-                setForeground(
-                  createForegroundInfo(
-                    progress = (downloadedBytes * 100 / totalBytes).toInt(),
-                    modelName = modelName,
+                  Log.d(
+                    TAG,
+                    "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte",
                   )
-                )
-                Log.d(TAG, "downloadedBytes: $downloadedBytes")
-                lastSetProgressTs = curTs
-              }
-            }
 
-            outputStream.close()
-            inputStream.close()
+                  downloadedBytes += startByte
+                } else {
+                  Log.d(TAG, "Download starts from beginning.")
+                }
+              } else {
+                throw IOException("HTTP error code: ${connection.responseCode}")
+              }
+
+              val inputStream = connection.inputStream
+              val outputStream = FileOutputStream(outputTmpFile, true /* append */)
+
+              val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+              var bytesRead: Int
+              var lastSetProgressTs: Long = 0
+              var deltaBytes = 0L
+              while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                outputStream.write(buffer, 0, bytesRead)
+                downloadedBytes += bytesRead
+                deltaBytes += bytesRead
+
+                // Report progress every 200 ms.
+                val curTs = System.currentTimeMillis()
+                if (curTs - lastSetProgressTs > DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS) {
+                  // Calculate download rate.
+                  var bytesPerMs = 0f
+                  if (lastSetProgressTs != 0L) {
+                    if (bytesReadSizeBuffer.size == DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE) {
+                      bytesReadSizeBuffer.removeAt(0)
+                    }
+                    bytesReadSizeBuffer.add(deltaBytes)
+                    if (bytesReadLatencyBuffer.size == DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE) {
+                      bytesReadLatencyBuffer.removeAt(0)
+                    }
+                    bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
+                    deltaBytes = 0L
+                    bytesPerMs = bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
+                  }
+
+                  // Calculate remaining seconds
+                  var remainingMs = 0f
+                  if (bytesPerMs > 0f && totalBytes > 0L) {
+                    remainingMs = (totalBytes - downloadedBytes) / bytesPerMs
+                  }
+
+                  setProgress(
+                    Data.Builder()
+                      .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
+                      .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
+                      .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
+                      .build()
+                  )
+                  setForeground(
+                    createForegroundInfo(
+                      progress = (downloadedBytes * 100 / totalBytes).toInt(),
+                      modelName = modelName,
+                    )
+                  )
+                  Log.d(TAG, "downloadedBytes: $downloadedBytes")
+                  lastSetProgressTs = curTs
+                }
+              }
+
+              outputStream.close()
+              inputStream.close()
+            } finally {
+              connection.disconnect()
+            }
 
             // Rename the tmp file to the original file name by removing the tmp file ext.
             val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")
@@ -292,7 +296,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               val unzipBuffer = ByteArray(DOWNLOAD_UNZIP_BUFFER_SIZE)
               val zipFilePath =
                 "${externalFilesDir}${File.separator}$modelDir${File.separator}$version${File.separator}${fileName}"
-              val zipIn = ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath)))
+              ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath))).use { zipIn ->
               var zipEntry: ZipEntry? = zipIn.nextEntry
 
               while (zipEntry != null) {
@@ -300,9 +304,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
                 // Extract files.
                 if (!zipEntry.isDirectory) {
-                  // extract file
-                  val bos = FileOutputStream(filePath)
-                  bos.use { curBos ->
+                  FileOutputStream(filePath).use { curBos ->
                     var len: Int
                     while (zipIn.read(unzipBuffer).also { len = it } > 0) {
                       curBos.write(unzipBuffer, 0, len)
@@ -318,7 +320,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 zipIn.closeEntry()
                 zipEntry = zipIn.nextEntry
               }
-              zipIn.close()
+              }
 
               // Delete the original file.
               val zipFile = File(zipFilePath)

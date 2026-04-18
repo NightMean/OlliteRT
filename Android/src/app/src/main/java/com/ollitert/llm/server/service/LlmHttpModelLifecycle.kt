@@ -44,7 +44,7 @@ class LlmHttpModelLifecycle(
   @Volatile var defaultModel: Model? = null
 
   /** Cache of Model objects built from the allowlist, keyed by name. */
-  val modelCache: MutableMap<String, Model> = mutableMapOf()
+  val modelCache: MutableMap<String, Model> = java.util.concurrent.ConcurrentHashMap()
 
   /** Name of the model that was unloaded due to idle timeout, for auto-reload. */
   @Volatile var keepAliveUnloadedModelName: String? = null

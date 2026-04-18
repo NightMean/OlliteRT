@@ -118,15 +118,14 @@ class ConfigTest {
   }
 
   @Test
-  fun convertBooleanFromIntZeroReturnsTrue() {
-    // Note: the implementation has `value == 0` which means 0 → true (quirk from upstream code)
-    assertEquals(true, convertValueToTargetType(0, ValueType.BOOLEAN))
+  fun convertBooleanFromIntZeroReturnsFalse() {
+    assertEquals(false, convertValueToTargetType(0, ValueType.BOOLEAN))
   }
 
   @Test
-  fun convertBooleanFromIntNonZeroReturnsFalse() {
-    assertEquals(false, convertValueToTargetType(1, ValueType.BOOLEAN))
-    assertEquals(false, convertValueToTargetType(-1, ValueType.BOOLEAN))
+  fun convertBooleanFromIntNonZeroReturnsTrue() {
+    assertEquals(true, convertValueToTargetType(1, ValueType.BOOLEAN))
+    assertEquals(true, convertValueToTargetType(-1, ValueType.BOOLEAN))
   }
 
   @Test
