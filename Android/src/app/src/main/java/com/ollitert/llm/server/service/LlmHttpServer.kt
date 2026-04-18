@@ -72,9 +72,11 @@ class LlmHttpServer(
     val clientIp = session.remoteIpAddress
     // NanoHTTPD lowercases all header names
     val requestOrigin = session.headers["origin"]
+    val allowedOrigins = LlmHttpPrefs.getCorsAllowedOrigins(serviceContext)
+    val corsHeaders = LlmHttpCorsHelper.buildCorsHeaders(allowedOrigins, requestOrigin)
     // Handle CORS preflight (no logging needed)
     if (session.method == Method.OPTIONS) {
-      return corsOk(requestOrigin)
+      return corsOk(corsHeaders)
     }
 
     // Suppress /health log entries when the user has enabled "Hide Health Logs"
@@ -83,7 +85,7 @@ class LlmHttpServer(
       if (route?.handler == LlmHttpRouteHandler.HEALTH) {
         val includeMetrics = session.parameters?.get("metrics")?.firstOrNull()?.equals("true", ignoreCase = true) == true
         val body = LlmHttpPayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics)
-        return addCorsHeaders(okJsonText(body), requestOrigin)
+        return applyCorsHeaders(okJsonText(body), corsHeaders)
       }
     }
 
@@ -102,9 +104,7 @@ class LlmHttpServer(
 
     // Pre-compute headers for streaming responses (FlushingSseResponse writes raw HTTP,
     // bypassing NanoHTTPD's header storage — CORS + x-request-id must be baked in at construction).
-    val allowedOrigins = LlmHttpPrefs.getCorsAllowedOrigins(serviceContext)
-    val sseExtraHeaders = LlmHttpCorsHelper.buildCorsHeaders(allowedOrigins, requestOrigin) +
-      ("x-request-id" to logId)
+    val sseExtraHeaders = corsHeaders + ("x-request-id" to logId)
 
     var requestBodySnapshot: String? = null
     var responseBodySnapshot: String? = null
@@ -218,7 +218,7 @@ class LlmHttpServer(
                 Log.e("LlmHttpServer", "Failed to send stop intent", e)
                 val errBody = """{"success":false,"message":"Failed to stop server: ${LlmHttpBridgeUtils.escapeSseText(e.message ?: "unknown error")}"}"""
                 responseBodySnapshot = errBody
-                return@serve jsonError(NanoHTTPD.Response.Status.INTERNAL_ERROR, "Failed to stop server: ${e.message}")
+                return@serve applyCorsHeaders(jsonError(NanoHTTPD.Response.Status.INTERNAL_ERROR, "Failed to stop server: ${e.message}"), corsHeaders)
               }
               val body = """{"success":true,"message":"Server stopping"}"""
               responseBodySnapshot = body
@@ -317,7 +317,7 @@ class LlmHttpServer(
     }
     // x-request-id: standard request tracing header used by Open WebUI and other clients
     response.addHeader("x-request-id", logId)
-    return addCorsHeaders(response, requestOrigin)
+    return applyCorsHeaders(response, corsHeaders)
   }
 
   // ── Server control handlers ────────────────────────────────────────────────
@@ -513,21 +513,15 @@ class LlmHttpServer(
 
   // ── CORS ────────────────────────────────────────────────────────────────────
 
-  /**
-   * Adds CORS headers to a response based on the configured allowed origins
-   * and the request's Origin header. Uses [LlmHttpCorsHelper] for origin matching.
-   */
-  private fun addCorsHeaders(response: Response, requestOrigin: String?): Response {
-    val allowedOrigins = LlmHttpPrefs.getCorsAllowedOrigins(serviceContext)
-    val headers = LlmHttpCorsHelper.buildCorsHeaders(allowedOrigins, requestOrigin)
-    for ((key, value) in headers) {
+  private fun applyCorsHeaders(response: Response, corsHeaders: Map<String, String>): Response {
+    for ((key, value) in corsHeaders) {
       response.addHeader(key, value)
     }
     return response
   }
 
-  private fun corsOk(requestOrigin: String?): Response {
+  private fun corsOk(corsHeaders: Map<String, String>): Response {
     val resp = NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "text/plain", "")
-    return addCorsHeaders(resp, requestOrigin)
+    return applyCorsHeaders(resp, corsHeaders)
   }
 }
