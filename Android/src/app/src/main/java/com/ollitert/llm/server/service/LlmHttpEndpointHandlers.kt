@@ -77,7 +77,7 @@ class LlmHttpEndpointHandlers(
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxGen) }
     }
     logPayload("POST /generate prompt", prompt, requestId)
-    logEvent("request_start id=$requestId endpoint=/generate bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=default")
+    logEvent("request_start id=$requestId endpoint=/generate bodyLength=${parsed.bodyLength} promptChars=${prompt.length} model=default")
     ServerMetrics.onInferenceStarted()
     val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId)
     ServerMetrics.onInferenceCompleted()
@@ -169,7 +169,7 @@ class LlmHttpEndpointHandlers(
     // Extract images for multimodal models (before blank-prompt check so image-only requests work).
     val images = if (model.llmSupportImage) modelLifecycle.decodeImageDataUris(req.messages) else emptyList()
 
-    logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} images=${images.size} model=$requestedId resolved=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyLength=${parsed.bodyLength} promptChars=${prompt.length} images=${images.size} model=$requestedId resolved=${model.name}")
 
     if (prompt.isBlank() && images.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
@@ -281,7 +281,7 @@ class LlmHttpEndpointHandlers(
       val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxCompl) }
     }
-    logEvent("request_start id=$requestId endpoint=/v1/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${parsed.bodyLength} promptChars=${prompt.length} model=${model.name}")
 
     if (prompt.isBlank()) {
       val responseJson = json.encodeToString(CompletionResponse(
@@ -396,7 +396,7 @@ class LlmHttpEndpointHandlers(
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxResp) }
     }
     logPayload("POST /v1/responses prompt", prompt, requestId)
-    logEvent("request_start id=$requestId endpoint=/v1/responses bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/responses bodyLength=${parsed.bodyLength} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/responses")

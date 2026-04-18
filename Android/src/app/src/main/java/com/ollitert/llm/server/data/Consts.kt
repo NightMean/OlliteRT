@@ -126,7 +126,7 @@ const val ACTION_IN_FLIGHT_DEBOUNCE_MS = 1000L
 // Download progress reporting.
 const val DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS = 200L
 const val DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE = 5
-const val DOWNLOAD_UNZIP_BUFFER_SIZE = 4096
+const val DOWNLOAD_UNZIP_BUFFER_SIZE = 65536
 
 // Log persistence pruning intervals.
 const val DEFAULT_IN_MEMORY_LOG_CAP = 100
