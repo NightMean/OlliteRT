@@ -179,7 +179,7 @@ fun SettingsScreen(
     when (result) {
       is SettingsViewModel.SaveResult.Success -> {
         val window = (context as? android.app.Activity)?.window
-        if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (vm.keepScreenOnEntry.current) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
       }
@@ -198,7 +198,7 @@ fun SettingsScreen(
     when (result) {
       is SettingsViewModel.SaveResult.Success -> {
         val window = (context as? android.app.Activity)?.window
-        if (vm.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (vm.keepScreenOnEntry.current) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
       }
@@ -304,7 +304,7 @@ fun SettingsScreen(
       )
     }
 
-    // General card
+    // General card — uniform toggles, rendered via data-driven loop
     AnimatedVisibility(
       visible = vm.cardVisible("general"),
       enter = expandVertically(),
@@ -315,102 +315,10 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_general),
       searchQuery = vm.searchQuery,
     ) {
-      // Divider logic: only show between consecutive visible settings
-      val generalKeys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "compact_image_data", "hide_health_logs", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response")
-      val generalVisible = generalKeys.map { vm.settingVisible(it) }
-
-      fun showGeneralDivider(index: Int): Boolean {
-        if (!generalVisible[index]) return false
-        return (0 until index).any { generalVisible[it] }
-      }
-
-      if (vm.settingVisible("keep_screen_awake")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_keep_screen_awake),
-        description = stringResource(R.string.settings_keep_screen_awake_desc),
-        checked = vm.keepScreenOn,
-        onCheckedChange = { vm.keepScreenOn = it },
-        searchQuery = vm.searchQuery,
+      ToggleCardContent(
+        keys = listOf("keep_screen_awake", "auto_expand_logs", "stream_response_preview", "compact_image_data", "hide_health_logs", "clear_logs_on_stop", "confirm_clear_logs", "keep_partial_response"),
+        vm = vm,
       )
-      }
-
-      if (showGeneralDivider(1)) SettingDivider()
-      if (vm.settingVisible("auto_expand_logs")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_auto_expand_logs),
-        description = stringResource(R.string.settings_auto_expand_logs_desc),
-        checked = vm.autoExpandLogs,
-        onCheckedChange = { vm.autoExpandLogs = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showGeneralDivider(2)) SettingDivider()
-      if (vm.settingVisible("stream_response_preview")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_stream_response_preview),
-        description = stringResource(R.string.settings_stream_response_preview_desc),
-        checked = vm.streamLogsPreview,
-        onCheckedChange = { vm.streamLogsPreview = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showGeneralDivider(3)) SettingDivider()
-      if (vm.settingVisible("compact_image_data")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_compact_image_data),
-        description = stringResource(R.string.settings_compact_image_data_desc),
-        checked = vm.compactImageData,
-        onCheckedChange = { vm.compactImageData = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showGeneralDivider(4)) SettingDivider()
-      if (vm.settingVisible("hide_health_logs")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_hide_health_logs),
-        description = stringResource(R.string.settings_hide_health_logs_desc),
-        checked = vm.hideHealthLogs,
-        onCheckedChange = { vm.hideHealthLogs = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showGeneralDivider(5)) SettingDivider()
-      if (vm.settingVisible("clear_logs_on_stop")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_clear_logs_on_stop),
-        description = stringResource(R.string.settings_clear_logs_on_stop_desc),
-        checked = vm.clearLogsOnStop,
-        onCheckedChange = { vm.clearLogsOnStop = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showGeneralDivider(6)) SettingDivider()
-      if (vm.settingVisible("confirm_clear_logs")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_confirm_clear_logs),
-        description = stringResource(R.string.settings_confirm_clear_logs_desc),
-        checked = vm.confirmClearLogs,
-        onCheckedChange = { vm.confirmClearLogs = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showGeneralDivider(7)) SettingDivider()
-      if (vm.settingVisible("keep_partial_response")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_keep_partial_response),
-        description = stringResource(R.string.settings_keep_partial_response_desc),
-        checked = vm.keepPartialResponse,
-        onCheckedChange = { vm.keepPartialResponse = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
     }
     } // AnimatedVisibility: General
 
@@ -450,8 +358,8 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.height(8.dp))
       OutlinedTextField(
-        value = vm.hfToken,
-        onValueChange = { vm.hfToken = it.trim() },
+        value = vm.hfTokenEntry.current,
+        onValueChange = { vm.hfTokenEntry.update(it.trim()) },
         singleLine = true,
         visualTransformation = if (vm.hfTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
         placeholder = {
@@ -470,9 +378,9 @@ fun SettingsScreen(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
-            if (vm.hfToken.isNotBlank()) {
+            if (vm.hfTokenEntry.current.isNotBlank()) {
               IconButton(onClick = {
-                vm.hfToken = ""
+                vm.hfTokenEntry.update("")
                 Toast.makeText(context, tokenClearedText, Toast.LENGTH_SHORT).show()
               }) {
                 Icon(
@@ -551,17 +459,17 @@ fun SettingsScreen(
       ToggleSettingRow(
         label = stringResource(R.string.settings_bearer_token),
         description = stringResource(R.string.settings_bearer_token_desc),
-        checked = vm.bearerEnabled,
+        checked = vm.bearerEnabledEntry.current,
         onCheckedChange = { enabled ->
-          vm.bearerEnabled = enabled
-          if (enabled && vm.bearerToken.isBlank()) {
-            vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+          vm.bearerEnabledEntry.update(enabled)
+          if (enabled && vm.bearerTokenEntry.current.isBlank()) {
+            vm.bearerTokenEntry.update(java.util.UUID.randomUUID().toString().replace("-", ""))
           }
         },
         searchQuery = vm.searchQuery,
       )
       // Token display + actions (only when bearer is enabled and setting is visible)
-      if (vm.bearerEnabled && vm.settingVisible("bearer_token")) {
+      if (vm.bearerEnabledEntry.current && vm.settingVisible("bearer_token")) {
         SettingDivider()
 
         // Token value in a copyable box
@@ -574,7 +482,7 @@ fun SettingsScreen(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Text(
-            text = vm.bearerToken,
+            text = vm.bearerTokenEntry.current,
             style = MaterialTheme.typography.bodySmall.copy(
               fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
             ),
@@ -590,7 +498,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.ContentCopy,
             tooltip = stringResource(R.string.settings_bearer_copy_tooltip),
             onClick = {
-              copyToClipboard(context, "OlliteRT Bearer Token", vm.bearerToken)
+              copyToClipboard(context, "OlliteRT Bearer Token", vm.bearerTokenEntry.current)
             },
           )
 
@@ -601,7 +509,7 @@ fun SettingsScreen(
             icon = Icons.Outlined.Refresh,
             tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
             onClick = {
-              vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+              vm.bearerTokenEntry.update(java.util.UUID.randomUUID().toString().replace("-", ""))
               Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
             },
           )
@@ -622,10 +530,9 @@ fun SettingsScreen(
       )
       Spacer(modifier = Modifier.height(4.dp))
       OutlinedTextField(
-        value = vm.corsAllowedOrigins,
+        value = vm.corsAllowedOriginsEntry.current,
         onValueChange = {
-          vm.corsAllowedOrigins = it
-          // Clear error as soon as the user edits the field
+          vm.corsAllowedOriginsEntry.update(it)
           if (vm.corsError) vm.corsError = false
         },
         singleLine = true,
@@ -638,9 +545,9 @@ fun SettingsScreen(
           )
         },
         trailingIcon = {
-          if (vm.corsAllowedOrigins.isNotBlank()) {
+          if (vm.corsAllowedOriginsEntry.current.isNotBlank()) {
             IconButton(onClick = {
-              vm.corsAllowedOrigins = ""
+              vm.corsAllowedOriginsEntry.update("")
               if (vm.corsError) vm.corsError = false
             }) {
               Icon(
@@ -697,7 +604,7 @@ fun SettingsScreen(
         // Dropdown trigger
         Column {
           OutlinedTextField(
-            value = vm.defaultModelName ?: stringResource(R.string.settings_none_manual_start),
+            value = vm.defaultModelEntry.current ?: stringResource(R.string.settings_none_manual_start),
             onValueChange = {},
             readOnly = true,
             singleLine = true,
@@ -719,12 +626,12 @@ fun SettingsScreen(
               text = {
                 Text(
                   stringResource(R.string.settings_none_manual_start),
-                  color = if (vm.defaultModelName == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+                  color = if (vm.defaultModelEntry.current == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
                 )
               },
               onClick = {
-                vm.defaultModelName = null
-                vm.autoStartOnBoot = false  // Can't auto-start without a default model
+                vm.defaultModelEntry.update(null)
+                vm.autoStartOnBootEntry.update(false)
                 vm.showModelDropdown = false
               },
             )
@@ -734,11 +641,11 @@ fun SettingsScreen(
                 text = {
                   Text(
                     modelName,
-                    color = if (modelName == vm.defaultModelName) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
+                    color = if (modelName == vm.defaultModelEntry.current) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
                   )
                 },
                 onClick = {
-                  vm.defaultModelName = modelName
+                  vm.defaultModelEntry.update(modelName)
                   vm.showModelDropdown = false
                 },
               )
@@ -762,14 +669,14 @@ fun SettingsScreen(
       ToggleSettingRow(
         label = stringResource(R.string.settings_start_on_boot),
         description = stringResource(
-          if (vm.defaultModelName == null) R.string.settings_start_on_boot_desc_no_model
+          if (vm.defaultModelEntry.current == null) R.string.settings_start_on_boot_desc_no_model
           else R.string.settings_start_on_boot_desc,
         ),
-        checked = vm.autoStartOnBoot,
-        onCheckedChange = { vm.autoStartOnBoot = it },
+        checked = vm.autoStartOnBootEntry.current,
+        onCheckedChange = { vm.autoStartOnBootEntry.update(it) },
         searchQuery = vm.searchQuery,
-        enabled = vm.defaultModelName != null,
-        alphaOverride = if (vm.defaultModelName != null) 1f else 0.4f,
+        enabled = vm.isSettingEnabled("start_on_boot"),
+        alphaOverride = vm.settingAlpha("start_on_boot"),
       )
       }
 
@@ -781,8 +688,8 @@ fun SettingsScreen(
       ToggleSettingRow(
         label = stringResource(R.string.settings_keep_alive),
         description = stringResource(R.string.settings_keep_alive_desc),
-        checked = vm.keepAliveEnabled,
-        onCheckedChange = { vm.keepAliveEnabled = it },
+        checked = vm.keepAliveEnabledEntry.current,
+        onCheckedChange = { vm.keepAliveEnabledEntry.update(it) },
         searchQuery = vm.searchQuery,
       )
 
@@ -790,14 +697,14 @@ fun SettingsScreen(
 
       NumericWithUnitRow(
         def = KEEP_ALIVE_TIMEOUT,
-        baseValue = vm.keepAliveMinutes.toLong(),
-        savedBaseValue = vm.savedKeepAliveMinutes.toLong(),
-        onBaseValueChange = { vm.keepAliveMinutes = it.toInt() },
+        baseValue = vm.keepAliveMinutesEntry.current.toLong(),
+        savedBaseValue = vm.keepAliveMinutesEntry.saved.toLong(),
+        onBaseValueChange = { vm.keepAliveMinutesEntry.update(it.toInt()) },
         searchQuery = vm.searchQuery,
         isError = vm.keepAliveError,
-        enabled = vm.keepAliveEnabled,
+        enabled = vm.keepAliveEnabledEntry.current,
         onErrorClear = { vm.keepAliveError = false },
-        modifier = Modifier.alpha(if (vm.keepAliveEnabled) 1f else 0.4f),
+        modifier = Modifier.alpha(vm.settingAlpha("keep_alive_timeout")),
       )
       }
 
@@ -928,8 +835,8 @@ fun SettingsScreen(
       ToggleSettingRow(
         label = stringResource(R.string.settings_auto_update_check),
         description = stringResource(R.string.settings_auto_update_check_desc),
-        checked = vm.updateCheckEnabled,
-        onCheckedChange = { vm.updateCheckEnabled = it },
+        checked = vm.updateCheckEnabledEntry.current,
+        onCheckedChange = { vm.updateCheckEnabledEntry.update(it) },
         searchQuery = vm.searchQuery,
         enabled = updateControlsEnabled,
       )
@@ -962,13 +869,13 @@ fun SettingsScreen(
 
       NumericWithUnitRow(
         def = CHECK_FREQUENCY,
-        baseValue = vm.updateCheckIntervalHours.toLong(),
-        savedBaseValue = vm.savedUpdateCheckIntervalHours.toLong(),
-        onBaseValueChange = { vm.updateCheckIntervalHours = it.toInt() },
+        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
+        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
+        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
         searchQuery = vm.searchQuery,
         isError = vm.updateCheckError,
-        enabled = vm.updateCheckEnabled && updateControlsEnabled,
-        modifier = Modifier.alpha(if (vm.updateCheckEnabled && updateControlsEnabled) 1f else 0.4f),
+        enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
+        modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
         onErrorClear = { vm.updateCheckError = false },
       )
       } // if: update_check
@@ -976,7 +883,7 @@ fun SettingsScreen(
     }
     } // AnimatedVisibility: Auto-Launch
 
-    // Metrics card
+    // Metrics card — uniform toggles, rendered via data-driven loop
     AnimatedVisibility(
       visible = vm.cardVisible("metrics"),
       enter = expandVertically(),
@@ -987,29 +894,11 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_metrics),
       searchQuery = vm.searchQuery,
     ) {
-      if (vm.settingVisible("show_request_types")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_show_request_types),
-        description = stringResource(R.string.settings_show_request_types_desc),
-        checked = vm.showRequestTypes,
-        onCheckedChange = { vm.showRequestTypes = it },
-        searchQuery = vm.searchQuery,
+      ToggleCardContent(
+        keys = listOf("show_request_types", "show_advanced_metrics"),
+        vm = vm,
+        dividerPadding = 8,
       )
-      }
-
-      if (vm.settingVisible("show_request_types") && vm.settingVisible("show_advanced_metrics")) {
-        SettingDivider(verticalPadding = 8)
-      }
-
-      if (vm.settingVisible("show_advanced_metrics")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_show_advanced_metrics),
-        description = stringResource(R.string.settings_show_advanced_metrics_desc),
-        checked = vm.showAdvancedMetrics,
-        onCheckedChange = { vm.showAdvancedMetrics = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
     }
     } // AnimatedVisibility: Metrics
 
@@ -1027,26 +916,26 @@ fun SettingsScreen(
       ToggleSettingRow(
         label = stringResource(R.string.settings_persist_logs),
         description = stringResource(R.string.settings_persist_logs_desc),
-        checked = vm.logPersistenceEnabled,
-        onCheckedChange = { vm.logPersistenceEnabled = it },
+        checked = vm.logPersistenceEnabledEntry.current,
+        onCheckedChange = { vm.logPersistenceEnabledEntry.update(it) },
         searchQuery = vm.searchQuery,
       )
 
-      val childAlpha = if (vm.logPersistenceEnabled) 1f else 0.4f
+      val childAlpha = vm.settingAlpha("log_max_entries")
 
       SettingDivider(verticalPadding = 8)
 
-      var maxEntriesText by remember { mutableStateOf(vm.logMaxEntries.toString()) }
+      var maxEntriesText by remember { mutableStateOf(vm.logMaxEntriesEntry.current.toString()) }
       NumericInputRow(
         label = stringResource(R.string.settings_max_log_entries_label),
         description = stringResource(R.string.settings_max_log_entries_desc),
         value = maxEntriesText,
         onValueChange = { text ->
           maxEntriesText = text
-          text.toIntOrNull()?.let { vm.logMaxEntries = it }
+          text.toIntOrNull()?.let { vm.logMaxEntriesEntry.update(it) }
         },
         searchQuery = vm.searchQuery,
-        enabled = vm.logPersistenceEnabled,
+        enabled = vm.isSettingEnabled("log_max_entries"),
         modifier = Modifier.alpha(childAlpha),
       )
 
@@ -1054,23 +943,20 @@ fun SettingsScreen(
 
       NumericWithUnitRow(
         def = LOG_AUTO_DELETE,
-        baseValue = vm.logAutoDeleteMinutes,
-        savedBaseValue = vm.savedLogAutoDeleteMinutes,
-        onBaseValueChange = { vm.logAutoDeleteMinutes = it },
+        baseValue = vm.logAutoDeleteMinutesEntry.current,
+        savedBaseValue = vm.logAutoDeleteMinutesEntry.saved,
+        onBaseValueChange = { vm.logAutoDeleteMinutesEntry.update(it) },
         searchQuery = vm.searchQuery,
-        enabled = vm.logPersistenceEnabled,
+        enabled = vm.isSettingEnabled("log_auto_delete"),
         modifier = Modifier.alpha(childAlpha),
       )
 
       SettingDivider(verticalPadding = 8)
 
-      // Clear All Logs button — wipes both in-memory and persisted logs.
-      // The user has no visibility into what's only in the DB vs in memory,
-      // so clearing should remove everything to avoid confusion.
       Column(modifier = Modifier.alpha(childAlpha)) {
         Button(
           onClick = { vm.showClearPersistedDialog = true },
-          enabled = vm.logPersistenceEnabled,
+          enabled = vm.isSettingEnabled("clear_all_logs"),
           colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.error,
           ),
@@ -1131,12 +1017,12 @@ fun SettingsScreen(
     // Trim logs confirmation — shown when max entries is reduced below current count
     if (vm.showTrimLogsDialog) {
       val currentCount = RequestLogStore.entries.collectAsStateWithLifecycle().value.size
-      val toRemove = currentCount - vm.logMaxEntries
+      val toRemove = currentCount - vm.logMaxEntriesEntry.current
       AlertDialog(
         onDismissRequest = { vm.showTrimLogsDialog = false },
         title = { Text(stringResource(R.string.dialog_reduce_log_limit_title)) },
         text = {
-          Text(stringResource(R.string.dialog_reduce_log_limit_body, currentCount, vm.logMaxEntries, toRemove))
+          Text(stringResource(R.string.dialog_reduce_log_limit_body, currentCount, vm.logMaxEntriesEntry.current, toRemove))
         },
         confirmButton = {
           Button(
@@ -1326,7 +1212,7 @@ fun SettingsScreen(
         // Build the HA YAML config dynamically using current IP, port, and bearer token
         val currentPort = vm.portText.toIntOrNull() ?: LlmHttpPrefs.getPort(context)
         val currentIp = remember { getWifiIpAddress(context) ?: "<YOUR_DEVICE_IP>" }
-        val currentToken = if (vm.bearerEnabled) vm.bearerToken else ""
+        val currentToken = if (vm.bearerEnabledEntry.current) vm.bearerTokenEntry.current else ""
         val baseUrl = "http://$currentIp:$currentPort"
 
         // Auth header block reused across REST sensor and commands
@@ -1453,7 +1339,7 @@ fun SettingsScreen(
     }
     } // AnimatedVisibility: Home Assistant
 
-    // Advanced Settings card
+    // Advanced Settings card — uniform toggles, rendered via data-driven loop
     AnimatedVisibility(
       visible = vm.cardVisible("advanced"),
       enter = expandVertically(),
@@ -1464,117 +1350,35 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_advanced),
       searchQuery = vm.searchQuery,
     ) {
-      // Track which advanced settings are visible to control dividers between them.
-      // Dividers only show between two consecutively visible settings.
-      val advancedKeys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params")
-      val advancedVisible = advancedKeys.map { vm.settingVisible(it) }
-
-      /** Show a divider before [index] only if a preceding setting is also visible. */
-      fun showDividerBefore(index: Int): Boolean {
-        if (!advancedVisible[index]) return false
-        return (0 until index).any { advancedVisible[it] }
-      }
-
-      if (vm.settingVisible("warmup_message")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_warmup_message),
-        description = stringResource(R.string.settings_warmup_message_desc),
-        checked = vm.warmupEnabled,
-        onCheckedChange = { vm.warmupEnabled = it },
-        searchQuery = vm.searchQuery,
+      ToggleCardContent(
+        keys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
+        vm = vm,
       )
-      }
-
-      if (showDividerBefore(1)) SettingDivider()
-      if (vm.settingVisible("pre_init_vision")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_pre_init_vision),
-        description = stringResource(R.string.settings_pre_init_vision_desc),
-        checked = vm.eagerVisionInit,
-        onCheckedChange = { vm.eagerVisionInit = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showDividerBefore(2)) SettingDivider()
-      if (vm.settingVisible("custom_prompts")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_custom_prompts),
-        description = stringResource(R.string.settings_custom_prompts_desc),
-        checked = vm.customPromptsEnabled,
-        onCheckedChange = { vm.customPromptsEnabled = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showDividerBefore(3)) SettingDivider()
-      if (vm.settingVisible("truncate_history")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_truncate_history),
-        description = stringResource(R.string.settings_truncate_history_desc),
-        checked = vm.autoTruncateHistory,
-        onCheckedChange = { vm.autoTruncateHistory = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showDividerBefore(4)) SettingDivider()
-      if (vm.settingVisible("compact_tool_schemas")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_compact_tool_schemas),
-        description = stringResource(R.string.settings_compact_tool_schemas_desc),
-        checked = vm.compactToolSchemas,
-        onCheckedChange = { vm.compactToolSchemas = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showDividerBefore(5)) SettingDivider()
-      if (vm.settingVisible("trim_prompt")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_trim_prompt),
-        description = stringResource(R.string.settings_trim_prompt_desc),
-        checked = vm.autoTrimPrompts,
-        onCheckedChange = { vm.autoTrimPrompts = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
-
-      if (showDividerBefore(6)) SettingDivider()
-      if (vm.settingVisible("ignore_client_params")) {
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_ignore_client_params),
-        description = stringResource(R.string.settings_ignore_client_params_desc),
-        checked = vm.ignoreClientSamplerParams,
-        onCheckedChange = { vm.ignoreClientSamplerParams = it },
-        searchQuery = vm.searchQuery,
-      )
-      }
     }
     } // AnimatedVisibility: Advanced
 
-    // Developer card — verbose debug toggle (immediate-apply, no save/cancel)
+    // Developer card
     AnimatedVisibility(
       visible = vm.cardVisible("developer"),
       enter = expandVertically(),
       exit = shrinkVertically(),
     ) {
     SettingsCard(
-      icon = Icons.Outlined.Code,
+      icon = Icons.Outlined.BugReport,
       title = stringResource(R.string.settings_card_developer),
       searchQuery = vm.searchQuery,
     ) {
       ToggleSettingRow(
         label = stringResource(R.string.settings_verbose_debug),
         description = stringResource(R.string.settings_verbose_debug_desc),
-        checked = vm.verboseDebugEnabled,
-        onCheckedChange = { vm.verboseDebugEnabled = it },
+        checked = vm.verboseDebugEnabledEntry.current,
+        onCheckedChange = { vm.verboseDebugEnabledEntry.update(it) },
         searchQuery = vm.searchQuery,
       )
 
       // Export Debug Logs button — visible only when verbose debug is enabled
       AnimatedVisibility(
-        visible = vm.verboseDebugEnabled,
+        visible = vm.verboseDebugEnabledEntry.current,
         enter = expandVertically(),
         exit = shrinkVertically(),
       ) {
@@ -1798,6 +1602,36 @@ fun SettingsScreen(
   }
 }
 
+/**
+ * Renders a list of toggle settings with automatic dividers between visible items.
+ * Used by cards that contain only uniform toggle rows (General, Advanced, Metrics).
+ */
+@Composable
+private fun ToggleCardContent(
+  keys: List<String>,
+  vm: SettingsViewModel,
+  dividerPadding: Int = 16,
+) {
+  val visible = keys.map { vm.settingVisible(it) }
+  var visibleCount = 0
+  keys.forEachIndexed { index, key ->
+    if (!visible[index]) return@forEachIndexed
+    if (visibleCount > 0) SettingDivider(verticalPadding = dividerPadding)
+    visibleCount++
+    val entry = vm.getToggleEntry(key) ?: return@forEachIndexed
+    val def = com.ollitert.llm.server.ui.server.settings.settingDefsByKey[key] as? com.ollitert.llm.server.ui.server.settings.SettingDef.Toggle ?: return@forEachIndexed
+    ToggleSettingRow(
+      label = stringResource(def.labelRes),
+      description = stringResource(def.descriptionRes),
+      checked = entry.current,
+      onCheckedChange = { entry.update(it) },
+      searchQuery = vm.searchQuery,
+      enabled = vm.isSettingEnabled(key),
+      alphaOverride = vm.settingAlpha(key),
+    )
+  }
+}
+
 @Composable
 private fun SettingsCard(
   icon: ImageVector,
@@ -1845,6 +1679,23 @@ private fun SettingsCard(
     searchQuery = searchQuery,
     content = content,
   )
+}
+
+/** Overload that accepts a [CardIcon] sealed class for data-driven card rendering. */
+@Composable
+private fun SettingsCard(
+  cardIcon: com.ollitert.llm.server.ui.server.settings.CardIcon,
+  title: String,
+  modifier: Modifier = Modifier,
+  searchQuery: String = "",
+  content: @Composable () -> Unit,
+) {
+  when (cardIcon) {
+    is com.ollitert.llm.server.ui.server.settings.CardIcon.Vector ->
+      SettingsCard(icon = cardIcon.icon, title = title, modifier = modifier, searchQuery = searchQuery, content = content)
+    is com.ollitert.llm.server.ui.server.settings.CardIcon.Resource ->
+      SettingsCard(iconRes = cardIcon.resId, title = title, modifier = modifier, searchQuery = searchQuery, content = content)
+  }
 }
 
 @Composable
