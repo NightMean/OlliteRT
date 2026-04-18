@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
+
 /**
  * CORS (Cross-Origin Resource Sharing) helper for the HTTP server.
  *
@@ -13,7 +15,6 @@ package com.ollitert.llm.server.service
 object LlmHttpCorsHelper {
 
   /** Preflight response cache duration — browsers cache the CORS allow for this long. */
-  private const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400" // 24 hours
 
   /**
    * Cached parsed origins list — avoids re-splitting the comma-separated string on every request.

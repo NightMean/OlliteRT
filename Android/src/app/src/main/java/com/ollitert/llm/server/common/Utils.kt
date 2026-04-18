@@ -20,11 +20,9 @@ import android.os.Build
 import android.util.Log
 import com.google.gson.Gson
 import java.net.HttpURLConnection
+import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
+import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
 import java.net.URL
-
-/** Fail fast so local fallback kicks in quickly. */
-const val HTTP_CONNECT_TIMEOUT_MS = 5_000
-const val HTTP_READ_TIMEOUT_MS = 10_000
 
 const val LOCAL_URL_BASE = "https://appassets.androidplatform.net"
 

@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
+
 object LlmHttpBridgeUtils {
   private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")
 
@@ -36,7 +38,7 @@ object LlmHttpBridgeUtils {
    * calculation since they're JSON escaping, not actual base64 data.
    */
   private val BASE64_DATA_URI_REGEX = Regex(
-    """data:([^;]+);base64,([A-Za-z0-9+/=\\]{1365,})"""
+    """data:([^;]+);base64,([A-Za-z0-9+/=\\]{$BASE64_COMPACT_THRESHOLD_CHARS,})"""
   )
 
   /**

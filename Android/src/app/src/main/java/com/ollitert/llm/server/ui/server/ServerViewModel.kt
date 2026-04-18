@@ -1,6 +1,7 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
+import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.ServerMetrics
@@ -92,7 +93,7 @@ class ServerViewModel @Inject constructor(
   private fun setActionInFlight() {
     actionInFlight = true
     viewModelScope.launch {
-      delay(1000)
+      delay(ACTION_IN_FLIGHT_DEBOUNCE_MS)
       actionInFlight = false
     }
   }

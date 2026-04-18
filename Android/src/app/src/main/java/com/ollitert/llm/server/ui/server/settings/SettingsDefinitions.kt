@@ -14,6 +14,8 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.MAX_VALID_PORT
+import com.ollitert.llm.server.data.MIN_VALID_PORT
 
 // ─── General Card ───────────────────────────────────────────────────
 
@@ -121,8 +123,8 @@ val HOST_PORT = SettingDef.NumericInput(
   searchKeywords = "Host Port 1024 65535 server configuration default 8000 restart",
   default = 8000,
   prefsKey = "port",
-  min = 1024,
-  max = 65535,
+  min = MIN_VALID_PORT,
+  max = MAX_VALID_PORT,
 )
 
 val BEARER_TOKEN = SettingDef.Custom(
