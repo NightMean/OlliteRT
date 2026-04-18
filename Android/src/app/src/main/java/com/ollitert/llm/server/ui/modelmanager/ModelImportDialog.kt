@@ -113,6 +113,17 @@ private const val TAG = "OlliteRTModelImportDialog"
 // NPU requires SoC-specific model files and vendor native libraries (Qualcomm QAIRT / MediaTek
 // NeuroPilot). No models currently ship with NPU support. Re-enable Accelerator.NPU here when
 // NPU-compiled models become available in the allowlist.
+private inline fun <reified T> safeConfigValue(
+  values: Map<String, Any>,
+  key: ConfigKey,
+  valueType: ValueType,
+  default: T,
+): T {
+  val raw = values[key.label] ?: return default
+  val converted = convertValueToTargetType(raw, valueType)
+  return converted as? T ?: default
+}
+
 private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   if (isPixel10()) {
     listOf(Accelerator.CPU)
@@ -263,55 +274,16 @@ fun ModelImportDialog(
           // Import button
           Button(
             onClick = {
-              val supportedAccelerators =
-                (convertValueToTargetType(
-                    value = values.get(ConfigKeys.COMPATIBLE_ACCELERATORS.label)!!,
-                    valueType = ValueType.STRING,
-                  )
-                    as String)
-                  .split(",")
-              val defaultMaxTokens =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_MAX_TOKENS.label)!!,
-                  valueType = ValueType.INT,
-                )
-                  as Int
-              val defaultTopk =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_TOPK.label)!!,
-                  valueType = ValueType.INT,
-                )
-                  as Int
-              val defaultTopp =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_TOPP.label)!!,
-                  valueType = ValueType.FLOAT,
-                )
-                  as Float
-              val defaultTemperature =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_TEMPERATURE.label)!!,
-                  valueType = ValueType.FLOAT,
-                )
-                  as Float
-              val supportImage =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_IMAGE.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportAudio =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_AUDIO.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportThinking =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_THINKING.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
+              val supportedAccelerators = safeConfigValue(
+                values, ConfigKeys.COMPATIBLE_ACCELERATORS, ValueType.STRING, SUPPORTED_ACCELERATORS[0].label
+              ).split(",")
+              val defaultMaxTokens = safeConfigValue(values, ConfigKeys.DEFAULT_MAX_TOKENS, ValueType.INT, DEFAULT_MAX_TOKEN)
+              val defaultTopk = safeConfigValue(values, ConfigKeys.DEFAULT_TOPK, ValueType.INT, DEFAULT_TOPK)
+              val defaultTopp = safeConfigValue(values, ConfigKeys.DEFAULT_TOPP, ValueType.FLOAT, DEFAULT_TOPP)
+              val defaultTemperature = safeConfigValue(values, ConfigKeys.DEFAULT_TEMPERATURE, ValueType.FLOAT, DEFAULT_TEMPERATURE)
+              val supportImage = safeConfigValue(values, ConfigKeys.SUPPORT_IMAGE, ValueType.BOOLEAN, false)
+              val supportAudio = safeConfigValue(values, ConfigKeys.SUPPORT_AUDIO, ValueType.BOOLEAN, false)
+              val supportThinking = safeConfigValue(values, ConfigKeys.SUPPORT_THINKING, ValueType.BOOLEAN, false)
               // Rejoin the user-edited stem with the original extension and sanitize.
               val editedStem = ensureValidFileName(
                 (values[ConfigKeys.NAME.label] as? String) ?: fileStem
@@ -537,38 +509,16 @@ fun EditImportedModelDialog(
           TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
           Button(
             onClick = {
-              val supportedAccelerators = (convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.COMPATIBLE_ACCELERATORS.label, SUPPORTED_ACCELERATORS[0].label),
-                valueType = ValueType.STRING,
-              ) as String).split(",")
-              val defaultMaxTokens = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.DEFAULT_MAX_TOKENS.label, DEFAULT_MAX_TOKEN),
-                valueType = ValueType.INT,
-              ) as Int
-              val defaultTopk = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.DEFAULT_TOPK.label, DEFAULT_TOPK),
-                valueType = ValueType.INT,
-              ) as Int
-              val defaultTopp = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.DEFAULT_TOPP.label, DEFAULT_TOPP),
-                valueType = ValueType.FLOAT,
-              ) as Float
-              val defaultTemperature = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.DEFAULT_TEMPERATURE.label, DEFAULT_TEMPERATURE),
-                valueType = ValueType.FLOAT,
-              ) as Float
-              val supportImage = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.SUPPORT_IMAGE.label, false),
-                valueType = ValueType.BOOLEAN,
-              ) as Boolean
-              val supportAudio = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.SUPPORT_AUDIO.label, false),
-                valueType = ValueType.BOOLEAN,
-              ) as Boolean
-              val supportThinking = convertValueToTargetType(
-                value = values.getOrDefault(ConfigKeys.SUPPORT_THINKING.label, false),
-                valueType = ValueType.BOOLEAN,
-              ) as Boolean
+              val supportedAccelerators = safeConfigValue(
+                values, ConfigKeys.COMPATIBLE_ACCELERATORS, ValueType.STRING, SUPPORTED_ACCELERATORS[0].label
+              ).split(",")
+              val defaultMaxTokens = safeConfigValue(values, ConfigKeys.DEFAULT_MAX_TOKENS, ValueType.INT, DEFAULT_MAX_TOKEN)
+              val defaultTopk = safeConfigValue(values, ConfigKeys.DEFAULT_TOPK, ValueType.INT, DEFAULT_TOPK)
+              val defaultTopp = safeConfigValue(values, ConfigKeys.DEFAULT_TOPP, ValueType.FLOAT, DEFAULT_TOPP)
+              val defaultTemperature = safeConfigValue(values, ConfigKeys.DEFAULT_TEMPERATURE, ValueType.FLOAT, DEFAULT_TEMPERATURE)
+              val supportImage = safeConfigValue(values, ConfigKeys.SUPPORT_IMAGE, ValueType.BOOLEAN, false)
+              val supportAudio = safeConfigValue(values, ConfigKeys.SUPPORT_AUDIO, ValueType.BOOLEAN, false)
+              val supportThinking = safeConfigValue(values, ConfigKeys.SUPPORT_THINKING, ValueType.BOOLEAN, false)
               val updated = ImportedModel.newBuilder()
                 .setFileName(existingModel.fileName)
                 .setFileSize(existingModel.fileSize)

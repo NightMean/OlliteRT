@@ -91,20 +91,23 @@ class HuggingFaceTokenManager(
           tokenResponse,
           tokenEx ->
           if (tokenResponse != null) {
-            if (tokenResponse.accessToken == null) {
+            val accessToken = tokenResponse.accessToken
+            val refreshToken = tokenResponse.refreshToken
+            val expiresAt = tokenResponse.accessTokenExpirationTime
+            if (accessToken == null) {
               errorMessage = "Empty access token"
-            } else if (tokenResponse.refreshToken == null) {
+            } else if (refreshToken == null) {
               errorMessage = "Empty refresh token"
-            } else if (tokenResponse.accessTokenExpirationTime == null) {
+            } else if (expiresAt == null) {
               errorMessage = "Empty expiration time"
             } else {
               Log.d(TAG, "Token exchange successful. Storing tokens...")
               saveAccessToken(
-                accessToken = tokenResponse.accessToken!!,
-                refreshToken = tokenResponse.refreshToken!!,
-                expiresAt = tokenResponse.accessTokenExpirationTime!!,
+                accessToken = accessToken,
+                refreshToken = refreshToken,
+                expiresAt = expiresAt,
               )
-              curAccessToken = tokenResponse.accessToken!!
+              curAccessToken = accessToken
               Log.d(TAG, "Token successfully saved.")
             }
           } else if (tokenEx != null) {
