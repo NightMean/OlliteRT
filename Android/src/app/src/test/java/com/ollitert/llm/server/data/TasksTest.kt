@@ -12,6 +12,7 @@ class TasksTest {
     assertTrue(isLegacyTasks(BuiltInTaskId.LLM_ASK_IMAGE))
     assertTrue(isLegacyTasks(BuiltInTaskId.LLM_ASK_AUDIO))
     assertTrue(isLegacyTasks(BuiltInTaskId.LLM_PROMPT_LAB))
+    assertTrue(isLegacyTasks(BuiltInTaskId.LLM_AGENT_CHAT))
   }
 
   @Test

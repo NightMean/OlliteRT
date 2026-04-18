@@ -125,6 +125,23 @@ class SettingsDefsTest {
   }
 
   @Test
+  fun `cardDefsById contains all cards`() {
+    assertEquals(allCardDefs.size, cardDefsById.size)
+    for (def in allCardDefs) {
+      assertEquals(def, cardDefsById[def.id])
+    }
+  }
+
+  @Test
+  fun `allSettingDefs follows allCardDefs card ordering`() {
+    val expectedOrder = allCardDefs.flatMap { it.settings }
+    assertEquals(
+      "allSettingDefs should match the flattened allCardDefs ordering",
+      expectedOrder, allSettingDefs,
+    )
+  }
+
+  @Test
   fun `keep alive toBaseUnit converts hours to minutes correctly`() {
     assertEquals(300L, KEEP_ALIVE_TIMEOUT.toBaseUnit(5L, "hours"))
     assertEquals(5L, KEEP_ALIVE_TIMEOUT.toBaseUnit(5L, "minutes"))

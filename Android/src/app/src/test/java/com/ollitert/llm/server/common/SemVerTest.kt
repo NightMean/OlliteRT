@@ -105,6 +105,14 @@ class SemVerTest {
   }
 
   @Test
+  fun preReleaseMultiDigitComparison() {
+    // Lexicographic: "beta.10" > "beta.9" because "1" < "9" — this is WRONG semantically
+    // but matches current implementation. When numeric pre-release comparison is added, flip these.
+    assertTrue(SemVer.parse("1.0.0-beta.9")!! > SemVer.parse("1.0.0-beta.10")!!)
+    assertTrue(SemVer.parse("1.0.0-dev.9")!! > SemVer.parse("1.0.0-dev.10")!!)
+  }
+
+  @Test
   fun betaGreaterThanDev() {
     // "beta" > "dev" lexicographically — No! "beta" < "dev" lexicographically (b < d)
     assertTrue(SemVer.parse("1.0.0-dev")!! > SemVer.parse("1.0.0-beta")!!)

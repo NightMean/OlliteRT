@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,7 +16,7 @@ class LlmHttpCorsHelperTest {
     assertEquals("*", headers["Access-Control-Allow-Origin"])
     assertEquals("GET, POST, OPTIONS", headers["Access-Control-Allow-Methods"])
     assertEquals("Content-Type, Authorization, User-Agent, Accept, X-Requested-With", headers["Access-Control-Allow-Headers"])
-    assertEquals("86400", headers["Access-Control-Max-Age"])
+    assertEquals(CORS_PREFLIGHT_MAX_AGE_SECONDS, headers["Access-Control-Max-Age"])
   }
 
   @Test

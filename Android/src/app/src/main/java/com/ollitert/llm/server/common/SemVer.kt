@@ -23,7 +23,7 @@ data class SemVer(
     // Stable (no preRelease) is higher than any pre-release of the same version
     if (preRelease == null && other.preRelease != null) return 1
     if (preRelease != null && other.preRelease == null) return -1
-    // Both pre-release: compare lexicographically (beta > dev, beta.2 > beta.1)
+    // Both pre-release: compare lexicographically (dev > beta since 'd' > 'b', beta.2 > beta.1)
     return (preRelease ?: "").compareTo(other.preRelease ?: "")
   }
 
