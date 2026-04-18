@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.MAX_VALID_PORT
+import com.ollitert.llm.server.data.MIN_VALID_PORT
 
 /**
  * Starts the LLM server on device boot if the user has enabled auto-start
@@ -26,7 +28,7 @@ class BootReceiver : BroadcastReceiver() {
       }
 
       val port = LlmHttpPrefs.getPort(context)
-      if (port !in 1024..65535) {
+      if (port !in MIN_VALID_PORT..MAX_VALID_PORT) {
         Log.w(TAG, "Invalid port $port from preferences — skipping auto-start")
         return
       }

@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.navigation.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
@@ -106,7 +107,7 @@ fun StatusScreen(
     if (status == ServerStatus.RUNNING && startedAtMs > 0) {
       while (true) {
         uptimeSeconds = (System.currentTimeMillis() - startedAtMs) / 1000
-        delay(1000)
+        delay(UI_TIMER_TICK_MS)
       }
     } else {
       uptimeSeconds = 0L
@@ -120,7 +121,7 @@ fun StatusScreen(
     if (loadingStartedAtMs > 0) {
       while (true) {
         loadingElapsedSeconds = (System.currentTimeMillis() - loadingStartedAtMs) / 1000
-        delay(1000)
+        delay(UI_TIMER_TICK_MS)
       }
     } else {
       loadingElapsedSeconds = 0L

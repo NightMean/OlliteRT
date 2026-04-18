@@ -2,6 +2,7 @@ package com.ollitert.llm.server.data.db
 
 import android.content.Context
 import android.util.Log
+import com.ollitert.llm.server.data.DEFAULT_IN_MEMORY_LOG_CAP
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
@@ -176,9 +177,12 @@ class RequestLogPersistence @Inject constructor(
       while (true) {
         val retentionMinutes = LlmHttpPrefs.getLogAutoDeleteMinutes(context)
         val intervalMs = if (retentionMinutes > 0) {
-          (retentionMinutes * 60_000L).coerceIn(MIN_PRUNE_INTERVAL_MS, MAX_PRUNE_INTERVAL_MS)
+          (retentionMinutes * 60_000L).coerceIn(
+            com.ollitert.llm.server.data.MIN_PRUNE_INTERVAL_MS,
+            com.ollitert.llm.server.data.MAX_PRUNE_INTERVAL_MS
+          )
         } else {
-          MAX_PRUNE_INTERVAL_MS // auto-delete disabled — still prune by count periodically
+          com.ollitert.llm.server.data.MAX_PRUNE_INTERVAL_MS
         }
         delay(intervalMs)
         if (isEnabled) prune()
@@ -188,8 +192,6 @@ class RequestLogPersistence @Inject constructor(
 
   companion object {
     private const val TAG = "LogPersistence"
-    private const val DEFAULT_IN_MEMORY_CAP = 100
-    private const val MIN_PRUNE_INTERVAL_MS = 60_000L        // 1 minute
-    private const val MAX_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
+    private const val DEFAULT_IN_MEMORY_CAP = DEFAULT_IN_MEMORY_LOG_CAP
   }
 }

@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.SSE_BUFFER_SIZE_BYTES
 import fi.iki.elonen.NanoHTTPD
 import java.io.OutputStream
 
@@ -32,7 +33,7 @@ class FlushingSseResponse(
     outputStream.flush()
 
     // ── Stream body with per-chunk flushing ──────────────────────────────
-    val buf = ByteArray(8 * 1024)
+    val buf = ByteArray(SSE_BUFFER_SIZE_BYTES)
     try {
       while (true) {
         val n = stream.read(buf, 0, buf.size)

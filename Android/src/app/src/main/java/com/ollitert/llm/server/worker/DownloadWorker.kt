@@ -30,6 +30,10 @@ import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.ollitert.llm.server.data.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
+import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
+import com.ollitert.llm.server.data.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
+import com.ollitert.llm.server.data.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
@@ -218,15 +222,15 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
               // Report progress every 200 ms.
               val curTs = System.currentTimeMillis()
-              if (curTs - lastSetProgressTs > 200) {
+              if (curTs - lastSetProgressTs > DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS) {
                 // Calculate download rate.
                 var bytesPerMs = 0f
                 if (lastSetProgressTs != 0L) {
-                  if (bytesReadSizeBuffer.size == 5) {
+                  if (bytesReadSizeBuffer.size == DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE) {
                     bytesReadSizeBuffer.removeAt(0)
                   }
                   bytesReadSizeBuffer.add(deltaBytes)
-                  if (bytesReadLatencyBuffer.size == 5) {
+                  if (bytesReadLatencyBuffer.size == DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE) {
                     bytesReadLatencyBuffer.removeAt(0)
                   }
                   bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
@@ -285,7 +289,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               }
 
               // Unzip.
-              val unzipBuffer = ByteArray(4096)
+              val unzipBuffer = ByteArray(DOWNLOAD_UNZIP_BUFFER_SIZE)
               val zipFilePath =
                 "${externalFilesDir}${File.separator}$modelDir${File.separator}$version${File.separator}${fileName}"
               val zipIn = ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath)))
@@ -333,7 +337,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           val isDiskFull = try {
             val stat = StatFs(Environment.getDataDirectory().path)
             // Less than 500 MB left → almost certainly a disk-full write failure
-            stat.availableBytes < 500L * 1024 * 1024
+            stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES
           } catch (_: Exception) { false }
 
           if (isDiskFull) {

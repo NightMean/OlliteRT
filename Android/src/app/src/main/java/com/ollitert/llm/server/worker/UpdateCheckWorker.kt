@@ -24,6 +24,7 @@ import androidx.work.workDataOf
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.SemVer
+import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
@@ -274,8 +275,8 @@ class UpdateCheckWorker(
   private fun fetchGitHub(url: String, etag: String?): GitHubResponse {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
-      connection.connectTimeout = 10_000
-      connection.readTimeout = 10_000
+      connection.connectTimeout = HTTP_READ_TIMEOUT_MS
+      connection.readTimeout = HTTP_READ_TIMEOUT_MS
       connection.setRequestProperty("Accept", "application/vnd.github+json")
       connection.setRequestProperty("User-Agent", "OlliteRT/${BuildConfig.VERSION_NAME}")
       if (etag != null) {

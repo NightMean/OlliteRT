@@ -97,6 +97,41 @@ const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
 // Drifts for code (~2.5) and multilingual text. No tokenizer API exists in LiteRT LM.
 const val CHARS_PER_TOKEN_ESTIMATE = 4
 
+// Port validation range (IANA: 0–1023 reserved for well-known services).
+const val MIN_VALID_PORT = 1024
+const val MAX_VALID_PORT = 65535
+
+// HTTP connection timeouts — fail fast so local fallback kicks in quickly.
+const val HTTP_CONNECT_TIMEOUT_MS = 5_000
+const val HTTP_READ_TIMEOUT_MS = 10_000
+
+// CORS preflight response cache duration (24 hours).
+const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400"
+
+// SSE chunked-transfer read buffer size.
+const val SSE_BUFFER_SIZE_BYTES = 8 * 1024
+
+// Base64 data URI compaction threshold — payloads shorter than ~1 KB (1365 base64 chars ≈ 1024 bytes)
+// are left inline (thumbnails, icons). Longer payloads are replaced with a size placeholder
+// to avoid Compose rendering freezes in the Logs tab.
+const val BASE64_COMPACT_THRESHOLD_CHARS = 1365
+
+// Live UI timer tick interval (uptime, loading elapsed, metric refresh).
+const val UI_TIMER_TICK_MS = 1000L
+
+// Debounce delay for server start/stop/reload button to prevent double-tap races.
+const val ACTION_IN_FLIGHT_DEBOUNCE_MS = 1000L
+
+// Download progress reporting.
+const val DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS = 200L
+const val DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE = 5
+const val DOWNLOAD_UNZIP_BUFFER_SIZE = 4096
+
+// Log persistence pruning intervals.
+const val DEFAULT_IN_MEMORY_LOG_CAP = 100
+const val MIN_PRUNE_INTERVAL_MS = 60_000L          // 1 minute
+const val MAX_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
+
 // Current device's SOC in lowercase.
 val SOC =
   (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
