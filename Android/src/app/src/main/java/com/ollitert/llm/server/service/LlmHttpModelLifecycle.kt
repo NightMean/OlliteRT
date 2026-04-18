@@ -1,8 +1,6 @@
 package com.ollitert.llm.server.service
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
@@ -292,16 +290,17 @@ class LlmHttpModelLifecycle(
   }
 
   /**
-   * Decodes base64 image data URIs from chat messages into Bitmaps for multimodal inference.
+   * Decodes base64 image data URIs from chat messages into raw byte arrays for multimodal
+   * inference. The LiteRT SDK's Content.ImageBytes accepts raw bytes and detects the format
+   * (JPEG, PNG, WebP) from magic bytes in the native layer — no Bitmap intermediate needed.
    * Expected format: `data:image/jpeg;base64,/9j/4AAQ...`
    */
-  fun decodeImageDataUris(messages: List<ChatMessage>): List<Bitmap> {
+  fun decodeImageDataUris(messages: List<ChatMessage>): List<ByteArray> {
     val uris = LlmHttpRequestAdapter.extractImageDataUris(messages)
     return uris.mapNotNull { uri ->
       try {
         val base64Data = if (uri.contains(",")) uri.substringAfter(",") else uri
-        val bytes = Base64.decode(base64Data, Base64.DEFAULT)
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        Base64.decode(base64Data, Base64.DEFAULT)
       } catch (e: Exception) {
         Log.w(LOG_TAG, "Failed to decode image data URI", e)
         RequestLogStore.addEvent(

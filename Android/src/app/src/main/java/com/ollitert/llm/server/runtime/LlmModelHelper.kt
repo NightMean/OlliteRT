@@ -17,7 +17,6 @@
 package com.ollitert.llm.server.runtime
 
 import android.content.Context
-import android.graphics.Bitmap
 import com.ollitert.llm.server.data.Model
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ToolProvider
@@ -95,7 +94,7 @@ interface LlmModelHelper {
    * @param resultListener callback invoked with partial inference results.
    * @param cleanUpListener callback invoked to trigger necessary cleanup.
    * @param onError callback invoked if an error occurs during inference.
-   * @param images optional list of images provided as input context.
+   * @param images optional list of raw image byte arrays (JPEG, PNG, WebP) provided as input context.
    * @param audioClips optional list of audio clips provided as input context.
    * @param coroutineScope optional coroutine scope for async inference execution.
    * @param extraContext optional extra context for inference.
@@ -106,7 +105,7 @@ interface LlmModelHelper {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
     onError: (message: String) -> Unit = {},
-    images: List<Bitmap> = listOf(),
+    images: List<ByteArray> = listOf(),
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
     extraContext: Map<String, String>? = null,
