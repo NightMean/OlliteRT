@@ -322,6 +322,9 @@
   <string name="settings_ha_config_preview_token_suffix" translatable="false">, and bearer token</string>
   <string name="settings_ha_copy_config" translatable="false">Copy Configuration</string>
 
+  <!-- Settings: Context Management card -->
+  <string name="settings_card_context_management" translatable="false">Context Management</string>
+
   <!-- Settings: Advanced card -->
   <string name="settings_card_advanced" translatable="false">Advanced</string>
   <string name="settings_warmup_message" translatable="false">Warmup Message</string>
