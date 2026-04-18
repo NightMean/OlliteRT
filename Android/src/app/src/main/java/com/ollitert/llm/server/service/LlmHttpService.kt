@@ -547,7 +547,7 @@ class LlmHttpService : Service() {
         // Just nullifying the instance pointer leaks GB-scale native memory until GC
         // finalizes the Java wrapper — which may never happen if heap pressure is low.
         if (t is OutOfMemoryError) {
-          try { ServerLlmModelHelper.cleanUp(model) {} } catch (_: Exception) {}
+          try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(logTag, "cleanUp() failed during OOM recovery", e) }
           defaultModel?.instance = null
           System.gc()
         }
