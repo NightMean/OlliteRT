@@ -16,7 +16,7 @@ data class LlmHttpModelCapabilities(
 data class LlmHttpModelItem(
   val id: String,
   val `object`: String = "model",
-  val created: Long = System.currentTimeMillis() / 1000,
+  val created: Long = LlmHttpBridgeUtils.epochSeconds(),
   val owned_by: String = "ollitert",
   val capabilities: LlmHttpModelCapabilities = LlmHttpModelCapabilities(),
 )
@@ -82,9 +82,9 @@ object LlmHttpResponseRenderer {
   fun emitSseEvent(event: String, payload: String): String = "event: $event\n" + "data: $payload\n\n"
 
   fun buildTextSsePayload(modelId: String, text: String, inputTokens: Int = 0, outputTokens: Int = 0): String {
-    val now = System.currentTimeMillis() / 1000
-    val respId = "resp-${java.util.UUID.randomUUID()}"
-    val msgId = "msg-${java.util.UUID.randomUUID()}"
+    val now = LlmHttpBridgeUtils.epochSeconds()
+    val respId = LlmHttpBridgeUtils.generateResponseId()
+    val msgId = LlmHttpBridgeUtils.generateMessageId()
     val esc = LlmHttpBridgeUtils.escapeSseText(text)
     val totalTokens = inputTokens + outputTokens
 
@@ -208,9 +208,9 @@ object LlmHttpResponseRenderer {
   }
 
   fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall, inputTokens: Int = 0, outputTokens: Int = 0): String {
-    val now = System.currentTimeMillis() / 1000
-    val respId = "resp-${java.util.UUID.randomUUID()}"
-    val fcId = "fc-${java.util.UUID.randomUUID()}"
+    val now = LlmHttpBridgeUtils.epochSeconds()
+    val respId = LlmHttpBridgeUtils.generateResponseId()
+    val fcId = LlmHttpBridgeUtils.generateFunctionCallId()
     val callId = toolCall.id
     val name = toolCall.function.name
     val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)

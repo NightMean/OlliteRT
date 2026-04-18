@@ -103,7 +103,7 @@ object LlmHttpToolCallParser {
       parseJsonObjectSafe(argsStr) ?: return null
     }
     return ToolCall(
-      id = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}",
+      id = LlmHttpBridgeUtils.generateToolCallId(),
       function = ToolCallFunction(name = name, arguments = argsStr),
     )
   }
@@ -152,7 +152,7 @@ object LlmHttpToolCallParser {
         parseJsonObjectSafe(argsStr) ?: return@mapNotNull null
       }
       ToolCall(
-        id = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}",
+        id = LlmHttpBridgeUtils.generateToolCallId(),
         function = ToolCallFunction(name = name, arguments = argsStr),
       )
     }
@@ -200,7 +200,7 @@ object LlmHttpToolCallParser {
     val argsStr = if (arguments is JsonObject) json.encodeToString(JsonObject.serializer(), arguments)
     else arguments.toString()
     return ToolCall(
-      id = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}",
+      id = LlmHttpBridgeUtils.generateToolCallId(),
       function = ToolCallFunction(name = name, arguments = argsStr),
     )
   }

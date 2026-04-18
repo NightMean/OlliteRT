@@ -45,6 +45,50 @@ class LlmHttpInferenceRunner(
 
   private val logTag = "LlmHttpInferenceRunner"
 
+  /**
+   * Re-initialize the model if needed (null instance or missing vision support).
+   * Must be called inside synchronized(this). Returns an error message on failure, or null on success.
+   *
+   * Protects against per-request config overrides poisoning EngineConfig.maxNumTokens:
+   * saves the overridden configValues, restores the persisted base config for initialize(),
+   * then puts the override back so resetConversation() picks up per-request sampler values.
+   */
+  private fun reinitIfNeeded(
+    model: Model,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+  ): String? {
+    val needsReinit = model.instance == null ||
+      (supportImage && !model.initializedWithVision)
+    if (!needsReinit) return null
+
+    if (model.instance != null) {
+      Log.i(logTag, "Re-initializing model for vision/audio support")
+      ServerLlmModelHelper.safeCleanup(model)
+    }
+    val overriddenConfig = model.configValues
+    val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
+    if (savedConfig != null) {
+      model.configValues = savedConfig
+    }
+    var err = ""
+    ServerLlmModelHelper.initialize(
+      context = context,
+      model = model,
+      supportImage = supportImage,
+      supportAudio = supportAudio,
+      onDone = { err = it },
+      systemInstruction = buildSystemInstruction(model.name),
+    )
+    model.configValues = overriddenConfig
+    if (err.isNotEmpty()) {
+      model.instance = null
+      return err
+    }
+    model.initializedWithVision = supportImage
+    return null
+  }
+
   // ── Blocking inference ───────────────────────────────────────────────────
 
   /**
@@ -72,50 +116,8 @@ class LlmHttpInferenceRunner(
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
     val supportAudio = model.llmSupportAudio
     synchronized(this) {
-      // Re-initialize if images are requested but engine lacks vision support.
-      val needsReinit = model.instance == null ||
-        (supportImage && !model.initializedWithVision)
-      if (needsReinit) {
-        if (model.instance != null) {
-          Log.i(logTag, "Re-initializing model with vision support")
-          try {
-            ServerLlmModelHelper.cleanUp(model) {}
-          } catch (e: Exception) {
-            Log.w(logTag, "Error cleaning up model for reinit: ${e.message}")
-          }
-          // Always null instance after cleanup attempt to prevent using a half-destroyed Engine
-          model.instance = null
-          System.gc()
-        }
-        // initialize() reads configValues[MAX_TOKENS] to set EngineConfig.maxNumTokens (the
-        // engine's context window). If a per-request override (withPerRequestConfig) is active,
-        // configValues may contain the client's small max_tokens (e.g. 69) instead of the
-        // model's configured context window (e.g. 4000) — which would permanently create the
-        // Engine with a tiny context window. Save the full overridden configValues, restore the
-        // persisted base config for initialize(), then put the override back so
-        // resetConversation() picks up the per-request sampler values.
-        val overriddenConfig = model.configValues
-        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-        if (savedConfig != null) {
-          model.configValues = savedConfig
-        }
-        var err = ""
-        ServerLlmModelHelper.initialize(
-          context = context,
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          onDone = { err = it },
-          systemInstruction = buildSystemInstruction(model.name),
-        )
-        // Restore the per-request overridden config so resetConversation() picks up sampler values
-        model.configValues = overriddenConfig
-        if (err.isNotEmpty()) {
-          model.instance = null  // Ensure null on failed init
-          return null to "Model initialization failed: $err"
-        }
-        model.initializedWithVision = supportImage
-      }
+      val initErr = reinitIfNeeded(model, supportImage, supportAudio)
+      if (initErr != null) return null to "Model initialization failed: $initErr"
     }
     val enableThinking = model.llmSupportThinking &&
       (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
@@ -236,49 +238,17 @@ class LlmHttpInferenceRunner(
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
     synchronized(this) {
-      val needsReinit = model.instance == null ||
-        (supportImage && !model.initializedWithVision)
-      if (needsReinit) {
-        if (model.instance != null) {
-          Log.i(logTag, "Re-initializing model with vision support (stream)")
-          try {
-            ServerLlmModelHelper.cleanUp(model) {}
-          } catch (e: Exception) {
-            Log.w(logTag, "Error cleaning up model for reinit (stream): ${e.message}")
-          }
-          model.instance = null
-          System.gc()
+      val initErr = reinitIfNeeded(model, supportImage, supportAudio)
+      if (initErr != null) {
+        if (logId != null) {
+          val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
         }
-        // Protect against per-request config override poisoning EngineConfig.maxNumTokens —
-        // see detailed comment in runLlm's reinit block.
-        val overriddenConfig = model.configValues
-        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-        if (savedConfig != null) {
-          model.configValues = savedConfig
-        }
-        var err = ""
-        ServerLlmModelHelper.initialize(
-          context = context,
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          onDone = { err = it },
-          systemInstruction = buildSystemInstruction(model.name),
+        return NanoHTTPD.newFixedLengthResponse(
+          NanoHTTPD.Response.Status.INTERNAL_ERROR,
+          "application/json",
+          LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
         )
-        model.configValues = overriddenConfig
-        if (err.isNotEmpty()) {
-          model.instance = null
-          if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $err")
-            RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
-          }
-          return NanoHTTPD.newFixedLengthResponse(
-            NanoHTTPD.Response.Status.INTERNAL_ERROR,
-            "application/json",
-            LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
-          )
-        }
-        model.initializedWithVision = supportImage
       }
     }
 
@@ -286,9 +256,9 @@ class LlmHttpInferenceRunner(
       (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
-    val now = System.currentTimeMillis() / 1000
-    val respId = "resp-${java.util.UUID.randomUUID()}"
-    val msgId = "msg-${java.util.UUID.randomUUID()}"
+    val now = LlmHttpBridgeUtils.epochSeconds()
+    val respId = LlmHttpBridgeUtils.generateResponseId()
+    val msgId = LlmHttpBridgeUtils.generateMessageId()
     val fullText = StringBuilder()
     val fullThinking = StringBuilder()
     var headerWritten = false
@@ -557,49 +527,17 @@ class LlmHttpInferenceRunner(
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
     synchronized(this) {
-      val needsReinit = model.instance == null ||
-        (supportImage && !model.initializedWithVision)
-      if (needsReinit) {
-        if (model.instance != null) {
-          Log.i(logTag, "Re-initializing model with vision support (stream-chat)")
-          try {
-            ServerLlmModelHelper.cleanUp(model) {}
-          } catch (e: Exception) {
-            Log.w(logTag, "Error cleaning up model for reinit (stream-chat): ${e.message}")
-          }
-          model.instance = null
-          System.gc()
+      val initErr = reinitIfNeeded(model, supportImage, supportAudio)
+      if (initErr != null) {
+        if (logId != null) {
+          val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
         }
-        // Protect against per-request config override poisoning EngineConfig.maxNumTokens —
-        // see detailed comment in runLlm's reinit block.
-        val overriddenConfig = model.configValues
-        val savedConfig = LlmHttpPrefs.getInferenceConfig(context, model.name)
-        if (savedConfig != null) {
-          model.configValues = savedConfig
-        }
-        var err = ""
-        ServerLlmModelHelper.initialize(
-          context = context,
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          onDone = { err = it },
-          systemInstruction = buildSystemInstruction(model.name),
+        return NanoHTTPD.newFixedLengthResponse(
+          NanoHTTPD.Response.Status.INTERNAL_ERROR,
+          "application/json",
+          LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
         )
-        model.configValues = overriddenConfig
-        if (err.isNotEmpty()) {
-          model.instance = null
-          if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $err")
-            RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
-          }
-          return NanoHTTPD.newFixedLengthResponse(
-            NanoHTTPD.Response.Status.INTERNAL_ERROR,
-            "application/json",
-            LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
-          )
-        }
-        model.initializedWithVision = supportImage
       }
     }
 
@@ -607,8 +545,8 @@ class LlmHttpInferenceRunner(
       (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
-    val now = System.currentTimeMillis() / 1000
-    val chatId = "chatcmpl-${java.util.UUID.randomUUID()}"
+    val now = LlmHttpBridgeUtils.epochSeconds()
+    val chatId = LlmHttpBridgeUtils.generateChatCompletionId()
     val fullText = StringBuilder()
     val fullThinking = StringBuilder()
     var headerWritten = false

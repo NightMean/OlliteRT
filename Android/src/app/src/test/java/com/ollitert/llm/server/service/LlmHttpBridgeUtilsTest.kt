@@ -2,6 +2,7 @@ package com.ollitert.llm.server.service
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -46,6 +47,74 @@ class LlmHttpBridgeUtilsTest {
     assertEquals("line1\\nline2", LlmHttpBridgeUtils.escapeSseText("line1\nline2"))
     assertEquals("say \\\"hi\\\"", LlmHttpBridgeUtils.escapeSseText("say \"hi\""))
     assertEquals("back\\\\slash", LlmHttpBridgeUtils.escapeSseText("back\\slash"))
+  }
+
+  // ── ID generation ──────────────────────────────────────────────────────
+
+  @Test
+  fun `generateCompletionId - has cmpl prefix and UUID`() {
+    val id = LlmHttpBridgeUtils.generateCompletionId()
+    assertTrue(id.startsWith("cmpl-"))
+    assertEquals(41, id.length) // "cmpl-" (5) + UUID (36)
+  }
+
+  @Test
+  fun `generateChatCompletionId - has chatcmpl prefix and UUID`() {
+    val id = LlmHttpBridgeUtils.generateChatCompletionId()
+    assertTrue(id.startsWith("chatcmpl-"))
+    assertEquals(45, id.length) // "chatcmpl-" (9) + UUID (36)
+  }
+
+  @Test
+  fun `generateResponseId - has resp prefix and UUID`() {
+    val id = LlmHttpBridgeUtils.generateResponseId()
+    assertTrue(id.startsWith("resp-"))
+    assertEquals(41, id.length) // "resp-" (5) + UUID (36)
+  }
+
+  @Test
+  fun `generateMessageId - has msg prefix and UUID`() {
+    val id = LlmHttpBridgeUtils.generateMessageId()
+    assertTrue(id.startsWith("msg-"))
+    assertEquals(40, id.length) // "msg-" (4) + UUID (36)
+  }
+
+  @Test
+  fun `generateFunctionCallId - has fc prefix and UUID`() {
+    val id = LlmHttpBridgeUtils.generateFunctionCallId()
+    assertTrue(id.startsWith("fc-"))
+    assertEquals(39, id.length) // "fc-" (3) + UUID (36)
+  }
+
+  @Test
+  fun `generateToolCallId - has call_ prefix and 24 hex chars`() {
+    val id = LlmHttpBridgeUtils.generateToolCallId()
+    assertTrue(id.startsWith("call_"))
+    assertEquals(29, id.length) // "call_" (5) + 24 hex chars
+    assertTrue(id.substring(5).all { it in '0'..'9' || it in 'a'..'f' })
+  }
+
+  @Test
+  fun `generateBearerToken - 32 hex chars without dashes`() {
+    val token = LlmHttpBridgeUtils.generateBearerToken()
+    assertEquals(32, token.length)
+    assertFalse(token.contains("-"))
+    assertTrue(token.all { it in '0'..'9' || it in 'a'..'f' })
+  }
+
+  @Test
+  fun `generated IDs are unique across calls`() {
+    val ids = (1..10).map { LlmHttpBridgeUtils.generateChatCompletionId() }.toSet()
+    assertEquals(10, ids.size)
+  }
+
+  @Test
+  fun `epochSeconds - returns current epoch in seconds`() {
+    val before = System.currentTimeMillis() / 1000
+    val result = LlmHttpBridgeUtils.epochSeconds()
+    val after = System.currentTimeMillis() / 1000
+    // Allow 1-second drift to avoid flakiness at second boundaries
+    assertTrue(result >= before && result <= after + 1)
   }
 
   // ── compactBase64DataUris ───────────────────────────────────────────────

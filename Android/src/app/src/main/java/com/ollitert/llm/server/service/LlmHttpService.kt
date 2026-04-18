@@ -19,6 +19,7 @@ import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.CLEANUP_AWAIT_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
+import com.ollitert.llm.server.data.bytesToMb
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.serialization.json.Json
@@ -227,8 +228,7 @@ class LlmHttpService : Service() {
       // Without this, modelCache.clear() orphans Engine instances with GB-scale native memory.
       for ((_, cachedModel) in modelCache) {
         if (cachedModel.instance != null) {
-          try { ServerLlmModelHelper.cleanUp(cachedModel) {} } catch (_: Exception) {}
-          cachedModel.instance = null
+          ServerLlmModelHelper.safeCleanup(cachedModel)
         }
       }
       modelCache.clear()
@@ -406,10 +406,10 @@ class LlmHttpService : Service() {
         try {
           val stat = StatFs(Environment.getDataDirectory().path)
           if (stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
-            val availMb = stat.availableBytes / (1024 * 1024)
+            val availMb = stat.availableBytes.bytesToMb()
             throw RuntimeException(
               "Not enough storage to load model (${availMb}MB available, " +
-              "need at least ${MIN_STORAGE_FOR_MODEL_INIT_BYTES / (1024 * 1024)}MB). " +
+              "need at least ${MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb()}MB). " +
               "Free up space and try again."
             )
           }
@@ -458,8 +458,7 @@ class LlmHttpService : Service() {
         // If another model load was initiated while we were warming up, discard this result
         if (loadGeneration.get() != thisGeneration) {
           Log.w(logTag, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
-          try { ServerLlmModelHelper.cleanUp(model) {} } catch (_: Exception) {}
-          model.instance = null
+          ServerLlmModelHelper.safeCleanup(model)
           return@Thread
         }
         ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
@@ -540,8 +539,7 @@ class LlmHttpService : Service() {
           Log.w(logTag, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
           // Clean up any partially-created Engine (e.g. Engine initialized but Conversation
           // creation failed). Without this, the orphaned Engine's native memory is leaked.
-          try { ServerLlmModelHelper.cleanUp(model) {} } catch (_: Exception) {}
-          model.instance = null
+          ServerLlmModelHelper.safeCleanup(model)
           return@Thread
         }
         // OOM during model load: close the native Engine/Conversation to release memory.

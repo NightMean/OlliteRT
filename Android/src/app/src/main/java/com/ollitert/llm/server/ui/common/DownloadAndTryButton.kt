@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.common
 
+import com.ollitert.llm.server.data.bytesToGb
 import android.content.Intent
 import android.util.Log
 import android.widget.Toast
@@ -746,14 +747,14 @@ fun DownloadAndTryButton(
     // blocked even though raw free space may appear sufficient. The 3 GB system
     // reserve (SYSTEM_RESERVED_MEMORY_IN_BYTES) keeps the device stable after
     // downloading large models\.
-    val modelSizeGb = model.totalBytes / (1024f * 1024 * 1024)
-    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES / (1024f * 1024 * 1024)
+    val modelSizeGb = model.totalBytes.bytesToGb()
+    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES.bytesToGb()
     val totalRequiredGb = modelSizeGb + reserveGb
     val availableBytes = try {
       val stat = StatFs(Environment.getDataDirectory().path)
       stat.availableBlocksLong * stat.blockSizeLong
     } catch (_: Exception) { 0L }
-    val availableGb = availableBytes / (1024f * 1024 * 1024)
+    val availableGb = availableBytes.bytesToGb()
 
     AlertDialog(
       icon = {

@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.ui.server.logs
 
+import com.ollitert.llm.server.ui.common.formatByteSize
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility

@@ -282,8 +282,8 @@ class LlmHttpEndpointHandlers(
 
     if (prompt.isBlank()) {
       val responseJson = json.encodeToString(CompletionResponse(
-        id = "cmpl-${java.util.UUID.randomUUID()}",
-        created = System.currentTimeMillis() / 1000,
+        id = LlmHttpBridgeUtils.generateCompletionId(),
+        created = LlmHttpBridgeUtils.epochSeconds(),
         model = model.name,
         choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = "stop")),
         usage = Usage(0, 0),
@@ -330,8 +330,8 @@ class LlmHttpEndpointHandlers(
       val completionTokens = estimateTokens(text)
       val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(CompletionResponse(
-        id = "cmpl-${java.util.UUID.randomUUID()}",
-        created = System.currentTimeMillis() / 1000,
+        id = LlmHttpBridgeUtils.generateCompletionId(),
+        created = LlmHttpBridgeUtils.epochSeconds(),
         model = model.name,
         choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
         usage = Usage(promptTokens, completionTokens),

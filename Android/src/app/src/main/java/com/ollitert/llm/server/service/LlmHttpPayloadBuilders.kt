@@ -249,7 +249,7 @@ object LlmHttpPayloadBuilders {
   }
 
   fun emptyChatResponse(modelName: String) = ChatResponse(
-    id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+    id = LlmHttpBridgeUtils.generateChatCompletionId(), created = LlmHttpBridgeUtils.epochSeconds(), model = modelName,
     choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), "stop")),
     usage = Usage(0, 0),
   )
@@ -258,7 +258,7 @@ object LlmHttpPayloadBuilders {
     val promptTokens = estimateTokensByLength(promptLen)
     val completionTokens = estimateTokens(text)
     return ChatResponse(
-      id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+      id = LlmHttpBridgeUtils.generateChatCompletionId(), created = LlmHttpBridgeUtils.epochSeconds(), model = modelName,
       choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finishReason)),
       usage = Usage(promptTokens, completionTokens),
       timings = timings,
@@ -269,7 +269,7 @@ object LlmHttpPayloadBuilders {
     val promptTokens = estimateTokensByLength(promptLen)
     val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
     return ChatResponse(
-      id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+      id = LlmHttpBridgeUtils.generateChatCompletionId(), created = LlmHttpBridgeUtils.epochSeconds(), model = modelName,
       choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), "tool_calls")),
       usage = Usage(promptTokens, completionTokens),
       timings = timings,
@@ -277,7 +277,7 @@ object LlmHttpPayloadBuilders {
   }
 
   fun responsesResponseWithText(modelName: String, text: String, promptLen: Int = 0) = ResponsesResponse(
-    id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+    id = LlmHttpBridgeUtils.generateResponseId(), created = LlmHttpBridgeUtils.epochSeconds(), model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(text = text)))),
     usage = Usage(
       prompt_tokens = estimateTokensByLength(promptLen),
@@ -286,7 +286,7 @@ object LlmHttpPayloadBuilders {
   )
 
   fun responsesResponseWithToolCall(modelName: String, toolCall: ToolCall, promptLen: Int = 0, json: Json) = ResponsesResponse(
-    id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
+    id = LlmHttpBridgeUtils.generateResponseId(), created = LlmHttpBridgeUtils.epochSeconds(), model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(type = "output_tool_call", text = json.encodeToString(toolCall))), finish_reason = "tool_calls")),
     usage = Usage(
       prompt_tokens = estimateTokensByLength(promptLen),

@@ -26,7 +26,8 @@ import com.ollitert.llm.server.common.cleanUpMediapipeTaskErrorMessage
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
-import com.ollitert.llm.server.data.MIN_ENGINE_STORAGE_BYTES
+import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
+import com.ollitert.llm.server.data.bytesToMb
 import com.ollitert.llm.server.data.DEFAULT_TEMPERATURE
 import com.ollitert.llm.server.data.DEFAULT_TOPK
 import com.ollitert.llm.server.data.DEFAULT_TOPP
@@ -127,9 +128,9 @@ object ServerLlmModelHelper : LlmModelHelper {
     try {
       val stat = StatFs(Environment.getDataDirectory().path)
       val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
-      if (availableBytes < MIN_ENGINE_STORAGE_BYTES) {
-        val availableMb = availableBytes / (1024 * 1024)
-        val requiredMb = MIN_ENGINE_STORAGE_BYTES / (1024 * 1024)
+      if (availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
+        val availableMb = availableBytes.bytesToMb()
+        val requiredMb = MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb()
         onDone("Insufficient storage to load model (${availableMb}MB free, need at least ${requiredMb}MB). " +
           "Free up space by deleting unused models or files, then try again.")
         return
@@ -254,6 +255,17 @@ object ServerLlmModelHelper : LlmModelHelper {
       model.instance = null
       System.gc()
     }
+  }
+
+  /** Safe cleanup: close native resources with try-catch, null instance, hint GC. */
+  fun safeCleanup(model: Model) {
+    try {
+      cleanUp(model) {}
+    } catch (e: Exception) {
+      Log.w(TAG, "Error during model cleanup: ${e.message}")
+    }
+    model.instance = null
+    System.gc()
   }
 
   override fun cleanUp(model: Model, onDone: () -> Unit) {
