@@ -1,5 +1,6 @@
 /*
  * Copyright 2025 Google LLC
+ * Modifications Copyright 2025-2026 @NightMean (https://github.com/NightMean)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +26,7 @@ import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.getJsonResponse
-import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.Config
-import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
@@ -142,17 +141,7 @@ data class ModelManagerUiState(
   val modelImportingUpdateTrigger: Long = 0L,
   // Bumped when storage changes (download complete, model deleted).
   val storageUpdateTrigger: Long = 0L,
-) {
-  fun isModelInitialized(model: Model): Boolean {
-    return modelInitializationStatus[model.name]?.status ==
-      ModelInitializationStatusType.INITIALIZED
-  }
-
-  fun isModelInitializing(model: Model): Boolean {
-    return modelInitializationStatus[model.name]?.status ==
-      ModelInitializationStatusType.INITIALIZING
-  }
-}
+)
 
 /**
  * ViewModel responsible for managing models, their download status, and initialization.
@@ -328,110 +317,6 @@ constructor(
   fun deleteModelAndRefreshStorage(model: Model) {
     deleteModel(model = model)
     notifyStorageChanged()
-  }
-
-  fun initializeModel(
-    context: Context,
-    task: Task,
-    model: Model,
-    force: Boolean = false,
-    onDone: () -> Unit = {},
-  ) {
-    viewModelScope.launch(Dispatchers.Default) {
-      // Skip if initialized already.
-      if (
-        !force &&
-          uiState.value.modelInitializationStatus[model.name]?.status ==
-            ModelInitializationStatusType.INITIALIZED
-      ) {
-        Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
-        return@launch
-      }
-
-      // Skip if initialization is in progress.
-      if (model.initializing) {
-        model.cleanUpAfterInit = false
-        Log.d(TAG, "Model '${model.name}' is being initialized. Skipping.")
-        return@launch
-      }
-
-      // Clean up.
-      cleanupModel(context = context, task = task, model = model)
-
-      // Start initialization.
-      Log.d(TAG, "Initializing model '${model.name}'...")
-      model.initializing = true
-      updateModelInitializationStatus(
-        model = model,
-        status = ModelInitializationStatusType.INITIALIZING,
-      )
-
-      val onDoneFn: (error: String) -> Unit = { error ->
-        model.initializing = false
-        if (model.instance != null) {
-          Log.d(TAG, "Model '${model.name}' initialized successfully")
-          updateModelInitializationStatus(
-            model = model,
-            status = ModelInitializationStatusType.INITIALIZED,
-          )
-          if (model.cleanUpAfterInit) {
-            Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
-            cleanupModel(context = context, task = task, model = model)
-          }
-          onDone()
-        } else if (error.isNotEmpty()) {
-          Log.d(TAG, "Model '${model.name}' failed to initialize")
-          updateModelInitializationStatus(
-            model = model,
-            status = ModelInitializationStatusType.ERROR,
-            error = error,
-          )
-        }
-      }
-
-      Log.d(TAG, "Benchmark requested for model '${model.name}'")
-      onDoneFn("")
-    }
-  }
-
-  fun cleanupModel(
-    context: Context,
-    task: Task,
-    model: Model,
-    instanceToCleanUp: Any? = model.instance,
-    onDone: () -> Unit = {},
-  ) {
-    if (instanceToCleanUp != null && instanceToCleanUp !== model.instance) {
-      Log.d(TAG, "Stale cleanup request for ${model.name}. Aborting.")
-      onDone()
-      return
-    }
-
-    if (model.instance != null) {
-      model.cleanUpAfterInit = false
-      Log.d(TAG, "Cleaning up model '${model.name}'...")
-      val onDoneFn: () -> Unit = {
-        model.instance = null
-        model.initializing = false
-        updateModelInitializationStatus(
-          model = model,
-          status = ModelInitializationStatusType.NOT_INITIALIZED,
-        )
-        Log.d(TAG, "Clean up model '${model.name}' done")
-        onDone()
-      }
-      onDoneFn()
-    } else {
-      // When model is being initialized and we are trying to clean it up at same time, we mark it
-      // to clean up and it will be cleaned up after initialization is done.
-      if (model.initializing) {
-        Log.d(
-          TAG,
-          "Model '${model.name}' is still initializing.. Will clean up after it is done initializing",
-        )
-        model.cleanUpAfterInit = true
-      }
-    }
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
@@ -962,31 +847,6 @@ constructor(
   private fun deleteFileFromExternalFilesDir(fileName: String) = fileManager.deleteFileFromExternalFilesDir(fileName)
   private fun deleteFilesFromImportDir(fileName: String) = fileManager.deleteFilesFromImportDir(fileName)
   private fun deleteDirFromExternalFilesDir(dir: String) = fileManager.deleteDirFromExternalFilesDir(dir)
-
-  private fun updateModelInitializationStatus(
-    model: Model,
-    status: ModelInitializationStatusType,
-    error: String = "",
-  ) {
-    val curModelInstance = uiState.value.modelInitializationStatus.toMutableMap()
-    val initializedBackends = curModelInstance[model.name]?.initializedBackends ?: setOf()
-    val backend =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    val newInitializedBackends =
-      if (status == ModelInitializationStatusType.INITIALIZED) {
-        initializedBackends + backend
-      } else {
-        initializedBackends
-      }
-    curModelInstance[model.name] =
-      ModelInitializationStatus(
-        status = status,
-        error = error,
-        initializedBackends = newInitializedBackends,
-      )
-    val newUiState = uiState.value.copy(modelInitializationStatus = curModelInstance)
-    _uiState.update { newUiState }
-  }
 
 }
 
