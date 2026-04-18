@@ -14,9 +14,6 @@ internal fun AdvancedCard(vm: SettingsViewModel) {
     title = stringResource(R.string.settings_card_advanced),
     searchQuery = vm.searchQuery,
   ) {
-    ToggleCardContent(
-      keys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "ignore_client_params"),
-      vm = vm,
-    )
+    ToggleCardContent(cardId = CardId.ADVANCED, vm = vm)
   }
 }

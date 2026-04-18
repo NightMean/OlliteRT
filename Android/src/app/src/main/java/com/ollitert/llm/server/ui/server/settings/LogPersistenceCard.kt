@@ -39,7 +39,7 @@ internal fun LogPersistenceCard(vm: SettingsViewModel) {
       searchQuery = vm.searchQuery,
     )
 
-    val childAlpha = vm.settingAlpha("log_max_entries")
+    val childAlpha = vm.settingAlpha(LOG_MAX_ENTRIES.key)
 
     SettingDivider(verticalPadding = 8)
 
@@ -53,7 +53,7 @@ internal fun LogPersistenceCard(vm: SettingsViewModel) {
         text.toIntOrNull()?.let { vm.logMaxEntriesEntry.update(it) }
       },
       searchQuery = vm.searchQuery,
-      enabled = vm.isSettingEnabled("log_max_entries"),
+      enabled = vm.isSettingEnabled(LOG_MAX_ENTRIES.key),
       modifier = Modifier.alpha(childAlpha),
     )
 
@@ -65,7 +65,7 @@ internal fun LogPersistenceCard(vm: SettingsViewModel) {
       savedBaseValue = vm.logAutoDeleteMinutesEntry.saved,
       onBaseValueChange = { vm.logAutoDeleteMinutesEntry.update(it) },
       searchQuery = vm.searchQuery,
-      enabled = vm.isSettingEnabled("log_auto_delete"),
+      enabled = vm.isSettingEnabled(LOG_AUTO_DELETE.key),
       modifier = Modifier.alpha(childAlpha),
     )
 
@@ -74,7 +74,7 @@ internal fun LogPersistenceCard(vm: SettingsViewModel) {
     Column(modifier = Modifier.alpha(childAlpha)) {
       Button(
         onClick = { vm.showClearPersistedDialog = true },
-        enabled = vm.isSettingEnabled("clear_all_logs"),
+        enabled = vm.isSettingEnabled(CLEAR_ALL_LOGS.key),
         colors = ButtonDefaults.buttonColors(
           containerColor = MaterialTheme.colorScheme.error,
         ),

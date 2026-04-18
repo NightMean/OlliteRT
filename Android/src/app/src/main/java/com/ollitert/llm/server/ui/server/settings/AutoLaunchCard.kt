@@ -42,7 +42,7 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
     title = stringResource(R.string.settings_card_auto_launch),
     searchQuery = vm.searchQuery,
   ) {
-    if (vm.settingVisible("default_model")) {
+    if (vm.settingVisible(DEFAULT_MODEL.key)) {
       Text(
         text = highlightSearchMatches(stringResource(R.string.settings_default_model_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
@@ -115,11 +115,11 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
       )
     }
 
-    if (vm.settingVisible("default_model") && vm.settingVisible("start_on_boot")) {
+    if (vm.settingVisible(DEFAULT_MODEL.key) && vm.settingVisible(START_ON_BOOT.key)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible("start_on_boot")) {
+    if (vm.settingVisible(START_ON_BOOT.key)) {
       ToggleSettingRow(
         label = stringResource(R.string.settings_start_on_boot),
         description = stringResource(
@@ -129,16 +129,16 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
         checked = vm.autoStartOnBootEntry.current,
         onCheckedChange = { vm.autoStartOnBootEntry.update(it) },
         searchQuery = vm.searchQuery,
-        enabled = vm.isSettingEnabled("start_on_boot"),
-        alphaOverride = vm.settingAlpha("start_on_boot"),
+        enabled = vm.isSettingEnabled(START_ON_BOOT.key),
+        alphaOverride = vm.settingAlpha(START_ON_BOOT.key),
       )
     }
 
-    if (vm.settingVisible("start_on_boot") && vm.settingVisible("keep_alive")) {
+    if (vm.settingVisible(START_ON_BOOT.key) && vm.settingVisible(KEEP_ALIVE.key)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible("keep_alive")) {
+    if (vm.settingVisible(KEEP_ALIVE.key)) {
       ToggleSettingRow(
         label = stringResource(R.string.settings_keep_alive),
         description = stringResource(R.string.settings_keep_alive_desc),
@@ -155,18 +155,18 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
         savedBaseValue = vm.keepAliveMinutesEntry.saved.toLong(),
         onBaseValueChange = { vm.keepAliveMinutesEntry.update(it.toInt()) },
         searchQuery = vm.searchQuery,
-        isError = vm.hasError("keep_alive_timeout"),
+        isError = vm.hasError(KEEP_ALIVE_TIMEOUT.key),
         enabled = vm.keepAliveEnabledEntry.current,
-        onErrorClear = { vm.clearError("keep_alive_timeout") },
-        modifier = Modifier.alpha(vm.settingAlpha("keep_alive_timeout")),
+        onErrorClear = { vm.clearError(KEEP_ALIVE_TIMEOUT.key) },
+        modifier = Modifier.alpha(vm.settingAlpha(KEEP_ALIVE_TIMEOUT.key)),
       )
     }
 
-    if (vm.settingVisible("keep_alive") && vm.settingVisible("dontkillmyapp")) {
+    if (vm.settingVisible(KEEP_ALIVE.key) && vm.settingVisible(DONTKILLMYAPP.key)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible("dontkillmyapp")) {
+    if (vm.settingVisible(DONTKILLMYAPP.key)) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
