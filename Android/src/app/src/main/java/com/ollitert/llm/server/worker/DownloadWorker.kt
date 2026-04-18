@@ -302,7 +302,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               var zipEntry: ZipEntry? = zipIn.nextEntry
 
               while (zipEntry != null) {
-                val filePath = destDir.absolutePath + File.separator + zipEntry.name
+                val destFile = File(destDir, zipEntry.name).canonicalFile
+                if (!destFile.path.startsWith(destDir.canonicalPath + File.separator)) {
+                  throw SecurityException("Zip entry outside target dir: ${zipEntry.name}")
+                }
+                val filePath = destFile.path
 
                 // Extract files.
                 if (!zipEntry.isDirectory) {
