@@ -1204,24 +1204,6 @@ fun SettingsScreen(
     }
     } // AnimatedVisibility: Home Assistant
 
-    // Advanced Settings card — uniform toggles, rendered via data-driven loop
-    AnimatedVisibility(
-      visible = vm.cardVisible("advanced"),
-      enter = expandVertically(),
-      exit = shrinkVertically(),
-    ) {
-    SettingsCard(
-      icon = Icons.Outlined.Science,
-      title = stringResource(R.string.settings_card_advanced),
-      searchQuery = vm.searchQuery,
-    ) {
-      ToggleCardContent(
-        keys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
-        vm = vm,
-      )
-    }
-    } // AnimatedVisibility: Advanced
-
     // Updates card
     AnimatedVisibility(
       visible = vm.cardVisible("updates"),
@@ -1233,6 +1215,64 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_updates),
       searchQuery = vm.searchQuery,
     ) {
+      if (vm.settingVisible("auto_update_check")) {
+      // Automatic update check — gated behind notification permissions
+      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+      val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
+      val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
+
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_auto_update_check),
+        description = stringResource(R.string.settings_auto_update_check_desc),
+        checked = vm.updateCheckEnabledEntry.current,
+        onCheckedChange = { vm.updateCheckEnabledEntry.update(it) },
+        searchQuery = vm.searchQuery,
+        enabled = updateControlsEnabled,
+      )
+
+      // Notification permission/channel warning
+      if (!notifPermissionGranted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_permission_warning),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+      } else if (updateChannelMuted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_channel_muted),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+              putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, UpdateCheckWorker.UPDATE_CHANNEL_ID)
+            }
+            context.startActivity(intent)
+          },
+        )
+      }
+
+      SettingDivider(verticalPadding = 8)
+
+      NumericWithUnitRow(
+        def = CHECK_FREQUENCY,
+        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
+        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
+        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
+        searchQuery = vm.searchQuery,
+        isError = vm.hasError("check_frequency"),
+        enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
+        modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
+        onErrorClear = { vm.clearError("check_frequency") },
+      )
+      } // if: auto_update_check
+
+      if (vm.settingVisible("auto_update_check") && vm.settingVisible("check_for_updates")) {
+        SettingDivider()
+      }
+
       // Check for Updates — manual check always available, automatic scheduling is separate
       if (vm.settingVisible("check_for_updates")) {
 
@@ -1311,66 +1351,26 @@ fun SettingsScreen(
       }
       } // if: check_for_updates
 
-      if (vm.settingVisible("check_for_updates") && vm.settingVisible("auto_update_check")) {
-        SettingDivider()
-      }
-
-      if (vm.settingVisible("auto_update_check")) {
-      // Automatic update check — gated behind notification permissions
-      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
-      val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
-      val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
-
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_auto_update_check),
-        description = stringResource(R.string.settings_auto_update_check_desc),
-        checked = vm.updateCheckEnabledEntry.current,
-        onCheckedChange = { vm.updateCheckEnabledEntry.update(it) },
-        searchQuery = vm.searchQuery,
-        enabled = updateControlsEnabled,
-      )
-
-      // Notification permission/channel warning
-      if (!notifPermissionGranted) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_notif_permission_warning),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.error,
-        )
-      } else if (updateChannelMuted) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_notif_channel_muted),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.error,
-          modifier = Modifier.clickable {
-            val intent = android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
-              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
-              putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, UpdateCheckWorker.UPDATE_CHANNEL_ID)
-            }
-            context.startActivity(intent)
-          },
-        )
-      }
-
-      SettingDivider(verticalPadding = 8)
-
-      NumericWithUnitRow(
-        def = CHECK_FREQUENCY,
-        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
-        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
-        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
-        searchQuery = vm.searchQuery,
-        isError = vm.hasError("check_frequency"),
-        enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
-        modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
-        onErrorClear = { vm.clearError("check_frequency") },
-      )
-      } // if: auto_update_check
-
     }
     } // AnimatedVisibility: Updates
+
+    // Advanced Settings card — uniform toggles, rendered via data-driven loop
+    AnimatedVisibility(
+      visible = vm.cardVisible("advanced"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
+    SettingsCard(
+      icon = Icons.Outlined.Science,
+      title = stringResource(R.string.settings_card_advanced),
+      searchQuery = vm.searchQuery,
+    ) {
+      ToggleCardContent(
+        keys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
+        vm = vm,
+      )
+    }
+    } // AnimatedVisibility: Advanced
 
     // Developer card
     AnimatedVisibility(

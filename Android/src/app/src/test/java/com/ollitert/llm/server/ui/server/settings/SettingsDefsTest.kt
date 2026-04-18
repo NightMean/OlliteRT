@@ -59,7 +59,7 @@ class SettingsDefsTest {
     val expectedOrder = listOf(
       CardId.GENERAL, CardId.HF_TOKEN, CardId.SERVER_CONFIG, CardId.AUTO_LAUNCH,
       CardId.METRICS, CardId.LOG_PERSISTENCE, CardId.HOME_ASSISTANT,
-      CardId.ADVANCED, CardId.UPDATES, CardId.DEVELOPER, CardId.RESET,
+      CardId.UPDATES, CardId.ADVANCED, CardId.DEVELOPER, CardId.RESET,
     )
     assertEquals(expectedOrder, allCardDefs.map { it.id })
   }
