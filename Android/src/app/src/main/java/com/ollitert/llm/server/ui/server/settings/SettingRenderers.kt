@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.ui.server.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,11 +9,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -27,14 +32,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 /**
@@ -254,6 +264,131 @@ fun NumericWithUnitRow(
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+  }
+}
+
+/**
+ * Renders a list of toggle settings with automatic dividers between visible items.
+ * Used by cards that contain only uniform toggle rows (General, Advanced, Metrics).
+ */
+@Composable
+internal fun ToggleCardContent(
+  keys: List<String>,
+  vm: SettingsViewModel,
+  dividerPadding: Int = 16,
+) {
+  val visible = keys.map { vm.settingVisible(it) }
+  var visibleCount = 0
+  keys.forEachIndexed { index, key ->
+    if (!visible[index]) return@forEachIndexed
+    if (visibleCount > 0) SettingDivider(verticalPadding = dividerPadding)
+    visibleCount++
+    val entry = vm.getToggleEntry(key) ?: return@forEachIndexed
+    val def = settingDefsByKey[key] as? SettingDef.Toggle ?: return@forEachIndexed
+    ToggleSettingRow(
+      label = stringResource(def.labelRes),
+      description = stringResource(def.descriptionRes),
+      checked = entry.current,
+      onCheckedChange = { entry.update(it) },
+      searchQuery = vm.searchQuery,
+      enabled = vm.isSettingEnabled(key),
+      alphaOverride = vm.settingAlpha(key),
+    )
+  }
+}
+
+@Composable
+internal fun SettingsCard(
+  icon: ImageVector,
+  title: String,
+  modifier: Modifier = Modifier,
+  searchQuery: String = "",
+  content: @Composable () -> Unit,
+) {
+  SettingsCardLayout(
+    iconContent = {
+      Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(20.dp),
+      )
+    },
+    title = title,
+    modifier = modifier,
+    searchQuery = searchQuery,
+    content = content,
+  )
+}
+
+/** Overload for cards that use a drawable resource icon (e.g. brand icons like Home Assistant). */
+@Composable
+internal fun SettingsCard(
+  iconRes: Int,
+  title: String,
+  modifier: Modifier = Modifier,
+  searchQuery: String = "",
+  content: @Composable () -> Unit,
+) {
+  SettingsCardLayout(
+    iconContent = {
+      Icon(
+        painter = painterResource(id = iconRes),
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(20.dp),
+      )
+    },
+    title = title,
+    modifier = modifier,
+    searchQuery = searchQuery,
+    content = content,
+  )
+}
+
+/** Overload that accepts a [CardIcon] sealed class for data-driven card rendering. */
+@Composable
+internal fun SettingsCard(
+  cardIcon: CardIcon,
+  title: String,
+  modifier: Modifier = Modifier,
+  searchQuery: String = "",
+  content: @Composable () -> Unit,
+) {
+  when (cardIcon) {
+    is CardIcon.Vector ->
+      SettingsCard(icon = cardIcon.icon, title = title, modifier = modifier, searchQuery = searchQuery, content = content)
+    is CardIcon.Resource ->
+      SettingsCard(iconRes = cardIcon.resId, title = title, modifier = modifier, searchQuery = searchQuery, content = content)
+  }
+}
+
+@Composable
+internal fun SettingsCardLayout(
+  iconContent: @Composable () -> Unit,
+  title: String,
+  modifier: Modifier = Modifier,
+  searchQuery: String = "",
+  content: @Composable () -> Unit,
+) {
+  Column(
+    modifier = modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(24.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerLow)
+      .padding(20.dp),
+  ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      iconContent()
+      Spacer(modifier = Modifier.width(8.dp))
+      Text(
+        text = highlightSearchMatches(title, searchQuery, OlliteRTPrimary),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    content()
   }
 }
 
