@@ -904,6 +904,8 @@ class LlmHttpInferenceRunner(
 
   companion object {
 
+    private val TOKEN_OVERFLOW_REGEX = Regex("(\\d+)\\s*>=\\s*(\\d+)")
+
     /**
      * Truncates model output at the first occurrence of any stop sequence.
      * Returns the truncated text and whether truncation occurred.
@@ -952,7 +954,7 @@ class LlmHttpInferenceRunner(
      */
     fun extractActualTokenCounts(responseBody: String): Pair<Long, Long>? {
       // Pattern: "6579 >= 4000" — actual input tokens exceeding max context
-      val match = Regex("(\\d+)\\s*>=\\s*(\\d+)").find(responseBody) ?: return null
+      val match = TOKEN_OVERFLOW_REGEX.find(responseBody) ?: return null
       val actual = match.groupValues[1].toLongOrNull() ?: return null
       val max = match.groupValues[2].toLongOrNull() ?: return null
       if (actual <= 0 || max <= 0) return null

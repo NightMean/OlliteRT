@@ -6,6 +6,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 
+private val WHITESPACE_REGEX = "\\s+".toRegex()
+
 /**
  * Returns true if every word in [query] appears somewhere in [searchableText].
  * Both inputs are compared case-insensitively.
@@ -13,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 fun matchesSearchQuery(searchableText: String, query: String): Boolean {
   if (query.isBlank()) return true
   val lowerSearchable = searchableText.lowercase()
-  return query.trim().lowercase().split("\\s+".toRegex()).all { word ->
+  return query.trim().lowercase().split(WHITESPACE_REGEX).all { word ->
     lowerSearchable.contains(word)
   }
 }
@@ -28,7 +30,7 @@ fun highlightSearchMatches(
   highlightColor: Color,
 ): AnnotatedString {
   if (query.isBlank()) return AnnotatedString(text)
-  val words = query.trim().lowercase().split("\\s+".toRegex()).filter { it.isNotEmpty() }
+  val words = query.trim().lowercase().split(WHITESPACE_REGEX).filter { it.isNotEmpty() }
   if (words.isEmpty()) return AnnotatedString(text)
   val textLower = text.lowercase()
   val ranges = mutableListOf<IntRange>()
