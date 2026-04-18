@@ -61,9 +61,11 @@ google-services.json
 # Logs
 *.log
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
 
 # Working directories
-.code/
 .tmp/
-research/
 docs/
