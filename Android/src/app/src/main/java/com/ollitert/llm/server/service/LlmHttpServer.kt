@@ -216,7 +216,7 @@ class LlmHttpServer(
                 serviceContext.startService(stopIntent)
               } catch (e: Exception) {
                 Log.e("LlmHttpServer", "Failed to send stop intent", e)
-                val errBody = """{"success":false,"message":"Failed to stop server: ${e.message}"}"""
+                val errBody = """{"success":false,"message":"Failed to stop server: ${LlmHttpBridgeUtils.escapeSseText(e.message ?: "unknown error")}"}"""
                 responseBodySnapshot = errBody
                 return@serve jsonError(NanoHTTPD.Response.Status.INTERNAL_ERROR, "Failed to stop server: ${e.message}")
               }
