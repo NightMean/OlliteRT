@@ -19,6 +19,9 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version_code: ${{ github.run_number }}
+      tag: ${{ steps.tag.outputs.tag }}
     defaults:
       run:
         working-directory: Android/src
@@ -139,3 +142,93 @@ jobs:
           files: Android/src/${{ steps.apks.outputs.dir }}/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  fastlane-changelog:
+    needs: release
+    runs-on: ubuntu-latest
+    # Only run for stable releases (not beta/dev — no store listing for those).
+    # Uses needs.release.outputs.tag (not github.ref) because workflow_dispatch
+    # sets github.ref to the branch name, not the tag entered by the user.
+    if: ${{ !contains(needs.release.outputs.tag, '-beta.') && !contains(needs.release.outputs.tag, '-dev.') }}
+    permissions:
+      contents: write
+    concurrency:
+      group: fastlane-changelog
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Get release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$TAG" ]; then
+            echo "::error::Tag output is empty — release job may not have set outputs.tag"
+            exit 1
+          fi
+          # Fetch release body via GitHub API — handles all special chars safely.
+          # .body // empty: outputs nothing for null body (instead of literal "null").
+          gh api "repos/$REPO/releases/tags/$TAG" \
+            --jq '.body // empty' > "$RUNNER_TEMP/release_body.txt"
+          BYTES=$(wc -c < "$RUNNER_TEMP/release_body.txt")
+          echo "Retrieved release body ($BYTES bytes)"
+          if [ "$BYTES" -lt 2 ]; then
+            echo "::warning::Release body is empty — changelog will be skipped"
+          fi
+
+      - name: Generate fastlane changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/generate_fastlane_changelog.py \
+            < "$RUNNER_TEMP/release_body.txt" \
+            > "$RUNNER_TEMP/changelog.txt"
+
+          if [ ! -s "$RUNNER_TEMP/changelog.txt" ]; then
+            echo "::warning::No changelog generated (empty output) — skipping commit"
+            echo "SKIP_COMMIT=true" >> "$GITHUB_ENV"
+          else
+            echo "--- Generated changelog ---"
+            cat "$RUNNER_TEMP/changelog.txt"
+            echo ""
+            echo "--- Length: $(python3 -c "import sys; print(len(sys.stdin.read().strip()), 'chars')" < "$RUNNER_TEMP/changelog.txt") ---"
+          fi
+
+      - name: Commit changelog
+        if: ${{ env.SKIP_COMMIT != 'true' }}
+        env:
+          VERSION_CODE: ${{ needs.release.outputs.version_code }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          CHANGELOG_DIR="Android/src/fastlane/metadata/android/en-US/changelogs"
+          CHANGELOG_FILE="$CHANGELOG_DIR/${VERSION_CODE}.txt"
+
+          mkdir -p "$CHANGELOG_DIR"
+          cp "$RUNNER_TEMP/changelog.txt" "$CHANGELOG_FILE"
+
+          git add "$CHANGELOG_FILE"
+
+          # Only commit if there's actually a change
+          if git diff --cached --quiet; then
+            echo "No changes to commit (file already exists with same content)"
+          else
+            git commit -m "Add fastlane changelog for $TAG (versionCode $VERSION_CODE)"
+            git pull --rebase origin main
+            git push origin main
+          fi
