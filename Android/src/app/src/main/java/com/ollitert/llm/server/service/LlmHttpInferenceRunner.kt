@@ -251,7 +251,7 @@ class LlmHttpInferenceRunner(
         }
         return NanoHTTPD.newFixedLengthResponse(
           NanoHTTPD.Response.Status.INTERNAL_ERROR,
-          "application/json",
+          "application/json; charset=utf-8",
           LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
         )
       }
@@ -544,7 +544,7 @@ class LlmHttpInferenceRunner(
         }
         return NanoHTTPD.newFixedLengthResponse(
           NanoHTTPD.Response.Status.INTERNAL_ERROR,
-          "application/json",
+          "application/json; charset=utf-8",
           LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
         )
       }

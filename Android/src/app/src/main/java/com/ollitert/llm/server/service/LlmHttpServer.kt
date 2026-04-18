@@ -18,7 +18,7 @@ import java.util.concurrent.Executors
 // Shared by LlmHttpServer (serve dispatcher) and LlmHttpEndpointHandlers (inference routes).
 
 internal fun okJsonText(body: String): NanoHTTPD.Response =
-  NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", body)
+  NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json; charset=utf-8", body)
 
 internal fun jsonError(
   status: NanoHTTPD.Response.Status,
@@ -26,7 +26,7 @@ internal fun jsonError(
   suggestion: String? = null,
   category: ErrorCategory? = null,
 ): NanoHTTPD.Response =
-  NanoHTTPD.newFixedLengthResponse(status, "application/json", LlmHttpResponseRenderer.renderJsonError(error, suggestion, category))
+  NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", LlmHttpResponseRenderer.renderJsonError(error, suggestion, category))
 
 internal fun badRequest(msg: String) = jsonError(NanoHTTPD.Response.Status.BAD_REQUEST, msg)
 internal fun notFound(error: String = "not_found") = jsonError(NanoHTTPD.Response.Status.NOT_FOUND, error)
