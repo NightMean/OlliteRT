@@ -3,6 +3,7 @@ package com.ollitert.llm.server.ui.server.settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -142,10 +143,16 @@ sealed class SettingDef(
   ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
 }
 
+/** Icon source for a settings card — either a vector icon or a drawable resource. */
+sealed class CardIcon {
+  data class Vector(val icon: ImageVector) : CardIcon()
+  data class Resource(@DrawableRes val resId: Int) : CardIcon()
+}
+
 /** Describes a settings card: its identity, display metadata, and ordered list of settings. */
 data class CardDef(
   val id: CardId,
   val titleRes: Int,
-  val icon: ImageVector,
+  val icon: CardIcon,
   val settings: List<SettingDef>,
 )

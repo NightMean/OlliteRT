@@ -27,9 +27,7 @@ import javax.inject.Inject
  *
  * Uses [SettingEntry] instances for each persisted setting, enabling automatic
  * change detection, save, revert, and reset via iteration over [allSettings].
- *
- * State is exposed as individual properties (via bridge getters/setters that delegate
- * to SettingEntry.current) for backward compatibility with SettingsScreen.kt.
+ * The UI reads/writes entries directly (e.g. `entry.current`, `entry.update()`).
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -89,120 +87,15 @@ class SettingsViewModel @Inject constructor(
     verboseDebugEnabledEntry,
   )
 
-  // ─── Bridge Properties (temporary) ─────────────────
-  // These maintain the same public API that SettingsScreen.kt currently uses.
+  // ─── UI State (non-persisted) ────────────────────────────────────────────
 
   var portText by mutableStateOf(portEntry.saved.toString())
   var portError by mutableStateOf(false)
-  var bearerEnabled: Boolean
-    get() = bearerEnabledEntry.current
-    set(value) { bearerEnabledEntry.update(value) }
-  var bearerToken: String
-    get() = bearerTokenEntry.current
-    set(value) { bearerTokenEntry.update(value) }
-  var hfToken: String
-    get() = hfTokenEntry.current
-    set(value) { hfTokenEntry.update(value) }
   var hfTokenVisible by mutableStateOf(false)
-  var defaultModelName: String?
-    get() = defaultModelEntry.current
-    set(value) { defaultModelEntry.update(value) }
   var showModelDropdown by mutableStateOf(false)
-  var autoStartOnBoot: Boolean
-    get() = autoStartOnBootEntry.current
-    set(value) { autoStartOnBootEntry.update(value) }
-  var keepScreenOn: Boolean
-    get() = keepScreenOnEntry.current
-    set(value) { keepScreenOnEntry.update(value) }
-  var autoExpandLogs: Boolean
-    get() = autoExpandLogsEntry.current
-    set(value) { autoExpandLogsEntry.update(value) }
-  var warmupEnabled: Boolean
-    get() = warmupEnabledEntry.current
-    set(value) { warmupEnabledEntry.update(value) }
-  var streamLogsPreview: Boolean
-    get() = streamLogsPreviewEntry.current
-    set(value) { streamLogsPreviewEntry.update(value) }
-  var keepPartialResponse: Boolean
-    get() = keepPartialResponseEntry.current
-    set(value) { keepPartialResponseEntry.update(value) }
-  var eagerVisionInit: Boolean
-    get() = eagerVisionInitEntry.current
-    set(value) { eagerVisionInitEntry.update(value) }
-  var customPromptsEnabled: Boolean
-    get() = customPromptsEnabledEntry.current
-    set(value) { customPromptsEnabledEntry.update(value) }
-  var autoTruncateHistory: Boolean
-    get() = autoTruncateHistoryEntry.current
-    set(value) { autoTruncateHistoryEntry.update(value) }
-  var autoTrimPrompts: Boolean
-    get() = autoTrimPromptsEntry.current
-    set(value) { autoTrimPromptsEntry.update(value) }
-  var compactToolSchemas: Boolean
-    get() = compactToolSchemasEntry.current
-    set(value) { compactToolSchemasEntry.update(value) }
-  var compactImageData: Boolean
-    get() = compactImageDataEntry.current
-    set(value) { compactImageDataEntry.update(value) }
-  var hideHealthLogs: Boolean
-    get() = hideHealthLogsEntry.current
-    set(value) { hideHealthLogsEntry.update(value) }
-  var clearLogsOnStop: Boolean
-    get() = clearLogsOnStopEntry.current
-    set(value) { clearLogsOnStopEntry.update(value) }
-  var confirmClearLogs: Boolean
-    get() = confirmClearLogsEntry.current
-    set(value) { confirmClearLogsEntry.update(value) }
-  var showRequestTypes: Boolean
-    get() = showRequestTypesEntry.current
-    set(value) { showRequestTypesEntry.update(value) }
-  var showAdvancedMetrics: Boolean
-    get() = showAdvancedMetricsEntry.current
-    set(value) { showAdvancedMetricsEntry.update(value) }
-  var corsAllowedOrigins: String
-    get() = corsAllowedOriginsEntry.current
-    set(value) { corsAllowedOriginsEntry.update(value) }
   var corsError by mutableStateOf(false)
-  var logPersistenceEnabled: Boolean
-    get() = logPersistenceEnabledEntry.current
-    set(value) { logPersistenceEnabledEntry.update(value) }
-  var logMaxEntries: Int
-    get() = logMaxEntriesEntry.current
-    set(value) { logMaxEntriesEntry.update(value) }
-  var logAutoDeleteMinutes: Long
-    get() = logAutoDeleteMinutesEntry.current
-    set(value) { logAutoDeleteMinutesEntry.update(value) }
-  var ignoreClientSamplerParams: Boolean
-    get() = ignoreClientSamplerParamsEntry.current
-    set(value) { ignoreClientSamplerParamsEntry.update(value) }
-  var keepAliveEnabled: Boolean
-    get() = keepAliveEnabledEntry.current
-    set(value) { keepAliveEnabledEntry.update(value) }
-  var keepAliveMinutes: Int
-    get() = keepAliveMinutesEntry.current
-    set(value) { keepAliveMinutesEntry.update(value) }
   var keepAliveError by mutableStateOf(false)
   var updateCheckError by mutableStateOf(false)
-  var keepAliveUnit by mutableStateOf(
-    if (keepAliveMinutesEntry.saved > 0 && keepAliveMinutesEntry.saved % 60 == 0) "hours" else "minutes"
-  )
-  var updateCheckEnabled: Boolean
-    get() = updateCheckEnabledEntry.current
-    set(value) { updateCheckEnabledEntry.update(value) }
-  var updateCheckIntervalHours: Int
-    get() = updateCheckIntervalHoursEntry.current
-    set(value) { updateCheckIntervalHoursEntry.update(value) }
-  var updateCheckUnit by mutableStateOf(
-    if (updateCheckIntervalHoursEntry.saved > 0 && updateCheckIntervalHoursEntry.saved % 24 == 0) "days" else "hours"
-  )
-  var verboseDebugEnabled: Boolean
-    get() = verboseDebugEnabledEntry.current
-    set(value) { verboseDebugEnabledEntry.update(value) }
-
-  // Expose saved values for SettingsScreen references that read savedKeepAliveMinutes etc.
-  val savedKeepAliveMinutes: Int get() = keepAliveMinutesEntry.saved
-  val savedUpdateCheckIntervalHours: Int get() = updateCheckIntervalHoursEntry.saved
-  val savedLogAutoDeleteMinutes: Long get() = logAutoDeleteMinutesEntry.saved
 
   // ─── Dialog State ────────────────────────────────────────────────────────
   var showRestartDialog by mutableStateOf(false)
@@ -230,13 +123,64 @@ class SettingsViewModel @Inject constructor(
   fun cardVisible(cardKey: String): Boolean {
     if (searchQuery.isBlank()) return true
     val cardId = try { CardId.valueOf(cardKey.uppercase()) } catch (_: Exception) { return true }
+    return cardVisible(cardId)
+  }
+
+  /** Returns true if the card should be visible (any of its settings match). */
+  fun cardVisible(cardId: CardId): Boolean {
+    if (searchQuery.isBlank()) return true
     val cardDef = allCardDefs.firstOrNull { it.id == cardId } ?: return true
     return cardDef.settings.any { settingVisible(it.key) }
   }
 
+  /** Returns the SettingEntry for a toggle setting by key. */
+  fun getToggleEntry(key: String): SettingEntry<Boolean>? = when (key) {
+    "keep_screen_awake" -> keepScreenOnEntry
+    "auto_expand_logs" -> autoExpandLogsEntry
+    "stream_response_preview" -> streamLogsPreviewEntry
+    "compact_image_data" -> compactImageDataEntry
+    "hide_health_logs" -> hideHealthLogsEntry
+    "clear_logs_on_stop" -> clearLogsOnStopEntry
+    "confirm_clear_logs" -> confirmClearLogsEntry
+    "keep_partial_response" -> keepPartialResponseEntry
+    "start_on_boot" -> autoStartOnBootEntry
+    "keep_alive" -> keepAliveEnabledEntry
+    "auto_update_check" -> updateCheckEnabledEntry
+    "show_request_types" -> showRequestTypesEntry
+    "show_advanced_metrics" -> showAdvancedMetricsEntry
+    "log_persistence_enabled" -> logPersistenceEnabledEntry
+    "warmup_message" -> warmupEnabledEntry
+    "pre_init_vision" -> eagerVisionInitEntry
+    "custom_prompts" -> customPromptsEnabledEntry
+    "truncate_history" -> autoTruncateHistoryEntry
+    "compact_tool_schemas" -> compactToolSchemasEntry
+    "trim_prompt" -> autoTrimPromptsEntry
+    "ignore_client_params" -> ignoreClientSamplerParamsEntry
+    "verbose_debug" -> verboseDebugEnabledEntry
+    else -> null
+  }
+
+  /** Whether a setting is interactive (not disabled by a parent dependency). */
+  fun isSettingEnabled(key: String): Boolean = when (key) {
+    "start_on_boot" -> defaultModelEntry.current != null
+    "keep_alive_timeout" -> keepAliveEnabledEntry.current
+    "check_frequency", "auto_update_check" -> true
+    "log_max_entries", "log_auto_delete", "clear_all_logs" -> logPersistenceEnabledEntry.current
+    else -> true
+  }
+
+  /** Alpha for settings that dim when their parent is disabled. */
+  fun settingAlpha(key: String): Float = when (key) {
+    "start_on_boot" -> if (defaultModelEntry.current != null) 1f else 0.4f
+    "keep_alive_timeout" -> if (keepAliveEnabledEntry.current) 1f else 0.4f
+    "log_max_entries", "log_auto_delete", "clear_all_logs" -> if (logPersistenceEnabledEntry.current) 1f else 0.4f
+    else -> 1f
+  }
+
   // ─── Change Detection ────────────────────────────────────────────────────
 
-  private val effectiveBearerToken: String get() = if (bearerEnabled) bearerToken else ""
+  private val effectiveBearerToken: String
+    get() = if (bearerEnabledEntry.current) bearerTokenEntry.current else ""
 
   val hasUnsavedChanges: Boolean get() {
     // Port is stored as Int but edited as String — compare via parsed int
@@ -263,8 +207,8 @@ class SettingsViewModel @Inject constructor(
   /** Wrapper that warns if saving would trim existing logs. */
   fun trySave(serverStatus: ServerStatus): SaveResult {
     val currentCount = RequestLogStore.entries.value.size
-    if (logMaxEntries < currentCount && logMaxEntriesEntry.isChanged) {
-      return SaveResult.NeedsTrimConfirmation(currentCount, logMaxEntries)
+    if (logMaxEntriesEntry.current < currentCount && logMaxEntriesEntry.isChanged) {
+      return SaveResult.NeedsTrimConfirmation(currentCount, logMaxEntriesEntry.current)
     }
     return save(serverStatus)
   }
@@ -280,19 +224,17 @@ class SettingsViewModel @Inject constructor(
       portError = true
       return SaveResult.ValidationError("Port must be between 1024 and 65535")
     }
-    if (!isValidCorsOrigins(corsAllowedOrigins)) {
+    if (!isValidCorsOrigins(corsAllowedOriginsEntry.current)) {
       corsError = true
       return SaveResult.ValidationError("Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://")
     }
-    if (keepAliveEnabled && keepAliveMinutes !in 1..7200) {
+    if (keepAliveEnabledEntry.current && keepAliveMinutesEntry.current !in 1..7200) {
       keepAliveError = true
-      val rangeText = if (keepAliveUnit == "hours") "1 and 120 hours" else "1 and 7200 minutes"
-      return SaveResult.ValidationError("Keep-alive timeout must be between $rangeText")
+      return SaveResult.ValidationError("Keep-alive timeout must be between 1 and 7200 minutes")
     }
-    if (updateCheckEnabled && updateCheckIntervalHours !in 1..720) {
+    if (updateCheckEnabledEntry.current && updateCheckIntervalHoursEntry.current !in 1..720) {
       updateCheckError = true
-      val rangeText = if (updateCheckUnit == "days") "1 and 30 days" else "1 and 720 hours"
-      return SaveResult.ValidationError("Update check interval must be between $rangeText")
+      return SaveResult.ValidationError("Update check interval must be between 1 and 720 hours")
     }
 
     // ── Clear validation errors ──
@@ -308,55 +250,55 @@ class SettingsViewModel @Inject constructor(
 
     // ── Persist to SharedPreferences ──
     LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
-    LlmHttpPrefs.setBearerToken(context, if (bearerEnabled) bearerToken else "")
-    LlmHttpPrefs.setHfToken(context, hfToken)
-    LlmHttpPrefs.setDefaultModelName(context, defaultModelName)
-    LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBoot)
-    LlmHttpPrefs.setKeepScreenOn(context, keepScreenOn)
-    LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogs)
-    LlmHttpPrefs.setWarmupEnabled(context, warmupEnabled)
-    LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreview)
-    LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponse)
-    LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInit)
-    LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabled)
-    LlmHttpPrefs.setAutoTruncateHistory(context, autoTruncateHistory)
-    LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPrompts)
-    LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemas)
-    LlmHttpPrefs.setIgnoreClientSamplerParams(context, ignoreClientSamplerParams)
-    LlmHttpPrefs.setKeepAliveEnabled(context, keepAliveEnabled)
-    LlmHttpPrefs.setKeepAliveMinutes(context, keepAliveMinutes)
+    LlmHttpPrefs.setBearerToken(context, effectiveBearerToken)
+    LlmHttpPrefs.setHfToken(context, hfTokenEntry.current)
+    LlmHttpPrefs.setDefaultModelName(context, defaultModelEntry.current)
+    LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBootEntry.current)
+    LlmHttpPrefs.setKeepScreenOn(context, keepScreenOnEntry.current)
+    LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogsEntry.current)
+    LlmHttpPrefs.setWarmupEnabled(context, warmupEnabledEntry.current)
+    LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreviewEntry.current)
+    LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponseEntry.current)
+    LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInitEntry.current)
+    LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabledEntry.current)
+    LlmHttpPrefs.setAutoTruncateHistory(context, autoTruncateHistoryEntry.current)
+    LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPromptsEntry.current)
+    LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemasEntry.current)
+    LlmHttpPrefs.setIgnoreClientSamplerParams(context, ignoreClientSamplerParamsEntry.current)
+    LlmHttpPrefs.setKeepAliveEnabled(context, keepAliveEnabledEntry.current)
+    LlmHttpPrefs.setKeepAliveMinutes(context, keepAliveMinutesEntry.current)
     if ((keepAliveEnabledEntry.isChanged || keepAliveMinutesEntry.isChanged) && isServerActive) {
       LlmHttpService.resetKeepAliveTimer(context)
     }
-    LlmHttpPrefs.setUpdateCheckEnabled(context, updateCheckEnabled)
-    LlmHttpPrefs.setUpdateCheckIntervalHours(context, updateCheckIntervalHours)
+    LlmHttpPrefs.setUpdateCheckEnabled(context, updateCheckEnabledEntry.current)
+    LlmHttpPrefs.setUpdateCheckIntervalHours(context, updateCheckIntervalHoursEntry.current)
     if (updateCheckEnabledEntry.isChanged || updateCheckIntervalHoursEntry.isChanged) {
-      if (updateCheckEnabled) UpdateCheckWorker.scheduleUpdateCheck(context)
+      if (updateCheckEnabledEntry.current) UpdateCheckWorker.scheduleUpdateCheck(context)
       else UpdateCheckWorker.cancelUpdateCheck(context)
     }
-    LlmHttpPrefs.setCompactImageData(context, compactImageData)
-    LlmHttpPrefs.setHideHealthLogs(context, hideHealthLogs)
-    LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStop)
-    LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogs)
-    LlmHttpPrefs.setShowRequestTypes(context, showRequestTypes)
-    LlmHttpPrefs.setShowAdvancedMetrics(context, showAdvancedMetrics)
-    LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOrigins)
-    LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabled)
-    LlmHttpPrefs.setLogMaxEntries(context, logMaxEntries)
-    LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutes)
-    LlmHttpPrefs.setVerboseDebugEnabled(context, verboseDebugEnabled)
+    LlmHttpPrefs.setCompactImageData(context, compactImageDataEntry.current)
+    LlmHttpPrefs.setHideHealthLogs(context, hideHealthLogsEntry.current)
+    LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStopEntry.current)
+    LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogsEntry.current)
+    LlmHttpPrefs.setShowRequestTypes(context, showRequestTypesEntry.current)
+    LlmHttpPrefs.setShowAdvancedMetrics(context, showAdvancedMetricsEntry.current)
+    LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOriginsEntry.current)
+    LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabledEntry.current)
+    LlmHttpPrefs.setLogMaxEntries(context, logMaxEntriesEntry.current)
+    LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutesEntry.current)
+    LlmHttpPrefs.setVerboseDebugEnabled(context, verboseDebugEnabledEntry.current)
 
     // ── Log changes ──
     logSettingsChanges(port)
 
     // Write a full settings snapshot to logcat when verbose debug is turned on,
     // so exported debug logs contain the active configuration for diagnosis.
-    if (verboseDebugEnabled && !verboseDebugEnabledEntry.saved) {
+    if (verboseDebugEnabledEntry.current && !verboseDebugEnabledEntry.saved) {
       LlmHttpPrefs.dumpToLogcat(context)
     }
 
     // ── Sync persistence layer ──
-    if (logPersistenceEnabled && !logPersistenceEnabledEntry.saved) {
+    if (logPersistenceEnabledEntry.current && !logPersistenceEnabledEntry.saved) {
       persistence.persistCurrentEntries()
     }
     persistence.updateMaxEntries()
@@ -366,7 +308,7 @@ class SettingsViewModel @Inject constructor(
     portEntry.apply()
     portText = port.toString()
     bearerEnabledEntry.apply()
-    bearerTokenEntry.update(if (bearerEnabled) bearerToken else "")
+    bearerTokenEntry.update(if (bearerEnabledEntry.current) bearerTokenEntry.current else "")
     bearerTokenEntry.apply()
     // Apply all other entries
     for (entry in allSettings) {
@@ -380,7 +322,7 @@ class SettingsViewModel @Inject constructor(
     val liveStatus = com.ollitert.llm.server.service.ServerMetrics.status.value
     val isStillActive = liveStatus == ServerStatus.RUNNING || liveStatus == ServerStatus.LOADING
     return if (needsRestart && isServerActive && isStillActive) {
-      SaveResult.NeedsRestart(keepScreenOn = keepScreenOn)
+      SaveResult.NeedsRestart(keepScreenOn = keepScreenOnEntry.current)
     } else {
       SaveResult.Success
     }
@@ -395,48 +337,48 @@ class SettingsViewModel @Inject constructor(
     if (bearerWasEnabled != bearerIsEnabled)
       changes.add("Bearer Auth: ${if (bearerWasEnabled) "enabled" else "disabled"} → ${if (bearerIsEnabled) "enabled" else "disabled"}")
     if (autoStartOnBootEntry.isChanged)
-      changes.add("Auto-Start on Boot: ${fmtToggle(autoStartOnBootEntry.saved)} → ${fmtToggle(autoStartOnBoot)}")
+      changes.add("Auto-Start on Boot: ${fmtToggle(autoStartOnBootEntry.saved)} → ${fmtToggle(autoStartOnBootEntry.current)}")
     if (warmupEnabledEntry.isChanged)
-      changes.add("Warmup Message: ${fmtToggle(warmupEnabledEntry.saved)} → ${fmtToggle(warmupEnabled)}")
+      changes.add("Warmup Message: ${fmtToggle(warmupEnabledEntry.saved)} → ${fmtToggle(warmupEnabledEntry.current)}")
     if (eagerVisionInitEntry.isChanged)
-      changes.add("Pre-initialize Vision: ${fmtToggle(eagerVisionInitEntry.saved)} → ${fmtToggle(eagerVisionInit)}")
+      changes.add("Pre-initialize Vision: ${fmtToggle(eagerVisionInitEntry.saved)} → ${fmtToggle(eagerVisionInitEntry.current)}")
     if (customPromptsEnabledEntry.isChanged)
-      changes.add("Custom System Prompt & Chat Template: ${fmtToggle(customPromptsEnabledEntry.saved)} → ${fmtToggle(customPromptsEnabled)}")
+      changes.add("Custom System Prompt & Chat Template: ${fmtToggle(customPromptsEnabledEntry.saved)} → ${fmtToggle(customPromptsEnabledEntry.current)}")
     if (ignoreClientSamplerParamsEntry.isChanged)
-      changes.add("Ignore Client Sampler Parameters: ${fmtToggle(ignoreClientSamplerParamsEntry.saved)} → ${fmtToggle(ignoreClientSamplerParams)}")
+      changes.add("Ignore Client Sampler Parameters: ${fmtToggle(ignoreClientSamplerParamsEntry.saved)} → ${fmtToggle(ignoreClientSamplerParamsEntry.current)}")
     if (autoTruncateHistoryEntry.isChanged)
-      changes.add("Truncate Conversation History: ${fmtToggle(autoTruncateHistoryEntry.saved)} → ${fmtToggle(autoTruncateHistory)}")
+      changes.add("Truncate Conversation History: ${fmtToggle(autoTruncateHistoryEntry.saved)} → ${fmtToggle(autoTruncateHistoryEntry.current)}")
     if (compactToolSchemasEntry.isChanged)
-      changes.add("Compact Tool Schemas: ${fmtToggle(compactToolSchemasEntry.saved)} → ${fmtToggle(compactToolSchemas)}")
+      changes.add("Compact Tool Schemas: ${fmtToggle(compactToolSchemasEntry.saved)} → ${fmtToggle(compactToolSchemasEntry.current)}")
     if (autoTrimPromptsEntry.isChanged)
-      changes.add("Trim Prompt: ${fmtToggle(autoTrimPromptsEntry.saved)} → ${fmtToggle(autoTrimPrompts)}")
+      changes.add("Trim Prompt: ${fmtToggle(autoTrimPromptsEntry.saved)} → ${fmtToggle(autoTrimPromptsEntry.current)}")
     if (corsAllowedOriginsEntry.isChanged)
-      changes.add("CORS Allowed Origins: ${corsAllowedOriginsEntry.saved.ifBlank { "disabled" }} → ${corsAllowedOrigins.ifBlank { "disabled" }}")
+      changes.add("CORS Allowed Origins: ${corsAllowedOriginsEntry.saved.ifBlank { "disabled" }} → ${corsAllowedOriginsEntry.current.ifBlank { "disabled" }}")
     if (compactImageDataEntry.isChanged)
-      changes.add("Compact Image Data: ${fmtToggle(compactImageDataEntry.saved)} → ${fmtToggle(compactImageData)}")
+      changes.add("Compact Image Data: ${fmtToggle(compactImageDataEntry.saved)} → ${fmtToggle(compactImageDataEntry.current)}")
     if (hideHealthLogsEntry.isChanged)
-      changes.add("Hide Health Logs: ${fmtToggle(hideHealthLogsEntry.saved)} → ${fmtToggle(hideHealthLogs)}")
+      changes.add("Hide Health Logs: ${fmtToggle(hideHealthLogsEntry.saved)} → ${fmtToggle(hideHealthLogsEntry.current)}")
     if (logPersistenceEnabledEntry.isChanged)
-      changes.add("Log Persistence: ${fmtToggle(logPersistenceEnabledEntry.saved)} → ${fmtToggle(logPersistenceEnabled)}")
+      changes.add("Log Persistence: ${fmtToggle(logPersistenceEnabledEntry.saved)} → ${fmtToggle(logPersistenceEnabledEntry.current)}")
     if (logMaxEntriesEntry.isChanged)
-      changes.add("Log Max Entries: ${logMaxEntriesEntry.saved} → $logMaxEntries")
+      changes.add("Log Max Entries: ${logMaxEntriesEntry.saved} → ${logMaxEntriesEntry.current}")
     if (logAutoDeleteMinutesEntry.isChanged)
-      changes.add("Log Auto-Delete: ${formatMinutesHumanReadable(logAutoDeleteMinutesEntry.saved)} → ${formatMinutesHumanReadable(logAutoDeleteMinutes)}")
+      changes.add("Log Auto-Delete: ${formatMinutesHumanReadable(logAutoDeleteMinutesEntry.saved)} → ${formatMinutesHumanReadable(logAutoDeleteMinutesEntry.current)}")
     if (keepAliveEnabledEntry.isChanged)
-      changes.add("Keep Alive: ${fmtToggle(keepAliveEnabledEntry.saved)} → ${fmtToggle(keepAliveEnabled)}")
+      changes.add("Keep Alive: ${fmtToggle(keepAliveEnabledEntry.saved)} → ${fmtToggle(keepAliveEnabledEntry.current)}")
     if (keepAliveMinutesEntry.isChanged)
-      changes.add("Keep Alive Timeout: ${keepAliveMinutesEntry.saved}m → ${keepAliveMinutes}m")
+      changes.add("Keep Alive Timeout: ${keepAliveMinutesEntry.saved}m → ${keepAliveMinutesEntry.current}m")
     if (updateCheckEnabledEntry.isChanged)
-      changes.add("Check for Updates: ${fmtToggle(updateCheckEnabledEntry.saved)} → ${fmtToggle(updateCheckEnabled)}")
+      changes.add("Check for Updates: ${fmtToggle(updateCheckEnabledEntry.saved)} → ${fmtToggle(updateCheckEnabledEntry.current)}")
     if (updateCheckIntervalHoursEntry.isChanged) {
       fun fmtInterval(hours: Int): String = when {
         hours % 24 == 0 -> "${hours / 24} ${if (hours / 24 == 1) "day" else "days"}"
         else -> "$hours ${if (hours == 1) "hour" else "hours"}"
       }
-      changes.add("Update Check Frequency: ${fmtInterval(updateCheckIntervalHoursEntry.saved)} → ${fmtInterval(updateCheckIntervalHours)}")
+      changes.add("Update Check Frequency: ${fmtInterval(updateCheckIntervalHoursEntry.saved)} → ${fmtInterval(updateCheckIntervalHoursEntry.current)}")
     }
     if (verboseDebugEnabledEntry.isChanged)
-      changes.add("Verbose Debug Mode: ${fmtToggle(verboseDebugEnabledEntry.saved)} → ${fmtToggle(verboseDebugEnabled)}")
+      changes.add("Verbose Debug Mode: ${fmtToggle(verboseDebugEnabledEntry.saved)} → ${fmtToggle(verboseDebugEnabledEntry.current)}")
     if (changes.isNotEmpty()) {
       RequestLogStore.addEvent(
         "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
@@ -491,10 +433,10 @@ class SettingsViewModel @Inject constructor(
     ignoreClientSamplerParamsEntry.reset(false)
     keepAliveEnabledEntry.reset(false)
     keepAliveMinutesEntry.reset(5)
-    keepAliveError = false; keepAliveUnit = "minutes"
+    keepAliveError = false
     updateCheckEnabledEntry.reset(true)
     updateCheckIntervalHoursEntry.reset(24)
-    updateCheckError = false; updateCheckUnit = "hours"
+    updateCheckError = false
     verboseDebugEnabledEntry.reset(false)
 
     // Reset persistence and update check

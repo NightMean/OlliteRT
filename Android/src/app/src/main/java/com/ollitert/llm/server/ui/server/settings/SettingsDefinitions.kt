@@ -488,7 +488,7 @@ val allCardDefs: List<CardDef> = listOf(
   CardDef(
     id = CardId.GENERAL,
     titleRes = R.string.settings_card_general,
-    icon = Icons.Outlined.PhoneAndroid,
+    icon = CardIcon.Vector(Icons.Outlined.PhoneAndroid),
     settings = listOf(
       KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
       HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
@@ -497,19 +497,19 @@ val allCardDefs: List<CardDef> = listOf(
   CardDef(
     id = CardId.HF_TOKEN,
     titleRes = R.string.settings_card_hf_token,
-    icon = Icons.Outlined.Key,
+    icon = CardIcon.Vector(Icons.Outlined.Key),
     settings = listOf(HF_TOKEN),
   ),
   CardDef(
     id = CardId.SERVER_CONFIG,
     titleRes = R.string.settings_card_server_config,
-    icon = Icons.Outlined.Tune,
+    icon = CardIcon.Vector(Icons.Outlined.Tune),
     settings = listOf(HOST_PORT, BEARER_TOKEN, CORS_ORIGINS),
   ),
   CardDef(
     id = CardId.AUTO_LAUNCH,
     titleRes = R.string.settings_card_auto_launch,
-    icon = Icons.Outlined.PlayArrow,
+    icon = CardIcon.Vector(Icons.Outlined.PlayArrow),
     settings = listOf(
       DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
       CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY,
@@ -518,25 +518,25 @@ val allCardDefs: List<CardDef> = listOf(
   CardDef(
     id = CardId.METRICS,
     titleRes = R.string.settings_card_metrics,
-    icon = Icons.Outlined.BarChart,
+    icon = CardIcon.Vector(Icons.Outlined.BarChart),
     settings = listOf(SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS),
   ),
   CardDef(
     id = CardId.LOG_PERSISTENCE,
     titleRes = R.string.settings_card_log_persistence,
-    icon = Icons.Outlined.Storage,
+    icon = CardIcon.Vector(Icons.Outlined.Storage),
     settings = listOf(LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS),
   ),
   CardDef(
     id = CardId.HOME_ASSISTANT,
     titleRes = R.string.settings_card_home_assistant,
-    icon = Icons.Outlined.Code,
+    icon = CardIcon.Resource(R.drawable.ic_home_assistant),
     settings = listOf(HA_INTEGRATION),
   ),
   CardDef(
     id = CardId.ADVANCED,
     titleRes = R.string.settings_card_advanced,
-    icon = Icons.Outlined.Science,
+    icon = CardIcon.Vector(Icons.Outlined.Science),
     settings = listOf(
       WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
       COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
@@ -545,13 +545,13 @@ val allCardDefs: List<CardDef> = listOf(
   CardDef(
     id = CardId.DEVELOPER,
     titleRes = R.string.settings_card_developer,
-    icon = Icons.Outlined.BugReport,
+    icon = CardIcon.Vector(Icons.Outlined.BugReport),
     settings = listOf(VERBOSE_DEBUG, EXPORT_LOGCAT),
   ),
   CardDef(
     id = CardId.RESET,
     titleRes = R.string.settings_reset_to_defaults,
-    icon = Icons.Outlined.RestartAlt,
+    icon = CardIcon.Vector(Icons.Outlined.RestartAlt),
     settings = listOf(RESET_TO_DEFAULTS),
   ),
 )
