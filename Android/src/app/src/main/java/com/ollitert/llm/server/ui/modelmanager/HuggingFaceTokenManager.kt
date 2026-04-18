@@ -27,7 +27,7 @@ class HuggingFaceTokenManager(
   context: Context,
 ) : TokenManager {
   override val authService = AuthorizationService(context)
-  override var curAccessToken: String = ""
+  @Volatile override var curAccessToken: String = ""
 
   override fun dispose() {
     authService.dispose()
