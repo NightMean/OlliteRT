@@ -35,8 +35,9 @@ fun cleanUpMediapipeTaskErrorMessage(message: String): String {
 }
 
 inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
+  var connection: HttpURLConnection? = null
   try {
-    val connection = URL(url).openConnection() as HttpURLConnection
+    connection = URL(url).openConnection() as HttpURLConnection
     connection.requestMethod = "GET"
     connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
     connection.readTimeout = HTTP_READ_TIMEOUT_MS
@@ -44,8 +45,7 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
 
     val responseCode = connection.responseCode
     if (responseCode == HttpURLConnection.HTTP_OK) {
-      val inputStream = connection.inputStream
-      val response = inputStream.bufferedReader().use { it.readText() }
+      val response = connection.inputStream.bufferedReader().use { it.readText() }
 
       val jsonObj = parseJson<T>(response)
       return if (jsonObj != null) {
@@ -58,6 +58,8 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
     }
   } catch (e: Exception) {
     Log.e("AGUtils", "Error when getting or parsing json response", e)
+  } finally {
+    connection?.disconnect()
   }
 
   return null
