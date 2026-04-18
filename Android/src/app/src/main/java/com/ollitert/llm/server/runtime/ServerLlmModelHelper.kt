@@ -17,7 +17,6 @@
 package com.ollitert.llm.server.runtime
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.os.Environment
 import android.os.StatFs
 import android.util.Log
@@ -49,7 +48,6 @@ import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
 import kotlinx.coroutines.CoroutineScope
 
@@ -313,7 +311,7 @@ object ServerLlmModelHelper : LlmModelHelper {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
     onError: (message: String) -> Unit,
-    images: List<Bitmap>,
+    images: List<ByteArray>,
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>?,
@@ -344,19 +342,19 @@ object ServerLlmModelHelper : LlmModelHelper {
         }
         // After each segment except the last, insert the corresponding image
         if (i < segments.size - 1 && imageIndex < images.size) {
-          contents.add(Content.ImageBytes(images[imageIndex].toPngByteArray()))
+          contents.add(Content.ImageBytes(images[imageIndex]))
           imageIndex++
         }
       }
       // Append any remaining images that had no placeholder (shouldn't happen, but safe)
       while (imageIndex < images.size) {
-        contents.add(Content.ImageBytes(images[imageIndex].toPngByteArray()))
+        contents.add(Content.ImageBytes(images[imageIndex]))
         imageIndex++
       }
     } else {
       // Single-image or non-chat path: images before text (matches reference app behavior)
       for (image in images) {
-        contents.add(Content.ImageBytes(image.toPngByteArray()))
+        contents.add(Content.ImageBytes(image))
       }
       if (input.trim().isNotEmpty()) {
         contents.add(Content.Text(input))
@@ -391,9 +389,4 @@ object ServerLlmModelHelper : LlmModelHelper {
     )
   }
 
-  private fun Bitmap.toPngByteArray(): ByteArray {
-    val stream = ByteArrayOutputStream()
-    this.compress(Bitmap.CompressFormat.PNG, 100, stream)
-    return stream.toByteArray()
-  }
 }

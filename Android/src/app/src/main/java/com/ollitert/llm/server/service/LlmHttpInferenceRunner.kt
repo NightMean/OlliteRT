@@ -1,7 +1,6 @@
 package com.ollitert.llm.server.service
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.common.ErrorCategory
@@ -104,7 +103,7 @@ class LlmHttpInferenceRunner(
     requestId: String,
     endpoint: String,
     timeoutSeconds: Long = 30,
-    images: List<Bitmap> = emptyList(),
+    images: List<ByteArray> = emptyList(),
     eagerVisionInit: Boolean = false,
     logId: String? = null,
   ): Pair<String?, String?> {
@@ -118,7 +117,7 @@ class LlmHttpInferenceRunner(
     synchronized(inferenceLock) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
-        images.forEach { it.recycle() }
+
         return null to "Model initialization failed: $initErr"
       }
     }
@@ -160,10 +159,6 @@ class LlmHttpInferenceRunner(
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
     )
-    // Recycle Bitmaps after inference — toPngByteArray() already extracted the bytes,
-    // so the native Bitmap memory is no longer needed. Without this, multi-MB Bitmaps
-    // from multimodal requests linger until GC finalizes them.
-    images.forEach { it.recycle() }
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     // If the user tapped Stop in the Logs screen, return a cancellation error
@@ -225,7 +220,7 @@ class LlmHttpInferenceRunner(
     requestId: String,
     endpoint: String,
     timeoutSeconds: Long = 90,
-    images: List<Bitmap> = emptyList(),
+    images: List<ByteArray> = emptyList(),
     logId: String? = null,
     promptLen: Int = 0,
     configSnapshot: Map<String, Any>? = null,
@@ -244,7 +239,7 @@ class LlmHttpInferenceRunner(
     synchronized(inferenceLock) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
-        images.forEach { it.recycle() }
+
         if (logId != null) {
           val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
@@ -305,9 +300,8 @@ class LlmHttpInferenceRunner(
           images = images,
           extraContext = extraContext,
         )
-        // Recycle Bitmaps after sendMessageAsync — PNG bytes already extracted by toPngByteArray().
-        // This runs on the executor thread after inference starts, so the Bitmaps are no longer needed.
-        images.forEach { it.recycle() }
+
+
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
       elapsedMs = { SystemClock.elapsedRealtime() },
@@ -453,7 +447,7 @@ class LlmHttpInferenceRunner(
           }
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          images.forEach { it.recycle() }
+  
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
@@ -466,7 +460,7 @@ class LlmHttpInferenceRunner(
       },
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        images.forEach { it.recycle() }
+
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
         val (enrichedError, kind) = enrichLlmError(error)
@@ -518,7 +512,7 @@ class LlmHttpInferenceRunner(
     requestId: String,
     endpoint: String,
     timeoutSeconds: Long = 120,
-    images: List<Bitmap> = emptyList(),
+    images: List<ByteArray> = emptyList(),
     logId: String? = null,
     @Suppress("UNUSED_PARAMETER") includeUsage: Boolean = false, // Usage+timings are always sent for client compatibility
     stopSequences: List<String>? = null,
@@ -537,7 +531,7 @@ class LlmHttpInferenceRunner(
     synchronized(inferenceLock) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
-        images.forEach { it.recycle() }
+
         if (logId != null) {
           val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
@@ -601,8 +595,7 @@ class LlmHttpInferenceRunner(
           images = images,
           extraContext = extraContext,
         )
-        // Recycle Bitmaps after sendMessageAsync — PNG bytes already extracted by toPngByteArray().
-        images.forEach { it.recycle() }
+
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
       elapsedMs = { SystemClock.elapsedRealtime() },
@@ -794,7 +787,7 @@ class LlmHttpInferenceRunner(
           }
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          images.forEach { it.recycle() }
+  
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
@@ -807,7 +800,7 @@ class LlmHttpInferenceRunner(
       },
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        images.forEach { it.recycle() }
+
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
         val (enrichedError, kind) = enrichLlmError(error)
