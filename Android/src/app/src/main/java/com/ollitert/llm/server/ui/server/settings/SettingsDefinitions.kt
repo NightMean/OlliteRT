@@ -218,14 +218,6 @@ val DONTKILLMYAPP = SettingDef.Custom(
 
 // ─── Updates Card ─────────────────────────────────────────────
 
-val CHECK_FOR_UPDATES = SettingDef.Custom(
-  key = "check_for_updates",
-  labelRes = R.string.settings_check_for_updates,
-  descriptionRes = R.string.settings_check_for_updates_desc,
-  card = CardId.UPDATES,
-  searchKeywords = "Check for Updates version new notification background frequency interval update available",
-)
-
 val AUTO_UPDATE_CHECK = SettingDef.Toggle(
   key = "auto_update_check",
   labelRes = R.string.settings_auto_update_check,
@@ -261,6 +253,14 @@ val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
   min = 1,
   max = 720,
   baseUnitLabel = "hours",
+)
+
+val CHECK_FOR_UPDATES = SettingDef.Custom(
+  key = "check_for_updates",
+  labelRes = R.string.settings_check_for_updates,
+  descriptionRes = R.string.settings_check_for_updates_desc,
+  card = CardId.UPDATES,
+  searchKeywords = "Check for Updates version new notification background frequency interval update available",
 )
 
 // ─── Metrics Card ─────────────────────────────────────────────────
@@ -484,7 +484,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
   COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
   // Updates
-  CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY,
+  AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Developer
   VERBOSE_DEBUG, EXPORT_LOGCAT,
   // Reset
@@ -545,6 +545,12 @@ val allCardDefs: List<CardDef> = listOf(
     settings = listOf(HA_INTEGRATION),
   ),
   CardDef(
+    id = CardId.UPDATES,
+    titleRes = R.string.settings_card_updates,
+    icon = CardIcon.Vector(Icons.Outlined.SystemUpdate),
+    settings = listOf(AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES),
+  ),
+  CardDef(
     id = CardId.ADVANCED,
     titleRes = R.string.settings_card_advanced,
     icon = CardIcon.Vector(Icons.Outlined.Science),
@@ -552,12 +558,6 @@ val allCardDefs: List<CardDef> = listOf(
       WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
       COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
     ),
-  ),
-  CardDef(
-    id = CardId.UPDATES,
-    titleRes = R.string.settings_card_updates,
-    icon = CardIcon.Vector(Icons.Outlined.SystemUpdate),
-    settings = listOf(CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY),
   ),
   CardDef(
     id = CardId.DEVELOPER,
