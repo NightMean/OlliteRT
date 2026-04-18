@@ -117,6 +117,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     return withContext(Dispatchers.IO) {
       if (fileUrl == null || fileName == null) {
         Result.failure()
+      } else if (externalFilesDir == null) {
+        Result.failure(workDataOf("error" to "External storage unavailable"))
       } else {
         // Track all .tmp files created during this download session so we can
         // clean them up if the failure is disk-space related (see catch block).
