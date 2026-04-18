@@ -96,6 +96,12 @@ class LlmHttpServer(
       )
     )
 
+    // Pre-compute headers for streaming responses (FlushingSseResponse writes raw HTTP,
+    // bypassing NanoHTTPD's header storage — CORS + x-request-id must be baked in at construction).
+    val allowedOrigins = LlmHttpPrefs.getCorsAllowedOrigins(serviceContext)
+    val sseExtraHeaders = LlmHttpCorsHelper.buildCorsHeaders(allowedOrigins, requestOrigin) +
+      ("x-request-id" to logId)
+
     var requestBodySnapshot: String? = null
     var responseBodySnapshot: String? = null
     val response = try {
@@ -190,10 +196,10 @@ class LlmHttpServer(
             }
 
             // ── Inference routes — delegated to LlmHttpEndpointHandlers ──
-            LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-            LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-            LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-            LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+            LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+            LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+            LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+            LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
 
             // ── Server control endpoints ──
             // IMPORTANT: When adding new /v1/server/* endpoints, also update the HA YAML

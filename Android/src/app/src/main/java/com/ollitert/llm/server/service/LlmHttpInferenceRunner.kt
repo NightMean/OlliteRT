@@ -117,7 +117,10 @@ class LlmHttpInferenceRunner(
     val supportAudio = model.llmSupportAudio
     synchronized(this) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
-      if (initErr != null) return null to "Model initialization failed: $initErr"
+      if (initErr != null) {
+        images.forEach { it.recycle() }
+        return null to "Model initialization failed: $initErr"
+      }
     }
     val enableThinking = model.llmSupportThinking &&
       (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
@@ -227,6 +230,7 @@ class LlmHttpInferenceRunner(
     promptLen: Int = 0,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
+    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val streamStartMs = SystemClock.elapsedRealtime()
     // Track input tokens (rough estimate: ~4 chars per token)
@@ -240,6 +244,7 @@ class LlmHttpInferenceRunner(
     synchronized(this) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
+        images.forEach { it.recycle() }
         if (logId != null) {
           val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
@@ -448,6 +453,7 @@ class LlmHttpInferenceRunner(
           }
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
+          images.forEach { it.recycle() }
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
@@ -460,6 +466,7 @@ class LlmHttpInferenceRunner(
       },
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
+        images.forEach { it.recycle() }
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
         val (enrichedError, kind) = enrichLlmError(error)
@@ -492,7 +499,7 @@ class LlmHttpInferenceRunner(
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "executeStreaming_responses", model.name) },
     )
 
-    return FlushingSseResponse(stream)
+    return FlushingSseResponse(stream, sseExtraHeaders)
   }
 
   // ── Streaming inference: /v1/chat/completions ────────────────────────────
@@ -518,6 +525,7 @@ class LlmHttpInferenceRunner(
     tools: List<ToolSpec>? = null,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
+    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -529,6 +537,7 @@ class LlmHttpInferenceRunner(
     synchronized(this) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
+        images.forEach { it.recycle() }
         if (logId != null) {
           val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
@@ -785,6 +794,7 @@ class LlmHttpInferenceRunner(
           }
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
+          images.forEach { it.recycle() }
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerMetrics.onInferenceCompleted()
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
@@ -797,6 +807,7 @@ class LlmHttpInferenceRunner(
       },
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
+        images.forEach { it.recycle() }
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
         val (enrichedError, kind) = enrichLlmError(error)
@@ -829,7 +840,7 @@ class LlmHttpInferenceRunner(
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "executeStreaming_chat", model.name) },
     )
 
-    return FlushingSseResponse(stream)
+    return FlushingSseResponse(stream, sseExtraHeaders)
   }
 
   // ── Warmup ───────────────────────────────────────────────────────────────

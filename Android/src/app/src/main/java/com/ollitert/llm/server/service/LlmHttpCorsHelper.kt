@@ -46,6 +46,12 @@ object LlmHttpCorsHelper {
     val trimmed = allowedOrigins.trim()
     if (trimmed.isEmpty()) return emptyMap() // CORS disabled
 
+    // Defense-in-depth: strip CRLF from the origin before reflecting it into response headers.
+    // FlushingSseResponse.send() writes headers as raw bytes — a CRLF in the origin could inject
+    // headers. The equals() check below prevents exploitation (a tainted origin won't match),
+    // but explicit sanitization eliminates the entire class of attack.
+    val safeOrigin = requestOrigin?.replace(Regex("[\\r\\n]"), "")
+
     val headers = mutableMapOf<String, String>()
 
     if (trimmed == "*") {
@@ -54,8 +60,8 @@ object LlmHttpCorsHelper {
     } else {
       // Specific origins mode: only allow if the request Origin matches one of the configured origins
       val allowed = parsedOrigins(trimmed)
-      if (requestOrigin != null && allowed.any { it.equals(requestOrigin, ignoreCase = true) }) {
-        headers["Access-Control-Allow-Origin"] = requestOrigin
+      if (safeOrigin != null && allowed.any { it.equals(safeOrigin, ignoreCase = true) }) {
+        headers["Access-Control-Allow-Origin"] = safeOrigin
         // Vary: Origin is required when the response varies based on the request Origin,
         // so intermediate caches don't serve a response with the wrong origin.
         headers["Vary"] = "Origin"
