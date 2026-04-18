@@ -77,8 +77,6 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -117,6 +115,15 @@ import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.server.logs.exportLogcat
 import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.ui.server.settings.SettingDivider
+import com.ollitert.llm.server.ui.server.settings.SettingLabel
+import com.ollitert.llm.server.ui.server.settings.ToggleSettingRow
+import com.ollitert.llm.server.ui.server.settings.NumericWithUnitRow
+import com.ollitert.llm.server.ui.server.settings.NumericInputRow
+import com.ollitert.llm.server.ui.server.settings.highlightSearchMatches
+import com.ollitert.llm.server.ui.server.settings.KEEP_ALIVE_TIMEOUT
+import com.ollitert.llm.server.ui.server.settings.CHECK_FREQUENCY
+import com.ollitert.llm.server.ui.server.settings.LOG_AUTO_DELETE
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -135,54 +142,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import kotlinx.coroutines.launch
-
-/** Highlights all occurrences of search query words in the given text with the specified color. */
-private fun highlightSearchMatches(
-  text: String,
-  query: String,
-  highlightColor: androidx.compose.ui.graphics.Color,
-): AnnotatedString {
-  if (query.isBlank()) return AnnotatedString(text)
-  val words = query.trim().lowercase().split("\\s+".toRegex()).filter { it.isNotEmpty() }
-  if (words.isEmpty()) return AnnotatedString(text)
-  val textLower = text.lowercase()
-  val ranges = mutableListOf<IntRange>()
-  for (word in words) {
-    var start = 0
-    while (true) {
-      val idx = textLower.indexOf(word, start)
-      if (idx < 0) break
-      ranges.add(idx until idx + word.length)
-      start = idx + 1
-    }
-  }
-  if (ranges.isEmpty()) return AnnotatedString(text)
-  val merged = ranges.sortedBy { it.first }.fold(mutableListOf<IntRange>()) { acc, r ->
-    if (acc.isEmpty() || acc.last().last < r.first - 1) acc.add(r)
-    else acc[acc.lastIndex] = acc.last().first..maxOf(acc.last().last, r.last)
-    acc
-  }
-  return buildAnnotatedString {
-    append(text)
-    for (range in merged) {
-      addStyle(
-        SpanStyle(color = highlightColor, fontWeight = FontWeight.Bold),
-        start = range.first,
-        end = range.last + 1,
-      )
-    }
-  }
-}
-
-/** Setting name text with search term highlighting. Replaces plain Text() for setting labels. */
-@Composable
-private fun SettingLabel(text: String, searchQuery: String) {
-  Text(
-    text = highlightSearchMatches(text, searchQuery, OlliteRTPrimary),
-    style = MaterialTheme.typography.bodyMedium,
-    color = MaterialTheme.colorScheme.onSurface,
-  )
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -365,233 +324,92 @@ fun SettingsScreen(
         return (0 until index).any { generalVisible[it] }
       }
 
-      // Keep screen awake toggle
       if (vm.settingVisible("keep_screen_awake")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_keep_screen_awake), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_keep_screen_awake_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.keepScreenOn,
-          onCheckedChange = { enabled ->
-            vm.keepScreenOn = enabled
-          },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: keep_screen_awake
-
-      if (showGeneralDivider(1)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_keep_screen_awake),
+        description = stringResource(R.string.settings_keep_screen_awake_desc),
+        checked = vm.keepScreenOn,
+        onCheckedChange = { vm.keepScreenOn = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Auto-expand logs toggle
+      if (showGeneralDivider(1)) SettingDivider()
       if (vm.settingVisible("auto_expand_logs")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_auto_expand_logs), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_auto_expand_logs_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.autoExpandLogs,
-          onCheckedChange = { vm.autoExpandLogs = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: auto_expand_logs
-
-      if (showGeneralDivider(2)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_auto_expand_logs),
+        description = stringResource(R.string.settings_auto_expand_logs_desc),
+        checked = vm.autoExpandLogs,
+        onCheckedChange = { vm.autoExpandLogs = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Stream response preview toggle
+      if (showGeneralDivider(2)) SettingDivider()
       if (vm.settingVisible("stream_response_preview")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_stream_response_preview), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_stream_response_preview_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.streamLogsPreview,
-          onCheckedChange = { vm.streamLogsPreview = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: stream_response_preview
-
-      if (showGeneralDivider(3)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_stream_response_preview),
+        description = stringResource(R.string.settings_stream_response_preview_desc),
+        checked = vm.streamLogsPreview,
+        onCheckedChange = { vm.streamLogsPreview = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Compact image data toggle — replaces base64 payloads with size placeholders at capture time
+      if (showGeneralDivider(3)) SettingDivider()
       if (vm.settingVisible("compact_image_data")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_compact_image_data), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_compact_image_data_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.compactImageData,
-          onCheckedChange = { vm.compactImageData = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: compact_image_data
-
-      if (showGeneralDivider(4)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_compact_image_data),
+        description = stringResource(R.string.settings_compact_image_data_desc),
+        checked = vm.compactImageData,
+        onCheckedChange = { vm.compactImageData = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Hide health logs toggle
+      if (showGeneralDivider(4)) SettingDivider()
       if (vm.settingVisible("hide_health_logs")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_hide_health_logs), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_hide_health_logs_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.hideHealthLogs,
-          onCheckedChange = { vm.hideHealthLogs = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: hide_health_logs
-
-      if (showGeneralDivider(5)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_hide_health_logs),
+        description = stringResource(R.string.settings_hide_health_logs_desc),
+        checked = vm.hideHealthLogs,
+        onCheckedChange = { vm.hideHealthLogs = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Clear logs on stop toggle
+      if (showGeneralDivider(5)) SettingDivider()
       if (vm.settingVisible("clear_logs_on_stop")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_clear_logs_on_stop), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_clear_logs_on_stop_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.clearLogsOnStop,
-          onCheckedChange = { vm.clearLogsOnStop = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: clear_logs_on_stop
-
-      if (showGeneralDivider(6)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_clear_logs_on_stop),
+        description = stringResource(R.string.settings_clear_logs_on_stop_desc),
+        checked = vm.clearLogsOnStop,
+        onCheckedChange = { vm.clearLogsOnStop = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Confirm before clearing logs
+      if (showGeneralDivider(6)) SettingDivider()
       if (vm.settingVisible("confirm_clear_logs")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_confirm_clear_logs), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_confirm_clear_logs_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.confirmClearLogs,
-          onCheckedChange = { vm.confirmClearLogs = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: confirm_clear_logs
-
-      if (showGeneralDivider(7)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_confirm_clear_logs),
+        description = stringResource(R.string.settings_confirm_clear_logs_desc),
+        checked = vm.confirmClearLogs,
+        onCheckedChange = { vm.confirmClearLogs = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Keep partial response toggle
+      if (showGeneralDivider(7)) SettingDivider()
       if (vm.settingVisible("keep_partial_response")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_keep_partial_response), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_keep_partial_response_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.keepPartialResponse,
-          onCheckedChange = { vm.keepPartialResponse = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_keep_partial_response),
+        description = stringResource(R.string.settings_keep_partial_response_desc),
+        checked = vm.keepPartialResponse,
+        onCheckedChange = { vm.keepPartialResponse = it },
+        searchQuery = vm.searchQuery,
+      )
       }
-      } // if: keep_partial_response
 
     }
     } // AnimatedVisibility: General
@@ -725,43 +543,74 @@ fun SettingsScreen(
       } // if: host_port
 
       if (vm.settingVisible("host_port") && vm.settingVisible("bearer_token")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
       }
 
       // Bearer token toggle
       if (vm.settingVisible("bearer_token")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_bearer_token), searchQuery = vm.searchQuery)
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_bearer_token),
+        description = stringResource(R.string.settings_bearer_token_desc),
+        checked = vm.bearerEnabled,
+        onCheckedChange = { enabled ->
+          vm.bearerEnabled = enabled
+          if (enabled && vm.bearerToken.isBlank()) {
+            vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+          }
+        },
+        searchQuery = vm.searchQuery,
+      )
+      // Token display + actions (only when bearer is enabled and setting is visible)
+      if (vm.bearerEnabled && vm.settingVisible("bearer_token")) {
+        SettingDivider()
+
+        // Token value in a copyable box
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
           Text(
-            text = stringResource(R.string.settings_bearer_token_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = vm.bearerToken,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+
+          // Copy button
+          TooltipIconButton(
+            icon = Icons.Outlined.ContentCopy,
+            tooltip = stringResource(R.string.settings_bearer_copy_tooltip),
+            onClick = {
+              copyToClipboard(context, "OlliteRT Bearer Token", vm.bearerToken)
+            },
+          )
+
+          Spacer(modifier = Modifier.width(4.dp))
+
+          // Regenerate button
+          TooltipIconButton(
+            icon = Icons.Outlined.Refresh,
+            tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
+            onClick = {
+              vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
+              Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
+            },
           )
         }
-        Switch(
-          checked = vm.bearerEnabled,
-          onCheckedChange = { enabled ->
-            vm.bearerEnabled = enabled
-            if (enabled && vm.bearerToken.isBlank()) {
-              vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
-            }
-          },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
       }
       } // if: bearer_token
 
       if (vm.settingVisible("bearer_token") && vm.settingVisible("cors_origins")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
       }
 
       // CORS allowed origins
@@ -816,56 +665,6 @@ fun SettingsScreen(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       } // if: cors_origins
-
-      // Token display + actions (only when bearer is enabled and setting is visible)
-      if (vm.bearerEnabled && vm.settingVisible("bearer_token")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Token value in a copyable box
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-            text = vm.bearerToken,
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-
-          // Copy button
-          TooltipIconButton(
-            icon = Icons.Outlined.ContentCopy,
-            tooltip = stringResource(R.string.settings_bearer_copy_tooltip),
-            onClick = {
-              copyToClipboard(context, "OlliteRT Bearer Token", vm.bearerToken)
-            },
-          )
-
-          Spacer(modifier = Modifier.width(4.dp))
-
-          // Regenerate button
-          TooltipIconButton(
-            icon = Icons.Outlined.Refresh,
-            tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
-            onClick = {
-              vm.bearerToken = java.util.UUID.randomUUID().toString().replace("-", "")
-              Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
-            },
-          )
-        }
-      }
     }
     } // AnimatedVisibility: Server Config
 
@@ -956,178 +755,54 @@ fun SettingsScreen(
       } // if: default_model
 
       if (vm.settingVisible("default_model") && vm.settingVisible("start_on_boot")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
       }
 
-      // Auto-start on boot toggle — entire row dims when no default model is selected
       if (vm.settingVisible("start_on_boot")) {
-      val autoStartAlpha = if (vm.defaultModelName != null) 1f else 0.4f
-      Row(
-        modifier = Modifier.fillMaxWidth().alpha(autoStartAlpha),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_start_on_boot), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(if (vm.defaultModelName == null) R.string.settings_start_on_boot_desc_no_model
-                   else R.string.settings_start_on_boot_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.autoStartOnBoot,
-          onCheckedChange = { enabled ->
-            vm.autoStartOnBoot = enabled
-          },
-          enabled = vm.defaultModelName != null,
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_start_on_boot),
+        description = stringResource(
+          if (vm.defaultModelName == null) R.string.settings_start_on_boot_desc_no_model
+          else R.string.settings_start_on_boot_desc,
+        ),
+        checked = vm.autoStartOnBoot,
+        onCheckedChange = { vm.autoStartOnBoot = it },
+        searchQuery = vm.searchQuery,
+        enabled = vm.defaultModelName != null,
+        alphaOverride = if (vm.defaultModelName != null) 1f else 0.4f,
+      )
       }
-      } // if: start_on_boot
 
       if (vm.settingVisible("start_on_boot") && vm.settingVisible("keep_alive")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
       }
 
-      // Keep Alive — auto-unload model after idle timeout to free RAM
       if (vm.settingVisible("keep_alive")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_keep_alive), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_keep_alive_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.keepAliveEnabled,
-          onCheckedChange = { vm.keepAliveEnabled = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_keep_alive),
+        description = stringResource(R.string.settings_keep_alive_desc),
+        checked = vm.keepAliveEnabled,
+        onCheckedChange = { vm.keepAliveEnabled = it },
+        searchQuery = vm.searchQuery,
+      )
+
+      SettingDivider(verticalPadding = 8)
+
+      NumericWithUnitRow(
+        def = KEEP_ALIVE_TIMEOUT,
+        baseValue = vm.keepAliveMinutes.toLong(),
+        savedBaseValue = vm.savedKeepAliveMinutes.toLong(),
+        onBaseValueChange = { vm.keepAliveMinutes = it.toInt() },
+        searchQuery = vm.searchQuery,
+        isError = vm.keepAliveError,
+        enabled = vm.keepAliveEnabled,
+        onErrorClear = { vm.keepAliveError = false },
+        modifier = Modifier.alpha(if (vm.keepAliveEnabled) 1f else 0.4f),
+      )
       }
-
-      // Idle timeout child control — dimmed when keep alive is disabled
-      val keepAliveChildAlpha = if (vm.keepAliveEnabled) 1f else 0.4f
-
-      Spacer(modifier = Modifier.height(8.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
-
-      Column(modifier = Modifier.alpha(keepAliveChildAlpha)) {
-        Text(
-          text = highlightSearchMatches(stringResource(R.string.settings_idle_timeout_label), vm.searchQuery, OlliteRTPrimary),
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-
-        val keepAliveTimeoutUnits = listOf("minutes", "hours")
-        val initialKeepAliveValue = remember(vm.savedKeepAliveMinutes) {
-          val mins = vm.savedKeepAliveMinutes
-          if (mins > 0 && mins % 60 == 0) (mins / 60).toString() else mins.toString()
-        }
-        var keepAliveValueText by remember { mutableStateOf(initialKeepAliveValue) }
-        var showKeepAliveUnitDropdown by remember { mutableStateOf(false) }
-
-        fun recomputeKeepAliveMinutes() {
-          val num = keepAliveValueText.toIntOrNull() ?: 0
-          val totalMinutes = when (vm.keepAliveUnit) {
-            "hours" -> num * 60
-            else -> num
-          }
-          vm.keepAliveMinutes = totalMinutes
-          if (vm.keepAliveError) vm.keepAliveError = false
-        }
-
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          OutlinedTextField(
-            value = keepAliveValueText,
-            onValueChange = { text ->
-              val filtered = text.filter { it.isDigit() }.take(4)
-              keepAliveValueText = filtered
-              recomputeKeepAliveMinutes()
-            },
-            singleLine = true,
-            isError = vm.keepAliveError,
-            enabled = vm.keepAliveEnabled,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(1f),
-            colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = if (vm.keepAliveError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-              unfocusedBorderColor = if (vm.keepAliveError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-              cursorColor = OlliteRTPrimary,
-            ),
-          )
-          // Unit selector dropdown
-          Column {
-            OutlinedTextField(
-              value = vm.keepAliveUnit,
-              onValueChange = {},
-              readOnly = true,
-              singleLine = true,
-              modifier = Modifier
-                .widthIn(min = 90.dp, max = 120.dp)
-                .clickable(enabled = vm.keepAliveEnabled) {
-                  focusManager.clearFocus()
-                  showKeepAliveUnitDropdown = true
-                },
-              enabled = false,
-              colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-              ),
-            )
-            DropdownMenu(
-              expanded = showKeepAliveUnitDropdown,
-              onDismissRequest = { showKeepAliveUnitDropdown = false },
-            ) {
-              keepAliveTimeoutUnits.forEach { unit ->
-                DropdownMenuItem(
-                  text = {
-                    Text(
-                      unit,
-                      color = if (unit == vm.keepAliveUnit) OlliteRTPrimary
-                              else MaterialTheme.colorScheme.onSurface,
-                    )
-                  },
-                  onClick = {
-                    vm.keepAliveUnit = unit
-                    showKeepAliveUnitDropdown = false
-                    recomputeKeepAliveMinutes()
-                  },
-                )
-              }
-            }
-          }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_idle_timeout_desc),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
-      } // if: keep_alive
 
       if (vm.settingVisible("keep_alive") && vm.settingVisible("dontkillmyapp")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
       }
 
       // Link to dontkillmyapp.com — OEM-specific battery/background kill settings
@@ -1163,9 +838,7 @@ fun SettingsScreen(
       } // if: dontkillmyapp
 
       if ((vm.settingVisible("dontkillmyapp") || vm.settingVisible("keep_alive")) && vm.settingVisible("update_check")) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
       }
 
       // Check for Updates — manual check always available, automatic scheduling is separate
@@ -1212,7 +885,7 @@ fun SettingsScreen(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
           SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
           Text(
             text = stringResource(R.string.settings_check_for_updates_desc),
@@ -1245,35 +918,21 @@ fun SettingsScreen(
         }
       }
 
-      Spacer(modifier = Modifier.height(16.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(16.dp))
+      SettingDivider()
 
       // Automatic update check — gated behind notification permissions
       val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
       val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
       val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
 
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_auto_update_check), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_auto_update_check_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.updateCheckEnabled,
-          onCheckedChange = { vm.updateCheckEnabled = it },
-          enabled = updateControlsEnabled,
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_auto_update_check),
+        description = stringResource(R.string.settings_auto_update_check_desc),
+        checked = vm.updateCheckEnabled,
+        onCheckedChange = { vm.updateCheckEnabled = it },
+        searchQuery = vm.searchQuery,
+        enabled = updateControlsEnabled,
+      )
 
       // Notification permission/channel warning
       if (!notifPermissionGranted) {
@@ -1299,111 +958,19 @@ fun SettingsScreen(
         )
       }
 
-      // Frequency input — dimmed when toggle is off or permission missing
-      val updateChildAlpha = if (vm.updateCheckEnabled && updateControlsEnabled) 1f else 0.4f
+      SettingDivider(verticalPadding = 8)
 
-      Spacer(modifier = Modifier.height(8.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
-
-      Column(modifier = Modifier.alpha(updateChildAlpha)) {
-        Text(
-          text = highlightSearchMatches(stringResource(R.string.settings_check_frequency_label), vm.searchQuery, OlliteRTPrimary),
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-
-        val updateCheckUnits = listOf("hours", "days")
-        val initialUpdateValue = remember(vm.savedUpdateCheckIntervalHours) {
-          val h = vm.savedUpdateCheckIntervalHours
-          if (h > 0 && h % 24 == 0) (h / 24).toString() else h.toString()
-        }
-        var updateValueText by remember { mutableStateOf(initialUpdateValue) }
-        var showUpdateUnitDropdown by remember { mutableStateOf(false) }
-
-        fun recomputeUpdateHours() {
-          val num = updateValueText.toIntOrNull() ?: 0
-          val totalHours = when (vm.updateCheckUnit) {
-            "days" -> num * 24
-            else -> num
-          }
-          vm.updateCheckIntervalHours = totalHours
-          if (vm.updateCheckError) vm.updateCheckError = false
-        }
-
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          OutlinedTextField(
-            value = updateValueText,
-            onValueChange = { text ->
-              val filtered = text.filter { it.isDigit() }.take(4)
-              updateValueText = filtered
-              recomputeUpdateHours()
-            },
-            singleLine = true,
-            isError = vm.updateCheckError,
-            enabled = vm.updateCheckEnabled && updateControlsEnabled,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(1f),
-            colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = if (vm.updateCheckError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-              unfocusedBorderColor = if (vm.updateCheckError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-              cursorColor = OlliteRTPrimary,
-            ),
-          )
-          // Unit selector dropdown
-          Column {
-            OutlinedTextField(
-              value = vm.updateCheckUnit,
-              onValueChange = {},
-              readOnly = true,
-              singleLine = true,
-              modifier = Modifier
-                .widthIn(min = 90.dp, max = 120.dp)
-                .clickable(enabled = vm.updateCheckEnabled && updateControlsEnabled) {
-                  focusManager.clearFocus()
-                  showUpdateUnitDropdown = true
-                },
-              enabled = false,
-              colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-              ),
-            )
-            DropdownMenu(
-              expanded = showUpdateUnitDropdown,
-              onDismissRequest = { showUpdateUnitDropdown = false },
-            ) {
-              updateCheckUnits.forEach { unit ->
-                DropdownMenuItem(
-                  text = {
-                    Text(
-                      unit,
-                      color = if (unit == vm.updateCheckUnit) OlliteRTPrimary
-                              else MaterialTheme.colorScheme.onSurface,
-                    )
-                  },
-                  onClick = {
-                    vm.updateCheckUnit = unit
-                    showUpdateUnitDropdown = false
-                    recomputeUpdateHours()
-                  },
-                )
-              }
-            }
-          }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_check_frequency_desc),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
+      NumericWithUnitRow(
+        def = CHECK_FREQUENCY,
+        baseValue = vm.updateCheckIntervalHours.toLong(),
+        savedBaseValue = vm.savedUpdateCheckIntervalHours.toLong(),
+        onBaseValueChange = { vm.updateCheckIntervalHours = it.toInt() },
+        searchQuery = vm.searchQuery,
+        isError = vm.updateCheckError,
+        enabled = vm.updateCheckEnabled && updateControlsEnabled,
+        modifier = Modifier.alpha(if (vm.updateCheckEnabled && updateControlsEnabled) 1f else 0.4f),
+        onErrorClear = { vm.updateCheckError = false },
+      )
       } // if: update_check
 
     }
@@ -1420,57 +987,29 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_metrics),
       searchQuery = vm.searchQuery,
     ) {
-      // Show Request Types on Status screen
       if (vm.settingVisible("show_request_types")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_show_request_types), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_show_request_types_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.showRequestTypes,
-          onCheckedChange = { vm.showRequestTypes = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_show_request_types),
+        description = stringResource(R.string.settings_show_request_types_desc),
+        checked = vm.showRequestTypes,
+        onCheckedChange = { vm.showRequestTypes = it },
+        searchQuery = vm.searchQuery,
+      )
       }
-      } // if: show_request_types
 
       if (vm.settingVisible("show_request_types") && vm.settingVisible("show_advanced_metrics")) {
-        Spacer(modifier = Modifier.height(8.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(8.dp))
+        SettingDivider(verticalPadding = 8)
       }
 
-      // Show Advanced Metrics on Status screen
       if (vm.settingVisible("show_advanced_metrics")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_show_advanced_metrics), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_show_advanced_metrics_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.showAdvancedMetrics,
-          onCheckedChange = { vm.showAdvancedMetrics = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_show_advanced_metrics),
+        description = stringResource(R.string.settings_show_advanced_metrics_desc),
+        checked = vm.showAdvancedMetrics,
+        onCheckedChange = { vm.showAdvancedMetrics = it },
+        searchQuery = vm.searchQuery,
+      )
       }
-      } // if: show_advanced_metrics
     }
     } // AnimatedVisibility: Metrics
 
@@ -1485,182 +1024,45 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_log_persistence),
       searchQuery = vm.searchQuery,
     ) {
-      // Master toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_persist_logs), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_persist_logs_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.logPersistenceEnabled,
-          onCheckedChange = { vm.logPersistenceEnabled = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_persist_logs),
+        description = stringResource(R.string.settings_persist_logs_desc),
+        checked = vm.logPersistenceEnabled,
+        onCheckedChange = { vm.logPersistenceEnabled = it },
+        searchQuery = vm.searchQuery,
+      )
 
-      // Child controls — disabled (greyed out) when master toggle is OFF
       val childAlpha = if (vm.logPersistenceEnabled) 1f else 0.4f
 
-      Spacer(modifier = Modifier.height(8.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
+      SettingDivider(verticalPadding = 8)
 
-      // Max Entries — simple number input, value updates live into unsaved state
-      Column(modifier = Modifier.alpha(childAlpha)) {
-        Text(
-          text = highlightSearchMatches(stringResource(R.string.settings_max_log_entries_label), vm.searchQuery, OlliteRTPrimary),
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        // Track as text so the user can freely edit (e.g. delete "500" and type "200")
-        var maxEntriesText by remember { mutableStateOf(vm.logMaxEntries.toString()) }
-        OutlinedTextField(
-          value = maxEntriesText,
-          onValueChange = { text ->
-            val filtered = text.filter { it.isDigit() }.take(5) // max 5 digits (99999)
-            maxEntriesText = filtered
-            filtered.toIntOrNull()?.let { vm.logMaxEntries = it }
-          },
-          singleLine = true,
-          enabled = vm.logPersistenceEnabled,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-          modifier = Modifier.fillMaxWidth(),
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = OlliteRTPrimary,
-            cursorColor = OlliteRTPrimary,
-          ),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_max_log_entries_desc),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
+      var maxEntriesText by remember { mutableStateOf(vm.logMaxEntries.toString()) }
+      NumericInputRow(
+        label = stringResource(R.string.settings_max_log_entries_label),
+        description = stringResource(R.string.settings_max_log_entries_desc),
+        value = maxEntriesText,
+        onValueChange = { text ->
+          maxEntriesText = text
+          text.toIntOrNull()?.let { vm.logMaxEntries = it }
+        },
+        searchQuery = vm.searchQuery,
+        enabled = vm.logPersistenceEnabled,
+        modifier = Modifier.alpha(childAlpha),
+      )
 
-      Spacer(modifier = Modifier.height(8.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
+      SettingDivider(verticalPadding = 8)
 
-      // Auto-Delete — number input + unit dropdown (minutes/hours/days)
-      Column(modifier = Modifier.alpha(childAlpha)) {
-        Text(
-          text = highlightSearchMatches(stringResource(R.string.settings_auto_delete_label), vm.searchQuery, OlliteRTPrimary),
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+      NumericWithUnitRow(
+        def = LOG_AUTO_DELETE,
+        baseValue = vm.logAutoDeleteMinutes,
+        savedBaseValue = vm.savedLogAutoDeleteMinutes,
+        onBaseValueChange = { vm.logAutoDeleteMinutes = it },
+        searchQuery = vm.searchQuery,
+        enabled = vm.logPersistenceEnabled,
+        modifier = Modifier.alpha(childAlpha),
+      )
 
-        // Decompose total minutes into a display value + unit for the UI.
-        // Pick the largest unit that divides evenly, defaulting to minutes.
-        val autoDeleteUnits = listOf("minutes", "hours", "days")
-        val (initialValue, initialUnit) = remember(vm.savedLogAutoDeleteMinutes) {
-          val mins = vm.savedLogAutoDeleteMinutes
-          when {
-            mins > 0 && mins % (24 * 60) == 0L -> (mins / (24 * 60)).toString() to "days"
-            mins > 0 && mins % 60 == 0L -> (mins / 60).toString() to "hours"
-            else -> mins.toString() to "minutes"
-          }
-        }
-        var autoDeleteValueText by remember { mutableStateOf(initialValue) }
-        var autoDeleteUnit by remember { mutableStateOf(initialUnit) }
-        var showUnitDropdown by remember { mutableStateOf(false) }
-
-        // Recompute total minutes whenever the value or unit changes.
-        // A value of 0 means auto-delete is disabled (logs kept indefinitely).
-        fun recomputeMinutes() {
-          val num = autoDeleteValueText.toLongOrNull() ?: return
-          vm.logAutoDeleteMinutes = when (autoDeleteUnit) {
-            "hours" -> num * 60
-            "days" -> num * 24 * 60
-            else -> num
-          }
-        }
-
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          // Number input
-          OutlinedTextField(
-            value = autoDeleteValueText,
-            onValueChange = { text ->
-              val filtered = text.filter { it.isDigit() }.take(5)
-              autoDeleteValueText = filtered
-              recomputeMinutes()
-            },
-            singleLine = true,
-            enabled = vm.logPersistenceEnabled,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(1f),
-            colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = OlliteRTPrimary,
-              cursorColor = OlliteRTPrimary,
-            ),
-          )
-          // Unit selector dropdown
-          Column {
-            OutlinedTextField(
-              value = autoDeleteUnit,
-              onValueChange = {},
-              readOnly = true,
-              singleLine = true,
-              modifier = Modifier
-                .widthIn(min = 90.dp, max = 120.dp)
-                .clickable(enabled = vm.logPersistenceEnabled) {
-                  focusManager.clearFocus() // dismiss keyboard so dropdown anchors correctly
-                  showUnitDropdown = true
-                },
-              enabled = false,
-              colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-              ),
-            )
-            DropdownMenu(
-              expanded = showUnitDropdown,
-              onDismissRequest = { showUnitDropdown = false },
-            ) {
-              autoDeleteUnits.forEach { unit ->
-                DropdownMenuItem(
-                  text = {
-                    Text(
-                      unit,
-                      color = if (unit == autoDeleteUnit) OlliteRTPrimary
-                              else MaterialTheme.colorScheme.onSurface,
-                    )
-                  },
-                  onClick = {
-                    autoDeleteUnit = unit
-                    showUnitDropdown = false
-                    recomputeMinutes()
-                  },
-                )
-              }
-            }
-          }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_auto_delete_desc),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
-
-      Spacer(modifier = Modifier.height(8.dp))
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-      Spacer(modifier = Modifier.height(8.dp))
+      SettingDivider(verticalPadding = 8)
 
       // Clear All Logs button — wipes both in-memory and persisted logs.
       // The user has no visibility into what's only in the DB vs in memory,
@@ -1905,35 +1307,21 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_home_assistant),
       searchQuery = vm.searchQuery,
     ) {
-      // Toggle for HA integration
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_ha_rest_api), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_ha_rest_api_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = haIntegrationEnabled,
-          onCheckedChange = {
-            haIntegrationEnabled = it
-            LlmHttpPrefs.setHaIntegrationEnabled(context, it)
-          },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
+      // Toggle for HA integration (immediate-apply, not part of save flow)
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_ha_rest_api),
+        description = stringResource(R.string.settings_ha_rest_api_desc),
+        checked = haIntegrationEnabled,
+        onCheckedChange = {
+          haIntegrationEnabled = it
+          LlmHttpPrefs.setHaIntegrationEnabled(context, it)
+        },
+        searchQuery = vm.searchQuery,
+      )
 
       // "Copy Configuration" button — only visible when the toggle is on
       if (haIntegrationEnabled) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+        SettingDivider()
 
         // Build the HA YAML config dynamically using current IP, port, and bearer token
         val currentPort = vm.portText.toIntOrNull() ?: LlmHttpPrefs.getPort(context)
@@ -2088,200 +1476,80 @@ fun SettingsScreen(
       }
 
       if (vm.settingVisible("warmup_message")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_warmup_message), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_warmup_message_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.warmupEnabled,
-          onCheckedChange = { vm.warmupEnabled = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: warmup_message
-
-      if (showDividerBefore(1)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_warmup_message),
+        description = stringResource(R.string.settings_warmup_message_desc),
+        checked = vm.warmupEnabled,
+        onCheckedChange = { vm.warmupEnabled = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Eager vision initialization toggle
+      if (showDividerBefore(1)) SettingDivider()
       if (vm.settingVisible("pre_init_vision")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_pre_init_vision), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_pre_init_vision_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.eagerVisionInit,
-          onCheckedChange = { vm.eagerVisionInit = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: pre_init_vision
-
-      if (showDividerBefore(2)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_pre_init_vision),
+        description = stringResource(R.string.settings_pre_init_vision_desc),
+        checked = vm.eagerVisionInit,
+        onCheckedChange = { vm.eagerVisionInit = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Custom system prompt toggle
+      if (showDividerBefore(2)) SettingDivider()
       if (vm.settingVisible("custom_prompts")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_custom_prompts), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_custom_prompts_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.customPromptsEnabled,
-          onCheckedChange = { vm.customPromptsEnabled = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: custom_prompts
-
-      if (showDividerBefore(3)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_custom_prompts),
+        description = stringResource(R.string.settings_custom_prompts_desc),
+        checked = vm.customPromptsEnabled,
+        onCheckedChange = { vm.customPromptsEnabled = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Truncate conversation history toggle
+      if (showDividerBefore(3)) SettingDivider()
       if (vm.settingVisible("truncate_history")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_truncate_history), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_truncate_history_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.autoTruncateHistory,
-          onCheckedChange = { vm.autoTruncateHistory = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: truncate_history
-
-      if (showDividerBefore(4)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_truncate_history),
+        description = stringResource(R.string.settings_truncate_history_desc),
+        checked = vm.autoTruncateHistory,
+        onCheckedChange = { vm.autoTruncateHistory = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Compact tool schemas toggle (especially useful for Home Assistant)
+      if (showDividerBefore(4)) SettingDivider()
       if (vm.settingVisible("compact_tool_schemas")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_compact_tool_schemas), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_compact_tool_schemas_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.compactToolSchemas,
-          onCheckedChange = { vm.compactToolSchemas = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: compact_tool_schemas
-
-      if (showDividerBefore(5)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_compact_tool_schemas),
+        description = stringResource(R.string.settings_compact_tool_schemas_desc),
+        checked = vm.compactToolSchemas,
+        onCheckedChange = { vm.compactToolSchemas = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Trim prompt toggle (last resort)
+      if (showDividerBefore(5)) SettingDivider()
       if (vm.settingVisible("trim_prompt")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_trim_prompt), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_trim_prompt_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.autoTrimPrompts,
-          onCheckedChange = { vm.autoTrimPrompts = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
-      } // if: trim_prompt
-
-      if (showDividerBefore(6)) {
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        Spacer(modifier = Modifier.height(16.dp))
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_trim_prompt),
+        description = stringResource(R.string.settings_trim_prompt_desc),
+        checked = vm.autoTrimPrompts,
+        onCheckedChange = { vm.autoTrimPrompts = it },
+        searchQuery = vm.searchQuery,
+      )
       }
 
-      // Ignore client sampler parameters toggle
+      if (showDividerBefore(6)) SettingDivider()
       if (vm.settingVisible("ignore_client_params")) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_ignore_client_params), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_ignore_client_params_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.ignoreClientSamplerParams,
-          onCheckedChange = { vm.ignoreClientSamplerParams = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_ignore_client_params),
+        description = stringResource(R.string.settings_ignore_client_params_desc),
+        checked = vm.ignoreClientSamplerParams,
+        onCheckedChange = { vm.ignoreClientSamplerParams = it },
+        searchQuery = vm.searchQuery,
+      )
       }
-      } // if: ignore_client_params
     }
     } // AnimatedVisibility: Advanced
 
@@ -2296,25 +1564,13 @@ fun SettingsScreen(
       title = stringResource(R.string.settings_card_developer),
       searchQuery = vm.searchQuery,
     ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          SettingLabel(text = stringResource(R.string.settings_verbose_debug), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_verbose_debug_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        Switch(
-          checked = vm.verboseDebugEnabled,
-          onCheckedChange = { vm.verboseDebugEnabled = it },
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_verbose_debug),
+        description = stringResource(R.string.settings_verbose_debug_desc),
+        checked = vm.verboseDebugEnabled,
+        onCheckedChange = { vm.verboseDebugEnabled = it },
+        searchQuery = vm.searchQuery,
+      )
 
       // Export Debug Logs button — visible only when verbose debug is enabled
       AnimatedVisibility(
@@ -2324,9 +1580,7 @@ fun SettingsScreen(
       ) {
         val logcatScope = rememberCoroutineScope()
         Column {
-          Spacer(modifier = Modifier.height(12.dp))
-          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-          Spacer(modifier = Modifier.height(12.dp))
+          SettingDivider(verticalPadding = 12)
           Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
