@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Favorite
@@ -295,7 +296,7 @@ fun SettingsScreen(
     )
 
     // "No results" message when search has no matches
-    if (vm.searchQuery.isNotBlank() && listOf("general","hf_token","server_config","auto_launch","metrics","log_persistence","home_assistant","advanced","developer","reset").none { vm.cardVisible(it) }) {
+    if (vm.searchQuery.isNotBlank() && listOf("general","hf_token","server_config","auto_launch","metrics","log_persistence","home_assistant","updates","advanced","developer","reset").none { vm.cardVisible(it) }) {
       Text(
         text = stringResource(R.string.settings_no_results, vm.searchQuery),
         style = MaterialTheme.typography.bodyMedium,
@@ -743,142 +744,6 @@ fun SettingsScreen(
         )
       }
       } // if: dontkillmyapp
-
-      if ((vm.settingVisible("dontkillmyapp") || vm.settingVisible("keep_alive")) && vm.settingVisible("update_check")) {
-        SettingDivider()
-      }
-
-      // Check for Updates — manual check always available, automatic scheduling is separate
-      if (vm.settingVisible("update_check")) {
-
-      // Observe update availability from ServerMetrics to swap refresh → download icon
-      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
-      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
-      val hasUpdate = availableVersion != null
-
-      // Track the work request ID to observe results and show toast feedback
-      var checkWorkId by remember { mutableStateOf<java.util.UUID?>(null) }
-      val workManager = remember { WorkManager.getInstance(context) }
-
-      // Observe work completion and show result toast.
-      // Includes a 15-second timeout for cases where WorkManager can't run
-      // the work (e.g. no network — work stays ENQUEUED indefinitely).
-      checkWorkId?.let { id ->
-        val workInfo by workManager.getWorkInfoByIdFlow(id).collectAsStateWithLifecycle(initialValue = null)
-        LaunchedEffect(workInfo?.state) {
-          val info = workInfo ?: return@LaunchedEffect
-          if (info.state.isFinished) {
-            val message = info.outputData.getString(UpdateCheckWorker.KEY_MESSAGE)
-            if (message != null) {
-              Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            }
-            checkWorkId = null
-          }
-        }
-        // Timeout: if work hasn't finished after 15s, show error and stop observing
-        LaunchedEffect(id) {
-          kotlinx.coroutines.delay(15_000)
-          if (checkWorkId == id) {
-            Toast.makeText(context, updateCheckTimeoutText, Toast.LENGTH_SHORT).show()
-            workManager.cancelWorkById(id)
-            checkWorkId = null
-          }
-        }
-      }
-
-      // Manual check — always available regardless of automatic toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-          SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_check_for_updates_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        if (hasUpdate && !availableUrl.isNullOrBlank()) {
-          // Update available — show download button that opens Play Store or GitHub
-          val uriHandler = LocalUriHandler.current
-          val url = availableUrl ?: ""
-          TooltipIconButton(
-            icon = Icons.Outlined.FileDownload,
-            tooltip = stringResource(R.string.settings_download_version, availableVersion ?: ""),
-            onClick = {
-              val intent = UpdateCheckWorker.buildUpdateIntent(context, url)
-              intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
-            },
-          )
-        } else {
-          // No update pending — show check now button
-          TooltipIconButton(
-            icon = Icons.Outlined.Refresh,
-            tooltip = stringResource(R.string.settings_check_now_tooltip),
-            onClick = {
-              Toast.makeText(context, checkingForUpdatesText, Toast.LENGTH_SHORT).show()
-              checkWorkId = UpdateCheckWorker.checkNow(context)
-            },
-          )
-        }
-      }
-
-      SettingDivider()
-
-      // Automatic update check — gated behind notification permissions
-      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
-      val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
-      val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
-
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_auto_update_check),
-        description = stringResource(R.string.settings_auto_update_check_desc),
-        checked = vm.updateCheckEnabledEntry.current,
-        onCheckedChange = { vm.updateCheckEnabledEntry.update(it) },
-        searchQuery = vm.searchQuery,
-        enabled = updateControlsEnabled,
-      )
-
-      // Notification permission/channel warning
-      if (!notifPermissionGranted) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_notif_permission_warning),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.error,
-        )
-      } else if (updateChannelMuted) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_notif_channel_muted),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.error,
-          modifier = Modifier.clickable {
-            val intent = android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
-              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
-              putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, UpdateCheckWorker.UPDATE_CHANNEL_ID)
-            }
-            context.startActivity(intent)
-          },
-        )
-      }
-
-      SettingDivider(verticalPadding = 8)
-
-      NumericWithUnitRow(
-        def = CHECK_FREQUENCY,
-        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
-        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
-        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
-        searchQuery = vm.searchQuery,
-        isError = vm.hasError("check_frequency"),
-        enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
-        modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
-        onErrorClear = { vm.clearError("check_frequency") },
-      )
-      } // if: update_check
 
     }
     } // AnimatedVisibility: Auto-Launch
@@ -1356,6 +1221,156 @@ fun SettingsScreen(
       )
     }
     } // AnimatedVisibility: Advanced
+
+    // Updates card
+    AnimatedVisibility(
+      visible = vm.cardVisible("updates"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
+    SettingsCard(
+      icon = Icons.Outlined.SystemUpdate,
+      title = stringResource(R.string.settings_card_updates),
+      searchQuery = vm.searchQuery,
+    ) {
+      // Check for Updates — manual check always available, automatic scheduling is separate
+      if (vm.settingVisible("check_for_updates")) {
+
+      // Observe update availability from ServerMetrics to swap refresh → download icon
+      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
+      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
+      val hasUpdate = availableVersion != null
+
+      // Track the work request ID to observe results and show toast feedback
+      var checkWorkId by remember { mutableStateOf<java.util.UUID?>(null) }
+      val workManager = remember { WorkManager.getInstance(context) }
+
+      // Observe work completion and show result toast.
+      // Includes a 15-second timeout for cases where WorkManager can't run
+      // the work (e.g. no network — work stays ENQUEUED indefinitely).
+      checkWorkId?.let { id ->
+        val workInfo by workManager.getWorkInfoByIdFlow(id).collectAsStateWithLifecycle(initialValue = null)
+        LaunchedEffect(workInfo?.state) {
+          val info = workInfo ?: return@LaunchedEffect
+          if (info.state.isFinished) {
+            val message = info.outputData.getString(UpdateCheckWorker.KEY_MESSAGE)
+            if (message != null) {
+              Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+            checkWorkId = null
+          }
+        }
+        // Timeout: if work hasn't finished after 15s, show error and stop observing
+        LaunchedEffect(id) {
+          kotlinx.coroutines.delay(15_000)
+          if (checkWorkId == id) {
+            Toast.makeText(context, updateCheckTimeoutText, Toast.LENGTH_SHORT).show()
+            workManager.cancelWorkById(id)
+            checkWorkId = null
+          }
+        }
+      }
+
+      // Manual check — always available regardless of automatic toggle
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+          SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
+          Text(
+            text = stringResource(R.string.settings_check_for_updates_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        if (hasUpdate && !availableUrl.isNullOrBlank()) {
+          // Update available — show download button that opens Play Store or GitHub
+          val uriHandler = LocalUriHandler.current
+          val url = availableUrl ?: ""
+          TooltipIconButton(
+            icon = Icons.Outlined.FileDownload,
+            tooltip = stringResource(R.string.settings_download_version, availableVersion ?: ""),
+            onClick = {
+              val intent = UpdateCheckWorker.buildUpdateIntent(context, url)
+              intent.data?.let { uri -> uriHandler.openUri(uri.toString()) }
+            },
+          )
+        } else {
+          // No update pending — show check now button
+          TooltipIconButton(
+            icon = Icons.Outlined.Refresh,
+            tooltip = stringResource(R.string.settings_check_now_tooltip),
+            onClick = {
+              Toast.makeText(context, checkingForUpdatesText, Toast.LENGTH_SHORT).show()
+              checkWorkId = UpdateCheckWorker.checkNow(context)
+            },
+          )
+        }
+      }
+      } // if: check_for_updates
+
+      if (vm.settingVisible("check_for_updates") && vm.settingVisible("auto_update_check")) {
+        SettingDivider()
+      }
+
+      if (vm.settingVisible("auto_update_check")) {
+      // Automatic update check — gated behind notification permissions
+      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+      val updateChannelMuted = UpdateCheckWorker.isUpdateChannelMuted(context)
+      val updateControlsEnabled = notifPermissionGranted && !updateChannelMuted
+
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_auto_update_check),
+        description = stringResource(R.string.settings_auto_update_check_desc),
+        checked = vm.updateCheckEnabledEntry.current,
+        onCheckedChange = { vm.updateCheckEnabledEntry.update(it) },
+        searchQuery = vm.searchQuery,
+        enabled = updateControlsEnabled,
+      )
+
+      // Notification permission/channel warning
+      if (!notifPermissionGranted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_permission_warning),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+      } else if (updateChannelMuted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_channel_muted),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+              putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, UpdateCheckWorker.UPDATE_CHANNEL_ID)
+            }
+            context.startActivity(intent)
+          },
+        )
+      }
+
+      SettingDivider(verticalPadding = 8)
+
+      NumericWithUnitRow(
+        def = CHECK_FREQUENCY,
+        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
+        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
+        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
+        searchQuery = vm.searchQuery,
+        isError = vm.hasError("check_frequency"),
+        enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
+        modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
+        onErrorClear = { vm.clearError("check_frequency") },
+      )
+      } // if: auto_update_check
+
+    }
+    } // AnimatedVisibility: Updates
 
     // Developer card
     AnimatedVisibility(

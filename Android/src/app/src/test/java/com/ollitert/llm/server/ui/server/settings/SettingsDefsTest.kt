@@ -12,8 +12,8 @@ class SettingsDefsTest {
   }
 
   @Test
-  fun `total card definitions count is 10`() {
-    assertEquals(10, allCardDefs.size)
+  fun `total card definitions count is 11`() {
+    assertEquals(11, allCardDefs.size)
   }
 
   @Test
@@ -59,7 +59,7 @@ class SettingsDefsTest {
     val expectedOrder = listOf(
       CardId.GENERAL, CardId.HF_TOKEN, CardId.SERVER_CONFIG, CardId.AUTO_LAUNCH,
       CardId.METRICS, CardId.LOG_PERSISTENCE, CardId.HOME_ASSISTANT,
-      CardId.ADVANCED, CardId.DEVELOPER, CardId.RESET,
+      CardId.ADVANCED, CardId.UPDATES, CardId.DEVELOPER, CardId.RESET,
     )
     assertEquals(expectedOrder, allCardDefs.map { it.id })
   }

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
 
@@ -215,11 +216,13 @@ val DONTKILLMYAPP = SettingDef.Custom(
   searchKeywords = "Device background settings manufacturers kill background apps dontkillmyapp",
 )
 
+// ─── Updates Card ─────────────────────────────────────────────
+
 val CHECK_FOR_UPDATES = SettingDef.Custom(
   key = "check_for_updates",
   labelRes = R.string.settings_check_for_updates,
   descriptionRes = R.string.settings_check_for_updates_desc,
-  card = CardId.AUTO_LAUNCH,
+  card = CardId.UPDATES,
   searchKeywords = "Check for Updates version new notification background frequency interval update available",
 )
 
@@ -227,7 +230,7 @@ val AUTO_UPDATE_CHECK = SettingDef.Toggle(
   key = "auto_update_check",
   labelRes = R.string.settings_auto_update_check,
   descriptionRes = R.string.settings_auto_update_check_desc,
-  card = CardId.AUTO_LAUNCH,
+  card = CardId.UPDATES,
   searchKeywords = "Check for Updates version new notification background frequency interval update available",
   default = true,
   prefsKey = "update_check_enabled",
@@ -237,7 +240,7 @@ val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
   key = "check_frequency",
   labelRes = R.string.settings_check_frequency_label,
   descriptionRes = R.string.settings_check_frequency_desc,
-  card = CardId.AUTO_LAUNCH,
+  card = CardId.UPDATES,
   searchKeywords = "Check for Updates version new notification background frequency interval update available",
   defaultValue = 24L,
   defaultUnit = "hours",
@@ -471,7 +474,6 @@ val allSettingDefs: List<SettingDef> = listOf(
   HOST_PORT, BEARER_TOKEN, CORS_ORIGINS,
   // Auto-Launch
   DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
-  CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY,
   // Metrics
   SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS,
   // Log Persistence
@@ -481,6 +483,8 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Advanced
   WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
   COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
+  // Updates
+  CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY,
   // Developer
   VERBOSE_DEBUG, EXPORT_LOGCAT,
   // Reset
@@ -520,7 +524,6 @@ val allCardDefs: List<CardDef> = listOf(
     icon = CardIcon.Vector(Icons.Outlined.PlayArrow),
     settings = listOf(
       DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
-      CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY,
     ),
   ),
   CardDef(
@@ -549,6 +552,12 @@ val allCardDefs: List<CardDef> = listOf(
       WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
       COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
     ),
+  ),
+  CardDef(
+    id = CardId.UPDATES,
+    titleRes = R.string.settings_card_updates,
+    icon = CardIcon.Vector(Icons.Outlined.SystemUpdate),
+    settings = listOf(CHECK_FOR_UPDATES, AUTO_UPDATE_CHECK, CHECK_FREQUENCY),
   ),
   CardDef(
     id = CardId.DEVELOPER,
