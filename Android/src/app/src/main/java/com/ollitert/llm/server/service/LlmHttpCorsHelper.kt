@@ -14,7 +14,7 @@ import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
  */
 object LlmHttpCorsHelper {
 
-  /** Preflight response cache duration — browsers cache the CORS allow for this long. */
+  private val CRLF_REGEX = Regex("[\\r\\n]")
 
   /**
    * Cached parsed origins list — avoids re-splitting the comma-separated string on every request.
@@ -50,7 +50,7 @@ object LlmHttpCorsHelper {
     // FlushingSseResponse.send() writes headers as raw bytes — a CRLF in the origin could inject
     // headers. The equals() check below prevents exploitation (a tainted origin won't match),
     // but explicit sanitization eliminates the entire class of attack.
-    val safeOrigin = requestOrigin?.replace(Regex("[\\r\\n]"), "")
+    val safeOrigin = requestOrigin?.replace(CRLF_REGEX, "")
 
     val headers = mutableMapOf<String, String>()
 

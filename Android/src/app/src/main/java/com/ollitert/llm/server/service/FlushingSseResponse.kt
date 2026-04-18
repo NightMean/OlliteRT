@@ -23,6 +23,11 @@ class FlushingSseResponse(
   private val extraHeaders: Map<String, String> = emptyMap(),
 ) : NanoHTTPD.Response(Status.OK, "text/event-stream", stream, -1) {
 
+  companion object {
+    private val CRLF = "\r\n".toByteArray(Charsets.UTF_8)
+    private val TERMINATOR = "0\r\n\r\n".toByteArray(Charsets.UTF_8)
+  }
+
   override fun send(outputStream: OutputStream) {
     // ── Status line + headers ────────────────────────────────────────────
     // extraHeaders carries CORS + x-request-id headers that would otherwise be
@@ -50,11 +55,11 @@ class FlushingSseResponse(
         // Chunked-transfer frame: hex-length CRLF data CRLF
         outputStream.write("${Integer.toHexString(n)}\r\n".toByteArray(Charsets.UTF_8))
         outputStream.write(buf, 0, n)
-        outputStream.write("\r\n".toByteArray(Charsets.UTF_8))
+        outputStream.write(CRLF)
         outputStream.flush()
       }
       // Terminating chunk
-      outputStream.write("0\r\n\r\n".toByteArray(Charsets.UTF_8))
+      outputStream.write(TERMINATOR)
       outputStream.flush()
     } catch (_: Exception) {
       // Client disconnected — signal the inference thread to stop
