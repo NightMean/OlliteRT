@@ -255,7 +255,7 @@ class SettingsViewModel @Inject constructor(
       return SaveResult.ValidationError(validationErrors.values.first())
     }
 
-    val port = portText.toInt()
+    val port = portText.toIntOrNull() ?: return SaveResult.ValidationError("Invalid port number")
     val isPortChanged = port != portEntry.saved
     val isEagerVisionChanged = eagerVisionInitEntry.isChanged
     val needsRestart = isPortChanged || isEagerVisionChanged
