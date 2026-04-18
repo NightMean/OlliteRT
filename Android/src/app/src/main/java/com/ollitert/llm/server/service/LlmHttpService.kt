@@ -46,12 +46,13 @@ class LlmHttpService : Service() {
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
 
-  // Notification state — saved after warmup so we can refresh the notification with live request count
-  private var notifContentIntent: PendingIntent? = null
-  private var notifStopIntent: PendingIntent? = null
-  private var notifCopyIntent: PendingIntent? = null
-  private var notifEndpointUrl: String? = null
-  private var notifModelName: String? = null
+  // Notification state — saved after warmup so we can refresh the notification with live request count.
+  // @Volatile: written from background load thread, read from main thread for notification refresh.
+  @Volatile private var notifContentIntent: PendingIntent? = null
+  @Volatile private var notifStopIntent: PendingIntent? = null
+  @Volatile private var notifCopyIntent: PendingIntent? = null
+  @Volatile private var notifEndpointUrl: String? = null
+  @Volatile private var notifModelName: String? = null
 
   // Model lifecycle: keep-alive, model selection, image decoding — see LlmHttpModelLifecycle.kt
   private lateinit var modelLifecycle: LlmHttpModelLifecycle

@@ -21,7 +21,7 @@ interface AppLifecycleProvider {
 }
 
 class OlliteRTLifecycleProvider : AppLifecycleProvider {
-  private var _isAppInForeground = false
+  @Volatile private var _isAppInForeground = false
 
   override var isAppInForeground: Boolean
     get() = _isAppInForeground
