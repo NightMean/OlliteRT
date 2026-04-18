@@ -47,7 +47,7 @@ class LlmHttpInferenceRunner(
 
   /**
    * Re-initialize the model if needed (null instance or missing vision support).
-   * Must be called inside synchronized(this). Returns an error message on failure, or null on success.
+   * Must be called inside synchronized(inferenceLock). Returns an error message on failure, or null on success.
    *
    * Protects against per-request config overrides poisoning EngineConfig.maxNumTokens:
    * saves the overridden configValues, restores the persisted base config for initialize(),
@@ -115,7 +115,7 @@ class LlmHttpInferenceRunner(
 
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
     val supportAudio = model.llmSupportAudio
-    synchronized(this) {
+    synchronized(inferenceLock) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
         images.forEach { it.recycle() }
@@ -241,7 +241,7 @@ class LlmHttpInferenceRunner(
     val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
-    synchronized(this) {
+    synchronized(inferenceLock) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
         images.forEach { it.recycle() }
@@ -534,7 +534,7 @@ class LlmHttpInferenceRunner(
     val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
-    synchronized(this) {
+    synchronized(inferenceLock) {
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
         images.forEach { it.recycle() }
