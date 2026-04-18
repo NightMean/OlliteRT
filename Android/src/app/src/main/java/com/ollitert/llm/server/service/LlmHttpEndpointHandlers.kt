@@ -44,6 +44,7 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
@@ -100,6 +101,7 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
@@ -198,7 +200,7 @@ class LlmHttpEndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json)
+      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
     } else {
       withPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens) {
         ServerMetrics.onInferenceStarted()
@@ -247,6 +249,7 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
@@ -349,6 +352,7 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
@@ -396,7 +400,7 @@ class LlmHttpEndpointHandlers(
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/responses")
-      return emptyResponse(model.name, stream = req.stream == true)
+      return emptyResponse(model.name, stream = req.stream == true, sseExtraHeaders = sseExtraHeaders)
     }
 
     val tools = req.tools.orEmpty()
@@ -418,7 +422,7 @@ class LlmHttpEndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot, json = json)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
     } else {
       withPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens) {
         ServerMetrics.onInferenceStarted()
@@ -456,7 +460,7 @@ class LlmHttpEndpointHandlers(
   // ── SSE response helpers ─────────────────────────────────────────────────
 
   /** Empty response for /v1/responses — returns SSE or JSON depending on stream flag. */
-  private fun emptyResponse(modelId: String, stream: Boolean): NanoHTTPD.Response {
+  private fun emptyResponse(modelId: String, stream: Boolean, sseExtraHeaders: Map<String, String> = emptyMap()): NanoHTTPD.Response {
     val body = LlmHttpPayloadBuilders.responsesResponseWithText(modelId, "")
     return if (stream) {
       // Use chunked SSE (via BlockingQueueInputStream + FlushingSseResponse) to match
@@ -465,7 +469,7 @@ class LlmHttpEndpointHandlers(
       val stream = BlockingQueueInputStream()
       stream.enqueue(payload)
       stream.finish()
-      FlushingSseResponse(stream)
+      FlushingSseResponse(stream, sseExtraHeaders)
     } else {
       okJsonText(json.encodeToString(body))
     }

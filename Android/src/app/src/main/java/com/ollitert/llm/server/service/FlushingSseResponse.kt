@@ -19,16 +19,24 @@ import java.io.OutputStream
  */
 class FlushingSseResponse(
   private val stream: BlockingQueueInputStream,
+  private val extraHeaders: Map<String, String> = emptyMap(),
 ) : NanoHTTPD.Response(Status.OK, "text/event-stream", stream, -1) {
 
   override fun send(outputStream: OutputStream) {
     // ── Status line + headers ────────────────────────────────────────────
-    val header = "HTTP/1.1 200 OK\r\n" +
-      "Content-Type: text/event-stream\r\n" +
-      "Cache-Control: no-cache\r\n" +
-      "Connection: keep-alive\r\n" +
-      "Transfer-Encoding: chunked\r\n" +
-      "\r\n"
+    // extraHeaders carries CORS + x-request-id headers that would otherwise be
+    // lost because this override bypasses NanoHTTPD's header storage.
+    val header = buildString {
+      append("HTTP/1.1 200 OK\r\n")
+      append("Content-Type: text/event-stream\r\n")
+      append("Cache-Control: no-cache\r\n")
+      append("Connection: keep-alive\r\n")
+      append("Transfer-Encoding: chunked\r\n")
+      for ((key, value) in extraHeaders) {
+        append("$key: $value\r\n")
+      }
+      append("\r\n")
+    }
     outputStream.write(header.toByteArray(Charsets.UTF_8))
     outputStream.flush()
 

@@ -145,4 +145,42 @@ class LlmHttpCorsHelperTest {
     )
     assertEquals("http://localhost:3000", headers["Access-Control-Allow-Origin"])
   }
+
+  // ── CRLF injection defense ────────────────────────────────────────────────
+
+  @Test
+  fun crlfInOriginIsStrippedBeforeMatching() {
+    // A tainted origin with CRLF should not match and should not be reflected
+    val headers = LlmHttpCorsHelper.buildCorsHeaders(
+      "http://localhost:3000",
+      "http://localhost:3000\r\nX-Injected: evil",
+    )
+    // After stripping \r\n, the origin becomes "http://localhost:3000X-Injected: evil"
+    // which doesn't match — no CORS headers returned
+    assertTrue(headers.isEmpty())
+  }
+
+  @Test
+  fun crlfInOriginStrippedStillMatchesIfClean() {
+    // If the origin has a trailing \r\n but is otherwise valid, it should match
+    // after sanitization (trailing CRLF stripped = clean origin)
+    val headers = LlmHttpCorsHelper.buildCorsHeaders(
+      "http://localhost:3000",
+      "http://localhost:3000\r\n",
+    )
+    // After stripping, origin = "http://localhost:3000" which matches
+    assertEquals("http://localhost:3000", headers["Access-Control-Allow-Origin"])
+  }
+
+  @Test
+  fun reflectedOriginDoesNotContainCrLf() {
+    // Even if the origin somehow matches, the reflected value must be clean
+    val headers = LlmHttpCorsHelper.buildCorsHeaders(
+      "http://localhost:3000",
+      "http://localhost:3000\r\n",
+    )
+    val reflected = headers["Access-Control-Allow-Origin"] ?: ""
+    assertFalse(reflected.contains("\r"))
+    assertFalse(reflected.contains("\n"))
+  }
 }

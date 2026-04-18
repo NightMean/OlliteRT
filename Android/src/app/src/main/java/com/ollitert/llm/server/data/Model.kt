@@ -233,12 +233,12 @@ data class Model(
   // The following fields are managed by the app. Don't need to set manually.
   //
   var normalizedName: String = "",
-  var instance: Any? = null,
-  var initializedWithVision: Boolean = false,
-  var initializing: Boolean = false,
+  @Volatile var instance: Any? = null,
+  @Volatile var initializedWithVision: Boolean = false,
+  @Volatile var initializing: Boolean = false,
   // TODO: use a "queue" system to manage model init and cleanup.
   var cleanUpAfterInit: Boolean = false,
-  var configValues: Map<String, Any> = mapOf(),
+  @Volatile var configValues: Map<String, Any> = mapOf(),
   var prevConfigValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
   var accessToken: String? = null,

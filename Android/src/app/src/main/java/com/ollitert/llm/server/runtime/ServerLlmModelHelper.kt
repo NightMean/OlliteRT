@@ -197,7 +197,7 @@ object ServerLlmModelHelper : LlmModelHelper {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
 
-      val instance = model.instance as LlmModelInstance? ?: return
+      val instance = model.instance as? LlmModelInstance ?: return
 
       // Close old conversation in an inner try-catch — if it fails (e.g. already destroyed
       // by another thread), we still proceed to create a new one. The old native memory
@@ -269,11 +269,9 @@ object ServerLlmModelHelper : LlmModelHelper {
   }
 
   override fun cleanUp(model: Model, onDone: () -> Unit) {
-    if (model.instance == null) {
-      return
-    }
-
-    val instance = model.instance as LlmModelInstance
+    // Safe cast: model.instance is @Volatile and can be set to null by another thread
+    // between the null check and the cast. Use as? to avoid NullPointerException.
+    val instance = model.instance as? LlmModelInstance ?: return
 
     try {
       instance.conversation.close()
