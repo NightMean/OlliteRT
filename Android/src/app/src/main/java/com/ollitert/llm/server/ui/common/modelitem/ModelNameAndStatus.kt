@@ -45,6 +45,8 @@ import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.ClickableLink
+import com.ollitert.llm.server.ui.common.highlightSearchMatches
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.customColors
@@ -64,6 +66,7 @@ fun ModelNameAndStatus(
   model: Model,
   task: Task?,
   downloadStatus: ModelDownloadStatus?,
+  searchQuery: String = "",
   modifier: Modifier = Modifier,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
@@ -100,7 +103,11 @@ fun ModelNameAndStatus(
     // Model name — end padding reserves space for the overlaid action icons
     // (delete 40dp + settings 40dp + 8dp gap + 12dp card padding = 100dp worst case).
     Text(
-      model.displayName.ifEmpty { model.name },
+      text = highlightSearchMatches(
+        model.displayName.ifEmpty { model.name },
+        searchQuery,
+        OlliteRTPrimary,
+      ),
       maxLines = 2,
       overflow = TextOverflow.Ellipsis,
       style = MaterialTheme.typography.titleLarge,
@@ -112,6 +119,7 @@ fun ModelNameAndStatus(
       CapabilityChips(
         model = model,
         modifier = Modifier.padding(top = 2.dp),
+        searchQuery = searchQuery,
       )
     }
 
