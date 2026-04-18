@@ -461,7 +461,7 @@ class LlmHttpInferenceRunner(
             val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
             RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
           }
-          try { stream.finish() } catch (_: Exception) {}
+          try { stream.finish() } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }
         }
       },
       onError = { error ->
@@ -494,7 +494,7 @@ class LlmHttpInferenceRunner(
           stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)}\n\n")
           stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
           stream.finish()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }
       },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "executeStreaming_responses", model.name) },
     )
@@ -802,7 +802,7 @@ class LlmHttpInferenceRunner(
             val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
             RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
           }
-          try { stream.finish() } catch (_: Exception) {}
+          try { stream.finish() } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }
         }
       },
       onError = { error ->
@@ -835,7 +835,7 @@ class LlmHttpInferenceRunner(
           stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)}\n\n")
           stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
           stream.finish()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }
       },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "executeStreaming_chat", model.name) },
     )

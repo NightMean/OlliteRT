@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.service
 
+import android.util.Log
 import com.ollitert.llm.server.data.SSE_BUFFER_SIZE_BYTES
 import fi.iki.elonen.NanoHTTPD
 import java.io.OutputStream
@@ -59,7 +60,7 @@ class FlushingSseResponse(
       // Client disconnected — signal the inference thread to stop
       stream.cancel()
     } finally {
-      try { stream.close() } catch (_: Exception) {}
+      try { stream.close() } catch (e: Exception) { Log.w("FlushingSseResponse", "stream.close() failed", e) }
     }
   }
 }
