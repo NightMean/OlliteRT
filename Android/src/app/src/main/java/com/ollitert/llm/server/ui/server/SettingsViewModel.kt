@@ -15,6 +15,7 @@ import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.SettingDef
 import com.ollitert.llm.server.ui.server.settings.SettingEntry
 import com.ollitert.llm.server.ui.server.settings.allCardDefs
+import com.ollitert.llm.server.ui.server.settings.allSettingDefs
 import com.ollitert.llm.server.ui.server.settings.settingDefsByKey
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -86,6 +87,25 @@ class SettingsViewModel @Inject constructor(
     updateCheckEnabledEntry, updateCheckIntervalHoursEntry,
     verboseDebugEnabledEntry,
   )
+
+  /** Maps each SettingDef key to its corresponding SettingEntry for iteration. */
+  private val entryByKey: Map<String, SettingEntry<*>> = buildMap {
+    put("host_port", portEntry)
+    put("bearer_token", bearerTokenEntry)
+    put("hf_token", hfTokenEntry)
+    put("default_model", defaultModelEntry)
+    put("cors_origins", corsAllowedOriginsEntry)
+    put("log_max_entries", logMaxEntriesEntry)
+    put("log_auto_delete", logAutoDeleteMinutesEntry)
+    put("keep_alive_timeout", keepAliveMinutesEntry)
+    put("check_frequency", updateCheckIntervalHoursEntry)
+    // All toggle entries keyed by their SettingDef key
+    for (def in allSettingDefs) {
+      if (def is SettingDef.Toggle) {
+        getToggleEntry(def.key)?.let { put(def.key, it) }
+      }
+    }
+  }
 
   // ─── UI State (non-persisted) ────────────────────────────────────────────
 
@@ -249,44 +269,26 @@ class SettingsViewModel @Inject constructor(
     val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
 
     // ── Persist to SharedPreferences ──
+    // Port uses a combined setter with the enabled flag
     LlmHttpPrefs.save(context, LlmHttpPrefs.isEnabled(context), port)
+    // Bearer token uses effective value (blank when toggle is off)
     LlmHttpPrefs.setBearerToken(context, effectiveBearerToken)
-    LlmHttpPrefs.setHfToken(context, hfTokenEntry.current)
-    LlmHttpPrefs.setDefaultModelName(context, defaultModelEntry.current)
-    LlmHttpPrefs.setAutoStartOnBoot(context, autoStartOnBootEntry.current)
-    LlmHttpPrefs.setKeepScreenOn(context, keepScreenOnEntry.current)
-    LlmHttpPrefs.setAutoExpandLogs(context, autoExpandLogsEntry.current)
-    LlmHttpPrefs.setWarmupEnabled(context, warmupEnabledEntry.current)
-    LlmHttpPrefs.setStreamLogsPreview(context, streamLogsPreviewEntry.current)
-    LlmHttpPrefs.setKeepPartialResponse(context, keepPartialResponseEntry.current)
-    LlmHttpPrefs.setEagerVisionInit(context, eagerVisionInitEntry.current)
-    LlmHttpPrefs.setCustomPromptsEnabled(context, customPromptsEnabledEntry.current)
-    LlmHttpPrefs.setAutoTruncateHistory(context, autoTruncateHistoryEntry.current)
-    LlmHttpPrefs.setAutoTrimPrompts(context, autoTrimPromptsEntry.current)
-    LlmHttpPrefs.setCompactToolSchemas(context, compactToolSchemasEntry.current)
-    LlmHttpPrefs.setIgnoreClientSamplerParams(context, ignoreClientSamplerParamsEntry.current)
-    LlmHttpPrefs.setKeepAliveEnabled(context, keepAliveEnabledEntry.current)
-    LlmHttpPrefs.setKeepAliveMinutes(context, keepAliveMinutesEntry.current)
+    // All other settings: iterate definitions and persist changed entries
+    for (def in allSettingDefs) {
+      if (def.key == "bearer_token") continue // handled above
+      val entry = entryByKey[def.key] ?: continue // Custom defs have no entry
+      if (def is SettingDef.Custom) continue
+      persistSetting(def, entry)
+    }
+
+    // ── Side effects ──
     if ((keepAliveEnabledEntry.isChanged || keepAliveMinutesEntry.isChanged) && isServerActive) {
       LlmHttpService.resetKeepAliveTimer(context)
     }
-    LlmHttpPrefs.setUpdateCheckEnabled(context, updateCheckEnabledEntry.current)
-    LlmHttpPrefs.setUpdateCheckIntervalHours(context, updateCheckIntervalHoursEntry.current)
     if (updateCheckEnabledEntry.isChanged || updateCheckIntervalHoursEntry.isChanged) {
       if (updateCheckEnabledEntry.current) UpdateCheckWorker.scheduleUpdateCheck(context)
       else UpdateCheckWorker.cancelUpdateCheck(context)
     }
-    LlmHttpPrefs.setCompactImageData(context, compactImageDataEntry.current)
-    LlmHttpPrefs.setHideHealthLogs(context, hideHealthLogsEntry.current)
-    LlmHttpPrefs.setClearLogsOnStop(context, clearLogsOnStopEntry.current)
-    LlmHttpPrefs.setConfirmClearLogs(context, confirmClearLogsEntry.current)
-    LlmHttpPrefs.setShowRequestTypes(context, showRequestTypesEntry.current)
-    LlmHttpPrefs.setShowAdvancedMetrics(context, showAdvancedMetricsEntry.current)
-    LlmHttpPrefs.setCorsAllowedOrigins(context, corsAllowedOriginsEntry.current)
-    LlmHttpPrefs.setLogPersistenceEnabled(context, logPersistenceEnabledEntry.current)
-    LlmHttpPrefs.setLogMaxEntries(context, logMaxEntriesEntry.current)
-    LlmHttpPrefs.setLogAutoDeleteMinutes(context, logAutoDeleteMinutesEntry.current)
-    LlmHttpPrefs.setVerboseDebugEnabled(context, verboseDebugEnabledEntry.current)
 
     // ── Log changes ──
     logSettingsChanges(port)
@@ -328,63 +330,150 @@ class SettingsViewModel @Inject constructor(
     }
   }
 
-  /** Collects all behavioral settings changes into one grouped log entry. */
+  /** Persists a single setting to SharedPreferences via the appropriate typed setter. */
+  @Suppress("UNCHECKED_CAST")
+  private fun persistSetting(def: SettingDef, entry: SettingEntry<*>) {
+    when (def) {
+      is SettingDef.Toggle -> {
+        val value = (entry as SettingEntry<Boolean>).current
+        when (def.key) {
+          "keep_screen_awake" -> LlmHttpPrefs.setKeepScreenOn(context, value)
+          "auto_expand_logs" -> LlmHttpPrefs.setAutoExpandLogs(context, value)
+          "stream_response_preview" -> LlmHttpPrefs.setStreamLogsPreview(context, value)
+          "compact_image_data" -> LlmHttpPrefs.setCompactImageData(context, value)
+          "hide_health_logs" -> LlmHttpPrefs.setHideHealthLogs(context, value)
+          "clear_logs_on_stop" -> LlmHttpPrefs.setClearLogsOnStop(context, value)
+          "confirm_clear_logs" -> LlmHttpPrefs.setConfirmClearLogs(context, value)
+          "keep_partial_response" -> LlmHttpPrefs.setKeepPartialResponse(context, value)
+          "start_on_boot" -> LlmHttpPrefs.setAutoStartOnBoot(context, value)
+          "keep_alive" -> LlmHttpPrefs.setKeepAliveEnabled(context, value)
+          "auto_update_check" -> LlmHttpPrefs.setUpdateCheckEnabled(context, value)
+          "show_request_types" -> LlmHttpPrefs.setShowRequestTypes(context, value)
+          "show_advanced_metrics" -> LlmHttpPrefs.setShowAdvancedMetrics(context, value)
+          "log_persistence_enabled" -> LlmHttpPrefs.setLogPersistenceEnabled(context, value)
+          "warmup_message" -> LlmHttpPrefs.setWarmupEnabled(context, value)
+          "pre_init_vision" -> LlmHttpPrefs.setEagerVisionInit(context, value)
+          "custom_prompts" -> LlmHttpPrefs.setCustomPromptsEnabled(context, value)
+          "truncate_history" -> LlmHttpPrefs.setAutoTruncateHistory(context, value)
+          "compact_tool_schemas" -> LlmHttpPrefs.setCompactToolSchemas(context, value)
+          "trim_prompt" -> LlmHttpPrefs.setAutoTrimPrompts(context, value)
+          "ignore_client_params" -> LlmHttpPrefs.setIgnoreClientSamplerParams(context, value)
+          "verbose_debug" -> LlmHttpPrefs.setVerboseDebugEnabled(context, value)
+        }
+      }
+      is SettingDef.TextInput -> {
+        val value = (entry as SettingEntry<String>).current
+        when (def.key) {
+          "hf_token" -> LlmHttpPrefs.setHfToken(context, value)
+          "cors_origins" -> LlmHttpPrefs.setCorsAllowedOrigins(context, value)
+        }
+      }
+      is SettingDef.NumericInput -> {} // host_port handled separately
+      is SettingDef.NumericWithUnit -> when (def.key) {
+        "keep_alive_timeout" -> LlmHttpPrefs.setKeepAliveMinutes(context, (entry as SettingEntry<Int>).current)
+        "check_frequency" -> LlmHttpPrefs.setUpdateCheckIntervalHours(context, (entry as SettingEntry<Int>).current)
+        "log_auto_delete" -> LlmHttpPrefs.setLogAutoDeleteMinutes(context, (entry as SettingEntry<Long>).current)
+      }
+      is SettingDef.NumericPlain -> when (def.key) {
+        "log_max_entries" -> LlmHttpPrefs.setLogMaxEntries(context, (entry as SettingEntry<Int>).current)
+      }
+      is SettingDef.Dropdown -> when (def.key) {
+        "default_model" -> LlmHttpPrefs.setDefaultModelName(context, (entry as SettingEntry<String?>).current)
+      }
+      is SettingDef.Custom -> {} // no persistence
+    }
+  }
+
+  /** Collects all settings changes into one grouped log entry. */
   private fun logSettingsChanges(newPort: Int) {
     val changes = mutableListOf<String>()
+
+    // Port: compared via parsed int (portText → int)
     if (newPort != portEntry.saved) changes.add("Port: ${portEntry.saved} → $newPort")
+
+    // Bearer token: derived state (enabled = token non-blank)
     val bearerWasEnabled = bearerTokenEntry.saved.isNotBlank()
     val bearerIsEnabled = effectiveBearerToken.isNotBlank()
     if (bearerWasEnabled != bearerIsEnabled)
-      changes.add("Bearer Auth: ${if (bearerWasEnabled) "enabled" else "disabled"} → ${if (bearerIsEnabled) "enabled" else "disabled"}")
-    if (autoStartOnBootEntry.isChanged)
-      changes.add("Auto-Start on Boot: ${fmtToggle(autoStartOnBootEntry.saved)} → ${fmtToggle(autoStartOnBootEntry.current)}")
-    if (warmupEnabledEntry.isChanged)
-      changes.add("Warmup Message: ${fmtToggle(warmupEnabledEntry.saved)} → ${fmtToggle(warmupEnabledEntry.current)}")
-    if (eagerVisionInitEntry.isChanged)
-      changes.add("Pre-initialize Vision: ${fmtToggle(eagerVisionInitEntry.saved)} → ${fmtToggle(eagerVisionInitEntry.current)}")
-    if (customPromptsEnabledEntry.isChanged)
-      changes.add("Custom System Prompt & Chat Template: ${fmtToggle(customPromptsEnabledEntry.saved)} → ${fmtToggle(customPromptsEnabledEntry.current)}")
-    if (ignoreClientSamplerParamsEntry.isChanged)
-      changes.add("Ignore Client Sampler Parameters: ${fmtToggle(ignoreClientSamplerParamsEntry.saved)} → ${fmtToggle(ignoreClientSamplerParamsEntry.current)}")
-    if (autoTruncateHistoryEntry.isChanged)
-      changes.add("Truncate Conversation History: ${fmtToggle(autoTruncateHistoryEntry.saved)} → ${fmtToggle(autoTruncateHistoryEntry.current)}")
-    if (compactToolSchemasEntry.isChanged)
-      changes.add("Compact Tool Schemas: ${fmtToggle(compactToolSchemasEntry.saved)} → ${fmtToggle(compactToolSchemasEntry.current)}")
-    if (autoTrimPromptsEntry.isChanged)
-      changes.add("Trim Prompt: ${fmtToggle(autoTrimPromptsEntry.saved)} → ${fmtToggle(autoTrimPromptsEntry.current)}")
-    if (corsAllowedOriginsEntry.isChanged)
-      changes.add("CORS Allowed Origins: ${corsAllowedOriginsEntry.saved.ifBlank { "disabled" }} → ${corsAllowedOriginsEntry.current.ifBlank { "disabled" }}")
-    if (compactImageDataEntry.isChanged)
-      changes.add("Compact Image Data: ${fmtToggle(compactImageDataEntry.saved)} → ${fmtToggle(compactImageDataEntry.current)}")
-    if (hideHealthLogsEntry.isChanged)
-      changes.add("Hide Health Logs: ${fmtToggle(hideHealthLogsEntry.saved)} → ${fmtToggle(hideHealthLogsEntry.current)}")
-    if (logPersistenceEnabledEntry.isChanged)
-      changes.add("Log Persistence: ${fmtToggle(logPersistenceEnabledEntry.saved)} → ${fmtToggle(logPersistenceEnabledEntry.current)}")
-    if (logMaxEntriesEntry.isChanged)
-      changes.add("Log Max Entries: ${logMaxEntriesEntry.saved} → ${logMaxEntriesEntry.current}")
-    if (logAutoDeleteMinutesEntry.isChanged)
-      changes.add("Log Auto-Delete: ${formatMinutesHumanReadable(logAutoDeleteMinutesEntry.saved)} → ${formatMinutesHumanReadable(logAutoDeleteMinutesEntry.current)}")
-    if (keepAliveEnabledEntry.isChanged)
-      changes.add("Keep Alive: ${fmtToggle(keepAliveEnabledEntry.saved)} → ${fmtToggle(keepAliveEnabledEntry.current)}")
-    if (keepAliveMinutesEntry.isChanged)
-      changes.add("Keep Alive Timeout: ${keepAliveMinutesEntry.saved}m → ${keepAliveMinutesEntry.current}m")
-    if (updateCheckEnabledEntry.isChanged)
-      changes.add("Check for Updates: ${fmtToggle(updateCheckEnabledEntry.saved)} → ${fmtToggle(updateCheckEnabledEntry.current)}")
-    if (updateCheckIntervalHoursEntry.isChanged) {
-      fun fmtInterval(hours: Int): String = when {
-        hours % 24 == 0 -> "${hours / 24} ${if (hours / 24 == 1) "day" else "days"}"
-        else -> "$hours ${if (hours == 1) "hour" else "hours"}"
-      }
-      changes.add("Update Check Frequency: ${fmtInterval(updateCheckIntervalHoursEntry.saved)} → ${fmtInterval(updateCheckIntervalHoursEntry.current)}")
+      changes.add("Bearer Auth: ${fmtToggle(bearerWasEnabled)} → ${fmtToggle(bearerIsEnabled)}")
+
+    // All other settings: iterate definitions and format changed entries
+    for (def in allSettingDefs) {
+      if (def.key == "host_port" || def.key == "bearer_token") continue // handled above
+      val entry = entryByKey[def.key] ?: continue
+      if (!entry.isChanged) continue
+      formatChange(def, entry)?.let { changes.add(it) }
     }
-    if (verboseDebugEnabledEntry.isChanged)
-      changes.add("Verbose Debug Mode: ${fmtToggle(verboseDebugEnabledEntry.saved)} → ${fmtToggle(verboseDebugEnabledEntry.current)}")
+
     if (changes.isNotEmpty()) {
       RequestLogStore.addEvent(
         "Settings updated (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
         category = EventCategory.SETTINGS,
         body = changes.joinToString("\n"),
       )
+    }
+  }
+
+  /** Formats a single setting's old→new change for the log entry. */
+  private fun formatChange(def: SettingDef, entry: SettingEntry<*>): String? {
+    val label = context.getString(def.labelRes)
+    return when (def) {
+      is SettingDef.Toggle -> {
+        @Suppress("UNCHECKED_CAST")
+        val e = entry as SettingEntry<Boolean>
+        "$label: ${fmtToggle(e.saved)} → ${fmtToggle(e.current)}"
+      }
+      is SettingDef.TextInput -> {
+        @Suppress("UNCHECKED_CAST")
+        val e = entry as SettingEntry<String>
+        if (def.isPassword) "$label: changed" // sensitive — don't log value
+        else "$label: ${e.saved.ifBlank { "disabled" }} → ${e.current.ifBlank { "disabled" }}"
+      }
+      is SettingDef.NumericInput -> {
+        @Suppress("UNCHECKED_CAST")
+        val e = entry as SettingEntry<Int>
+        "$label: ${e.saved} → ${e.current}"
+      }
+      is SettingDef.NumericWithUnit -> formatNumericWithUnitChange(def, entry, label)
+      is SettingDef.NumericPlain -> {
+        @Suppress("UNCHECKED_CAST")
+        val e = entry as SettingEntry<Int>
+        "$label: ${e.saved} → ${e.current}"
+      }
+      is SettingDef.Dropdown -> {
+        @Suppress("UNCHECKED_CAST")
+        val e = entry as SettingEntry<String?>
+        "$label: ${e.saved ?: "none"} → ${e.current ?: "none"}"
+      }
+      is SettingDef.Custom -> null
+    }
+  }
+
+  /** Formats NumericWithUnit changes using the definition's unit conversion. */
+  @Suppress("UNCHECKED_CAST")
+  private fun formatNumericWithUnitChange(
+    def: SettingDef.NumericWithUnit,
+    entry: SettingEntry<*>,
+    label: String,
+  ): String {
+    fun fmt(base: Long): String {
+      if (base == 0L) return "disabled"
+      val (value, unit) = def.fromBaseUnit(base)
+      val singular = unit.removeSuffix("s")
+      val display = if (value == 1L) singular else unit
+      return "$value $display"
+    }
+    // Entry may be Int (keepAliveMinutes, updateCheckIntervalHours) or Long (logAutoDeleteMinutes)
+    return when (entry.saved) {
+      is Int -> {
+        val e = entry as SettingEntry<Int>
+        "$label: ${fmt(e.saved.toLong())} → ${fmt(e.current.toLong())}"
+      }
+      is Long -> {
+        val e = entry as SettingEntry<Long>
+        "$label: ${fmt(e.saved)} → ${fmt(e.current)}"
+      }
+      else -> "$label: ${entry.saved} → ${entry.current}"
     }
   }
 
@@ -396,50 +485,41 @@ class SettingsViewModel @Inject constructor(
     persistence.clearPersistedLogs()
   }
 
-  /** Reset all settings to factory defaults. */
+  /** Reset all settings to factory defaults using SettingDef metadata. */
+  @Suppress("UNCHECKED_CAST")
   fun resetToDefaults() {
     LlmHttpPrefs.resetToDefaults(context)
 
-    // Reset all entries to their factory-reset defaults
-    portEntry.reset(LlmHttpPrefs.getPort(context))
+    // Reset each entry to its definition's resetDefault (not fresh-install default)
+    for (def in allSettingDefs) {
+      val entry = entryByKey[def.key] ?: continue
+      when (def) {
+        is SettingDef.Toggle -> (entry as SettingEntry<Boolean>).reset(def.resetDefault)
+        is SettingDef.TextInput -> (entry as SettingEntry<String>).reset(def.resetDefault)
+        is SettingDef.NumericInput -> (entry as SettingEntry<Int>).reset(def.default)
+        is SettingDef.NumericWithUnit -> {
+          // keepAliveMinutes and updateCheckIntervalHours are stored as Int entries
+          // but the def's defaultValue is Long — convert to match entry type
+          if (entry.saved is Int) (entry as SettingEntry<Int>).reset(def.defaultValue.toInt())
+          else (entry as SettingEntry<Long>).reset(def.defaultValue)
+        }
+        is SettingDef.NumericPlain -> (entry as SettingEntry<Int>).reset(def.default)
+        is SettingDef.Dropdown -> (entry as SettingEntry<String?>).reset(def.resetDefault)
+        is SettingDef.Custom -> {} // no entry to reset
+      }
+    }
+
+    // Reset bearer toggle (derived state, not a SettingDef)
+    bearerEnabledEntry.reset(false)
+
+    // Reset UI state
     portText = portEntry.saved.toString()
     portError = false
-    bearerEnabledEntry.reset(false)
-    bearerTokenEntry.reset("")
-    hfTokenEntry.reset(LlmHttpPrefs.getHfToken(context))
-    defaultModelEntry.reset("")
-    autoStartOnBootEntry.reset(false)
-    keepScreenOnEntry.reset(false)
-    autoExpandLogsEntry.reset(false)
-    warmupEnabledEntry.reset(true)
-    streamLogsPreviewEntry.reset(true)
-    keepPartialResponseEntry.reset(false)
-    eagerVisionInitEntry.reset(false)
-    customPromptsEnabledEntry.reset(false)
-    autoTruncateHistoryEntry.reset(true)
-    autoTrimPromptsEntry.reset(false)
-    compactToolSchemasEntry.reset(true)
-    compactImageDataEntry.reset(true)
-    hideHealthLogsEntry.reset(false)
-    clearLogsOnStopEntry.reset(false)
-    confirmClearLogsEntry.reset(true)
-    showRequestTypesEntry.reset(false)
-    showAdvancedMetricsEntry.reset(false)
-    corsAllowedOriginsEntry.reset("")
     corsError = false
-    logPersistenceEnabledEntry.reset(LlmHttpPrefs.isLogPersistenceEnabled(context))
-    logMaxEntriesEntry.reset(LlmHttpPrefs.getLogMaxEntries(context))
-    logAutoDeleteMinutesEntry.reset(LlmHttpPrefs.getLogAutoDeleteMinutes(context))
-    ignoreClientSamplerParamsEntry.reset(false)
-    keepAliveEnabledEntry.reset(false)
-    keepAliveMinutesEntry.reset(5)
     keepAliveError = false
-    updateCheckEnabledEntry.reset(true)
-    updateCheckIntervalHoursEntry.reset(24)
     updateCheckError = false
-    verboseDebugEnabledEntry.reset(false)
 
-    // Reset persistence and update check
+    // Side effects
     persistence.updateMaxEntries()
     persistence.clearPersistedLogs()
     UpdateCheckWorker.scheduleUpdateCheck(context)
@@ -449,14 +529,6 @@ class SettingsViewModel @Inject constructor(
 
   companion object {
     private fun fmtToggle(enabled: Boolean) = if (enabled) "enabled" else "disabled"
-
-    /** Formats a duration in minutes into human-readable text (e.g. 10080 → "7 days"). */
-    fun formatMinutesHumanReadable(minutes: Long): String = when {
-      minutes == 0L -> "disabled"
-      minutes % (24 * 60) == 0L -> "${minutes / (24 * 60)} ${if (minutes / (24 * 60) == 1L) "day" else "days"}"
-      minutes % 60 == 0L -> "${minutes / 60} ${if (minutes / 60 == 1L) "hour" else "hours"}"
-      else -> "$minutes ${if (minutes == 1L) "minute" else "minutes"}"
-    }
 
     /**
      * Validates CORS allowed origins input.
