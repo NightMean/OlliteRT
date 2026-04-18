@@ -72,7 +72,7 @@ class LlmHttpEndpointHandlers(
     // Store context utilization data in the log entry for per-request display
     val maxCtxGen = (maxContextGen ?: 0).toLong()
     if (logId != null) {
-      val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+      val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxGen) }
     }
     logPayload("POST /generate prompt", prompt, requestId)
@@ -85,9 +85,8 @@ class LlmHttpEndpointHandlers(
       ServerMetrics.incrementErrorCount(kind.category)
       return badRequest(enrichedError)
     }
-    // Token counts are estimates (charLen / 4) — LiteRT SDK has no standalone tokenizer API
-    val promptTokens = (prompt.length / 4).coerceAtLeast(if (prompt.isNotEmpty()) 1 else 0)
-    val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+    val promptTokens = estimateTokens(prompt)
+    val completionTokens = estimateTokens(text)
     val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
     val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(promptTokens, completionTokens), timings = timings))
     captureResponse(responseJson)
@@ -150,7 +149,7 @@ class LlmHttpEndpointHandlers(
 
     if (compactionResult.compacted) {
       val details = compactionResult.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/v1/chat/completions strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResult.prompt)} maxContext=$maxContext")
+      logEvent("prompt_compacted id=$requestId endpoint=/v1/chat/completions strategies=[$details] estimatedTokens=${estimateTokens(compactionResult.prompt)} maxContext=$maxContext")
       if (logId != null) {
         RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResult.prompt) }
       }
@@ -161,7 +160,7 @@ class LlmHttpEndpointHandlers(
     // Store context utilization data in the log entry for per-request display
     val maxCtxChat = (maxContext ?: 0).toLong()
     if (logId != null) {
-      val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+      val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxChat) }
     }
     logPayload("POST /v1/chat/completions prompt", prompt, requestId)
@@ -217,14 +216,14 @@ class LlmHttpEndpointHandlers(
         }
         val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSeqs)
 
-        val promptTokens = (prompt.length / 4).coerceAtLeast(1)
+        val promptTokens = estimateTokens(prompt)
 
         // Check if the model output contains tool call(s) — supports parallel calls
         if (hasTools) {
           val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
           if (toolCalls.isNotEmpty()) {
             logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
-            val completionTokens = (toolCalls.sumOf { it.function.arguments.length } / 4).coerceAtLeast(1)
+            val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
             val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
             val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
             captureResponse(responseJson)
@@ -232,7 +231,7 @@ class LlmHttpEndpointHandlers(
           }
         }
 
-        val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+        val completionTokens = estimateTokens(text)
         val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
         val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
         captureResponse(responseJson)
@@ -267,7 +266,7 @@ class LlmHttpEndpointHandlers(
     val compactionResultCompl = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
     if (compactionResultCompl.compacted) {
       val details = compactionResultCompl.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/v1/completions strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResultCompl.prompt)} maxContext=$maxContextCompl")
+      logEvent("prompt_compacted id=$requestId endpoint=/v1/completions strategies=[$details] estimatedTokens=${estimateTokens(compactionResultCompl.prompt)} maxContext=$maxContextCompl")
       if (logId != null) {
         RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultCompl.prompt) }
       }
@@ -276,7 +275,7 @@ class LlmHttpEndpointHandlers(
     // Store context utilization data in the log entry for per-request display
     val maxCtxCompl = (maxContextCompl ?: 0).toLong()
     if (logId != null) {
-      val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+      val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxCompl) }
     }
     logEvent("request_start id=$requestId endpoint=/v1/completions bodyBytes=${parsed.bodyBytes} promptChars=${prompt.length} model=${model.name}")
@@ -327,8 +326,8 @@ class LlmHttpEndpointHandlers(
       }
 
       val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
-      val promptTokens = (prompt.length / 4).coerceAtLeast(1)
-      val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+      val promptTokens = estimateTokens(prompt)
+      val completionTokens = estimateTokens(text)
       val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(CompletionResponse(
         id = "cmpl-${java.util.UUID.randomUUID()}",
@@ -380,7 +379,7 @@ class LlmHttpEndpointHandlers(
     )
     if (compactionResultResp.compacted) {
       val details = compactionResultResp.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/v1/responses strategies=[$details] estimatedTokens=${LlmHttpPromptCompactor.estimateTokens(compactionResultResp.prompt)} maxContext=$maxContextResp")
+      logEvent("prompt_compacted id=$requestId endpoint=/v1/responses strategies=[$details] estimatedTokens=${estimateTokens(compactionResultResp.prompt)} maxContext=$maxContextResp")
       if (logId != null) {
         RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultResp.prompt) }
       }
@@ -389,7 +388,7 @@ class LlmHttpEndpointHandlers(
     // Store context utilization data in the log entry for per-request display
     val maxCtxResp = (maxContextResp ?: 0).toLong()
     if (logId != null) {
-      val inputEst = (prompt.length / 4).toLong().coerceAtLeast(if (prompt.isNotEmpty()) 1L else 0L)
+      val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxResp) }
     }
     logPayload("POST /v1/responses prompt", prompt, requestId)

@@ -1,7 +1,5 @@
 package com.ollitert.llm.server.service
 
-import com.ollitert.llm.server.data.CHARS_PER_TOKEN_ESTIMATE
-
 /**
  * Progressive prompt compaction to handle context window overflow.
  *
@@ -29,10 +27,6 @@ object LlmHttpPromptCompactor {
     val compacted: Boolean,
     val strategies: List<String>,
   )
-
-  /** Rough token estimate based on [CHARS_PER_TOKEN_ESTIMATE]. */
-  fun estimateTokens(text: String): Int =
-    (text.length / CHARS_PER_TOKEN_ESTIMATE).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
 
   /**
    * Progressive compaction for /v1/chat/completions requests.

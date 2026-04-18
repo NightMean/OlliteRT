@@ -241,13 +241,13 @@ class LlmHttpPayloadBuildersTest {
   }
 
   @Test
-  fun chatResponseWithToolCallsMinOneCompletionToken() {
-    // Empty arguments → 0 chars, but coerceAtLeast(1)
+  fun chatResponseWithToolCallsEmptyArgumentsZeroTokens() {
+    // Empty arguments → 0 chars → 0 tokens (estimateTokens returns 0 for empty string)
     val toolCalls = listOf(
       ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "")),
     )
     val resp = LlmHttpPayloadBuilders.chatResponseWithToolCalls("m", toolCalls)
-    assertEquals(1, resp.usage.completion_tokens)
+    assertEquals(0, resp.usage.completion_tokens)
   }
 
   // ── responsesResponseWithText() ───────────────────────────────────────────
