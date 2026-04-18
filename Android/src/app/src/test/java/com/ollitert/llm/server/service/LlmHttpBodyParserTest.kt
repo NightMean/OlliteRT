@@ -6,12 +6,12 @@ import org.junit.Test
 
 class LlmHttpBodyParserTest {
   @Test
-  fun returnsBodyAndUtf8ByteCount() {
-    val parsed = LlmHttpBodyParser.parse("hola")
+  fun returnsBodyAndCharCount() {
+    val parsed = LlmHttpBodyParser.parse("Hello")
 
     requireNotNull(parsed)
-    assertEquals("hola", parsed.body)
-    assertEquals(4, parsed.bodyBytes)
+    assertEquals("Hello", parsed.body)
+    assertEquals(5, parsed.bodyLength)
   }
 
   @Test
@@ -20,7 +20,29 @@ class LlmHttpBodyParserTest {
   }
 
   @Test
-  fun countsUtf8BytesPrecisely() {
-    assertEquals(2, LlmHttpBodyParser.bodySizeBytes("ñ"))
+  fun emptyStringReturnsZeroLength() {
+    val parsed = LlmHttpBodyParser.parse("")
+
+    requireNotNull(parsed)
+    assertEquals("", parsed.body)
+    assertEquals(0, parsed.bodyLength)
+  }
+
+  @Test
+  fun multibyteCountsCharNotBytes() {
+    // "ñ" is 1 char but 2 UTF-8 bytes — verifies we count chars.
+    val parsed = LlmHttpBodyParser.parse("ñ")
+
+    requireNotNull(parsed)
+    assertEquals(1, parsed.bodyLength)
+  }
+
+  @Test
+  fun emojiCountsSurrogatePairLength() {
+    // "👋" is 1 code point, 2 UTF-16 code units, 4 UTF-8 bytes.
+    val parsed = LlmHttpBodyParser.parse("👋")
+
+    requireNotNull(parsed)
+    assertEquals(2, parsed.bodyLength)
   }
 }

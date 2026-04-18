@@ -1,10 +1,8 @@
 package com.ollitert.llm.server.service
 
-import java.nio.charset.StandardCharsets
-
 data class LlmHttpParsedBody(
   val body: String,
-  val bodyBytes: Int,
+  val bodyLength: Int,
 )
 
 /**
@@ -17,11 +15,6 @@ data class LlmHttpParsedBody(
 object LlmHttpBodyParser {
   fun parse(postData: String?): LlmHttpParsedBody? {
     val body = postData ?: return null
-    val bodyBytes = body.toByteArray(StandardCharsets.UTF_8).size
-    return LlmHttpParsedBody(body = body, bodyBytes = bodyBytes)
-  }
-
-  fun bodySizeBytes(body: String): Int {
-    return body.toByteArray(StandardCharsets.UTF_8).size
+    return LlmHttpParsedBody(body = body, bodyLength = body.length)
   }
 }
