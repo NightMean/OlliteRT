@@ -140,6 +140,11 @@ val CORS_ORIGINS = SettingDef.TextInput(
   default = "*",
   resetDefault = "",
   prefsKey = "cors_allowed_origins",
+  validate = { input ->
+    if (!isValidCorsOrigins(input))
+      "Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://"
+    else null
+  },
 )
 
 // ─── Auto-Launch & Behaviour Card ─────────────────────────────────
@@ -199,6 +204,7 @@ val KEEP_ALIVE_TIMEOUT = SettingDef.NumericWithUnit(
   },
   min = 1,
   max = 7200,
+  baseUnitLabel = "minutes",
 )
 
 val DONTKILLMYAPP = SettingDef.Custom(
@@ -251,6 +257,7 @@ val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
   },
   min = 1,
   max = 720,
+  baseUnitLabel = "hours",
 )
 
 // ─── Metrics Card ─────────────────────────────────────────────────
@@ -326,6 +333,7 @@ val LOG_AUTO_DELETE = SettingDef.NumericWithUnit(
   },
   min = 0,
   max = 525600,
+  baseUnitLabel = "minutes",
 )
 
 val CLEAR_ALL_LOGS = SettingDef.Custom(

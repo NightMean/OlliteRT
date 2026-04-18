@@ -424,10 +424,10 @@ fun SettingsScreen(
         onValueChange = { input ->
           // Allow only digits, let user freely type/delete
           vm.portText = input.filter { it.isDigit() }.take(5)
-          vm.portError = false
+          vm.clearError("host_port")
         },
         singleLine = true,
-        isError = vm.portError,
+        isError = vm.hasError("host_port"),
         placeholder = {
           Text(
             stringResource(R.string.settings_host_port_placeholder),
@@ -437,8 +437,8 @@ fun SettingsScreen(
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (vm.portError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (vm.portError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (vm.hasError("host_port")) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (vm.hasError("host_port")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
@@ -533,10 +533,10 @@ fun SettingsScreen(
         value = vm.corsAllowedOriginsEntry.current,
         onValueChange = {
           vm.corsAllowedOriginsEntry.update(it)
-          if (vm.corsError) vm.corsError = false
+          if (vm.hasError("cors_origins")) vm.clearError("cors_origins")
         },
         singleLine = true,
-        isError = vm.corsError,
+        isError = vm.hasError("cors_origins"),
         placeholder = {
           Text(
             stringResource(R.string.settings_cors_placeholder),
@@ -548,20 +548,20 @@ fun SettingsScreen(
           if (vm.corsAllowedOriginsEntry.current.isNotBlank()) {
             IconButton(onClick = {
               vm.corsAllowedOriginsEntry.update("")
-              if (vm.corsError) vm.corsError = false
+              if (vm.hasError("cors_origins")) vm.clearError("cors_origins")
             }) {
               Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.settings_cors_clear),
-                tint = if (vm.corsError) MaterialTheme.colorScheme.error
+                tint = if (vm.hasError("cors_origins")) MaterialTheme.colorScheme.error
                        else MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
           }
         },
         colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (vm.corsError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (vm.corsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          focusedBorderColor = if (vm.hasError("cors_origins")) MaterialTheme.colorScheme.error else OlliteRTPrimary,
+          unfocusedBorderColor = if (vm.hasError("cors_origins")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
@@ -701,9 +701,9 @@ fun SettingsScreen(
         savedBaseValue = vm.keepAliveMinutesEntry.saved.toLong(),
         onBaseValueChange = { vm.keepAliveMinutesEntry.update(it.toInt()) },
         searchQuery = vm.searchQuery,
-        isError = vm.keepAliveError,
+        isError = vm.hasError("keep_alive_timeout"),
         enabled = vm.keepAliveEnabledEntry.current,
-        onErrorClear = { vm.keepAliveError = false },
+        onErrorClear = { vm.clearError("keep_alive_timeout") },
         modifier = Modifier.alpha(vm.settingAlpha("keep_alive_timeout")),
       )
       }
@@ -873,10 +873,10 @@ fun SettingsScreen(
         savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
         onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
         searchQuery = vm.searchQuery,
-        isError = vm.updateCheckError,
+        isError = vm.hasError("check_frequency"),
         enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
         modifier = Modifier.alpha(if (vm.updateCheckEnabledEntry.current && updateControlsEnabled) 1f else 0.4f),
-        onErrorClear = { vm.updateCheckError = false },
+        onErrorClear = { vm.clearError("check_frequency") },
       )
       } // if: update_check
 
