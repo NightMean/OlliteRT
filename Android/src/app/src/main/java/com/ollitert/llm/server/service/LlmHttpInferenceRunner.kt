@@ -65,7 +65,7 @@ class LlmHttpInferenceRunner(
     logId: String? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
-    ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
+    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
     // Track request modality
     ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
 
@@ -183,8 +183,8 @@ class LlmHttpInferenceRunner(
     } else {
       val outputLen = result.output?.length ?: 0
       // Rough token estimate: ~4 chars per token
-      val inputTokens = (prompt.length / 4).toLong().coerceAtLeast(1)
-      val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
+      val inputTokens = estimateTokensLong(prompt)
+      val outputTokens = estimateTokensLongByLength(outputLen)
       val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
       ServerMetrics.addTokens(outputTokens)
       ServerMetrics.recordLatency(result.totalMs)
@@ -228,7 +228,7 @@ class LlmHttpInferenceRunner(
   ): NanoHTTPD.Response {
     val streamStartMs = SystemClock.elapsedRealtime()
     // Track input tokens (rough estimate: ~4 chars per token)
-    ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
+    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
     // Track request modality
     ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
 
@@ -429,8 +429,8 @@ class LlmHttpInferenceRunner(
               stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
             }
             val outputLen = fullText.length
-            val inputTokens = (promptLen / 4).toLong().coerceAtLeast(if (promptLen > 0) 1L else 0L)
-            val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
+            val inputTokens = estimateTokensLongByLength(promptLen)
+            val outputTokens = estimateTokensLongByLength(outputLen)
             val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
             val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
             val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
@@ -448,8 +448,8 @@ class LlmHttpInferenceRunner(
             } else {
               fullText.toString()
             }
-            val promptTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
-            val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
+            val promptTokens = estimateTokensByLength(promptLen)
+            val completionTokens = estimateTokensByLength(outputLen)
             val esc = LlmHttpBridgeUtils.escapeSseText(combinedText)
             stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(model.name, respId, msgId, now, esc, inputTokens = promptTokens, outputTokens = completionTokens))
             stream.finish()
@@ -550,7 +550,7 @@ class LlmHttpInferenceRunner(
     json: Json,
   ): NanoHTTPD.Response {
     val streamStartMs = SystemClock.elapsedRealtime()
-    ServerMetrics.addTokensIn((prompt.length / 4).toLong().coerceAtLeast(1))
+    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
     ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
 
     val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
@@ -763,8 +763,8 @@ class LlmHttpInferenceRunner(
             if (logId != null) RequestLogStore.unregisterCancellation(logId)
             if (originalConfig != null && model.instance != null) model.configValues = originalConfig
             val outputLen = fullText.length
-            val inputTokens = (prompt.length / 4).toLong().coerceAtLeast(1)
-            val outputTokens = (outputLen / 4).toLong().coerceAtLeast(1)
+            val inputTokens = estimateTokensLong(prompt)
+            val outputTokens = estimateTokensLongByLength(outputLen)
             val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
             val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
             val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
@@ -776,8 +776,8 @@ class LlmHttpInferenceRunner(
             }
             emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
             ServerMetrics.onInferenceCompleted()
-            val promptTokens = (prompt.length / 4).coerceAtLeast(1)
-            val completionTokens = (outputLen / 4).coerceAtLeast(if (outputLen > 0) 1 else 0)
+            val promptTokens = estimateTokens(prompt)
+            val completionTokens = estimateTokensByLength(outputLen)
 
             // Check for tool call(s) in completed output — supports parallel calls
             val parsedToolCalls = if (tools != null) LlmHttpToolCallParser.parseAll(fullText.toString(), tools) else emptyList()

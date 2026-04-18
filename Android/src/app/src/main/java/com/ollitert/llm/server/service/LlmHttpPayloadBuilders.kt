@@ -200,7 +200,7 @@ object LlmHttpPayloadBuilders {
   }
 
   // ── Response factories ────────────────────────────────────────────────────
-  // Token counts in all response builders below are **estimates** (charLen / 4).
+  // Token counts in all response builders below are **estimates** via estimateTokens().
   // LiteRT LM SDK has no standalone tokenizer API — see Usage class doc for details.
 
   /**
@@ -255,8 +255,8 @@ object LlmHttpPayloadBuilders {
   )
 
   fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = "stop", timings: InferenceTimings? = null): ChatResponse {
-    val promptTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
-    val completionTokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0)
+    val promptTokens = estimateTokensByLength(promptLen)
+    val completionTokens = estimateTokens(text)
     return ChatResponse(
       id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
       choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finishReason)),
@@ -266,8 +266,8 @@ object LlmHttpPayloadBuilders {
   }
 
   fun chatResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0, timings: InferenceTimings? = null): ChatResponse {
-    val promptTokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0)
-    val completionTokens = (toolCalls.sumOf { it.function.arguments.length } / 4).coerceAtLeast(1)
+    val promptTokens = estimateTokensByLength(promptLen)
+    val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
     return ChatResponse(
       id = "chatcmpl-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
       choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), "tool_calls")),
@@ -280,8 +280,8 @@ object LlmHttpPayloadBuilders {
     id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(text = text)))),
     usage = Usage(
-      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
-      completion_tokens = (text.length / 4).coerceAtLeast(if (text.isNotEmpty()) 1 else 0),
+      prompt_tokens = estimateTokensByLength(promptLen),
+      completion_tokens = estimateTokens(text),
     ),
   )
 
@@ -289,8 +289,8 @@ object LlmHttpPayloadBuilders {
     id = "resp-${java.util.UUID.randomUUID()}", created = System.currentTimeMillis() / 1000, model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(type = "output_tool_call", text = json.encodeToString(toolCall))), finish_reason = "tool_calls")),
     usage = Usage(
-      prompt_tokens = (promptLen / 4).coerceAtLeast(if (promptLen > 0) 1 else 0),
-      completion_tokens = (toolCall.function.arguments.length / 4).coerceAtLeast(1),
+      prompt_tokens = estimateTokensByLength(promptLen),
+      completion_tokens = estimateTokens(toolCall.function.arguments),
     ),
   )
 }

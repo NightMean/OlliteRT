@@ -17,31 +17,31 @@ class LlmHttpPromptCompactorTest {
 
   @Test
   fun estimateTokensEmptyString() {
-    assertEquals(0, LlmHttpPromptCompactor.estimateTokens(""))
+    assertEquals(0, estimateTokens(""))
   }
 
   @Test
   fun estimateTokensSingleChar() {
     // Single char → charLen/4 = 0, but coerceAtLeast(1) for non-empty
-    assertEquals(1, LlmHttpPromptCompactor.estimateTokens("x"))
+    assertEquals(1, estimateTokens("x"))
   }
 
   @Test
   fun estimateTokensNormalText() {
     // 12 chars / 4 = 3
-    assertEquals(3, LlmHttpPromptCompactor.estimateTokens("Hello World!"))
+    assertEquals(3, estimateTokens("Hello World!"))
   }
 
   @Test
   fun estimateTokensExactMultiple() {
     // 8 chars / 4 = 2
-    assertEquals(2, LlmHttpPromptCompactor.estimateTokens("12345678"))
+    assertEquals(2, estimateTokens("12345678"))
   }
 
   @Test
   fun estimateTokensThreeChars() {
     // 3 chars / 4 = 0, but coerceAtLeast(1) for non-empty
-    assertEquals(1, LlmHttpPromptCompactor.estimateTokens("abc"))
+    assertEquals(1, estimateTokens("abc"))
   }
 
   // ── compactRawPrompt() ───────────────────────────────────────────────────

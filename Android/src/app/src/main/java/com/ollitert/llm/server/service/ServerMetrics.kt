@@ -362,8 +362,8 @@ object ServerMetrics {
    * Record per-request performance metrics derived from timing data.
    * Called once per completed request with all available timing info.
    *
-   * @param inputTokens  estimated input token count (~prompt.length / 4)
-   * @param outputTokens estimated output token count (~output.length / 4)
+   * @param inputTokens  estimated input token count via [estimateTokens]
+   * @param outputTokens estimated output token count via [estimateTokens]
    * @param ttfbMs       time to first token (ms) — approximates prefill time
    * @param generationMs time from first token to last token (totalMs - ttfbMs)
    * @param maxContextTokens model's max context window size (0 if unknown)
