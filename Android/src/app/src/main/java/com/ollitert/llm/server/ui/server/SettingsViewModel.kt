@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LlmHttpService
@@ -144,10 +145,7 @@ class SettingsViewModel @Inject constructor(
     if (searchQuery.isBlank()) return true
     val def = settingDefsByKey[settingKey] ?: return true
     val searchable = def.searchKeywords + " " + (cardTitleBySettingKey[settingKey] ?: "")
-    val query = searchQuery.trim().lowercase()
-    return query.split("\\s+".toRegex()).all { word ->
-      searchable.lowercase().contains(word)
-    }
+    return matchesSearchQuery(searchable, searchQuery)
   }
 
   /** Returns true if the card should be visible (any of its settings match). */

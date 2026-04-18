@@ -28,8 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -39,8 +38,6 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,10 +46,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.navigation.ServerStatus
@@ -85,7 +79,6 @@ fun SettingsScreen(
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
   val context = LocalContext.current
-  val focusManager = LocalFocusManager.current
 
   val vm: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 
@@ -174,40 +167,11 @@ fun SettingsScreen(
     Spacer(modifier = Modifier.height(4.dp))
 
     // Search bar
-    OutlinedTextField(
-      value = vm.searchQuery,
-      onValueChange = { vm.searchQuery = it },
-      modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-      placeholder = { Text(stringResource(R.string.settings_search_placeholder), style = MaterialTheme.typography.bodyLarge) },
-      leadingIcon = {
-        Icon(
-          Icons.Outlined.Search,
-          contentDescription = null,
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      },
-      trailingIcon = {
-        if (vm.searchQuery.isNotEmpty()) {
-          IconButton(onClick = { vm.searchQuery = "" }) {
-            Icon(
-              Icons.Outlined.Close,
-              contentDescription = stringResource(R.string.settings_search_clear),
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
-        }
-      },
-      singleLine = true,
-      shape = RoundedCornerShape(16.dp),
-      colors = OutlinedTextFieldDefaults.colors(
-        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        focusedBorderColor = OlliteRTPrimary,
-        unfocusedBorderColor = Color.Transparent,
-        cursorColor = OlliteRTPrimary,
-      ),
-      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-      keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+    OlliteSearchBar(
+      query = vm.searchQuery,
+      onQueryChange = { vm.searchQuery = it },
+      placeholderRes = R.string.settings_search_placeholder,
+      clearContentDescriptionRes = R.string.settings_search_clear,
     )
 
     // "No results" message

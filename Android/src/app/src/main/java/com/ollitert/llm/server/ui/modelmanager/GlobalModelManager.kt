@@ -55,8 +55,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import com.ollitert.llm.server.ui.common.OlliteSearchBar
+import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -64,9 +64,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Warning
 import com.ollitert.llm.server.ui.common.ErrorAlertDialog
@@ -82,8 +80,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
@@ -111,14 +107,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
@@ -242,7 +236,6 @@ fun GlobalModelManager(
   var activeSort by remember { mutableStateOf(ModelSort.DEFAULT) }
   var sortAscending by remember { mutableStateOf(true) }
   var showSortDropdown by remember { mutableStateOf(false) }
-  val keyboardController = LocalSoftwareKeyboardController.current
   val focusManager = LocalFocusManager.current
 
   val filePickerLauncher: ActivityResultLauncher<Intent> =
@@ -306,10 +299,7 @@ fun GlobalModelManager(
   val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels) {
     derivedStateOf {
       builtInModels.filter { model ->
-        val matchesSearch = searchQuery.isEmpty() ||
-          model.displayName.contains(searchQuery, ignoreCase = true) ||
-          model.name.contains(searchQuery, ignoreCase = true) ||
-          modelMatchesCapabilitySearch(model, searchQuery)
+        val matchesSearch = matchesSearchQuery(buildModelSearchableText(model), searchQuery)
         val matchesFilter = when (activeFilter) {
           ModelFilter.ALL -> true
           ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
@@ -333,10 +323,7 @@ fun GlobalModelManager(
   val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels) {
     derivedStateOf {
       importedModels.filter { model ->
-        val matchesSearch = searchQuery.isEmpty() ||
-          model.displayName.contains(searchQuery, ignoreCase = true) ||
-          model.name.contains(searchQuery, ignoreCase = true) ||
-          modelMatchesCapabilitySearch(model, searchQuery)
+        val matchesSearch = matchesSearchQuery(buildModelSearchableText(model), searchQuery)
         val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
         // Imported models are always downloaded — hide only for "Available" filter
         activeFilter != ModelFilter.AVAILABLE && matchesSearch && matchesCaps
@@ -398,52 +385,11 @@ fun GlobalModelManager(
     ) {
       // Search bar
       item(key = "search_bar") {
-        OutlinedTextField(
-          value = searchQuery,
-          onValueChange = { searchQuery = it },
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 4.dp),
-          placeholder = {
-            Text(
-              stringResource(R.string.search_models),
-              style = MaterialTheme.typography.bodyLarge,
-            )
-          },
-          leadingIcon = {
-            Icon(
-              Icons.Outlined.Search,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          },
-          trailingIcon = {
-            if (searchQuery.isNotEmpty()) {
-              IconButton(onClick = { searchQuery = "" }) {
-                Icon(
-                  Icons.Outlined.Close,
-                  contentDescription = stringResource(R.string.models_clear_search),
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-            }
-          },
-          singleLine = true,
-          shape = RoundedCornerShape(16.dp),
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            focusedBorderColor = OlliteRTPrimary,
-            unfocusedBorderColor = Color.Transparent,
-            cursorColor = OlliteRTPrimary,
-          ),
-          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-          keyboardActions = KeyboardActions(
-            onSearch = {
-              keyboardController?.hide()
-              focusManager.clearFocus()
-            },
-          ),
+        OlliteSearchBar(
+          query = searchQuery,
+          onQueryChange = { searchQuery = it },
+          placeholderRes = R.string.search_models,
+          clearContentDescriptionRes = R.string.models_clear_search,
         )
       }
 
@@ -681,6 +627,7 @@ fun GlobalModelManager(
           lastError = lastError,
           onStopServer = onStopServer,
           onNavigateToSettings = onNavigateToSettings,
+          searchQuery = searchQuery,
         )
       }
 
@@ -712,6 +659,7 @@ fun GlobalModelManager(
           lastError = lastError,
           onStopServer = onStopServer,
           onNavigateToSettings = onNavigateToSettings,
+          searchQuery = searchQuery,
         )
       }
 
@@ -1060,13 +1008,19 @@ private fun SortButton(
   }
 }
 
-/** Returns true if the model's capabilities match any keyword in the search query. */
-private fun modelMatchesCapabilitySearch(model: Model, query: String): Boolean {
-  val q = query.lowercase()
-  return (model.llmSupportImage && "vision" in q) ||
-    (model.llmSupportAudio && "audio" in q) ||
-    (model.llmSupportThinking && "thinking" in q) ||
-    (model.isLlm && "text" in q)
+/** Builds a combined searchable string from model name, display name, description, and capabilities. */
+private fun buildModelSearchableText(model: Model): String = buildString {
+  append(model.displayName)
+  append(' ')
+  append(model.name)
+  if (model.info.isNotEmpty()) {
+    append(' ')
+    append(model.info)
+  }
+  if (model.isLlm) append(" text")
+  if (model.llmSupportImage) append(" vision")
+  if (model.llmSupportAudio) append(" audio")
+  if (model.llmSupportThinking) append(" thinking")
 }
 
 /** Returns true if the model has all of the selected capability filters. */

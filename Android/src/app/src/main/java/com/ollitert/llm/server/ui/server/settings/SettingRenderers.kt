@@ -33,60 +33,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-
-/**
- * Highlights all occurrences of search query words in the given text.
- * Used by setting labels and card titles to show which words matched.
- */
-fun highlightSearchMatches(
-  text: String,
-  query: String,
-  highlightColor: Color,
-): AnnotatedString {
-  if (query.isBlank()) return AnnotatedString(text)
-  val words = query.trim().lowercase().split("\\s+".toRegex()).filter { it.isNotEmpty() }
-  if (words.isEmpty()) return AnnotatedString(text)
-  val textLower = text.lowercase()
-  val ranges = mutableListOf<IntRange>()
-  for (word in words) {
-    var start = 0
-    while (true) {
-      val idx = textLower.indexOf(word, start)
-      if (idx < 0) break
-      ranges.add(idx until idx + word.length)
-      start = idx + 1
-    }
-  }
-  if (ranges.isEmpty()) return AnnotatedString(text)
-  val merged = ranges.sortedBy { it.first }.fold(mutableListOf<IntRange>()) { acc, r ->
-    if (acc.isEmpty() || acc.last().last < r.first - 1) acc.add(r)
-    else acc[acc.lastIndex] = acc.last().first..maxOf(acc.last().last, r.last)
-    acc
-  }
-  return buildAnnotatedString {
-    append(text)
-    for (range in merged) {
-      addStyle(
-        SpanStyle(color = highlightColor, fontWeight = FontWeight.Bold),
-        start = range.first,
-        end = range.last + 1,
-      )
-    }
-  }
-}
 
 /** Setting name text with search term highlighting. */
 @Composable
