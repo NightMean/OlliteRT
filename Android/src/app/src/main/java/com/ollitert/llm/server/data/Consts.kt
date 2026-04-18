@@ -80,8 +80,9 @@ const val CLEANUP_AWAIT_TIMEOUT_SECONDS = 15L
 // When model is inferring at keep-alive timeout, recheck after this delay (ms).
 const val KEEP_ALIVE_RECHECK_MS = 30_000L
 
-// Storage threshold — conservative minimum free storage before attempting model init.
-// LiteRT's Engine creates XNNPack weight caches that can be hundreds of MB.
+// Minimum free storage (bytes) before attempting model init via LiteRT Engine.
+// LiteRT needs scratch space for memory-mapping, temp files, GPU buffer allocation,
+// and XNNPack weight caches that can be hundreds of MB.
 const val MIN_STORAGE_FOR_MODEL_INIT_BYTES = 500L * 1024 * 1024
 
 // File logger settings.
@@ -131,6 +132,12 @@ const val DOWNLOAD_UNZIP_BUFFER_SIZE = 4096
 const val DEFAULT_IN_MEMORY_LOG_CAP = 100
 const val MIN_PRUNE_INTERVAL_MS = 60_000L          // 1 minute
 const val MAX_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
+
+/** Convert bytes to gigabytes as Float (for UI display). */
+fun Long.bytesToGb(): Float = this / (1024f * 1024f * 1024f)
+
+/** Convert bytes to megabytes as Long (for log messages). */
+fun Long.bytesToMb(): Long = this / (1024L * 1024L)
 
 // Current device's SOC in lowercase.
 val SOC =

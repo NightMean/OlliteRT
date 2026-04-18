@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.common
 
+import com.ollitert.llm.server.data.bytesToGb
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
@@ -51,7 +52,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 private const val TAG = "OlliteRTMemoryWarning"
-private const val BYTES_IN_GB = 1024f * 1024 * 1024
 private const val PREFS_NAME = "memory_warning_prefs"
 private const val KEY_PREFIX = "suppress_"
 
@@ -128,10 +128,10 @@ fun isMemoryLow(context: Context, model: Model): Boolean {
   return if (activityManager != null && minDeviceMemoryInGb != null) {
     val memoryInfo = ActivityManager.MemoryInfo()
     activityManager.getMemoryInfo(memoryInfo)
-    var deviceMemInGb = memoryInfo.totalMem / BYTES_IN_GB
+    var deviceMemInGb = memoryInfo.totalMem.bytesToGb()
     // API 34+ uses advertisedMem instead of totalMem for better accuracy.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      deviceMemInGb = memoryInfo.advertisedMem / BYTES_IN_GB
+      deviceMemInGb = memoryInfo.advertisedMem.bytesToGb()
     }
     Log.d(
       TAG,

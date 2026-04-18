@@ -1,6 +1,7 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
+import com.ollitert.llm.server.ui.common.formatByteSize
 
 object LlmHttpBridgeUtils {
   private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")
@@ -20,6 +21,18 @@ object LlmHttpBridgeUtils {
 
   fun escapeSseText(value: String): String =
     value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+
+  // ── ID generation ──────────────────────────────────────────────────────
+  // OpenAI-compatible IDs use specific prefixes per object type.
+
+  fun generateCompletionId(): String = "cmpl-${java.util.UUID.randomUUID()}"
+  fun generateChatCompletionId(): String = "chatcmpl-${java.util.UUID.randomUUID()}"
+  fun generateResponseId(): String = "resp-${java.util.UUID.randomUUID()}"
+  fun generateMessageId(): String = "msg-${java.util.UUID.randomUUID()}"
+  fun generateFunctionCallId(): String = "fc-${java.util.UUID.randomUUID()}"
+  fun generateToolCallId(): String = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}"
+  fun generateBearerToken(): String = java.util.UUID.randomUUID().toString().replace("-", "")
+  fun epochSeconds(): Long = System.currentTimeMillis() / 1000
 
   // ── Compact Image Data ──────────────────────────────────────────────────
   // Replaces inline base64 data URIs (e.g. from multimodal image requests) with a
@@ -66,9 +79,4 @@ object LlmHttpBridgeUtils {
       "data:$cleanMime;base64,▌ PLACEHOLDER — $sizeLabel $category data ▌"
     }
 
-  private fun formatByteSize(bytes: Long): String = when {
-    bytes < 1024L -> "$bytes B"
-    bytes < 1024L * 1024L -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0)
-    else -> String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
-  }
 }

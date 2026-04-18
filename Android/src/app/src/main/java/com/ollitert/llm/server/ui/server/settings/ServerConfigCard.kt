@@ -1,5 +1,6 @@
 package com.ollitert.llm.server.ui.server.settings
 
+import com.ollitert.llm.server.service.LlmHttpBridgeUtils
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -96,7 +97,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         onCheckedChange = { enabled ->
           vm.bearerEnabledEntry.update(enabled)
           if (enabled && vm.bearerTokenEntry.current.isBlank()) {
-            vm.bearerTokenEntry.update(java.util.UUID.randomUUID().toString().replace("-", ""))
+            vm.bearerTokenEntry.update(LlmHttpBridgeUtils.generateBearerToken())
           }
         },
         searchQuery = vm.searchQuery,
@@ -138,7 +139,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
             icon = Icons.Outlined.Refresh,
             tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
             onClick = {
-              vm.bearerTokenEntry.update(java.util.UUID.randomUUID().toString().replace("-", ""))
+              vm.bearerTokenEntry.update(LlmHttpBridgeUtils.generateBearerToken())
               Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
             },
           )

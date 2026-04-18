@@ -1,8 +1,6 @@
 package com.ollitert.llm.server.ui.server.logs
 
 import com.ollitert.llm.server.R
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -98,13 +96,10 @@ internal fun buildLogsJson(entries: List<RequestLogEntry>): String {
 internal suspend fun copyAllLogsToClipboard(context: Context, entries: List<RequestLogEntry>) {
   try {
     val json = withContext(Dispatchers.Default) { buildLogsJson(entries) }
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-    if (clipboard == null) {
-      Toast.makeText(context, context.getString(R.string.toast_clipboard_unavailable), Toast.LENGTH_SHORT).show()
-      return
-    }
-    clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Logs", json))
-    Toast.makeText(context, context.getString(R.string.toast_copied_entries_json, entries.size), Toast.LENGTH_SHORT).show()
+    copyToClipboard(
+      context, "OlliteRT Logs", json,
+      toastOverride = context.getString(R.string.toast_copied_entries_json, entries.size)
+    )
   } catch (_: Exception) {
     // TransactionTooLargeException (or similar) — clipboard has a ~1MB Binder limit.
     // With many entries and large request/response bodies, the JSON can exceed this.

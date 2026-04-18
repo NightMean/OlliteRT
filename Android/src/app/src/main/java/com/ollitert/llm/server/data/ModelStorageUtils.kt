@@ -21,10 +21,6 @@ import java.io.File
 
 private const val TAG = "ModelStorageUtils"
 
-// Minimum free storage (in bytes) required before attempting to load a model via LiteRT Engine.
-// LiteRT needs scratch space for memory-mapping, temp files, and GPU buffer allocation.
-const val MIN_ENGINE_STORAGE_BYTES = 500L * 1024 * 1024
-
 /**
  * Deletes stale .tmp files left by interrupted or crashed model imports to reclaim storage.
  * Safe to call on every app start — no-ops if the imports directory doesn't exist.
@@ -35,7 +31,7 @@ fun cleanupStaleImportTmpFiles(externalFilesDir: File?) {
     if (!importsDir.exists()) return
     val tmpFiles = importsDir.listFiles { _, name -> name.endsWith(".tmp") } ?: return
     for (file in tmpFiles) {
-      Log.i(TAG, "Cleaning up stale import temp file: ${file.name} (${file.length() / (1024 * 1024)}MB)")
+      Log.i(TAG, "Cleaning up stale import temp file: ${file.name} (${file.length().bytesToMb()}MB)")
       file.delete()
     }
   } catch (e: Exception) {

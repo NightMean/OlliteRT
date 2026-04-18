@@ -240,11 +240,7 @@ class LlmHttpServer(
       if (t is OutOfMemoryError) {
         // Close the native Engine/Conversation before nullifying — just setting instance = null
         // leaks GB-scale native memory because GC may not finalize the wrapper promptly.
-        defaultModel?.let { m ->
-          try { ServerLlmModelHelper.cleanUp(m) {} } catch (_: Exception) {}
-          m.instance = null
-        }
-        System.gc()
+        defaultModel?.let { ServerLlmModelHelper.safeCleanup(it) }
         ServerMetrics.onServerError(t.message ?: "Out of memory")
       }
       ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)

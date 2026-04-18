@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
+import com.ollitert.llm.server.data.bytesToGb
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -380,14 +381,14 @@ fun ModelImportDialog(
   // Storage warning dialog — shown when there isn't enough space to import.
   val storageModel = pendingStorageModel
   if (storageModel != null) {
-    val modelSizeGb = fileSize / (1024f * 1024 * 1024)
-    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES / (1024f * 1024 * 1024)
+    val modelSizeGb = fileSize.bytesToGb()
+    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES.bytesToGb()
     val totalRequiredGb = modelSizeGb + reserveGb
     val availableBytes = try {
       val stat = StatFs(Environment.getDataDirectory().path)
       stat.availableBlocksLong * stat.blockSizeLong
     } catch (_: Exception) { 0L }
-    val availableGb = availableBytes / (1024f * 1024 * 1024)
+    val availableGb = availableBytes.bytesToGb()
 
     AlertDialog(
       icon = {

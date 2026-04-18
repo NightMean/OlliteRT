@@ -96,13 +96,7 @@ class LlmHttpModelLifecycle(
     }
     // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
     // selectModel() will see defaultModel==null and isIdleUnloaded==true, triggering a reload.
-    try {
-      ServerLlmModelHelper.cleanUp(info.model) {}
-    } catch (e: Exception) {
-      Log.w(LOG_TAG, "Keep-alive: error cleaning up model: ${e.message}")
-    }
-    info.model.instance = null
-    System.gc()
+    ServerLlmModelHelper.safeCleanup(info.model)
     RequestLogStore.addEvent(
       "Model unloaded: ${info.model.name} (after ${info.minutes}m idle, keep_alive)",
       modelName = keepAliveUnloadedModelName,

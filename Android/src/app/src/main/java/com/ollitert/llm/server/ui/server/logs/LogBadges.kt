@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.common.formatByteSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -139,9 +140,4 @@ internal val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
 internal fun formatTimestamp(millis: Long): String = timeFormat.format(Date(millis))
 
-internal fun formatByteSize(bytes: Int): String = when {
-  bytes < 1024 -> "$bytes B"
-  bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
-  else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
-}
 
