@@ -57,6 +57,10 @@ class LlmHttpServer(
 
   private val logTag = "LlmHttpServer"
 
+  private val faviconBytes: ByteArray? by lazy {
+    try { serviceContext.assets.open("favicon.png").use { it.readBytes() } } catch (_: Exception) { null }
+  }
+
   // Convenience accessors for model state
   private val defaultModel: Model? get() = modelLifecycle.defaultModel
   private val keepAliveUnloadedModelName: String? get() = modelLifecycle.keepAliveUnloadedModelName
@@ -115,13 +119,11 @@ class LlmHttpServer(
           // Future: add a "Hide browser requests (favicon, etc.)" toggle in Settings that moves
           // this handler above the RequestLogStore.add() call to suppress it from the Logs tab.
           if (path == "/favicon.ico") {
-            try {
-              val stream = serviceContext.assets.open("favicon.png")
-              val bytes = stream.readBytes()
-              stream.close()
+            val bytes = faviconBytes
+            if (bytes != null) {
               responseBodySnapshot = "[favicon.png ${bytes.size} bytes]"
               NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "image/png", bytes.inputStream(), bytes.size.toLong())
-            } catch (e: Exception) {
+            } else {
               notFound()
             }
           }
