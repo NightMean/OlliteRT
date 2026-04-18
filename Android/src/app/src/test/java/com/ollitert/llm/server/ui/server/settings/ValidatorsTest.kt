@@ -1,5 +1,8 @@
 package com.ollitert.llm.server.ui.server.settings
 
+import com.ollitert.llm.server.data.MAX_VALID_PORT
+import com.ollitert.llm.server.data.MIN_VALID_PORT
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -100,34 +103,44 @@ class ValidatorsTest {
 
   @Test
   fun `HOST_PORT range is 1024 to 65535`() {
-    assertTrue(HOST_PORT.min == 1024)
-    assertTrue(HOST_PORT.max == 65535)
+    assertEquals(MIN_VALID_PORT, HOST_PORT.min)
+    assertEquals(MAX_VALID_PORT, HOST_PORT.max)
   }
 
   @Test
   fun `KEEP_ALIVE_TIMEOUT range is 1 to 7200 minutes`() {
-    assertTrue(KEEP_ALIVE_TIMEOUT.min == 1L)
-    assertTrue(KEEP_ALIVE_TIMEOUT.max == 7200L)
-    assertTrue(KEEP_ALIVE_TIMEOUT.baseUnitLabel == "minutes")
+    assertEquals(1L, KEEP_ALIVE_TIMEOUT.min)
+    assertEquals(7200L, KEEP_ALIVE_TIMEOUT.max)
+    assertEquals("minutes", KEEP_ALIVE_TIMEOUT.baseUnitLabel)
   }
 
   @Test
   fun `CHECK_FREQUENCY range is 1 to 720 hours`() {
-    assertTrue(CHECK_FREQUENCY.min == 1L)
-    assertTrue(CHECK_FREQUENCY.max == 720L)
-    assertTrue(CHECK_FREQUENCY.baseUnitLabel == "hours")
+    assertEquals(1L, CHECK_FREQUENCY.min)
+    assertEquals(720L, CHECK_FREQUENCY.max)
+    assertEquals("hours", CHECK_FREQUENCY.baseUnitLabel)
   }
 
   @Test
   fun `LOG_MAX_ENTRIES range is 0 to 99999`() {
-    assertTrue(LOG_MAX_ENTRIES.min == 0)
-    assertTrue(LOG_MAX_ENTRIES.max == 99999)
+    assertEquals(0, LOG_MAX_ENTRIES.min)
+    assertEquals(99999, LOG_MAX_ENTRIES.max)
   }
 
   @Test
   fun `LOG_AUTO_DELETE range is 0 to 525600 minutes`() {
-    assertTrue(LOG_AUTO_DELETE.min == 0L)
-    assertTrue(LOG_AUTO_DELETE.max == 525600L)
-    assertTrue(LOG_AUTO_DELETE.baseUnitLabel == "minutes")
+    assertEquals(0L, LOG_AUTO_DELETE.min)
+    assertEquals(525600L, LOG_AUTO_DELETE.max)
+    assertEquals("minutes", LOG_AUTO_DELETE.baseUnitLabel)
+  }
+
+  @Test
+  fun `cors - trailing comma is invalid`() {
+    assertFalse(isValidCorsOrigins("http://localhost,"))
+  }
+
+  @Test
+  fun `cors - double comma produces empty entry and is invalid`() {
+    assertFalse(isValidCorsOrigins("http://a,,http://b"))
   }
 }

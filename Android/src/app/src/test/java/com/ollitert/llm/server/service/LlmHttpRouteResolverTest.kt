@@ -53,10 +53,13 @@ class LlmHttpRouteResolverTest {
   }
 
   @Test
-  fun onlyGetAndPostAreSupported() {
+  fun getPostAndOptionsAreSupported() {
     assertTrue(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.GET))
     assertTrue(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.POST))
+    assertTrue(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.OPTIONS))
     assertFalse(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.DELETE))
+    assertFalse(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.PUT))
+    assertFalse(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.PATCH))
   }
 
   // ── Additional routes───────────────────────────────────────────────────
@@ -130,6 +133,42 @@ class LlmHttpRouteResolverTest {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.METRICS, requiresAuth = false),
       LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/metrics"),
+    )
+  }
+
+  @Test
+  fun resolvesVersionRoute() {
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.VERSION, requiresAuth = false),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/api/version"),
+    )
+  }
+
+  @Test
+  fun resolvesServerControlRoutes() {
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.SERVER_STOP, requiresAuth = true),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/stop"),
+    )
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.SERVER_RELOAD, requiresAuth = true),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/reload"),
+    )
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.SERVER_THINKING, requiresAuth = true),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/thinking"),
+    )
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.SERVER_CONFIG, requiresAuth = true),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/config"),
+    )
+  }
+
+  @Test
+  fun resolvesDebugModelsAlias() {
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.MODELS, requiresAuth = true),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/debug/models"),
     )
   }
 

@@ -1,5 +1,7 @@
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.LOG_FILE_MAX_BYTES
+import com.ollitert.llm.server.data.MAX_PAYLOAD_LOG_CHARS
 import java.io.File
 import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
@@ -44,13 +46,13 @@ class LlmHttpLoggerTest {
     val dir = createTempDirectory("logger-test").toFile()
     try {
       val logger = LlmHttpLogger(logDir = { dir }, isEnabled = { true })
-      val longBody = "x".repeat(3000)
+      val longBody = "x".repeat(MAX_PAYLOAD_LOG_CHARS + 1000)
       logger.logPayload("test", longBody, "r1")
       logger.shutdown()
 
       val content = File(dir, "llm_http.log").readText()
       assertTrue("truncated marker should appear", content.contains("...(truncated)"))
-      assertFalse("full body should not appear", content.contains("x".repeat(3000)))
+      assertFalse("full body should not appear", content.contains("x".repeat(MAX_PAYLOAD_LOG_CHARS + 1000)))
     } finally {
       dir.deleteRecursively()
     }
@@ -79,7 +81,7 @@ class LlmHttpLoggerTest {
     try {
       // Pre-fill the log file beyond 512 KB
       val logFile = File(dir, "llm_http.log")
-      logFile.writeText("x".repeat(600 * 1024))
+      logFile.writeText("x".repeat((LOG_FILE_MAX_BYTES + 1024).toInt()))
 
       val logger = LlmHttpLogger(logDir = { dir }, isEnabled = { true })
       logger.logEvent("trigger_rotation")
@@ -116,6 +118,27 @@ class LlmHttpLoggerTest {
     logger.logEvent("null_dir_event")
     logger.shutdown()
     // No exception — test passes
+  }
+
+  @Test
+  fun verboseDebugSkipsTruncation() {
+    val dir = createTempDirectory("logger-test").toFile()
+    try {
+      val logger = LlmHttpLogger(
+        logDir = { dir },
+        isEnabled = { true },
+        isVerboseDebug = { true },
+      )
+      val longBody = "x".repeat(MAX_PAYLOAD_LOG_CHARS + 1000)
+      logger.logPayload("verbose", longBody, "r1")
+      logger.shutdown()
+
+      val content = File(dir, "llm_http.log").readText()
+      assertFalse("truncated marker should NOT appear in verbose mode", content.contains("...(truncated)"))
+      assertTrue("full body should appear in verbose mode", content.contains(longBody))
+    } finally {
+      dir.deleteRecursively()
+    }
   }
 
   @Test

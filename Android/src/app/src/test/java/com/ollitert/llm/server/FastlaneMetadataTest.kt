@@ -20,7 +20,7 @@ class FastlaneMetadataTest {
     /** Play Store max characters for full description. */
     private const val MAX_FULL_DESCRIPTION_CHARS = 4000
 
-    private val metadataDir = File("fastlane/metadata/android/en-US")
+    private val metadataDir = File("../fastlane/metadata/android/en-US")
   }
 
   @Test
