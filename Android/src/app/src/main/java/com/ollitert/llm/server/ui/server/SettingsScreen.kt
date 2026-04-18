@@ -41,6 +41,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -296,7 +297,7 @@ fun SettingsScreen(
     )
 
     // "No results" message when search has no matches
-    if (vm.searchQuery.isNotBlank() && listOf("general","hf_token","server_config","auto_launch","metrics","log_persistence","home_assistant","updates","advanced","developer","reset").none { vm.cardVisible(it) }) {
+    if (vm.searchQuery.isNotBlank() && listOf("general","hf_token","server_config","auto_launch","metrics","log_persistence","home_assistant","updates","context_management","advanced","developer","reset").none { vm.cardVisible(it) }) {
       Text(
         text = stringResource(R.string.settings_no_results, vm.searchQuery),
         style = MaterialTheme.typography.bodyMedium,
@@ -747,6 +748,24 @@ fun SettingsScreen(
 
     }
     } // AnimatedVisibility: Auto-Launch
+
+    // Context Management card — escalation chain for fitting content into context window
+    AnimatedVisibility(
+      visible = vm.cardVisible("context_management"),
+      enter = expandVertically(),
+      exit = shrinkVertically(),
+    ) {
+    SettingsCard(
+      icon = Icons.Outlined.Compress,
+      title = stringResource(R.string.settings_card_context_management),
+      searchQuery = vm.searchQuery,
+    ) {
+      ToggleCardContent(
+        keys = listOf("truncate_history", "compact_tool_schemas", "trim_prompt"),
+        vm = vm,
+      )
+    }
+    } // AnimatedVisibility: Context Management
 
     // Metrics card — uniform toggles, rendered via data-driven loop
     AnimatedVisibility(
@@ -1354,7 +1373,7 @@ fun SettingsScreen(
     }
     } // AnimatedVisibility: Updates
 
-    // Advanced Settings card — uniform toggles, rendered via data-driven loop
+    // Advanced Settings card — engine behavior and request handling
     AnimatedVisibility(
       visible = vm.cardVisible("advanced"),
       enter = expandVertically(),
@@ -1366,7 +1385,7 @@ fun SettingsScreen(
       searchQuery = vm.searchQuery,
     ) {
       ToggleCardContent(
-        keys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "truncate_history", "compact_tool_schemas", "trim_prompt", "ignore_client_params"),
+        keys = listOf("warmup_message", "pre_init_vision", "custom_prompts", "ignore_client_params"),
         vm = vm,
       )
     }

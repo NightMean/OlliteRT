@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -357,7 +358,41 @@ val HA_INTEGRATION = SettingDef.Custom(
   searchKeywords = "Home Assistant REST API Integration configuration yaml sensors commands stop reload thinking config",
 )
 
-// ─── Advanced Card ────────────────────────────────────────────────
+// ─── Context Management Card ───────────────────────────────────────────────
+
+val TRUNCATE_HISTORY = SettingDef.Toggle(
+  key = "truncate_history",
+  labelRes = R.string.settings_truncate_history,
+  descriptionRes = R.string.settings_truncate_history_desc,
+  card = CardId.CONTEXT_MANAGEMENT,
+  searchKeywords = "Truncate Conversation History request exceeds context window drop older messages system prompts",
+  default = false,
+  resetDefault = true,
+  prefsKey = "auto_truncate_history",
+)
+
+val COMPACT_TOOL_SCHEMAS = SettingDef.Toggle(
+  key = "compact_tool_schemas",
+  labelRes = R.string.settings_compact_tool_schemas,
+  descriptionRes = R.string.settings_compact_tool_schemas_desc,
+  card = CardId.CONTEXT_MANAGEMENT,
+  searchKeywords = "Compact Tool Schemas reduce tool schemas names descriptions context window Home Assistant tool definitions",
+  default = false,
+  resetDefault = true,
+  prefsKey = "compact_tool_schemas",
+)
+
+val TRIM_PROMPT = SettingDef.Toggle(
+  key = "trim_prompt",
+  labelRes = R.string.settings_trim_prompt,
+  descriptionRes = R.string.settings_trim_prompt_desc,
+  card = CardId.CONTEXT_MANAGEMENT,
+  searchKeywords = "Trim Prompt last resort hard-cuts prompt fit context window recent content discarding beginning",
+  default = false,
+  prefsKey = "auto_trim_prompts",
+)
+
+// ─── Advanced Card ─────────────────────────────────────────────────────────
 
 val WARMUP_MESSAGE = SettingDef.Toggle(
   key = "warmup_message",
@@ -388,38 +423,6 @@ val CUSTOM_PROMPTS = SettingDef.Toggle(
   searchKeywords = "Custom System Prompt per-model prompt instruction Inference Settings",
   default = false,
   prefsKey = "custom_prompts_enabled",
-)
-
-val TRUNCATE_HISTORY = SettingDef.Toggle(
-  key = "truncate_history",
-  labelRes = R.string.settings_truncate_history,
-  descriptionRes = R.string.settings_truncate_history_desc,
-  card = CardId.ADVANCED,
-  searchKeywords = "Truncate Conversation History request exceeds context window drop older messages system prompts",
-  default = false,
-  resetDefault = true,
-  prefsKey = "auto_truncate_history",
-)
-
-val COMPACT_TOOL_SCHEMAS = SettingDef.Toggle(
-  key = "compact_tool_schemas",
-  labelRes = R.string.settings_compact_tool_schemas,
-  descriptionRes = R.string.settings_compact_tool_schemas_desc,
-  card = CardId.ADVANCED,
-  searchKeywords = "Compact Tool Schemas reduce tool schemas names descriptions context window Home Assistant tool definitions",
-  default = false,
-  resetDefault = true,
-  prefsKey = "compact_tool_schemas",
-)
-
-val TRIM_PROMPT = SettingDef.Toggle(
-  key = "trim_prompt",
-  labelRes = R.string.settings_trim_prompt,
-  descriptionRes = R.string.settings_trim_prompt_desc,
-  card = CardId.ADVANCED,
-  searchKeywords = "Trim Prompt last resort hard-cuts prompt fit context window recent content discarding beginning",
-  default = false,
-  prefsKey = "auto_trim_prompts",
 )
 
 val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
@@ -474,6 +477,8 @@ val allSettingDefs: List<SettingDef> = listOf(
   HOST_PORT, BEARER_TOKEN, CORS_ORIGINS,
   // Auto-Launch
   DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
+  // Context Management
+  TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT,
   // Metrics
   SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS,
   // Log Persistence
@@ -481,8 +486,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Home Assistant
   HA_INTEGRATION,
   // Advanced
-  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
-  COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
+  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Developer
@@ -527,6 +531,12 @@ val allCardDefs: List<CardDef> = listOf(
     ),
   ),
   CardDef(
+    id = CardId.CONTEXT_MANAGEMENT,
+    titleRes = R.string.settings_card_context_management,
+    icon = CardIcon.Vector(Icons.Outlined.Compress),
+    settings = listOf(TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT),
+  ),
+  CardDef(
     id = CardId.METRICS,
     titleRes = R.string.settings_card_metrics,
     icon = CardIcon.Vector(Icons.Outlined.BarChart),
@@ -554,10 +564,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.ADVANCED,
     titleRes = R.string.settings_card_advanced,
     icon = CardIcon.Vector(Icons.Outlined.Science),
-    settings = listOf(
-      WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, TRUNCATE_HISTORY,
-      COMPACT_TOOL_SCHEMAS, TRIM_PROMPT, IGNORE_CLIENT_PARAMS,
-    ),
+    settings = listOf(WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS),
   ),
   CardDef(
     id = CardId.DEVELOPER,
