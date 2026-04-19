@@ -229,6 +229,7 @@ class LlmHttpAudioTranscriptionHandler(
         eventMessage,
         modelName = model.name,
         category = EventCategory.SERVER,
+        body = text,
       )
 
       // Build response

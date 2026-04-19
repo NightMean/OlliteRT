@@ -621,6 +621,14 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (!entry.requestBody.isNullOrBlank()) {
+          Spacer(modifier = Modifier.height(6.dp))
+          ExpandablePromptBox(
+            text = entry.requestBody,
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            textColor = MaterialTheme.colorScheme.onSurface,
+          )
+        }
       }
 
       null -> {
