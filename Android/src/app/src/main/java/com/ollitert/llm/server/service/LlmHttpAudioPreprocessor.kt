@@ -283,7 +283,8 @@ object LlmHttpAudioPreprocessor {
   /** Reads a 16-bit signed little-endian integer. Returns 0 if out of bounds. */
   private fun readInt16LE(bytes: ByteArray, offset: Int): Int {
     if (offset + 1 >= bytes.size) return 0
-    return (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
+    val raw = (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
+    return raw.toShort().toInt()
   }
 
   /** Reads a 32-bit signed little-endian integer. Returns 0 if out of bounds. */

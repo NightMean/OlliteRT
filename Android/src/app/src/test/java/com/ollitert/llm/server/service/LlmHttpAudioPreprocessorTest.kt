@@ -187,6 +187,19 @@ class LlmHttpAudioPreprocessorTest {
   }
 
   @Test
+  fun stereoDownmixHandlesMixedSignSamples() {
+    // L=20000, R=-20000 → signed average = 0
+    val wav = buildWavStereo16bit(sampleRate = 44100, leftSamples = shortArrayOf(20000), rightSamples = shortArrayOf(-20000))
+    val result = LlmHttpAudioPreprocessor.ensureMono(wav, AudioFormat.WAV)
+    val fmtDataOffset = 20
+    val fmtSize = 16
+    val dataChunkStart = fmtDataOffset + fmtSize + 8
+    val raw = (result[dataChunkStart].toInt() and 0xFF) or ((result[dataChunkStart + 1].toInt() and 0xFF) shl 8)
+    val signed = if (raw >= 0x8000) raw - 0x10000 else raw
+    assertEquals(0, signed)
+  }
+
+  @Test
   fun stereoDownmixOutputSizeIsSmaller() {
     val nSamples = 100
     val leftSamples = ShortArray(nSamples) { it.toShort() }
