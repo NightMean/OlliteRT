@@ -152,32 +152,38 @@ object ServerLlmModelHelper : LlmModelHelper {
           else null,
       )
 
+    var engine: Engine? = null
     try {
-      val engine = Engine(engineConfig)
+      engine = Engine(engineConfig)
       engine.initialize()
 
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
-      val conversation =
-        engine.createConversation(
-          ConversationConfig(
-            samplerConfig =
-              if (preferredBackend is Backend.NPU) {
-                null
-              } else {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                )
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
+      try {
+        val conversation =
+          engine.createConversation(
+            ConversationConfig(
+              samplerConfig =
+                if (preferredBackend is Backend.NPU) {
+                  null
+                } else {
+                  SamplerConfig(
+                    topK = topK,
+                    topP = topP.toDouble(),
+                    temperature = temperature.toDouble(),
+                  )
+                },
+              systemInstruction = systemInstruction,
+              tools = tools,
+            )
           )
-        )
-      ExperimentalFlags.enableConversationConstrainedDecoding = false
-      model.instance = LlmModelInstance(engine = engine, conversation = conversation)
+        model.instance = LlmModelInstance(engine = engine, conversation = conversation)
+      } finally {
+        ExperimentalFlags.enableConversationConstrainedDecoding = false
+      }
     } catch (e: Exception) {
+      try { engine?.close() } catch (_: Exception) {}
+      System.gc()
       onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
     }
@@ -220,25 +226,28 @@ object ServerLlmModelHelper : LlmModelHelper {
         )
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
-      val newConversation =
-        engine.createConversation(
-          ConversationConfig(
-            samplerConfig =
-              if (accelerator == Accelerator.NPU.label) {
-                null
-              } else {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                )
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
+      try {
+        val newConversation =
+          engine.createConversation(
+            ConversationConfig(
+              samplerConfig =
+                if (accelerator == Accelerator.NPU.label) {
+                  null
+                } else {
+                  SamplerConfig(
+                    topK = topK,
+                    topP = topP.toDouble(),
+                    temperature = temperature.toDouble(),
+                  )
+                },
+              systemInstruction = systemInstruction,
+              tools = tools,
+            )
           )
-        )
-      ExperimentalFlags.enableConversationConstrainedDecoding = false
-      instance.conversation = newConversation
+        instance.conversation = newConversation
+      } finally {
+        ExperimentalFlags.enableConversationConstrainedDecoding = false
+      }
 
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
@@ -249,8 +258,9 @@ object ServerLlmModelHelper : LlmModelHelper {
         modelName = model.name,
       )
       // If new Conversation creation failed, the model is in a broken state —
-      // null the instance so the next request triggers a full re-initialization
-      // rather than using a model with a dead/missing Conversation.
+      // close the Engine (which holds hundreds of MB of native memory) and null
+      // the instance so the next request triggers a full re-initialization.
+      try { (model.instance as? LlmModelInstance)?.engine?.close() } catch (_: Exception) {}
       model.instance = null
       System.gc()
     }

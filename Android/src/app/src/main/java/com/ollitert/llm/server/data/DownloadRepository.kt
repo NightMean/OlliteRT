@@ -200,44 +200,48 @@ class DefaultDownloadRepository(
           }
 
           WorkInfo.State.SUCCEEDED -> {
-            Log.d("repo", "worker %s success".format(workerId.toString()))
-            onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
-            sendNotification(
-              title = context.getString(R.string.notification_title_success),
-              text = context.getString(R.string.notification_content_success).format(model.name),
-              taskId = task?.id ?: DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID,
-              modelName = model.name,
-            )
-
-            downloadStartTimeSharedPreferences.edit { remove(model.name) }
-            observer?.let { liveData.removeObserver(it) }
+            try {
+              Log.d("repo", "worker %s success".format(workerId.toString()))
+              onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
+              sendNotification(
+                title = context.getString(R.string.notification_title_success),
+                text = context.getString(R.string.notification_content_success).format(model.name),
+                taskId = task?.id ?: DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID,
+                modelName = model.name,
+              )
+              downloadStartTimeSharedPreferences.edit { remove(model.name) }
+            } finally {
+              observer?.let { liveData.removeObserver(it) }
+            }
           }
 
           WorkInfo.State.FAILED,
           WorkInfo.State.CANCELLED -> {
-            var status = ModelDownloadStatusType.FAILED
-            val errorMessage = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
-            Log.d(
-              "repo",
-              "worker %s FAILED or CANCELLED: %s".format(workerId.toString(), errorMessage),
-            )
-            if (workInfo.state == WorkInfo.State.CANCELLED) {
-              status = ModelDownloadStatusType.NOT_DOWNLOADED
-            } else {
-              sendNotification(
-                title = context.getString(R.string.notification_title_fail),
-                text = context.getString(R.string.notification_content_success).format(model.name),
-                taskId = "",
-                modelName = "",
+            try {
+              var status = ModelDownloadStatusType.FAILED
+              val errorMessage = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
+              Log.d(
+                "repo",
+                "worker %s FAILED or CANCELLED: %s".format(workerId.toString(), errorMessage),
               )
+              if (workInfo.state == WorkInfo.State.CANCELLED) {
+                status = ModelDownloadStatusType.NOT_DOWNLOADED
+              } else {
+                sendNotification(
+                  title = context.getString(R.string.notification_title_fail),
+                  text = context.getString(R.string.notification_content_success).format(model.name),
+                  taskId = "",
+                  modelName = "",
+                )
+              }
+              onStatusUpdated(
+                model,
+                ModelDownloadStatus(status = status, errorMessage = errorMessage),
+              )
+              downloadStartTimeSharedPreferences.edit { remove(model.name) }
+            } finally {
+              observer?.let { liveData.removeObserver(it) }
             }
-            onStatusUpdated(
-              model,
-              ModelDownloadStatus(status = status, errorMessage = errorMessage),
-            )
-
-            downloadStartTimeSharedPreferences.edit { remove(model.name) }
-            observer?.let { liveData.removeObserver(it) }
           }
 
           else -> {}
