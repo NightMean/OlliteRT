@@ -53,14 +53,14 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Compile prodDebug
-        run: ./gradlew --no-daemon :app:compileProdDebugKotlin
+      - name: Compile stableDebug
+        run: ./gradlew --no-daemon :app:compileStableDebugKotlin
 
       - name: Run JVM unit tests
-        run: ./gradlew --no-daemon :app:testProdDebugUnitTest
+        run: ./gradlew --no-daemon :app:testStableDebugUnitTest
 
       - name: Run lint
-        run: ./gradlew --no-daemon :app:lintProdDebug
+        run: ./gradlew --no-daemon :app:lintStableDebug
 
       - name: Upload test reports
         if: always()
@@ -68,8 +68,8 @@ jobs:
         with:
           name: test-reports-${{ github.sha }}
           path: |
-            Android/src/app/build/reports/tests/testProdDebugUnitTest/
-            Android/src/app/build/test-results/testProdDebugUnitTest/
+            Android/src/app/build/reports/tests/testStableDebugUnitTest/
+            Android/src/app/build/test-results/testStableDebugUnitTest/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -78,6 +78,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: lint-report-${{ github.sha }}
-          path: Android/src/app/build/reports/lint-results-prodDebug.html
+          path: Android/src/app/build/reports/lint-results-stableDebug.html
           if-no-files-found: ignore
           retention-days: 14

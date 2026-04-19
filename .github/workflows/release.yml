@@ -50,10 +50,10 @@ jobs:
 
           # Determine channel and Gradle task from tag pattern
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "channel=prod" >> "$GITHUB_OUTPUT"
-            echo "task=assembleProdRelease" >> "$GITHUB_OUTPUT"
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+            echo "task=assembleStableRelease" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "flavor=prod" >> "$GITHUB_OUTPUT"
+            echo "flavor=stable" >> "$GITHUB_OUTPUT"
           elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
             echo "channel=beta" >> "$GITHUB_OUTPUT"
             echo "task=assembleBetaRelease" >> "$GITHUB_OUTPUT"

@@ -91,7 +91,7 @@ android {
     }
   }
 
-  // Product flavors: dev, beta, prod — all three can be installed side-by-side.
+  // Product flavors: dev, beta, stable — all three can be installed side-by-side.
   // Each flavor gets its own app icon (with badge for dev/beta), splash screen,
   // and applicationIdSuffix so they coexist on the same device.
   flavorDimensions += "channel"
@@ -120,7 +120,7 @@ android {
       buildConfigField("String", "UPDATE_CHANNEL", "\"beta\"")
       manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.beta"
     }
-    create("prod") {
+    create("stable") {
       dimension = "channel"
       // No suffix — this is the production release
       resValue("string", "app_label", "OlliteRT")
