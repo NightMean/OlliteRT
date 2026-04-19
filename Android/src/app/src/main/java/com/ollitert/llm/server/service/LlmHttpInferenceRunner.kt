@@ -124,6 +124,7 @@ class LlmHttpInferenceRunner(
     images: List<ByteArray> = emptyList(),
     eagerVisionInit: Boolean = false,
     logId: String? = null,
+    configSnapshot: Map<String, Any>? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -154,12 +155,15 @@ class LlmHttpInferenceRunner(
       }
     }
 
+    val originalConfig = if (configSnapshot != null) model.configValues else null
+
     val result = LlmHttpInferenceGateway.execute(
       prompt = prompt,
       timeoutSeconds = timeoutSeconds,
       executor = executor,
       inferenceLock = inferenceLock,
       resetConversation = {
+        if (configSnapshot != null) model.configValues = configSnapshot
         ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
       },
       runInference = { input, onPartial, onError ->
@@ -177,6 +181,7 @@ class LlmHttpInferenceRunner(
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
     )
+    if (originalConfig != null && model.instance != null) model.configValues = originalConfig
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     // If the user tapped Stop in the Logs screen, return a cancellation error

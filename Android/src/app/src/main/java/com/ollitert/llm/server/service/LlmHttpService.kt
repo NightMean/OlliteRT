@@ -623,6 +623,7 @@ class LlmHttpService : Service() {
     loadGeneration.incrementAndGet()
     server?.stop()
     inferenceExecutor?.shutdownNow()
+    try { inferenceExecutor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (_: InterruptedException) {}
     inferenceExecutor = null
     val modelName = defaultModel?.name
 
