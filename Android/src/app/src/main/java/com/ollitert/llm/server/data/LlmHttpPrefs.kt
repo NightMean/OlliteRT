@@ -55,6 +55,8 @@ private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_para
 
 // --- Home Assistant Integration (UI convenience — shows copy-config button in Settings) ---
 private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
+private const val KEY_HA_STT_TRANSCRIPTION_PROMPT = "ha_stt_transcription_prompt"
+private const val DEFAULT_HA_STT_TRANSCRIPTION_PROMPT = false
 
 
 // --- Keep Alive (auto-unload model after idle timeout to free RAM) ---
@@ -429,6 +431,13 @@ object LlmHttpPrefs {
 
   fun setHaIntegrationEnabled(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_HA_INTEGRATION_ENABLED, enabled).apply()
+  }
+
+  fun isSttTranscriptionPromptEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_HA_STT_TRANSCRIPTION_PROMPT, DEFAULT_HA_STT_TRANSCRIPTION_PROMPT)
+
+  fun setSttTranscriptionPromptEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_HA_STT_TRANSCRIPTION_PROMPT, enabled).apply()
   }
 
   // --- Keep Alive ---

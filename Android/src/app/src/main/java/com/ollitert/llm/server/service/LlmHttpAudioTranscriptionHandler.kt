@@ -19,6 +19,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
@@ -160,10 +161,15 @@ class LlmHttpAudioTranscriptionHandler(
       )
     }
 
-    // Build minimal text hint from optional fields — no system instruction needed,
-    // the model processes audio natively via Content.AudioBytes
+    val useTranscriptionPrompt = LlmHttpPrefs.isSttTranscriptionPromptEnabled(context)
     val hintText = buildString {
-      if (language != null) append("Language: $language")
+      if (useTranscriptionPrompt) {
+        append("Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else.")
+      }
+      if (language != null) {
+        if (isNotEmpty()) append("\n")
+        append("Language: $language")
+      }
       if (prompt != null) {
         if (isNotEmpty()) append("\n")
         append("Context: $prompt")

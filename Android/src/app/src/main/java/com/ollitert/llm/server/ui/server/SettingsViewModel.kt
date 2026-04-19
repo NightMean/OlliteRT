@@ -91,6 +91,7 @@ class SettingsViewModel @Inject constructor(
   val updateCheckEnabledEntry = SettingEntry(LlmHttpPrefs.isUpdateCheckEnabled(context))
   val updateCheckIntervalHoursEntry = SettingEntry(LlmHttpPrefs.getUpdateCheckIntervalHours(context))
   val verboseDebugEnabledEntry = SettingEntry(LlmHttpPrefs.isVerboseDebugEnabled(context))
+  val sttTranscriptionPromptEntry = SettingEntry(LlmHttpPrefs.isSttTranscriptionPromptEnabled(context))
 
   /** All setting entries for bulk operations (change detection, discard, apply). */
   private val allSettings: List<SettingEntry<*>> = listOf(
@@ -105,7 +106,7 @@ class SettingsViewModel @Inject constructor(
     logAutoDeleteMinutesEntry, ignoreClientSamplerParamsEntry,
     keepAliveEnabledEntry, keepAliveMinutesEntry,
     updateCheckEnabledEntry, updateCheckIntervalHoursEntry,
-    verboseDebugEnabledEntry,
+    verboseDebugEnabledEntry, sttTranscriptionPromptEntry,
   )
 
   /** Maps each SettingDef key to its corresponding SettingEntry for iteration. */
@@ -203,6 +204,7 @@ class SettingsViewModel @Inject constructor(
     "trim_prompt" -> autoTrimPromptsEntry
     "ignore_client_params" -> ignoreClientSamplerParamsEntry
     "verbose_debug" -> verboseDebugEnabledEntry
+    "stt_transcription_prompt" -> sttTranscriptionPromptEntry
     else -> null
   }
 
@@ -369,6 +371,7 @@ class SettingsViewModel @Inject constructor(
           "trim_prompt" -> LlmHttpPrefs.setAutoTrimPrompts(context, value)
           "ignore_client_params" -> LlmHttpPrefs.setIgnoreClientSamplerParams(context, value)
           "verbose_debug" -> LlmHttpPrefs.setVerboseDebugEnabled(context, value)
+          "stt_transcription_prompt" -> LlmHttpPrefs.setSttTranscriptionPromptEnabled(context, value)
         }
       }
       is SettingDef.TextInput -> {

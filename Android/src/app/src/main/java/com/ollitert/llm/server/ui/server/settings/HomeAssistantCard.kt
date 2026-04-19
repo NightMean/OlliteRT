@@ -66,6 +66,16 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
       searchQuery = vm.searchQuery,
     )
 
+    SettingDivider()
+
+    ToggleSettingRow(
+      label = stringResource(R.string.settings_ha_stt_transcription_prompt),
+      description = stringResource(R.string.settings_ha_stt_transcription_prompt_desc),
+      checked = vm.sttTranscriptionPromptEntry.current,
+      onCheckedChange = { vm.sttTranscriptionPromptEntry.update(it) },
+      searchQuery = vm.searchQuery,
+    )
+
     if (haIntegrationEnabled) {
       SettingDivider()
 

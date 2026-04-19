@@ -376,6 +376,16 @@ val HA_INTEGRATION = SettingDef.Custom(
   searchKeywords = "Home Assistant REST API Integration configuration yaml sensors commands stop reload thinking config",
 )
 
+val HA_STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
+  key = "stt_transcription_prompt",
+  labelRes = R.string.settings_ha_stt_transcription_prompt,
+  descriptionRes = R.string.settings_ha_stt_transcription_prompt_desc,
+  card = CardId.HOME_ASSISTANT,
+  searchKeywords = "STT Speech Text Transcription Prompt audio whisper transcribe voice assistant",
+  default = false,
+  prefsKey = "ha_stt_transcription_prompt",
+)
+
 // ─── Context Management Card ───────────────────────────────────────────────
 
 val TRUNCATE_HISTORY = SettingDef.Toggle(
@@ -502,7 +512,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Log Persistence
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
-  HA_INTEGRATION,
+  HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
@@ -570,7 +580,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.HOME_ASSISTANT,
     titleRes = R.string.settings_card_home_assistant,
     icon = CardIcon.Resource(R.drawable.ic_home_assistant),
-    settings = listOf(HA_INTEGRATION),
+    settings = listOf(HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT),
   ),
   CardDef(
     id = CardId.UPDATES,
