@@ -30,7 +30,7 @@
 
 ## Features
 - **Multi-model Support** — One-tap download from HuggingFace or import your own `.litertlm` files from local storage
-- **Multimodal & Reasoning** — Vision, thinking, streaming support, and tool calling (experimental) for capable models
+- **Multimodal & Reasoning** — Vision, audio, thinking, streaming support, and tool calling (experimental) for capable models
 - **Benchmark Built-in** — Test and compare models on your device to find the best fit for your hardware
 - **Activity Logs** — Detailed request/response logs with search, filtering, and JSON highlighting
 - **Always On, Low Power** — Configurable auto-start on boot, sips ~5-10W vs 300W+ for a GPU server — perfect for that old phone in your drawer*
@@ -69,10 +69,10 @@
 
 | Model | Size | Min RAM | Context | Capabilities |
 |:------|-----:|--------:|--------:|:-------------|
-| **Gemma 4 E2B** ⭐ | 2.4 GB | 8 GB | 32K | Text · Vision · Thinking · Tools |
-| **Gemma 4 E4B** ⭐ | 3.4 GB | 12 GB | 32K | Text · Vision · Thinking · Tools |
-| **Gemma 3n E2B** | 3.4 GB | 8 GB | 4K | Text · Vision |
-| **Gemma 3n E4B** | 4.6 GB | 12 GB | 4K | Text · Vision |
+| **Gemma 4 E2B** ⭐ | 2.4 GB | 8 GB | 32K | Text · Vision · Audio · Thinking · Tools |
+| **Gemma 4 E4B** ⭐ | 3.4 GB | 12 GB | 32K | Text · Vision · Audio · Thinking · Tools |
+| **Gemma 3n E2B** | 3.4 GB | 8 GB | 4K | Text · Vision · Audio |
+| **Gemma 3n E4B** | 4.6 GB | 12 GB | 4K | Text · Vision · Audio |
 | **Gemma 3 1B** | 0.5 GB | 6 GB | 1K | Text |
 | **Qwen 2.5 1.5B** | 1.5 GB | 6 GB | 4K | Text |
 | **DeepSeek-R1 1.5B** | 1.7 GB | 6 GB | 4K | Text |
@@ -100,6 +100,7 @@ See the **[Model Guide](docs/MODELS.md)** for recommendations, capability detail
 | `POST` | `/v1/completions` | OpenAI Completions API |
 | `POST` | `/v1/responses` | OpenAI Responses API |
 | `GET`  | `/v1/models` | List available models |
+| `POST` | `/v1/audio/transcriptions` | Audio transcription |
 | `GET`  | `/metrics` | Prometheus metrics |
 | `GET`  | `/health` | Health check (with optional `?metrics=true`) |
 
