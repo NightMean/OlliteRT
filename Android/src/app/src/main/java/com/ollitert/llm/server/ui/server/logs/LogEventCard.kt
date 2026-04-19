@@ -639,7 +639,8 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         if (parsedEvent.transcription != null) {
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = stringResource(R.string.logs_audio_transcription_output),
+            text = if (parsedEvent.forced) stringResource(R.string.logs_audio_transcription_output)
+              else stringResource(R.string.logs_entry_response),
             style = MaterialTheme.typography.labelSmall,
             color = OlliteRTPrimary,
             fontWeight = FontWeight.SemiBold,
