@@ -614,6 +614,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
               append(parsedEvent.modelName)
             }
             append(" · ${parsedEvent.audioFormat.uppercase()}")
+            append(" · ${parsedEvent.fileSize}")
             if (parsedEvent.language != null) append(" · ${parsedEvent.language}")
             append(" · ${parsedEvent.durationSec}")
           },

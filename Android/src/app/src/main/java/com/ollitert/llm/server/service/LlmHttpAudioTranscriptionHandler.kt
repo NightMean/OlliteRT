@@ -212,11 +212,17 @@ class LlmHttpAudioTranscriptionHandler(
 
       // Log transcription event
       val formatLabel = format.name.lowercase()
+      val fileSizeKb = tempFile.length() / 1024
+      val sizeLabel = if (fileSizeKb >= 1024) {
+        String.format(java.util.Locale.US, "%.1fMB", fileSizeKb / 1024.0)
+      } else {
+        "${fileSizeKb}KB"
+      }
       val durationSec = String.format(java.util.Locale.US, "%.1f", elapsedMs / 1000.0)
       val eventMessage = if (language != null) {
-        "Audio transcription: ${model.name} (lang=$language, $formatLabel, ${durationSec}s)"
+        "Audio transcription: ${model.name} (lang=$language, $formatLabel, $sizeLabel, ${durationSec}s)"
       } else {
-        "Audio transcription: ${model.name} ($formatLabel, ${durationSec}s)"
+        "Audio transcription: ${model.name} ($formatLabel, $sizeLabel, ${durationSec}s)"
       }
       RequestLogStore.addEvent(
         eventMessage,
