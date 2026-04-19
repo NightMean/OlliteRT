@@ -219,10 +219,11 @@ class LlmHttpAudioTranscriptionHandler(
         "${fileSizeKb}KB"
       }
       val durationSec = String.format(java.util.Locale.US, "%.1f", elapsedMs / 1000.0)
+      val forcedTag = if (useTranscriptionPrompt) ", forced" else ""
       val eventMessage = if (language != null) {
-        "Audio transcription: ${model.name} (lang=$language, $formatLabel, $sizeLabel, ${durationSec}s)"
+        "Audio transcription: ${model.name} (lang=$language, $formatLabel, $sizeLabel, ${durationSec}s$forcedTag)"
       } else {
-        "Audio transcription: ${model.name} ($formatLabel, $sizeLabel, ${durationSec}s)"
+        "Audio transcription: ${model.name} ($formatLabel, $sizeLabel, ${durationSec}s$forcedTag)"
       }
       RequestLogStore.addEvent(
         eventMessage,

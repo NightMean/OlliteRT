@@ -975,6 +975,16 @@ private fun EventFooterBadges(parsedEvent: ParsedEventType?) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
+    is ParsedEventType.AudioTranscription -> {
+      if (parsedEvent.forced) {
+        Text(
+          text = stringResource(R.string.logs_event_forced_transcription),
+          style = MaterialTheme.typography.labelSmall,
+          color = OlliteRTPrimary,
+          fontWeight = FontWeight.SemiBold,
+        )
+      }
+    }
     else -> {}
   }
 }

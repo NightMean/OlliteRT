@@ -568,6 +568,7 @@
 
   <!-- LogEventCard: Footer badge -->
   <string name="logs_event_ready" translatable="false">Ready</string>
+  <string name="logs_event_forced_transcription" translatable="false">Forced</string>
 
   <!-- LogBadges: HTTP status labels -->
   <string name="logs_status_context_exceeded" translatable="false">Context Exceeded</string>

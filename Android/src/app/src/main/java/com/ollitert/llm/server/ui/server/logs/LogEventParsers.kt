@@ -104,6 +104,7 @@ internal sealed class ParsedEventType {
     val audioFormat: String,
     val fileSize: String,
     val durationSec: String,
+    val forced: Boolean,
   ) : ParsedEventType()
 }
 
@@ -335,7 +336,7 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
     return ParsedEventType.UpdateAutoDisabled(eventBody)
   }
 
-  // Audio transcription: "Audio transcription: ModelName (lang=en, wav, 245KB, 3.2s)"
+  // Audio transcription: "Audio transcription: ModelName (lang=en, wav, 245KB, 3.2s, forced)"
   PATTERN_AUDIO_TRANSCRIPTION.find(message)?.let {
     return ParsedEventType.AudioTranscription(
       modelName = it.groupValues[1],
@@ -343,6 +344,7 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
       audioFormat = it.groupValues[3],
       fileSize = it.groupValues[4],
       durationSec = it.groupValues[5],
+      forced = it.groupValues[6].isNotEmpty(),
     )
   }
 
@@ -370,7 +372,7 @@ internal val PATTERN_MODEL_READY = Regex("""^Model ready: (.+?) \((\d+)ms\)$""")
 internal val PATTERN_WARMUP = Regex("""^Sending a warmup message: "(.+?)" → "(.*)" \((\d+)ms\)$""")
 internal val PATTERN_KEEP_ALIVE_UNLOADED = Regex("""^Model unloaded: (.+?) \(after (\d+)m idle, keep_alive\)$""")
 internal val PATTERN_KEEP_ALIVE_RELOADED = Regex("""^Model reloaded: (.+?) \((\d+)ms, keep_alive wake-up\)$""")
-internal val PATTERN_AUDIO_TRANSCRIPTION = Regex("""^Audio transcription: (.+?) \((?:lang=(\w+), )?(\w+), ([\d.]+[KM]B), ([\d.]+s)\)$""")
+internal val PATTERN_AUDIO_TRANSCRIPTION = Regex("""^Audio transcription: (.+?) \((?:lang=(\w+), )?(\w+), ([\d.]+[KM]B), ([\d.]+s)(, forced)?\)$""")
 internal val PATTERN_TIME_MS = Regex("""\(\d+ms\)""")
 internal val PATTERN_ARROW = Regex("""→""")
 internal val PATTERN_QUOTED = Regex(""""[^"]*"""")
