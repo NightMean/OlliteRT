@@ -662,38 +662,40 @@ private fun importModel(
     // If the app is killed mid-copy, the .tmp file is cleaned up on next launch.
     val finalFile = File(externalDir, "$IMPORTS_DIR/$fileName")
     val tmpFile = File(externalDir, "$IMPORTS_DIR/${fileName}.tmp")
-    val outputStream = FileOutputStream(tmpFile)
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     var bytesRead: Int
     var lastSetProgressTs: Long = 0
     var importedBytes = 0L
-    val inputStream = context.contentResolver.openInputStream(uri)
     try {
-      if (inputStream != null) {
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-          outputStream.write(buffer, 0, bytesRead)
-          importedBytes += bytesRead
+      val inputStream = context.contentResolver.openInputStream(uri)
+      if (inputStream == null) {
+        try { tmpFile.delete() } catch (_: Exception) {}
+        onError(context.getString(R.string.error_import_failed))
+        return@launch
+      }
+      inputStream.use { input ->
+        FileOutputStream(tmpFile).use { outputStream ->
+          while (input.read(buffer).also { bytesRead = it } != -1) {
+            outputStream.write(buffer, 0, bytesRead)
+            importedBytes += bytesRead
 
-          // Report progress every 200 ms.
-          val curTs = System.currentTimeMillis()
-          if (curTs - lastSetProgressTs > 200) {
-            Log.d(TAG, "importing progress: $importedBytes, $fileSize")
-            lastSetProgressTs = curTs
-            if (fileSize != 0L) {
-              onProgress(importedBytes.toFloat() / fileSize.toFloat())
+            // Report progress every 200 ms.
+            val curTs = System.currentTimeMillis()
+            if (curTs - lastSetProgressTs > 200) {
+              Log.d(TAG, "importing progress: $importedBytes, $fileSize")
+              lastSetProgressTs = curTs
+              if (fileSize != 0L) {
+                onProgress(importedBytes.toFloat() / fileSize.toFloat())
+              }
             }
           }
-        }
-      }
+        } }
     } catch (e: Exception) {
       e.printStackTrace()
       // Clean up partial .tmp file on failure
       try { tmpFile.delete() } catch (_: Exception) {}
       onError(e.message ?: context.getString(R.string.error_import_failed))
       return@launch
-    } finally {
-      inputStream?.close()
-      outputStream.close()
     }
     // Atomic rename: only creates the final file if the copy completed successfully.
     // Delete existing file first — renameTo won't overwrite on most Android filesystems,
