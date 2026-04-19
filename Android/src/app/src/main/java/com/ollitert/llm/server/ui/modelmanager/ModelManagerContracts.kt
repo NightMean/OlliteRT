@@ -43,11 +43,6 @@ interface TokenManager {
 
 /** Loads the model allowlist from network, disk cache, or bundled assets. */
 interface AllowlistLoader {
-  data class LoadResult(
-    val allowlist: ModelAllowlist?,
-    val source: AllowlistSource?,
-    val rawJson: String? = null,
-  )
   fun readTestAllowlist(): ModelAllowlist?
   fun saveToDisk(content: String)
   fun readFromDiskCache(): ModelAllowlist?

@@ -17,8 +17,4 @@
 
 package com.ollitert.llm.server.common
 
-interface LatencyProvider {
-  val latencyMs: Float
-}
-
 data class JsonObjAndTextContent<T>(val jsonObj: T, val textContent: String)
