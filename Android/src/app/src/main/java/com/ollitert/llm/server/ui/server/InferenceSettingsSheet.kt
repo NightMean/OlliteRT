@@ -224,7 +224,7 @@ fun InferenceSettingsSheet(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Text(
-          text = "Inference Settings",
+          text = stringResource(R.string.inference_settings_title),
           style = MaterialTheme.typography.headlineSmall,
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurface,
@@ -233,13 +233,13 @@ fun InferenceSettingsSheet(
           if (onEditDefaults != null) {
             TooltipIconButton(
               icon = Icons.Outlined.Edit,
-              tooltip = "Edit model defaults",
+              tooltip = stringResource(R.string.inference_settings_tooltip_edit_defaults),
               onClick = { onEditDefaults() },
             )
           }
           TooltipIconButton(
             icon = Icons.Outlined.RestartAlt,
-            tooltip = "Reset to defaults",
+            tooltip = stringResource(R.string.inference_settings_tooltip_reset),
             onClick = { showResetDialog = true },
           )
         }
@@ -253,7 +253,7 @@ fun InferenceSettingsSheet(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         ParameterInputBox(
-          label = "TEMPERATURE",
+          label = stringResource(R.string.inference_settings_label_temperature),
           value = "%.1f".format(temperature),
           onValueChange = { temperature = it.toFloat() },
           min = tempRange.first,
@@ -263,7 +263,7 @@ fun InferenceSettingsSheet(
           modifier = Modifier.weight(1f),
         )
         ParameterInputBox(
-          label = "MAX TOKENS",
+          label = stringResource(R.string.inference_settings_label_max_tokens),
           value = maxTokens.toString(),
           onValueChange = { maxTokens = it.toInt() },
           min = maxTokensRange.first,
@@ -280,7 +280,7 @@ fun InferenceSettingsSheet(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         ParameterInputBox(
-          label = "TOP-K",
+          label = stringResource(R.string.inference_settings_label_top_k),
           value = topK.toString(),
           onValueChange = { topK = it.toInt() },
           min = topKRange.first,
@@ -290,7 +290,7 @@ fun InferenceSettingsSheet(
           modifier = Modifier.weight(1f),
         )
         ParameterInputBox(
-          label = "TOP-P",
+          label = stringResource(R.string.inference_settings_label_top_p),
           value = "%.2f".format(topP),
           onValueChange = { topP = it.toFloat() },
           min = topPRange.first,
@@ -325,15 +325,15 @@ fun InferenceSettingsSheet(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = "Allow Thinking",
+            text = stringResource(R.string.inference_settings_allow_thinking),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
             color = if (supportsThinking) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
           )
           Text(
-            text = if (supportsThinking) "Enables the model's thinking mode for step-by-step reasoning"
-                   else "This model does not support thinking mode",
+            text = if (supportsThinking) stringResource(R.string.inference_settings_thinking_supported)
+                   else stringResource(R.string.inference_settings_thinking_unsupported),
             style = MaterialTheme.typography.bodySmall,
             color = if (supportsThinking) MaterialTheme.colorScheme.onSurfaceVariant
                     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
@@ -357,7 +357,7 @@ fun InferenceSettingsSheet(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Text(
-          text = "Accelerator",
+          text = stringResource(R.string.inference_settings_accelerator),
           style = MaterialTheme.typography.bodyLarge,
           fontWeight = FontWeight.Medium,
           color = MaterialTheme.colorScheme.onSurface,
@@ -393,20 +393,20 @@ fun InferenceSettingsSheet(
           Spacer(modifier = Modifier.width(12.dp))
           Column(modifier = Modifier.weight(1f)) {
             Text(
-              text = "Custom System Prompt",
+              text = stringResource(R.string.inference_settings_custom_system_prompt),
               style = MaterialTheme.typography.bodyLarge,
               fontWeight = FontWeight.Medium,
               color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-              text = "Prepended to every conversation as a system instruction",
+              text = stringResource(R.string.inference_settings_system_prompt_description),
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
           Icon(
             if (advancedExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = if (advancedExpanded) "Collapse" else "Expand",
+            contentDescription = if (advancedExpanded) stringResource(R.string.cd_collapse) else stringResource(R.string.cd_expand),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp),
           )
@@ -421,11 +421,11 @@ fun InferenceSettingsSheet(
             modifier = Modifier.padding(top = 12.dp),
           ) {
             PromptTextArea(
-              label = "SYSTEM PROMPT",
-              hint = "Prepended to every conversation as a system instruction",
+              label = stringResource(R.string.inference_settings_label_system_prompt),
+              hint = stringResource(R.string.inference_settings_system_prompt_description),
               value = systemPrompt,
               onValueChange = { systemPrompt = it },
-              placeholder = "e.g. You are a helpful coding assistant...",
+              placeholder = stringResource(R.string.inference_settings_system_prompt_placeholder),
             )
           }
         }
@@ -434,7 +434,7 @@ fun InferenceSettingsSheet(
       Spacer(modifier = Modifier.height(4.dp))
 
       Text(
-        text = "Changes to Max Tokens or Accelerator will reload the model",
+        text = stringResource(R.string.inference_settings_reload_warning),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth(),
@@ -472,7 +472,7 @@ fun InferenceSettingsSheet(
         colors = ButtonDefaults.buttonColors(containerColor = OlliteRTPrimary),
       ) {
         Text(
-          text = "Save & Apply Configuration",
+          text = stringResource(R.string.inference_settings_save_apply),
           style = MaterialTheme.typography.labelLarge,
           fontWeight = FontWeight.Bold,
           textAlign = TextAlign.Center,
@@ -673,7 +673,7 @@ private fun AcceleratorToggle(
           label = "gpu_text",
         )
         Text(
-          text = "GPU",
+          text = stringResource(R.string.inference_settings_accelerator_gpu),
           style = MaterialTheme.typography.labelLarge,
           fontWeight = FontWeight.Bold,
           color = gpuTextColor,
@@ -696,7 +696,7 @@ private fun AcceleratorToggle(
           label = "cpu_text",
         )
         Text(
-          text = "CPU",
+          text = stringResource(R.string.inference_settings_accelerator_cpu),
           style = MaterialTheme.typography.labelLarge,
           fontWeight = FontWeight.Bold,
           color = cpuTextColor,
@@ -766,7 +766,7 @@ private fun PromptTextArea(
             ) {
               Icon(
                 Icons.Outlined.Close,
-                contentDescription = "Clear",
+                contentDescription = stringResource(R.string.cd_clear),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),
               )
