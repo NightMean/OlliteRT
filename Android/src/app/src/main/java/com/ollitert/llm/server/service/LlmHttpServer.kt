@@ -70,6 +70,7 @@ class LlmHttpServer(
   private val nextRequestId: () -> String,
   private val getRequestCount: () -> Long,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
+  private val audioTranscriptionHandler: LlmHttpAudioTranscriptionHandler,
 ) : NanoHTTPD("0.0.0.0", port) {
 
   private val logTag = "LlmHttpServer"
@@ -258,12 +259,13 @@ class LlmHttpServer(
             }
             LlmHttpRouteHandler.SERVER_THINKING -> handleServerThinking(session).also { responseBodySnapshot = it.second; }.first
             LlmHttpRouteHandler.SERVER_CONFIG -> handleServerConfig(session).also { responseBodySnapshot = it.second }.first
-            // Placeholder: handler wired in a follow-up task.
-            LlmHttpRouteHandler.AUDIO_TRANSCRIPTION -> jsonError(
-              NanoHTTPD.Response.Status.lookup(501),
-              "not_implemented",
-              "Audio transcription handler is not yet available",
-            )
+            LlmHttpRouteHandler.AUDIO_TRANSCRIPTION -> {
+              val model = when (val sel = modelLifecycle.selectModel(null)) {
+                is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
+                is LlmHttpModelLifecycle.ModelSelection.Error -> return@serve applyCorsHeaders(jsonError(sel.status, sel.message), corsHeaders)
+              }
+              audioTranscriptionHandler.handle(session, model, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+            }
           }
         }
       }

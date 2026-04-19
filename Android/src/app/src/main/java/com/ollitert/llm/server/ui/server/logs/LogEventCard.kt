@@ -183,6 +183,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
     is ParsedEventType.UpdateCurrent -> stringResource(R.string.logs_headline_up_to_date)
     is ParsedEventType.UpdateAutoDisabled -> stringResource(R.string.logs_headline_update_check_disabled)
     is ParsedEventType.MemoryPressure -> stringResource(R.string.logs_headline_memory_pressure)
+    is ParsedEventType.AudioTranscription -> stringResource(R.string.logs_headline_audio_transcription)
     null -> if (isDebug) stringResource(R.string.logs_headline_debug) else null
   }
 
@@ -603,6 +604,21 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = accentColor,
           fontWeight = FontWeight.Medium,
+        )
+      }
+
+      is ParsedEventType.AudioTranscription -> {
+        Text(
+          text = buildAnnotatedString {
+            withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
+              append(parsedEvent.modelName)
+            }
+            append(" · ${parsedEvent.audioFormat.uppercase()}")
+            if (parsedEvent.language != null) append(" · ${parsedEvent.language}")
+            append(" · ${parsedEvent.durationSec}")
+          },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 

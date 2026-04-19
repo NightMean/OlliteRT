@@ -357,6 +357,41 @@ class LogEventParsersTest {
     assertNull(result)
   }
 
+  // ── parseEventType: AudioTranscription ─────────────────────────────────────
+
+  @Test
+  fun audioTranscriptionWithLanguage() {
+    val result = parseEventType("Audio transcription: Gemma 4 (lang=en, wav, 3.2s)")
+    assertTrue(result is ParsedEventType.AudioTranscription)
+    val at = result as ParsedEventType.AudioTranscription
+    assertEquals("Gemma 4", at.modelName)
+    assertEquals("en", at.language)
+    assertEquals("wav", at.audioFormat)
+    assertEquals("3.2s", at.durationSec)
+  }
+
+  @Test
+  fun audioTranscriptionWithoutLanguage() {
+    val result = parseEventType("Audio transcription: Gemma 4 (mp3, 1.5s)")
+    assertTrue(result is ParsedEventType.AudioTranscription)
+    val at = result as ParsedEventType.AudioTranscription
+    assertEquals("Gemma 4", at.modelName)
+    assertNull(at.language)
+    assertEquals("mp3", at.audioFormat)
+    assertEquals("1.5s", at.durationSec)
+  }
+
+  @Test
+  fun audioTranscriptionFlacFormat() {
+    val result = parseEventType("Audio transcription: TinyModel (lang=ja, flac, 10.0s)")
+    assertTrue(result is ParsedEventType.AudioTranscription)
+    val at = result as ParsedEventType.AudioTranscription
+    assertEquals("TinyModel", at.modelName)
+    assertEquals("ja", at.language)
+    assertEquals("flac", at.audioFormat)
+    assertEquals("10.0s", at.durationSec)
+  }
+
   // ── parseEventType: unknown message ───────────────────────────────────────
 
   @Test

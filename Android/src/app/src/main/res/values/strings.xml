@@ -526,6 +526,7 @@
   <string name="logs_headline_up_to_date" translatable="false">Up to Date</string>
   <string name="logs_headline_update_check_disabled" translatable="false">Update Check Disabled</string>
   <string name="logs_headline_memory_pressure" translatable="false">Memory Pressure</string>
+  <string name="logs_headline_audio_transcription" translatable="false">Audio Transcription</string>
   <string name="logs_headline_debug" translatable="false">Debug</string>
 
   <!-- LogEventCard: Tooltip -->

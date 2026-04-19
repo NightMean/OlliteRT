@@ -97,6 +97,13 @@ internal sealed class ParsedEventType {
   data class UpdateAutoDisabled(val body: String?) : ParsedEventType()
   /** Android system memory pressure — fired by onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL). */
   data object MemoryPressure : ParsedEventType()
+  /** Audio transcription completed via /v1/audio/transcriptions. */
+  data class AudioTranscription(
+    val modelName: String,
+    val language: String?,
+    val audioFormat: String,
+    val durationSec: String,
+  ) : ParsedEventType()
 }
 
 internal val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -327,6 +334,16 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
     return ParsedEventType.UpdateAutoDisabled(eventBody)
   }
 
+  // Audio transcription: "Audio transcription: ModelName (lang=en, wav, 3.2s)"
+  PATTERN_AUDIO_TRANSCRIPTION.find(message)?.let {
+    return ParsedEventType.AudioTranscription(
+      modelName = it.groupValues[1],
+      language = it.groupValues[2].ifEmpty { null },
+      audioFormat = it.groupValues[3],
+      durationSec = it.groupValues[4],
+    )
+  }
+
   // Android memory pressure from onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL)
   if (message == "System memory pressure (critical)") {
     return ParsedEventType.MemoryPressure
@@ -351,6 +368,7 @@ internal val PATTERN_MODEL_READY = Regex("""^Model ready: (.+?) \((\d+)ms\)$""")
 internal val PATTERN_WARMUP = Regex("""^Sending a warmup message: "(.+?)" → "(.*)" \((\d+)ms\)$""")
 internal val PATTERN_KEEP_ALIVE_UNLOADED = Regex("""^Model unloaded: (.+?) \(after (\d+)m idle, keep_alive\)$""")
 internal val PATTERN_KEEP_ALIVE_RELOADED = Regex("""^Model reloaded: (.+?) \((\d+)ms, keep_alive wake-up\)$""")
+internal val PATTERN_AUDIO_TRANSCRIPTION = Regex("""^Audio transcription: (.+?) \((?:lang=(\w+), )?(\w+), ([\d.]+s)\)$""")
 internal val PATTERN_TIME_MS = Regex("""\(\d+ms\)""")
 internal val PATTERN_ARROW = Regex("""→""")
 internal val PATTERN_QUOTED = Regex(""""[^"]*"""")
@@ -395,7 +413,7 @@ internal fun highlightEventMessage(
     spans.add(StyledSpan(it.range.first, it.range.last + 1,
       SpanStyle(color = QuotedTextColor)))
   }
-  val modelPrefixes = listOf("Loading model: ", "Model ready: ", "Model load failed: ")
+  val modelPrefixes = listOf("Loading model: ", "Model ready: ", "Model load failed: ", "Audio transcription: ")
   for (prefix in modelPrefixes) {
     val idx = message.indexOf(prefix)
     if (idx >= 0) {

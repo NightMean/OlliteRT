@@ -52,7 +52,9 @@ object LlmHttpRouteResolver {
     return method == NanoHTTPD.Method.GET || method == NanoHTTPD.Method.POST || method == NanoHTTPD.Method.OPTIONS
   }
 
-  fun resolve(method: NanoHTTPD.Method, uri: String): LlmHttpRoute? {
+  fun resolve(method: NanoHTTPD.Method, rawUri: String): LlmHttpRoute? {
+    val normalized = rawUri.replace("//", "/")
+    val uri = if (normalized.length > 1 && normalized.endsWith("/")) normalized.dropLast(1) else normalized
     return when (method) {
       NanoHTTPD.Method.GET ->
         when {

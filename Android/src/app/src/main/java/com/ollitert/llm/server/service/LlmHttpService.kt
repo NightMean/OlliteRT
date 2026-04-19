@@ -386,6 +386,11 @@ class LlmHttpService : Service() {
       logPayload = { label, body, id -> logPayload(label, body, id) },
       nextRequestId = { nextRequestId() },
     )
+    val audioTranscriptionHandler = LlmHttpAudioTranscriptionHandler(
+      context = this,
+      inferenceRunner = runner,
+      modelLifecycle = modelLifecycle,
+    )
     server = LlmHttpServer(
       port = port,
       serviceContext = this,
@@ -395,6 +400,7 @@ class LlmHttpService : Service() {
       nextRequestId = { nextRequestId() },
       getRequestCount = { requestCounter.get() },
       emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
+      audioTranscriptionHandler = audioTranscriptionHandler,
     )
     try {
       server?.start()
