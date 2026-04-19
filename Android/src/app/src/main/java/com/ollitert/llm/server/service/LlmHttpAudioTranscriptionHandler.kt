@@ -249,33 +249,26 @@ class LlmHttpAudioTranscriptionHandler(
       )
 
       if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
-        val debugBody = org.json.JSONObject().apply {
-          put("type", "debug_audio_transcription")
-          put("format", formatLabel)
-          put("file_size_bytes", rawSize)
-          put("processed_size_bytes", audioBytes.size)
+        val debugText = buildString {
+          appendLine("Format: ${formatLabel.uppercase()}, ${rawSize} bytes → ${audioBytes.size} bytes")
           if (wavInfo != null) {
-            put("wav_channels", wavInfo.channels)
-            put("wav_sample_rate", wavInfo.sampleRate)
-            put("wav_bits_per_sample", wavInfo.bitsPerSample)
+            appendLine("WAV: ${wavInfo.channels}ch, ${wavInfo.sampleRate}Hz, ${wavInfo.bitsPerSample}-bit")
           }
-          put("stereo_to_mono", downmixed)
-          put("force_transcription", useTranscriptionPrompt)
-          put("response_format", responseFormat)
-          put("hint_text", hintText.ifEmpty { "(none)" })
-          put("preprocess_ms", preprocessMs)
-          put("inference_ms", inferenceMs)
-          put("total_ms", elapsedMs)
-          if (language != null) put("language", language)
-          if (prompt != null) put("prompt", prompt)
-          if (temperature != null) put("temperature", temperature)
-        }.toString()
+          if (downmixed) appendLine("Stereo → mono downmix applied")
+          appendLine("Force transcription: ${if (useTranscriptionPrompt) "on" else "off"}")
+          appendLine("Response format: $responseFormat")
+          if (language != null) appendLine("Language: $language")
+          if (prompt != null) appendLine("Client prompt: $prompt")
+          if (temperature != null) appendLine("Temperature: $temperature")
+          appendLine("Hint text: ${hintText.ifEmpty { "(none)" }}")
+          append("Timing: prep ${preprocessMs}ms, inference ${inferenceMs}ms, total ${elapsedMs}ms")
+        }
         RequestLogStore.addEvent(
           "Audio transcription debug",
           level = LogLevel.DEBUG,
           modelName = model.name,
           category = EventCategory.MODEL,
-          body = debugBody,
+          body = debugText,
         )
       }
 
