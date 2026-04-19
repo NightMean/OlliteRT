@@ -210,52 +210,50 @@ class LlmHttpEndpointHandlers(
 
     // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
     // These are picked up by resetConversation() before inference — no model reload needed.
-    // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
-    // a race where the NanoHTTPD thread restores config before the executor reads it.
-    // For non-streaming: withPerRequestConfig wraps the blocking call safely.
+    // Config is applied inside the executor thread (via configSnapshot) to avoid a race
+    // where the NanoHTTPD thread restores config before the executor reads it.
     val stopSeqs = req.stop.ifEmpty { null }
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
       inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
     } else {
-      withPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens) {
-        ServerMetrics.onInferenceStarted()
-        val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId)
-        ServerMetrics.onInferenceCompleted()
-        if (rawText == null) {
-          val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-          ServerMetrics.incrementErrorCount(kind.category)
-          if (logId != null) {
-            val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
-            RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
-          }
-          return@withPerRequestConfig badRequest(errorMsg)
+      val configSnapshotBlocking = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
+      ServerMetrics.onInferenceStarted()
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, configSnapshot = configSnapshotBlocking)
+      ServerMetrics.onInferenceCompleted()
+      if (rawText == null) {
+        val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+        ServerMetrics.incrementErrorCount(kind.category)
+        if (logId != null) {
+          val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
+          val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
         }
-        val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSeqs)
-
-        val promptTokens = estimateTokens(prompt)
-
-        // Check if the model output contains tool call(s) — supports parallel calls
-        if (hasTools) {
-          val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
-          if (toolCalls.isNotEmpty()) {
-            logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
-            val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
-            val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
-            val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
-            captureResponse(responseJson)
-            return@withPerRequestConfig okJsonText(responseJson)
-          }
-        }
-
-        val completionTokens = estimateTokens(text)
-        val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
-        val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
-        captureResponse(responseJson)
-        okJsonText(responseJson)
+        return badRequest(errorMsg)
       }
+      val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSeqs)
+
+      val promptTokens = estimateTokens(prompt)
+
+      // Check if the model output contains tool call(s) — supports parallel calls
+      if (hasTools) {
+        val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
+        if (toolCalls.isNotEmpty()) {
+          logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
+          val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
+          val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
+          val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
+          captureResponse(responseJson)
+          return okJsonText(responseJson)
+        }
+      }
+
+      val completionTokens = estimateTokens(text)
+      val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
+      val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
+      captureResponse(responseJson)
+      okJsonText(responseJson)
     }
   }
 
@@ -329,37 +327,35 @@ class LlmHttpEndpointHandlers(
       val ignored = describeClientSamplerParams(req.temperature, req.top_p, topK = null, req.max_tokens)
       if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
     }
-    return withPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens) {
-      // Streaming completions: fall through to non-streaming for now
-      ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId)
-      ServerMetrics.onInferenceCompleted()
-      if (rawText == null) {
-        val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-        ServerMetrics.incrementErrorCount(kind.category)
-        if (logId != null) {
-          val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
-          val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
-        }
-        return@withPerRequestConfig badRequest(errorMsg)
+    val configSnapshotBlocking = buildPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens)
+    ServerMetrics.onInferenceStarted()
+    val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking)
+    ServerMetrics.onInferenceCompleted()
+    if (rawText == null) {
+      val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+      ServerMetrics.incrementErrorCount(kind.category)
+      if (logId != null) {
+        val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
+        val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
+        RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
       }
-
-      val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
-      val promptTokens = estimateTokens(prompt)
-      val completionTokens = estimateTokens(text)
-      val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
-      val responseJson = json.encodeToString(CompletionResponse(
-        id = LlmHttpBridgeUtils.generateCompletionId(),
-        created = LlmHttpBridgeUtils.epochSeconds(),
-        model = model.name,
-        choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
-        usage = Usage(promptTokens, completionTokens),
-        timings = timings,
-      ))
-      captureResponse(responseJson)
-      okJsonText(responseJson)
+      return badRequest(errorMsg)
     }
+
+    val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
+    val promptTokens = estimateTokens(prompt)
+    val completionTokens = estimateTokens(text)
+    val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
+    val responseJson = json.encodeToString(CompletionResponse(
+      id = LlmHttpBridgeUtils.generateCompletionId(),
+      created = LlmHttpBridgeUtils.epochSeconds(),
+      model = model.name,
+      choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
+      usage = Usage(promptTokens, completionTokens),
+      timings = timings,
+    ))
+    captureResponse(responseJson)
+    return okJsonText(responseJson)
   }
 
   // ── /v1/responses ────────────────────────────────────────────────────────
@@ -435,42 +431,40 @@ class LlmHttpEndpointHandlers(
     }
     // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
     // a race where the NanoHTTPD thread restores config before the executor reads it.
-    // For non-streaming: withPerRequestConfig wraps the blocking call safely.
+    // For non-streaming: config is also applied via configSnapshot on the executor thread.
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
       inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
     } else {
-      withPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens) {
-        ServerMetrics.onInferenceStarted()
-        val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId)
-        ServerMetrics.onInferenceCompleted()
-        if (text == null) {
-          val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-          ServerMetrics.incrementErrorCount(kind.category)
-          if (logId != null) {
-            val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
-            val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
-            RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
-          }
-          return@withPerRequestConfig badRequest(errorMsg)
+      val configSnapshotBlocking = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
+      ServerMetrics.onInferenceStarted()
+      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking)
+      ServerMetrics.onInferenceCompleted()
+      if (text == null) {
+        val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+        ServerMetrics.incrementErrorCount(kind.category)
+        if (logId != null) {
+          val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
+          val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
         }
-
-        // Check if the model output contains tool call(s)
-        if (hasTools) {
-          val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
-          if (toolCalls.isNotEmpty()) {
-            // Responses API: use first tool call (Responses API doesn't batch tool calls the same way)
-            val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCall(model.name, toolCalls.first(), promptLen = prompt.length, json = json))
-            captureResponse(responseJson)
-            return@withPerRequestConfig okJsonText(responseJson)
-          }
-        }
-
-        val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithText(model.name, text, promptLen = prompt.length))
-        captureResponse(responseJson)
-        okJsonText(responseJson)
+        return badRequest(errorMsg)
       }
+
+      // Check if the model output contains tool call(s)
+      if (hasTools) {
+        val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
+        if (toolCalls.isNotEmpty()) {
+          val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCall(model.name, toolCalls.first(), promptLen = prompt.length, json = json))
+          captureResponse(responseJson)
+          return okJsonText(responseJson)
+        }
+      }
+
+      val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithText(model.name, text, promptLen = prompt.length))
+      captureResponse(responseJson)
+      okJsonText(responseJson)
     }
   }
 
@@ -538,42 +532,6 @@ class LlmHttpEndpointHandlers(
       }
     }
     return overridden
-  }
-
-  /**
-   * Temporarily overrides model sampler config for the duration of a BLOCKING request.
-   * For streaming requests, use [buildPerRequestConfig] + configSnapshot parameter instead,
-   * since the config must be applied on the executor thread (not the NanoHTTPD thread).
-   */
-  private inline fun <R> withPerRequestConfig(
-    model: Model,
-    temperature: Double? = null,
-    topP: Double? = null,
-    topK: Int? = null,
-    maxTokens: Int? = null,
-    block: () -> R,
-  ): R {
-    if (temperature == null && topP == null && topK == null && maxTokens == null) return block()
-    val originalConfig = model.configValues
-    try {
-      val overridden = originalConfig.toMutableMap()
-      temperature?.let { overridden[ConfigKeys.TEMPERATURE.label] = it.toFloat() }
-      topP?.let { overridden[ConfigKeys.TOPP.label] = it.toFloat() }
-      topK?.let { overridden[ConfigKeys.TOPK.label] = it }
-      maxTokens?.let {
-        // Cap to engine's configured max to avoid exceeding EngineConfig.maxNumTokens
-        val engineMax = (originalConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-        if (engineMax != null) {
-          overridden[ConfigKeys.MAX_TOKENS.label] = it.coerceAtMost(engineMax)
-        } else {
-          overridden[ConfigKeys.MAX_TOKENS.label] = it
-        }
-      }
-      model.configValues = overridden
-      return block()
-    } finally {
-      model.configValues = originalConfig
-    }
   }
 
 }
