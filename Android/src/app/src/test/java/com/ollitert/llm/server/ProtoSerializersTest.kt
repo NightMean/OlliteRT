@@ -44,7 +44,6 @@ class ProtoSerializersTest {
     val original =
       Settings.newBuilder()
         .setHasSeenBenchmarkComparisonHelp(true)
-        .addTextInputHistory("hello")
         .build()
 
     val output = ByteArrayOutputStream()

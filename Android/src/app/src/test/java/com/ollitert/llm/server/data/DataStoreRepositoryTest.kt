@@ -45,20 +45,6 @@ class DataStoreRepositoryTest {
   }
 
   @Test
-  fun writeOperationsUpdateSnapshotsImmediately() = runBlocking {
-    val tempDir = createTempDirectory(prefix = "datastore-repo-test")
-    try {
-      val repository = createRepository(tempDir.toString())
-
-      repository.saveTextInputHistory(listOf("hello", "world"))
-
-      assertEquals(listOf("hello", "world"), repository.readTextInputHistory())
-    } finally {
-      tempDir.toFile().deleteRecursively()
-    }
-  }
-
-  @Test
   fun importedModelsAndTokenWritesRemainReadableFromSnapshots() {
     assumeNotWindows()
     runBlocking {
@@ -125,7 +111,6 @@ class DataStoreRepositoryTest {
           SettingsSerializer.defaultValue
             .toBuilder()
             .setIsTosAccepted(true)
-            .addTextInputHistory("persisted")
             .build(),
           output,
         )
@@ -156,7 +141,6 @@ class DataStoreRepositoryTest {
       val repository = createRepository(tempDir.toString())
 
       assertTrue(repository.isOnboardingCompleted()) // reuses isTosAccepted
-      assertEquals(listOf("persisted"), repository.readTextInputHistory())
       assertEquals("stored", repository.readAccessTokenData()?.accessToken)
       assertEquals(1, repository.getAllBenchmarkResults().size)
     } finally {

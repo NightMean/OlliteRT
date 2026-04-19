@@ -25,8 +25,6 @@ import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
 import java.net.URL
 
-const val LOCAL_URL_BASE = "https://appassets.androidplatform.net"
-
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
   val index = message.indexOf("=== Source Location Trace")
   if (index >= 0) {

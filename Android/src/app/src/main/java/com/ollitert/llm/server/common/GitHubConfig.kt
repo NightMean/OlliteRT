@@ -58,6 +58,4 @@ object GitHubConfig {
   const val ALLOWLIST_BASE_URL =
     "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/main/model_allowlists/v1"
 
-  /** LiteRT-LM SDK documentation base URL (used in model descriptions). */
-  const val LITERT_LM_DOCS_URL = "https://github.com/google-ai-edge/LiteRT-LM"
 }

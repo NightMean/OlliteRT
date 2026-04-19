@@ -25,7 +25,6 @@ private const val KEY_PORT = "port"
 private const val KEY_PAYLOAD_LOGGING_ENABLED = "payload_logging_enabled"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
-private const val KEY_LAST_MODEL_NAME = "last_model_name"
 private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
 private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
 private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
@@ -145,16 +144,6 @@ object LlmHttpPrefs {
     prefs(context)
       .edit()
       .putString(KEY_BEARER_TOKEN, token.trim())
-      .apply()
-  }
-
-  fun setLastModelName(context: Context, modelName: String?) {
-    prefs(context)
-      .edit()
-      .apply {
-        if (modelName != null) putString(KEY_LAST_MODEL_NAME, modelName)
-        else remove(KEY_LAST_MODEL_NAME)
-      }
       .apply()
   }
 

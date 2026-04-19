@@ -320,8 +320,6 @@ class LlmHttpService : Service() {
     // Cancel any in-flight warmup by bumping the generation counter
     val thisGeneration = loadGeneration.incrementAndGet()
 
-    // Persist for recovery after process death.
-    LlmHttpPrefs.setLastModelName(this, model.name)
     modelCache[model.name] = model
 
     ServerMetrics.onServerStarting(port, model.name)

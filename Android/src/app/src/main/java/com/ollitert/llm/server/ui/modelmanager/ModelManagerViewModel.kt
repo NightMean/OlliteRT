@@ -64,7 +64,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val TAG = "OlliteRTModelManagerVM"
-private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 private const val ALLOWLIST_BASE_URL = GitHubConfig.ALLOWLIST_BASE_URL
@@ -135,8 +134,6 @@ data class ModelManagerUiState(
   /** The currently selected model. */
   val selectedModel: Model = EMPTY_MODEL,
 
-  /** The history of text inputs entered by the user. */
-  val textInputHistory: List<String> = listOf(),
   val configValuesUpdateTrigger: Long = 0L,
   // Updated when model is imported of an imported model is deleted.
   val modelImportingUpdateTrigger: Long = 0L,
@@ -340,36 +337,6 @@ constructor(
     }
 
     _uiState.update { newUiState }
-  }
-
-  fun addTextInputHistory(text: String) {
-    if (uiState.value.textInputHistory.indexOf(text) < 0) {
-      val newHistory = uiState.value.textInputHistory.toMutableList()
-      newHistory.add(0, text)
-      if (newHistory.size > TEXT_INPUT_HISTORY_MAX_SIZE) {
-        newHistory.removeAt(newHistory.size - 1)
-      }
-      _uiState.update { _uiState.value.copy(textInputHistory = newHistory) }
-      dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
-    } else {
-      promoteTextInputHistoryItem(text)
-    }
-  }
-
-  fun promoteTextInputHistoryItem(text: String) {
-    val index = uiState.value.textInputHistory.indexOf(text)
-    if (index >= 0) {
-      val newHistory = uiState.value.textInputHistory.toMutableList()
-      newHistory.removeAt(index)
-      newHistory.add(0, text)
-      _uiState.update { _uiState.value.copy(textInputHistory = newHistory) }
-      dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
-    }
-  }
-
-  fun clearTextInputHistory() {
-    _uiState.update { _uiState.value.copy(textInputHistory = mutableListOf()) }
-    dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
@@ -804,16 +771,12 @@ constructor(
         )
     }
 
-    val textInputHistory = dataStoreRepository.readTextInputHistory()
-    Log.d(TAG, "text input history: $textInputHistory")
-
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
       tasks = uiState.value.tasks,
       tasksByCategory = mapOf(),
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
-      textInputHistory = textInputHistory,
     )
   }
 

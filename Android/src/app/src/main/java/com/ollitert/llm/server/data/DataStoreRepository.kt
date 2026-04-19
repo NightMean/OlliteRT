@@ -28,9 +28,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 interface DataStoreRepository {
-  fun saveTextInputHistory(history: List<String>)
-  fun readTextInputHistory(): List<String>
-
   fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
   fun clearAccessTokenData()
   fun readAccessTokenData(): AccessTokenData?
@@ -56,21 +53,6 @@ class DefaultDataStoreRepository(
   private val userDataDataStore: DataStore<UserData>,
   private val benchmarkResultsDataStore: DataStore<BenchmarkResults>,
 ) : DataStoreRepository {
-
-  override fun saveTextInputHistory(history: List<String>) {
-    runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().clearTextInputHistory().addAllTextInputHistory(history).build()
-      }
-    }
-  }
-
-  override fun readTextInputHistory(): List<String> {
-    return runBlocking {
-      val settings = dataStore.data.first()
-      settings.textInputHistoryList
-    }
-  }
 
   override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
     runBlocking {
