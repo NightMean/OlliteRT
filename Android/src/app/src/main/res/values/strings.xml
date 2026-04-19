@@ -566,6 +566,10 @@
   <string name="logs_prompt_set_to" translatable="false">Set to</string>
   <string name="logs_prompt_empty" translatable="false">(empty)</string>
 
+  <!-- LogEventCard: Audio transcription -->
+  <string name="logs_audio_instruction" translatable="false">Instruction</string>
+  <string name="logs_audio_transcription_output" translatable="false">Transcription</string>
+
   <!-- LogEventCard: Footer badge -->
   <string name="logs_event_ready" translatable="false">Ready</string>
   <string name="logs_event_forced_transcription" translatable="false">Forced</string>

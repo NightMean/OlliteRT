@@ -621,10 +621,32 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (!entry.requestBody.isNullOrBlank()) {
-          Spacer(modifier = Modifier.height(6.dp))
+        if (parsedEvent.instruction != null) {
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(
+            text = stringResource(R.string.logs_audio_instruction),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+          )
+          Spacer(modifier = Modifier.height(4.dp))
           ExpandablePromptBox(
-            text = entry.requestBody,
+            text = parsedEvent.instruction,
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            textColor = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        if (parsedEvent.transcription != null) {
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(
+            text = stringResource(R.string.logs_audio_transcription_output),
+            style = MaterialTheme.typography.labelSmall,
+            color = OlliteRTPrimary,
+            fontWeight = FontWeight.SemiBold,
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          ExpandablePromptBox(
+            text = parsedEvent.transcription,
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
             textColor = MaterialTheme.colorScheme.onSurface,
           )

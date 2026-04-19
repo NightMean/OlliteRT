@@ -236,11 +236,16 @@ class LlmHttpAudioTranscriptionHandler(
       } else {
         "Audio transcription: ${model.name} ($formatLabel, $sizeLabel, ${durationSec}s$forcedTag)"
       }
+      val eventBody = org.json.JSONObject().apply {
+        put("type", "audio_transcription")
+        if (hintText.isNotEmpty()) put("instruction", hintText)
+        put("transcription", text)
+      }.toString()
       RequestLogStore.addEvent(
         eventMessage,
         modelName = model.name,
         category = EventCategory.SERVER,
-        body = text,
+        body = eventBody,
       )
 
       if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {

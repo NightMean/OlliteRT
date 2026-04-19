@@ -105,6 +105,8 @@ internal sealed class ParsedEventType {
     val fileSize: String,
     val durationSec: String,
     val forced: Boolean,
+    val instruction: String?,
+    val transcription: String?,
   ) : ParsedEventType()
 }
 
@@ -338,6 +340,17 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
 
   // Audio transcription: "Audio transcription: ModelName (lang=en, wav, 245KB, 3.2s, forced)"
   PATTERN_AUDIO_TRANSCRIPTION.find(message)?.let {
+    var instruction: String? = null
+    var transcription: String? = null
+    if (eventBody != null) {
+      try {
+        val json = com.google.gson.JsonParser.parseString(eventBody).asJsonObject
+        instruction = json.get("instruction")?.takeIf { !it.isJsonNull }?.asString?.ifEmpty { null }
+        transcription = json.get("transcription")?.takeIf { !it.isJsonNull }?.asString?.ifEmpty { null }
+      } catch (_: Exception) {
+        transcription = eventBody
+      }
+    }
     return ParsedEventType.AudioTranscription(
       modelName = it.groupValues[1],
       language = it.groupValues[2].ifEmpty { null },
@@ -345,6 +358,8 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
       fileSize = it.groupValues[4],
       durationSec = it.groupValues[5],
       forced = it.groupValues[6].isNotEmpty(),
+      instruction = instruction,
+      transcription = transcription,
     )
   }
 

@@ -371,6 +371,8 @@ class LogEventParsersTest {
     assertEquals("245KB", at.fileSize)
     assertEquals("3.2s", at.durationSec)
     assertFalse(at.forced)
+    assertNull(at.instruction)
+    assertNull(at.transcription)
   }
 
   @Test
@@ -384,6 +386,8 @@ class LogEventParsersTest {
     assertEquals("120KB", at.fileSize)
     assertEquals("1.5s", at.durationSec)
     assertFalse(at.forced)
+    assertNull(at.instruction)
+    assertNull(at.transcription)
   }
 
   @Test
@@ -397,6 +401,8 @@ class LogEventParsersTest {
     assertEquals("1.2MB", at.fileSize)
     assertEquals("10.0s", at.durationSec)
     assertFalse(at.forced)
+    assertNull(at.instruction)
+    assertNull(at.transcription)
   }
 
   @Test
@@ -410,6 +416,29 @@ class LogEventParsersTest {
     assertEquals("245KB", at.fileSize)
     assertEquals("3.2s", at.durationSec)
     assertTrue(at.forced)
+    assertNull(at.instruction)
+    assertNull(at.transcription)
+  }
+
+  @Test
+  fun audioTranscriptionWithBody() {
+    val body = """{"type":"audio_transcription","instruction":"Transcribe the audio exactly as spoken.","transcription":"Hello world"}"""
+    val result = parseEventType("Audio transcription: Gemma 4 (wav, 245KB, 3.2s, forced)", body)
+    assertTrue(result is ParsedEventType.AudioTranscription)
+    val at = result as ParsedEventType.AudioTranscription
+    assertEquals("Gemma 4", at.modelName)
+    assertEquals("Transcribe the audio exactly as spoken.", at.instruction)
+    assertEquals("Hello world", at.transcription)
+    assertTrue(at.forced)
+  }
+
+  @Test
+  fun audioTranscriptionWithPlainTextBody() {
+    val result = parseEventType("Audio transcription: Gemma 4 (wav, 245KB, 3.2s)", "Hello world")
+    assertTrue(result is ParsedEventType.AudioTranscription)
+    val at = result as ParsedEventType.AudioTranscription
+    assertNull(at.instruction)
+    assertEquals("Hello world", at.transcription)
   }
 
   // ── parseEventType: unknown message ───────────────────────────────────────
