@@ -606,13 +606,13 @@ fun LogsScreen(
             }
           } // Row
         } else {
-          // Normal: groups fill card width equally, labels ellipsize if minor truncation
+          // Normal: proportional weights (3:3:2) so the 2-button group doesn't waste space
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            SegmentedToggleGroup(segmentCount = 3, modifier = Modifier.weight(1f)) { segmentShape ->
+            SegmentedToggleGroup(segmentCount = 3, modifier = Modifier.weight(3f)) { segmentShape ->
               SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0), modifier = Modifier.weight(1f)) {
                 filter = filter.copy(methods = filter.methods.toggle("POST"))
               }
@@ -623,14 +623,14 @@ fun LogsScreen(
                 filter = filter.copy(methods = filter.methods.toggle("EVENT"))
               }
             }
-            SegmentedToggleGroup(segmentCount = StatusRange.entries.size, modifier = Modifier.weight(1f)) { segmentShape ->
+            SegmentedToggleGroup(segmentCount = StatusRange.entries.size, modifier = Modifier.weight(3f)) { segmentShape ->
               StatusRange.entries.forEachIndexed { index, range ->
                 SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index), modifier = Modifier.weight(1f)) {
                   filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
                 }
               }
             }
-            SegmentedToggleGroup(segmentCount = 2, modifier = Modifier.weight(1f)) { segmentShape ->
+            SegmentedToggleGroup(segmentCount = 2, modifier = Modifier.weight(2f)) { segmentShape ->
               SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed, modifier = Modifier.weight(1f)) {
                 filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
               }
