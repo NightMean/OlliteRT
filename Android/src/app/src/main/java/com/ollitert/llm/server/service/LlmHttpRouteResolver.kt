@@ -34,6 +34,7 @@ enum class LlmHttpRouteHandler {
   SERVER_RELOAD,
   SERVER_THINKING,
   SERVER_CONFIG,
+  AUDIO_TRANSCRIPTION,
   // TODO: Add SERVER_MODEL_SWITCH when multi-model support is implemented.
   // Would accept { "model": "model-name" } to switch the active model via API,
   // enabling HA automations like "switch to the small model at night to save battery".
@@ -76,6 +77,8 @@ object LlmHttpRouteResolver {
           "/v1/server/reload" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_RELOAD, requiresAuth = true)
           "/v1/server/thinking" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_THINKING, requiresAuth = true)
           "/v1/server/config" -> LlmHttpRoute(handler = LlmHttpRouteHandler.SERVER_CONFIG, requiresAuth = true)
+          "/v1/audio/transcriptions" ->
+            LlmHttpRoute(handler = LlmHttpRouteHandler.AUDIO_TRANSCRIPTION, requiresAuth = true)
           else -> null
         }
       else -> null
@@ -88,7 +91,9 @@ object LlmHttpRouteResolver {
    */
   fun getUnsupportedEndpointMessage(uri: String): String? = when {
     uri.startsWith("/v1/embeddings") -> "Embeddings are not supported — this server runs inference-only models"
-    uri.startsWith("/v1/audio") -> "Audio endpoints are not supported by this server"
+    uri.startsWith("/v1/audio/speech") -> "Audio speech synthesis is not supported by this server"
+    uri.startsWith("/v1/audio") && !uri.startsWith("/v1/audio/transcriptions") ->
+      "Audio endpoint not supported by this server"
     uri.startsWith("/v1/images") -> "Image generation is not supported by this server"
     uri.startsWith("/v1/fine_tuning") || uri.startsWith("/v1/fine-tuning") -> "Fine-tuning is not supported by this server"
     uri.startsWith("/v1/files") -> "File management is not supported by this server"

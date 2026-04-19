@@ -126,7 +126,7 @@ class LlmHttpRouteResolverTest {
   @Test
   fun unsupportedEndpointsReturnDescriptiveMessages() {
     assertNotNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/embeddings"))
-    assertNotNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/audio/transcriptions"))
+    assertNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/audio/transcriptions"))
     assertNotNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/images/generations"))
     assertNotNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/fine_tuning/jobs"))
     assertNotNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/fine-tuning/jobs"))
@@ -201,5 +201,27 @@ class LlmHttpRouteResolverTest {
     assertNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/models"))
     assertNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/some/random/path"))
     assertNull(LlmHttpRouteResolver.getUnsupportedEndpointMessage("/"))
+  }
+
+  @Test
+  fun resolvesAudioTranscriptionRoute() {
+    assertEquals(
+      LlmHttpRoute(LlmHttpRouteHandler.AUDIO_TRANSCRIPTION, requiresAuth = true),
+      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/audio/transcriptions"),
+    )
+  }
+
+  @Test
+  fun audioTranscriptionRouteRequiresAuth() {
+    val route = LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/audio/transcriptions")
+    assertNotNull(route)
+    assertTrue("Audio transcription endpoint should require auth", route!!.requiresAuth)
+  }
+
+  @Test
+  fun audioSpeechStillReturnsUnsupportedMessage() {
+    val msg = LlmHttpRouteResolver.getUnsupportedEndpointMessage("/v1/audio/speech")
+    assertNotNull(msg)
+    assertTrue("Message should explain speech synthesis is not supported", msg!!.contains("speech"))
   }
 }

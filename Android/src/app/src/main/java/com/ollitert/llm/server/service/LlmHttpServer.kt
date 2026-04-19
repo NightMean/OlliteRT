@@ -258,6 +258,12 @@ class LlmHttpServer(
             }
             LlmHttpRouteHandler.SERVER_THINKING -> handleServerThinking(session).also { responseBodySnapshot = it.second; }.first
             LlmHttpRouteHandler.SERVER_CONFIG -> handleServerConfig(session).also { responseBodySnapshot = it.second }.first
+            // Placeholder: handler wired in a follow-up task.
+            LlmHttpRouteHandler.AUDIO_TRANSCRIPTION -> jsonError(
+              NanoHTTPD.Response.Status.lookup(501),
+              "not_implemented",
+              "Audio transcription handler is not yet available",
+            )
           }
         }
       }
