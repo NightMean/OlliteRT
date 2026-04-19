@@ -446,6 +446,15 @@ class LlmHttpServer(
         put("thinking_enabled", currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
         put("model", modelName)
         put("model_loaded", !isIdle)
+        // Behavior toggles read from SharedPreferences — when adding fields, also update the HA configuration.yaml in Settings (HomeAssistantCard.kt)
+        put("auto_truncate_history", LlmHttpPrefs.isAutoTruncateHistory(serviceContext))
+        put("auto_trim_prompts", LlmHttpPrefs.isAutoTrimPrompts(serviceContext))
+        put("compact_tool_schemas", LlmHttpPrefs.isCompactToolSchemas(serviceContext))
+        put("warmup_enabled", LlmHttpPrefs.isWarmupEnabled(serviceContext))
+        put("keep_alive_enabled", LlmHttpPrefs.isKeepAliveEnabled(serviceContext))
+        put("keep_alive_minutes", LlmHttpPrefs.getKeepAliveMinutes(serviceContext))
+        put("custom_prompts_enabled", LlmHttpPrefs.isCustomPromptsEnabled(serviceContext))
+        put("system_prompt", LlmHttpPrefs.getSystemPrompt(serviceContext, modelName))
       }
       val body = current.toString()
       return okJsonText(body) to body
@@ -490,8 +499,65 @@ class LlmHttpServer(
           changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
         }
       }
+      // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
+      if (obj.has("auto_truncate_history")) {
+        val old = LlmHttpPrefs.isAutoTruncateHistory(serviceContext)
+        val v = obj.getBoolean("auto_truncate_history")
+        LlmHttpPrefs.setAutoTruncateHistory(serviceContext, v)
+        changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("auto_trim_prompts")) {
+        val old = LlmHttpPrefs.isAutoTrimPrompts(serviceContext)
+        val v = obj.getBoolean("auto_trim_prompts")
+        LlmHttpPrefs.setAutoTrimPrompts(serviceContext, v)
+        changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("compact_tool_schemas")) {
+        val old = LlmHttpPrefs.isCompactToolSchemas(serviceContext)
+        val v = obj.getBoolean("compact_tool_schemas")
+        LlmHttpPrefs.setCompactToolSchemas(serviceContext, v)
+        changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("warmup_enabled")) {
+        val old = LlmHttpPrefs.isWarmupEnabled(serviceContext)
+        val v = obj.getBoolean("warmup_enabled")
+        LlmHttpPrefs.setWarmupEnabled(serviceContext, v)
+        changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("keep_alive_enabled")) {
+        val old = LlmHttpPrefs.isKeepAliveEnabled(serviceContext)
+        val v = obj.getBoolean("keep_alive_enabled")
+        LlmHttpPrefs.setKeepAliveEnabled(serviceContext, v)
+        if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
+        changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("keep_alive_minutes")) {
+        val old = LlmHttpPrefs.getKeepAliveMinutes(serviceContext)
+        val v = obj.getInt("keep_alive_minutes")
+        if (v < 1 || v > 7200) {
+          val body = """{"success":false,"message":"keep_alive_minutes must be between 1 and 7200"}"""
+          return badRequest("keep_alive_minutes out of range") to body
+        }
+        LlmHttpPrefs.setKeepAliveMinutes(serviceContext, v)
+        if (LlmHttpPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+        changes.add("Keep Alive Minutes: $old → $v")
+      }
+      if (obj.has("custom_prompts_enabled")) {
+        val old = LlmHttpPrefs.isCustomPromptsEnabled(serviceContext)
+        val v = obj.getBoolean("custom_prompts_enabled")
+        LlmHttpPrefs.setCustomPromptsEnabled(serviceContext, v)
+        changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("system_prompt")) {
+        val old = LlmHttpPrefs.getSystemPrompt(serviceContext, modelName)
+        val v = obj.getString("system_prompt")
+        LlmHttpPrefs.setSystemPrompt(serviceContext, modelName, v)
+        val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
+        val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
+        changes.add("System Prompt: $oldDisplay → $newDisplay")
+      }
       if (changes.isEmpty()) {
-        val body = """{"success":false,"message":"No recognized fields in request. Supported: temperature, max_tokens, top_k, top_p, thinking_enabled"}"""
+        val body = """{"success":false,"message":"No recognized fields in request. Supported: temperature, max_tokens, top_k, top_p, thinking_enabled, auto_truncate_history, auto_trim_prompts, compact_tool_schemas, warmup_enabled, keep_alive_enabled, keep_alive_minutes, custom_prompts_enabled, system_prompt"}"""
         badRequest("No recognized config fields") to body
       } else {
         // Update in-memory config if model is loaded, always persist to prefs
@@ -517,6 +583,14 @@ class LlmHttpServer(
           put("top_k", (updated[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
           put("top_p", (updated[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
           put("thinking_enabled", updated[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+          put("auto_truncate_history", LlmHttpPrefs.isAutoTruncateHistory(serviceContext))
+          put("auto_trim_prompts", LlmHttpPrefs.isAutoTrimPrompts(serviceContext))
+          put("compact_tool_schemas", LlmHttpPrefs.isCompactToolSchemas(serviceContext))
+          put("warmup_enabled", LlmHttpPrefs.isWarmupEnabled(serviceContext))
+          put("keep_alive_enabled", LlmHttpPrefs.isKeepAliveEnabled(serviceContext))
+          put("keep_alive_minutes", LlmHttpPrefs.getKeepAliveMinutes(serviceContext))
+          put("custom_prompts_enabled", LlmHttpPrefs.isCustomPromptsEnabled(serviceContext))
+          put("system_prompt", LlmHttpPrefs.getSystemPrompt(serviceContext, modelName))
         }
         val body = current.toString()
         okJsonText(body) to body

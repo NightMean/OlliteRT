@@ -86,6 +86,7 @@ object LlmHttpPayloadBuilders {
         JsonPrimitive("/v1/server/reload"),
         JsonPrimitive("/v1/server/thinking"),
         JsonPrimitive("/v1/server/config"),
+        JsonPrimitive("/v1/audio/transcriptions"),
       )))
     }
     return JsonObject(info).toString()
