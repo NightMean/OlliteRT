@@ -16,81 +16,67 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LlmHttpErrorSuggestionsTest {
 
-  // ── suggest() — verified error kinds return non-null suggestions ──
+  // ── suggestionResId() — verified error kinds return non-null resource IDs ──
 
   @Test
-  fun `suggest CONTEXT_OVERFLOW returns compaction hint`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.CONTEXT_OVERFLOW)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("compaction", ignoreCase = true))
+  fun `suggestionResId CONTEXT_OVERFLOW returns compaction hint resource`() {
+    assertEquals(R.string.suggestion_context_overflow, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.CONTEXT_OVERFLOW))
   }
 
   @Test
-  fun `suggest TIMEOUT returns non-null`() {
-    assertNotNull(LlmHttpErrorSuggestions.suggest(ErrorKind.TIMEOUT))
+  fun `suggestionResId TIMEOUT returns non-null`() {
+    assertNotNull(LlmHttpErrorSuggestions.suggestionResId(ErrorKind.TIMEOUT))
   }
 
   @Test
-  fun `suggest MODEL_NOT_FOUND mentions Models screen`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.MODEL_NOT_FOUND)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("Models screen"))
+  fun `suggestionResId MODEL_NOT_FOUND returns Models screen resource`() {
+    assertEquals(R.string.suggestion_model_not_found, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.MODEL_NOT_FOUND))
   }
 
   @Test
-  fun `suggest PORT_BIND_FAILURE mentions port`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.PORT_BIND_FAILURE)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("port", ignoreCase = true))
+  fun `suggestionResId PORT_BIND_FAILURE returns port resource`() {
+    assertEquals(R.string.suggestion_port_bind_failure, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.PORT_BIND_FAILURE))
   }
 
   @Test
-  fun `suggest IMAGE_DECODE_FAILED mentions base64`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.IMAGE_DECODE_FAILED)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("base64"))
+  fun `suggestionResId IMAGE_DECODE_FAILED returns base64 resource`() {
+    assertEquals(R.string.suggestion_image_decode_failed, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.IMAGE_DECODE_FAILED))
   }
 
   @Test
-  fun `suggest OOM mentions memory`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.OOM)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("memory"))
+  fun `suggestionResId OOM returns memory resource`() {
+    assertEquals(R.string.suggestion_oom, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.OOM))
   }
 
   @Test
-  fun `suggest MODEL_INSTANCE_NULL mentions not loaded`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.MODEL_INSTANCE_NULL)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("not loaded"))
+  fun `suggestionResId MODEL_INSTANCE_NULL returns not loaded resource`() {
+    assertEquals(R.string.suggestion_model_instance_null, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.MODEL_INSTANCE_NULL))
   }
 
   @Test
-  fun `suggest MODEL_FILES_MISSING mentions re-download`() {
-    val suggestion = LlmHttpErrorSuggestions.suggest(ErrorKind.MODEL_FILES_MISSING)
-    assertNotNull(suggestion)
-    assertTrue(suggestion!!.contains("re-download", ignoreCase = true))
+  fun `suggestionResId MODEL_FILES_MISSING returns re-download resource`() {
+    assertEquals(R.string.suggestion_model_files_missing, LlmHttpErrorSuggestions.suggestionResId(ErrorKind.MODEL_FILES_MISSING))
   }
 
-  // ── suggest() — unknown kinds return null ──
+  // ── suggestionResId() — unknown kinds return null ──
 
   @Test
-  fun `suggest UNKNOWN_LITERT returns null`() {
-    assertNull(LlmHttpErrorSuggestions.suggest(ErrorKind.UNKNOWN_LITERT))
+  fun `suggestionResId UNKNOWN_LITERT returns null`() {
+    assertNull(LlmHttpErrorSuggestions.suggestionResId(ErrorKind.UNKNOWN_LITERT))
   }
 
   @Test
-  fun `suggest UNKNOWN returns null`() {
-    assertNull(LlmHttpErrorSuggestions.suggest(ErrorKind.UNKNOWN))
+  fun `suggestionResId UNKNOWN returns null`() {
+    assertNull(LlmHttpErrorSuggestions.suggestionResId(ErrorKind.UNKNOWN))
   }
 
   // ── classifyFromString() — pattern matching ──

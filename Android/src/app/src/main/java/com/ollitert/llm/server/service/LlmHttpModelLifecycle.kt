@@ -20,6 +20,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.os.SystemClock
 import android.util.Base64
+import com.ollitert.llm.server.R
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -321,7 +322,7 @@ class LlmHttpModelLifecycle(
       } catch (e: Exception) {
         Log.w(LOG_TAG, "Failed to decode image data URI", e)
         RequestLogStore.addEvent(
-          "Failed to decode image: ${e.message?.take(80) ?: "Unknown error"}",
+          "Failed to decode image: ${e.message?.take(80) ?: context.getString(R.string.error_unknown)}",
           level = LogLevel.ERROR,
           modelName = defaultModel?.name,
           category = EventCategory.SERVER,

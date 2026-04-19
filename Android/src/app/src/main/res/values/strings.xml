@@ -768,4 +768,55 @@
   <!-- DownloadRepository: notification channel -->
   <string name="notif_channel_download_name" translatable="false">OlliteRT download notification</string>
 
+  <!-- OlliteRTApp: server error dialog -->
+  <string name="dialog_server_error_title">Server Error</string>
+
+  <!-- InferenceSettingsSheet: edit field content description -->
+  <string name="cd_edit_field">Edit %1$s</string>
+
+  <!-- DownloadWorker: notification channel + notifications -->
+  <string name="notif_channel_download_worker_name">Model Downloading</string>
+  <string name="notif_channel_download_worker_desc">Notifications for model downloading</string>
+  <string name="download_error_disk_full">Not enough storage space to complete the download. Partial files have been cleaned up.</string>
+  <string name="download_notif_title_generic">Downloading model</string>
+  <string name="download_notif_title_named">Downloading \"%1$s\"</string>
+  <string name="download_notif_progress">Downloading in progress: %1$d%%</string>
+
+  <!-- LlmHttpService: error messages -->
+  <string name="error_autostart_boot_prefix">Auto-start on boot failed: </string>
+  <string name="error_autostart_launch_prefix">Auto-start on launch failed: </string>
+  <string name="error_model_not_found">Model \'%1$s\' not found. Check that the model is still downloaded or update the default model in Settings.</string>
+  <string name="error_model_file_missing">Model file not found on disk. The model may have been deleted — re-download or update the default model in Settings.</string>
+  <string name="error_port_in_use">Port %1$d is already in use</string>
+  <string name="error_server_failed_to_start">Server failed to start: %1$s</string>
+  <string name="error_storage_low_model_init">Not enough storage to load model (%1$sMB available, need at least %2$sMB). Free up space and try again.</string>
+  <string name="error_model_init_unknown">Unknown error during model initialization</string>
+  <string name="error_unknown">Unknown error</string>
+
+  <!-- ModelManagerViewModel: error/toast messages -->
+  <string name="error_model_server_unreachable">Could not reach model server</string>
+  <string name="error_model_list_load_failed">Failed to load model list</string>
+  <string name="error_model_list_load_failed_detail">Failed to load model list: %1$s</string>
+
+  <!-- ServerLlmModelHelper: error messages -->
+  <string name="error_model_file_not_found">Model file not found: %1$s</string>
+  <string name="error_model_file_corrupted">Model file appears corrupted or truncated (%1$d bytes): %2$s</string>
+  <string name="error_storage_insufficient">Insufficient storage to load model (%1$sMB free, need at least %2$sMB). Free up space by deleting unused models or files, then try again.</string>
+
+  <!-- LlmHttpErrorSuggestions: recovery suggestions -->
+  <string name="suggestion_context_overflow">Try enabling prompt compaction (Truncate History, Compact Tool Schemas, or Trim Prompt) in OlliteRT Settings, or send shorter prompts.</string>
+  <string name="suggestion_timeout">Try sending a shorter prompt or restarting the server.</string>
+  <string name="suggestion_model_not_found">Check the Models screen for available downloaded models.</string>
+  <string name="suggestion_model_files_missing">The model files may have been deleted. Try re-downloading the model from the Models screen.</string>
+  <string name="suggestion_port_bind_failure">The port is already in use by another app. Close the app occupying the port or change the port number in Settings.</string>
+  <string name="suggestion_model_instance_null">The model is not loaded. Wait for loading to complete or restart the server.</string>
+  <string name="suggestion_image_decode_failed">The base64 image data could not be decoded. Verify the data URI is correctly formatted (data:image/…;base64,…) and the base64 payload is not truncated.</string>
+  <string name="suggestion_oom">The device ran out of memory. Try closing other apps, using a smaller model, or reducing Max Tokens in Inference Settings.</string>
+
+  <!-- CopyUrlReceiver: clipboard label -->
+  <string name="clipboard_label_endpoint">OlliteRT Endpoint</string>
+
+  <!-- LlmHttpInferenceRunner: error message -->
+  <string name="error_model_init_failed">Model initialization failed: %1$s</string>
+
 </resources>

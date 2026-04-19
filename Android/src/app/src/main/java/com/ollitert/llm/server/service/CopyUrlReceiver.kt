@@ -19,6 +19,7 @@ package com.ollitert.llm.server.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.copyToClipboard
 
 /**
@@ -29,7 +30,7 @@ class CopyUrlReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
     val url = intent.getStringExtra(EXTRA_URL) ?: return
-    copyToClipboard(context, "OlliteRT Endpoint", url)
+    copyToClipboard(context, context.getString(R.string.clipboard_label_endpoint), url)
   }
 
   companion object {

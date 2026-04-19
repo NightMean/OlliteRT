@@ -18,6 +18,7 @@ package com.ollitert.llm.server.service
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,29 +113,26 @@ class LlmHttpInferenceRunnerCompanionTest {
     assertEquals("prompt", LlmHttpInferenceRunner.applyResponseFormat("prompt", ResponseFormat("xml")))
   }
 
-  // ── enrichLlmError() ────────────────────────────────────────────────────
+  // ── classifyFromString() + suggestionResId() ────────────────────────────
 
   @Test
-  fun enrichLlmErrorContextOverflow() {
-    val (enriched, kind) = LlmHttpInferenceRunner.enrichLlmError("6579 >= 4000")
+  fun enrichLlmErrorClassifiesContextOverflow() {
+    val kind = LlmHttpErrorSuggestions.classifyFromString("6579 >= 4000")
     assertEquals(ErrorKind.CONTEXT_OVERFLOW, kind)
-    // Should contain the original error and a suggestion
-    assertTrue(enriched.contains("6579 >= 4000"))
-    assertTrue(enriched.contains("—")) // suggestion separator
+    assertNotNull(LlmHttpErrorSuggestions.suggestionResId(kind))
   }
 
   @Test
-  fun enrichLlmErrorTimeoutClassifies() {
-    val (_, kind) = LlmHttpInferenceRunner.enrichLlmError("timeout")
+  fun enrichLlmErrorClassifiesTimeout() {
+    val kind = LlmHttpErrorSuggestions.classifyFromString("timeout")
     assertEquals(ErrorKind.TIMEOUT, kind)
   }
 
   @Test
-  fun enrichLlmErrorUnknownReturnsOriginalWithKind() {
-    val (enriched, kind) = LlmHttpInferenceRunner.enrichLlmError("something weird happened")
+  fun enrichLlmErrorUnknownHasNoSuggestion() {
+    val kind = LlmHttpErrorSuggestions.classifyFromString("something weird happened")
     assertEquals(ErrorKind.UNKNOWN_LITERT, kind)
-    // For unknown errors, enriched should equal original (no suggestion appended)
-    assertEquals("something weird happened", enriched)
+    assertNull(LlmHttpErrorSuggestions.suggestionResId(kind))
   }
 
   // ── extractActualTokenCounts() ───────────────────────────────────────────

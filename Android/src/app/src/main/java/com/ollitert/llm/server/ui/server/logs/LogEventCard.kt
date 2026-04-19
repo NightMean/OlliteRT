@@ -650,7 +650,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
     if (isError) {
       val suggestion = remember(message) {
         val kind = LlmHttpErrorSuggestions.classifyFromString(message)
-        LlmHttpErrorSuggestions.suggest(kind)
+        LlmHttpErrorSuggestions.suggest(kind, context)
       }
       if (suggestion != null) {
         Spacer(modifier = Modifier.height(4.dp))

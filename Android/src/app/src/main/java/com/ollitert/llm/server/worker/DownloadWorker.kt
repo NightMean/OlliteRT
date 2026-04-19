@@ -89,11 +89,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       val channel =
         NotificationChannel(
             FOREGROUND_NOTIFICATION_CHANNEL_ID,
-            "Model Downloading",
+            applicationContext.getString(R.string.notif_channel_download_worker_name),
             // Make it silent.
             NotificationManager.IMPORTANCE_LOW,
           )
-          .apply { description = "Notifications for model downloading" }
+          .apply { description = applicationContext.getString(R.string.notif_channel_download_worker_desc) }
       notificationManager?.createNotificationChannel(channel)
       channelCreated = true
     }
@@ -366,7 +366,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           }
 
           val errorMessage = if (isDiskFull) {
-            "Not enough storage space to complete the download. Partial files have been cleaned up."
+            applicationContext.getString(R.string.download_error_disk_full)
           } else {
             e.message
           }
@@ -391,11 +391,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
    */
   private fun createForegroundInfo(progress: Int, modelName: String? = null): ForegroundInfo {
     // Create a notification for the foreground service
-    var title = "Downloading model"
+    var title = applicationContext.getString(R.string.download_notif_title_generic)
     if (modelName != null) {
-      title = "Downloading \"$modelName\""
+      title = applicationContext.getString(R.string.download_notif_title_named, modelName)
     }
-    val content = "Downloading in progress: $progress%"
+    val content = applicationContext.getString(R.string.download_notif_progress, progress)
 
     val intent =
       Intent(applicationContext, Class.forName("com.ollitert.llm.server.MainActivity")).apply {
