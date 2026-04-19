@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/Icons/OlliteRT_Logo_Icon_Release.png" alt="OlliteRT Icon" width="120" />
+  <img src="assets/Icons/OlliteRT_Logo_Icon_Stable.png" alt="OlliteRT Icon" width="120" />
 
   <h1>OlliteRT</h1>
 
@@ -145,7 +145,7 @@ Product flavors — all installable side-by-side:
 
 | Flavor | Icon | Purpose |
 |:-------|:----:|:--------|
-| `prod` | <img src="assets/Icons/OlliteRT_Logo_Icon_Release.png" width="28" /> | Stable release |
+| `stable` | <img src="assets/Icons/OlliteRT_Logo_Icon_Stable.png" width="28" /> | Stable release |
 | `beta` | <img src="assets/Icons/OlliteRT_Logo_Icon_Beta.png" width="28" /> | Beta testing |
 | `dev` | <img src="assets/Icons/OlliteRT_Logo_Icon_Dev.png" width="28" /> | Local development |
 

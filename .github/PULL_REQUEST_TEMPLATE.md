@@ -54,7 +54,7 @@
   don't hesitate to ask.
 -->
 
-- [ ] The code compiles without errors (`./gradlew :app:compileProdDebugKotlin`)
+- [ ] The code compiles without errors (`./gradlew :app:compileStableDebugKotlin`)
 - [ ] The change is tested and works locally on a real device or emulator
 - [ ] No new warnings from `./gradlew lint`
 - [ ] There is no commented out code in this PR
