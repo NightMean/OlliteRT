@@ -765,20 +765,13 @@ class LlmHttpInferenceRunner(
     val decodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
     val prefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
 
-    val body = org.json.JSONObject().apply {
-      put("type", "debug_inference")
-      put("ttfb_ms", ttfbMs)
-      put("generation_ms", generationMs)
-      put("total_ms", totalMs)
-      put("input_tokens_est", inputTokens)
-      put("output_tokens_est", outputTokens)
-      put("decode_speed_tps", String.format(java.util.Locale.US, "%.1f", decodeSpeed))
-      put("prefill_speed_tps", String.format(java.util.Locale.US, "%.1f", prefillSpeed))
-      put("heap_total_mb", String.format(java.util.Locale.US, "%.1f", heapTotalMb))
-      put("heap_free_mb", String.format(java.util.Locale.US, "%.1f", heapFreeMb))
-      put("native_allocated_mb", String.format(java.util.Locale.US, "%.1f", nativeAllocMb))
-      put("native_total_mb", String.format(java.util.Locale.US, "%.1f", nativeTotalMb))
-    }.toString()
+    val body = buildString {
+      appendLine("Timing: TTFB ${ttfbMs}ms, generation ${generationMs}ms, total ${totalMs}ms")
+      appendLine("Tokens: ${inputTokens} input → ${outputTokens} output")
+      appendLine("Speed: ${String.format(java.util.Locale.US, "%.1f", prefillSpeed)} t/s prefill, ${String.format(java.util.Locale.US, "%.1f", decodeSpeed)} t/s decode")
+      appendLine("Heap: ${String.format(java.util.Locale.US, "%.1f", heapFreeMb)}MB free / ${String.format(java.util.Locale.US, "%.1f", heapTotalMb)}MB total")
+      append("Native: ${String.format(java.util.Locale.US, "%.1f", nativeAllocMb)}MB allocated / ${String.format(java.util.Locale.US, "%.1f", nativeTotalMb)}MB total")
+    }
 
     RequestLogStore.addEvent(
       "Inference details: ${inputTokens}→${outputTokens} tokens in ${totalMs}ms",

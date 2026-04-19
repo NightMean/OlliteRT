@@ -498,19 +498,18 @@ class LlmHttpService : Service() {
         RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
         // Verbose debug: log model config dump on successful load
         if (LlmHttpPrefs.isVerboseDebugEnabled(this@LlmHttpService)) {
-          val debugBody = org.json.JSONObject().apply {
-            put("type", "debug_model_config")
-            put("name", model.name)
-            put("path", model.getPath(this@LlmHttpService))
-            put("size_bytes", model.totalBytes)
-            put("config", org.json.JSONObject(model.configValues.mapValues { it.value.toString() }))
-            put("capabilities", org.json.JSONObject().apply {
-              put("vision", model.llmSupportImage)
-              put("audio", model.llmSupportAudio)
-              put("thinking", model.llmSupportThinking)
-            })
-          }.toString()
-          RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugBody)
+          val sizeMb = String.format(java.util.Locale.US, "%.1f", model.totalBytes / (1024.0 * 1024.0))
+          val debugText = buildString {
+            appendLine("Name: ${model.name}")
+            appendLine("Path: ${model.getPath(this@LlmHttpService)}")
+            appendLine("Size: ${sizeMb}MB (${model.totalBytes} bytes)")
+            appendLine("Capabilities: vision=${model.llmSupportImage}, audio=${model.llmSupportAudio}, thinking=${model.llmSupportThinking}")
+            if (model.configValues.isNotEmpty()) {
+              appendLine("Config:")
+              model.configValues.forEach { (k, v) -> appendLine("  $k: $v") }
+            }
+          }.trimEnd()
+          RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugText)
         }
         // Check for queued reload (user changed reinit settings while model was loading).
         // getAndSet(null) is atomic — prevents the UI thread's write from being lost between read and clear.
@@ -751,17 +750,13 @@ class LlmHttpService : Service() {
    */
   private fun emitDebugStackTrace(t: Throwable, source: String, modelName: String? = null) {
     if (!LlmHttpPrefs.isVerboseDebugEnabled(this)) return
-    val traceBody = org.json.JSONObject().apply {
-      put("type", "debug_stacktrace")
-      put("source", source)
-      put("trace", t.stackTraceToString())
-    }.toString()
+    val traceText = "Source: $source\n${t.stackTraceToString()}"
     RequestLogStore.addEvent(
       "Exception in $source — stack trace",
       level = LogLevel.DEBUG,
       modelName = modelName,
       category = EventCategory.SERVER,
-      body = traceBody,
+      body = traceText,
     )
   }
 
