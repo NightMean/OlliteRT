@@ -88,158 +88,162 @@ class LlmHttpAudioTranscriptionHandler(
     }
 
     val tempFile = File(audioTempPath)
-    if (!tempFile.exists() || tempFile.length() == 0L) {
-      return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
-        "Uploaded audio file is empty.",
-        "invalid_request_error",
-        "empty_file",
-      )
-    }
-
-    // Secondary size check after parseBody (clients may use chunked encoding without Content-Length)
-    if (tempFile.length() > MAX_FILE_SIZE_BYTES) {
-      return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
-        "File too large (${tempFile.length() / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
-        "invalid_request_error",
-        "file_too_large",
-      )
-    }
-
-    val language = session.parameters["language"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-    val prompt = session.parameters["prompt"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-    val temperatureStr = session.parameters["temperature"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-    val responseFormat = session.parameters["response_format"]?.firstOrNull()?.takeIf { it.isNotBlank() } ?: "json"
-    val requestedModel = session.parameters["model"]?.firstOrNull()
-
-    if (requestedModel != null) {
-      Log.d(LOG_TAG, "Client requested model='$requestedModel', using active model='${model.name}'")
-    }
-
-    // Log the request body summary for the Logs tab
-    captureBody(buildString {
-      append("multipart/form-data: file=${tempFile.length()} bytes")
-      if (language != null) append(", language=$language")
-      if (prompt != null) append(", prompt=${prompt.take(50)}")
-      if (temperatureStr != null) append(", temperature=$temperatureStr")
-      append(", response_format=$responseFormat")
-      if (requestedModel != null) append(", model=$requestedModel")
-    })
-
-    // Validate model supports audio
-    if (!model.llmSupportAudio) {
-      return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
-        "The active model '${model.name}' does not support audio input. Load a model with audio capability (e.g. Gemma 4).",
-        "invalid_request_error",
-        "model_not_supported",
-      )
-    }
-
-    // Read and preprocess audio
-    val audioBytes: ByteArray
-    val format: AudioFormat
     try {
-      val rawBytes = tempFile.readBytes()
-      format = LlmHttpAudioPreprocessor.detectFormat(rawBytes)
-      if (format == AudioFormat.UNKNOWN) {
+      if (!tempFile.exists() || tempFile.length() == 0L) {
         return openAiError(
           NanoHTTPD.Response.Status.BAD_REQUEST,
-          "Unsupported audio format. Supported: wav, mp3, ogg, flac.",
+          "Uploaded audio file is empty.",
+          "invalid_request_error",
+          "empty_file",
+        )
+      }
+
+      // Secondary size check after parseBody (clients may use chunked encoding without Content-Length)
+      if (tempFile.length() > MAX_FILE_SIZE_BYTES) {
+        return openAiError(
+          NanoHTTPD.Response.Status.BAD_REQUEST,
+          "File too large (${tempFile.length() / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
+          "invalid_request_error",
+          "file_too_large",
+        )
+      }
+
+      val language = session.parameters["language"]?.firstOrNull()?.takeIf { it.isNotBlank() }
+      val prompt = session.parameters["prompt"]?.firstOrNull()?.takeIf { it.isNotBlank() }
+      val temperatureStr = session.parameters["temperature"]?.firstOrNull()?.takeIf { it.isNotBlank() }
+      val responseFormat = session.parameters["response_format"]?.firstOrNull()?.takeIf { it.isNotBlank() } ?: "json"
+      val requestedModel = session.parameters["model"]?.firstOrNull()
+
+      if (requestedModel != null) {
+        Log.d(LOG_TAG, "Client requested model='$requestedModel', using active model='${model.name}'")
+      }
+
+      // Log the request body summary for the Logs tab
+      captureBody(buildString {
+        append("multipart/form-data: file=${tempFile.length()} bytes")
+        if (language != null) append(", language=$language")
+        if (prompt != null) append(", prompt=${prompt.take(50)}")
+        if (temperatureStr != null) append(", temperature=$temperatureStr")
+        append(", response_format=$responseFormat")
+        if (requestedModel != null) append(", model=$requestedModel")
+      })
+
+      // Validate model supports audio
+      if (!model.llmSupportAudio) {
+        return openAiError(
+          NanoHTTPD.Response.Status.BAD_REQUEST,
+          "The active model '${model.name}' does not support audio input. Load a model with audio capability (e.g. Gemma 4).",
+          "invalid_request_error",
+          "model_not_supported",
+        )
+      }
+
+      // Read and preprocess audio
+      val audioBytes: ByteArray
+      val format: AudioFormat
+      try {
+        val rawBytes = tempFile.readBytes()
+        format = LlmHttpAudioPreprocessor.detectFormat(rawBytes)
+        if (format == AudioFormat.UNKNOWN) {
+          return openAiError(
+            NanoHTTPD.Response.Status.BAD_REQUEST,
+            "Unsupported audio format. Supported: wav, mp3, ogg, flac.",
+            "invalid_request_error",
+            "unsupported_format",
+          )
+        }
+        audioBytes = LlmHttpAudioPreprocessor.ensureMono(rawBytes, format)
+      } catch (e: IllegalArgumentException) {
+        return openAiError(
+          NanoHTTPD.Response.Status.BAD_REQUEST,
+          e.message ?: "Audio preprocessing failed.",
           "invalid_request_error",
           "unsupported_format",
         )
       }
-      audioBytes = LlmHttpAudioPreprocessor.ensureMono(rawBytes, format)
-    } catch (e: IllegalArgumentException) {
-      return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
-        e.message ?: "Audio preprocessing failed.",
-        "invalid_request_error",
-        "unsupported_format",
-      )
-    }
 
-    val useTranscriptionPrompt = LlmHttpPrefs.isSttTranscriptionPromptEnabled(context)
-    val hintText = buildString {
-      if (useTranscriptionPrompt) {
-        append("Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else.")
+      val useTranscriptionPrompt = LlmHttpPrefs.isSttTranscriptionPromptEnabled(context)
+      val hintText = buildString {
+        if (useTranscriptionPrompt) {
+          append("Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else.")
+        }
+        if (language != null) {
+          if (isNotEmpty()) append("\n")
+          append("Language: $language")
+        }
+        if (prompt != null) {
+          if (isNotEmpty()) append("\n")
+          append("Context: $prompt")
+        }
       }
-      if (language != null) {
-        if (isNotEmpty()) append("\n")
-        append("Language: $language")
-      }
-      if (prompt != null) {
-        if (isNotEmpty()) append("\n")
-        append("Context: $prompt")
-      }
-    }
 
-    // Parse temperature
-    val temperature = temperatureStr?.toDoubleOrNull()
-    val configSnapshot = buildPerRequestConfig(model, temperature)
+      // Parse temperature
+      val temperature = temperatureStr?.toDoubleOrNull()
+      val configSnapshot = buildPerRequestConfig(model, temperature)
 
-    // Run inference
-    ServerMetrics.onInferenceStarted()
-    val (rawOutput, llmError) = inferenceRunner.runLlm(
-      model = model,
-      prompt = hintText,
-      requestId = "transcription-${System.currentTimeMillis()}",
-      endpoint = "/v1/audio/transcriptions",
-      audioClips = listOf(audioBytes),
-      logId = logId,
-      configSnapshot = configSnapshot,
-    )
-    ServerMetrics.onInferenceCompleted()
-
-    val elapsedMs = SystemClock.elapsedRealtime() - startMs
-
-    if (rawOutput == null) {
-      val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-      ServerMetrics.incrementErrorCount(kind.category)
-      return openAiError(
-        NanoHTTPD.Response.Status.INTERNAL_ERROR,
-        errorMsg,
-        "server_error",
-        "inference_error",
+      // Run inference
+      ServerMetrics.onInferenceStarted()
+      val (rawOutput, llmError) = inferenceRunner.runLlm(
+        model = model,
+        prompt = hintText,
+        requestId = "transcription-${System.currentTimeMillis()}",
+        endpoint = "/v1/audio/transcriptions",
+        audioClips = listOf(audioBytes),
+        logId = logId,
+        configSnapshot = configSnapshot,
       )
-    }
+      ServerMetrics.onInferenceCompleted()
 
-    // Strip thinking tags if present, trim whitespace
-    val text = stripThinkingTags(rawOutput).trim()
+      val elapsedMs = SystemClock.elapsedRealtime() - startMs
 
-    // Log transcription event
-    val formatLabel = format.name.lowercase()
-    val durationSec = String.format(java.util.Locale.US, "%.1f", elapsedMs / 1000.0)
-    val eventMessage = if (language != null) {
-      "Audio transcription: ${model.name} (lang=$language, $formatLabel, ${durationSec}s)"
-    } else {
-      "Audio transcription: ${model.name} ($formatLabel, ${durationSec}s)"
-    }
-    RequestLogStore.addEvent(
-      eventMessage,
-      modelName = model.name,
-      category = EventCategory.SERVER,
-    )
+      if (rawOutput == null) {
+        val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+        ServerMetrics.incrementErrorCount(kind.category)
+        return openAiError(
+          NanoHTTPD.Response.Status.INTERNAL_ERROR,
+          errorMsg,
+          "server_error",
+          "inference_error",
+        )
+      }
 
-    // Build response
-    val responseBody = if (responseFormat == "text") {
-      text
-    } else {
-      """{"text":${escapeJsonString(text)}}"""
-    }
+      // Strip thinking tags if present, trim whitespace
+      val text = stripThinkingTags(rawOutput).trim()
 
-    captureResponse(responseBody)
-
-    return if (responseFormat == "text") {
-      NanoHTTPD.newFixedLengthResponse(
-        NanoHTTPD.Response.Status.OK,
-        "text/plain; charset=utf-8",
-        responseBody,
+      // Log transcription event
+      val formatLabel = format.name.lowercase()
+      val durationSec = String.format(java.util.Locale.US, "%.1f", elapsedMs / 1000.0)
+      val eventMessage = if (language != null) {
+        "Audio transcription: ${model.name} (lang=$language, $formatLabel, ${durationSec}s)"
+      } else {
+        "Audio transcription: ${model.name} ($formatLabel, ${durationSec}s)"
+      }
+      RequestLogStore.addEvent(
+        eventMessage,
+        modelName = model.name,
+        category = EventCategory.SERVER,
       )
-    } else {
-      okJsonText(responseBody)
+
+      // Build response
+      val responseBody = if (responseFormat == "text") {
+        text
+      } else {
+        """{"text":${escapeJsonString(text)}}"""
+      }
+
+      captureResponse(responseBody)
+
+      return if (responseFormat == "text") {
+        NanoHTTPD.newFixedLengthResponse(
+          NanoHTTPD.Response.Status.OK,
+          "text/plain; charset=utf-8",
+          responseBody,
+        )
+      } else {
+        okJsonText(responseBody)
+      }
+    } finally {
+      tempFile.delete()
     }
   }
 
