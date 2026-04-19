@@ -94,7 +94,6 @@ import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.modelmanager.TokenRequestResultType
-import com.ollitert.llm.server.ui.modelmanager.TokenStatus
 import android.os.Environment
 import android.os.StatFs
 import com.ollitert.llm.server.ui.navigation.ServerStatus
@@ -270,13 +269,6 @@ fun DownloadAndTryButton(
       )
     }
 
-  // Function to kick off the authentication and token exchange flow.
-  val startTokenExchange = {
-    val authRequest = modelManagerViewModel.getAuthorizationRequest()
-    val authIntent = modelManagerViewModel.authService.getAuthorizationRequestIntent(authRequest)
-    authResultLauncher.launch(authIntent)
-  }
-
   // Launches a coroutine to handle the initial check and potential authentication flow
   // before downloading the model. It checks if the model needs to be downloaded first,
   // handles HuggingFace URLs by verifying the need for authentication, and initiates
@@ -339,47 +331,6 @@ fun DownloadAndTryButton(
             downloadStarted = false
             hfTokenDialogReason = HfTokenDialogReason.MISSING
             return@launch
-          }
-
-          // Fall back to OAuth token exchange.
-          Log.d(TAG, "Start token exchange process...")
-          val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
-
-          when (tokenStatusAndData.status) {
-            // If token is not stored or expired, log in and request a new token.
-            TokenStatus.NOT_STORED,
-            TokenStatus.EXPIRED -> {
-              withContext(Dispatchers.Main) { startTokenExchange() }
-            }
-
-            // If token is still valid...
-            TokenStatus.NOT_EXPIRED -> {
-              val accessToken = tokenStatusAndData.data?.accessToken ?: return@launch
-              // Use the current token to check the download url.
-              Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
-              val responseCode =
-                modelManagerViewModel.getModelUrlResponse(
-                  model = model,
-                  accessToken = accessToken,
-                )
-              if (responseCode == HttpURLConnection.HTTP_OK) {
-                // Download url is accessible. Download the model.
-                Log.d(TAG, "Download url is accessible with the current token.")
-
-                withContext(Dispatchers.Main) {
-                  startDownload(accessToken)
-                }
-              }
-              // Download url is NOT accessible. Request a new token.
-              else {
-                Log.d(
-                  TAG,
-                  "Download url is NOT accessible. Response code: ${responseCode}. Trying to request a new token.",
-                )
-
-                withContext(Dispatchers.Main) { startTokenExchange() }
-              }
-            }
           }
         }
         // For other urls, just download the model.
