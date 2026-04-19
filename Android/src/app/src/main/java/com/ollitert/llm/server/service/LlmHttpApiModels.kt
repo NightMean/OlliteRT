@@ -129,12 +129,24 @@ import kotlinx.serialization.json.jsonPrimitive
  * Represents the content of a multimodal message part.
  */
 @Serializable data class ContentPart(
-  val type: String, // "text" or "image_url"
+  val type: String, // "text", "image_url", or "input_audio"
   val text: String? = null,
   val image_url: ImageUrl? = null,
+  val input_audio: InputAudio? = null,
 )
 
 @Serializable data class ImageUrl(val url: String)
+
+/**
+ * Audio payload for `"input_audio"` content parts.
+ *
+ * [data] is the base64-encoded audio bytes. [format] is an optional hint (e.g. "wav", "mp3");
+ * clients may omit it, so it defaults to null.
+ */
+@Serializable data class InputAudio(
+  val data: String,
+  val format: String? = null,
+)
 
 /**
  * Holds parsed message content that may be a plain string or an array of multimodal parts.
@@ -164,7 +176,20 @@ object ChatContentSerializer : KSerializer<ChatContent> {
           val imageUrl = obj["image_url"]?.jsonObject?.let { imgObj ->
             ImageUrl(url = imgObj["url"]?.jsonPrimitive?.content ?: "")
           }
-          ContentPart(type = type, text = text, image_url = imageUrl)
+          // JsonNull is a subtype of JsonPrimitive, so check for JsonNull first before
+          // calling .jsonObject — accessing .jsonObject on a JsonNull throws at runtime.
+          val audioElement = obj["input_audio"]
+          val inputAudio = if (audioElement != null && audioElement !is JsonNull) {
+            audioElement.jsonObject.let { audioObj ->
+              InputAudio(
+                data = audioObj["data"]?.jsonPrimitive?.content ?: "",
+                format = audioObj["format"]?.let { if (it is JsonNull) null else it.jsonPrimitive.content },
+              )
+            }
+          } else {
+            null
+          }
+          ContentPart(type = type, text = text, image_url = imageUrl, input_audio = inputAudio)
         }
         val combinedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString(" ")
         ChatContent(text = combinedText, parts = parts)

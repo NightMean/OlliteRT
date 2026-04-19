@@ -309,4 +309,100 @@ class LlmHttpApiModelsTest {
     val req = json.decodeFromString<ChatRequest>(input)
     assertTrue(req.stop.isEmpty())
   }
+
+  // ── ContentPart / input_audio deserialization ────────────────────────────
+
+  @Test
+  fun inputAudioContentPartParsesValidPayload() {
+    val input = """{"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"SGVsbG8=","format":"wav"}}]}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val parts = req.messages.first().content.parts
+    assertEquals(1, parts.size)
+    val part = parts.first()
+    assertEquals("input_audio", part.type)
+    assertNotNull(part.input_audio)
+    assertEquals("SGVsbG8=", part.input_audio!!.data)
+    assertEquals("wav", part.input_audio.format)
+  }
+
+  @Test
+  fun inputAudioContentPartHandlesMissingDataField() {
+    // `data` absent — should default to "" rather than crash
+    val input = """{"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"format":"mp3"}}]}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val part = req.messages.first().content.parts.first()
+    assertEquals("input_audio", part.type)
+    assertNotNull(part.input_audio)
+    assertEquals("", part.input_audio!!.data)
+    assertEquals("mp3", part.input_audio.format)
+  }
+
+  @Test
+  fun inputAudioContentPartHandlesNullInputAudioObject() {
+    // `input_audio` key present but null — should not crash, field should be null
+    val input = """{"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":null}]}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val part = req.messages.first().content.parts.first()
+    assertEquals("input_audio", part.type)
+    assertNull(part.input_audio)
+  }
+
+  @Test
+  fun inputAudioContentPartHandlesAbsentFormat() {
+    // `format` omitted — should default to null
+    val input = """{"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"dGVzdA=="}}]}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val part = req.messages.first().content.parts.first()
+    assertNotNull(part.input_audio)
+    assertEquals("dGVzdA==", part.input_audio!!.data)
+    assertNull(part.input_audio.format)
+  }
+
+  @Test
+  fun mixedContentPartsTextImageAudio() {
+    // All three content part types in a single message
+    val input = """{"messages":[{"role":"user","content":[
+      {"type":"text","text":"describe this"},
+      {"type":"image_url","image_url":{"url":"data:image/png;base64,abc"}},
+      {"type":"input_audio","input_audio":{"data":"SGVsbG8=","format":"wav"}}
+    ]}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val parts = req.messages.first().content.parts
+    assertEquals(3, parts.size)
+
+    val textPart = parts[0]
+    assertEquals("text", textPart.type)
+    assertEquals("describe this", textPart.text)
+    assertNull(textPart.image_url)
+    assertNull(textPart.input_audio)
+
+    val imagePart = parts[1]
+    assertEquals("image_url", imagePart.type)
+    assertNotNull(imagePart.image_url)
+    assertEquals("data:image/png;base64,abc", imagePart.image_url!!.url)
+    assertNull(imagePart.input_audio)
+
+    val audioPart = parts[2]
+    assertEquals("input_audio", audioPart.type)
+    assertNotNull(audioPart.input_audio)
+    assertEquals("SGVsbG8=", audioPart.input_audio!!.data)
+    assertEquals("wav", audioPart.input_audio.format)
+    assertNull(audioPart.text)
+    assertNull(audioPart.image_url)
+  }
+
+  @Test
+  fun existingTextAndImageUrlDeserializationUnchanged() {
+    // Regression check: existing text + image_url parsing still works after adding input_audio
+    val input = """{"messages":[{"role":"user","content":[
+      {"type":"text","text":"hello"},
+      {"type":"image_url","image_url":{"url":"https://example.com/img.png"}}
+    ]}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val parts = req.messages.first().content.parts
+    assertEquals(2, parts.size)
+    assertEquals("hello", parts[0].text)
+    assertEquals("https://example.com/img.png", parts[1].image_url?.url)
+    assertTrue(parts.all { it.input_audio == null })
+  }
 }
