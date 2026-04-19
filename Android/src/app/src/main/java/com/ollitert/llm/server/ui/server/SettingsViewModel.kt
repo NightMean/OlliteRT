@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
+import com.ollitert.llm.server.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -271,7 +272,7 @@ class SettingsViewModel @Inject constructor(
       return SaveResult.ValidationError(validationErrors.values.first())
     }
 
-    val port = portText.toIntOrNull() ?: return SaveResult.ValidationError("Invalid port number")
+    val port = portText.toIntOrNull() ?: return SaveResult.ValidationError(context.getString(R.string.validation_invalid_port))
     val isPortChanged = port != portEntry.saved
     val isEagerVisionChanged = eagerVisionInitEntry.isChanged
     val needsRestart = isPortChanged || isEagerVisionChanged
@@ -542,16 +543,16 @@ class SettingsViewModel @Inject constructor(
       is SettingDef.NumericInput -> {
         // Port is edited as String (portText), not directly from entry
         if (def.key == "host_port") {
-          if (portText.isBlank()) return "A port number is required"
+          if (portText.isBlank()) return context.getString(R.string.validation_port_required)
           val port = portText.toIntOrNull()
           if (port == null || port !in def.min..def.max)
-            return "Port must be between ${def.min} and ${def.max}"
+            return context.getString(R.string.validation_port_range, def.min, def.max)
           null
         } else {
           val value = (entry as SettingEntry<Int>).current
           if (value !in def.min..def.max) {
             val label = context.getString(def.labelRes)
-            "$label must be between ${def.min} and ${def.max}"
+            context.getString(R.string.validation_numeric_range, label, def.min, def.max)
           } else null
         }
       }
@@ -563,14 +564,14 @@ class SettingsViewModel @Inject constructor(
         }
         if (value !in def.min..def.max) {
           val label = context.getString(def.labelRes)
-          "$label must be between ${def.min} and ${def.max} ${def.baseUnitLabel}"
+          context.getString(R.string.validation_numeric_range_with_unit, label, def.min, def.max, def.baseUnitLabel)
         } else null
       }
       is SettingDef.NumericPlain -> {
         val value = (entry as SettingEntry<Int>).current
         if (value !in def.min..def.max) {
           val label = context.getString(def.labelRes)
-          "$label must be between ${def.min} and ${def.max}"
+          context.getString(R.string.validation_numeric_range, label, def.min, def.max)
         } else null
       }
       is SettingDef.TextInput -> {

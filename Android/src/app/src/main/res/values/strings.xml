@@ -704,4 +704,68 @@
   <string name="notif_channel_update_name" translatable="false">Update Available</string>
   <string name="notif_channel_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>
 
+  <!-- InferenceSettingsSheet -->
+  <string name="inference_settings_title">Inference Settings</string>
+  <string name="inference_settings_tooltip_edit_defaults">Edit model defaults</string>
+  <string name="inference_settings_tooltip_reset">Reset to defaults</string>
+  <string name="inference_settings_label_temperature" translatable="false">TEMPERATURE</string>
+  <string name="inference_settings_label_max_tokens" translatable="false">MAX TOKENS</string>
+  <string name="inference_settings_label_top_k" translatable="false">TOP-K</string>
+  <string name="inference_settings_label_top_p" translatable="false">TOP-P</string>
+  <string name="inference_settings_allow_thinking">Allow Thinking</string>
+  <string name="inference_settings_thinking_supported">Enables the model\'s thinking mode for step-by-step reasoning</string>
+  <string name="inference_settings_thinking_unsupported">This model does not support thinking mode</string>
+  <string name="inference_settings_accelerator">Accelerator</string>
+  <string name="inference_settings_accelerator_gpu" translatable="false">GPU</string>
+  <string name="inference_settings_accelerator_cpu" translatable="false">CPU</string>
+  <string name="inference_settings_custom_system_prompt">Custom System Prompt</string>
+  <string name="inference_settings_system_prompt_description">Prepended to every conversation as a system instruction</string>
+  <string name="inference_settings_label_system_prompt" translatable="false">SYSTEM PROMPT</string>
+  <string name="inference_settings_system_prompt_placeholder">e.g. You are a helpful coding assistant…</string>
+  <string name="inference_settings_reload_warning">Changes to Max Tokens or Accelerator will reload the model</string>
+  <string name="inference_settings_save_apply">Save &amp; Apply Configuration</string>
+  <string name="cd_clear">Clear</string>
+  <string name="cd_collapse">Collapse</string>
+  <string name="cd_expand">Expand</string>
+
+  <!-- BenchmarkResultsViewer: stat labels (technical) -->
+  <string name="benchmark_stat_model" translatable="false">Model</string>
+  <string name="benchmark_stat_accelerator" translatable="false">Accelerator</string>
+  <string name="benchmark_stat_prefill_tokens" translatable="false">Prefill tokens</string>
+  <string name="benchmark_stat_decode_tokens" translatable="false">Decode tokens</string>
+  <string name="benchmark_stat_number_of_runs" translatable="false">Number of runs</string>
+  <string name="benchmark_stat_app_version" translatable="false">App version</string>
+  <string name="benchmark_stat_prefill_speed" translatable="false">Prefill speed</string>
+  <string name="benchmark_stat_decode_speed" translatable="false">Decode speed</string>
+  <string name="benchmark_stat_time_to_first_token" translatable="false">Time to first token</string>
+  <string name="benchmark_stat_first_init_time" translatable="false">First init time</string>
+  <string name="benchmark_stat_steady_init_time" translatable="false">Steady init time</string>
+  <string name="benchmark_unit_tokens_per_sec" translatable="false">tokens/sec</string>
+  <string name="benchmark_unit_sec" translatable="false">sec</string>
+  <string name="benchmark_unit_ms" translatable="false">ms</string>
+
+  <!-- BenchmarkViewModel: aggregation labels -->
+  <string name="benchmark_aggregation_avg" translatable="false">avg</string>
+  <string name="benchmark_aggregation_median" translatable="false">median</string>
+  <string name="benchmark_aggregation_min" translatable="false">min</string>
+  <string name="benchmark_aggregation_max" translatable="false">max</string>
+
+  <!-- ModelImportDialog: edit dialog -->
+  <string name="dialog_edit_model_defaults_title">Edit Model Defaults</string>
+  <string name="dialog_edit_model_active_warning">Server is running this model — changes take effect after it reloads. Saved inference customizations will be reset to these new defaults.</string>
+  <string name="dialog_edit_model_defaults_note">Saved inference customizations will be reset to these new defaults.</string>
+
+  <!-- SettingsViewModel: validation errors -->
+  <string name="validation_invalid_port">Invalid port number</string>
+  <string name="validation_port_required">A port number is required</string>
+  <string name="validation_port_range">Port must be between %1$d and %2$d</string>
+  <string name="validation_numeric_range">%1$s must be between %2$d and %3$d</string>
+  <string name="validation_numeric_range_with_unit">%1$s must be between %2$d and %3$d %4$s</string>
+
+  <!-- SettingsDefinitions: CORS validation -->
+  <string name="validation_cors_invalid">Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://</string>
+
+  <!-- DownloadRepository: notification channel -->
+  <string name="notif_channel_download_name" translatable="false">OlliteRT download notification</string>
+
 </resources>

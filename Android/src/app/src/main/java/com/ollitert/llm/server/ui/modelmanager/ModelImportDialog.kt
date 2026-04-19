@@ -463,7 +463,7 @@ fun EditImportedModelDialog(
         verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         Text(
-          "Edit Model Defaults",
+          stringResource(R.string.dialog_edit_model_defaults_title),
           style = MaterialTheme.typography.titleLarge,
           modifier = Modifier.padding(bottom = 4.dp),
         )
@@ -482,14 +482,14 @@ fun EditImportedModelDialog(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              "Server is running this model — changes take effect after it reloads. Saved inference customizations will be reset to these new defaults.",
+              stringResource(R.string.dialog_edit_model_active_warning),
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
         } else {
           Text(
-            "Saved inference customizations will be reset to these new defaults.",
+            stringResource(R.string.dialog_edit_model_defaults_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
@@ -539,7 +539,7 @@ fun EditImportedModelDialog(
               onDone(updated)
             }
           ) {
-            Text("Save")
+            Text(stringResource(R.string.button_save))
           }
         }
       }

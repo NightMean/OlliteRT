@@ -249,7 +249,7 @@ class DefaultDownloadRepository(
     }
 
     val channelId = "download_notification"
-    val channelName = "OlliteRT download notification"
+    val channelName = context.getString(R.string.notif_channel_download_name)
 
     // Create the NotificationChannel, but only on API 26+ because
     // the NotificationChannel class is new and not in the support library
