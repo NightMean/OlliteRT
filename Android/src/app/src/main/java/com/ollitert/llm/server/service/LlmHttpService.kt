@@ -55,6 +55,7 @@ class LlmHttpService : Service() {
 
   private var server: LlmHttpServer? = null
   private var inferenceRunner: LlmHttpInferenceRunner? = null
+  private var inferenceExecutor: java.util.concurrent.ExecutorService? = null
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
   private var currentPort: Int = DEFAULT_PORT
   private val logTag = "LlmHttpService"
@@ -364,7 +365,9 @@ class LlmHttpService : Service() {
     )
 
     server?.stop()
+    inferenceExecutor?.shutdownNow()
     val executor = Executors.newSingleThreadExecutor()
+    inferenceExecutor = executor
     val inferenceLock = Any()
     val runner = LlmHttpInferenceRunner(
       context = this,
@@ -619,6 +622,8 @@ class LlmHttpService : Service() {
     // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
     loadGeneration.incrementAndGet()
     server?.stop()
+    inferenceExecutor?.shutdownNow()
+    inferenceExecutor = null
     val modelName = defaultModel?.name
 
     // Collect models that need native cleanup (Engine + Conversation close).

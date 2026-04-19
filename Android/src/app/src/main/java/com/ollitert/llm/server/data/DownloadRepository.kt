@@ -161,7 +161,9 @@ class DefaultDownloadRepository(
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
-    workManager.getWorkInfoByIdLiveData(workerId).observeForever { workInfo ->
+    val liveData = workManager.getWorkInfoByIdLiveData(workerId)
+    var observer: androidx.lifecycle.Observer<WorkInfo?>? = null
+    observer = androidx.lifecycle.Observer { workInfo ->
       if (workInfo != null) {
         when (workInfo.state) {
           WorkInfo.State.ENQUEUED -> {
@@ -208,6 +210,7 @@ class DefaultDownloadRepository(
             )
 
             downloadStartTimeSharedPreferences.edit { remove(model.name) }
+            observer?.let { liveData.removeObserver(it) }
           }
 
           WorkInfo.State.FAILED,
@@ -234,12 +237,14 @@ class DefaultDownloadRepository(
             )
 
             downloadStartTimeSharedPreferences.edit { remove(model.name) }
+            observer?.let { liveData.removeObserver(it) }
           }
 
           else -> {}
         }
       }
     }
+    liveData.observeForever(observer)
   }
 
   private fun sendNotification(title: String, text: String, taskId: String, modelName: String) {
