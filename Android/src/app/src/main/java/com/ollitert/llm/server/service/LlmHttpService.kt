@@ -281,11 +281,11 @@ class LlmHttpService : Service() {
       // Include the trigger source in the error message so users understand what happened
       // (e.g. "Auto-start failed" vs just "Model not found").
       val sourcePrefix = when (startSource) {
-        SOURCE_BOOT -> "Auto-start on boot failed: "
-        SOURCE_LAUNCH -> "Auto-start on launch failed: "
+        SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
+        SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
         else -> ""
       }
-      val msg = "${sourcePrefix}Model '$resolvedModelName' not found. Check that the model is still downloaded or update the default model in Settings."
+      val msg = sourcePrefix + getString(R.string.error_model_not_found, resolvedModelName)
       Log.e(logTag, "Model '$resolvedModelName' not found — cannot start server (source=$startSource)")
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
@@ -304,11 +304,11 @@ class LlmHttpService : Service() {
     val modelPath = model.getPath(context = this)
     if (!java.io.File(modelPath).exists()) {
       val sourcePrefix = when (startSource) {
-        SOURCE_BOOT -> "Auto-start on boot failed: "
-        SOURCE_LAUNCH -> "Auto-start on launch failed: "
+        SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
+        SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
         else -> ""
       }
-      val msg = "${sourcePrefix}Model file not found on disk. The model may have been deleted — re-download or update the default model in Settings."
+      val msg = sourcePrefix + getString(R.string.error_model_file_missing)
       Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
@@ -400,8 +400,8 @@ class LlmHttpService : Service() {
     } catch (e: Exception) {
       // Java's BindException says "Address already in use" — rewrite to mention the port explicitly
       val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
-        "Port $port is already in use" else (e.message?.take(120) ?: "Unknown error")
-      val msg = "Server failed to start: $reason"
+        getString(R.string.error_port_in_use, port) else (e.message?.take(120) ?: getString(R.string.error_unknown))
+      val msg = getString(R.string.error_server_failed_to_start, reason)
       Log.e(logTag, msg, e)
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
@@ -425,9 +425,8 @@ class LlmHttpService : Service() {
           if (stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
             val availMb = stat.availableBytes.bytesToMb()
             throw RuntimeException(
-              "Not enough storage to load model (${availMb}MB available, " +
-              "need at least ${MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb()}MB). " +
-              "Free up space and try again."
+              getString(R.string.error_storage_low_model_init,
+                availMb.toString(), MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb().toString())
             )
           }
         } catch (e: RuntimeException) { throw e } // re-throw our own RuntimeException
@@ -463,7 +462,7 @@ class LlmHttpService : Service() {
             systemInstruction = buildSystemInstruction(model.name),
           )
           if (initErr.isNotEmpty()) {
-            throw RuntimeException("Model initialization failed: $initErr")
+            throw RuntimeException(getString(R.string.error_model_init_failed, initErr))
           }
           model.initializedWithVision = supportImage
           RequestLogStore.addEvent(
@@ -570,7 +569,7 @@ class LlmHttpService : Service() {
         Log.e(logTag, "Failed to load model ${model.name}", t)
         emitDebugStackTrace(t, "model_load", model.name)
         pendingReloadAfterLoad.set(null)  // Clear queued reload — don't apply stale config to a future model
-        val msg = t.message?.take(120) ?: "Unknown error during model initialization"
+        val msg = t.message?.take(120) ?: getString(R.string.error_model_init_unknown)
         val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
         ServerMetrics.onServerError(msg)
         ServerMetrics.incrementErrorCount(category)

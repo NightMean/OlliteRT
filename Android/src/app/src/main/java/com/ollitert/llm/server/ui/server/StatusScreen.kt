@@ -277,7 +277,7 @@ fun StatusScreen(
             if (!lastError.isNullOrBlank()) {
               val suggestion = remember(lastError) {
                 val kind = com.ollitert.llm.server.service.LlmHttpErrorSuggestions.classifyFromString(lastError ?: "")
-                com.ollitert.llm.server.service.LlmHttpErrorSuggestions.suggest(kind)
+                com.ollitert.llm.server.service.LlmHttpErrorSuggestions.suggest(kind, context)
               }
               if (suggestion != null) {
                 Text(

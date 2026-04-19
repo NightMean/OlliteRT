@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.LlmHttpPrefs
@@ -104,7 +105,7 @@ fun OlliteRTApp(
       containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
       title = {
         Text(
-          text = "Server Error",
+          text = stringResource(R.string.dialog_server_error_title),
           style = MaterialTheme.typography.titleLarge,
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.error,
@@ -125,7 +126,7 @@ fun OlliteRTApp(
             containerColor = MaterialTheme.colorScheme.error,
           ),
         ) {
-          Text("OK")
+          Text(stringResource(R.string.ok))
         }
       },
     )

@@ -20,6 +20,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
 import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.ConfigKeys
@@ -135,7 +136,7 @@ class LlmHttpInferenceRunner(
       val initErr = reinitIfNeeded(model, supportImage, supportAudio)
       if (initErr != null) {
 
-        return null to "Model initialization failed: $initErr"
+        return null to context.getString(R.string.error_model_init_failed, initErr)
       }
     }
     val enableThinking = model.llmSupportThinking &&
@@ -480,10 +481,10 @@ class LlmHttpInferenceRunner(
 
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
-        val (enrichedError, kind) = enrichLlmError(error)
+        val (enrichedError, kind) = enrichLlmError(error, context)
         ServerMetrics.incrementErrorCount(kind.category)
         logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
-        val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+        val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
         if (logId != null) {
           val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)
           // Extract actual token counts from LiteRT error (e.g. "4467 >= 4000") to replace charLen/4 estimate
@@ -820,10 +821,10 @@ class LlmHttpInferenceRunner(
 
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         ServerMetrics.onInferenceCompleted()
-        val (enrichedError, kind) = enrichLlmError(error)
+        val (enrichedError, kind) = enrichLlmError(error, context)
         ServerMetrics.incrementErrorCount(kind.category)
         logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
-        val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+        val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
         if (logId != null) {
           val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)
           // Extract actual token counts from LiteRT error (e.g. "4467 >= 4000") to replace charLen/4 estimate
@@ -957,9 +958,9 @@ class LlmHttpInferenceRunner(
      *
      * Also returns the [ErrorKind] so callers can use it for metrics and API responses.
      */
-    fun enrichLlmError(error: String): Pair<String, ErrorKind> {
+    fun enrichLlmError(error: String, context: Context): Pair<String, ErrorKind> {
       val kind = LlmHttpErrorSuggestions.classifyFromString(error)
-      val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+      val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
       val enriched = if (suggestion != null) "$error — $suggestion" else error
       return enriched to kind
     }

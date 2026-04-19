@@ -615,7 +615,7 @@ private fun ParameterInputBox(
       )
       Icon(
         Icons.Outlined.Edit,
-        contentDescription = "Edit $label",
+        contentDescription = stringResource(R.string.cd_edit_field, label),
         tint = OlliteRTPrimary,
         modifier = Modifier.size(18.dp),
       )

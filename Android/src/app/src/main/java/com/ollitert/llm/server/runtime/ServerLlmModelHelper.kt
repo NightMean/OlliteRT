@@ -23,6 +23,7 @@ import android.os.StatFs
 import android.util.Log
 import java.io.File
 import com.ollitert.llm.server.common.cleanUpMediapipeTaskErrorMessage
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
@@ -109,13 +110,13 @@ object ServerLlmModelHelper : LlmModelHelper {
     // corrupt/truncated files — unrecoverable from Java.
     val modelFile = File(modelPath)
     if (!modelFile.exists()) {
-      onDone("Model file not found: ${modelFile.name}")
+      onDone(context.getString(R.string.error_model_file_not_found, modelFile.name))
       return
     }
     // Minimum size check — a valid .litertlm file is always > 1KB.
     // Truncated files (e.g. from interrupted downloads) trigger native abort().
     if (modelFile.length() < 1024) {
-      onDone("Model file appears corrupted or truncated (${modelFile.length()} bytes): ${modelFile.name}")
+      onDone(context.getString(R.string.error_model_file_corrupted, modelFile.length(), modelFile.name))
       return
     }
 
@@ -130,8 +131,7 @@ object ServerLlmModelHelper : LlmModelHelper {
       if (availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
         val availableMb = availableBytes.bytesToMb()
         val requiredMb = MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb()
-        onDone("Insufficient storage to load model (${availableMb}MB free, need at least ${requiredMb}MB). " +
-          "Free up space by deleting unused models or files, then try again.")
+        onDone(context.getString(R.string.error_storage_insufficient, availableMb.toString(), requiredMb.toString()))
         return
       }
     } catch (e: Exception) {
@@ -178,7 +178,7 @@ object ServerLlmModelHelper : LlmModelHelper {
       ExperimentalFlags.enableConversationConstrainedDecoding = false
       model.instance = LlmModelInstance(engine = engine, conversation = conversation)
     } catch (e: Exception) {
-      onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
+      onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
     }
     onDone("")

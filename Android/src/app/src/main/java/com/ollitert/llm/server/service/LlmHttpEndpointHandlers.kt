@@ -99,7 +99,7 @@ class LlmHttpEndpointHandlers(
     val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId)
     ServerMetrics.onInferenceCompleted()
     if (text == null) {
-      val (enrichedError, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error")
+      val (enrichedError, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
       ServerMetrics.incrementErrorCount(kind.category)
       return badRequest(enrichedError)
     }
@@ -224,10 +224,10 @@ class LlmHttpEndpointHandlers(
         val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId)
         ServerMetrics.onInferenceCompleted()
         if (rawText == null) {
-          val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error")
+          val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
           ServerMetrics.incrementErrorCount(kind.category)
           if (logId != null) {
-            val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+            val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
             val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
             RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
           }
@@ -335,10 +335,10 @@ class LlmHttpEndpointHandlers(
       val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) {
-        val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error")
+        val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
         ServerMetrics.incrementErrorCount(kind.category)
         if (logId != null) {
-          val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+          val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
         }
@@ -446,10 +446,10 @@ class LlmHttpEndpointHandlers(
         val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId)
         ServerMetrics.onInferenceCompleted()
         if (text == null) {
-          val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error")
+          val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
           ServerMetrics.incrementErrorCount(kind.category)
           if (logId != null) {
-            val suggestion = LlmHttpErrorSuggestions.suggest(kind)
+            val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
             val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind.category)
             RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
           }

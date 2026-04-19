@@ -168,7 +168,7 @@ class UpdateCheckWorker(
           "Update check failed — network error",
           level = LogLevel.WARNING,
           category = EventCategory.UPDATE,
-          body = e.message ?: "Unknown error",
+          body = e.message ?: applicationContext.getString(R.string.error_unknown),
         )
       }
       return Result.success(workDataOf(

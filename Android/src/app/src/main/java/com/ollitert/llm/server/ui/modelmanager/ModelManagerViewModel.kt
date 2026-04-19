@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.Config
@@ -627,7 +628,7 @@ constructor(
           } else {
             // Network failed — try disk cache. If this was a manual retry, notify the user.
             Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
-            if (isManualRetry) _toastErrorChannel.trySend("Could not reach model server")
+            if (isManualRetry) _toastErrorChannel.trySend(context.getString(R.string.error_model_server_unreachable))
             modelAllowlist = readModelAllowlistFromDisk()
 
             if (modelAllowlist != null) {
@@ -646,7 +647,7 @@ constructor(
           _uiState.update {
             uiState.value.copy(
               loadingModelAllowlist = false,
-              loadingModelAllowlistError = "Failed to load model list",
+              loadingModelAllowlistError = context.getString(R.string.error_model_list_load_failed),
               allowlistSource = null,
             )
           }
@@ -725,7 +726,7 @@ constructor(
         _uiState.update {
           uiState.value.copy(
             loadingModelAllowlist = false,
-            loadingModelAllowlistError = "Failed to load model list: ${e.message?.take(80) ?: "Unknown error"}",
+            loadingModelAllowlistError = context.getString(R.string.error_model_list_load_failed_detail, e.message?.take(80) ?: context.getString(R.string.error_unknown)),
           )
         }
       }
