@@ -244,7 +244,7 @@ class LlmHttpAudioTranscriptionHandler(
       RequestLogStore.addEvent(
         eventMessage,
         modelName = model.name,
-        category = EventCategory.SERVER,
+        category = EventCategory.MODEL,
         body = eventBody,
       )
 
@@ -274,7 +274,7 @@ class LlmHttpAudioTranscriptionHandler(
           "Audio transcription debug",
           level = LogLevel.DEBUG,
           modelName = model.name,
-          category = EventCategory.SERVER,
+          category = EventCategory.MODEL,
           body = debugBody,
         )
       }
