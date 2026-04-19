@@ -115,6 +115,15 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
+  fun toolCallSsePayloadIncludesTokenCounts() {
+    val toolCall = ToolCall(id = "call-2", function = ToolCallFunction(name = "test", arguments = """{"key":"val"}"""))
+    val payload = LlmHttpResponseRenderer.buildToolCallSsePayload("m", toolCall, inputTokens = 10, outputTokens = 5)
+    assertTrue(payload.contains("\"input_tokens\":10"))
+    assertTrue(payload.contains("\"output_tokens\":5"))
+    assertTrue(payload.contains("\"total_tokens\":15"))
+  }
+
+  @Test
   fun emptySsePayloadUsesEmptyText() {
     val payload = LlmHttpResponseRenderer.buildTextSsePayload("m", "")
     assertTrue(payload.contains("\"delta\":\"\""))

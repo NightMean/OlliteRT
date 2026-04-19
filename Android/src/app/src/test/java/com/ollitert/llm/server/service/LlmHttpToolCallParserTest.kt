@@ -175,6 +175,13 @@ Let me know if you need more."""
   }
 
   @Test
+  fun returnsNullForJsonWithNameButNoArguments() {
+    val output = """{"name": "get_weather"}"""
+    val result = LlmHttpToolCallParser.parse(output, tools)
+    assertNull(result)
+  }
+
+  @Test
   fun returnsNullForMalformedJson() {
     val output = """{"name": "get_weather", "arguments": {broken"""
     val result = LlmHttpToolCallParser.parse(output, tools)

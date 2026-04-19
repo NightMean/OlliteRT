@@ -90,4 +90,95 @@ class ModelAllowlistJsonTest {
   fun rejectsMalformedJson() {
     ModelAllowlistJson.decode("""{"models":[{"name":"broken"}""")
   }
+
+  @Test
+  fun decodesEmptyModelsList() {
+    val json = """{"models":[]}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertTrue(allowlist.models.isEmpty())
+  }
+
+  @Test
+  fun decodesModelWithMissingOptionalFields() {
+    val json =
+      """
+      {
+        "models": [
+          {
+            "name": "Minimal",
+            "modelId": "test/minimal",
+            "modelFile": "minimal.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {},
+            "taskTypes": ["llm_chat"]
+          }
+        ]
+      }
+      """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+
+    assertEquals(1, allowlist.models.size)
+    val model = allowlist.models.first()
+    assertEquals("Minimal", model.name)
+    assertEquals(null, model.llmSupportThinking)
+    assertEquals(null, model.llmSupportImage)
+    assertEquals(null, model.llmSupportAudio)
+    assertEquals(null, model.minDeviceMemoryInGb)
+    assertEquals(null, model.defaultConfig.topK)
+    assertEquals(null, model.defaultConfig.topP)
+    assertEquals(null, model.defaultConfig.temperature)
+  }
+
+  @Test
+  fun decodesModelWithUnknownTaskTypes() {
+    val json =
+      """
+      {
+        "models": [
+          {
+            "name": "Future",
+            "modelId": "test/future",
+            "modelFile": "future.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {},
+            "taskTypes": ["unknown_future_task", "llm_chat"]
+          }
+        ]
+      }
+      """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+
+    assertEquals(2, allowlist.models.first().taskTypes.size)
+    assertEquals("unknown_future_task", allowlist.models.first().taskTypes[0])
+  }
+
+  @Suppress("SENSELESS_COMPARISON")
+  @Test
+  fun decodesModelWithMissingNameAsNull() {
+    val json =
+      """
+      {
+        "models": [
+          {
+            "modelId": "test/no-name",
+            "modelFile": "noname.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {},
+            "taskTypes": ["llm_chat"]
+          }
+        ]
+      }
+      """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+
+    assertEquals(1, allowlist.models.size)
+    // Gson bypasses Kotlin's non-null guarantee — `name` is String (non-null) but Gson sets it to null
+    assertTrue(allowlist.models.first().name == null)
+  }
 }

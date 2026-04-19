@@ -19,8 +19,10 @@ package com.ollitert.llm.server
 import androidx.datastore.core.CorruptionException
 import com.ollitert.llm.server.data.BenchmarkResultsSerializer
 import com.ollitert.llm.server.data.SettingsSerializer
+import com.ollitert.llm.server.data.UserDataSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.Settings
+import com.ollitert.llm.server.proto.UserData
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.runBlocking
@@ -77,6 +79,35 @@ class ProtoSerializersTest {
   fun benchmarkResultsSerializerRejectsInvalidBytes() = runBlocking {
     try {
       BenchmarkResultsSerializer.readFrom(ByteArrayInputStream(byteArrayOf(1, 2, 3)))
+      fail("Expected invalid proto bytes to fail")
+    } catch (e: Exception) {
+      assertTrue(e is CorruptionException)
+    }
+  }
+
+  @Test
+  fun userDataSerializerExposesDefaultInstance() {
+    assertSame(UserData.getDefaultInstance(), UserDataSerializer.defaultValue)
+  }
+
+  @Test
+  fun userDataSerializerRoundTripsProto() = runBlocking {
+    val original = UserData.newBuilder()
+      .putSecrets("hf_token", "hf_test_value_123")
+      .build()
+
+    val output = ByteArrayOutputStream()
+    UserDataSerializer.writeTo(original, output)
+
+    val decoded = UserDataSerializer.readFrom(ByteArrayInputStream(output.toByteArray()))
+    assertEquals(original, decoded)
+    assertEquals("hf_test_value_123", decoded.secretsMap["hf_token"])
+  }
+
+  @Test
+  fun userDataSerializerRejectsInvalidBytes() = runBlocking {
+    try {
+      UserDataSerializer.readFrom(ByteArrayInputStream("not-a-proto".toByteArray()))
       fail("Expected invalid proto bytes to fail")
     } catch (e: Exception) {
       assertTrue(e is CorruptionException)
