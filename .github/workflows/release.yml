@@ -35,10 +35,13 @@ jobs:
 
       - name: Determine tag and channel
         id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
           # Use the pushed tag, or the manual input
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
           else
             TAG="${GITHUB_REF#refs/tags/}"
           fi
@@ -82,11 +85,17 @@ jobs:
       - name: Install Android SDK packages
         run: |
           sdkmanager --licenses < /dev/null > /dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/release.keystore
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is not set — configure it in repository Settings > Secrets"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
         working-directory: .
 
       - name: Ensure Gradle wrapper is executable
@@ -98,22 +107,25 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          GRADLE_TASK: ${{ steps.tag.outputs.task }}
+          APP_VERSION: ${{ steps.tag.outputs.version }}
+          VERSION_CODE: ${{ github.run_number }}
         run: |
-          ./gradlew --no-daemon ${{ steps.tag.outputs.task }} \
-            -PAPP_VERSION_NAME=${{ steps.tag.outputs.version }} \
-            -PAPP_VERSION_CODE=${{ github.run_number }}
+          ./gradlew --no-daemon "$GRADLE_TASK" \
+            -PAPP_VERSION_NAME="$APP_VERSION" \
+            -PAPP_VERSION_CODE="$VERSION_CODE"
 
       - name: Rename APKs
         id: apks
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          FLAVOR: ${{ steps.tag.outputs.flavor }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          FLAVOR="${{ steps.tag.outputs.flavor }}"
           OUT_DIR="app/build/outputs/apk/${FLAVOR}/release"
           RELEASE_DIR="release-apks"
           mkdir -p "$RELEASE_DIR"
 
-          # ABI splits produce multiple APKs: app-<flavor>-arm64-v8a-release.apk, etc.
-          # Rename to user-friendly filenames for the GitHub Release.
+          shopt -s nullglob
           for APK in "$OUT_DIR"/*.apk; do
             BASENAME=$(basename "$APK")
             if [[ "$BASENAME" == *"universal"* ]]; then
@@ -129,6 +141,11 @@ jobs:
             SIZE=$(stat -c%s "$DEST")
             echo "$(basename "$DEST"): $(numfmt --to=iec-i --suffix=B $SIZE)"
           done
+
+          if [ -z "$(ls -A "$RELEASE_DIR" 2>/dev/null)" ]; then
+            echo "::error::No APK files found in $OUT_DIR — build or signing may have failed"
+            exit 1
+          fi
 
           echo "dir=$RELEASE_DIR" >> "$GITHUB_OUTPUT"
 
@@ -158,7 +175,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
 
