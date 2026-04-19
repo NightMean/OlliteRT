@@ -139,8 +139,12 @@ class LlmHttpAudioTranscriptionHandler(
       }
 
       // Read and preprocess audio
+      val preprocessStart = SystemClock.elapsedRealtime()
       val audioBytes: ByteArray
       val format: AudioFormat
+      val rawSize: Long = tempFile.length()
+      var wavInfo: LlmHttpAudioPreprocessor.WavInfo? = null
+      var downmixed = false
       try {
         val rawBytes = tempFile.readBytes()
         format = LlmHttpAudioPreprocessor.detectFormat(rawBytes)
@@ -152,6 +156,10 @@ class LlmHttpAudioTranscriptionHandler(
             "unsupported_format",
           )
         }
+        if (format == AudioFormat.WAV) {
+          wavInfo = LlmHttpAudioPreprocessor.inspectWav(rawBytes)
+          downmixed = (wavInfo?.channels ?: 0) > 1
+        }
         audioBytes = LlmHttpAudioPreprocessor.ensureMono(rawBytes, format)
       } catch (e: IllegalArgumentException) {
         return openAiError(
@@ -161,6 +169,7 @@ class LlmHttpAudioTranscriptionHandler(
           "unsupported_format",
         )
       }
+      val preprocessMs = SystemClock.elapsedRealtime() - preprocessStart
 
       val useTranscriptionPrompt = LlmHttpPrefs.isSttTranscriptionPromptEnabled(context)
       val hintText = buildString {
@@ -182,6 +191,7 @@ class LlmHttpAudioTranscriptionHandler(
       val configSnapshot = buildPerRequestConfig(model, temperature)
 
       // Run inference
+      val inferenceStart = SystemClock.elapsedRealtime()
       ServerMetrics.onInferenceStarted()
       val (rawOutput, llmError) = inferenceRunner.runLlm(
         model = model,
@@ -193,6 +203,7 @@ class LlmHttpAudioTranscriptionHandler(
         configSnapshot = configSnapshot,
       )
       ServerMetrics.onInferenceCompleted()
+      val inferenceMs = SystemClock.elapsedRealtime() - inferenceStart
 
       val elapsedMs = SystemClock.elapsedRealtime() - startMs
 
@@ -231,6 +242,37 @@ class LlmHttpAudioTranscriptionHandler(
         category = EventCategory.SERVER,
         body = text,
       )
+
+      if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+        val debugBody = org.json.JSONObject().apply {
+          put("type", "debug_audio_transcription")
+          put("format", formatLabel)
+          put("file_size_bytes", rawSize)
+          put("processed_size_bytes", audioBytes.size)
+          if (wavInfo != null) {
+            put("wav_channels", wavInfo.channels)
+            put("wav_sample_rate", wavInfo.sampleRate)
+            put("wav_bits_per_sample", wavInfo.bitsPerSample)
+          }
+          put("stereo_to_mono", downmixed)
+          put("force_transcription", useTranscriptionPrompt)
+          put("response_format", responseFormat)
+          put("hint_text", hintText.ifEmpty { "(none)" })
+          put("preprocess_ms", preprocessMs)
+          put("inference_ms", inferenceMs)
+          put("total_ms", elapsedMs)
+          if (language != null) put("language", language)
+          if (prompt != null) put("prompt", prompt)
+          if (temperature != null) put("temperature", temperature)
+        }.toString()
+        RequestLogStore.addEvent(
+          "Audio transcription debug",
+          level = LogLevel.DEBUG,
+          modelName = model.name,
+          category = EventCategory.SERVER,
+          body = debugBody,
+        )
+      }
 
       // Build response
       val responseBody = if (responseFormat == "text") {

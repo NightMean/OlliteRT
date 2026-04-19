@@ -107,6 +107,32 @@ object LlmHttpAudioPreprocessor {
     return AudioFormat.UNKNOWN
   }
 
+  data class WavInfo(
+    val channels: Int,
+    val sampleRate: Int,
+    val bitsPerSample: Int,
+  )
+
+  fun inspectWav(bytes: ByteArray): WavInfo? {
+    if (bytes.size < 44) return null
+    var pos = 12
+    while (pos + 8 <= bytes.size) {
+      val id = String(bytes, pos, 4, Charsets.ISO_8859_1)
+      val chunkSize = readInt32LE(bytes, pos + 4).let { if (it < 0) Int.MAX_VALUE else it }
+      if (id == "fmt " && chunkSize >= 16 && pos + 8 + 16 <= bytes.size) {
+        val fmtOffset = pos + 8
+        return WavInfo(
+          channels = readInt16LE(bytes, fmtOffset + 2),
+          sampleRate = readInt32LE(bytes, fmtOffset + 4),
+          bitsPerSample = readInt16LE(bytes, fmtOffset + 14),
+        )
+      }
+      pos += 8 + chunkSize + (chunkSize and 1)
+      if (chunkSize == Int.MAX_VALUE) break
+    }
+    return null
+  }
+
   /**
    * Ensures audio is mono. For WAV stereo input the L/R sample pairs are averaged.
    * For all other formats the bytes are returned unchanged — miniaudio handles decoding
