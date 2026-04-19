@@ -212,8 +212,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 throw IOException("HTTP error code: ${connection.responseCode}")
               }
 
-              val inputStream = connection.inputStream
-              val outputStream = FileOutputStream(outputTmpFile, true /* append */)
+              connection.inputStream.use { inputStream ->
+              FileOutputStream(outputTmpFile, true /* append */).use { outputStream ->
 
               val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
               var bytesRead: Int
@@ -266,8 +266,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 }
               }
 
-              outputStream.close()
-              inputStream.close()
+              } }
             } finally {
               connection.disconnect()
             }
