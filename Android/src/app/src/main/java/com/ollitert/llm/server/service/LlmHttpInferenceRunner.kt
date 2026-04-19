@@ -122,6 +122,7 @@ class LlmHttpInferenceRunner(
     endpoint: String,
     timeoutSeconds: Long = 30,
     images: List<ByteArray> = emptyList(),
+    audioClips: List<ByteArray> = emptyList(),
     eagerVisionInit: Boolean = false,
     logId: String? = null,
     configSnapshot: Map<String, Any>? = null,
@@ -129,7 +130,7 @@ class LlmHttpInferenceRunner(
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
     // Track request modality
-    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
+    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
 
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
     val supportAudio = model.llmSupportAudio
@@ -174,6 +175,7 @@ class LlmHttpInferenceRunner(
           cleanUpListener = {},
           onError = onError,
           images = images,
+          audioClips = audioClips,
           extraContext = extraContext,
         )
       },
@@ -405,6 +407,7 @@ class LlmHttpInferenceRunner(
     endpoint: String,
     timeoutSeconds: Long = 90,
     images: List<ByteArray> = emptyList(),
+    audioClips: List<ByteArray> = emptyList(),
     logId: String? = null,
     promptLen: Int = 0,
     configSnapshot: Map<String, Any>? = null,
@@ -413,7 +416,7 @@ class LlmHttpInferenceRunner(
   ): NanoHTTPD.Response {
     val now = LlmHttpBridgeUtils.epochSeconds()
     val format = ResponsesApiFormat(model.name, now, json)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, logId, configSnapshot, sseExtraHeaders)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, sseExtraHeaders)
   }
 
   // ── Streaming inference: /v1/chat/completions ────────────────────────────
@@ -425,6 +428,7 @@ class LlmHttpInferenceRunner(
     endpoint: String,
     timeoutSeconds: Long = 120,
     images: List<ByteArray> = emptyList(),
+    audioClips: List<ByteArray> = emptyList(),
     logId: String? = null,
     @Suppress("UNUSED_PARAMETER") includeUsage: Boolean = false,
     stopSequences: List<String>? = null,
@@ -435,7 +439,7 @@ class LlmHttpInferenceRunner(
   ): NanoHTTPD.Response {
     val now = LlmHttpBridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, logId, configSnapshot, sseExtraHeaders)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, sseExtraHeaders)
   }
 
   // ── Unified streaming implementation ────────────────────────────────────
@@ -448,13 +452,14 @@ class LlmHttpInferenceRunner(
     format: StreamingFormat,
     timeoutSeconds: Long,
     images: List<ByteArray>,
+    audioClips: List<ByteArray>,
     logId: String?,
     configSnapshot: Map<String, Any>?,
     sseExtraHeaders: Map<String, String>,
   ): NanoHTTPD.Response {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
-    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = false)
+    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
 
     val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
@@ -514,6 +519,7 @@ class LlmHttpInferenceRunner(
           cleanUpListener = {},
           onError = onError,
           images = images,
+          audioClips = audioClips,
           extraContext = extraContext,
         )
       },

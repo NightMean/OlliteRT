@@ -449,4 +449,87 @@ class LlmHttpRequestAdapterTest {
     val result = LlmHttpRequestAdapter.extractImageDataUris(emptyList())
     assertTrue(result.isEmpty())
   }
+
+  // ── extractAudioData() ───────────────────────────────────────────────────
+
+  @Test
+  fun extractAudioDataSingleClip() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "input_audio", input_audio = InputAudio(data = "abc123", format = "wav"))
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractAudioData(msgs)
+    assertEquals(listOf("abc123"), result)
+  }
+
+  @Test
+  fun extractAudioDataMultipleClipsAcrossMessages() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "input_audio", input_audio = InputAudio(data = "clip1", format = "wav"))
+      ))),
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "input_audio", input_audio = InputAudio(data = "clip2", format = "mp3"))
+      ))),
+    )
+    val result = LlmHttpRequestAdapter.extractAudioData(msgs)
+    assertEquals(2, result.size)
+    assertEquals("clip1", result[0])
+    assertEquals("clip2", result[1])
+  }
+
+  @Test
+  fun extractAudioDataIgnoresNonAudioParts() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("hello", parts = listOf(
+        ContentPart(type = "text", text = "hello"),
+        ContentPart(type = "image_url", image_url = ImageUrl("data:image/png;base64,abc")),
+        ContentPart(type = "input_audio", input_audio = InputAudio(data = "audiodata", format = "wav")),
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractAudioData(msgs)
+    assertEquals(1, result.size)
+    assertEquals("audiodata", result[0])
+  }
+
+  @Test
+  fun extractAudioDataFiltersBlankData() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "input_audio", input_audio = InputAudio(data = "  ", format = "wav")),
+        ContentPart(type = "input_audio", input_audio = InputAudio(data = "validdata", format = "wav")),
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractAudioData(msgs)
+    assertEquals(1, result.size)
+    assertEquals("validdata", result[0])
+  }
+
+  @Test
+  fun extractAudioDataFiltersNullInputAudio() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("", parts = listOf(
+        ContentPart(type = "input_audio", input_audio = null),
+      )))
+    )
+    val result = LlmHttpRequestAdapter.extractAudioData(msgs)
+    assertTrue(result.isEmpty())
+  }
+
+  @Test
+  fun extractAudioDataReturnsEmptyForEmptyMessages() {
+    val result = LlmHttpRequestAdapter.extractAudioData(emptyList())
+    assertTrue(result.isEmpty())
+  }
+
+  @Test
+  fun extractAudioDataReturnsEmptyForTextOnlyMessages() {
+    val msgs = listOf(
+      ChatMessage("user", ChatContent("hello")),
+      ChatMessage("assistant", ChatContent("hi")),
+    )
+    val result = LlmHttpRequestAdapter.extractAudioData(msgs)
+    assertTrue(result.isEmpty())
+  }
 }

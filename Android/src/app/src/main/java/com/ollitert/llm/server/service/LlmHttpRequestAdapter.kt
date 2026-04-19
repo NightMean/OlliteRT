@@ -193,6 +193,18 @@ $toolSchemas"""
   }
 
   /**
+   * Extracts base64 audio data strings from `input_audio` content parts in all messages.
+   * Returns only non-blank data values, in message order.
+   */
+  fun extractAudioData(msgs: List<ChatMessage>): List<String> {
+    return msgs.flatMap { msg ->
+      msg.content.parts
+        .filter { it.type == "input_audio" }
+        .mapNotNull { it.input_audio?.data?.takeIf { d -> d.isNotBlank() } }
+    }
+  }
+
+  /**
    * Extracts text content from a chat message. When [interleaveImagePlaceholders] is true
    * and the message has multimodal parts, inserts [IMAGE_PLACEHOLDER] tokens before the text.
    * Image placeholders are placed before text because LiteRT vision models expect to process

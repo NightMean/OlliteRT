@@ -331,4 +331,29 @@ class LlmHttpModelLifecycle(
       }
     }
   }
+
+  /**
+   * Decodes base64 audio data strings from `input_audio` content parts into raw byte arrays,
+   * then ensures each clip is mono PCM (required by the LiteRT audio API).
+   * Silently drops any clip that fails to decode or preprocess — same error-resilience
+   * pattern used by [decodeImageDataUris].
+   */
+  fun decodeAudioData(dataStrings: List<String>): List<ByteArray> {
+    return dataStrings.mapNotNull { base64Data ->
+      try {
+        val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+        val format = LlmHttpAudioPreprocessor.detectFormat(bytes)
+        LlmHttpAudioPreprocessor.ensureMono(bytes, format)
+      } catch (e: Exception) {
+        Log.w(LOG_TAG, "Failed to decode audio data", e)
+        RequestLogStore.addEvent(
+          "Failed to decode audio: ${e.message?.take(80) ?: context.getString(R.string.error_unknown)}",
+          level = LogLevel.ERROR,
+          modelName = defaultModel?.name,
+          category = EventCategory.SERVER,
+        )
+        null
+      }
+    }
+  }
 }

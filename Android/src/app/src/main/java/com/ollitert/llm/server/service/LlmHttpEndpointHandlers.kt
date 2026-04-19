@@ -185,10 +185,16 @@ class LlmHttpEndpointHandlers(
     logPayload("POST /v1/chat/completions prompt", prompt, requestId)
     // Extract images for multimodal models (before blank-prompt check so image-only requests work).
     val images = if (model.llmSupportImage) modelLifecycle.decodeImageDataUris(req.messages) else emptyList()
+    // Extract audio clips for models that support audio input. Models that don't support audio
+    // silently receive an empty list — same as the image handling pattern above.
+    val audioClips = if (model.llmSupportAudio) {
+      val audioData = LlmHttpRequestAdapter.extractAudioData(req.messages)
+      modelLifecycle.decodeAudioData(audioData)
+    } else emptyList()
 
-    logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyLength=${parsed.bodyLength} promptChars=${prompt.length} images=${images.size} model=$requestedId resolved=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyLength=${parsed.bodyLength} promptChars=${prompt.length} images=${images.size} audio=${audioClips.size} model=$requestedId resolved=${model.name}")
 
-    if (prompt.isBlank() && images.isEmpty()) {
+    if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
       return okJsonText(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(model.name)))
     }
@@ -216,11 +222,11 @@ class LlmHttpEndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
+      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, logId = logId, configSnapshot = configSnapshotBlocking)
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = configSnapshotBlocking)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) {
         val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
@@ -506,32 +512,34 @@ class LlmHttpEndpointHandlers(
     return if (parts.isEmpty()) null else parts.joinToString(", ")
   }
 
-  /**
-   * Builds a config snapshot with per-request overrides applied.
-   * Returns null if no overrides are needed. Used for streaming requests
-   * where the config must be applied on the executor thread, not the NanoHTTPD thread.
-   */
-  private fun buildPerRequestConfig(
-    model: Model,
-    temperature: Double? = null,
-    topP: Double? = null,
-    topK: Int? = null,
-    maxTokens: Int? = null,
-  ): Map<String, Any>? {
-    if (temperature == null && topP == null && topK == null && maxTokens == null) return null
-    val overridden = model.configValues.toMutableMap()
-    temperature?.let { overridden[ConfigKeys.TEMPERATURE.label] = it.toFloat() }
-    topP?.let { overridden[ConfigKeys.TOPP.label] = it.toFloat() }
-    topK?.let { overridden[ConfigKeys.TOPK.label] = it }
-    maxTokens?.let {
-      val engineMax = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-      if (engineMax != null) {
-        overridden[ConfigKeys.MAX_TOKENS.label] = it.coerceAtMost(engineMax)
-      } else {
-        overridden[ConfigKeys.MAX_TOKENS.label] = it
-      }
-    }
-    return overridden
-  }
+}
 
+/**
+ * Builds a config snapshot with per-request sampler overrides applied.
+ * Returns null if no overrides are needed. Extracted as a top-level function
+ * so multiple endpoint handlers (chat completions, transcription) can share it.
+ * Used for streaming requests where the config must be applied on the executor
+ * thread, not the NanoHTTPD thread.
+ */
+internal fun buildPerRequestConfig(
+  model: Model,
+  temperature: Double? = null,
+  topP: Double? = null,
+  topK: Int? = null,
+  maxTokens: Int? = null,
+): Map<String, Any>? {
+  if (temperature == null && topP == null && topK == null && maxTokens == null) return null
+  val overridden = model.configValues.toMutableMap()
+  temperature?.let { overridden[ConfigKeys.TEMPERATURE.label] = it.toFloat() }
+  topP?.let { overridden[ConfigKeys.TOPP.label] = it.toFloat() }
+  topK?.let { overridden[ConfigKeys.TOPK.label] = it }
+  maxTokens?.let {
+    val engineMax = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+    if (engineMax != null) {
+      overridden[ConfigKeys.MAX_TOKENS.label] = it.coerceAtMost(engineMax)
+    } else {
+      overridden[ConfigKeys.MAX_TOKENS.label] = it
+    }
+  }
+  return overridden
 }
