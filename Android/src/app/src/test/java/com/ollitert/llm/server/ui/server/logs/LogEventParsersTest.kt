@@ -1,0 +1,389 @@
+/*
+ * Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.ollitert.llm.server.ui.server.logs
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class LogEventParsersTest {
+
+  // ── parseEventType: Loading ───────────────────────────────────────────────
+
+  @Test
+  fun loadingModel() {
+    val result = parseEventType("Loading model: Gemma 3 1B")
+    assertTrue(result is ParsedEventType.Loading)
+    assertEquals("Gemma 3 1B", (result as ParsedEventType.Loading).modelName)
+  }
+
+  @Test
+  fun loadingModelWithSpecialChars() {
+    val result = parseEventType("Loading model: gemma-4-e2b_it (v3)")
+    assertTrue(result is ParsedEventType.Loading)
+    assertEquals("gemma-4-e2b_it (v3)", (result as ParsedEventType.Loading).modelName)
+  }
+
+  // ── parseEventType: Ready ─────────────────────────────────────────────────
+
+  @Test
+  fun modelReady() {
+    val result = parseEventType("Model ready: Gemma 3 1B (1234ms)")
+    assertTrue(result is ParsedEventType.Ready)
+    val ready = result as ParsedEventType.Ready
+    assertEquals("Gemma 3 1B", ready.modelName)
+    assertEquals("1234", ready.timeMs)
+  }
+
+  @Test
+  fun modelReadySingleDigitMs() {
+    val result = parseEventType("Model ready: TinyModel (5ms)")
+    assertTrue(result is ParsedEventType.Ready)
+    assertEquals("5", (result as ParsedEventType.Ready).timeMs)
+  }
+
+  @Test
+  fun modelReadyNoMatch() {
+    val result = parseEventType("Model ready: NoParens")
+    assertNull(result)
+  }
+
+  // ── parseEventType: Warmup ────────────────────────────────────────────────
+
+  @Test
+  fun warmupMessage() {
+    val result = parseEventType("""Sending a warmup message: "Hello" → "Hi there!" (200ms)""")
+    assertTrue(result is ParsedEventType.Warmup)
+    val warmup = result as ParsedEventType.Warmup
+    assertEquals("Hello", warmup.input)
+    assertEquals("Hi there!", warmup.output)
+    assertEquals("200", warmup.timeMs)
+  }
+
+  @Test
+  fun warmupWithQuotesInOutput() {
+    val result = parseEventType("""Sending a warmup message: "Hi" → "She said "hello" back" (100ms)""")
+    assertTrue(result is ParsedEventType.Warmup)
+    val warmup = result as ParsedEventType.Warmup
+    assertEquals("Hi", warmup.input)
+    assertEquals("""She said "hello" back""", warmup.output)
+  }
+
+  // ── parseEventType: ServerStopped ─────────────────────────────────────────
+
+  @Test
+  fun serverStopped() {
+    val result = parseEventType("Server stopped")
+    assertTrue(result is ParsedEventType.ServerStopped)
+  }
+
+  @Test
+  fun serverStoppedPartialNoMatch() {
+    val result = parseEventType("Server stopped unexpectedly")
+    assertNull(result)
+  }
+
+  // ── parseEventType: WarmupSkipped ─────────────────────────────────────────
+
+  @Test
+  fun warmupSkipped() {
+    val result = parseEventType("Warmup skipped — model loaded without test inference (disabled in Settings)")
+    assertTrue(result is ParsedEventType.WarmupSkipped)
+    assertEquals(
+      "model loaded without test inference (disabled in Settings)",
+      (result as ParsedEventType.WarmupSkipped).reason,
+    )
+  }
+
+  // ── parseEventType: ModelLoadFailed ───────────────────────────────────────
+
+  @Test
+  fun modelLoadFailed() {
+    val result = parseEventType("Model load failed: Out of memory")
+    assertTrue(result is ParsedEventType.ModelLoadFailed)
+    assertEquals("Out of memory", (result as ParsedEventType.ModelLoadFailed).errorMessage)
+  }
+
+  // ── parseEventType: ServerFailed ──────────────────────────────────────────
+
+  @Test
+  fun serverFailed() {
+    val result = parseEventType("Server failed to start on port 8000: Address already in use")
+    assertTrue(result is ParsedEventType.ServerFailed)
+    assertEquals(
+      "Server failed to start on port 8000: Address already in use",
+      (result as ParsedEventType.ServerFailed).errorMessage,
+    )
+  }
+
+  // ── parseEventType: ModelNotFound ─────────────────────────────────────────
+
+  @Test
+  fun modelNotFoundQuoted() {
+    val result = parseEventType("Model 'gpt-4' not found")
+    assertTrue(result is ParsedEventType.ModelNotFound)
+    assertEquals("gpt-4 (not in downloaded or available models)", (result as ParsedEventType.ModelNotFound).detail)
+  }
+
+  @Test
+  fun modelFilesNotFound() {
+    val result = parseEventType("Model files not found on disk")
+    assertTrue(result is ParsedEventType.ModelNotFound)
+    assertEquals("Model files missing from device storage", (result as ParsedEventType.ModelNotFound).detail)
+  }
+
+  @Test
+  fun modelNotFoundGeneric() {
+    val result = parseEventType("Model not found in registry")
+    assertTrue(result is ParsedEventType.ModelNotFound)
+    assertEquals("Model not found in registry", (result as ParsedEventType.ModelNotFound).detail)
+  }
+
+  // ── parseEventType: ImageDecodeFailed ─────────────────────────────────────
+
+  @Test
+  fun imageDecodeFailed() {
+    val result = parseEventType("Failed to decode image: Invalid base64")
+    assertTrue(result is ParsedEventType.ImageDecodeFailed)
+    assertEquals("Invalid base64", (result as ParsedEventType.ImageDecodeFailed).errorMessage)
+  }
+
+  // ── parseEventType: QueuedReload ──────────────────────────────────────────
+
+  @Test
+  fun queuedReload() {
+    val result = parseEventType("Applying queued settings change — reloading model")
+    assertTrue(result is ParsedEventType.QueuedReload)
+  }
+
+  // ── parseEventType: CorsChanged ───────────────────────────────────────────
+
+  @Test
+  fun corsChanged() {
+    val result = parseEventType("""CORS Allowed Origins changed: "*" → "http://localhost:3000"""")
+    assertTrue(result is ParsedEventType.CorsChanged)
+    val cors = result as ParsedEventType.CorsChanged
+    assertEquals("*", cors.oldValue)
+    assertEquals("http://localhost:3000", cors.newValue)
+  }
+
+  // ── parseEventType: ConversationResetFailed ───────────────────────────────
+
+  @Test
+  fun conversationResetFailed() {
+    val result = parseEventType("Failed to reset conversation: Engine closed")
+    assertTrue(result is ParsedEventType.ConversationResetFailed)
+    assertEquals("Engine closed", (result as ParsedEventType.ConversationResetFailed).errorMessage)
+  }
+
+  // ── parseEventType: RestartRequested ──────────────────────────────────────
+
+  @Test
+  fun restartRequested() {
+    val result = parseEventType("Model restart requested")
+    assertTrue(result is ParsedEventType.RestartRequested)
+  }
+
+  // ── parseEventType: Unloading ─────────────────────────────────────────────
+
+  @Test
+  fun unloadingModel() {
+    val result = parseEventType("Unloading model: Gemma 3 1B")
+    assertTrue(result is ParsedEventType.Unloading)
+    assertEquals("Gemma 3 1B", (result as ParsedEventType.Unloading).modelName)
+  }
+
+  // ── parseEventType: KeepAlive ─────────────────────────────────────────────
+
+  @Test
+  fun keepAliveUnloaded() {
+    val result = parseEventType("Model unloaded: Gemma 3 1B (after 30m idle, keep_alive)")
+    assertTrue(result is ParsedEventType.KeepAliveUnloaded)
+    val ka = result as ParsedEventType.KeepAliveUnloaded
+    assertEquals("Gemma 3 1B", ka.modelName)
+    assertEquals("30", ka.idleMinutes)
+  }
+
+  @Test
+  fun keepAliveReloading() {
+    val result = parseEventType("Auto-reloading model: Gemma 3 1B (keep_alive wake-up)")
+    assertTrue(result is ParsedEventType.KeepAliveReloading)
+    assertEquals("Gemma 3 1B", (result as ParsedEventType.KeepAliveReloading).modelName)
+  }
+
+  @Test
+  fun keepAliveReloaded() {
+    val result = parseEventType("Model reloaded: Gemma 3 1B (850ms, keep_alive wake-up)")
+    assertTrue(result is ParsedEventType.KeepAliveReloaded)
+    val ka = result as ParsedEventType.KeepAliveReloaded
+    assertEquals("Gemma 3 1B", ka.modelName)
+    assertEquals("850", ka.timeMs)
+  }
+
+  // ── parseEventType: PromptActive ──────────────────────────────────────────
+  // Tests that pass eventBody JSON are skipped in JVM tests (org.json.JSONObject
+  // requires Android runtime). The no-body path is safe to test.
+
+  @Test
+  fun systemPromptActiveNoBody() {
+    val result = parseEventType("System prompt active: \"test\"")
+    assertTrue(result is ParsedEventType.PromptActive)
+    assertEquals("System prompt", (result as ParsedEventType.PromptActive).promptType)
+  }
+
+  @Test
+  fun chatTemplateActiveNoBody() {
+    val result = parseEventType("Chat template active: \"<start>\"")
+    assertTrue(result is ParsedEventType.PromptActive)
+    assertEquals("Chat template", (result as ParsedEventType.PromptActive).promptType)
+  }
+
+  // ── parseEventType: Update ────────────────────────────────────────────────
+
+  @Test
+  fun updateAvailable() {
+    val result = parseEventType("Update available: v1.2.0", "Release notes here")
+    assertTrue(result is ParsedEventType.UpdateAvailable)
+    val ua = result as ParsedEventType.UpdateAvailable
+    assertEquals("v1.2.0", ua.version)
+    assertEquals("Release notes here", ua.body)
+  }
+
+  @Test
+  fun updateCurrent() {
+    val result = parseEventType("Already on latest version")
+    assertTrue(result is ParsedEventType.UpdateCurrent)
+  }
+
+  @Test
+  fun updateAutoDisabled() {
+    val result = parseEventType("Update check auto-disabled after 5 failures")
+    assertTrue(result is ParsedEventType.UpdateAutoDisabled)
+  }
+
+  // ── parseEventType: MemoryPressure ────────────────────────────────────────
+
+  @Test
+  fun memoryPressure() {
+    val result = parseEventType("System memory pressure (critical)")
+    assertTrue(result is ParsedEventType.MemoryPressure)
+  }
+
+  // ── parseEventType: SettingsToggle ────────────────────────────────────────
+
+  @Test
+  fun settingsToggleEnabled() {
+    val result = parseEventType("Compact Tool Schemas enabled")
+    assertTrue(result is ParsedEventType.SettingsToggle)
+    val st = result as ParsedEventType.SettingsToggle
+    assertEquals("Compact Tool Schemas", st.settingName)
+    assertTrue(st.enabled)
+  }
+
+  @Test
+  fun settingsToggleDisabled() {
+    val result = parseEventType("Auto-Start on Boot disabled")
+    assertTrue(result is ParsedEventType.SettingsToggle)
+    val st = result as ParsedEventType.SettingsToggle
+    assertEquals("Auto-Start on Boot", st.settingName)
+    assertTrue(!st.enabled)
+  }
+
+  @Test
+  fun settingsToggleIgnoresLongNames() {
+    val longName = "A".repeat(81) + " enabled"
+    assertNull(parseEventType(longName))
+  }
+
+  // ── parseEventType: SettingsBatch ─────────────────────────────────────────
+
+  @Test
+  fun settingsBatchWithArrow() {
+    val body = "Port: 8000 → 8001\nMax Tokens: 1024 → 2048"
+    val result = parseEventType("Settings updated (2 changes)", body)
+    assertTrue(result is ParsedEventType.SettingsBatch)
+    val batch = (result as ParsedEventType.SettingsBatch).changes
+    assertEquals(2, batch.size)
+    assertEquals("Port", batch[0].paramName)
+    assertEquals("8000", batch[0].oldValue)
+    assertEquals("8001", batch[0].newValue)
+    assertEquals("Max Tokens", batch[1].paramName)
+  }
+
+  @Test
+  fun settingsBatchWithToggle() {
+    val body = "Auto-Start on Boot: enabled"
+    val result = parseEventType("Settings updated (1 change)", body)
+    assertTrue(result is ParsedEventType.SettingsBatch)
+    val batch = (result as ParsedEventType.SettingsBatch).changes
+    assertEquals(1, batch.size)
+    assertEquals("Auto-Start on Boot", batch[0].paramName)
+    assertEquals("", batch[0].oldValue)
+    assertEquals("enabled", batch[0].newValue)
+  }
+
+  // ── parseEventType: ApiConfigChange ───────────────────────────────────────
+
+  @Test
+  fun apiConfigChange() {
+    val body = "Temperature: 0.7 → 1.0"
+    val result = parseEventType("Config via REST API (1 change)", body)
+    assertTrue(result is ParsedEventType.ApiConfigChange)
+    val changes = (result as ParsedEventType.ApiConfigChange).changes
+    assertEquals(1, changes.size)
+    assertEquals("Temperature", changes[0].paramName)
+    assertEquals("0.7", changes[0].oldValue)
+    assertEquals("1.0", changes[0].newValue)
+  }
+
+  @Test
+  fun apiConfigChangeNoBody() {
+    val result = parseEventType("Config via REST API (1 change)")
+    assertNull(result)
+  }
+
+  // ── parseEventType: unknown message ───────────────────────────────────────
+
+  @Test
+  fun unknownMessageReturnsNull() {
+    assertNull(parseEventType("Something totally unknown happened"))
+  }
+
+  // ── parseInferenceSettingsMessage ──────────────────────────────────────────
+  // JSON-parsing tests are skipped in JVM tests (org.json.JSONObject requires
+  // Android runtime). Guard-clause paths that return early without touching
+  // JSONObject are safe to test here.
+
+  @Test
+  fun inferenceSettingsWrongPrefix() {
+    val result = parseInferenceSettingsMessage("Something else", "{}")
+    assertNull(result)
+  }
+
+  @Test
+  fun inferenceSettingsNullBody() {
+    val result = parseInferenceSettingsMessage("Inference settings changed: TopK", null)
+    assertNull(result)
+  }
+
+  @Test
+  fun inferenceSettingsBlankBody() {
+    val result = parseInferenceSettingsMessage("Inference settings changed: TopK", "")
+    assertNull(result)
+  }
+}
