@@ -73,52 +73,47 @@ sealed class SettingDef(
   val labelRes: Int,
   val descriptionRes: Int,
   val card: CardId,
-  val searchKeywords: String,
 ) {
   class Toggle(
     key: String,
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
     val default: Boolean,
     val resetDefault: Boolean = default,
     val prefsKey: String,
     val requiresRestart: Boolean = false,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class TextInput(
     key: String,
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
     val default: String,
     val resetDefault: String = default,
     val prefsKey: String,
     val isPassword: Boolean = false,
     val validate: ((String) -> String?)? = null,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class NumericInput(
     key: String,
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
     val default: Int,
     val prefsKey: String,
     val min: Int,
     val max: Int,
     val maxLength: Int = 5,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class NumericWithUnit(
     key: String,
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
     val defaultValue: Long,
     val defaultUnit: String,
     val prefsKey: String,
@@ -128,30 +123,28 @@ sealed class SettingDef(
     val min: Long,
     val max: Long,
     val baseUnitLabel: String,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class NumericPlain(
     key: String,
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
     val default: Int,
     val prefsKey: String,
     val min: Int,
     val max: Int,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class Dropdown(
     key: String,
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
     val default: String?,
     val resetDefault: String? = default,
     val prefsKey: String,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 
   /** Settings with custom renderers (bearer token, HA, action buttons, external links). */
   class Custom(
@@ -159,8 +152,7 @@ sealed class SettingDef(
     labelRes: Int,
     descriptionRes: Int,
     card: CardId,
-    searchKeywords: String,
-  ) : SettingDef(key, labelRes, descriptionRes, card, searchKeywords)
+  ) : SettingDef(key, labelRes, descriptionRes, card)
 }
 
 /** Icon source for a settings card — either a vector icon or a drawable resource. */

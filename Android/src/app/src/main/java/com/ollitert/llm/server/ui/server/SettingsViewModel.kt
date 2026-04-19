@@ -150,19 +150,22 @@ class SettingsViewModel @Inject constructor(
   // ─── Search ──────────────────────────────────────────────────────────────
   var searchQuery by mutableStateOf("")
 
-  /** Card title text cached per setting key, so search can match card names (e.g. "General"). */
-  private val cardTitleBySettingKey: Map<String, String> = buildMap {
+  /** Cached searchable text per setting key: label + description + card title (from strings.xml). */
+  private val searchableTextByKey: Map<String, String> = buildMap {
     for (card in allCardDefs) {
-      val title = context.getString(card.titleRes)
-      for (setting in card.settings) put(setting.key, title)
+      val cardTitle = context.getString(card.titleRes)
+      for (def in card.settings) {
+        val label = context.getString(def.labelRes)
+        val desc = context.getString(def.descriptionRes)
+        put(def.key, "$label $desc $cardTitle")
+      }
     }
   }
 
   /** Returns true if an individual setting matches the current search query. */
   fun settingVisible(settingKey: String): Boolean {
     if (searchQuery.isBlank()) return true
-    val def = settingDefsByKey[settingKey] ?: return true
-    val searchable = def.searchKeywords + " " + (cardTitleBySettingKey[settingKey] ?: "")
+    val searchable = searchableTextByKey[settingKey] ?: return true
     return matchesSearchQuery(searchable, searchQuery)
   }
 
