@@ -484,6 +484,8 @@ class LlmHttpInferenceRunner(
     var thinkingTagOpened = false
     var lastLogUpdateMs = 0L
     var firstTokenMs = 0L
+    var inferenceCompleted = false
+    var stopSequenceTriggered = false
     val streamPreview = LlmHttpPrefs.isStreamLogsPreview(context)
     val keepPartial = LlmHttpPrefs.isKeepPartialResponse(context)
 
@@ -522,6 +524,7 @@ class LlmHttpInferenceRunner(
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           ServerLlmModelHelper.stopResponse(model)
+          inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()
           if (logId != null) {
             val cancelledPartial = if (keepPartial && (fullText.isNotEmpty() || fullThinking.isNotEmpty())) {
@@ -561,7 +564,7 @@ class LlmHttpInferenceRunner(
           } else {
             if (!thought.isNullOrEmpty()) fullThinking.append(thought)
           }
-          if (partial.isNotEmpty()) {
+          if (partial.isNotEmpty() && !stopSequenceTriggered) {
             fullText.append(partial)
             if (!format.stopSequences.isNullOrEmpty()) {
               val currentText = fullText.toString()
@@ -573,10 +576,11 @@ class LlmHttpInferenceRunner(
               if (stopIdx < currentText.length) {
                 fullText.clear()
                 fullText.append(currentText.substring(0, stopIdx))
+                stopSequenceTriggered = true
                 ServerLlmModelHelper.stopResponse(model)
               }
             }
-            if (!format.bufferAllTokens) {
+            if (!format.bufferAllTokens && !stopSequenceTriggered) {
               val text = if (thinkingTagOpened) {
                 thinkingTagOpened = false
                 "</think>$partial"
@@ -622,6 +626,7 @@ class LlmHttpInferenceRunner(
               ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
             }
             emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
+            inferenceCompleted = true
             ServerMetrics.onInferenceCompleted()
             val promptTokens = format.estimateInputTokensInt(prompt)
             val completionTokens = estimateTokensByLength(outputLen)
@@ -660,7 +665,10 @@ class LlmHttpInferenceRunner(
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
-          ServerMetrics.onInferenceCompleted()
+          if (!inferenceCompleted) {
+            inferenceCompleted = true
+            ServerMetrics.onInferenceCompleted()
+          }
           logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
           if (logId != null) {
             val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
@@ -673,7 +681,10 @@ class LlmHttpInferenceRunner(
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
-        ServerMetrics.onInferenceCompleted()
+        if (!inferenceCompleted) {
+          inferenceCompleted = true
+          ServerMetrics.onInferenceCompleted()
+        }
         val (enrichedError, kind) = enrichLlmError(error, context)
         ServerMetrics.incrementErrorCount(kind.category)
         logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
