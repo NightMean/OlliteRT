@@ -55,20 +55,40 @@ class LlmHttpAllowlistLoader(
 
   private fun readFromFiles(): ModelAllowlist? {
     return try {
-      var file = externalFilesDir?.let { File(it, "model_allowlist.json") }
+      val file = externalFilesDir?.let { File(it, "model_allowlist.json") }
       // Check both exists AND non-empty — a 0-byte file can be left behind
       // when a write is interrupted by a crash (e.g. disk full during model
       // switch). Without the length check, the empty file shadows the bundled
       // asset fallback, causing "model not found" errors on restart.
-      if (file != null && file.exists() && file.length() > 0L) {
-        val allowlist = ModelAllowlistJson.decode(file.readText())
-        lastSource = "external:${file.absolutePath}"
-        return allowlist
+      val diskCache = if (file != null && file.exists() && file.length() > 0L) {
+        ModelAllowlistJson.decode(file.readText())
+      } else null
+
+      val assetText = assetReader()
+      val bundled = assetText?.let { ModelAllowlistJson.decode(it) }
+
+      // Pick the source with the higher contentVersion so a stale disk cache
+      // never shadows a newer bundled asset shipped with an app update.
+      when {
+        diskCache != null && bundled != null -> {
+          if (bundled.contentVersion > diskCache.contentVersion) {
+            lastSource = "asset"
+            bundled
+          } else {
+            lastSource = "external:${file!!.absolutePath}"
+            diskCache
+          }
+        }
+        diskCache != null -> {
+          lastSource = "external:${file!!.absolutePath}"
+          diskCache
+        }
+        bundled != null -> {
+          lastSource = "asset"
+          bundled
+        }
+        else -> null
       }
-      val assetText = assetReader() ?: return null
-      val allowlist = ModelAllowlistJson.decode(assetText)
-      lastSource = "asset"
-      allowlist
     } catch (e: Exception) {
       lastSource = "error"
       null

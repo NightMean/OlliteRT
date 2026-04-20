@@ -23,12 +23,16 @@ Parsed by `ModelAllowlistJson.decode()` → `ModelAllowlist` / `AllowedModel` da
 
 ```json
 {
+  "schemaVersion": 1,
+  "contentVersion": 1,
   "models": [ ... ]
 }
 ```
 
 | Field | Type | Required | Default | Description |
 |:------|:-----|:---------|:--------|:------------|
+| `schemaVersion` | `int` | No | `1` | Schema format version. App rejects lists with unsupported versions |
+| `contentVersion` | `int` | No | `0` | Monotonically increasing content revision. When the network is unavailable, the app compares the disk cache's `contentVersion` against the bundled asset's and uses whichever is higher. **Bump this on every content change** (new models, changed fields, etc.) |
 | `models` | `AllowedModel[]` | Yes | — | Array of model definitions |
 
 ---
@@ -107,6 +111,8 @@ Per-SoC overrides inside `socToModelFiles`. The key is the SoC identifier string
 
 ```json
 {
+  "schemaVersion": 1,
+  "contentVersion": 1,
   "models": [
     {
       "name": "Gemma-4-E2B-it",
@@ -141,6 +147,7 @@ Per-SoC overrides inside `socToModelFiles`. The key is the SoC identifier string
 - **Gson ignores unknown fields** — adding new optional fields to the JSON won't break older app versions.
 - **Kotlin defaults apply for missing fields** — omitting an optional field uses the default value listed above.
 - **Exception:** Gson bypasses Kotlin default parameter values for non-nullable primitives. `ModelAllowlistJson.decode()` handles normalization (e.g. missing `schemaVersion` → `1`).
+- **`contentVersion` defaults to `0`** — old JSON files without this field get version 0, so any bundled asset with `contentVersion >= 1` will correctly win over a stale disk cache.
 
 ---
 

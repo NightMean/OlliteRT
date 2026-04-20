@@ -84,7 +84,7 @@ class LlmHttpAllowlistLoaderTest {
   }
 
   @Test
-  fun externalFileDirTakesPrecedenceOverAssets() {
+  fun externalFileDirTakesPrecedenceOverAssetsAtSameContentVersion() {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText(minimalAllowlistJson)
@@ -95,6 +95,62 @@ class LlmHttpAllowlistLoaderTest {
       )
       val result = loader.load()
       assertEquals(1, result.size)
+      assertTrue(loader.lastSource.startsWith("external:"))
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun bundledAssetWinsOverStaleDiskCacheByContentVersion() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      val staleDiskCache = """{"contentVersion": 1, "models": [
+        {"name": "OldModel", "modelId": "test/old", "modelFile": "old.litertlm",
+         "description": "stale", "sizeInBytes": 100, "defaultConfig": {}}
+      ]}"""
+      File(dir, "model_allowlist.json").writeText(staleDiskCache)
+
+      val newerBundled = """{"contentVersion": 2, "models": [
+        {"name": "NewModel", "modelId": "test/new", "modelFile": "new.litertlm",
+         "description": "fresh", "sizeInBytes": 200, "defaultConfig": {}}
+      ]}"""
+      val loader = LlmHttpAllowlistLoader(
+        externalFilesDir = dir,
+        packageName = "test.pkg",
+        assetReader = { newerBundled },
+      )
+      val result = loader.load()
+      assertEquals(1, result.size)
+      assertEquals("NewModel", result.first().name)
+      assertEquals("asset", loader.lastSource)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun diskCacheWinsOverBundledWhenContentVersionIsHigher() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      val freshDiskCache = """{"contentVersion": 3, "models": [
+        {"name": "CachedModel", "modelId": "test/cached", "modelFile": "cached.litertlm",
+         "description": "fresh cache", "sizeInBytes": 100, "defaultConfig": {}}
+      ]}"""
+      File(dir, "model_allowlist.json").writeText(freshDiskCache)
+
+      val olderBundled = """{"contentVersion": 1, "models": [
+        {"name": "BundledModel", "modelId": "test/bundled", "modelFile": "bundled.litertlm",
+         "description": "older", "sizeInBytes": 200, "defaultConfig": {}}
+      ]}"""
+      val loader = LlmHttpAllowlistLoader(
+        externalFilesDir = dir,
+        packageName = "test.pkg",
+        assetReader = { olderBundled },
+      )
+      val result = loader.load()
+      assertEquals(1, result.size)
+      assertEquals("CachedModel", result.first().name)
       assertTrue(loader.lastSource.startsWith("external:"))
     } finally {
       dir.deleteRecursively()

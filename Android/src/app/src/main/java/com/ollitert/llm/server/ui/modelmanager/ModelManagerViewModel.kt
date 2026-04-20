@@ -522,24 +522,46 @@ constructor(
           modelAllowlist = data?.let { ModelAllowlistJson.decode(it.textContent) }
 
           if (modelAllowlist != null && data != null) {
-            // Network fetch succeeded — save to disk cache for future offline use.
-            allowlistSource = AllowlistSource.NETWORK
-            Log.d(TAG, "Done: loading model allowlist from internet")
-            saveModelAllowlistToDisk(modelAllowlistContent = data.textContent)
-          } else {
-            // Network failed — try disk cache. If this was a manual retry, notify the user.
-            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
-            if (isManualRetry) _toastErrorChannel.trySend(context.getString(R.string.error_model_server_unreachable))
-            modelAllowlist = readModelAllowlistFromDisk()
-
-            if (modelAllowlist != null) {
-              allowlistSource = AllowlistSource.DISK_CACHE
-              Log.d(TAG, "Loaded model allowlist from disk cache")
-            } else {
-              // Disk cache empty — fall back to bundled asset (guarantees models on fresh install).
-              Log.w(TAG, "Disk cache empty. Falling back to bundled asset allowlist")
-              modelAllowlist = readModelAllowlistFromAssets()
+            val networkList = modelAllowlist
+            // Network succeeded — guard against a regressed remote JSON by comparing
+            // against the bundled asset's contentVersion.
+            val bundled = readModelAllowlistFromAssets()
+            if (bundled != null && bundled.contentVersion > networkList.contentVersion) {
+              Log.w(TAG, "Remote contentVersion (${networkList.contentVersion}) is behind bundled (${bundled.contentVersion}) — using bundled")
+              modelAllowlist = bundled
               allowlistSource = AllowlistSource.BUNDLED_ASSET
+            } else {
+              allowlistSource = AllowlistSource.NETWORK
+              Log.d(TAG, "Done: loading model allowlist from internet")
+              saveModelAllowlistToDisk(modelAllowlistContent = data.textContent)
+            }
+          } else {
+            // Network failed — pick the freshest offline source by contentVersion.
+            Log.w(TAG, "Failed to load model allowlist from internet. Trying offline sources")
+            if (isManualRetry) _toastErrorChannel.trySend(context.getString(R.string.error_model_server_unreachable))
+            val diskCache = readModelAllowlistFromDisk()
+            val bundled = readModelAllowlistFromAssets()
+
+            when {
+              diskCache != null && bundled != null -> {
+                if (bundled.contentVersion > diskCache.contentVersion) {
+                  Log.d(TAG, "Bundled asset (v${bundled.contentVersion}) is newer than disk cache (v${diskCache.contentVersion})")
+                  modelAllowlist = bundled
+                  allowlistSource = AllowlistSource.BUNDLED_ASSET
+                } else {
+                  Log.d(TAG, "Disk cache (v${diskCache.contentVersion}) is current (bundled v${bundled.contentVersion})")
+                  modelAllowlist = diskCache
+                  allowlistSource = AllowlistSource.DISK_CACHE
+                }
+              }
+              diskCache != null -> {
+                modelAllowlist = diskCache
+                allowlistSource = AllowlistSource.DISK_CACHE
+              }
+              bundled != null -> {
+                modelAllowlist = bundled
+                allowlistSource = AllowlistSource.BUNDLED_ASSET
+              }
             }
           }
         }
@@ -556,6 +578,17 @@ constructor(
         }
 
         Log.d(TAG, "Allowlist: $modelAllowlist")
+
+        val sourceLabel = when (allowlistSource) {
+          AllowlistSource.NETWORK -> "network"
+          AllowlistSource.DISK_CACHE -> "disk cache"
+          AllowlistSource.BUNDLED_ASSET -> "bundled asset"
+        }
+        RequestLogStore.addEvent(
+          "Model list loaded from $sourceLabel (v${modelAllowlist.contentVersion}, ${modelAllowlist.models.size} models)",
+          level = LogLevel.DEBUG,
+          category = EventCategory.MODEL,
+        )
 
         val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
 

@@ -197,9 +197,16 @@ data class AllowedModel(
   }
 }
 
-/** The model allowlist. */
+/**
+ * The model allowlist.
+ *
+ * [contentVersion] must be bumped in the JSON every time the allowlist content changes
+ * (new models, changed fields, removed entries). Without this, app updates that ship a
+ * newer bundled asset won't override a stale disk cache on existing devices.
+ */
 data class ModelAllowlist(
   val schemaVersion: Int = 1,
+  val contentVersion: Int = 0,
   val models: List<AllowedModel>,
 ) {
   companion object {
@@ -208,9 +215,9 @@ data class ModelAllowlist(
 
   fun filterCompatible(appVersion: SemVer): ModelAllowlist {
     if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
-      return ModelAllowlist(schemaVersion = schemaVersion, models = emptyList())
+      return ModelAllowlist(schemaVersion = schemaVersion, contentVersion = contentVersion, models = emptyList())
     }
     val compatible = models.filter { it.isCompatibleWith(appVersion) }
-    return ModelAllowlist(schemaVersion = schemaVersion, models = compatible)
+    return ModelAllowlist(schemaVersion = schemaVersion, contentVersion = contentVersion, models = compatible)
   }
 }

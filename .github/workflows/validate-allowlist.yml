@@ -47,6 +47,27 @@ jobs:
           fi
           echo "✓ schemaVersion: $SCHEMA_VERSION"
 
+          # 2b. Has contentVersion (integer, >= 0)
+          CONTENT_VERSION=$(python3 -c "
+          import json
+          data = json.load(open('$FILE'))
+          cv = data.get('contentVersion')
+          if cv is None:
+              print('MISSING')
+          elif not isinstance(cv, int) or cv < 0:
+              print('INVALID')
+          else:
+              print(cv)
+          ")
+          if [ "$CONTENT_VERSION" = "MISSING" ]; then
+            echo "::warning::Missing 'contentVersion' field (defaults to 0)"
+          elif [ "$CONTENT_VERSION" = "INVALID" ]; then
+            echo "::error::'contentVersion' must be a non-negative integer"
+            exit 1
+          else
+            echo "✓ contentVersion: $CONTENT_VERSION"
+          fi
+
           # 3. Has models array
           MODEL_COUNT=$(python3 -c "
           import json

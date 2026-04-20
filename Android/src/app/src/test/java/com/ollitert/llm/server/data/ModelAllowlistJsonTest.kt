@@ -415,4 +415,29 @@ class ModelAllowlistJsonTest {
     val allowlist = ModelAllowlistJson.decode(json)
     assertTrue(allowlist.models.first().pinned == null)
   }
+
+  @Test
+  fun decodesContentVersionWhenPresent() {
+    val json = """{"schemaVersion": 1, "contentVersion": 5, "models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals(5, allowlist.contentVersion)
+  }
+
+  @Test
+  fun decodesContentVersionMissingDefaultsToZero() {
+    val json = """{"schemaVersion": 1, "models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals(0, allowlist.contentVersion)
+  }
+
+  @Test
+  fun filterCompatiblePreservesContentVersion() {
+    val allowlist = ModelAllowlist(
+      schemaVersion = 1,
+      contentVersion = 3,
+      models = listOf(makeFilterModel("A", minAppVersion = "1.0.0")),
+    )
+    val filtered = allowlist.filterCompatible(SemVer(1, 0, 0))
+    assertEquals(3, filtered.contentVersion)
+  }
 }
