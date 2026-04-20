@@ -82,6 +82,7 @@ data class RequestLogEntity(
     val cancelledByUser: Boolean = false,
     val partialText: String? = null,
     val isExactTokenCount: Boolean = false,
+    val ignoredClientParams: String? = null,
     // Per-request performance metrics
     val ttfbMs: Long = 0,
     val decodeSpeed: Double = 0.0,
@@ -124,6 +125,7 @@ data class RequestLogEntity(
       inputTokenEstimate = inputTokenEstimate,
       maxContextTokens = maxContextTokens,
       isExactTokenCount = ext.isExactTokenCount,
+      ignoredClientParams = ext.ignoredClientParams,
       ttfbMs = ext.ttfbMs,
       decodeSpeed = ext.decodeSpeed,
       prefillSpeed = ext.prefillSpeed,
@@ -150,6 +152,7 @@ data class RequestLogEntity(
         cancelledByUser = entry.cancelledByUser,
         partialText = entry.partialText,
         isExactTokenCount = entry.isExactTokenCount,
+        ignoredClientParams = entry.ignoredClientParams,
         ttfbMs = entry.ttfbMs,
         decodeSpeed = entry.decodeSpeed,
         prefillSpeed = entry.prefillSpeed,

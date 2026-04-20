@@ -56,6 +56,7 @@ class RequestLogEntityTest {
     inputTokenEstimate = 258,
     maxContextTokens = 4096,
     isExactTokenCount = false,
+    ignoredClientParams = "unsupported_param, another_param",
   )
 
   // --- Round-trip conversion ---
@@ -91,6 +92,7 @@ class RequestLogEntityTest {
     assertEquals(original.inputTokenEstimate, restored.inputTokenEstimate)
     assertEquals(original.maxContextTokens, restored.maxContextTokens)
     assertEquals(original.isExactTokenCount, restored.isExactTokenCount)
+    assertEquals(original.ignoredClientParams, restored.ignoredClientParams)
   }
 
   @Test
@@ -110,6 +112,7 @@ class RequestLogEntityTest {
     assertNull(restored.compactionDetails)
     assertNull(restored.compactedPrompt)
     assertNull(restored.partialText)
+    assertNull(restored.ignoredClientParams)
   }
 
   @Test
