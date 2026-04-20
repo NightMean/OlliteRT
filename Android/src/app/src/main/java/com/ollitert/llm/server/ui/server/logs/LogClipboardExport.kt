@@ -105,7 +105,8 @@ internal fun buildLogsJson(entries: List<RequestLogEntry>): String {
     array.put(entryToJson(entry))
   }
   root.put("entries", array)
-  return root.toString(2)
+  // Android's org.json escapes "/" as "\/" — valid JSON but noisy for human readers.
+  return root.toString(2).replace("\\/", "/")
 }
 
 /** Build JSON on a background thread to avoid UI jank with large log sets (2500+ entries). */
@@ -157,7 +158,7 @@ internal suspend fun exportLogsAsJson(context: Context, entries: List<RequestLog
 }
 
 internal fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
-  val json = entryToJson(entry).toString(2)
+  val json = entryToJson(entry).toString(2).replace("\\/", "/")
   copyToClipboard(context, "OlliteRT Log Entry", json, formatSuffix = "JSON")
 }
 

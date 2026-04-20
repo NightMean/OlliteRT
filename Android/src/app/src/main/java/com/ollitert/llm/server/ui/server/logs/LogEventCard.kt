@@ -980,7 +980,7 @@ internal fun ExpandablePromptBox(
 }
 
 internal fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
-  val json = entryToJson(entry).toString(2)
+  val json = entryToJson(entry).toString(2).replace("\\/", "/")
   copyToClipboard(context, "OlliteRT Event", json, formatSuffix = "JSON")
 }
 

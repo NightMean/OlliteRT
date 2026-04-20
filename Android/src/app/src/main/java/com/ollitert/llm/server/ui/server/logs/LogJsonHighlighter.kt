@@ -86,9 +86,9 @@ internal fun highlightJson(text: String): AnnotatedString = buildAnnotatedString
 internal fun prettyPrintJson(raw: String): String = try {
   val trimmed = raw.trimStart()
   if (trimmed.startsWith("{")) {
-    JSONObject(trimmed).toString(2)
+    JSONObject(trimmed).toString(2).replace("\\/", "/")
   } else if (trimmed.startsWith("[")) {
-    JSONArray(trimmed).toString(2)
+    JSONArray(trimmed).toString(2).replace("\\/", "/")
   } else {
     raw
   }
