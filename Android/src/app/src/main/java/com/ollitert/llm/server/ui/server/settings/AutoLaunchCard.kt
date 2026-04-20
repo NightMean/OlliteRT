@@ -168,9 +168,9 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
 
       NumericWithUnitRow(
         def = KEEP_ALIVE_TIMEOUT,
-        baseValue = vm.keepAliveMinutesEntry.current.toLong(),
-        savedBaseValue = vm.keepAliveMinutesEntry.saved.toLong(),
-        onBaseValueChange = { vm.keepAliveMinutesEntry.update(it.toInt()) },
+        baseValue = vm.keepAliveMinutesEntry.current,
+        savedBaseValue = vm.keepAliveMinutesEntry.saved,
+        onBaseValueChange = { vm.keepAliveMinutesEntry.update(it) },
         searchQuery = vm.searchQuery,
         isError = vm.hasError(KEEP_ALIVE_TIMEOUT.key),
         enabled = vm.keepAliveEnabledEntry.current,

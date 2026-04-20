@@ -103,9 +103,9 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
 
       NumericWithUnitRow(
         def = CHECK_FREQUENCY,
-        baseValue = vm.updateCheckIntervalHoursEntry.current.toLong(),
-        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved.toLong(),
-        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it.toInt()) },
+        baseValue = vm.updateCheckIntervalHoursEntry.current,
+        savedBaseValue = vm.updateCheckIntervalHoursEntry.saved,
+        onBaseValueChange = { vm.updateCheckIntervalHoursEntry.update(it) },
         searchQuery = vm.searchQuery,
         isError = vm.hasError(CHECK_FREQUENCY.key),
         enabled = vm.updateCheckEnabledEntry.current && updateControlsEnabled,
