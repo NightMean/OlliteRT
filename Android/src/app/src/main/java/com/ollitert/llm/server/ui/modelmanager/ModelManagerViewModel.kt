@@ -27,7 +27,6 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.getJsonResponse
-import com.ollitert.llm.server.data.BuiltInTaskId
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
@@ -39,8 +38,6 @@ import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.SOC
 import com.ollitert.llm.server.data.TMP_FILE_EXT
-import com.ollitert.llm.server.data.Task
-import com.ollitert.llm.server.data.createBuiltInTasks
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.service.EventCategory
@@ -111,17 +108,14 @@ data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData
 data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
 
 data class ModelManagerUiState(
-  /** A list of tasks available in the application. */
-  val tasks: List<Task>,
-
-  /** Tasks grouped by category. */
-  val tasksByCategory: Map<String, List<Task>>,
+  /** Flat list of all models (built-in + imported). */
+  val models: List<Model> = listOf(),
 
   /** A map that tracks the download status of each model, indexed by model name. */
-  val modelDownloadStatus: Map<String, ModelDownloadStatus>,
+  val modelDownloadStatus: Map<String, ModelDownloadStatus> = mapOf(),
 
   /** A map that tracks the initialization status of each model, indexed by model name. */
-  val modelInitializationStatus: Map<String, ModelInitializationStatus>,
+  val modelInitializationStatus: Map<String, ModelInitializationStatus> = mapOf(),
 
   /** Whether the app is loading and processing the model allowlist. */
   val loadingModelAllowlist: Boolean = true,
@@ -136,8 +130,6 @@ data class ModelManagerUiState(
   val selectedModel: Model = EMPTY_MODEL,
 
   val configValuesUpdateTrigger: Long = 0L,
-  // Updated when model is imported of an imported model is deleted.
-  val modelImportingUpdateTrigger: Long = 0L,
   // Bumped when storage changes (download complete, model deleted).
   val storageUpdateTrigger: Long = 0L,
 )
@@ -147,7 +139,7 @@ data class ModelManagerUiState(
  *
  * This ViewModel handles model-related operations such as downloading, deleting, initializing, and
  * cleaning up models. It also manages the UI state for model management, including the list of
- * tasks, models, download statuses, and initialization statuses.
+ * models, download statuses, and initialization statuses.
  */
 @HiltViewModel
 open class ModelManagerViewModel
@@ -183,24 +175,11 @@ constructor(
   }
 
   fun getModelByName(name: String): Model? {
-    for (task in uiState.value.tasks) {
-      for (model in task.models) {
-        if (model.name == name) {
-          return model
-        }
-      }
-    }
-    return null
+    return uiState.value.models.find { it.name == name }
   }
 
   fun getAllModels(): List<Model> {
-    val allModels = mutableSetOf<Model>()
-    for (task in uiState.value.tasks) {
-      for (model in task.models) {
-        allModels.add(model)
-      }
-    }
-    return allModels.toList().sortedBy { it.displayName.ifEmpty { it.name } }
+    return uiState.value.models.sortedBy { it.displayName.ifEmpty { it.name } }
   }
 
   fun getAllDownloadedModels(): List<Model> {
@@ -210,14 +189,12 @@ constructor(
     }
   }
 
-  fun processTasks() {
-    for (task in uiState.value.tasks) {
-      for (model in task.models) {
-        model.preProcess()
-        // Restore persisted inference config (temperature, max tokens, etc.) so settings
-        // survive app restarts. Overlays saved values on top of model defaults.
-        LlmHttpModelFactory.restoreInferenceConfig(context, model)
-      }
+  fun processModels() {
+    for (model in uiState.value.models) {
+      model.preProcess()
+      // Restore persisted inference config (temperature, max tokens, etc.) so settings
+      // survive app restarts. Overlays saved values on top of model defaults.
+      LlmHttpModelFactory.restoreInferenceConfig(context, model)
     }
   }
 
@@ -235,7 +212,7 @@ constructor(
     }
   }
 
-  fun downloadModel(task: Task?, model: Model) {
+  fun downloadModel(model: Model) {
     // Update status.
     setDownloadStatus(
       curModel = model,
@@ -247,7 +224,6 @@ constructor(
 
     // Start to send download request.
     downloadRepository.downloadModel(
-      task = task,
       model = model,
       onStatusUpdated = this::setDownloadStatus,
     )
@@ -279,14 +255,9 @@ constructor(
       ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
 
     // Delete model from the list if model is imported as a local model.
+    var updatedModels = uiState.value.models
     if (model.imported) {
-      for (curTask in uiState.value.tasks) {
-        val index = curTask.models.indexOf(model)
-        if (index >= 0) {
-          curTask.models.removeAt(index)
-        }
-        curTask.updateTrigger.value = System.currentTimeMillis()
-      }
+      updatedModels = updatedModels.filter { it.name != model.name }
       curModelDownloadStatus.remove(model.name)
 
       // Update data store.
@@ -297,13 +268,12 @@ constructor(
       }
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
-    val newUiState =
+    _uiState.update {
       uiState.value.copy(
         modelDownloadStatus = curModelDownloadStatus,
-        tasks = uiState.value.tasks.toList(),
-        modelImportingUpdateTrigger = System.currentTimeMillis(),
+        models = updatedModels,
       )
-    _uiState.update { newUiState }
+    }
   }
 
   /** Delete model and notify storage change (for user-initiated deletions). */
@@ -388,16 +358,10 @@ constructor(
     val model = LlmHttpModelFactory.buildImportedModel(info)
     LlmHttpModelFactory.restoreInferenceConfig(context, model)
 
-    for (task in uiState.value.tasks) {
-      // Remove duplicated imported model if existed.
-      val modelIndex = task.models.indexOfFirst { info.fileName == it.name && it.imported }
-      if (modelIndex >= 0) {
-        Log.d(TAG, "duplicated imported model found in task. Removing it first")
-        task.models.removeAt(modelIndex)
-      }
-      task.models.add(model)
-      task.updateTrigger.value = System.currentTimeMillis()
-    }
+    // Remove duplicate imported model if it exists, then add the new one.
+    val updatedModels = uiState.value.models
+      .filter { !(it.name == info.fileName && it.imported) }
+      .plus(model)
 
     // Add initial status and states.
     val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
@@ -411,15 +375,12 @@ constructor(
     modelInstances[model.name] =
       ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
 
-    // Update ui state — bump both import trigger and storage trigger so the
-    // storage bar reflects the space consumed by the newly imported model.
     val now = System.currentTimeMillis()
     _uiState.update {
       uiState.value.copy(
-        tasks = uiState.value.tasks.toList(),
+        models = updatedModels,
         modelDownloadStatus = modelDownloadStatus,
         modelInitializationStatus = modelInstances,
-        modelImportingUpdateTrigger = now,
         storageUpdateTrigger = now,
       )
     }
@@ -459,23 +420,13 @@ constructor(
     // Rebuild the Model object from updated proto
     val updatedModel = LlmHttpModelFactory.buildImportedModel(updatedInfo)
 
-    // Replace the model in all task lists
-    for (task in uiState.value.tasks) {
-      val modelIndex = task.models.indexOfFirst { it.name == updatedInfo.fileName && it.imported }
-      if (modelIndex >= 0) {
-        task.models[modelIndex] = updatedModel
-        task.updateTrigger.value = System.currentTimeMillis()
-      }
+    // Replace the model in the flat list
+    val updatedModels = uiState.value.models.map { m ->
+      if (m.name == updatedInfo.fileName && m.imported) updatedModel else m
     }
 
-    // Bump modelImportingUpdateTrigger to force StateFlow emission. Without this,
-    // _uiState.update produces a structurally equal value (same Task references with
-    // in-place mutated MutableList) and MutableStateFlow drops the update.
     _uiState.update {
-      it.copy(
-        tasks = uiState.value.tasks.toList(),
-        modelImportingUpdateTrigger = System.currentTimeMillis(),
-      )
+      it.copy(models = updatedModels)
     }
 
     RequestLogStore.addEvent(
@@ -500,32 +451,22 @@ constructor(
       Log.d(TAG, "All workers are cancelled.")
 
       viewModelScope.launch(Dispatchers.Main) {
-        val checkedModelNames = mutableSetOf<String>()
         val tokenStatusAndData = getTokenStatusAndData()
-        for (task in uiState.value.tasks) {
-          for (model in task.models) {
-            if (checkedModelNames.contains(model.name)) {
-              continue
+        for (model in uiState.value.models) {
+          // Start download for partially downloaded models.
+          val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
+          if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
+            if (
+              tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
+                tokenStatusAndData.data != null
+            ) {
+              model.accessToken = tokenStatusAndData.data.accessToken
             }
-
-            // Start download for partially downloaded models.
-            val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
-            if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
-              if (
-                tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
-                  tokenStatusAndData.data != null
-              ) {
-                model.accessToken = tokenStatusAndData.data.accessToken
-              }
-              Log.d(TAG, "Sending a new download request for '${model.name}'")
-              downloadRepository.downloadModel(
-                task = task,
-                model = model,
-                onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
-              )
-            }
-
-            checkedModelNames.add(model.name)
+            Log.d(TAG, "Sending a new download request for '${model.name}'")
+            downloadRepository.downloadModel(
+              model = model,
+              onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
+            )
           }
         }
       }
@@ -618,13 +559,8 @@ constructor(
 
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
-        // Convert models in the allowlist.
-        // Clear existing models to avoid duplicates on retry (mutable list accumulates).
-        val curTasks = uiState.value.tasks
-        for (task in curTasks) {
-          task.models.clear()
-        }
-        val nameToModel = mutableMapOf<String, Model>()
+        // Convert models in the allowlist into a flat list.
+        val models = mutableListOf<Model>()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
             continue
@@ -645,43 +581,20 @@ constructor(
             }
           }
 
-          val model = allowedModel.toModel()
-          nameToModel.put(model.name, model)
-          curTasks.find { it.id == BuiltInTaskId.LLM_CHAT }?.models?.add(model)
-          curTasks.find { it.id == BuiltInTaskId.LLM_PROMPT_LAB }?.models?.add(model)
-          curTasks.find { it.id == BuiltInTaskId.LLM_AGENT_CHAT }?.models?.add(model)
-          if (allowedModel.llmSupportImage == true) {
-            curTasks.find { it.id == BuiltInTaskId.LLM_ASK_IMAGE }?.models?.add(model)
-          }
-          if (allowedModel.llmSupportAudio == true) {
-            curTasks.find { it.id == BuiltInTaskId.LLM_ASK_AUDIO }?.models?.add(model)
-          }
+          models.add(allowedModel.toModel())
         }
 
-        // Find models from allowlist if a task's `modelNames` field is not empty.
-        for (task in curTasks) {
-          if (task.modelNames.isNotEmpty()) {
-            for (modelName in task.modelNames) {
-              val model = nameToModel[modelName]
-              if (model == null) {
-                Log.w(TAG, "Model '${modelName}' in task '${task.label}' not found in allowlist.")
-                continue
-              }
-              task.models.add(model)
-            }
-          }
-        }
+        // Store models in state so processModels and createUiState can read them.
+        _uiState.update { it.copy(models = models) }
 
-        // Process all tasks.
-        processTasks()
+        // Process all models.
+        processModels()
 
         // Update UI state.
         _uiState.update {
           createUiState()
             .copy(
               loadingModelAllowlist = false,
-              tasks = curTasks,
-              tasksByCategory = groupTasksByCategory(),
               allowlistSource = allowlistSource,
             )
         }
@@ -701,14 +614,12 @@ constructor(
   }
 
   fun clearLoadModelAllowlistError() {
-    processTasks()
+    processModels()
     _uiState.update {
       createUiState()
         .copy(
           loadingModelAllowlist = false,
-          tasks = uiState.value.tasks,
           loadingModelAllowlistError = "",
-          tasksByCategory = groupTasksByCategory(),
         )
     }
   }
@@ -725,44 +636,27 @@ constructor(
   private fun readModelAllowlistFromAssets() = allowlistLoader.readFromAssets()
 
   private fun createEmptyUiState(): ModelManagerUiState {
-    return ModelManagerUiState(
-      tasks = createBuiltInTasks(),
-      tasksByCategory = mapOf(),
-      modelDownloadStatus = mapOf(),
-      modelInitializationStatus = mapOf(),
-    )
+    return ModelManagerUiState()
   }
 
   private fun createUiState(): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
-    val checkedModelNames = mutableSetOf<String>()
-    for (task in uiState.value.tasks) {
-      for (model in task.models) {
-        if (checkedModelNames.contains(model.name)) {
-          continue
-        }
-        modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
-        modelInstances[model.name] =
-          ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
-        checkedModelNames.add(model.name)
-      }
+    for (model in uiState.value.models) {
+      modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
+      modelInstances[model.name] =
+        ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
     }
 
     // Load imported models.
+    val importedModels = mutableListOf<Model>()
     for (importedModel in dataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
 
-      // Create model.
       val model = LlmHttpModelFactory.buildImportedModel(importedModel)
       LlmHttpModelFactory.restoreInferenceConfig(context, model)
+      importedModels.add(model)
 
-      // Add to all tasks.
-      for (task in uiState.value.tasks) {
-        task.models.add(model)
-      }
-
-      // Update status.
       modelDownloadStatus[model.name] =
         ModelDownloadStatus(
           status = ModelDownloadStatusType.SUCCEEDED,
@@ -773,30 +667,12 @@ constructor(
 
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
-      tasks = uiState.value.tasks,
-      tasksByCategory = mapOf(),
+      models = uiState.value.models + importedModels,
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
     )
   }
 
-
-  private fun groupTasksByCategory(): Map<String, List<Task>> {
-    val tasks = uiState.value.tasks
-
-    val groupedTasks = tasks.groupBy { it.category.id }
-    val groupedSortedTasks: MutableMap<String, List<Task>> = mutableMapOf()
-    // Sort tasks by label.
-    for (categoryId in groupedTasks.keys) {
-      val sortedTasks = (groupedTasks[categoryId] ?: continue).sortedBy { it.label }
-      for ((index, task) in sortedTasks.withIndex()) {
-        task.index = index
-      }
-      groupedSortedTasks[categoryId] = sortedTasks
-    }
-
-    return groupedSortedTasks
-  }
 
   /**
    * Retrieves the download status of a model.

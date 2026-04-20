@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import java.io.File
 import kotlin.math.ln
@@ -172,14 +171,13 @@ fun checkNotificationPermissionAndStartDownload(
   context: Context,
   launcher: ManagedActivityResultLauncher<String, Boolean>,
   modelManagerViewModel: ModelManagerViewModel,
-  task: Task?,
   model: Model,
 ) {
   // Check permission
   when (PackageManager.PERMISSION_GRANTED) {
     // Already got permission. Call the lambda.
     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) -> {
-      modelManagerViewModel.downloadModel(task = task, model = model)
+      modelManagerViewModel.downloadModel(model = model)
     }
 
     // Otherwise, ask for permission

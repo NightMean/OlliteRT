@@ -164,7 +164,7 @@ fun OlliteRTNavHost(
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
-        onModelSelected = { _, model ->
+        onModelSelected = { model ->
           // Track manual server starts for the engagement prompt (counter lives in prefs,
           // observer lives at NavHost level so it fires regardless of which screen is active)
           LlmHttpPrefs.incrementManualStartCount(modelsContext)

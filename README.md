@@ -39,7 +39,7 @@
 - **Broad Compatibility** — Home Assistant, Open WebUI, OpenClaw, Python, curl — if it talks to OpenAI, it works
 
 > [!NOTE]
-> Home Assistant currently requires a custom integration such as [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) or [Local OpenAI LLM](https://github.com/cavefire/local_openai_llm) — see the [Home Assistant client setup](docs/CLIENT_SETUP.md#home-assistant)
+> Home Assistant currently requires a custom integration such as [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) or [Local OpenAI LLM](https://github.com/cavefire/local_openai_llm) and [OpenAI STT](https://github.com/einToast/openai_stt_ha) for voice commands — see the [Home Assistant client setup](docs/CLIENT_SETUP.md#home-assistant)
 
 <sub>* I am not responsible for any swollen batteries, crispy phones, or spontaneous pocket warmers. Please don't run your LLM on your phone while it's under your pillow. You've been warned.</sub>
 

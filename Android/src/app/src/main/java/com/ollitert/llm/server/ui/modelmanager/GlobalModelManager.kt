@@ -121,7 +121,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCapability
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
@@ -167,7 +166,7 @@ enum class ModelSort(val labelResId: Int) {
 fun GlobalModelManager(
   viewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
-  onModelSelected: (Task, Model) -> Unit,
+  onModelSelected: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
   onNavigateToSettings: () -> Unit = {},
   modifier: Modifier = Modifier,
@@ -200,7 +199,6 @@ fun GlobalModelManager(
   // Switch model confirmation state
   var showSwitchModelDialog by remember { mutableStateOf(false) }
   var pendingSwitchModel by remember { mutableStateOf<Model?>(null) }
-  var pendingSwitchTask by remember { mutableStateOf<Task?>(null) }
 
   // Re-check permissions when the user returns from system settings.
   // A simple counter bumped on ON_RESUME forces recomposition of permission-dependent UI.
@@ -262,17 +260,12 @@ fun GlobalModelManager(
       }
     }
 
-  // Derive model lists reactively from uiState — any change to tasks, models, or download
-  // status automatically propagates without manual trigger bumping.
+  // Derive model lists reactively from uiState — any change to the flat model list or download
+  // status automatically propagates.
   val sortedAllModels by remember {
     derivedStateOf {
-      // Read modelImportingUpdateTrigger so this derivedStateOf invalidates when
-      // in-place task.models mutations are signaled via trigger bump (MutableStateFlow
-      // conflates structurally-equal values, so the trigger makes them differ).
-      @Suppress("UNUSED_VARIABLE")
-      val importTrigger = uiState.modelImportingUpdateTrigger
       val downloadStatus = uiState.modelDownloadStatus
-      val allModels = uiState.tasks.flatMap { it.models }.distinctBy { it.name }
+      val allModels = uiState.models
       allModels.sortedWith(
         compareBy<Model> { model ->
           val name = model.displayName.ifEmpty { model.name }
@@ -351,19 +344,14 @@ fun GlobalModelManager(
         Toast.LENGTH_SHORT,
       ).show()
     } else {
-      val tasks = viewModel.uiState.value.tasks
-      val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
-      if (tasksForModel.isNotEmpty()) {
-        val isServerActive = serverStatus == ServerStatus.RUNNING
-        val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
-        if (isServerActive && isDifferentModel) {
-          // Ask user to confirm switching models
-          pendingSwitchModel = model
-          pendingSwitchTask = tasksForModel[0]
-          showSwitchModelDialog = true
-        } else {
-          onModelSelected(tasksForModel[0], model)
-        }
+      val isServerActive = serverStatus == ServerStatus.RUNNING
+      val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
+      if (isServerActive && isDifferentModel) {
+        // Ask user to confirm switching models
+        pendingSwitchModel = model
+        showSwitchModelDialog = true
+      } else {
+        onModelSelected(model)
       }
     }
   }
@@ -619,7 +607,6 @@ fun GlobalModelManager(
       items(filteredImportedModels, key = { "imported_${it.name}" }) { model ->
         ModelItem(
           model = model,
-          task = null,
           modelManagerViewModel = viewModel,
           onModelClicked = handleClickModel,
           onBenchmarkClicked = onBenchmarkClicked,
@@ -651,7 +638,6 @@ fun GlobalModelManager(
       items(filteredBuiltInModels, key = { "builtin_${it.name}" }) { model ->
         ModelItem(
           model = model,
-          task = null,
           modelManagerViewModel = viewModel,
           onModelClicked = handleClickModel,
           onBenchmarkClicked = onBenchmarkClicked,
@@ -851,13 +837,11 @@ fun GlobalModelManager(
 
   // Confirmation dialog when switching models while server is running
   val switchModel = pendingSwitchModel
-  val switchTask = pendingSwitchTask
-  if (showSwitchModelDialog && switchModel != null && switchTask != null) {
+  if (showSwitchModelDialog && switchModel != null) {
     AlertDialog(
       onDismissRequest = {
         showSwitchModelDialog = false
         pendingSwitchModel = null
-        pendingSwitchTask = null
       },
       title = { Text(stringResource(R.string.dialog_switch_model_title)) },
       text = {
@@ -873,7 +857,6 @@ fun GlobalModelManager(
         Button(onClick = {
           showSwitchModelDialog = false
           pendingSwitchModel = null
-          pendingSwitchTask = null
           onSwitchModel(switchModel.name)
         }) {
           Text(stringResource(R.string.button_switch))
@@ -884,7 +867,6 @@ fun GlobalModelManager(
           onClick = {
             showSwitchModelDialog = false
             pendingSwitchModel = null
-            pendingSwitchTask = null
           },
           colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

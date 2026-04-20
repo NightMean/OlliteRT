@@ -50,7 +50,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.ServerStatus
@@ -67,13 +66,12 @@ import com.ollitert.llm.server.ui.theme.customColors
 /**
  * Composable function to display a model item in the model manager list.
  *
- * This function renders a card representing a model, displaying its task icon, name, download
+ * This function renders a card representing a model, displaying its name, download
  * status, and providing action buttons including download/try and settings (for active models).
  */
 @Composable
 fun ModelItem(
   model: Model,
-  task: Task?,
   modelManagerViewModel: ModelManagerViewModel,
   onModelClicked: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
@@ -104,7 +102,7 @@ fun ModelItem(
     modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(size = 12.dp))
-      .background(color = MaterialTheme.customColors.taskCardBgColor)
+      .background(color = MaterialTheme.customColors.modelCardBgColor)
 
   // Imported models are clickable to select them
   if (model.imported && !showBenchmarkButton) {
@@ -116,7 +114,6 @@ fun ModelItem(
       // Model name and status
       ModelNameAndStatus(
         model = model,
-        task = task,
         downloadStatus = downloadStatus,
         searchQuery = searchQuery,
         modifier = Modifier.fillMaxWidth(),
@@ -135,7 +132,6 @@ fun ModelItem(
 
       // Download / action panel
       DownloadModelPanel(
-        task = task,
         model = model,
         downloadStatus = downloadStatus,
         modifier = Modifier.padding(top = 4.dp),

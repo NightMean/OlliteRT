@@ -37,14 +37,11 @@ import com.ollitert.llm.server.data.MODEL_INFO_ICON_SIZE
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.Task
-import com.ollitert.llm.server.ui.common.getTaskBgGradientColors
 import com.ollitert.llm.server.ui.theme.customColors
 
 /** Composable function to display an icon representing the download status of a model. */
 @Composable
 fun StatusIcon(
-  task: Task?,
   model: Model,
   downloadStatus: ModelDownloadStatus?,
   modifier: Modifier = Modifier,
@@ -54,12 +51,7 @@ fun StatusIcon(
     horizontalArrangement = Arrangement.Center,
     modifier = modifier,
   ) {
-    val color =
-      if (task != null) {
-        getTaskBgGradientColors(task = task)[1]
-      } else {
-        MaterialTheme.colorScheme.primary
-      }
+    val color = MaterialTheme.colorScheme.primary
     if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
       Icon(
         Icons.Filled.DownloadForOffline,

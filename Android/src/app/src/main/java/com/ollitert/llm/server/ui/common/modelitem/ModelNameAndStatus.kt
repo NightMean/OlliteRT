@@ -41,7 +41,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.ClickableLink
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -62,7 +61,6 @@ import com.ollitert.llm.server.ui.theme.labelSmallNarrow
 @Composable
 fun ModelNameAndStatus(
   model: Model,
-  task: Task?,
   downloadStatus: ModelDownloadStatus?,
   searchQuery: String = "",
   modifier: Modifier = Modifier,
@@ -103,7 +101,6 @@ fun ModelNameAndStatus(
       Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         // Status icon.
         StatusIcon(
-          task = task,
           model = model,
           downloadStatus = downloadStatus,
           modifier = Modifier.padding(end = 4.dp),

@@ -43,17 +43,12 @@ enum class RuntimeType {
   @SerializedName("litert_lm") LITERT_LM,
 }
 
-/**
- * A model for a task (see [Task]).
- *
- * A task can have multiple models. For example, a task might be "LLM Chat", and it might have
- * models such as Gemma2, Gemma3, etc.
- */
+/** A model available for serving. */
 data class Model(
   /**
    * The name of the model.
    *
-   * This field is used to uniquely identify this model among all the tasks.
+   * This field is used to uniquely identify this model among all available models.
    *
    * IMPORTANT: it shouldn't contain "/" character.
    */

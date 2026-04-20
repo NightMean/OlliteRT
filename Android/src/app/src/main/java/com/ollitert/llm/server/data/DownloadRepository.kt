@@ -44,11 +44,9 @@ import java.util.concurrent.Executors
 
 private const val TAG = "OlliteRTDownloadRepository"
 private const val MODEL_NAME_TAG = "modelName"
-private const val TASK_ID_TAG = "taskId"
 
 interface DownloadRepository {
   fun downloadModel(
-    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
@@ -59,13 +57,10 @@ interface DownloadRepository {
 
   fun observerWorkerProgress(
     workerId: UUID,
-    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
 }
-
-private const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
 
 /**
  * Repository for managing model downloads using WorkManager.
@@ -90,7 +85,6 @@ class DefaultDownloadRepository(
     context.getSharedPreferences("download_start_time_ms", Context.MODE_PRIVATE)
 
   override fun downloadModel(
-    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -127,7 +121,6 @@ class DefaultDownloadRepository(
         .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
         .setInputData(inputData)
         .addTag("$MODEL_NAME_TAG:${model.name}")
-        .addTag("$TASK_ID_TAG:${task?.id ?: ""}")
         .build()
 
     val workerId = downloadWorkRequest.id
@@ -138,7 +131,6 @@ class DefaultDownloadRepository(
     // Observe progress.
     observerWorkerProgress(
       workerId = workerId,
-      task = task,
       model = model,
       onStatusUpdated = onStatusUpdated,
     )
@@ -157,7 +149,6 @@ class DefaultDownloadRepository(
 
   override fun observerWorkerProgress(
     workerId: UUID,
-    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -206,8 +197,7 @@ class DefaultDownloadRepository(
               sendNotification(
                 title = context.getString(R.string.notification_title_success),
                 text = context.getString(R.string.notification_content_success).format(model.name),
-                taskId = task?.id ?: DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID,
-                modelName = model.name,
+                isSuccess = true,
               )
               downloadStartTimeSharedPreferences.edit { remove(model.name) }
             } finally {
@@ -230,8 +220,7 @@ class DefaultDownloadRepository(
                 sendNotification(
                   title = context.getString(R.string.notification_title_fail),
                   text = context.getString(R.string.notification_content_success).format(model.name),
-                  taskId = "",
-                  modelName = "",
+                  isSuccess = false,
                 )
               }
               onStatusUpdated(
@@ -251,7 +240,7 @@ class DefaultDownloadRepository(
     liveData.observeForever(observer)
   }
 
-  private fun sendNotification(title: String, text: String, taskId: String, modelName: String) {
+  private fun sendNotification(title: String, text: String, isSuccess: Boolean) {
     // Don't send notification if app is in foreground.
     if (lifecycleProvider.isAppInForeground) {
       return
@@ -268,26 +257,12 @@ class DefaultDownloadRepository(
       context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
     notificationManager?.createNotificationChannel(channel)
 
-    val intent: Intent
-    if (taskId.isEmpty()) {
-      // If taskId is empty, it's a failed download. Just open the app's main screen.
-      intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        ?: Intent(context, context.javaClass) // Fallback if launch intent unavailable
-    }
-    // Download from global model manager. Open the global model manager screen.
-    else if (taskId == DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID) {
-      intent =
-        Intent(Intent.ACTION_VIEW, "com.ollitert.llm.server://global_model_manager".toUri())
-          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+    val intent: Intent = if (isSuccess) {
+      Intent(Intent.ACTION_VIEW, "com.ollitert.llm.server://global_model_manager".toUri())
+        .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
     } else {
-
-      // Otherwise, create the deep link as before.
-      intent =
-        Intent(
-            Intent.ACTION_VIEW,
-            "com.ollitert.llm.server://model/$taskId/${modelName}".toUri(),
-          )
-          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+      context.packageManager.getLaunchIntentForPackage(context.packageName)
+        ?: Intent(context, context.javaClass)
     }
 
     // Create a PendingIntent

@@ -78,26 +78,7 @@ private val ollitertColorScheme =
 @Immutable
 data class CustomColors(
   val appTitleGradientColors: List<Color> = listOf(OlliteRTPrimary, OlliteRTDeepBlue),
-  val taskCardBgColor: Color = OlliteRTSurfaceContainerLow,
-  val taskBgColors: List<Color> = listOf(
-    Color(0xFF181210),
-    Color(0xFF131711),
-    Color(0xFF191924),
-    Color(0xFF1A1813),
-  ),
-  val taskBgGradientColors: List<List<Color>> = listOf(
-    listOf(Color(0xFFE25F57), Color(0xFFDB372D)),
-    listOf(Color(0xFF41A15F), Color(0xFF128937)),
-    listOf(Color(0xFF669DF6), Color(0xFF3174F1)),
-    listOf(Color(0xFFFDD45D), Color(0xFFCAA12A)),
-  ),
-  val taskIconColors: List<Color> = listOf(
-    Color(0xFFE25F57),
-    Color(0xFF41A15F),
-    Color(0xFF669DF6),
-    Color(0xFFCAA12A),
-  ),
-  val taskIconShapeBgColor: Color = Color(0xFF202124),
+  val modelCardBgColor: Color = OlliteRTSurfaceContainerLow,
   val linkColor: Color = OlliteRTLinkColor,
   val successColor: Color = OlliteRTSuccessColor,
   val modelInfoIconColor: Color = Color(0xFFCCCCCC),

@@ -91,7 +91,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.modelmanager.TokenRequestResultType
 import android.os.Environment
@@ -143,7 +142,6 @@ internal const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadAndTryButton(
-  task: Task?,
   model: Model,
   enabled: Boolean,
   downloadStatus: ModelDownloadStatus?,
@@ -188,7 +186,7 @@ fun DownloadAndTryButton(
   // A launcher for requesting notification permission.
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-      modelManagerViewModel.downloadModel(task = task, model = model)
+      modelManagerViewModel.downloadModel(model = model)
     }
 
   // Function to kick off download.
@@ -198,7 +196,6 @@ fun DownloadAndTryButton(
       context = context,
       launcher = permissionLauncher,
       modelManagerViewModel = modelManagerViewModel,
-      task = task,
       model = model,
     )
     checkingToken = false
@@ -454,10 +451,7 @@ fun DownloadAndTryButton(
               (!downloadSucceeded || !canShowTryIt) &&
                 model.localFileRelativeDirPathOverride.isEmpty()
             ) {
-
               MaterialTheme.colorScheme.surfaceContainer
-            } else if (task != null) {
-              getTaskBgGradientColors(task = task)[1]
             } else {
               MaterialTheme.colorScheme.primary
             }
@@ -477,8 +471,6 @@ fun DownloadAndTryButton(
           MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         } else if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
           MaterialTheme.colorScheme.onSurface
-        } else if (task != null) {
-          Color.White
         } else {
           MaterialTheme.colorScheme.onPrimary
         }
@@ -564,9 +556,7 @@ fun DownloadAndTryButton(
           modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
         )
         if (!compact) {
-          val color =
-            if (task != null) getTaskBgGradientColors(task = task)[1]
-            else MaterialTheme.colorScheme.primary
+          val color = MaterialTheme.colorScheme.primary
           LinearProgressIndicator(
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
             progress = { animatedProgress.value },

@@ -45,7 +45,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.data.Task
 import com.ollitert.llm.server.ui.common.DownloadAndTryButton
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.ServerStatus
@@ -53,7 +52,6 @@ import com.ollitert.llm.server.ui.navigation.ServerStatus
 @Composable
 fun DownloadModelPanel(
   model: Model,
-  task: Task?,
   modelManagerViewModel: ModelManagerViewModel,
   downloadStatus: ModelDownloadStatus?,
   onTryItClicked: () -> Unit,
@@ -120,7 +118,6 @@ fun DownloadModelPanel(
     }
 
     DownloadAndTryButton(
-      task = task,
       model = model,
       downloadStatus = downloadStatus,
       enabled = isDownloadButtonEnabled(downloadStatus, model),

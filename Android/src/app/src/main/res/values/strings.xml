@@ -27,9 +27,7 @@
   <string name="benchmark_no_results" translatable="false">No benchmark results</string>
   <string name="benchmark_tokens_limit_message" translatable="false">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
   <string name="best_overall" translatable="false">Best overall</string>
-  <string name="model_list_experimental_label" translatable="false">EXPERIMENTAL</string>
   <string name="cancel" translatable="false">Cancel</string>
-  <string name="category_llm" translatable="false">LLM</string>
   <string name="checking_access" translatable="false">Checking access...</string>
   <string name="close" translatable="false">Close</string>
   <string name="collapse_all" translatable="false">Collapse all</string>
@@ -50,7 +48,6 @@
   <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
   <string name="model_list_built_in_models_title" translatable="false">Built-in models</string>
-  <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
   <string name="notification_title_success" translatable="false">Model download succeeded</string>
@@ -76,10 +73,6 @@
   <string name="wifi_warning_content" translatable="false">The server needs Wi-Fi to accept connections from other devices. You can still start the server, but it will only be reachable via localhost.</string>
   <string name="wifi_warning_start_anyway" translatable="false">Start anyway</string>
   <string name="view_results" translatable="false">View results</string>
-  <plurals name="model_list_number_of_models_available" translatable="false">
-    <item quantity="one">%d model available</item>
-    <item quantity="other">%d models available</item>
-  </plurals>
   <plurals name="runs" translatable="false">
     <item quantity="one">%d run</item>
     <item quantity="other">%d runs</item>
@@ -676,9 +669,6 @@
   <!-- Model list: Links -->
   <string name="model_link_api_docs" translatable="false">API Documentation</string>
   <string name="model_link_example_code" translatable="false">Example code</string>
-
-  <!-- Model picker -->
-  <string name="model_picker_section_title" translatable="false">%1$s models</string>
 
   <!-- Donate dialog: Platform labels -->
   <string name="donate_github_sponsors" translatable="false">GitHub Sponsors</string>
