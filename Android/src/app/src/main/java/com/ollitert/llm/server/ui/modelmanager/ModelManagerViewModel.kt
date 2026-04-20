@@ -511,11 +511,11 @@ constructor(
           val data = getJsonResponse<ModelAllowlist>(url = url)
           modelAllowlist = data?.let { ModelAllowlistJson.decode(it.textContent) }
 
-          if (modelAllowlist != null) {
+          if (modelAllowlist != null && data != null) {
             // Network fetch succeeded — save to disk cache for future offline use.
             allowlistSource = AllowlistSource.NETWORK
             Log.d(TAG, "Done: loading model allowlist from internet")
-            saveModelAllowlistToDisk(modelAllowlistContent = data!!.textContent)
+            saveModelAllowlistToDisk(modelAllowlistContent = data.textContent)
           } else {
             // Network failed — try disk cache. If this was a manual retry, notify the user.
             Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")

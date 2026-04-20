@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -90,6 +91,7 @@ fun ModelItem(
     derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
   }
 
+  val isIncompatible = model.incompatibilityReason != null
   val isServerRunning = serverStatus == ServerStatus.RUNNING
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
@@ -105,11 +107,11 @@ fun ModelItem(
       .background(color = MaterialTheme.customColors.modelCardBgColor)
 
   // Imported models are clickable to select them
-  if (model.imported && !showBenchmarkButton) {
+  if (model.imported && !showBenchmarkButton && !isIncompatible) {
     boxModifier = boxModifier.clickable { onModelClicked(model) }
   }
 
-  Box(modifier = boxModifier) {
+  Box(modifier = boxModifier.graphicsLayer { alpha = if (isIncompatible) 0.45f else 1f }) {
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       // Model name and status
       ModelNameAndStatus(
@@ -130,8 +132,15 @@ fun ModelItem(
         )
       }
 
-      // Download / action panel
-      DownloadModelPanel(
+      // Download / action panel (hidden for incompatible models)
+      if (isIncompatible) {
+        Text(
+          model.incompatibilityReason.orEmpty(),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(top = 4.dp),
+        )
+      } else DownloadModelPanel(
         model = model,
         downloadStatus = downloadStatus,
         modifier = Modifier.padding(top = 4.dp),
@@ -167,8 +176,8 @@ fun ModelItem(
       }
     }
 
-    // Action icons overlaid at top-right of card
-    Row(
+    // Action icons overlaid at top-right of card (hidden for incompatible models)
+    if (!isIncompatible) Row(
       modifier = Modifier
         .align(Alignment.TopEnd)
         .padding(12.dp),
