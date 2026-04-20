@@ -18,6 +18,7 @@ package com.ollitert.llm.server.data
 
 import com.google.gson.JsonSyntaxException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -180,5 +181,23 @@ class ModelAllowlistJsonTest {
     assertEquals(1, allowlist.models.size)
     // Gson bypasses Kotlin's non-null guarantee — `name` is String (non-null) but Gson sets it to null
     assertTrue(allowlist.models.first().name == null)
+  }
+
+  @Test
+  fun modelCapabilityExtensionsReflectCapabilitiesSet() {
+    val allCaps = Model(name = "test", capabilities = setOf(ModelCapability.VISION, ModelCapability.AUDIO, ModelCapability.THINKING))
+    assertTrue(allCaps.llmSupportImage)
+    assertTrue(allCaps.llmSupportAudio)
+    assertTrue(allCaps.llmSupportThinking)
+
+    val visionOnly = Model(name = "test", capabilities = setOf(ModelCapability.VISION))
+    assertTrue(visionOnly.llmSupportImage)
+    assertFalse(visionOnly.llmSupportAudio)
+    assertFalse(visionOnly.llmSupportThinking)
+
+    val none = Model(name = "test")
+    assertFalse(none.llmSupportImage)
+    assertFalse(none.llmSupportAudio)
+    assertFalse(none.llmSupportThinking)
   }
 }

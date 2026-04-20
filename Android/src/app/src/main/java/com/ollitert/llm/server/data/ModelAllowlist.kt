@@ -171,9 +171,11 @@ data class AllowedModel(
       downloadFileName = downloadedFileName,
       showBenchmarkButton = showBenchmarkButton,
       learnMoreUrl = learnMoreUrl,
-      llmSupportImage = llmSupportImage == true,
-      llmSupportAudio = llmSupportAudio == true,
-      llmSupportThinking = llmSupportThinking == true,
+      capabilities = buildSet {
+        if (llmSupportImage == true) add(ModelCapability.VISION)
+        if (llmSupportAudio == true) add(ModelCapability.AUDIO)
+        if (llmSupportThinking == true) add(ModelCapability.THINKING)
+      },
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,

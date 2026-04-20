@@ -118,6 +118,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCapability
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.Task
@@ -148,10 +149,10 @@ enum class ModelFilter {
 }
 
 /** Capability filter for models. */
-enum class CapabilityFilter(val labelResId: Int) {
-  VISION(R.string.capability_vision),
-  AUDIO(R.string.capability_audio),
-  THINKING(R.string.capability_thinking),
+enum class CapabilityFilter(val labelResId: Int, val capability: ModelCapability) {
+  VISION(R.string.capability_vision, ModelCapability.VISION),
+  AUDIO(R.string.capability_audio, ModelCapability.AUDIO),
+  THINKING(R.string.capability_thinking, ModelCapability.THINKING),
 }
 
 /** Sort mode for the models list. */
@@ -1019,21 +1020,16 @@ private fun buildModelSearchableText(model: Model): String = buildString {
     append(model.info)
   }
   if (model.isLlm) append(" text")
-  if (model.llmSupportImage) append(" vision")
-  if (model.llmSupportAudio) append(" audio")
-  if (model.llmSupportThinking) append(" thinking")
+  for (cap in model.capabilities) {
+    append(" ")
+    append(cap.name.lowercase())
+  }
 }
 
 /** Returns true if the model has all of the selected capability filters. */
 private fun modelMatchesCapabilityFilters(model: Model, caps: Set<CapabilityFilter>): Boolean {
   if (caps.isEmpty()) return true
-  return caps.all { cap ->
-    when (cap) {
-      CapabilityFilter.VISION -> model.llmSupportImage
-      CapabilityFilter.AUDIO -> model.llmSupportAudio
-      CapabilityFilter.THINKING -> model.llmSupportThinking
-    }
-  }
+  return caps.all { it.capability in model.capabilities }
 }
 
 // Helper function to get the file name from a URI

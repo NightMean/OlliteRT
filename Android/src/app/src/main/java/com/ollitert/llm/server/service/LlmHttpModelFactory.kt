@@ -23,6 +23,7 @@ import com.ollitert.llm.server.data.IMPORTS_DIR
 import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCapability
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.data.createLlmChatConfigs
@@ -86,9 +87,11 @@ object LlmHttpModelFactory {
       downloadFileName = "$IMPORTS_DIR/${info.fileName}",
       showBenchmarkButton = false,
       imported = true,
-      llmSupportImage = info.llmConfig.supportImage,
-      llmSupportAudio = info.llmConfig.supportAudio,
-      llmSupportThinking = info.llmConfig.supportThinking,
+      capabilities = buildSet {
+        if (info.llmConfig.supportImage) add(ModelCapability.VISION)
+        if (info.llmConfig.supportAudio) add(ModelCapability.AUDIO)
+        if (info.llmConfig.supportThinking) add(ModelCapability.THINKING)
+      },
       llmMaxToken = info.llmConfig.defaultMaxTokens,
       accelerators = accelerators,
       // All imported models are assumed to be LLM for now.

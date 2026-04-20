@@ -21,6 +21,9 @@ import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
+import com.ollitert.llm.server.data.llmSupportThinking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

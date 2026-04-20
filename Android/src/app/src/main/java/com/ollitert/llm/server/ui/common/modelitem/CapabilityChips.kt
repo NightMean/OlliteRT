@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCapability
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
@@ -52,14 +53,15 @@ fun CapabilityChips(
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     CapabilityChip(label = stringResource(R.string.capability_text), searchQuery = searchQuery)
-    if (model.llmSupportImage) {
-      CapabilityChip(label = stringResource(R.string.capability_vision), searchQuery = searchQuery)
-    }
-    if (model.llmSupportAudio) {
-      CapabilityChip(label = stringResource(R.string.capability_audio), searchQuery = searchQuery)
-    }
-    if (model.llmSupportThinking) {
-      CapabilityChip(label = stringResource(R.string.capability_thinking), searchQuery = searchQuery)
+    for (cap in ModelCapability.entries) {
+      if (cap in model.capabilities) {
+        val label = when (cap) {
+          ModelCapability.VISION -> R.string.capability_vision
+          ModelCapability.AUDIO -> R.string.capability_audio
+          ModelCapability.THINKING -> R.string.capability_thinking
+        }
+        CapabilityChip(label = stringResource(label), searchQuery = searchQuery)
+      }
     }
   }
 }

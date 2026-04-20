@@ -37,6 +37,9 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.bytesToMb
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
+import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.serialization.json.Json
 import java.io.File

@@ -26,6 +26,9 @@ import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
+import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.data.LOG_STREAMING_PREVIEW_DEBOUNCE_MS
 import com.ollitert.llm.server.data.WARMUP_MESSAGE
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS

@@ -21,6 +21,13 @@ import android.content.Context
 import com.google.gson.annotations.SerializedName
 import java.io.File
 
+/** Capability that a model may support. */
+enum class ModelCapability {
+  VISION,
+  AUDIO,
+  THINKING,
+}
+
 data class ModelDataFile(
   val name: String,
   val url: String,
@@ -209,15 +216,8 @@ data class Model(
   /** The name of the directory to unzip the model to (if it's a zip file). */
   val unzipDir: String = "",
 
-  /** Whether the LLM model supports image input. */
-  val llmSupportImage: Boolean = false,
-
-  /** Whether the LLM model supports audio input. */
-  val llmSupportAudio: Boolean = false,
-
-
-  /** Whether the LLM model supports thinking mode. */
-  val llmSupportThinking: Boolean = false,
+  /** Capabilities supported by this model (vision, audio, thinking). */
+  val capabilities: Set<ModelCapability> = emptySet(),
 
   /** The max token for llm model. */
   val llmMaxToken: Int = 0,
@@ -307,6 +307,10 @@ data class Model(
     )
   }
 }
+
+val Model.llmSupportImage: Boolean get() = ModelCapability.VISION in capabilities
+val Model.llmSupportAudio: Boolean get() = ModelCapability.AUDIO in capabilities
+val Model.llmSupportThinking: Boolean get() = ModelCapability.THINKING in capabilities
 
 enum class ModelDownloadStatusType {
   NOT_DOWNLOADED,

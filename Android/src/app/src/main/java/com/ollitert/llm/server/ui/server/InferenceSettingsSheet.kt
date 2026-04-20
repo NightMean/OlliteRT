@@ -100,6 +100,7 @@ import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.NumberSliderConfig
+import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 

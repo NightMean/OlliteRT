@@ -25,6 +25,7 @@ import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import fi.iki.elonen.NanoHTTPD
 import java.io.ByteArrayInputStream

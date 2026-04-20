@@ -28,6 +28,8 @@ import com.ollitert.llm.server.data.IMPORTS_DIR
 import com.ollitert.llm.server.data.KEEP_ALIVE_RECHECK_MS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import fi.iki.elonen.NanoHTTPD

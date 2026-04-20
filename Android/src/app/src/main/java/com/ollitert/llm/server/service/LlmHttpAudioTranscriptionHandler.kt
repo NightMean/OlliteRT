@@ -21,6 +21,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportAudio
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
 

@@ -22,6 +22,8 @@ import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.decodeFromString
