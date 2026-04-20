@@ -349,6 +349,7 @@
   <string name="settings_whats_new" translatable="false">What\'s New</string>
   <string name="settings_report_issue" translatable="false">Report Issue</string>
   <string name="settings_donate" translatable="false">Donate</string>
+  <string name="settings_privacy_policy" translatable="false">Privacy Policy</string>
   <string name="settings_version_footer" translatable="false">OlliteRT v%1$s (%2$s)</string>
 
   <!-- Status screen labels -->

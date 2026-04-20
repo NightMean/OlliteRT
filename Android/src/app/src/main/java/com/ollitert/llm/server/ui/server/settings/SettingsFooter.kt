@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
@@ -174,7 +175,17 @@ internal fun ColumnScope.SettingsFooter(vm: SettingsViewModel, context: Context)
     }
   }
 
-  Spacer(modifier = Modifier.height(4.dp))
+  Text(
+    text = stringResource(R.string.settings_privacy_policy),
+    style = MaterialTheme.typography.bodySmall,
+    color = OlliteRTPrimary,
+    textDecoration = TextDecoration.Underline,
+    modifier = Modifier
+      .align(Alignment.CenterHorizontally)
+      .clip(RoundedCornerShape(4.dp))
+      .clickable { uriHandler.openUri(GitHubConfig.PRIVACY_POLICY_URL) }
+      .padding(horizontal = 8.dp, vertical = 2.dp),
+  )
   Text(
     text = stringResource(R.string.settings_version_footer, BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH),
     style = MaterialTheme.typography.bodySmall,

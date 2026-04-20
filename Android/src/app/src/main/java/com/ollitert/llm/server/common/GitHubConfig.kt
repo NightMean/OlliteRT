@@ -37,6 +37,9 @@ object GitHubConfig {
   /** URL to open a new bug report issue with the YAML template. */
   const val NEW_BUG_REPORT_URL = "$REPO_URL/issues/new?template=01_bug_report.yml"
 
+  /** Privacy Policy hosted in the repo docs folder. */
+  const val PRIVACY_POLICY_URL = "$REPO_URL/blob/main/docs/PRIVACY_POLICY.md"
+
   // ---------------------------------------------------------------------------
   // Donation
   // ---------------------------------------------------------------------------
