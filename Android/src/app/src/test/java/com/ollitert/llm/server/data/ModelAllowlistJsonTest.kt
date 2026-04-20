@@ -370,4 +370,49 @@ class ModelAllowlistJsonTest {
     minAppVersion = minAppVersion,
     maxAppVersion = maxAppVersion,
   )
+
+  @Test
+  fun decodesPinnedField() {
+    val json = """
+      {
+        "schemaVersion": 1,
+        "models": [
+          {
+            "name": "Pinned",
+            "modelId": "test/pinned",
+            "modelFile": "pinned.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {},
+            "pinned": true
+          }
+        ]
+      }
+    """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertTrue(allowlist.models.first().pinned == true)
+  }
+
+  @Test
+  fun pinnedDefaultsToNullWhenOmitted() {
+    val json = """
+      {
+        "schemaVersion": 1,
+        "models": [
+          {
+            "name": "NotPinned",
+            "modelId": "test/notpinned",
+            "modelFile": "notpinned.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {}
+          }
+        ]
+      }
+    """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertTrue(allowlist.models.first().pinned == null)
+  }
 }

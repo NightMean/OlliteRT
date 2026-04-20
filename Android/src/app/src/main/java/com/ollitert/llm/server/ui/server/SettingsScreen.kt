@@ -93,6 +93,7 @@ fun SettingsScreen(
   onNavigateToModels: () -> Unit = {},
   downloadedModelNames: List<String> = emptyList(),
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
+  onSettingsSaved: () -> Unit = {},
 ) {
   val context = LocalContext.current
 
@@ -108,12 +109,14 @@ fun SettingsScreen(
         if (vm.keepScreenOnEntry.current) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
+        onSettingsSaved()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
         val window = (context as? android.app.Activity)?.window
         if (result.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         vm.showRestartDialog = true
+        onSettingsSaved()
       }
       is SettingsViewModel.SaveResult.ValidationError -> Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
       is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> vm.showTrimLogsDialog = true
@@ -127,12 +130,14 @@ fun SettingsScreen(
         if (vm.keepScreenOnEntry.current) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
+        onSettingsSaved()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
         val window = (context as? android.app.Activity)?.window
         if (result.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         vm.showRestartDialog = true
+        onSettingsSaved()
       }
       is SettingsViewModel.SaveResult.ValidationError -> Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
       is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> {}

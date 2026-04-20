@@ -229,6 +229,7 @@ fun OlliteRTNavHost(
         },
         downloadedModelNames = downloadedModelNames,
         onSetTopBarTrailingContent = onSetTopBarTrailingContent,
+        onSettingsSaved = { modelManagerViewModel.refreshShowModelRecommendations() },
       )
     }
 

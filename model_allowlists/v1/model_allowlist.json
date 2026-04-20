@@ -13,6 +13,7 @@
       "llmSupportAudio": true,
       "llmSupportThinking": true,
       "badge": "best_overall",
+      "pinned": true,
       "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
@@ -36,6 +37,7 @@
       "llmSupportAudio": true,
       "llmSupportThinking": true,
       "badge": "best_overall",
+      "pinned": true,
       "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,

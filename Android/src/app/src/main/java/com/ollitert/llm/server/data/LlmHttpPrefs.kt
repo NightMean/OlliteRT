@@ -92,6 +92,7 @@ private const val ENGAGEMENT_PROMPT_FIRST_THRESHOLD = 3
 private const val ENGAGEMENT_PROMPT_SECOND_THRESHOLD = 13
 
 // --- Update Check ---
+private const val KEY_SHOW_MODEL_RECOMMENDATIONS = "show_model_recommendations"
 private const val KEY_UPDATE_CHECK_ENABLED = "update_check_enabled"
 private const val KEY_UPDATE_CHECK_INTERVAL_HOURS = "update_check_interval_hours"
 private const val KEY_LAST_DISMISSED_UPDATE_VERSION = "last_dismissed_update_version"
@@ -421,6 +422,13 @@ object LlmHttpPrefs {
 
   fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, enabled).apply()
+  }
+
+  fun isShowModelRecommendations(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
+
+  fun setShowModelRecommendations(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_SHOW_MODEL_RECOMMENDATIONS, enabled).apply()
   }
 
   // --- Home Assistant Integration ---

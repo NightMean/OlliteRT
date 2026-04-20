@@ -63,6 +63,7 @@ fun ModelNameAndStatus(
   model: Model,
   downloadStatus: ModelDownloadStatus?,
   searchQuery: String = "",
+  showRecommendations: Boolean = true,
   modifier: Modifier = Modifier,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
@@ -85,8 +86,8 @@ fun ModelNameAndStatus(
       modifier = Modifier.padding(end = 100.dp),
     )
 
-    // Data-driven badge (e.g. "Best overall", "New")
-    if (model.badge != null) {
+    // Data-driven badge (e.g. "Best overall", "New") — hidden when recommendations are off
+    if (model.badge != null && showRecommendations && model.incompatibilityReason == null) {
       ModelBadgeChip(badge = model.badge)
     }
 

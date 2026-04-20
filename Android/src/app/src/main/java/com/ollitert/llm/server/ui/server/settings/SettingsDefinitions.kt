@@ -490,6 +490,17 @@ val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
   write = { ctx, v -> LlmHttpPrefs.setIgnoreClientSamplerParams(ctx, v) },
 )
 
+val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
+  key = "show_model_recommendations",
+  labelRes = R.string.settings_show_model_recommendations,
+  descriptionRes = R.string.settings_show_model_recommendations_desc,
+  card = CardId.ADVANCED,
+  default = true,
+  prefsKey = "show_model_recommendations",
+  read = { LlmHttpPrefs.isShowModelRecommendations(it) },
+  write = { ctx, v -> LlmHttpPrefs.setShowModelRecommendations(ctx, v) },
+)
+
 // ─── Developer Card ───────────────────────────────────────────────
 
 val VERBOSE_DEBUG = SettingDef.Toggle(
@@ -542,7 +553,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
-  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS,
+  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS, SHOW_MODEL_RECOMMENDATIONS,
   // Developer
   VERBOSE_DEBUG, EXPORT_LOGCAT,
   // Reset
@@ -618,7 +629,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.ADVANCED,
     titleRes = R.string.settings_card_advanced,
     icon = CardIcon.Vector(Icons.Outlined.Science),
-    settings = listOf(WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS),
+    settings = listOf(WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS, SHOW_MODEL_RECOMMENDATIONS),
   ),
   CardDef(
     id = CardId.DEVELOPER,

@@ -58,6 +58,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -155,6 +156,15 @@ constructor(
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
+
+  private val _showModelRecommendations = MutableStateFlow(
+    LlmHttpPrefs.isShowModelRecommendations(context)
+  )
+  val showModelRecommendations: StateFlow<Boolean> = _showModelRecommendations.asStateFlow()
+
+  fun refreshShowModelRecommendations() {
+    _showModelRecommendations.value = LlmHttpPrefs.isShowModelRecommendations(context)
+  }
 
   // One-shot error toast events for manual user actions (e.g. Retry on allowlist banner).
   // Only emits on error — success produces no toast.

@@ -327,6 +327,8 @@
   <string name="settings_trim_prompt_desc" translatable="false">Last resort when other strategies aren\'t enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning.</string>
   <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>
   <string name="settings_ignore_client_params_desc" translatable="false">Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server\'s own Inference Settings will always be used instead.</string>
+  <string name="settings_show_model_recommendations" translatable="false">Show model recommendations</string>
+  <string name="settings_show_model_recommendations_desc" translatable="false">Display badges and pin recommended models to the top of the list</string>
 
   <!-- Settings: Updates card -->
   <string name="settings_card_updates" translatable="false">Updates</string>

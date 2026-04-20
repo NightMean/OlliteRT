@@ -177,6 +177,7 @@ fun GlobalModelManager(
   onSwitchModel: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val showRecommendations by viewModel.showModelRecommendations.collectAsStateWithLifecycle()
   var showImportModelSheet by remember { mutableStateOf(false) }
   var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
   var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
@@ -268,12 +269,10 @@ fun GlobalModelManager(
       val allModels = uiState.models
       allModels.sortedWith(
         compareBy<Model> { model ->
-          val name = model.displayName.ifEmpty { model.name }
-          val isGemma4 = name.contains("gemma-4", ignoreCase = true) || name.contains("gemma 4", ignoreCase = true)
           val isDownloaded = downloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
           when {
             isDownloaded -> 0
-            isGemma4 -> 1
+            model.pinned && showRecommendations && model.incompatibilityReason == null -> 1
             else -> 2
           }
         }.thenBy { it.displayName.ifEmpty { it.name } }
@@ -617,6 +616,7 @@ fun GlobalModelManager(
           onStopServer = onStopServer,
           onNavigateToSettings = onNavigateToSettings,
           searchQuery = searchQuery,
+          showRecommendations = showRecommendations,
         )
       }
 
@@ -648,6 +648,7 @@ fun GlobalModelManager(
           onStopServer = onStopServer,
           onNavigateToSettings = onNavigateToSettings,
           searchQuery = searchQuery,
+          showRecommendations = showRecommendations,
         )
       }
 

@@ -85,6 +85,7 @@ fun ModelItem(
   onStopServer: () -> Unit = {},
   onNavigateToSettings: () -> Unit = {},
   searchQuery: String = "",
+  showRecommendations: Boolean = true,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val downloadStatus by remember {
@@ -118,6 +119,7 @@ fun ModelItem(
         model = model,
         downloadStatus = downloadStatus,
         searchQuery = searchQuery,
+        showRecommendations = showRecommendations,
         modifier = Modifier.fillMaxWidth(),
       )
 

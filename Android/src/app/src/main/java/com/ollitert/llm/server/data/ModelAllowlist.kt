@@ -61,6 +61,7 @@ data class AllowedModel(
   val socToModelFiles: Map<String, SocModelFile>? = null,
   val runtimeType: RuntimeType? = null,
   val badge: String? = null,
+  val pinned: Boolean? = null,
   val minAppVersion: String? = null,
   val maxAppVersion: String? = null,
 ) {
@@ -183,6 +184,7 @@ data class AllowedModel(
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
       badge = badge?.let { ModelBadge.fromKey(it) },
+      pinned = pinned == true,
       incompatibilityReason = incompatibilityReason,
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = true,
