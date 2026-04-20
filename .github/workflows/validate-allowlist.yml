@@ -1,0 +1,101 @@
+name: Validate Model Allowlist
+
+on:
+  push:
+    paths:
+      - 'model_allowlists/**'
+  pull_request:
+    paths:
+      - 'model_allowlists/**'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: validate-allowlist-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate allowlist JSON
+        run: |
+          FILE="model_allowlists/v1/model_allowlist.json"
+
+          # 1. Valid JSON
+          if ! python3 -m json.tool "$FILE" > /dev/null 2>&1; then
+            echo "::error::$FILE is not valid JSON"
+            exit 1
+          fi
+          echo "✓ Valid JSON"
+
+          # 2. Has schemaVersion
+          SCHEMA_VERSION=$(python3 -c "
+          import json, sys
+          data = json.load(open('$FILE'))
+          print(data.get('schemaVersion', 'MISSING'))
+          ")
+          if [ "$SCHEMA_VERSION" = "MISSING" ]; then
+            echo "::error::Missing 'schemaVersion' field"
+            exit 1
+          fi
+          echo "✓ schemaVersion: $SCHEMA_VERSION"
+
+          # 3. Has models array
+          MODEL_COUNT=$(python3 -c "
+          import json
+          data = json.load(open('$FILE'))
+          print(len(data.get('models', [])))
+          ")
+          if [ "$MODEL_COUNT" = "0" ]; then
+            echo "::warning::Allowlist has 0 models"
+          fi
+          echo "✓ $MODEL_COUNT models found"
+
+          # 4. Validate each model's required fields and version range
+          python3 -c "
+          import json, sys
+
+          def parse_semver(s):
+              parts = s.split('-')[0].split('.')
+              return tuple(int(p) for p in parts)
+
+          data = json.load(open('$FILE'))
+          errors = []
+          for i, model in enumerate(data.get('models', [])):
+              name = model.get('name', f'model[{i}]')
+
+              for field in ['name', 'modelId', 'modelFile', 'description', 'sizeInBytes', 'defaultConfig']:
+                  if field not in model:
+                      errors.append(f'{name}: missing required field \"{field}\"')
+
+              for field in ['minAppVersion', 'maxAppVersion']:
+                  v = model.get(field)
+                  if v:
+                      try:
+                          parse_semver(v)
+                      except (ValueError, IndexError):
+                          errors.append(f'{name}: invalid version format in {field}: \"{v}\"')
+
+              min_v = model.get('minAppVersion')
+              max_v = model.get('maxAppVersion')
+              if min_v and max_v:
+                  try:
+                      if parse_semver(max_v) < parse_semver(min_v):
+                          errors.append(f'{name}: maxAppVersion ({max_v}) < minAppVersion ({min_v})')
+                  except (ValueError, IndexError):
+                      pass
+
+          if errors:
+              for e in errors:
+                  print(f'::error::{e}', file=sys.stderr)
+              sys.exit(1)
+
+          print('✓ All models valid')
+          "
