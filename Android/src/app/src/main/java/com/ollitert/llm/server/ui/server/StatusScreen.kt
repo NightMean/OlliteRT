@@ -376,7 +376,7 @@ fun StatusScreen(
           Text(
             text = stringResource(R.string.status_active_api_endpoint),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurface,
           )
           Spacer(modifier = Modifier.height(2.dp))
           Text(
@@ -394,7 +394,7 @@ fun StatusScreen(
           Text(
             text = "Auth: ${if (authOn) "on" else "off"} · CORS: $corsLabel",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           )
         }
         if (endpointUrl != null) {

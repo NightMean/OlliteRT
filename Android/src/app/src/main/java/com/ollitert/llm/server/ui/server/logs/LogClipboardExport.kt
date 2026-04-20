@@ -92,8 +92,6 @@ internal fun entryToJson(entry: RequestLogEntry): JSONObject {
   return obj
 }
 
-/** Try to parse a string as JSON (object or array); return the string as-is on failure. */
-
 /** Build the full JSON export as a formatted string. */
 internal fun buildLogsJson(entries: List<RequestLogEntry>): String {
   val root = JSONObject()
