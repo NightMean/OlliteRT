@@ -195,7 +195,7 @@ class LlmHttpService : Service() {
       startForeground(
         LlmHttpNotificationHelper.NOTIFICATION_ID,
         placeholderNotification,
-        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
       )
     } else {
       startForeground(LlmHttpNotificationHelper.NOTIFICATION_ID, placeholderNotification)
