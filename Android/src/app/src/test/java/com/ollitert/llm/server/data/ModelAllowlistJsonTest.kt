@@ -431,6 +431,14 @@ class ModelAllowlistJsonTest {
   }
 
   @Test
+  fun decodesJsonWithNoModelsKeyAsEmptyList() {
+    val json = """{"schemaVersion": 1}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals(1, allowlist.schemaVersion)
+    assertTrue(allowlist.models.isEmpty())
+  }
+
+  @Test
   fun filterCompatiblePreservesContentVersion() {
     val allowlist = ModelAllowlist(
       schemaVersion = 1,

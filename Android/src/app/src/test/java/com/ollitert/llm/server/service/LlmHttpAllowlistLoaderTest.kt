@@ -192,6 +192,60 @@ class LlmHttpAllowlistLoaderTest {
   }
 
   @Test
+  fun filtersModelsByAppVersionWhenProvided() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      val json = """
+        {
+          "schemaVersion": 1,
+          "models": [
+            {
+              "name": "OldModel", "modelId": "test/old", "modelFile": "old.litertlm",
+              "description": "works on 0.7+", "sizeInBytes": 100, "defaultConfig": {},
+              "minAppVersion": "0.7.0"
+            },
+            {
+              "name": "FutureModel", "modelId": "test/future", "modelFile": "future.litertlm",
+              "description": "needs 2.0+", "sizeInBytes": 100, "defaultConfig": {},
+              "minAppVersion": "2.0.0"
+            }
+          ]
+        }
+      """.trimIndent()
+      File(dir, "model_allowlist.json").writeText(json)
+
+      val loader = LlmHttpAllowlistLoader(
+        externalFilesDir = dir,
+        packageName = "test.pkg",
+        appVersionName = "0.8.0",
+      )
+      val result = loader.load()
+      assertEquals("should filter out models requiring newer app version", 1, result.size)
+      assertEquals("OldModel", result.first().name)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun skipsEmptyFileAndFallsBackToAsset() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      File(dir, "model_allowlist.json").writeText("")
+      val loader = LlmHttpAllowlistLoader(
+        externalFilesDir = dir,
+        packageName = "test.pkg",
+        assetReader = { minimalAllowlistJson },
+      )
+      val result = loader.load()
+      assertEquals(1, result.size)
+      assertEquals("asset", loader.lastSource)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
   fun handlesNullExternalFilesDirGracefully() {
     val loader = LlmHttpAllowlistLoader(
       externalFilesDir = null,

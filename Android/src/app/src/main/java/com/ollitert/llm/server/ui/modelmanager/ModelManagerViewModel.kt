@@ -47,7 +47,6 @@ import com.ollitert.llm.server.service.LlmHttpModelFactory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.humanReadableSize
-import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -505,9 +504,8 @@ constructor(
         // Local test only.
         if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
           Log.d(TAG, "Loading local model allowlist for testing.")
-          val gson = Gson()
           try {
-            modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+            modelAllowlist = ModelAllowlistJson.decode(TEST_MODEL_ALLOW_LIST)
           } catch (e: JsonSyntaxException) {
             Log.e(TAG, "Failed to parse local test json", e)
           }
