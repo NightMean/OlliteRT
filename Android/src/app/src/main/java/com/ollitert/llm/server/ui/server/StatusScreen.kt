@@ -387,6 +387,15 @@ fun StatusScreen(
             textDecoration = if (endpointUrl != null) TextDecoration.Underline else TextDecoration.None,
             modifier = if (endpointUrl != null) Modifier.clickable { uriHandler.openUri(endpointUrl) } else Modifier,
           )
+          val authOn = remember { LlmHttpPrefs.getBearerToken(context).isNotBlank() }
+          val corsOrigins = remember { LlmHttpPrefs.getCorsAllowedOrigins(context) }
+          val corsLabel = if (corsOrigins == "*") "all origins" else "restricted"
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = "Auth: ${if (authOn) "on" else "off"} · CORS: $corsLabel",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
         if (endpointUrl != null) {
           TooltipIconButton(
