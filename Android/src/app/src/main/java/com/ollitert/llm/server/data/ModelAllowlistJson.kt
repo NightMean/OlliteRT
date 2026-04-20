@@ -21,5 +21,12 @@ import com.google.gson.Gson
 object ModelAllowlistJson {
   private val gson = Gson()
 
-  fun decode(content: String): ModelAllowlist = gson.fromJson(content, ModelAllowlist::class.java)
+  @Suppress("SENSELESS_COMPARISON")
+  fun decode(content: String): ModelAllowlist {
+    val result = gson.fromJson(content, ModelAllowlist::class.java)
+    // Gson bypasses Kotlin defaults; missing fields get Java zero-values instead of Kotlin defaults.
+    val version = if (result.schemaVersion == 0) 1 else result.schemaVersion
+    val models = if (result.models == null) emptyList() else result.models
+    return result.copy(schemaVersion = version, models = models)
+  }
 }

@@ -214,6 +214,9 @@ data class Model(
   /** Badge from the model allowlist (e.g. "Best overall", "New"). */
   val badge: ModelBadge? = null,
 
+  /** Non-null when the model is incompatible with this app version (e.g. "Requires app version 0.9.0"). */
+  val incompatibilityReason: String? = null,
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 

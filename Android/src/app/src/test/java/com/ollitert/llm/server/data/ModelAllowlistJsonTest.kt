@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.data
 
+import com.ollitert.llm.server.common.SemVer
 import com.google.gson.JsonSyntaxException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -217,4 +218,156 @@ class ModelAllowlistJsonTest {
     val allowlist = ModelAllowlistJson.decode(json)
     assertEquals(null, allowlist.models.first().badge)
   }
+
+  // --- schemaVersion / minAppVersion / maxAppVersion ---
+
+  @Test
+  fun decodesSchemaVersionWhenPresent() {
+    val json = """
+      {
+        "schemaVersion": 1,
+        "models": [
+          {
+            "name": "Test",
+            "modelId": "test/test",
+            "modelFile": "test.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {},
+            "minAppVersion": "0.8.0",
+            "maxAppVersion": "1.0.0"
+          }
+        ]
+      }
+    """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+
+    assertEquals(1, allowlist.schemaVersion)
+    assertEquals("0.8.0", allowlist.models.first().minAppVersion)
+    assertEquals("1.0.0", allowlist.models.first().maxAppVersion)
+  }
+
+  @Test
+  fun decodesSchemaVersionMissingDefaultsToOne() {
+    val json = """{"models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals(1, allowlist.schemaVersion)
+  }
+
+  @Test
+  fun decodesMinMaxAppVersionMissingDefaultToNull() {
+    val json = """
+      {
+        "schemaVersion": 1,
+        "models": [
+          {
+            "name": "Old",
+            "modelId": "test/old",
+            "modelFile": "old.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {}
+          }
+        ]
+      }
+    """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals(null, allowlist.models.first().minAppVersion)
+    assertEquals(null, allowlist.models.first().maxAppVersion)
+  }
+
+  // --- filterCompatible ---
+
+  @Test
+  fun filterCompatibleFiltersByMinAppVersion() {
+    val models = listOf(
+      makeFilterModel("Old", minAppVersion = "0.7.0"),
+      makeFilterModel("Current", minAppVersion = "0.8.0"),
+      makeFilterModel("Future", minAppVersion = "1.0.0"),
+    )
+    val allowlist = ModelAllowlist(schemaVersion = 1, models = models)
+
+    val filtered = allowlist.filterCompatible(SemVer.parse("0.8.0")!!)
+
+    assertEquals(2, filtered.models.size)
+    assertEquals("Old", filtered.models[0].name)
+    assertEquals("Current", filtered.models[1].name)
+  }
+
+  @Test
+  fun filterCompatibleFiltersByMaxAppVersion() {
+    val models = listOf(
+      makeFilterModel("Deprecated", minAppVersion = "0.7.0", maxAppVersion = "0.7.9"),
+      makeFilterModel("Current", minAppVersion = "0.7.0", maxAppVersion = "1.0.0"),
+      makeFilterModel("NoMax", minAppVersion = "0.7.0"),
+    )
+    val allowlist = ModelAllowlist(schemaVersion = 1, models = models)
+
+    val filtered = allowlist.filterCompatible(SemVer.parse("0.8.0")!!)
+
+    assertEquals(2, filtered.models.size)
+    assertEquals("Current", filtered.models[0].name)
+    assertEquals("NoMax", filtered.models[1].name)
+  }
+
+  @Test
+  fun filterCompatibleNoMinAppVersionCompatibleWithAll() {
+    val models = listOf(makeFilterModel("Legacy"))
+    val allowlist = ModelAllowlist(schemaVersion = 1, models = models)
+
+    val filtered = allowlist.filterCompatible(SemVer.parse("99.0.0")!!)
+
+    assertEquals(1, filtered.models.size)
+  }
+
+  @Test
+  fun filterCompatibleInvalidRangeTreatedAsNoUpperBound() {
+    val models = listOf(
+      makeFilterModel("Typo", minAppVersion = "0.8.0", maxAppVersion = "0.7.0"),
+    )
+    val allowlist = ModelAllowlist(schemaVersion = 1, models = models)
+
+    val filtered = allowlist.filterCompatible(SemVer.parse("0.9.0")!!)
+
+    assertEquals(1, filtered.models.size)
+  }
+
+  @Test
+  fun filterCompatibleIncludesModelAtExactMaxAppVersion() {
+    val models = listOf(
+      makeFilterModel("AtMax", minAppVersion = "0.7.0", maxAppVersion = "0.8.0"),
+    )
+    val allowlist = ModelAllowlist(schemaVersion = 1, models = models)
+
+    val filtered = allowlist.filterCompatible(SemVer.parse("0.8.0")!!)
+
+    assertEquals(1, filtered.models.size)
+  }
+
+  @Test
+  fun filterCompatibleUnsupportedSchemaReturnsEmpty() {
+    val models = listOf(makeFilterModel("Model"))
+    val allowlist = ModelAllowlist(schemaVersion = 99, models = models)
+
+    val filtered = allowlist.filterCompatible(SemVer.parse("0.8.0")!!)
+
+    assertEquals(0, filtered.models.size)
+  }
+
+  private fun makeFilterModel(
+    name: String,
+    minAppVersion: String? = null,
+    maxAppVersion: String? = null,
+  ) = AllowedModel(
+    name = name,
+    modelId = "test/$name",
+    modelFile = "$name.litertlm",
+    description = "test",
+    sizeInBytes = 100,
+    defaultConfig = DefaultConfig(),
+    minAppVersion = minAppVersion,
+    maxAppVersion = maxAppVersion,
+  )
 }

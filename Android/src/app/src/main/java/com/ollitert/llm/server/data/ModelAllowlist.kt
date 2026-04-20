@@ -20,6 +20,7 @@ package com.ollitert.llm.server.data
 import android.os.Build
 import android.util.Log
 import com.ollitert.llm.server.common.isPixel10
+import com.ollitert.llm.server.common.SemVer
 import com.google.gson.annotations.SerializedName
 
 private const val TAG = "OlliteRTModelAllowlist"
@@ -60,8 +61,19 @@ data class AllowedModel(
   val socToModelFiles: Map<String, SocModelFile>? = null,
   val runtimeType: RuntimeType? = null,
   val badge: String? = null,
+  val minAppVersion: String? = null,
+  val maxAppVersion: String? = null,
 ) {
-  fun toModel(): Model {
+  fun isCompatibleWith(appVersion: SemVer): Boolean {
+    val min = minAppVersion?.let { SemVer.parse(it) }
+    val max = maxAppVersion?.let { SemVer.parse(it) }
+    val effectiveMax = if (min != null && max != null && max < min) null else max
+    if (min != null && appVersion < min) return false
+    if (effectiveMax != null && appVersion > effectiveMax) return false
+    return true
+  }
+
+  fun toModel(appVersion: SemVer? = null): Model {
     // Construct HF download url.
     var version = commitHash
     var downloadedFileName = modelFile
@@ -140,6 +152,17 @@ data class AllowedModel(
         })
         .toMutableList()
 
+    val incompatibilityReason = appVersion?.let { ver ->
+      val minVer = minAppVersion?.let { SemVer.parse(it) }
+      val maxVer = maxAppVersion?.let { SemVer.parse(it) }
+      val effectiveMax = if (minVer != null && maxVer != null && maxVer < minVer) null else maxVer
+      when {
+        minVer != null && ver < minVer -> "Requires app version $minAppVersion"
+        effectiveMax != null && ver > effectiveMax -> "Not available after version $maxAppVersion"
+        else -> null
+      }
+    }
+
     return Model(
       name = name,
       version = version,
@@ -160,6 +183,7 @@ data class AllowedModel(
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
       badge = badge?.let { ModelBadge.fromKey(it) },
+      incompatibilityReason = incompatibilityReason,
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = true,
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
@@ -172,4 +196,19 @@ data class AllowedModel(
 }
 
 /** The model allowlist. */
-data class ModelAllowlist(val models: List<AllowedModel>)
+data class ModelAllowlist(
+  val schemaVersion: Int = 1,
+  val models: List<AllowedModel>,
+) {
+  companion object {
+    const val SUPPORTED_SCHEMA_VERSION = 1
+  }
+
+  fun filterCompatible(appVersion: SemVer): ModelAllowlist {
+    if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
+      return ModelAllowlist(schemaVersion = schemaVersion, models = emptyList())
+    }
+    val compatible = models.filter { it.isCompatibleWith(appVersion) }
+    return ModelAllowlist(schemaVersion = schemaVersion, models = compatible)
+  }
+}
