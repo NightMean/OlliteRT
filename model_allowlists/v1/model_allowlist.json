@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 1,
   "models": [
     {
       "name": "Gemma-4-E2B-it",
@@ -12,6 +13,7 @@
       "llmSupportAudio": true,
       "llmSupportThinking": true,
       "badge": "best_overall",
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -34,6 +36,7 @@
       "llmSupportAudio": true,
       "llmSupportThinking": true,
       "badge": "best_overall",
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -54,6 +57,7 @@
       "commitHash": "ba9ca88da013b537b6ed38108be609b8db1c3a16",
       "llmSupportImage": true,
       "llmSupportAudio": true,
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -72,6 +76,7 @@
       "commitHash": "297ed75955702dec3503e00c2c2ecbbf475300bc",
       "llmSupportImage": true,
       "llmSupportAudio": true,
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -88,6 +93,7 @@
       "sizeInBytes": 584417280,
       "minDeviceMemoryInGb": 6,
       "commitHash": "42d538a932e8d5b12e6b3b455f5572560bd60b2c",
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -104,6 +110,7 @@
       "sizeInBytes": 1597931520,
       "minDeviceMemoryInGb": 6,
       "commitHash": "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 20,
         "topP": 0.8,
@@ -120,6 +127,7 @@
       "sizeInBytes": 1833451520,
       "minDeviceMemoryInGb": 6,
       "commitHash": "e34bb88632342d1f9640bad579a45134eb1cf988",
+      "minAppVersion": "0.8.0",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,

@@ -213,6 +213,15 @@ dependencies {
   debugImplementation(libs.androidx.ui.tooling)
 }
 
+// Sync master allowlist → bundled asset so the app always ships with the latest models.
+// The master file lives at /model_allowlists/v1/model_allowlist.json (repo root);
+// this task copies it into the assets directory before the APK is assembled.
+val syncAllowlist by tasks.registering(Copy::class) {
+  from(rootProject.file("../../model_allowlists/v1/model_allowlist.json"))
+  into(layout.projectDirectory.dir("src/main/assets"))
+}
+tasks.named("preBuild") { dependsOn(syncAllowlist) }
+
 protobuf {
   protoc { artifact = "com.google.protobuf:protoc:4.34.1" }
   generateProtoTasks { all().forEach { it.plugins { create("java") { option("lite") } } } }

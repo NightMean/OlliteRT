@@ -66,5 +66,8 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Generated bundled assets (synced by Gradle from /model_allowlists/)
+Android/src/app/src/main/assets/model_allowlist.json
+
 # Working directories
 .tmp/
