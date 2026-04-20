@@ -46,7 +46,6 @@ private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
 private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
-private const val DEFAULT_PORT = 8000
 private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 
 // --- Developer / Debug ---

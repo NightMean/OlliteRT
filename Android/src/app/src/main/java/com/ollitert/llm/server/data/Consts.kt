@@ -100,6 +100,7 @@ const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
 const val CHARS_PER_TOKEN_ESTIMATE = 4
 
 // Port validation range (IANA: 0–1023 reserved for well-known services).
+const val DEFAULT_PORT = 8000
 const val MIN_VALID_PORT = 1024
 const val MAX_VALID_PORT = 65535
 

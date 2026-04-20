@@ -768,7 +768,7 @@ class LlmHttpService : Service() {
     const val EXTRA_START_SOURCE = "extra_start_source"
     const val SOURCE_BOOT = "boot"
     const val SOURCE_LAUNCH = "launch"
-    const val DEFAULT_PORT = 8000
+    const val DEFAULT_PORT = com.ollitert.llm.server.data.DEFAULT_PORT
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"

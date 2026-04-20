@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.DEFAULT_PORT
 import com.ollitert.llm.server.data.MAX_VALID_PORT
 import com.ollitert.llm.server.data.MIN_VALID_PORT
 
@@ -127,7 +128,7 @@ val HOST_PORT = SettingDef.NumericInput(
   labelRes = R.string.settings_host_port_label,
   descriptionRes = R.string.settings_host_port_desc,
   card = CardId.SERVER_CONFIG,
-  default = 8000,
+  default = DEFAULT_PORT,
   prefsKey = "port",
   min = MIN_VALID_PORT,
   max = MAX_VALID_PORT,
