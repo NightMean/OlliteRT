@@ -25,15 +25,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,31 +73,6 @@ fun ModelNameAndStatus(
 
   val context = LocalContext.current
   Column(modifier = modifier) {
-    // Show "Best Overall" badge only for Gemma 4 models.
-    val isGemma4 = (model.displayName.ifEmpty { model.name }).contains("gemma-4", ignoreCase = true)
-        || (model.displayName.ifEmpty { model.name }).contains("gemma 4", ignoreCase = true)
-    val showBestBadge = isGemma4 && model.bestForTaskIds.isNotEmpty()
-    if (showBestBadge) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(bottom = 6.dp),
-      ) {
-        Icon(
-          Icons.Filled.Star,
-          tint = Color(0xFFFCC934),
-          contentDescription = null,
-          modifier = Modifier.size(18.dp),
-        )
-        Text(
-          stringResource(R.string.best_overall),
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.alpha(0.6f),
-        )
-      }
-    }
-
     // Model name — end padding reserves space for the overlaid action icons
     // (delete 40dp + settings 40dp + 8dp gap + 12dp card padding = 100dp worst case).
     Text(

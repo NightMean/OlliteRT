@@ -53,7 +53,6 @@ class LlmHttpModelFactoryTest {
       description = "test model",
       sizeInBytes = 1L,
       defaultConfig = DefaultConfig(),
-      taskTypes = listOf("llm_chat"),
     )
   }
 }

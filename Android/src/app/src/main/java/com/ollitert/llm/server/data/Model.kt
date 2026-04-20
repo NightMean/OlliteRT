@@ -97,18 +97,6 @@ data class Model(
   /**
    * (optional)
    *
-   * The task type ids that this model is best for.
-   *
-   * When set, the model's info card is pinned to the top of the model list when the corresponding
-   * task is selected, expanded by default, and displays a "best overall" banner.
-   *
-   * Each task should only have one such model.
-   */
-  val bestForTaskIds: List<String> = listOf(),
-
-  /**
-   * (optional)
-   *
    * The minimum device memory in GB to run the model.
    *
    * If set, a warning dialog will be shown when user trying to download the model or enter the

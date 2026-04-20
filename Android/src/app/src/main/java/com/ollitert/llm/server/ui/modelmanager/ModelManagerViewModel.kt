@@ -27,6 +27,7 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.getJsonResponse
+import com.ollitert.llm.server.data.BuiltInTaskId
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
@@ -216,12 +217,6 @@ constructor(
         // Restore persisted inference config (temperature, max tokens, etc.) so settings
         // survive app restarts. Overlays saved values on top of model defaults.
         LlmHttpModelFactory.restoreInferenceConfig(context, model)
-      }
-      // Move the model that is best for this task to the front.
-      val bestModel = task.models.find { it.bestForTaskIds.contains(task.id) }
-      if (bestModel != null) {
-        task.models.remove(bestModel)
-        task.models.add(0, bestModel)
       }
     }
   }
@@ -652,9 +647,14 @@ constructor(
 
           val model = allowedModel.toModel()
           nameToModel.put(model.name, model)
-          for (taskType in allowedModel.taskTypes) {
-            val task = curTasks.find { it.id == taskType }
-            task?.models?.add(model)
+          curTasks.find { it.id == BuiltInTaskId.LLM_CHAT }?.models?.add(model)
+          curTasks.find { it.id == BuiltInTaskId.LLM_PROMPT_LAB }?.models?.add(model)
+          curTasks.find { it.id == BuiltInTaskId.LLM_AGENT_CHAT }?.models?.add(model)
+          if (allowedModel.llmSupportImage == true) {
+            curTasks.find { it.id == BuiltInTaskId.LLM_ASK_IMAGE }?.models?.add(model)
+          }
+          if (allowedModel.llmSupportAudio == true) {
+            curTasks.find { it.id == BuiltInTaskId.LLM_ASK_AUDIO }?.models?.add(model)
           }
         }
 

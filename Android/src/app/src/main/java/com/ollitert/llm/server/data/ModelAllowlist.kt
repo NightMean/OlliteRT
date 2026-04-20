@@ -51,13 +51,11 @@ data class AllowedModel(
   val description: String,
   val sizeInBytes: Long,
   val defaultConfig: DefaultConfig,
-  val taskTypes: List<String>,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
   val llmSupportThinking: Boolean? = null,
   val minDeviceMemoryInGb: Int? = null,
-  val bestForTaskTypes: List<String>? = null,
   val localModelFilePathOverride: String? = null,
   val url: String? = null,
   val socToModelFiles: Map<String, SocModelFile>? = null,
@@ -87,79 +85,61 @@ data class AllowedModel(
     }
 
     // Config.
-    val isLlmModel =
-      taskTypes.contains(BuiltInTaskId.LLM_CHAT) ||
-        taskTypes.contains(BuiltInTaskId.LLM_PROMPT_LAB) ||
-        taskTypes.contains(BuiltInTaskId.LLM_ASK_AUDIO) ||
-        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE) ||
-        taskTypes.contains(BuiltInTaskId.LLM_AGENT_CHAT)
-    var configs: MutableList<Config> = mutableListOf()
-    var llmMaxToken = DEFAULT_MAX_TOKEN
-    var llmMaxContextLength: Int? = null
+    val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
+    val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
+    val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
+    val llmMaxToken = defaultConfig.maxTokens ?: DEFAULT_MAX_TOKEN
+    val llmMaxContextLength = defaultConfig.maxContextLength
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
-    if (isLlmModel) {
-      val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
-      val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
-      val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
-      llmMaxToken = defaultConfig.maxTokens ?: DEFAULT_MAX_TOKEN
-      llmMaxContextLength = defaultConfig.maxContextLength
-      if (defaultConfig.accelerators != null) {
-        val items = defaultConfig.accelerators.split(",")
-        accelerators = mutableListOf()
-        for (item in items) {
-          if (item == "cpu") {
-            accelerators.add(Accelerator.CPU)
-          } else if (item == "gpu") {
-            accelerators.add(Accelerator.GPU)
-          } else if (item == "npu") {
-            accelerators.add(Accelerator.NPU)
-          }
-        }
-        // Remove GPU from pixel 10 devices.
-        if (isPixel10()) {
-          accelerators.remove(Accelerator.GPU)
+    if (defaultConfig.accelerators != null) {
+      val items = defaultConfig.accelerators.split(",")
+      accelerators = mutableListOf()
+      for (item in items) {
+        if (item == "cpu") {
+          accelerators.add(Accelerator.CPU)
+        } else if (item == "gpu") {
+          accelerators.add(Accelerator.GPU)
+        } else if (item == "npu") {
+          accelerators.add(Accelerator.NPU)
         }
       }
-      if (defaultConfig.visionAccelerator != null) {
-        val accelerator = defaultConfig.visionAccelerator
-        if (accelerator == "cpu") {
-          visionAccelerator = Accelerator.CPU
-        } else if (accelerator == "gpu") {
-          visionAccelerator = Accelerator.GPU
-        } else if (accelerator == "npu") {
-          visionAccelerator = Accelerator.NPU
-        }
+      // Remove GPU from pixel 10 devices.
+      if (isPixel10()) {
+        accelerators.remove(Accelerator.GPU)
       }
-      val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
-      configs =
-        (
-          if (npuOnly) {
-            createLlmChatConfigsForNpuModel(
-              defaultMaxToken = llmMaxToken,
-              accelerators = accelerators,
-            )
-          } else {
-            createLlmChatConfigs(
-              defaultTopK = defaultTopK,
-              defaultTopP = defaultTopP,
-              defaultTemperature = defaultTemperature,
-              defaultMaxToken = llmMaxToken,
-              defaultMaxContextLength = llmMaxContextLength,
-              accelerators = accelerators,
-              supportThinking = llmSupportThinking == true,
-            )
-          })
-          .toMutableList()
     }
-
-    var learnMoreUrl = "https://huggingface.co/${modelId}"
-
-    // Misc.
-    var showBenchmarkButton = true
-    if (isLlmModel) {
-      showBenchmarkButton = false
+    if (defaultConfig.visionAccelerator != null) {
+      val accelerator = defaultConfig.visionAccelerator
+      if (accelerator == "cpu") {
+        visionAccelerator = Accelerator.CPU
+      } else if (accelerator == "gpu") {
+        visionAccelerator = Accelerator.GPU
+      } else if (accelerator == "npu") {
+        visionAccelerator = Accelerator.NPU
+      }
     }
+    val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
+    val configs =
+      (
+        if (npuOnly) {
+          createLlmChatConfigsForNpuModel(
+            defaultMaxToken = llmMaxToken,
+            accelerators = accelerators,
+          )
+        } else {
+          createLlmChatConfigs(
+            defaultTopK = defaultTopK,
+            defaultTopP = defaultTopP,
+            defaultTemperature = defaultTemperature,
+            defaultMaxToken = llmMaxToken,
+            defaultMaxContextLength = llmMaxContextLength,
+            accelerators = accelerators,
+            supportThinking = llmSupportThinking == true,
+          )
+        })
+        .toMutableList()
+
     return Model(
       name = name,
       version = version,
@@ -169,8 +149,8 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = downloadedFileName,
-      showBenchmarkButton = showBenchmarkButton,
-      learnMoreUrl = learnMoreUrl,
+      showBenchmarkButton = false,
+      learnMoreUrl = "https://huggingface.co/${modelId}",
       capabilities = buildSet {
         if (llmSupportImage == true) add(ModelCapability.VISION)
         if (llmSupportAudio == true) add(ModelCapability.AUDIO)
@@ -179,9 +159,8 @@ data class AllowedModel(
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
-      bestForTaskIds = bestForTaskTypes ?: listOf(),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
-      isLlm = isLlmModel,
+      isLlm = true,
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
     )
   }

@@ -45,7 +45,6 @@ class ModelAllowlistJsonTest {
               "maxContextLength": 8192,
               "maxTokens": 2048
             },
-            "taskTypes": ["llm_chat"],
             "llmSupportThinking": true
           }
         ]
@@ -73,7 +72,6 @@ class ModelAllowlistJsonTest {
             "description": "test",
             "sizeInBytes": 123,
             "defaultConfig": {},
-            "taskTypes": ["llm_chat"],
             "extraField": "ignored"
           }
         ],
@@ -111,8 +109,7 @@ class ModelAllowlistJsonTest {
             "modelFile": "minimal.litertlm",
             "description": "test",
             "sizeInBytes": 100,
-            "defaultConfig": {},
-            "taskTypes": ["llm_chat"]
+            "defaultConfig": {}
           }
         ]
       }
@@ -132,31 +129,6 @@ class ModelAllowlistJsonTest {
     assertEquals(null, model.defaultConfig.temperature)
   }
 
-  @Test
-  fun decodesModelWithUnknownTaskTypes() {
-    val json =
-      """
-      {
-        "models": [
-          {
-            "name": "Future",
-            "modelId": "test/future",
-            "modelFile": "future.litertlm",
-            "description": "test",
-            "sizeInBytes": 100,
-            "defaultConfig": {},
-            "taskTypes": ["unknown_future_task", "llm_chat"]
-          }
-        ]
-      }
-      """.trimIndent()
-
-    val allowlist = ModelAllowlistJson.decode(json)
-
-    assertEquals(2, allowlist.models.first().taskTypes.size)
-    assertEquals("unknown_future_task", allowlist.models.first().taskTypes[0])
-  }
-
   @Suppress("SENSELESS_COMPARISON")
   @Test
   fun decodesModelWithMissingNameAsNull() {
@@ -169,8 +141,7 @@ class ModelAllowlistJsonTest {
             "modelFile": "noname.litertlm",
             "description": "test",
             "sizeInBytes": 100,
-            "defaultConfig": {},
-            "taskTypes": ["llm_chat"]
+            "defaultConfig": {}
           }
         ]
       }
