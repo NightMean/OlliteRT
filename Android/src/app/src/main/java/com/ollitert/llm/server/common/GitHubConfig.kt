@@ -53,12 +53,10 @@ object GitHubConfig {
   // ---------------------------------------------------------------------------
 
   /**
-   * Base URL for fetching remote model allowlist JSON files.
-   * Versioned by format generation (v1/, v2/, etc.) so breaking schema changes
-   * don't affect older app versions. Each app release needs a matching file
-   * (e.g. v1/0_8_0.json for v0.8.0). Copy the previous file if models haven't changed.
+   * URL for the single master model allowlist JSON file.
+   * Version filtering is handled by minAppVersion/maxAppVersion fields in the JSON.
    */
-  const val ALLOWLIST_BASE_URL =
-    "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/main/model_allowlists/v1"
+  const val ALLOWLIST_URL =
+    "https://raw.githubusercontent.com/$OWNER/$REPO/refs/heads/main/model_allowlists/v1/model_allowlist.json"
 
 }

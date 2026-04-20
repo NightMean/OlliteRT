@@ -20,7 +20,7 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.ModelAllowlist
-import com.google.gson.Gson
+import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
 
 private const val TAG = "AllowlistLoader"
@@ -66,7 +66,7 @@ class ModelAllowlistLoader(
     return try {
       val content = context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }
       Log.d(TAG, "Loaded bundled model allowlist from assets")
-      Gson().fromJson(content, ModelAllowlist::class.java)
+      ModelAllowlistJson.decode(content)
     } catch (e: Exception) {
       Log.e(TAG, "Failed to read bundled model allowlist from assets", e)
       null
@@ -82,7 +82,7 @@ class ModelAllowlistLoader(
       if (file.exists()) {
         val content = file.readText()
         Log.d(TAG, "Model allowlist content from local file: $content")
-        return Gson().fromJson(content, ModelAllowlist::class.java)
+        return ModelAllowlistJson.decode(content)
       }
     } catch (e: Exception) {
       Log.e(TAG, "failed to read model allowlist from disk", e)

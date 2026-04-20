@@ -26,6 +26,7 @@ import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.DataStoreRepository
@@ -34,6 +35,7 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.EMPTY_MODEL
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
+import com.ollitert.llm.server.data.ModelAllowlistJson
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.SOC
@@ -64,7 +66,7 @@ import kotlinx.coroutines.launch
 private const val TAG = "OlliteRTModelManagerVM"
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
-private const val ALLOWLIST_BASE_URL = GitHubConfig.ALLOWLIST_BASE_URL
+private const val ALLOWLIST_URL = GitHubConfig.ALLOWLIST_URL
 
 private const val TEST_MODEL_ALLOW_LIST = ""
 
@@ -502,32 +504,18 @@ constructor(
         }
 
         if (modelAllowlist == null) {
-          // Load from github.
-          // Strip flavor suffixes (-dev, -beta) so the version maps to the remote
-          // allowlist file (e.g. "0.8.0-beta" → "0_8_0" → "v1/0_8_0.json").
-          // When beta needs different models, it will have a bumped version number
-          // (e.g. 0.9.0) with its own allowlist — the suffix is not part of the
-          // allowlist versioning scheme.
-          //
-          // IMPORTANT: Every new app version release MUST have a corresponding
-          // allowlist file in model_allowlists/v1/ (e.g. v1/0_9_0.json for
-          // version 0.9.0). Without it, the app falls back to the disk cache or
-          // the bundled asset, which may be outdated. The file can be a copy of
-          // the previous version's allowlist if models haven't changed.
-          // See: model_allowlists/v1/ in the repo root and GitHubConfig.ALLOWLIST_BASE_URL.
-          var version = BuildConfig.VERSION_NAME
-            .replace(Regex("-(dev|beta)$"), "")
-            .replace(".", "_")
-          val url = getAllowlistUrl(version)
+          // Load from the single master allowlist on GitHub.
+          // Version filtering is handled by minAppVersion/maxAppVersion in the JSON.
+          val url = ALLOWLIST_URL
           Log.d(TAG, "Loading model allowlist from internet. Url: $url")
           val data = getJsonResponse<ModelAllowlist>(url = url)
-          modelAllowlist = data?.jsonObj
+          modelAllowlist = data?.let { ModelAllowlistJson.decode(it.textContent) }
 
           if (modelAllowlist != null) {
             // Network fetch succeeded — save to disk cache for future offline use.
             allowlistSource = AllowlistSource.NETWORK
             Log.d(TAG, "Done: loading model allowlist from internet")
-            saveModelAllowlistToDisk(modelAllowlistContent = data.textContent)
+            saveModelAllowlistToDisk(modelAllowlistContent = data!!.textContent)
           } else {
             // Network failed — try disk cache. If this was a manual retry, notify the user.
             Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
@@ -559,6 +547,13 @@ constructor(
 
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
+        val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
+
+        if (modelAllowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
+          Log.w(TAG, "Schema version ${modelAllowlist.schemaVersion} unsupported — clearing model list")
+          modelAllowlist = ModelAllowlist(schemaVersion = modelAllowlist.schemaVersion, models = emptyList())
+        }
+
         // Convert models in the allowlist into a flat list.
         val models = mutableListOf<Model>()
         for (allowedModel in modelAllowlist.models) {
@@ -577,7 +572,7 @@ constructor(
             }
           }
 
-          models.add(allowedModel.toModel())
+          models.add(allowedModel.toModel(appVersion = appVersion))
         }
 
         // Store models in state so processModels and createUiState can read them.
@@ -686,7 +681,3 @@ constructor(
 
 }
 
-/** Builds the remote URL for a version-specific model allowlist file (e.g. "0_8_0" → "v1/0_8_0.json"). */
-private fun getAllowlistUrl(version: String): String {
-  return "$ALLOWLIST_BASE_URL/${version}.json"
-}

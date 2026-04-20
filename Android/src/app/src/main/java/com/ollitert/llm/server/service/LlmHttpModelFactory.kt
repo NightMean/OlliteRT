@@ -17,6 +17,8 @@
 package com.ollitert.llm.server.service
 
 import android.content.Context
+import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.IMPORTS_DIR
@@ -37,7 +39,7 @@ import java.io.File
  */
 object LlmHttpModelFactory {
   fun buildAllowedModel(allowedModel: AllowedModel, importsDir: File): Model {
-    val base = allowedModel.toModel()
+    val base = allowedModel.toModel(appVersion = SemVer.parse(BuildConfig.VERSION_NAME))
     val imported = File(importsDir, "${allowedModel.name}.litertlm")
     return withImportOverride(base, imported)
   }

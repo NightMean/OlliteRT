@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
@@ -32,15 +33,18 @@ import java.io.File
 class LlmHttpAllowlistLoader(
   private val externalFilesDir: File?,
   private val packageName: String,
+  private val appVersionName: String = "",
   private val assetReader: () -> String? = { null },
 ) {
+  private val appVersion: SemVer? = SemVer.parse(appVersionName)
   private var cached: ModelAllowlist? = null
   var lastSource: String = "unknown"
     private set
 
   /** Returns the current list of allowed models, falling back to cache on error. */
   fun load(): List<AllowedModel> {
-    val fresh = readFromFiles()
+    val raw = readFromFiles()
+    val fresh = if (raw != null && appVersion != null) raw.filterCompatible(appVersion) else raw
     if (fresh != null && fresh.models.isNotEmpty()) {
       cached = fresh
       return fresh.models

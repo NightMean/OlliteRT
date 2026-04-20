@@ -32,6 +32,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
+import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.CLEANUP_AWAIT_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
@@ -109,6 +110,7 @@ class LlmHttpService : Service() {
       allowlistLoader = LlmHttpAllowlistLoader(
         externalFilesDir = getExternalFilesDir(null),
         packageName = packageName,
+        appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
           try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
         },
