@@ -71,8 +71,6 @@ internal sealed class ParsedEventType {
   data class ImageDecodeFailed(val errorMessage: String) : ParsedEventType()
   /** Queued settings change being applied — model reloading. */
   data object QueuedReload : ParsedEventType()
-  /** CORS allowed origins changed. */
-  data class CorsChanged(val oldValue: String, val newValue: String) : ParsedEventType()
   /** Failed to reset conversation (e.g. during model reuse). */
   data class ConversationResetFailed(val errorMessage: String) : ParsedEventType()
   /** Grouped batch of settings changes from the Settings screen (body = newline-separated "Name: old → new"). */
@@ -272,15 +270,6 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
   // Queued settings change: "Applying queued settings change — reloading model"
   if (message.startsWith("Applying queued settings change")) {
     return ParsedEventType.QueuedReload
-  }
-
-  // CORS changed: "CORS Allowed Origins changed: \"old\" → \"new\""
-  if (message.startsWith("CORS Allowed Origins changed: ")) {
-    val rest = message.removePrefix("CORS Allowed Origins changed: ")
-    val parts = rest.split(" → ", limit = 2)
-    val oldValue = parts.getOrElse(0) { "" }.trim('"')
-    val newValue = parts.getOrElse(1) { "" }.trim('"')
-    return ParsedEventType.CorsChanged(oldValue, newValue)
   }
 
   // Failed to reset conversation: "Failed to reset conversation: <error>"

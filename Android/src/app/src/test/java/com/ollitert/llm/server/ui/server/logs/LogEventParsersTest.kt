@@ -172,17 +172,6 @@ class LogEventParsersTest {
     assertTrue(result is ParsedEventType.QueuedReload)
   }
 
-  // ── parseEventType: CorsChanged ───────────────────────────────────────────
-
-  @Test
-  fun corsChanged() {
-    val result = parseEventType("""CORS Allowed Origins changed: "*" → "http://localhost:3000"""")
-    assertTrue(result is ParsedEventType.CorsChanged)
-    val cors = result as ParsedEventType.CorsChanged
-    assertEquals("*", cors.oldValue)
-    assertEquals("http://localhost:3000", cors.newValue)
-  }
-
   // ── parseEventType: ConversationResetFailed ───────────────────────────────
 
   @Test

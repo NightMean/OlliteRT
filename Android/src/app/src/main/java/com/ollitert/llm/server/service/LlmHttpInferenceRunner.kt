@@ -28,6 +28,9 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.LOG_STREAMING_PREVIEW_DEBOUNCE_MS
 import com.ollitert.llm.server.data.WARMUP_MESSAGE
+import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.WARMUP_TIMEOUT_SECONDS
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import fi.iki.elonen.NanoHTTPD
@@ -120,7 +123,7 @@ class LlmHttpInferenceRunner(
     prompt: String,
     requestId: String,
     endpoint: String,
-    timeoutSeconds: Long = 30,
+    timeoutSeconds: Long = BLOCKING_TIMEOUT_SECONDS,
     images: List<ByteArray> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     eagerVisionInit: Boolean = false,
@@ -405,7 +408,7 @@ class LlmHttpInferenceRunner(
     prompt: String,
     requestId: String,
     endpoint: String,
-    timeoutSeconds: Long = 90,
+    timeoutSeconds: Long = RESPONSES_TIMEOUT_SECONDS,
     images: List<ByteArray> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     logId: String? = null,
@@ -426,7 +429,7 @@ class LlmHttpInferenceRunner(
     prompt: String,
     requestId: String,
     endpoint: String,
-    timeoutSeconds: Long = 120,
+    timeoutSeconds: Long = CHAT_COMPLETIONS_TIMEOUT_SECONDS,
     images: List<ByteArray> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     logId: String? = null,

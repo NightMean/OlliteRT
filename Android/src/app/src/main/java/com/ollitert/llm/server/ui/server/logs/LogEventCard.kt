@@ -170,7 +170,6 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
     is ParsedEventType.ModelNotFound -> stringResource(R.string.logs_headline_model_not_found)
     is ParsedEventType.ImageDecodeFailed -> stringResource(R.string.logs_headline_image_decode_failed)
     is ParsedEventType.QueuedReload -> stringResource(R.string.logs_headline_queued_reload)
-    is ParsedEventType.CorsChanged -> stringResource(R.string.logs_headline_settings_changed)
     is ParsedEventType.ConversationResetFailed -> stringResource(R.string.logs_headline_conversation_reset_failed)
     is ParsedEventType.SettingsBatch -> stringResource(R.string.logs_headline_settings_updated)
     is ParsedEventType.ApiConfigChange -> stringResource(R.string.logs_headline_config_via_api)
@@ -439,17 +438,6 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
           color = OlliteRTPrimary,
           fontWeight = FontWeight.Medium,
-        )
-      }
-
-      is ParsedEventType.CorsChanged -> {
-        // Reuse the settings change row style for CORS before → after
-        SettingsChangeRows(
-          parsed = ParsedInferenceEvent(
-            changes = listOf(InferenceSettingsChange("CORS Allowed Origins", parsedEvent.oldValue, parsedEvent.newValue)),
-            statusSuffix = null,
-          ),
-          accentColor = accentColor,
         )
       }
 
