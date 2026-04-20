@@ -211,6 +211,9 @@ data class Model(
   /** Accelerator for running vision encoder. */
   val visionAccelerator: Accelerator = Accelerator.GPU,
 
+  /** Badge from the model allowlist (e.g. "Best overall", "New"). */
+  val badge: ModelBadge? = null,
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 

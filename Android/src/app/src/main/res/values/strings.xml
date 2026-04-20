@@ -26,7 +26,9 @@
   <string name="benchmark_results" translatable="false">Benchmark results</string>
   <string name="benchmark_no_results" translatable="false">No benchmark results</string>
   <string name="benchmark_tokens_limit_message" translatable="false">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
-  <string name="best_overall" translatable="false">Best overall</string>
+  <string name="badge_best_overall" translatable="false">Best overall</string>
+  <string name="badge_new" translatable="false">New</string>
+  <string name="badge_fastest" translatable="false">Fastest</string>
   <string name="cancel" translatable="false">Cancel</string>
   <string name="checking_access" translatable="false">Checking access...</string>
   <string name="close" translatable="false">Close</string>

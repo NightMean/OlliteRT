@@ -51,7 +51,6 @@ data class AllowedModel(
   val description: String,
   val sizeInBytes: Long,
   val defaultConfig: DefaultConfig,
-  val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
   val llmSupportThinking: Boolean? = null,
@@ -60,6 +59,7 @@ data class AllowedModel(
   val url: String? = null,
   val socToModelFiles: Map<String, SocModelFile>? = null,
   val runtimeType: RuntimeType? = null,
+  val badge: String? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -159,6 +159,7 @@ data class AllowedModel(
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
+      badge = badge?.let { ModelBadge.fromKey(it) },
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = true,
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,

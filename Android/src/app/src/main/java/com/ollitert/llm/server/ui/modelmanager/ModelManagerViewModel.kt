@@ -562,10 +562,6 @@ constructor(
         // Convert models in the allowlist into a flat list.
         val models = mutableListOf<Model>()
         for (allowedModel in modelAllowlist.models) {
-          if (allowedModel.disabled == true) {
-            continue
-          }
-
           // Ignore the allowedModel if its accelerator is only npu and this device's soc is not in
           // its socToModelFiles.
           val accelerators = allowedModel.defaultConfig.accelerators ?: ""

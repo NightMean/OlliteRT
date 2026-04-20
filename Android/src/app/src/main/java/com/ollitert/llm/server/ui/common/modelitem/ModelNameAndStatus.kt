@@ -85,6 +85,11 @@ fun ModelNameAndStatus(
       modifier = Modifier.padding(end = 100.dp),
     )
 
+    // Data-driven badge (e.g. "Best overall", "New")
+    if (model.badge != null) {
+      ModelBadgeChip(badge = model.badge)
+    }
+
     // Capability chips (Text, Vision, Audio, Thinking)
     if (model.isLlm) {
       CapabilityChips(

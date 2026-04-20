@@ -11,6 +11,7 @@
       "llmSupportImage": true,
       "llmSupportAudio": true,
       "llmSupportThinking": true,
+      "badge": "best_overall",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -32,6 +33,7 @@
       "llmSupportImage": true,
       "llmSupportAudio": true,
       "llmSupportThinking": true,
+      "badge": "best_overall",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,

@@ -127,6 +127,7 @@ class ModelAllowlistJsonTest {
     assertEquals(null, model.defaultConfig.topK)
     assertEquals(null, model.defaultConfig.topP)
     assertEquals(null, model.defaultConfig.temperature)
+    assertEquals(null, model.badge)
   }
 
   @Suppress("SENSELESS_COMPARISON")
@@ -170,5 +171,50 @@ class ModelAllowlistJsonTest {
     assertFalse(none.llmSupportImage)
     assertFalse(none.llmSupportAudio)
     assertFalse(none.llmSupportThinking)
+  }
+
+  @Test
+  fun decodesBadgeField() {
+    val json = """
+      {
+        "models": [
+          {
+            "name": "Gemma-4-E2B-it",
+            "modelId": "litert-community/gemma-4-E2B-it-litert-lm",
+            "modelFile": "gemma-4-E2B-it.litertlm",
+            "description": "test",
+            "sizeInBytes": 123,
+            "defaultConfig": {},
+            "badge": "best_overall",
+            "llmSupportImage": true,
+            "llmSupportAudio": true
+          }
+        ]
+      }
+    """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals("best_overall", allowlist.models.first().badge)
+  }
+
+  @Test
+  fun badgeDefaultsToNull() {
+    val json = """
+      {
+        "models": [
+          {
+            "name": "Minimal",
+            "modelId": "test/minimal",
+            "modelFile": "minimal.litertlm",
+            "description": "test",
+            "sizeInBytes": 100,
+            "defaultConfig": {}
+          }
+        ]
+      }
+    """.trimIndent()
+
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals(null, allowlist.models.first().badge)
   }
 }
