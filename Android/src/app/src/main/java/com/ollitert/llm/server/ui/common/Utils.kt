@@ -23,7 +23,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -55,10 +54,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import java.io.File
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlinx.coroutines.delay
@@ -126,45 +123,6 @@ fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolea
     formatString = "%.2f %sB"
   }
   return formatString.format(bytes / unit.toDouble().pow(exp.toDouble()), pre)
-}
-
-fun Long.formatToHourMinSecond(): String {
-  val ms = this
-  if (ms < 0) {
-    return "-"
-  }
-
-  val seconds = ms / 1000
-  val hours = seconds / 3600
-  val minutes = (seconds % 3600) / 60
-  val remainingSeconds = seconds % 60
-
-  val parts = mutableListOf<String>()
-
-  if (hours > 0) {
-    parts.add("$hours h")
-  }
-  if (minutes > 0) {
-    parts.add("$minutes min")
-  }
-  if (remainingSeconds > 0 || (hours == 0L && minutes == 0L)) {
-    parts.add("$remainingSeconds sec")
-  }
-
-  return parts.joinToString(" ")
-}
-
-fun Context.createTempPictureUri(
-  fileName: String = "picture_${System.currentTimeMillis()}",
-  fileExtension: String = ".png",
-): Uri {
-  val tempFile = File.createTempFile(fileName, fileExtension, cacheDir).apply { createNewFile() }
-
-  return FileProvider.getUriForFile(
-    applicationContext,
-    "com.ollitert.llm.server.provider" /* {applicationId}.provider */,
-    tempFile,
-  )
 }
 
 fun checkNotificationPermissionAndStartDownload(
