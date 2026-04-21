@@ -87,7 +87,6 @@ object LlmHttpModelFactory {
       configs = configs,
       sizeInBytes = info.fileSize,
       downloadFileName = "$IMPORTS_DIR/${info.fileName}",
-      showBenchmarkButton = false,
       imported = true,
       capabilities = buildSet {
         if (info.llmConfig.supportImage) add(ModelCapability.VISION)

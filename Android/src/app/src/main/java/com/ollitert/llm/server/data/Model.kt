@@ -190,9 +190,6 @@ data class Model(
   // custom tasks.
   //
 
-  /** Whether to show the "benchmark" button in the UI. */
-  val showBenchmarkButton: Boolean = true,
-
   /** Indicates whether the model is a zip file. */
   val isZip: Boolean = false,
 

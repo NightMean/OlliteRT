@@ -173,7 +173,6 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = downloadedFileName,
-      showBenchmarkButton = false,
       learnMoreUrl = "https://huggingface.co/${modelId}",
       capabilities = buildSet {
         if (llmSupportImage == true) add(ModelCapability.VISION)
