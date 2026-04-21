@@ -157,6 +157,9 @@ object ServerLlmModelHelper : LlmModelHelper {
       engine = Engine(engineConfig)
       engine.initialize()
 
+      // THREAD SAFETY: This global flag has a set/read/reset race if initialize() and
+      // resetConversation() overlap on different threads. Currently benign — all server-layer
+      // callers pass false (the default), so the race has no observable effect.
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       try {
