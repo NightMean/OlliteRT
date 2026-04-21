@@ -494,7 +494,7 @@ val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
   key = "show_model_recommendations",
   labelRes = R.string.settings_show_model_recommendations,
   descriptionRes = R.string.settings_show_model_recommendations_desc,
-  card = CardId.ADVANCED,
+  card = CardId.GENERAL,
   default = true,
   prefsKey = "show_model_recommendations",
   read = { LlmHttpPrefs.isShowModelRecommendations(it) },
@@ -535,7 +535,7 @@ val RESET_TO_DEFAULTS = SettingDef.Custom(
 val allSettingDefs: List<SettingDef> = listOf(
   // General
   KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
-  HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
+  HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
   // HF Token
   HF_TOKEN,
   // Server Config
@@ -553,7 +553,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
-  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS, SHOW_MODEL_RECOMMENDATIONS,
+  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS,
   // Developer
   VERBOSE_DEBUG, EXPORT_LOGCAT,
   // Reset
@@ -573,6 +573,7 @@ val allCardDefs: List<CardDef> = listOf(
     settings = listOf(
       KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
       HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
+      SHOW_MODEL_RECOMMENDATIONS,
     ),
   ),
   CardDef(
@@ -629,7 +630,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.ADVANCED,
     titleRes = R.string.settings_card_advanced,
     icon = CardIcon.Vector(Icons.Outlined.Science),
-    settings = listOf(WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS, SHOW_MODEL_RECOMMENDATIONS),
+    settings = listOf(WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS),
   ),
   CardDef(
     id = CardId.DEVELOPER,
