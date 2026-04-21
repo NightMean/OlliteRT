@@ -68,11 +68,10 @@ class LlmHttpEndpointHandlers(
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
     session.parseBody(payload)
-    val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
-    captureBody(parsed.body)
-    logPayload("POST /generate raw", parsed.body, requestId)
-    val req = json.decodeFromString<GenReq>(parsed.body)
+    val body = payload["postData"] ?: return badRequest("empty body")
+    captureBody(body)
+    logPayload("POST /generate raw", body, requestId)
+    val req = json.decodeFromString<GenReq>(body)
     val model = when (val sel = modelLifecycle.selectModel(null)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
@@ -96,7 +95,7 @@ class LlmHttpEndpointHandlers(
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxGen) }
     }
     logPayload("POST /generate prompt", prompt, requestId)
-    logEvent("request_start id=$requestId endpoint=/generate bodyLength=${parsed.bodyLength} promptChars=${prompt.length} model=default")
+    logEvent("request_start id=$requestId endpoint=/generate bodyLength=${body.length} promptChars=${prompt.length} model=default")
     ServerMetrics.onInferenceStarted()
     val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId)
     ServerMetrics.onInferenceCompleted()
@@ -125,11 +124,10 @@ class LlmHttpEndpointHandlers(
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
     session.parseBody(payload)
-    val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
-    captureBody(parsed.body)
-    logPayload("POST /v1/chat/completions raw", parsed.body, requestId)
-    val req = json.decodeFromString<ChatRequest>(parsed.body)
+    val body = payload["postData"] ?: return badRequest("empty body")
+    captureBody(body)
+    logPayload("POST /v1/chat/completions raw", body, requestId)
+    val req = json.decodeFromString<ChatRequest>(body)
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
       return badRequest("tool_choice required but tools empty")
@@ -194,7 +192,7 @@ class LlmHttpEndpointHandlers(
       modelLifecycle.decodeAudioData(audioData)
     } else emptyList()
 
-    logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyLength=${parsed.bodyLength} promptChars=${prompt.length} images=${images.size} audio=${audioClips.size} model=$requestedId resolved=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/chat/completions bodyLength=${body.length} promptChars=${prompt.length} images=${images.size} audio=${audioClips.size} model=$requestedId resolved=${model.name}")
 
     if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
@@ -277,11 +275,10 @@ class LlmHttpEndpointHandlers(
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
     session.parseBody(payload)
-    val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
-    captureBody(parsed.body)
-    logPayload("POST /v1/completions raw", parsed.body, requestId)
-    val req = json.decodeFromString<CompletionRequest>(parsed.body)
+    val body = payload["postData"] ?: return badRequest("empty body")
+    captureBody(body)
+    logPayload("POST /v1/completions raw", body, requestId)
+    val req = json.decodeFromString<CompletionRequest>(body)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
@@ -304,7 +301,7 @@ class LlmHttpEndpointHandlers(
       val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxCompl) }
     }
-    logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${parsed.bodyLength} promptChars=${prompt.length} model=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${body.length} promptChars=${prompt.length} model=${model.name}")
 
     if (prompt.isBlank()) {
       val responseJson = json.encodeToString(CompletionResponse(
@@ -378,11 +375,10 @@ class LlmHttpEndpointHandlers(
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
     session.parseBody(payload)
-    val raw = payload["postData"] ?: return badRequest("empty body")
-    val parsed = LlmHttpBodyParser.parse(raw) ?: return badRequest("empty body")
-    captureBody(parsed.body)
-    logPayload("POST /v1/responses raw", parsed.body, requestId)
-    val req = json.decodeFromString<ResponsesRequest>(parsed.body)
+    val body = payload["postData"] ?: return badRequest("empty body")
+    captureBody(body)
+    logPayload("POST /v1/responses raw", body, requestId)
+    val req = json.decodeFromString<ResponsesRequest>(body)
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
       return badRequest("tool_choice required but tools empty")
@@ -417,7 +413,7 @@ class LlmHttpEndpointHandlers(
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxResp) }
     }
     logPayload("POST /v1/responses prompt", prompt, requestId)
-    logEvent("request_start id=$requestId endpoint=/v1/responses bodyLength=${parsed.bodyLength} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
+    logEvent("request_start id=$requestId endpoint=/v1/responses bodyLength=${body.length} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/responses")
