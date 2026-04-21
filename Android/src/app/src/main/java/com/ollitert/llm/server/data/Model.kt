@@ -29,7 +29,6 @@ enum class ModelCapability {
 }
 
 data class ModelDataFile(
-  val name: String,
   val url: String,
   val downloadFileName: String,
   val sizeInBytes: Long,
