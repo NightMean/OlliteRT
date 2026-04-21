@@ -21,7 +21,6 @@ import androidx.activity.result.ActivityResult
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelDownloadStatus
-import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationService
 
 /**
@@ -36,7 +35,6 @@ interface TokenManager {
   var curAccessToken: String
   fun dispose()
   fun getTokenStatusAndData(): TokenStatusAndData
-  fun getAuthorizationRequest(): AuthorizationRequest
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit)
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long)
 }

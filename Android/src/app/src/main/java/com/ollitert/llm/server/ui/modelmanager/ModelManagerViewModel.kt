@@ -450,7 +450,6 @@ constructor(
 
   // Token management — delegated to HuggingFaceTokenManager
   fun getTokenStatusAndData() = tokenManager.getTokenStatusAndData()
-  fun getAuthorizationRequest() = tokenManager.getAuthorizationRequest()
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) =
     tokenManager.handleAuthResult(result, onTokenRequested)
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) =

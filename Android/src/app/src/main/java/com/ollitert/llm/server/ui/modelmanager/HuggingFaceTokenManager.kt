@@ -20,15 +20,11 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import android.util.Log
 import androidx.activity.result.ActivityResult
-import androidx.core.net.toUri
-import com.ollitert.llm.server.common.ProjectConfig
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.proto.AccessTokenData
 import net.openid.appauth.AuthorizationException
-import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
-import net.openid.appauth.ResponseTypeValues
 
 private const val TAG = "HFTokenManager"
 
@@ -73,17 +69,6 @@ class HuggingFaceTokenManager(
     }
 
     return TokenStatusAndData(status = tokenStatus, data = tokenData)
-  }
-
-  override fun getAuthorizationRequest(): AuthorizationRequest {
-    return AuthorizationRequest.Builder(
-        ProjectConfig.authServiceConfig,
-        ProjectConfig.clientId,
-        ResponseTypeValues.CODE,
-        ProjectConfig.redirectUri.toUri(),
-      )
-      .setScope("read-repos")
-      .build()
   }
 
   override fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
