@@ -68,6 +68,7 @@ class LlmHttpService : Service() {
   private val loadGeneration = AtomicLong(0)
   /** Shared lock for serializing inference and config writes — passed to InferenceRunner and used by updateConfigValues. */
   private val inferenceLock = Any()
+  @Volatile private var loadThread: Thread? = null
 
   // Notification state — saved after warmup so we can refresh the notification with live request count.
   // @Volatile: written from background load thread, read from main thread for notification refresh.
@@ -427,6 +428,7 @@ class LlmHttpService : Service() {
     synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
 
     Thread {
+      loadThread = Thread.currentThread()
       try {
         // Guard against native SIGABRT: LiteRT's Engine.initialize() calls
         // abort() (not a catchable exception) when it can't allocate memory or
@@ -595,6 +597,8 @@ class LlmHttpService : Service() {
           contentIntent = contentIntent,
           stopIntent = stopIntent,
         )
+      } finally {
+        loadThread = null
       }
     }.start()
 
@@ -631,6 +635,8 @@ class LlmHttpService : Service() {
     keepAliveUnloadedModelName = null
     // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
     loadGeneration.incrementAndGet()
+    loadThread?.interrupt()
+    loadThread = null
     server?.stop()
     inferenceExecutor?.shutdownNow()
     try { inferenceExecutor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (_: InterruptedException) {}
