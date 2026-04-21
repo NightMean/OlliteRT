@@ -143,10 +143,6 @@ fun ModelNameAndStatus(
                 "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
               if (downloadStatus.bytesPerSecond > 0) {
                 sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
-                // if (downloadStatus.remainingMs >= 0) {
-                //   sizeLabel =
-                //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
-                // }
               }
               if (isPartiallyDownloaded) {
                 sizeLabel = "$sizeLabel${stringResource(R.string.model_status_resuming_suffix)}"

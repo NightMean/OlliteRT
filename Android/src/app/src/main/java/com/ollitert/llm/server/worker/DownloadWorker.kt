@@ -42,7 +42,6 @@ import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_MODEL_DIR
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_RATE
 import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_RECEIVED_BYTES
-import com.ollitert.llm.server.data.KEY_MODEL_DOWNLOAD_REMAINING_MS
 import com.ollitert.llm.server.data.KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES
 import com.ollitert.llm.server.data.KEY_MODEL_EXTRA_DATA_URLS
 import com.ollitert.llm.server.data.KEY_MODEL_IS_ZIP
@@ -242,17 +241,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     bytesPerMs = bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
                   }
 
-                  // Calculate remaining seconds
-                  var remainingMs = 0f
-                  if (bytesPerMs > 0f && totalBytes > 0L) {
-                    remainingMs = (totalBytes - downloadedBytes) / bytesPerMs
-                  }
-
                   setProgress(
                     Data.Builder()
                       .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
                       .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
-                      .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
                       .build()
                   )
                   setForeground(

@@ -316,7 +316,6 @@ data class ModelDownloadStatus(
   val receivedBytes: Long = 0,
   val errorMessage: String = "",
   val bytesPerSecond: Long = 0,
-  val remainingMs: Long = 0,
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

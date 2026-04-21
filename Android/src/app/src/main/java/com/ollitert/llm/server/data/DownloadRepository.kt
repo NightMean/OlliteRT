@@ -166,7 +166,6 @@ class DefaultDownloadRepository(
           WorkInfo.State.RUNNING -> {
             val receivedBytes = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
             val downloadRate = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RATE, 0L)
-            val remainingSeconds = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, 0L)
             val startUnzipping = workInfo.progress.getBoolean(KEY_MODEL_START_UNZIPPING, false)
 
             if (!startUnzipping) {
@@ -178,7 +177,6 @@ class DefaultDownloadRepository(
                     totalBytes = model.totalBytes,
                     receivedBytes = receivedBytes,
                     bytesPerSecond = downloadRate,
-                    remainingMs = remainingSeconds,
                   ),
                 )
               }
