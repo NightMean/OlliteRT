@@ -77,14 +77,11 @@ private val ollitertColorScheme =
  */
 @Immutable
 data class CustomColors(
-  val appTitleGradientColors: List<Color> = listOf(OlliteRTPrimary, OlliteRTDeepBlue),
   val modelCardBgColor: Color = OlliteRTSurfaceContainerLow,
   val linkColor: Color = OlliteRTLinkColor,
   val successColor: Color = OlliteRTSuccessColor,
   val modelInfoIconColor: Color = Color(0xFFCCCCCC),
-  val warningContainerColor: Color = OlliteRTWarningContainer,
   val warningTextColor: Color = OlliteRTWarningText,
-  val errorContainerColor: Color = Color(0xFF523A3B),
   val errorTextColor: Color = Color(0xFFEE675C),
 )
 
