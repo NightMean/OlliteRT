@@ -66,6 +66,8 @@ class LlmHttpService : Service() {
   private val requestCounter = AtomicLong(0)
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
+  /** Shared lock for serializing inference and config writes — passed to InferenceRunner and used by updateConfigValues. */
+  private val inferenceLock = Any()
 
   // Notification state — saved after warmup so we can refresh the notification with live request count.
   // @Volatile: written from background load thread, read from main thread for notification refresh.
@@ -371,7 +373,6 @@ class LlmHttpService : Service() {
     inferenceExecutor?.shutdownNow()
     val executor = Executors.newSingleThreadExecutor()
     inferenceExecutor = executor
-    val inferenceLock = Any()
     val runner = LlmHttpInferenceRunner(
       context = this,
       executor = executor,
@@ -406,6 +407,7 @@ class LlmHttpService : Service() {
       getRequestCount = { requestCounter.get() },
       emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
       audioTranscriptionHandler = audioTranscriptionHandler,
+      inferenceLock = inferenceLock,
     )
     try {
       server?.start()
@@ -884,12 +886,15 @@ class LlmHttpService : Service() {
     private var activeInstance: LlmHttpService? = null
 
     fun updateConfigValues(configValues: Map<String, Any>) {
-      activeInstance?.defaultModel?.let { model ->
-        model.configValues = configValues.toMutableMap()
-        // Update thinking state in metrics so the Status screen pill reflects the change
-        ServerMetrics.setThinkingEnabled(
-          model.llmSupportThinking && (configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
-        )
+      val instance = activeInstance ?: return
+      synchronized(instance.inferenceLock) {
+        instance.defaultModel?.let { model ->
+          model.configValues = configValues.toMutableMap()
+          // Update thinking state in metrics so the Status screen pill reflects the change
+          ServerMetrics.setThinkingEnabled(
+            model.llmSupportThinking && (configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+          )
+        }
       }
     }
   }

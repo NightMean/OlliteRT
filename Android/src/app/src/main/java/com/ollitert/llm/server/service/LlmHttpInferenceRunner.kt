@@ -162,7 +162,9 @@ class LlmHttpInferenceRunner(
       }
     }
 
-    val originalConfig = if (configSnapshot != null) model.configValues else null
+    val originalConfig = if (configSnapshot != null) {
+      synchronized(inferenceLock) { model.configValues }
+    } else null
 
     val result = LlmHttpInferenceGateway.execute(
       prompt = prompt,
@@ -189,7 +191,9 @@ class LlmHttpInferenceRunner(
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
     )
-    if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+    if (originalConfig != null && model.instance != null) {
+      synchronized(inferenceLock) { model.configValues = originalConfig }
+    }
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     // If the user tapped Stop in the Logs screen, return a cancellation error
@@ -506,7 +510,9 @@ class LlmHttpInferenceRunner(
       RequestLogStore.registerCancellation(logId) { stream.cancel() }
     }
 
-    val originalConfig = if (configSnapshot != null) model.configValues else null
+    val originalConfig = if (configSnapshot != null) {
+      synchronized(inferenceLock) { model.configValues }
+    } else null
 
     LlmHttpInferenceGateway.executeStreaming(
       prompt = prompt,
@@ -534,7 +540,9 @@ class LlmHttpInferenceRunner(
       onToken = { partial, done, thought ->
         if (stream.isCancelled) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+          if (originalConfig != null && model.instance != null) {
+            synchronized(inferenceLock) { model.configValues = originalConfig }
+          }
           ServerLlmModelHelper.stopResponse(model)
           inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()
@@ -624,7 +632,9 @@ class LlmHttpInferenceRunner(
           }
           if (done) {
             if (logId != null) RequestLogStore.unregisterCancellation(logId)
-            if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+            if (originalConfig != null && model.instance != null) {
+              synchronized(inferenceLock) { model.configValues = originalConfig }
+            }
             val outputLen = fullText.length
             val inputTokens = format.estimateInputTokens(prompt)
             val outputTokens = estimateTokensLongByLength(outputLen)
@@ -676,7 +686,9 @@ class LlmHttpInferenceRunner(
         } catch (e: Exception) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
-          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+          if (originalConfig != null && model.instance != null) {
+            synchronized(inferenceLock) { model.configValues = originalConfig }
+          }
           if (!inferenceCompleted) {
             inferenceCompleted = true
             ServerMetrics.onInferenceCompleted()
@@ -692,7 +704,9 @@ class LlmHttpInferenceRunner(
       onError = { error ->
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
-        if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+        if (originalConfig != null && model.instance != null) {
+          synchronized(inferenceLock) { model.configValues = originalConfig }
+        }
         if (!inferenceCompleted) {
           inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()

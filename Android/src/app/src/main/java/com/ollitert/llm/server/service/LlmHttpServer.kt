@@ -72,6 +72,7 @@ class LlmHttpServer(
   private val getRequestCount: () -> Long,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   private val audioTranscriptionHandler: LlmHttpAudioTranscriptionHandler,
+  private val inferenceLock: Any,
 ) : NanoHTTPD("0.0.0.0", port) {
 
   private val logTag = "LlmHttpServer"
@@ -393,7 +394,7 @@ class LlmHttpServer(
       put(ConfigKeys.ENABLE_THINKING.label, requestedState)
     }
     if (model != null) {
-      model.configValues = updatedConfig
+      synchronized(inferenceLock) { model.configValues = updatedConfig }
     }
     LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
@@ -563,7 +564,7 @@ class LlmHttpServer(
       } else {
         // Update in-memory config if model is loaded, always persist to prefs
         if (model != null) {
-          model.configValues = updated
+          synchronized(inferenceLock) { model.configValues = updated }
         }
         LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updated)
         // Log using the same format as the Settings UI so the LogsScreen parser
