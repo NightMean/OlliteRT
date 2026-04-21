@@ -17,28 +17,8 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.ErrorCategory
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-
-@Serializable
-data class LlmHttpModelCapabilities(
-  val image: Boolean = false,
-  val audio: Boolean = false,
-  val thinking: Boolean = false,
-)
-
-@Serializable
-data class LlmHttpModelItem(
-  val id: String,
-  val `object`: String = "model",
-  val created: Long = LlmHttpBridgeUtils.epochSeconds(),
-  val owned_by: String = "ollitert",
-  val capabilities: LlmHttpModelCapabilities = LlmHttpModelCapabilities(),
-)
-
-@Serializable
-data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
 
 object LlmHttpResponseRenderer {
   // Strips non-slug chars from error messages to generate OpenAI-compatible error type slugs

@@ -34,6 +34,27 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+// ── Model list data classes (used by LlmHttpResponseRenderer and LlmHttpPayloadBuilders) ──
+
+@Serializable
+data class LlmHttpModelCapabilities(
+  val image: Boolean = false,
+  val audio: Boolean = false,
+  val thinking: Boolean = false,
+)
+
+@Serializable
+data class LlmHttpModelItem(
+  val id: String,
+  val `object`: String = "model",
+  val created: Long = LlmHttpBridgeUtils.epochSeconds(),
+  val owned_by: String = "ollitert",
+  val capabilities: LlmHttpModelCapabilities = LlmHttpModelCapabilities(),
+)
+
+@Serializable
+data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
+
 /**
  * Token usage reported in API responses.
  *
