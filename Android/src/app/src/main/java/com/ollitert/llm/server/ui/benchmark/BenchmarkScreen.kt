@@ -324,6 +324,22 @@ fun BenchmarkScreen(
       },
     )
   }
+
+  if (uiState.serverConflictWarning) {
+    AlertDialog(
+      title = { Text("Server is running") },
+      text = { Text("Running a benchmark while the server has a model loaded may cause out-of-memory errors or GPU resource conflicts. Please stop the server first, then try again.") },
+      onDismissRequest = { viewModel.dismissServerConflictWarning() },
+      confirmButton = {
+        Button(
+          onClick = { viewModel.dismissServerConflictWarning() },
+          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
+        ) {
+          Text("OK")
+        }
+      },
+    )
+  }
 }
 
 private fun getStringConfigValue(values: Map<String, Any>, key: ConfigKey): String {

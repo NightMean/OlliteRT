@@ -31,6 +31,8 @@ import com.ollitert.llm.server.proto.ValueSeries
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.benchmark
+import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.ui.navigation.ServerStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -71,6 +73,7 @@ data class BenchmarkUiState(
   val running: Boolean = false,
   val totalRunCount: Int = 0,
   val completedRunCount: Int = 0,
+  val serverConflictWarning: Boolean = false,
 )
 
 @HiltViewModel
@@ -91,6 +94,10 @@ constructor(
     collapseAll()
   }
 
+  fun dismissServerConflictWarning() {
+    _uiState.update { it.copy(serverConflictWarning = false) }
+  }
+
   @OptIn(ExperimentalApi::class)
   fun runBenchmark(
     model: Model,
@@ -99,6 +106,11 @@ constructor(
     decodeTokens: Int,
     runCount: Int,
   ) {
+    val serverActive = ServerMetrics.status.value.let { it == ServerStatus.RUNNING || it == ServerStatus.LOADING }
+    if (serverActive) {
+      _uiState.update { it.copy(serverConflictWarning = true) }
+      return
+    }
     viewModelScope.launch(Dispatchers.Default) {
       setRunning(running = true)
       setRunProgress(completedRunCount = 0)
