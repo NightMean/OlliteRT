@@ -98,6 +98,7 @@ object LlmHttpAudioPreprocessor {
     ) {
       return AudioFormat.MP3
     }
+    // 0xFB = MPEG1 Layer3 (no CRC), 0xF3 = MPEG2 Layer3 (no CRC), 0xF2 = MPEG2 Layer3 (with CRC)
     if (bytes[0] == 0xFF.toByte() &&
       (bytes[1] == 0xFB.toByte() || bytes[1] == 0xF3.toByte() || bytes[1] == 0xF2.toByte())
     ) {

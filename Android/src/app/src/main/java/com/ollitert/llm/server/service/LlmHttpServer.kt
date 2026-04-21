@@ -188,7 +188,7 @@ class LlmHttpServer(
               okJsonText(body)
             }
             LlmHttpRouteHandler.VERSION -> {
-              // Enhanced /api/version with update info from background UpdateCheckWorker
+              // Same payload as / -- aliased for Home Assistant and monitoring tools
               val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName)
               responseBodySnapshot = body
               okJsonText(body)

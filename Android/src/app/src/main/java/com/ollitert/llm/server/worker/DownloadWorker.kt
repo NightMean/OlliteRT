@@ -137,8 +137,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           }
           Log.d(TAG, "About to download: $allFiles")
 
-          // Download them in sequence.
-          // TODO: maybe consider downloading them in parallel.
+          // Sequential download -- parallel would speed up multi-file models but complicates progress tracking
           var downloadedBytes = 0L
           val bytesReadSizeBuffer: MutableList<Long> = mutableListOf()
           val bytesReadLatencyBuffer: MutableList<Long> = mutableListOf()

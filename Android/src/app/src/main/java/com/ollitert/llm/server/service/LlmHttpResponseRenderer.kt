@@ -41,6 +41,7 @@ data class LlmHttpModelItem(
 data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHttpModelItem>)
 
 object LlmHttpResponseRenderer {
+  // Strips non-slug chars from error messages to generate OpenAI-compatible error type slugs
   private val NON_SLUG_REGEX = Regex("[^a-zA-Z0-9_]")
 
   /**

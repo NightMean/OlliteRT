@@ -183,7 +183,6 @@ constructor(
         Log.d(TAG, "Cleaned up benchmark cache dir: ${benchmarkCacheDir.absolutePath}")
       }
 
-      // Create and add benchmark result.
       val basicInfo =
         LlmBenchmarkBasicInfo.newBuilder()
           .setStartMs(startMs)

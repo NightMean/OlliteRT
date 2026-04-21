@@ -220,7 +220,7 @@ fun ModelImportDialog(
       }
       // Only the stem is editable; the extension is appended on import.
       put(ConfigKeys.NAME.label, fileStem)
-      // TODO: support other types.
+      // Hardcoded to LLM -- when non-LLM model types are supported, make this selectable
       put(ConfigKeys.MODEL_TYPE.label, "LLM")
 
       for ((key, value) in defaultValues) {
@@ -644,7 +644,6 @@ private fun importModel(
   onProgress: (Float) -> Unit,
   onError: (String) -> Unit,
 ) {
-  // TODO: handle error.
   coroutineScope.launch(Dispatchers.IO) {
     // Get the last component of the uri path as the imported file name.
     val decodedUri = URLDecoder.decode(uri.toString(), StandardCharsets.UTF_8.name())

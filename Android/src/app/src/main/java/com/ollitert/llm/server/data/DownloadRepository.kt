@@ -282,12 +282,11 @@ class DefaultDownloadRepository(
         .setAutoCancel(true)
 
     with(NotificationManagerCompat.from(context)) {
-      // notificationId is a unique int for each notification that you must define
       if (
         ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
           PackageManager.PERMISSION_GRANTED
       ) {
-        // Permission not granted, return or handle accordingly. In real app, request permission.
+        // POST_NOTIFICATIONS not granted -- notification silently suppressed
         return
       }
       notify(1, builder.build())

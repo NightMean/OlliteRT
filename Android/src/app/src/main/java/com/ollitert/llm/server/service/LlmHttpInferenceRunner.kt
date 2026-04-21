@@ -807,6 +807,7 @@ class LlmHttpInferenceRunner(
     private fun buildCombinedText(fullText: CharSequence, fullThinking: CharSequence): String =
       if (fullThinking.isNotEmpty()) "<think>${fullThinking}</think>${fullText}" else fullText.toString()
 
+    // Parses "N >= M" from LiteRT native overflow errors (N=input tokens, M=context limit)
     private val TOKEN_OVERFLOW_REGEX = Regex("(\\d+)\\s*>=\\s*(\\d+)")
 
     /**
