@@ -75,7 +75,7 @@ class LlmHttpEndpointHandlers(
     val req = json.decodeFromString<GenReq>(parsed.body)
     val model = when (val sel = modelLifecycle.selectModel(null)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
     }
     // Apply prompt compaction for raw prompts (only trimming is possible)
     val trimPromptsGen = LlmHttpPrefs.isAutoTrimPrompts(context)
@@ -136,7 +136,7 @@ class LlmHttpEndpointHandlers(
     val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
     }
     // Build prompt with progressive compaction if context window is exceeded.
     // Three independent toggles for progressive prompt compaction:
@@ -284,7 +284,7 @@ class LlmHttpEndpointHandlers(
     val req = json.decodeFromString<CompletionRequest>(parsed.body)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
     }
     // Apply prompt compaction for raw prompts (only trimming is possible)
     val trimPromptsCompl = LlmHttpPrefs.isAutoTrimPrompts(context)
@@ -389,7 +389,7 @@ class LlmHttpEndpointHandlers(
     val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message)
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
     }
     // Build prompt with progressive compaction if context window is exceeded
     val truncateHistoryResp = LlmHttpPrefs.isAutoTruncateHistory(context)

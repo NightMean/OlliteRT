@@ -70,6 +70,11 @@ class LlmHttpModelLifecycle(
 
   fun setKeepAliveUnloadedModelName(name: String?) { keepAliveUnloadedModelName = name }
 
+  // True while a keep-alive reload is in progress. Concurrent requests check this to
+  // return 503 immediately instead of queuing on keepAliveLock for 10-60+ seconds.
+  @Volatile var isReloading: Boolean = false
+    private set
+
   // ── Keep-alive timer ───────────────────────────────────────────────────────
   // Uses a Handler on the main looper to schedule a delayed unload. The timer is reset
   // after each inference request completes. When it fires, native model memory (Engine +
@@ -151,57 +156,62 @@ class LlmHttpModelLifecycle(
       // Double-check: another thread may have already reloaded
       if (defaultModel != null) return defaultModel
       val modelName = keepAliveUnloadedModelName ?: return null
-      Log.i(LOG_TAG, "Keep-alive: reloading model $modelName (waking from idle)")
-      RequestLogStore.addEvent(
-        "Auto-reloading model: $modelName (keep_alive wake-up)",
-        modelName = modelName,
-        category = EventCategory.MODEL,
-      )
-      ServerMetrics.onModelReloadedFromIdle()
-
-      // pickModelByName already restores persisted inference config via restoreInferenceConfig
-      val model = pickModelByName(modelName) ?: run {
-        Log.e(LOG_TAG, "Keep-alive: model '$modelName' not found during reload")
-        return null
-      }
-
-      val loadStart = SystemClock.elapsedRealtime()
-      val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
-      val supportImage = model.llmSupportImage && eagerVision
-      val supportAudio = model.llmSupportAudio
-      var initErr = ""
-      ServerLlmModelHelper.initialize(
-        context = context,
-        model = model,
-        supportImage = supportImage,
-        supportAudio = supportAudio,
-        onDone = { initErr = it },
-        systemInstruction = buildSystemInstruction(model.name),
-      )
-      if (initErr.isNotEmpty()) {
-        Log.e(LOG_TAG, "Keep-alive: model reload failed: $initErr")
+      isReloading = true
+      try {
+        Log.i(LOG_TAG, "Keep-alive: reloading model $modelName (waking from idle)")
         RequestLogStore.addEvent(
-          "Keep-alive reload failed: $initErr",
-          level = LogLevel.ERROR,
+          "Auto-reloading model: $modelName (keep_alive wake-up)",
           modelName = modelName,
           category = EventCategory.MODEL,
         )
-        return null
+        ServerMetrics.onModelReloadedFromIdle()
+
+        // pickModelByName already restores persisted inference config via restoreInferenceConfig
+        val model = pickModelByName(modelName) ?: run {
+          Log.e(LOG_TAG, "Keep-alive: model '$modelName' not found during reload")
+          return null
+        }
+
+        val loadStart = SystemClock.elapsedRealtime()
+        val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
+        val supportImage = model.llmSupportImage && eagerVision
+        val supportAudio = model.llmSupportAudio
+        var initErr = ""
+        ServerLlmModelHelper.initialize(
+          context = context,
+          model = model,
+          supportImage = supportImage,
+          supportAudio = supportAudio,
+          onDone = { initErr = it },
+          systemInstruction = buildSystemInstruction(model.name),
+        )
+        if (initErr.isNotEmpty()) {
+          Log.e(LOG_TAG, "Keep-alive: model reload failed: $initErr")
+          RequestLogStore.addEvent(
+            "Keep-alive reload failed: $initErr",
+            level = LogLevel.ERROR,
+            modelName = modelName,
+            category = EventCategory.MODEL,
+          )
+          return null
+        }
+        model.initializedWithVision = supportImage
+        defaultModel = model
+        modelCache[model.name] = model
+        keepAliveUnloadedModelName = null
+        val loadMs = SystemClock.elapsedRealtime() - loadStart
+        ServerMetrics.recordModelLoadTime(loadMs)
+        RequestLogStore.addEvent(
+          "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
+          modelName = model.name,
+          category = EventCategory.MODEL,
+        )
+        // Reset keep-alive timer for the next idle period
+        resetKeepAliveTimer()
+        return model
+      } finally {
+        isReloading = false
       }
-      model.initializedWithVision = supportImage
-      defaultModel = model
-      modelCache[model.name] = model
-      keepAliveUnloadedModelName = null
-      val loadMs = SystemClock.elapsedRealtime() - loadStart
-      ServerMetrics.recordModelLoadTime(loadMs)
-      RequestLogStore.addEvent(
-        "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
-        modelName = model.name,
-        category = EventCategory.MODEL,
-      )
-      // Reset keep-alive timer for the next idle period
-      resetKeepAliveTimer()
-      return model
     }
   }
 
@@ -253,7 +263,7 @@ class LlmHttpModelLifecycle(
   /** Result of [selectModel]: either the active model or a descriptive error. */
   sealed class ModelSelection {
     data class Ok(val model: Model) : ModelSelection()
-    data class Error(val status: NanoHTTPD.Response.Status, val message: String) : ModelSelection()
+    data class Error(val status: NanoHTTPD.Response.Status, val message: String, val retryAfterSeconds: Int? = null) : ModelSelection()
   }
 
   /**
@@ -262,6 +272,11 @@ class LlmHttpModelLifecycle(
    * active model, and returns a descriptive error if there's a mismatch.
    */
   fun selectModel(requestedModel: String?): ModelSelection {
+    // If another thread is already reloading the model, return 503 immediately instead
+    // of blocking this NanoHTTPD thread for 10-60+ seconds on keepAliveLock.
+    if (isReloading) {
+      return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry in a few seconds", retryAfterSeconds = 30)
+    }
     // Hold keepAliveLock to prevent the keep-alive timer from unloading the model between
     // our read of defaultModel and the caller's use of the returned Model object.
     synchronized(keepAliveLock) {

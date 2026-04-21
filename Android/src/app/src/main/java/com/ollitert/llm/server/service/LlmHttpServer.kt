@@ -264,7 +264,7 @@ class LlmHttpServer(
             LlmHttpRouteHandler.AUDIO_TRANSCRIPTION -> {
               val model = when (val sel = modelLifecycle.selectModel(null)) {
                 is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-                is LlmHttpModelLifecycle.ModelSelection.Error -> return@serve applyCorsHeaders(jsonError(sel.status, sel.message), corsHeaders)
+                is LlmHttpModelLifecycle.ModelSelection.Error -> return@serve applyCorsHeaders(jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }, corsHeaders)
               }
               audioTranscriptionHandler.handle(session, model, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
             }
