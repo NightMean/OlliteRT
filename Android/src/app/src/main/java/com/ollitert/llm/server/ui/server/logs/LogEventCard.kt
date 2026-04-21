@@ -106,6 +106,7 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material3.TooltipAnchorPosition
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
+import com.ollitert.llm.server.ui.theme.OlliteRTForcedPurple
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
@@ -1007,7 +1008,7 @@ private fun EventFooterBadges(parsedEvent: ParsedEventType?) {
         Text(
           text = stringResource(R.string.logs_event_forced_transcription),
           style = MaterialTheme.typography.labelSmall,
-          color = OlliteRTPrimary,
+          color = OlliteRTForcedPurple,
           fontWeight = FontWeight.SemiBold,
         )
       }
