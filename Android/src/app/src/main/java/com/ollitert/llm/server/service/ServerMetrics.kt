@@ -17,7 +17,7 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

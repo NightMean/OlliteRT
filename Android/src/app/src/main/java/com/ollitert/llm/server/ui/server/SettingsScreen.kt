@@ -65,7 +65,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.server.settings.AdvancedCard
 import com.ollitert.llm.server.ui.server.settings.AutoLaunchCard
 import com.ollitert.llm.server.ui.server.settings.CardId

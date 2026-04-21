@@ -73,7 +73,7 @@ import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.common.copyToClipboard
+import com.ollitert.llm.server.common.copyToClipboard
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore

@@ -20,7 +20,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.ui.common.copyToClipboard
+import com.ollitert.llm.server.common.copyToClipboard
 
 /**
  * BroadcastReceiver that copies the server endpoint URL to the clipboard.

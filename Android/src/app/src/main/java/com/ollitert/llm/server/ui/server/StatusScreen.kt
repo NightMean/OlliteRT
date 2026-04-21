@@ -38,7 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.common.copyToClipboard
+import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.formatModelError
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Psychology
@@ -73,7 +73,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
 import com.ollitert.llm.server.ui.common.humanReadableSize
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily

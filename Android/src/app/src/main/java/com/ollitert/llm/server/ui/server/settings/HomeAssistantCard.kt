@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.ui.common.copyToClipboard
+import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 

@@ -53,7 +53,7 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LlmHttpService

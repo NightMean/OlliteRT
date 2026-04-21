@@ -29,7 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 
 @Composable

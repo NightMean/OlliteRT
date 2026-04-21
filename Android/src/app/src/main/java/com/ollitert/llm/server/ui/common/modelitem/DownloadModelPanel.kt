@@ -47,7 +47,7 @@ import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.ui.common.DownloadAndTryButton
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 
 @Composable
 fun DownloadModelPanel(

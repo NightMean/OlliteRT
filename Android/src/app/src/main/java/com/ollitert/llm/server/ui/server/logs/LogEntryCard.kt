@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.ui.server.logs
 
-import com.ollitert.llm.server.ui.common.formatByteSize
+import com.ollitert.llm.server.common.formatByteSize
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -93,7 +93,7 @@ import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.common.copyToClipboard
+import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.ui.server.ContextOverflowColor
 import com.ollitert.llm.server.ui.server.TruncatedColor
 import com.ollitert.llm.server.ui.server.CancelledColor

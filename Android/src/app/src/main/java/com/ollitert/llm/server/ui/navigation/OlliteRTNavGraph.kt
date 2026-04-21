@@ -47,6 +47,7 @@ import androidx.navigation.navArgument
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollitert.llm.server.ui.common.DonateDialog

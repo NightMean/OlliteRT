@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.common
 
 import org.junit.Assert.assertEquals
+import com.ollitert.llm.server.common.formatByteSize
 import org.junit.Test
 
 class FormatByteSizeTest {

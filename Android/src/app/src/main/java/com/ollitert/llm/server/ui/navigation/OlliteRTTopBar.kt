@@ -59,12 +59,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
-
-/** Server running state for the status pill in the top bar. */
-enum class ServerStatus { STOPPED, LOADING, RUNNING, ERROR }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

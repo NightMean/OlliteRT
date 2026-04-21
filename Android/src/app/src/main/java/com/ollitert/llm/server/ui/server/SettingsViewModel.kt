@@ -29,7 +29,7 @@ import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.SettingDef
 import com.ollitert.llm.server.ui.server.settings.SettingEntry

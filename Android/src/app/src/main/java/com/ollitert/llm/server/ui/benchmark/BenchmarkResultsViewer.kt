@@ -98,7 +98,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.ui.common.Accordions
-import com.ollitert.llm.server.ui.common.copyToClipboard
+import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING

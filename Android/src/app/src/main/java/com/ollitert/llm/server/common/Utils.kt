@@ -17,12 +17,17 @@
 
 package com.ollitert.llm.server.common
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import com.google.gson.Gson
-import java.net.HttpURLConnection
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
+import java.net.HttpURLConnection
 import java.net.URL
 
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
@@ -78,3 +83,35 @@ inline fun <reified T> parseJson(response: String): T? {
 fun isPixel10(): Boolean {
   return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
 }
+
+/**
+ * Copy text to the system clipboard with a standardized toast notification.
+ *
+ * @param label Clipboard metadata label (prefix with "OlliteRT", e.g. "OlliteRT Endpoint").
+ *              Visible in clipboard manager apps, not shown to the user directly.
+ * @param text The content to copy.
+ * @param formatSuffix Optional format hint appended to the toast (e.g. "JSON", "CSV").
+ *                     Omit for simple values like URLs or tokens.
+ */
+fun copyToClipboard(context: Context, label: String, text: String, formatSuffix: String? = null, toastOverride: String? = null) {
+  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+  if (clipboard == null) {
+    Toast.makeText(context, context.getString(R.string.toast_clipboard_unavailable), Toast.LENGTH_SHORT).show()
+    return
+  }
+  clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+  val toast = toastOverride
+    ?: if (formatSuffix != null) context.getString(R.string.toast_copied_to_clipboard_format, formatSuffix)
+    else context.getString(R.string.toast_copied_to_clipboard)
+  Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
+}
+
+/** Format a byte count as a human-readable string (B/KB/MB), using binary 1024 thresholds. */
+fun formatByteSize(bytes: Long): String = when {
+  bytes < 1024L -> "$bytes B"
+  bytes < 1024L * 1024L -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0)
+  else -> String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
+}
+
+/** Int overload for Compose contexts where sizes come as Int (e.g. String.length). */
+fun formatByteSize(bytes: Int): String = formatByteSize(bytes.toLong())

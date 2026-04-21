@@ -49,7 +49,7 @@ import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar
 import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
 import com.ollitert.llm.server.ui.navigation.OlliteRTRoutes
-import com.ollitert.llm.server.ui.navigation.ServerStatus
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.navigation.OlliteRTTab
 import com.ollitert.llm.server.ui.navigation.OlliteRTTopBar
 import com.ollitert.llm.server.ui.server.ServerViewModel

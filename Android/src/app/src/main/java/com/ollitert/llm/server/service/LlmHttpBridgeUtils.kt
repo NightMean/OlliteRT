@@ -17,7 +17,7 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
-import com.ollitert.llm.server.ui.common.formatByteSize
+import com.ollitert.llm.server.common.formatByteSize
 
 object LlmHttpBridgeUtils {
   private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")

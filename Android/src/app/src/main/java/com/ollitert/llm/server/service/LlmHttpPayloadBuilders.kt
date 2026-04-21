@@ -117,7 +117,7 @@ object LlmHttpPayloadBuilders {
       // the next inference request will have a cold-start delay while the model reloads.
       val statusStr = when {
         isIdle -> "idle"
-        status == com.ollitert.llm.server.ui.navigation.ServerStatus.RUNNING -> "ok"
+        status == com.ollitert.llm.server.common.ServerStatus.RUNNING -> "ok"
         else -> status.name.lowercase()
       }
       put("status", JsonPrimitive(statusStr))
