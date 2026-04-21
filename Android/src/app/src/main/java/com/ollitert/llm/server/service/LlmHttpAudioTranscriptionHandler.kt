@@ -19,6 +19,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportAudio
@@ -176,7 +177,7 @@ class LlmHttpAudioTranscriptionHandler(
       val hintText = buildString {
         if (useTranscriptionPrompt) {
           val customPrompt = LlmHttpPrefs.getSttTranscriptionPromptText(context)
-          if (customPrompt.isNotBlank()) append(customPrompt)
+          append(customPrompt.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT })
         }
         if (language != null) {
           if (isNotEmpty()) append("\n")
