@@ -56,6 +56,9 @@ private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_para
 private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
 private const val KEY_HA_STT_TRANSCRIPTION_PROMPT = "ha_stt_transcription_prompt"
 private const val DEFAULT_HA_STT_TRANSCRIPTION_PROMPT = false
+private const val KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT = "ha_stt_transcription_prompt_text"
+internal const val DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT =
+  "Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else."
 
 
 // --- Keep Alive (auto-unload model after idle timeout to free RAM) ---
@@ -445,6 +448,14 @@ object LlmHttpPrefs {
 
   fun setSttTranscriptionPromptEnabled(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_HA_STT_TRANSCRIPTION_PROMPT, enabled).apply()
+  }
+
+  fun getSttTranscriptionPromptText(context: Context): String =
+    prefs(context).getString(KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT)
+      ?: DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
+
+  fun setSttTranscriptionPromptText(context: Context, text: String) {
+    prefs(context).edit().putString(KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT, text).apply()
   }
 
   // --- Keep Alive ---

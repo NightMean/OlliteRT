@@ -109,6 +109,7 @@ class SettingsViewModel @Inject constructor(
   val ignoreClientSamplerParamsEntry get() = entry<Boolean>("ignore_client_params")
   val verboseDebugEnabledEntry get() = entry<Boolean>("verbose_debug")
   val sttTranscriptionPromptEntry get() = entry<Boolean>("stt_transcription_prompt")
+  val sttTranscriptionPromptTextEntry get() = entry<String>("stt_transcription_prompt_text")
   val logPersistenceEnabledEntry get() = entry<Boolean>("log_persistence_enabled")
   val logMaxEntriesEntry get() = entry<Int>("log_max_entries")
   val logAutoDeleteMinutesEntry get() = entry<Long>("log_auto_delete")

@@ -175,7 +175,8 @@ class LlmHttpAudioTranscriptionHandler(
       val useTranscriptionPrompt = LlmHttpPrefs.isSttTranscriptionPromptEnabled(context)
       val hintText = buildString {
         if (useTranscriptionPrompt) {
-          append("Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else.")
+          val customPrompt = LlmHttpPrefs.getSttTranscriptionPromptText(context)
+          if (customPrompt.isNotBlank()) append(customPrompt)
         }
         if (language != null) {
           if (isNotEmpty()) append("\n")

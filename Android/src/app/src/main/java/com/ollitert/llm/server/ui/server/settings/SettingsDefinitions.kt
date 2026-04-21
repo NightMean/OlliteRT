@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.DEFAULT_PORT
+import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.MAX_VALID_PORT
 import com.ollitert.llm.server.data.MIN_VALID_PORT
@@ -406,6 +407,17 @@ val HA_STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
   write = { ctx, v -> LlmHttpPrefs.setSttTranscriptionPromptEnabled(ctx, v) },
 )
 
+val HA_STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
+  key = "stt_transcription_prompt_text",
+  labelRes = R.string.settings_ha_stt_transcription_prompt_text,
+  descriptionRes = R.string.settings_ha_stt_transcription_prompt_text_desc,
+  card = CardId.HOME_ASSISTANT,
+  default = DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT,
+  prefsKey = "ha_stt_transcription_prompt_text",
+  read = { LlmHttpPrefs.getSttTranscriptionPromptText(it) },
+  write = { ctx, v -> LlmHttpPrefs.setSttTranscriptionPromptText(ctx, v) },
+)
+
 // ─── Context Management Card ───────────────────────────────────────────────
 
 val TRUNCATE_HISTORY = SettingDef.Toggle(
@@ -549,7 +561,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Log Persistence
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
-  HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT,
+  HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
@@ -618,7 +630,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.HOME_ASSISTANT,
     titleRes = R.string.settings_card_home_assistant,
     icon = CardIcon.Resource(R.drawable.ic_home_assistant),
-    settings = listOf(HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT),
+    settings = listOf(HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT),
   ),
   CardDef(
     id = CardId.UPDATES,

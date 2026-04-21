@@ -304,6 +304,10 @@
   <string name="settings_ha_rest_api_desc" translatable="false">Generate a ready-made configuration.yaml snippet for Home Assistant. Creates REST sensors for server status, model info, and performance metrics, plus a command to stop the server remotely.</string>
   <string name="settings_ha_stt_transcription_prompt" translatable="false">Force Transcription</string>
   <string name="settings_ha_stt_transcription_prompt_desc" translatable="false">Instructs the model to transcribe audio instead of replying to it. Enable for voice assistants that expect transcribed text only. Required for multimodal models that otherwise respond conversationally. Note: applies to all clients using the audio endpoint, which may affect non-voice-assistant workflows (e.g. Open WebUI).</string>
+  <string name="settings_ha_stt_transcription_prompt_text" translatable="false">Transcription Prompt</string>
+  <string name="settings_ha_stt_transcription_prompt_text_desc" translatable="false">The instruction sent to the model when Force Transcription is enabled. Edit to customize the transcription behavior.</string>
+  <string name="settings_ha_edit_prompt" translatable="false">Edit Prompt</string>
+  <string name="settings_ha_transcription_prompt_placeholder" translatable="false">Enter transcription prompt…</string>
   <string name="settings_ha_config_preview" translatable="false">Generates a configuration.yaml snippet with your current IP (%1$s), port (%2$d)%3$s.</string>
   <string name="settings_ha_config_preview_token_suffix" translatable="false">, and bearer token</string>
   <string name="settings_ha_copy_config" translatable="false">Copy Configuration</string>
