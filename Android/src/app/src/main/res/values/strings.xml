@@ -57,6 +57,8 @@
   <string name="results" translatable="false">Results</string>
   <string name="run_benchmark" translatable="false">Run benchmark</string>
   <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
+  <string name="benchmark_server_conflict_title" translatable="false">Server is running</string>
+  <string name="benchmark_server_conflict_body" translatable="false">Running a benchmark while the server has a model loaded may cause out-of-memory errors or GPU resource conflicts. Please stop the server first, then try again.</string>
   <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
   <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
   <string name="select_model" translatable="false">Select a model</string>

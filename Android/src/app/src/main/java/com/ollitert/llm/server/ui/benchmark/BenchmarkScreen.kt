@@ -327,15 +327,15 @@ fun BenchmarkScreen(
 
   if (uiState.serverConflictWarning) {
     AlertDialog(
-      title = { Text("Server is running") },
-      text = { Text("Running a benchmark while the server has a model loaded may cause out-of-memory errors or GPU resource conflicts. Please stop the server first, then try again.") },
+      title = { Text(stringResource(R.string.benchmark_server_conflict_title)) },
+      text = { Text(stringResource(R.string.benchmark_server_conflict_body)) },
       onDismissRequest = { viewModel.dismissServerConflictWarning() },
       confirmButton = {
         Button(
           onClick = { viewModel.dismissServerConflictWarning() },
           contentPadding = SMALL_BUTTON_CONTENT_PADDING,
         ) {
-          Text("OK")
+          Text(stringResource(R.string.ok))
         }
       },
     )
