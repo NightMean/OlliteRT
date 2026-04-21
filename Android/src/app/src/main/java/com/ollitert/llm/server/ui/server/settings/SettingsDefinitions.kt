@@ -414,8 +414,12 @@ val HA_STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
   card = CardId.HOME_ASSISTANT,
   default = DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT,
   prefsKey = "ha_stt_transcription_prompt_text",
-  read = { LlmHttpPrefs.getSttTranscriptionPromptText(it) },
-  write = { ctx, v -> LlmHttpPrefs.setSttTranscriptionPromptText(ctx, v) },
+  read = { LlmHttpPrefs.getSttTranscriptionPromptText(it).ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
+  write = { ctx, v ->
+    LlmHttpPrefs.setSttTranscriptionPromptText(
+      ctx, v.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT },
+    )
+  },
 )
 
 // ─── Context Management Card ───────────────────────────────────────────────
