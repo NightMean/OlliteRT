@@ -268,7 +268,7 @@ fun ModelItem(
         }
 
         model.prevConfigValues = model.configValues
-        model.configValues = newConfigValues
+        model.configValues = newConfigValues.toMap()
         // Persist inference config so it survives app restarts
         LlmHttpPrefs.setInferenceConfig(context, model.name, newConfigValues)
         modelManagerViewModel.updateConfigValuesUpdateTrigger()

@@ -241,7 +241,7 @@ data class Model(
       // This prevents phantom "changed" detection when comparing with values from the UI.
       configValues[config.key.label] = convertValueToTargetType(config.defaultValue, config.valueType)
     }
-    this.configValues = configValues
+    this.configValues = configValues.toMap()
     this.totalBytes = this.sizeInBytes + this.extraDataFiles.sumOf { it.sizeInBytes }
   }
 

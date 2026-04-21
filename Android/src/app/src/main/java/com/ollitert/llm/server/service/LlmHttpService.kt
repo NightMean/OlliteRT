@@ -306,7 +306,7 @@ class LlmHttpService : Service() {
     // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
     // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
     pendingConfigOverrides.getAndSet(null)?.let { overrides ->
-      model.configValues = overrides.toMutableMap()
+      model.configValues = overrides.toMap()
       Log.i(logTag, "Applied ${overrides.size} config overrides from reload caller")
     }
     // Verify model files actually exist on disk.
@@ -895,7 +895,7 @@ class LlmHttpService : Service() {
       val instance = activeInstance ?: return
       synchronized(instance.inferenceLock) {
         instance.defaultModel?.let { model ->
-          model.configValues = configValues.toMutableMap()
+          model.configValues = configValues.toMap()
           // Update thinking state in metrics so the Status screen pill reflects the change
           ServerMetrics.setThinkingEnabled(
             model.llmSupportThinking && (configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false

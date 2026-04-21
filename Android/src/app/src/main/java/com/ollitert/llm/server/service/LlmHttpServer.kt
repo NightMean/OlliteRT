@@ -390,9 +390,7 @@ class LlmHttpServer(
       !currentState
     }
     // Update in-memory config if model is loaded, always persist to prefs
-    val updatedConfig = (currentConfig ?: emptyMap()).toMutableMap().apply {
-      put(ConfigKeys.ENABLE_THINKING.label, requestedState)
-    }
+    val updatedConfig = (currentConfig ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.label to requestedState)
     if (model != null) {
       synchronized(inferenceLock) { model.configValues = updatedConfig }
     }
@@ -564,7 +562,7 @@ class LlmHttpServer(
       } else {
         // Update in-memory config if model is loaded, always persist to prefs
         if (model != null) {
-          synchronized(inferenceLock) { model.configValues = updated }
+          synchronized(inferenceLock) { model.configValues = updated.toMap() }
         }
         LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updated)
         // Log using the same format as the Settings UI so the LogsScreen parser

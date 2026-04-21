@@ -126,7 +126,7 @@ object LlmHttpModelFactory {
         }
       }
     }
-    model.configValues = restored
+    model.configValues = restored.toMap()
   }
 
   /**

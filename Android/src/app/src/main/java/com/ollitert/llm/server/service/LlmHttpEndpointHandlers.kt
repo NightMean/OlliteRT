@@ -539,5 +539,5 @@ internal fun buildPerRequestConfig(
       overridden[ConfigKeys.MAX_TOKENS.label] = it
     }
   }
-  return overridden
+  return overridden.toMap()
 }

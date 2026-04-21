@@ -210,16 +210,16 @@ constructor(
   }
 
   fun updateConfigValuesUpdateTrigger() {
-    _uiState.update { _uiState.value.copy(configValuesUpdateTrigger = System.currentTimeMillis()) }
+    _uiState.update { it.copy(configValuesUpdateTrigger = System.currentTimeMillis()) }
   }
 
   fun notifyStorageChanged() {
-    _uiState.update { _uiState.value.copy(storageUpdateTrigger = System.currentTimeMillis()) }
+    _uiState.update { it.copy(storageUpdateTrigger = System.currentTimeMillis()) }
   }
 
   fun selectModel(model: Model) {
     if (_uiState.value.selectedModel.name != model.name) {
-      _uiState.update { _uiState.value.copy(selectedModel = model) }
+      _uiState.update { it.copy(selectedModel = model) }
     }
   }
 
@@ -246,6 +246,10 @@ constructor(
   }
 
   fun deleteModel(model: Model) {
+    // Cancel any in-progress download before deleting files — prevents the WorkManager
+    // worker from writing to deleted paths and reporting false success.
+    downloadRepository.cancelDownloadModel(model)
+
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {
@@ -260,17 +264,7 @@ constructor(
       category = EventCategory.MODEL,
     )
 
-    // Update model download status to NotDownloaded.
-    val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
-    curModelDownloadStatus[model.name] =
-      ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
-
-    // Delete model from the list if model is imported as a local model.
-    var updatedModels = uiState.value.models
     if (model.imported) {
-      updatedModels = updatedModels.filter { it.name != model.name }
-      curModelDownloadStatus.remove(model.name)
-
       // Update data store.
       val importedModels = dataStoreRepository.readImportedModels().toMutableList()
       val importedModelIndex = importedModels.indexOfFirst { it.fileName == model.name }
@@ -279,11 +273,16 @@ constructor(
       }
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
-    _uiState.update {
-      uiState.value.copy(
-        modelDownloadStatus = curModelDownloadStatus,
-        models = updatedModels,
-      )
+    _uiState.update { current ->
+      val statusMap = current.modelDownloadStatus.toMutableMap()
+      val models = if (model.imported) {
+        statusMap.remove(model.name)
+        current.models.filter { it.name != model.name }
+      } else {
+        statusMap[model.name] = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
+        current.models
+      }
+      current.copy(modelDownloadStatus = statusMap, models = models)
     }
   }
 
@@ -294,11 +293,6 @@ constructor(
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
-    // Update model download progress.
-    val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
-    curModelDownloadStatus[curModel.name] = status
-    var newUiState = uiState.value.copy(modelDownloadStatus = curModelDownloadStatus)
-
     // Delete downloaded file if status is failed or not_downloaded.
     if (
       status.status == ModelDownloadStatusType.FAILED ||
@@ -307,12 +301,16 @@ constructor(
       deleteFileFromExternalFilesDir(curModel.downloadFileName)
     }
 
-    // Trigger storage refresh on download completion.
-    if (status.status == ModelDownloadStatusType.SUCCEEDED) {
-      newUiState = newUiState.copy(storageUpdateTrigger = System.currentTimeMillis())
+    val now = if (status.status == ModelDownloadStatusType.SUCCEEDED) System.currentTimeMillis() else null
+    _uiState.update { current ->
+      val statusMap = current.modelDownloadStatus.toMutableMap()
+      statusMap[curModel.name] = status
+      var updated = current.copy(modelDownloadStatus = statusMap)
+      if (now != null) {
+        updated = updated.copy(storageUpdateTrigger = now)
+      }
+      updated
     }
-
-    _uiState.update { newUiState }
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
@@ -369,29 +367,25 @@ constructor(
     val model = LlmHttpModelFactory.buildImportedModel(info)
     LlmHttpModelFactory.restoreInferenceConfig(context, model)
 
-    // Remove duplicate imported model if it exists, then add the new one.
-    val updatedModels = uiState.value.models
-      .filter { !(it.name == info.fileName && it.imported) }
-      .plus(model)
-
-    // Add initial status and states.
-    val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
-    val modelInstances = uiState.value.modelInitializationStatus.toMutableMap()
-    modelDownloadStatus[model.name] =
-      ModelDownloadStatus(
+    val now = System.currentTimeMillis()
+    _uiState.update { current ->
+      val updatedModels = current.models
+        .filter { !(it.name == info.fileName && it.imported) }
+        .plus(model)
+      val statusMap = current.modelDownloadStatus.toMutableMap()
+      val initMap = current.modelInitializationStatus.toMutableMap()
+      statusMap[model.name] = ModelDownloadStatus(
         status = ModelDownloadStatusType.SUCCEEDED,
         receivedBytes = info.fileSize,
         totalBytes = info.fileSize,
       )
-    modelInstances[model.name] =
-      ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
-
-    val now = System.currentTimeMillis()
-    _uiState.update {
-      uiState.value.copy(
+      initMap[model.name] = ModelInitializationStatus(
+        status = ModelInitializationStatusType.NOT_INITIALIZED,
+      )
+      current.copy(
         models = updatedModels,
-        modelDownloadStatus = modelDownloadStatus,
-        modelInitializationStatus = modelInstances,
+        modelDownloadStatus = statusMap,
+        modelInitializationStatus = initMap,
         storageUpdateTrigger = now,
       )
     }
@@ -432,12 +426,11 @@ constructor(
     val updatedModel = LlmHttpModelFactory.buildImportedModel(updatedInfo)
 
     // Replace the model in the flat list
-    val updatedModels = uiState.value.models.map { m ->
-      if (m.name == updatedInfo.fileName && m.imported) updatedModel else m
-    }
-
-    _uiState.update {
-      it.copy(models = updatedModels)
+    _uiState.update { current ->
+      val updatedModels = current.models.map { m ->
+        if (m.name == updatedInfo.fileName && m.imported) updatedModel else m
+      }
+      current.copy(models = updatedModels)
     }
 
     RequestLogStore.addEvent(
@@ -485,7 +478,7 @@ constructor(
 
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
     _uiState.update {
-      uiState.value.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "")
+      it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "")
     }
 
     viewModelScope.launch(Dispatchers.IO) {
@@ -565,7 +558,7 @@ constructor(
 
         if (modelAllowlist == null) {
           _uiState.update {
-            uiState.value.copy(
+            it.copy(
               loadingModelAllowlist = false,
               loadingModelAllowlistError = context.getString(R.string.error_model_list_load_failed),
               allowlistSource = null,
@@ -635,7 +628,7 @@ constructor(
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
         _uiState.update {
-          uiState.value.copy(
+          it.copy(
             loadingModelAllowlist = false,
             loadingModelAllowlistError = context.getString(R.string.error_model_list_load_failed_detail, e.message?.take(80) ?: context.getString(R.string.error_unknown)),
           )
