@@ -89,7 +89,8 @@ object ServerLlmModelHelper : LlmModelHelper {
       when (visionAccelerator) {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
-        Accelerator.NPU.label ->
+        Accelerator.NPU.label,
+        Accelerator.TPU.label ->
           Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.GPU()
       }
@@ -97,7 +98,8 @@ object ServerLlmModelHelper : LlmModelHelper {
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
-        Accelerator.NPU.label ->
+        Accelerator.NPU.label,
+        Accelerator.TPU.label ->
           Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.CPU()
       }
@@ -178,7 +180,7 @@ object ServerLlmModelHelper : LlmModelHelper {
                 },
               systemInstruction = systemInstruction,
               tools = tools,
-            )
+            ),
           )
         model.instance = LlmModelInstance(engine = engine, conversation = conversation)
       } finally {
@@ -236,7 +238,7 @@ object ServerLlmModelHelper : LlmModelHelper {
           engine.createConversation(
             ConversationConfig(
               samplerConfig =
-                if (accelerator == Accelerator.NPU.label) {
+                if (accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label) {
                   null
                 } else {
                   SamplerConfig(

@@ -106,8 +106,17 @@ data class AllowedModel(
     val llmMaxContextLength = defaultConfig.maxContextLength
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
-    if (defaultConfig.accelerators != null) {
-      val items = defaultConfig.accelerators.split(",")
+
+    var finalDescription = description
+    var acceleratorsStr = defaultConfig.accelerators
+
+    if (isPixel10()) {
+      finalDescription = description.replace(Regex("\\bNPU\\b"), "TPU")
+      acceleratorsStr = acceleratorsStr?.replace(Regex("\\bnpu\\b"), "tpu")
+    }
+
+    if (acceleratorsStr != null) {
+      val items = acceleratorsStr.split(",")
       accelerators = mutableListOf()
       for (item in items) {
         if (item == "cpu") {
@@ -116,6 +125,8 @@ data class AllowedModel(
           accelerators.add(Accelerator.GPU)
         } else if (item == "npu") {
           accelerators.add(Accelerator.NPU)
+        } else if (item == "tpu") {
+          accelerators.add(Accelerator.TPU)
         }
       }
       // Remove GPU from pixel 10 devices.
@@ -124,16 +135,23 @@ data class AllowedModel(
       }
     }
     if (defaultConfig.visionAccelerator != null) {
-      val accelerator = defaultConfig.visionAccelerator
-      if (accelerator == "cpu") {
+      var visionAccStr = defaultConfig.visionAccelerator
+      if (isPixel10()) {
+        visionAccStr = visionAccStr.replace(Regex("\\bnpu\\b"), "tpu")
+      }
+      if (visionAccStr == "cpu") {
         visionAccelerator = Accelerator.CPU
-      } else if (accelerator == "gpu") {
+      } else if (visionAccStr == "gpu") {
         visionAccelerator = Accelerator.GPU
-      } else if (accelerator == "npu") {
+      } else if (visionAccStr == "npu") {
         visionAccelerator = Accelerator.NPU
+      } else if (visionAccStr == "tpu") {
+        visionAccelerator = Accelerator.TPU
       }
     }
-    val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
+    val npuOnly =
+      accelerators.size == 1 &&
+        (accelerators[0] == Accelerator.NPU || accelerators[0] == Accelerator.TPU)
     val configs =
       (
         if (npuOnly) {
@@ -168,7 +186,7 @@ data class AllowedModel(
     return Model(
       name = name,
       version = version,
-      info = description,
+      info = finalDescription,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
       minDeviceMemoryInGb = minDeviceMemoryInGb,
