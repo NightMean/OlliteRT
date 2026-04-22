@@ -218,7 +218,6 @@ class LlmHttpInferenceGatewayTest {
       resetConversation = {},
       runInference = runInference,
       cancelInference = cancelInference,
-      elapsedMs = { tick() },
       onToken = onToken,
       onError = onError,
     )

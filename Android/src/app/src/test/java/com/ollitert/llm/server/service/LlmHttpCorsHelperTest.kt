@@ -122,28 +122,6 @@ class LlmHttpCorsHelperTest {
     assertTrue(headers.isEmpty())
   }
 
-  // ── Preflight helper ───────────────────────────────────────────────────────
-
-  @Test
-  fun preflightAllowedForWildcard() {
-    assertTrue(LlmHttpCorsHelper.shouldAllowPreflight("*", "http://example.com"))
-  }
-
-  @Test
-  fun preflightAllowedForMatchingOrigin() {
-    assertTrue(LlmHttpCorsHelper.shouldAllowPreflight("http://localhost:3000", "http://localhost:3000"))
-  }
-
-  @Test
-  fun preflightDeniedForNonMatchingOrigin() {
-    assertFalse(LlmHttpCorsHelper.shouldAllowPreflight("http://localhost:3000", "http://evil.com"))
-  }
-
-  @Test
-  fun preflightDeniedWhenCorsDisabled() {
-    assertFalse(LlmHttpCorsHelper.shouldAllowPreflight("", "http://example.com"))
-  }
-
   // ── Edge cases ─────────────────────────────────────────────────────────────
 
   @Test

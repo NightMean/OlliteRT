@@ -167,8 +167,4 @@ class MainActivity : ComponentActivity() {
       window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
   }
-
-  companion object {
-    private const val TAG = "OlliteRTMainActivity"
-  }
 }

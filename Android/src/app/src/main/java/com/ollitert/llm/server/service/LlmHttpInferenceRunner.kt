@@ -415,7 +415,6 @@ class LlmHttpInferenceRunner(
     images: List<ByteArray> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     logId: String? = null,
-    promptLen: Int = 0,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
     sseExtraHeaders: Map<String, String> = emptyMap(),
@@ -534,7 +533,6 @@ class LlmHttpInferenceRunner(
         )
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
-      elapsedMs = { SystemClock.elapsedRealtime() },
       onToken = { partial, done, thought ->
         if (stream.isCancelled) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)

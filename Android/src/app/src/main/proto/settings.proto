@@ -21,19 +21,6 @@ package com.ollitert.llm.server.proto;
 option java_package = "com.ollitert.llm.server.proto";
 option java_multiple_files = true;
 
-enum Theme {
-  THEME_UNSPECIFIED = 0;
-
-  // Force to use light theme.
-  THEME_LIGHT = 1;
-
-  // Force to use dark theme.
-  THEME_DARK = 2;
-
-  // Use the system them setting on user's phone.
-  THEME_AUTO = 3;
-}
-
 message AccessTokenData {
   string access_token = 1;
   string refresh_token = 2;
@@ -62,22 +49,11 @@ message LlmConfig {
 }
 
 message Settings {
-  Theme theme = 1;
-  AccessTokenData access_token_data = 2;  // deprecated
-  reserved 3;
+  reserved 1, 2, 3, 6, 8, 9, 10;
   repeated ImportedModel imported_model = 4;
   // Has the app tos been accepted.
   bool is_tos_accepted = 5;
-  reserved 6; // was has_run_tiny_garden (removed — Gallery demo feature)
   bool has_seen_benchmark_comparison_help = 7;
-  // Has the Gemma terms of use been accepted.
-  bool is_gemma_terms_accepted = 8;
-  // copybara:strip_begin(google-internal)
-  // Feature flags
-  map<string, bool> feature_flags = 9;
-  // copybara:strip_end
-
-  repeated string viewed_promo_id = 10;
 }
 
 message UserData {

@@ -189,7 +189,7 @@ constructor(
     return uiState.value.models.find { it.name == name }
   }
 
-  fun getAllModels(): List<Model> {
+  private fun getAllModels(): List<Model> {
     return uiState.value.models.sortedBy { it.displayName.ifEmpty { it.name } }
   }
 
@@ -213,7 +213,7 @@ constructor(
     _uiState.update { it.copy(configValuesUpdateTrigger = System.currentTimeMillis()) }
   }
 
-  fun notifyStorageChanged() {
+  private fun notifyStorageChanged() {
     _uiState.update { it.copy(storageUpdateTrigger = System.currentTimeMillis()) }
   }
 

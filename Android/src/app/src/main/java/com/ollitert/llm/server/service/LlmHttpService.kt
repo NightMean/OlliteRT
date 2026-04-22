@@ -713,7 +713,6 @@ class LlmHttpService : Service() {
 
   // Model lifecycle methods — delegated to LlmHttpModelLifecycle.kt
   private fun pickModelByName(name: String) = modelLifecycle.pickModelByName(name)
-  private fun selectModel(requestedModel: String?) = modelLifecycle.selectModel(requestedModel)
   private fun cancelKeepAliveTimer() = modelLifecycle.cancelKeepAliveTimer()
   private fun resetKeepAliveTimer() = modelLifecycle.resetKeepAliveTimer()
   private fun buildSystemInstruction(modelName: String) = modelLifecycle.buildSystemInstruction(modelName)

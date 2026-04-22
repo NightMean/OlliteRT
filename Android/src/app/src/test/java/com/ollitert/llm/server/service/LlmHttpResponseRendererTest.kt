@@ -17,8 +17,6 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.data.AllowedModel
-import com.ollitert.llm.server.data.DefaultConfig
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -73,12 +71,6 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
-  fun rendersFallbackModelListWhenIdsEmpty() {
-    val payload = LlmHttpResponseRenderer.renderModelListPayload(json, emptyList(), "local")
-    assertTrue(payload.contains("\"id\":\"local\""))
-  }
-
-  @Test
   fun emitsSseEventFrame() {
     assertEquals("event: ping\ndata: {\"ok\":true}\n\n", LlmHttpResponseRenderer.emitSseEvent("ping", "{\"ok\":true}"))
   }
@@ -100,27 +92,6 @@ class LlmHttpResponseRendererTest {
     val payload = LlmHttpResponseRenderer.buildTextSsePayload("m", "line1\nline2 \"quoted\"")
     assertTrue(payload.contains("line1\\nline2"))
     assertTrue(payload.contains("\\\"quoted\\\""))
-  }
-
-  @Test
-  fun toolCallSsePayloadContainsToolJson() {
-    val toolCall = ToolCall(id = "call-1", function = ToolCallFunction(name = "test", arguments = "{}"))
-    val payload = LlmHttpResponseRenderer.buildToolCallSsePayload("m", toolCall)
-    assertTrue(payload.contains("event: response.function_call_arguments.delta"))
-    assertTrue(payload.contains("event: response.function_call_arguments.done"))
-    assertTrue(payload.contains("\"call_id\":\"call-1\""))
-    assertTrue(payload.contains("\"name\":\"test\""))
-    assertTrue(payload.contains("event: response.completed"))
-    assertTrue(payload.contains("data: [DONE]"))
-  }
-
-  @Test
-  fun toolCallSsePayloadIncludesTokenCounts() {
-    val toolCall = ToolCall(id = "call-2", function = ToolCallFunction(name = "test", arguments = """{"key":"val"}"""))
-    val payload = LlmHttpResponseRenderer.buildToolCallSsePayload("m", toolCall, inputTokens = 10, outputTokens = 5)
-    assertTrue(payload.contains("\"input_tokens\":10"))
-    assertTrue(payload.contains("\"output_tokens\":5"))
-    assertTrue(payload.contains("\"total_tokens\":15"))
   }
 
   @Test
@@ -193,13 +164,6 @@ class LlmHttpResponseRendererTest {
     val serialized = json.encodeToString(LlmHttpModelItem.serializer(), item)
     assertTrue(serialized.contains("\"owned_by\":\"ollitert\""))
     assertTrue(serialized.contains("\"created\":"))
-  }
-
-  @Test
-  fun modelListPayloadContainsCreatedAndOwnedBy() {
-    val payload = LlmHttpResponseRenderer.renderModelListPayload(json, listOf("m1"), "fallback")
-    assertTrue(payload.contains("\"owned_by\":\"ollitert\""))
-    assertTrue(payload.contains("\"created\":"))
   }
 
   // ── Chat stream first chunk sends content=""───────────────
@@ -302,14 +266,6 @@ class LlmHttpResponseRendererTest {
     assertNotNull("resp ID should be UUID format", respIdMatch)
   }
 
-  @Test
-  fun toolCallSsePayloadUsesUuidIds() {
-    val toolCall = ToolCall(id = "call-1", function = ToolCallFunction(name = "test", arguments = "{}"))
-    val payload = LlmHttpResponseRenderer.buildToolCallSsePayload("m", toolCall)
-    val respIdMatch = Regex("\"id\":\"resp-([a-f0-9\\-]{36})\"").find(payload)
-    assertNotNull("resp ID should be UUID format", respIdMatch)
-  }
-
   // ── Full streaming sequence test ──────────────────────────────────────────
 
   @Test
@@ -378,61 +334,4 @@ class LlmHttpResponseRendererTest {
     assertTrue("should not contain function field", !result.contains(""""function":{"name":"""))
   }
 
-  // ── renderModelListWithCapabilities() ─────────────────────────────────────
-
-  private fun makeAllowedModel(
-    name: String,
-    image: Boolean? = null,
-    audio: Boolean? = null,
-    thinking: Boolean? = null,
-  ) = AllowedModel(
-    name = name, modelId = "test/$name", modelFile = "$name.litertlm",
-    description = "Test", sizeInBytes = 1000L,
-    defaultConfig = DefaultConfig(),
-    llmSupportImage = image, llmSupportAudio = audio, llmSupportThinking = thinking,
-  )
-
-  @Test
-  fun renderModelListWithCapabilitiesEmptyListUsesFallback() {
-    val payload = LlmHttpResponseRenderer.renderModelListWithCapabilities(json, emptyList(), "fallback-model")
-    assertTrue("should contain fallback id", payload.contains("\"id\":\"fallback-model\""))
-    assertTrue("should be a list", payload.contains("\"object\":\"list\""))
-  }
-
-  @Test
-  fun renderModelListWithCapabilitiesSingleModel() {
-    val models = listOf(makeAllowedModel("Gemma-3n-E4B", image = true, thinking = true))
-    val payload = LlmHttpResponseRenderer.renderModelListWithCapabilities(json, models, "fallback")
-    assertTrue("should contain model name", payload.contains("\"id\":\"Gemma-3n-E4B\""))
-    assertTrue("should have image=true", payload.contains("\"image\":true"))
-    assertTrue("should have thinking=true", payload.contains("\"thinking\":true"))
-    assertTrue("should have audio=false", payload.contains("\"audio\":false"))
-  }
-
-  @Test
-  fun renderModelListWithCapabilitiesMultipleModels() {
-    val models = listOf(
-      makeAllowedModel("model-a"),
-      makeAllowedModel("model-b"),
-    )
-    val payload = LlmHttpResponseRenderer.renderModelListWithCapabilities(json, models, "fallback")
-    assertTrue(payload.contains("\"id\":\"model-a\""))
-    assertTrue(payload.contains("\"id\":\"model-b\""))
-  }
-
-  @Test
-  fun renderModelListWithCapabilitiesNullCapabilitiesDefaultToFalse() {
-    val models = listOf(makeAllowedModel("test-model"))
-    val payload = LlmHttpResponseRenderer.renderModelListWithCapabilities(json, models, "fallback")
-    assertTrue("null image should be false", payload.contains("\"image\":false"))
-    assertTrue("null audio should be false", payload.contains("\"audio\":false"))
-    assertTrue("null thinking should be false", payload.contains("\"thinking\":false"))
-  }
-
-  @Test
-  fun renderModelListWithCapabilitiesOwnedByOllitert() {
-    val models = listOf(makeAllowedModel("m"))
-    val payload = LlmHttpResponseRenderer.renderModelListWithCapabilities(json, models, "f")
-    assertTrue(payload.contains("\"owned_by\":\"ollitert\""))
-  }
 }

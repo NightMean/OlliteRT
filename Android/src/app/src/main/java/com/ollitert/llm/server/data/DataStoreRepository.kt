@@ -56,9 +56,6 @@ class DefaultDataStoreRepository(
 
   override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
     runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().setAccessTokenData(AccessTokenData.getDefaultInstance()).build()
-      }
       userDataDataStore.updateData { userData ->
         userData
           .toBuilder()
@@ -76,7 +73,6 @@ class DefaultDataStoreRepository(
 
   override fun clearAccessTokenData() {
     runBlocking {
-      dataStore.updateData { settings -> settings.toBuilder().clearAccessTokenData().build() }
       userDataDataStore.updateData { userData ->
         userData.toBuilder().clearAccessTokenData().build()
       }

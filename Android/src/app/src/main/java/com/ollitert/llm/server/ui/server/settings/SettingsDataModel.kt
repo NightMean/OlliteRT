@@ -40,7 +40,6 @@ class SettingEntry<T>(initialValue: T) {
   val isChanged: Boolean get() = saved != current
 
   fun update(value: T) { current = value }
-  fun revert() { current = saved }
   fun apply() { saved = current }
   fun reset(default: T) { saved = default; current = default }
 }

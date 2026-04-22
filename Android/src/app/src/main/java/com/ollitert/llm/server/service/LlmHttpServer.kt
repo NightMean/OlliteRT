@@ -218,8 +218,8 @@ class LlmHttpServer(
             }
 
             // ── Inference routes — delegated to LlmHttpEndpointHandlers ──
-            LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
-            LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+            LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+            LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
             LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
             LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
 

@@ -96,16 +96,4 @@ object LlmHttpCorsHelper {
     return headers
   }
 
-  /**
-   * Whether a preflight (OPTIONS) request should get a 200 OK response.
-   * Returns false if CORS is disabled or the origin is not allowed
-   * (in which case the server should still respond, but without CORS headers,
-   * letting the browser block the cross-origin request).
-   */
-  fun shouldAllowPreflight(
-    allowedOrigins: String,
-    requestOrigin: String?,
-  ): Boolean {
-    return buildCorsHeaders(allowedOrigins, requestOrigin).isNotEmpty()
-  }
 }

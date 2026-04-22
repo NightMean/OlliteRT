@@ -58,7 +58,6 @@ object LlmHttpInferenceGateway {
     resetConversation: () -> Unit,
     runInference: InferenceRunner,
     cancelInference: () -> Unit,
-    elapsedMs: () -> Long,
     onToken: (partial: String, done: Boolean, thought: String?) -> Unit,
     onError: (error: String) -> Unit,
     onCaughtThrowable: ((Throwable) -> Unit)? = null,

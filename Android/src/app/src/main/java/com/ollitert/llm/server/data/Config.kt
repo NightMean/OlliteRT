@@ -17,7 +17,6 @@
 
 package com.ollitert.llm.server.data
 
-import androidx.annotation.StringRes
 import kotlin.math.abs
 
 /** The data types of configuration values. */
@@ -47,8 +46,6 @@ object ConfigKeys {
   val ACCELERATOR = ConfigKey("accelerator", "Accelerator")
   val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "Vision accelerator")
   val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators")
-  val WARM_UP_ITERATIONS = ConfigKey("warm_up_iterations", "Warm up iterations")
-  val BENCHMARK_ITERATIONS = ConfigKey("benchmark_iterations", "Benchmark iterations")
   val NAME = ConfigKey("name", "Name")
   val MODEL_TYPE = ConfigKey("model_type", "Model type")
   val PREFILL_TOKENS = ConfigKey("prefill_tokens", "Prefill tokens")
@@ -141,21 +138,6 @@ class SegmentedButtonConfig(
     // The emitted value will be comma-separated labels when allowMultiple=true.
     valueType = ValueType.STRING,
   )
-
-/** Configuration setting for a bottom sheet selector. */
-class BottomSheetSelectorConfig(
-  override val key: ConfigKey,
-  override val defaultValue: String,
-  val options: List<BottomSheetSelectorItem>,
-  @param:StringRes val bottomSheetTitleResId: Int? = null,
-) :
-  Config(
-    key = key,
-    defaultValue = defaultValue,
-    valueType = ValueType.STRING,
-  )
-
-data class BottomSheetSelectorItem(val label: String)
 
 fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
   return when (valueType) {

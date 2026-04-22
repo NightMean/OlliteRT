@@ -88,7 +88,6 @@
   <string name="cd_import_model_from_local_file_button">Import model from local file</string>
   <string name="cd_navigate_back_icon">Go back</string>
   <string name="cd_stop_icon">Stop</string>
-  <string name="cd_selected_icon">Selected</string>
   <string name="cd_downloaded_icon">Downloaded</string>
   <string name="cd_not_downloaded_icon">Not downloaded</string>
   <string name="cd_downloading_icon">Downloading</string>
@@ -676,10 +675,6 @@
   <string name="model_stop_server_for_benchmark" translatable="false">Stop the server first to run benchmarks</string>
   <string name="model_loading_hint_wait" translatable="false">Please wait for the current model to finish loading</string>
 
-  <!-- Model list: Links -->
-  <string name="model_link_api_docs" translatable="false">API Documentation</string>
-  <string name="model_link_example_code" translatable="false">Example code</string>
-
   <!-- Donate dialog: Platform labels -->
   <string name="donate_github_sponsors" translatable="false">GitHub Sponsors</string>
   <string name="donate_buy_me_a_coffee" translatable="false">Buy Me a Coffee</string>
@@ -754,11 +749,6 @@
   <string name="benchmark_unit_ms" translatable="false">ms</string>
 
   <!-- BenchmarkViewModel: aggregation labels -->
-  <string name="benchmark_aggregation_avg" translatable="false">avg</string>
-  <string name="benchmark_aggregation_median" translatable="false">median</string>
-  <string name="benchmark_aggregation_min" translatable="false">min</string>
-  <string name="benchmark_aggregation_max" translatable="false">max</string>
-
   <!-- ModelImportDialog: edit dialog -->
   <string name="dialog_edit_model_defaults_title">Edit Model Defaults</string>
   <string name="dialog_edit_model_active_warning">Server is running this model — changes take effect after it reloads. Saved inference customizations will be reset to these new defaults.</string>
@@ -771,8 +761,7 @@
   <string name="validation_numeric_range">%1$s must be between %2$d and %3$d</string>
   <string name="validation_numeric_range_with_unit">%1$s must be between %2$d and %3$d %4$s</string>
 
-  <!-- SettingsDefinitions: CORS validation -->
-  <string name="validation_cors_invalid">Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://</string>
+
 
   <!-- DownloadRepository: notification channel -->
   <string name="notif_channel_download_name" translatable="false">OlliteRT download notification</string>

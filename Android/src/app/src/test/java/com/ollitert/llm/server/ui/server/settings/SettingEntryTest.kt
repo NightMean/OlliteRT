@@ -51,16 +51,6 @@ class SettingEntryTest {
   }
 
   @Test
-  fun `boolean - revert restores current to saved`() {
-    val entry = SettingEntry(true)
-    entry.update(false)
-    assertTrue(entry.isChanged)
-    entry.revert()
-    assertFalse(entry.isChanged)
-    assertEquals(true, entry.current)
-  }
-
-  @Test
   fun `boolean - apply advances saved to current`() {
     val entry = SettingEntry(false)
     entry.update(true)
@@ -96,15 +86,6 @@ class SettingEntryTest {
   }
 
   @Test
-  fun `int - revert after update`() {
-    val entry = SettingEntry(8000)
-    entry.update(9000)
-    entry.revert()
-    assertFalse(entry.isChanged)
-    assertEquals(8000, entry.current)
-  }
-
-  @Test
   fun `int - reset to different default`() {
     val entry = SettingEntry(9000)
     entry.reset(8000)
@@ -137,16 +118,6 @@ class SettingEntryTest {
   }
 
   // ─── Long ───────────────────────────────────────────────────────────────
-
-  @Test
-  fun `long - update and revert`() {
-    val entry = SettingEntry(10080L)
-    entry.update(60L)
-    assertTrue(entry.isChanged)
-    entry.revert()
-    assertFalse(entry.isChanged)
-    assertEquals(10080L, entry.current)
-  }
 
   // ─── Nullable String ────────────────────────────────────────────────────
 

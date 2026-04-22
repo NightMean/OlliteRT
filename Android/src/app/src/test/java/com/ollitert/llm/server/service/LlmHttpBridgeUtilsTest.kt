@@ -96,13 +96,6 @@ class LlmHttpBridgeUtilsTest {
   }
 
   @Test
-  fun `generateFunctionCallId - has fc prefix and UUID`() {
-    val id = LlmHttpBridgeUtils.generateFunctionCallId()
-    assertTrue(id.startsWith("fc-"))
-    assertEquals(39, id.length) // "fc-" (3) + UUID (36)
-  }
-
-  @Test
   fun `generateToolCallId - has call_ prefix and 24 hex chars`() {
     val id = LlmHttpBridgeUtils.generateToolCallId()
     assertTrue(id.startsWith("call_"))

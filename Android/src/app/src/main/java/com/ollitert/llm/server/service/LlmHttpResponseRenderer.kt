@@ -17,8 +17,6 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.ErrorCategory
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 object LlmHttpResponseRenderer {
   // Strips non-slug chars from error messages to generate OpenAI-compatible error type slugs
@@ -48,32 +46,6 @@ object LlmHttpResponseRenderer {
       ""","suggestion":"${LlmHttpBridgeUtils.escapeSseText(suggestion)}""""
     } else ""
     return """{"error":{"message":"$escaped","type":"$type","code":null$suggestionField}}"""
-  }
-
-  fun renderModelListPayload(json: Json, modelIds: List<String>, fallbackId: String): String {
-    val ids = if (modelIds.isEmpty()) listOf(fallbackId) else modelIds
-    return json.encodeToString(LlmHttpModelList(data = ids.map { id -> LlmHttpModelItem(id = id) }))
-  }
-
-  fun renderModelListWithCapabilities(
-    json: Json,
-    models: List<com.ollitert.llm.server.data.AllowedModel>,
-    fallbackId: String,
-  ): String {
-    if (models.isEmpty()) {
-      return json.encodeToString(LlmHttpModelList(data = listOf(LlmHttpModelItem(id = fallbackId))))
-    }
-    val items = models.map { m ->
-      LlmHttpModelItem(
-        id = m.name,
-        capabilities = LlmHttpModelCapabilities(
-          image = m.llmSupportImage == true,
-          audio = m.llmSupportAudio == true,
-          thinking = m.llmSupportThinking == true,
-        ),
-      )
-    }
-    return json.encodeToString(LlmHttpModelList(data = items))
   }
 
   fun emitSseEvent(event: String, payload: String): String = "event: $event\n" + "data: $payload\n\n"
@@ -204,24 +176,4 @@ object LlmHttpResponseRenderer {
     }
   }
 
-  fun buildToolCallSsePayload(modelId: String, toolCall: ToolCall, inputTokens: Int = 0, outputTokens: Int = 0): String {
-    val now = LlmHttpBridgeUtils.epochSeconds()
-    val respId = LlmHttpBridgeUtils.generateResponseId()
-    val fcId = LlmHttpBridgeUtils.generateFunctionCallId()
-    val callId = toolCall.id
-    val name = toolCall.function.name
-    val escapedArgs = LlmHttpBridgeUtils.escapeSseText(toolCall.function.arguments)
-    val totalTokens = inputTokens + outputTokens
-
-    return buildString {
-      append(emitSseEvent("response.created", """{"type":"response.created","response":{"id":"$respId","object":"response","created_at":$now,"status":"in_progress","model":"$modelId","output":[]}}"""))
-      append(emitSseEvent("response.in_progress", """{"type":"response.in_progress","response":{"id":"$respId","object":"response","created_at":$now,"status":"in_progress","model":"$modelId","output":[]}}"""))
-      append(emitSseEvent("response.output_item.added", """{"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"$fcId","call_id":"$callId","name":"$name","arguments":"","status":"in_progress"}}"""))
-      append(emitSseEvent("response.function_call_arguments.delta", """{"type":"response.function_call_arguments.delta","output_index":0,"item_id":"$fcId","call_id":"$callId","delta":"$escapedArgs"}"""))
-      append(emitSseEvent("response.function_call_arguments.done", """{"type":"response.function_call_arguments.done","output_index":0,"item_id":"$fcId","call_id":"$callId","arguments":"$escapedArgs"}"""))
-      append(emitSseEvent("response.output_item.done", """{"type":"response.output_item.done","output_index":0,"item":{"type":"function_call","id":"$fcId","call_id":"$callId","name":"$name","arguments":"$escapedArgs","status":"completed"}}"""))
-      append(emitSseEvent("response.completed", """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[{"type":"function_call","id":"$fcId","call_id":"$callId","name":"$name","arguments":"$escapedArgs","status":"completed"}],"usage":{"input_tokens":$inputTokens,"output_tokens":$outputTokens,"total_tokens":$totalTokens}}}"""))
-      append("data: [DONE]\n\n")
-    }
-  }
 }

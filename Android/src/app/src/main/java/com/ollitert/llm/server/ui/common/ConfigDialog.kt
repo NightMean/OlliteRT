@@ -18,8 +18,6 @@
 package com.ollitert.llm.server.ui.common
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,38 +26,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MultiChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -69,12 +54,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.BooleanSwitchConfig
-import com.ollitert.llm.server.data.BottomSheetSelectorConfig
-import com.ollitert.llm.server.data.BottomSheetSelectorItem
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.EditableTextConfig
@@ -82,8 +64,6 @@ import com.ollitert.llm.server.data.LabelConfig
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.SegmentedButtonConfig
 import com.ollitert.llm.server.data.ValueType
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /** Composable function to display a list of config editor rows. */
 @Composable
@@ -113,11 +93,6 @@ fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, A
       // Segmented button.
       is SegmentedButtonConfig -> {
         SegmentedButtonRow(config = config, values = values)
-      }
-
-      // Bottom sheet selector.
-      is BottomSheetSelectorConfig -> {
-        BottomSheetSelectorRow(config = config, values = values)
       }
 
       else -> {}
@@ -413,117 +388,3 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
   }
 }
 
-/**
- * Composable function to display a row with a bottom sheet selector.
- *
- * This function renders a row containing a label and a button, allowing users to select an option
- * from a bottom sheet.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun BottomSheetSelectorRow(
-  config: BottomSheetSelectorConfig,
-  values: SnapshotStateMap<String, Any>,
-  showLabel: Boolean = true,
-  onSelected: (BottomSheetSelectorItem) -> Unit = {},
-) {
-  var selectedOption by remember {
-    mutableStateOf(
-      if (config.options.isEmpty()) {
-        null
-      } else {
-        config.options.find { it.label == config.defaultValue }
-      }
-    )
-  }
-  var showBottomSheet by remember { mutableStateOf(false) }
-  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  val scope = rememberCoroutineScope()
-
-  Column(
-    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
-    verticalArrangement = Arrangement.spacedBy(4.dp),
-  ) {
-    if (showLabel) {
-      Text(config.key.label, style = MaterialTheme.typography.titleSmall)
-    }
-    Row(
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically,
-      modifier =
-        Modifier.height(40.dp)
-          .clip(CircleShape)
-          .clickable { showBottomSheet = true }
-          .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-          .padding(start = 12.dp, end = 8.dp),
-    ) {
-      Text(
-        selectedOption?.label ?: "-",
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.weight(1f),
-        maxLines = 1,
-        overflow = TextOverflow.MiddleEllipsis,
-      )
-      Icon(
-        Icons.Rounded.ArrowDropDown,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurface,
-      )
-    }
-  }
-
-  if (showBottomSheet) {
-    ModalBottomSheet(
-      onDismissRequest = { showBottomSheet = false },
-      sheetState = sheetState,
-      sheetMaxWidth = SHEET_MAX_WIDTH,
-      containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-      Column(modifier = Modifier.fillMaxWidth()) {
-        val titleResId = config.bottomSheetTitleResId
-        if (titleResId != null) {
-          Text(
-            stringResource(titleResId),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(16.dp),
-          )
-        }
-        LazyColumn {
-          items(config.options) { option ->
-            Row(
-              modifier =
-                Modifier.clickable {
-                    selectedOption = option
-                    values[config.key.label] = option.label
-                    onSelected(option)
-                    scope.launch {
-                      delay(200)
-                      sheetState.hide()
-                      showBottomSheet = false
-                    }
-                  }
-                  .padding(horizontal = 16.dp, vertical = 12.dp)
-                  .fillMaxWidth(),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-              Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.alpha(if (option == selectedOption) 1f else 0f),
-              )
-              Text(
-                option.label,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.labelLarge,
-              )
-            }
-          }
-        }
-      }
-    }
-  }
-}

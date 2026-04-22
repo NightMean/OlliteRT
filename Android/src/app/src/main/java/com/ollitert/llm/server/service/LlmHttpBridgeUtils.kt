@@ -47,7 +47,6 @@ object LlmHttpBridgeUtils {
   fun generateChatCompletionId(): String = "chatcmpl-${java.util.UUID.randomUUID()}"
   fun generateResponseId(): String = "resp-${java.util.UUID.randomUUID()}"
   fun generateMessageId(): String = "msg-${java.util.UUID.randomUUID()}"
-  fun generateFunctionCallId(): String = "fc-${java.util.UUID.randomUUID()}"
   fun generateToolCallId(): String = "call_${java.util.UUID.randomUUID().toString().replace("-", "").take(24)}"
   fun generateBearerToken(): String = java.util.UUID.randomUUID().toString().replace("-", "")
   fun epochSeconds(): Long = System.currentTimeMillis() / 1000

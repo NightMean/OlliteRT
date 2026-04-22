@@ -63,7 +63,6 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
-    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
@@ -270,7 +269,6 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
-    sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
     val payload = HashMap<String, String>()
@@ -439,7 +437,7 @@ class LlmHttpEndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, promptLen = prompt.length, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
