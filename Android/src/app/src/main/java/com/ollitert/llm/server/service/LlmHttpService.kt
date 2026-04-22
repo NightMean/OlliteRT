@@ -143,6 +143,7 @@ class LlmHttpService : Service() {
         setReferenceCounted(false)
       }
       LlmHttpNotificationHelper.createChannel(this)
+      checkCorruptedDataStores()
     } catch (e: Exception) {
       Log.e(logTag, "Service initialization failed — stopping immediately", e)
       stopSelf()
@@ -783,6 +784,65 @@ class LlmHttpService : Service() {
     )
   }
 
+  /**
+   * Checks for DataStore corruption that was detected during lazy initialization
+   * (flagged via SharedPreferences by the ReplaceFileCorruptionHandler in AppModule).
+   * Logs a WARNING event to the in-app log and posts a system notification so the
+   * user knows their settings/data were reset.
+   */
+  private fun checkCorruptedDataStores() {
+    val corrupted = LlmHttpPrefs.getCorruptedDataStores(this)
+    if (corrupted.isEmpty()) return
+
+    val names = corrupted.sorted().joinToString(", ")
+    Log.w(logTag, "DataStore corruption recovered on previous run: $names")
+    RequestLogStore.addEvent(
+      getString(R.string.log_corruption_recovered, names),
+      level = LogLevel.WARNING,
+      category = EventCategory.SERVER,
+    )
+
+    val channelId = "ollitert-corruption"
+    val mgr = getSystemService(NOTIFICATION_SERVICE) as? android.app.NotificationManager
+    if (mgr != null) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        mgr.createNotificationChannel(
+          android.app.NotificationChannel(
+            channelId,
+            getString(R.string.notif_channel_corruption_name),
+            android.app.NotificationManager.IMPORTANCE_HIGH,
+          ).apply { description = getString(R.string.notif_channel_corruption_desc) }
+        )
+      }
+      val openIntent = PendingIntent.getActivity(
+        this, 0,
+        Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+        PendingIntent.FLAG_IMMUTABLE,
+      )
+      val text = if (corrupted.size == 1)
+        getString(R.string.notif_corruption_text_one, corrupted.first())
+      else
+        getString(R.string.notif_corruption_text_many, corrupted.size, names)
+      val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
+        .setSmallIcon(R.mipmap.ic_launcher_monochrome)
+        .setContentTitle(getString(R.string.notif_corruption_title))
+        .setContentText(text)
+        .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
+        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(openIntent)
+        .setAutoCancel(true)
+        .build()
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+          checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        Log.w(logTag, "POST_NOTIFICATIONS not granted — corruption notification suppressed")
+      } else {
+        mgr.notify(NOTIFICATION_ID_CORRUPTION, notification)
+      }
+    }
+
+    LlmHttpPrefs.clearCorruptedDataStores(this)
+  }
+
   companion object {
     private const val TAG = "LlmHttpService"
     const val EXTRA_PORT = "extra_port"
@@ -792,6 +852,7 @@ class LlmHttpService : Service() {
     const val SOURCE_BOOT = "boot"
     const val SOURCE_LAUNCH = "launch"
     const val DEFAULT_PORT = com.ollitert.llm.server.data.DEFAULT_PORT
+    private const val NOTIFICATION_ID_CORRUPTION = 44
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"

@@ -704,6 +704,14 @@
   <string name="update_check_failed_server_error" translatable="false">Update check failed — server error, try again later</string>
   <string name="update_check_failed_http" translatable="false">Update check failed — HTTP error %1$d</string>
 
+  <!-- DataStore corruption recovery notification -->
+  <string name="notif_channel_corruption_name" translatable="false">Data Recovery</string>
+  <string name="notif_channel_corruption_desc" translatable="false">Notifies when corrupted data was detected and reset</string>
+  <string name="notif_corruption_title" translatable="false">Data was reset after corruption</string>
+  <string name="notif_corruption_text_one" translatable="false">The %1$s data file was corrupted and has been reset to defaults.</string>
+  <string name="notif_corruption_text_many" translatable="false">%1$d data files were corrupted and have been reset to defaults: %2$s</string>
+  <string name="log_corruption_recovered" translatable="false">DataStore corruption recovered — reset to defaults: %1$s</string>
+
   <!-- UpdateCheckWorker: Notification channel (visible in Android system notification settings) -->
   <string name="notif_channel_update_name" translatable="false">Update Available</string>
   <string name="notif_channel_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>

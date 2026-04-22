@@ -21,6 +21,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
@@ -31,9 +32,11 @@ import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
 import com.ollitert.llm.server.data.DefaultDownloadRepository
 import com.ollitert.llm.server.data.DownloadRepository
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.Settings
 import com.ollitert.llm.server.proto.UserData
+import android.util.Log
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -71,6 +74,12 @@ internal object AppModule {
   ): DataStore<Settings> {
     return DataStoreFactory.create(
       serializer = settingsSerializer,
+      corruptionHandler = ReplaceFileCorruptionHandler {
+        Log.e("OlliteRT.DataStore", "settings.pb corrupted — resetting to defaults")
+        try { LlmHttpPrefs.addCorruptedDataStore(context, "settings") }
+        catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
+        Settings.getDefaultInstance()
+      },
       produceFile = { context.dataStoreFile("settings.pb") },
     )
   }
@@ -83,6 +92,12 @@ internal object AppModule {
   ): DataStore<UserData> {
     return DataStoreFactory.create(
       serializer = userDataSerializer,
+      corruptionHandler = ReplaceFileCorruptionHandler {
+        Log.e("OlliteRT.DataStore", "user_data.pb corrupted — resetting to defaults")
+        try { LlmHttpPrefs.addCorruptedDataStore(context, "user_data") }
+        catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
+        UserData.getDefaultInstance()
+      },
       produceFile = { context.dataStoreFile("user_data.pb") },
     )
   }
@@ -95,6 +110,12 @@ internal object AppModule {
   ): DataStore<BenchmarkResults> {
     return DataStoreFactory.create(
       serializer = benchmarkResultsSerializer,
+      corruptionHandler = ReplaceFileCorruptionHandler {
+        Log.e("OlliteRT.DataStore", "benchmark_results.pb corrupted — resetting to defaults")
+        try { LlmHttpPrefs.addCorruptedDataStore(context, "benchmark_results") }
+        catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
+        BenchmarkResults.getDefaultInstance()
+      },
       produceFile = { context.dataStoreFile("benchmark_results.pb") },
     )
   }

@@ -106,6 +106,9 @@ private const val KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES = "update_check_consecut
 private const val DEFAULT_UPDATE_CHECK_ENABLED = true
 private const val DEFAULT_UPDATE_CHECK_INTERVAL_HOURS = 24
 
+// --- DataStore Corruption Recovery ---
+private const val KEY_CORRUPTED_DATASTORES = "corrupted_datastores"
+
 object LlmHttpPrefs {
 
   /**
@@ -641,6 +644,21 @@ object LlmHttpPrefs {
       .putBoolean(KEY_ENABLED, enabled)
       .putInt(KEY_PORT, port)
       .apply()
+  }
+
+  // -- DataStore Corruption Recovery --
+
+  fun getCorruptedDataStores(context: Context): Set<String> =
+    prefs(context).getStringSet(KEY_CORRUPTED_DATASTORES, emptySet()) ?: emptySet()
+
+  fun addCorruptedDataStore(context: Context, name: String) {
+    val current = getCorruptedDataStores(context).toMutableSet()
+    current.add(name)
+    prefs(context).edit().putStringSet(KEY_CORRUPTED_DATASTORES, current).apply()
+  }
+
+  fun clearCorruptedDataStores(context: Context) {
+    prefs(context).edit().remove(KEY_CORRUPTED_DATASTORES).apply()
   }
 
   /**
