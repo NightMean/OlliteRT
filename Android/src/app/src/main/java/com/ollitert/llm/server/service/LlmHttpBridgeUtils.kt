@@ -16,8 +16,11 @@
 
 package com.ollitert.llm.server.service
 
+import android.util.Log
+import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
 import com.ollitert.llm.server.common.formatByteSize
+import fi.iki.elonen.NanoHTTPD
 
 object LlmHttpBridgeUtils {
   private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")
@@ -96,4 +99,38 @@ object LlmHttpBridgeUtils {
       "data:$cleanMime;base64,▌ PLACEHOLDER — $sizeLabel $category data ▌"
     }
 
+}
+
+internal sealed class Either<out L, out R> {
+  data class Left<L>(val value: L) : Either<L, Nothing>()
+  data class Right<R>(val value: R) : Either<Nothing, R>()
+}
+
+/**
+ * Parses the HTTP request body, catching OutOfMemoryError from oversized payloads.
+ *
+ * Without this wrapper, OOM from parseBody() propagates to serve()'s catch-all
+ * which destroys the loaded model — even though body parsing has nothing to do
+ * with inference. This isolates the blast radius: the request fails, the model
+ * stays loaded.
+ */
+internal fun safeParseBody(
+  session: NanoHTTPD.IHTTPSession,
+  allowEmpty: Boolean = false,
+): Either<NanoHTTPD.Response, String> {
+  val payload = HashMap<String, String>()
+  return try {
+    session.parseBody(payload)
+    val body = payload["postData"]
+    if (body == null && !allowEmpty) Either.Left(badRequest("empty body"))
+    else Either.Right(body ?: "")
+  } catch (_: OutOfMemoryError) {
+    System.gc()
+    Log.w("LlmHttpServer", "parseBody() OOM — returning HTTP 413 to client")
+    ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
+    Either.Left(jsonError(
+      NanoHTTPD.Response.Status.PAYLOAD_TOO_LARGE,
+      "Request body too large — server ran out of memory parsing the request",
+    ))
+  }
 }

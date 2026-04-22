@@ -371,9 +371,10 @@ class LlmHttpServer(
       val body = """{"success":false,"message":"Model does not support thinking"}"""
       return badRequest("Model does not support thinking") to body
     }
-    val payload = HashMap<String, String>()
-    session.parseBody(payload)
-    val raw = payload["postData"] ?: ""
+    val raw = when (val parsed = safeParseBody(session, allowEmpty = true)) {
+      is Either.Left -> return parsed.value to """{"success":false,"message":"Request body too large"}"""
+      is Either.Right -> parsed.value
+    }
     // Read current state from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName)
     val currentState = (currentConfig?.get(ConfigKeys.ENABLE_THINKING.label) as? Boolean) ?: false
@@ -433,9 +434,10 @@ class LlmHttpServer(
     }
     // Read config from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName) ?: emptyMap()
-    val payload = HashMap<String, String>()
-    session.parseBody(payload)
-    val raw = payload["postData"] ?: ""
+    val raw = when (val parsed = safeParseBody(session, allowEmpty = true)) {
+      is Either.Left -> return parsed.value to """{"success":false,"message":"Request body too large"}"""
+      is Either.Right -> parsed.value
+    }
     if (raw.isBlank()) {
       // GET-like: return current config
       val current = org.json.JSONObject().apply {

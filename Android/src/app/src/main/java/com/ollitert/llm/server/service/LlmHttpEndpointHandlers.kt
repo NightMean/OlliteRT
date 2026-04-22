@@ -65,9 +65,10 @@ class LlmHttpEndpointHandlers(
     logId: String? = null,
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val payload = HashMap<String, String>()
-    session.parseBody(payload)
-    val body = payload["postData"] ?: return badRequest("empty body")
+    val body = when (val parsed = safeParseBody(session)) {
+      is Either.Left -> return parsed.value
+      is Either.Right -> parsed.value
+    }
     captureBody(body)
     logPayload("POST /generate raw", body, requestId)
     val req = json.decodeFromString<GenReq>(body)
@@ -121,9 +122,10 @@ class LlmHttpEndpointHandlers(
     sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val payload = HashMap<String, String>()
-    session.parseBody(payload)
-    val body = payload["postData"] ?: return badRequest("empty body")
+    val body = when (val parsed = safeParseBody(session)) {
+      is Either.Left -> return parsed.value
+      is Either.Right -> parsed.value
+    }
     captureBody(body)
     logPayload("POST /v1/chat/completions raw", body, requestId)
     val req = json.decodeFromString<ChatRequest>(body)
@@ -271,9 +273,10 @@ class LlmHttpEndpointHandlers(
     logId: String? = null,
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val payload = HashMap<String, String>()
-    session.parseBody(payload)
-    val body = payload["postData"] ?: return badRequest("empty body")
+    val body = when (val parsed = safeParseBody(session)) {
+      is Either.Left -> return parsed.value
+      is Either.Right -> parsed.value
+    }
     captureBody(body)
     logPayload("POST /v1/completions raw", body, requestId)
     val req = json.decodeFromString<CompletionRequest>(body)
@@ -371,9 +374,10 @@ class LlmHttpEndpointHandlers(
     sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val payload = HashMap<String, String>()
-    session.parseBody(payload)
-    val body = payload["postData"] ?: return badRequest("empty body")
+    val body = when (val parsed = safeParseBody(session)) {
+      is Either.Left -> return parsed.value
+      is Either.Right -> parsed.value
+    }
     captureBody(body)
     logPayload("POST /v1/responses raw", body, requestId)
     val req = json.decodeFromString<ResponsesRequest>(body)
