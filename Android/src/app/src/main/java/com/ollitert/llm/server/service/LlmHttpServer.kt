@@ -42,9 +42,9 @@ internal fun jsonError(
   status: NanoHTTPD.Response.Status,
   error: String,
   suggestion: String? = null,
-  category: ErrorCategory? = null,
+  kind: ErrorKind? = null,
 ): NanoHTTPD.Response =
-  NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", LlmHttpResponseRenderer.renderJsonError(error, suggestion, category))
+  NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", LlmHttpResponseRenderer.renderJsonError(error, suggestion, kind))
 
 internal fun badRequest(msg: String) = jsonError(NanoHTTPD.Response.Status.BAD_REQUEST, msg)
 internal fun notFound(error: String = "not_found") = jsonError(NanoHTTPD.Response.Status.NOT_FOUND, error)

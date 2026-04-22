@@ -16,8 +16,6 @@
 
 package com.ollitert.llm.server.service
 
-import com.ollitert.llm.server.common.ErrorCategory
-
 object LlmHttpResponseRenderer {
   // Strips non-slug chars from error messages to generate OpenAI-compatible error type slugs
   private val NON_SLUG_REGEX = Regex("[^a-zA-Z0-9_]")
@@ -27,25 +25,27 @@ object LlmHttpResponseRenderer {
    *
    * @param suggestion optional recovery hint — rendered as a separate `"suggestion"` field
    *   so API clients can distinguish the raw error from the guidance.
-   * @param category when provided, maps to an OpenAI-compatible `"type"` value
-   *   (e.g. `server_error`, `invalid_request_error`). Falls back to a slug derived
-   *   from the error message when null.
+   * @param kind when provided, maps to an OpenAI-compatible `"type"` and `"code"` value
+   *   (e.g. `server_error`, `invalid_request_error` / `context_length_exceeded`).
+   *   Falls back to a slug derived from the error message when null.
    */
   fun renderJsonError(
     error: String,
     suggestion: String? = null,
-    category: ErrorCategory? = null,
+    kind: ErrorKind? = null,
   ): String {
     val escaped = LlmHttpBridgeUtils.escapeSseText(error)
-    val type = if (category != null) {
-      LlmHttpErrorSuggestions.openAiErrorType(category, error)
+    val type = if (kind != null) {
+      LlmHttpErrorSuggestions.openAiErrorType(kind)
     } else {
       error.replace(' ', '_').replace(NON_SLUG_REGEX, "").take(40) + "_error"
     }
+    val code = LlmHttpErrorSuggestions.openAiErrorCode(kind)
+    val codeJson = if (code != null) "\"$code\"" else "null"
     val suggestionField = if (suggestion != null) {
       ""","suggestion":"${LlmHttpBridgeUtils.escapeSseText(suggestion)}""""
     } else ""
-    return """{"error":{"message":"$escaped","type":"$type","code":null$suggestionField}}"""
+    return """{"error":{"message":"$escaped","type":"$type","code":$codeJson$suggestionField}}"""
   }
 
   fun emitSseEvent(event: String, payload: String): String = "event: $event\n" + "data: $payload\n\n"

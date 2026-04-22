@@ -160,27 +160,46 @@ class LlmHttpErrorSuggestionsTest {
   // ── openAiErrorType() ──
 
   @Test
-  fun `openAiErrorType returns server_error for MODEL_LOAD`() {
-    assertEquals("server_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorCategory.MODEL_LOAD))
+  fun `openAiErrorType returns invalid_request_error for CONTEXT_OVERFLOW`() {
+    assertEquals("invalid_request_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorKind.CONTEXT_OVERFLOW))
   }
 
   @Test
-  fun `openAiErrorType returns invalid_request_error for NETWORK`() {
-    assertEquals("invalid_request_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorCategory.NETWORK))
+  fun `openAiErrorType returns invalid_request_error for IMAGE_DECODE_FAILED`() {
+    assertEquals("invalid_request_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorKind.IMAGE_DECODE_FAILED))
   }
 
   @Test
-  fun `openAiErrorType returns authentication_error for auth failures`() {
-    assertEquals("authentication_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorCategory.NETWORK, "unauthorized"))
+  fun `openAiErrorType returns not_found_error for MODEL_NOT_FOUND`() {
+    assertEquals("not_found_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorKind.MODEL_NOT_FOUND))
   }
 
   @Test
-  fun `openAiErrorType returns server_error for SYSTEM`() {
-    assertEquals("server_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorCategory.SYSTEM))
+  fun `openAiErrorType returns server_error for TIMEOUT`() {
+    assertEquals("server_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorKind.TIMEOUT))
   }
 
   @Test
-  fun `openAiErrorType returns server_error for INFERENCE`() {
-    assertEquals("server_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorCategory.INFERENCE))
+  fun `openAiErrorType returns server_error for OOM`() {
+    assertEquals("server_error", LlmHttpErrorSuggestions.openAiErrorType(ErrorKind.OOM))
+  }
+
+  @Test
+  fun `openAiErrorType returns server_error for null`() {
+    assertEquals("server_error", LlmHttpErrorSuggestions.openAiErrorType(null))
+  }
+
+  // ── openAiErrorCode() ──
+
+  @Test
+  fun `openAiErrorCode returns context_length_exceeded for CONTEXT_OVERFLOW`() {
+    assertEquals("context_length_exceeded", LlmHttpErrorSuggestions.openAiErrorCode(ErrorKind.CONTEXT_OVERFLOW))
+  }
+
+  @Test
+  fun `openAiErrorCode returns null for other kinds`() {
+    assertNull(LlmHttpErrorSuggestions.openAiErrorCode(ErrorKind.TIMEOUT))
+    assertNull(LlmHttpErrorSuggestions.openAiErrorCode(ErrorKind.OOM))
+    assertNull(LlmHttpErrorSuggestions.openAiErrorCode(null))
   }
 }

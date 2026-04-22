@@ -708,7 +708,7 @@ class LlmHttpInferenceRunner(
         logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
         val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
         if (logId != null) {
-          val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)
+          val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind)
           val actualTokens = extractActualTokenCounts(error)
           RequestLogStore.update(logId) {
             it.copy(
@@ -724,7 +724,7 @@ class LlmHttpInferenceRunner(
           }
         }
         try {
-          stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind.category)}\n\n")
+          stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind)}\n\n")
           stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
           stream.finish()
         } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }

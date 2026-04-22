@@ -101,15 +101,22 @@ object LlmHttpErrorSuggestions {
   }
 
   /**
-   * Maps [ErrorCategory] to an OpenAI-compatible error type string.
+   * Maps [ErrorKind] to an OpenAI-compatible error type string.
    * Used in JSON error responses for API clients.
    */
-  fun openAiErrorType(category: ErrorCategory, errorMessage: String? = null): String = when (category) {
-    ErrorCategory.NETWORK -> {
-      val lower = errorMessage?.lowercase() ?: ""
-      if (lower.contains("unauthorized") || lower.contains("forbidden")) "authentication_error"
-      else "invalid_request_error"
-    }
+  fun openAiErrorType(kind: ErrorKind?): String = when (kind) {
+    ErrorKind.CONTEXT_OVERFLOW -> "invalid_request_error"
+    ErrorKind.IMAGE_DECODE_FAILED -> "invalid_request_error"
+    ErrorKind.MODEL_NOT_FOUND -> "not_found_error"
     else -> "server_error"
+  }
+
+  /**
+   * Maps [ErrorKind] to an OpenAI-compatible error code string, or null.
+   * Only context overflow has a specific code that clients (LiteLLM, Open WebUI) check.
+   */
+  fun openAiErrorCode(kind: ErrorKind?): String? = when (kind) {
+    ErrorKind.CONTEXT_OVERFLOW -> "context_length_exceeded"
+    else -> null
   }
 }

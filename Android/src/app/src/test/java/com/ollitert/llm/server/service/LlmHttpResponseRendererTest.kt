@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.service
 
-import com.ollitert.llm.server.common.ErrorCategory
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -41,17 +40,18 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
-  fun rendersJsonErrorWithCategory() {
-    val result = LlmHttpResponseRenderer.renderJsonError("model failed", category = ErrorCategory.MODEL_LOAD)
+  fun rendersJsonErrorWithKind() {
+    val result = LlmHttpResponseRenderer.renderJsonError("model failed", kind = ErrorKind.MODEL_FILES_MISSING)
     assertTrue(result.contains("\"type\":\"server_error\""))
+    assertTrue(result.contains("\"code\":null"))
   }
 
   @Test
-  fun rendersJsonErrorWithCategoryAndSuggestion() {
+  fun rendersJsonErrorWithKindAndSuggestion() {
     val result = LlmHttpResponseRenderer.renderJsonError(
       "out of memory",
       suggestion = "Try a smaller model",
-      category = ErrorCategory.SYSTEM,
+      kind = ErrorKind.OOM,
     )
     assertTrue(result.contains("\"type\":\"server_error\""))
     assertTrue(result.contains("\"suggestion\":\"Try a smaller model\""))
@@ -59,9 +59,16 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
-  fun rendersJsonErrorNetworkCategoryMapsToInvalidRequest() {
-    val result = LlmHttpResponseRenderer.renderJsonError("port in use", category = ErrorCategory.NETWORK)
+  fun rendersJsonErrorContextOverflowMapsToInvalidRequestWithCode() {
+    val result = LlmHttpResponseRenderer.renderJsonError("tokens exceed limit", kind = ErrorKind.CONTEXT_OVERFLOW)
     assertTrue(result.contains("\"type\":\"invalid_request_error\""))
+    assertTrue(result.contains("\"code\":\"context_length_exceeded\""))
+  }
+
+  @Test
+  fun rendersJsonErrorModelNotFoundMapsToNotFoundError() {
+    val result = LlmHttpResponseRenderer.renderJsonError("model not found", kind = ErrorKind.MODEL_NOT_FOUND)
+    assertTrue(result.contains("\"type\":\"not_found_error\""))
   }
 
   @Test
