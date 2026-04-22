@@ -292,13 +292,13 @@ class LlmHttpModelLifecycle(
     // Hold keepAliveLock to prevent the keep-alive timer from unloading the model between
     // our read of defaultModel and the caller's use of the returned Model object.
     synchronized(keepAliveLock) {
-      // If model was unloaded due to keep_alive idle timeout, auto-reload it regardless of
-      // what model the client requested. The keep_alive reload restores the same model that was
-      // previously active, with its persisted config.
+      // If model was unloaded due to keep_alive idle timeout, auto-reload it.
+      // After reload, fall through to the name-matching check below — don't return Ok
+      // blindly, since the client may have requested a different model than what was
+      // idle-unloaded.
       if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
-        val reloaded = reloadModelFromIdle()
+        reloadModelFromIdle()
           ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry")
-        return ModelSelection.Ok(reloaded)
       }
 
       val active = defaultModel
