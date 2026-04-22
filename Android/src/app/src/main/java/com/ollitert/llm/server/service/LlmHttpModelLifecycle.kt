@@ -117,7 +117,6 @@ class LlmHttpModelLifecycle(
       keepAliveUnloadedModelName = model.name
       // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
       // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
-      model.initializing = false
       defaultModel = null
       ServerMetrics.onModelIdleUnloaded()
       UnloadInfo(model, mins)

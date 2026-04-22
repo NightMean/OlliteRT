@@ -258,7 +258,6 @@ class LlmHttpService : Service() {
         // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
         // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
         synchronized(modelLifecycle.keepAliveLock) {
-          model.initializing = false
           defaultModel = null
         }
         try {
@@ -678,7 +677,6 @@ class LlmHttpService : Service() {
     val modelsToCleanUp = mutableListOf<Model>()
     defaultModel?.let { model ->
       modelsToCleanUp.add(model)
-      model.initializing = false
     }
     synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
     for ((_, cachedModel) in modelCache) {

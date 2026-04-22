@@ -224,7 +224,6 @@ data class Model(
   var normalizedName: String = "",
   @Volatile var instance: Any? = null,
   @Volatile var initializedWithVision: Boolean = false,
-  @Volatile var initializing: Boolean = false,
   @Volatile var configValues: Map<String, Any> = mapOf(),
   var prevConfigValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
