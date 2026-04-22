@@ -195,7 +195,6 @@ class LlmHttpInferenceRunner(
     // If the user tapped Stop in the Logs screen, return a cancellation error
     // instead of the (potentially partial) inference output.
     if (userCancelFlag.get()) {
-      if (logId != null) RequestLogStore.unregisterCancellation(logId)
       val keepPartial = LlmHttpPrefs.isKeepPartialResponse(context)
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
       if (logId != null) {
@@ -502,7 +501,12 @@ class LlmHttpInferenceRunner(
     val stream = BlockingQueueInputStream()
 
     if (logId != null) {
-      RequestLogStore.registerCancellation(logId) { stream.cancel() }
+      RequestLogStore.registerCancellation(logId) {
+        stream.cancel()
+        // Signal LiteRT immediately so prefill-phase cancellation doesn't have to
+        // wait for the first onToken callback before stopResponse is called.
+        ServerLlmModelHelper.stopResponse(model)
+      }
     }
 
     // Read before the executor applies the snapshot. configValues is @Volatile so the
