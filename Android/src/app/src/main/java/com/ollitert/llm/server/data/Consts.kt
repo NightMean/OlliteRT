@@ -113,6 +113,10 @@ const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400"
 // SSE chunked-transfer read buffer size.
 const val SSE_BUFFER_SIZE_BYTES = 8 * 1024
 
+// Model allowlist asset/disk-cache filenames.
+const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
+const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
+
 // Base64 data URI compaction threshold — payloads shorter than ~1 KB (1365 base64 chars ≈ 1024 bytes)
 // are left inline (thumbnails, icons). Longer payloads are replaced with a size placeholder
 // to avoid Compose rendering freezes in the Logs tab.

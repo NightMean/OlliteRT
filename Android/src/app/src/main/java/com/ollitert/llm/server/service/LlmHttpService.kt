@@ -35,6 +35,7 @@ import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.CLEANUP_AWAIT_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.bytesToMb
@@ -126,7 +127,7 @@ class LlmHttpService : Service() {
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
-          try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }
+          try { assets.open(MODEL_ALLOWLIST_FILENAME).reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
         },
       )
       // Access DataStoreRepository via Hilt EntryPoint so imported models can be resolved

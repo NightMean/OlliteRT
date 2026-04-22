@@ -18,6 +18,7 @@ package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.AllowedModel
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
@@ -54,7 +55,7 @@ class LlmHttpAllowlistLoader(
 
   private fun readFromFiles(): ModelAllowlist? {
     return try {
-      val file = externalFilesDir?.let { File(it, "model_allowlist.json") }
+      val file = externalFilesDir?.let { File(it, MODEL_ALLOWLIST_FILENAME) }
       // Check both exists AND non-empty — a 0-byte file can be left behind
       // when a write is interrupted by a crash (e.g. disk full during model
       // switch). Without the length check, the empty file shadows the bundled

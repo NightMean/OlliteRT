@@ -19,13 +19,13 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import android.content.Context
 import android.util.Log
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_TEST_FILENAME
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
 
 private const val TAG = "AllowlistLoader"
-private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
-private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 
 /**
  * Loads the model allowlist from network, disk cache, or bundled assets.

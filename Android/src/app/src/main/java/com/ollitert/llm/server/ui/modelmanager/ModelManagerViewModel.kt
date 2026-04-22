@@ -32,6 +32,8 @@ import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_TEST_FILENAME
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
@@ -62,8 +64,6 @@ import java.net.URL
 import javax.inject.Inject
 
 private const val TAG = "OlliteRTModelManagerVM"
-private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
-private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 private const val ALLOWLIST_URL = GitHubConfig.ALLOWLIST_URL
 
 private const val TEST_MODEL_ALLOW_LIST = ""
