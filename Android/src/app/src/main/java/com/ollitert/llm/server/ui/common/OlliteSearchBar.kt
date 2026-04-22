@@ -47,6 +47,8 @@ fun OlliteSearchBar(
   placeholderRes: Int,
   clearContentDescriptionRes: Int,
   modifier: Modifier = Modifier,
+  onClear: (() -> Unit)? = null,
+  onSearchAction: (() -> Unit)? = null,
 ) {
   val focusManager = LocalFocusManager.current
   val keyboardController = LocalSoftwareKeyboardController.current
@@ -72,7 +74,7 @@ fun OlliteSearchBar(
     },
     trailingIcon = {
       if (query.isNotEmpty()) {
-        IconButton(onClick = { onQueryChange("") }) {
+        IconButton(onClick = { onClear?.invoke() ?: onQueryChange("") }) {
           Icon(
             Icons.Outlined.Close,
             contentDescription = stringResource(clearContentDescriptionRes),
@@ -93,8 +95,12 @@ fun OlliteSearchBar(
     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
     keyboardActions = KeyboardActions(
       onSearch = {
-        keyboardController?.hide()
-        focusManager.clearFocus()
+        if (onSearchAction != null) {
+          onSearchAction()
+        } else {
+          keyboardController?.hide()
+          focusManager.clearFocus()
+        }
       },
     ),
   )

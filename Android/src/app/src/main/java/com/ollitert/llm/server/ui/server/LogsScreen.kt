@@ -54,8 +54,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -72,8 +70,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -102,7 +98,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -114,6 +109,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.server.GeneratingMessages.DEFAULT_COUNT
@@ -462,49 +458,19 @@ fun LogsScreen(
     ) {
       val focusRequester = remember { FocusRequester() }
 
-      OutlinedTextField(
-        value = searchDraft,
-        onValueChange = { searchDraft = it },
+      OlliteSearchBar(
+        query = searchDraft,
+        onQueryChange = { searchDraft = it },
+        placeholderRes = R.string.logs_search_placeholder,
+        clearContentDescriptionRes = R.string.logs_search_clear_cd,
         modifier = Modifier
-          .fillMaxWidth()
           .padding(horizontal = 20.dp)
-          .padding(bottom = 8.dp)
+          .padding(bottom = 4.dp)
           .focusRequester(focusRequester),
-        placeholder = {
-          Text(stringResource(R.string.logs_search_placeholder), style = MaterialTheme.typography.bodyLarge)
-        },
-        leadingIcon = {
-          Icon(
-            imageVector = Icons.Outlined.Search,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        },
-        trailingIcon = {
-          if (searchDraft.isNotEmpty()) {
-            IconButton(onClick = { clearSearch() }) {
-              Icon(
-                imageVector = Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.logs_search_clear_cd),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-            }
-          }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { commitSearch() }),
-        shape = RoundedCornerShape(16.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-          unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-          focusedBorderColor = OlliteRTPrimary,
-          unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-          cursorColor = OlliteRTPrimary,
-        ),
+        onClear = { clearSearch() },
+        onSearchAction = { commitSearch() },
       )
 
-      // Request focus when search bar opens
       LaunchedEffect(Unit) {
         focusRequester.requestFocus()
       }
