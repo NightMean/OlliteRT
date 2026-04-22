@@ -26,6 +26,7 @@ import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import fi.iki.elonen.NanoHTTPD
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -71,7 +72,8 @@ class LlmHttpEndpointHandlers(
     }
     captureBody(body)
     logPayload("POST /generate raw", body, requestId)
-    val req = json.decodeFromString<GenReq>(body)
+    val req = try { json.decodeFromString<GenReq>(body) }
+      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(null)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
@@ -128,7 +130,8 @@ class LlmHttpEndpointHandlers(
     }
     captureBody(body)
     logPayload("POST /v1/chat/completions raw", body, requestId)
-    val req = json.decodeFromString<ChatRequest>(body)
+    val req = try { json.decodeFromString<ChatRequest>(body) }
+      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
       return badRequest("tool_choice required but tools empty")
@@ -279,7 +282,8 @@ class LlmHttpEndpointHandlers(
     }
     captureBody(body)
     logPayload("POST /v1/completions raw", body, requestId)
-    val req = json.decodeFromString<CompletionRequest>(body)
+    val req = try { json.decodeFromString<CompletionRequest>(body) }
+      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
@@ -380,7 +384,8 @@ class LlmHttpEndpointHandlers(
     }
     captureBody(body)
     logPayload("POST /v1/responses raw", body, requestId)
-    val req = json.decodeFromString<ResponsesRequest>(body)
+    val req = try { json.decodeFromString<ResponsesRequest>(body) }
+      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
       return badRequest("tool_choice required but tools empty")
