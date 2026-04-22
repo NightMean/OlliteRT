@@ -16,6 +16,10 @@
 
 package com.ollitert.llm.server.ui.server.logs
 
+import android.content.Context
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -26,6 +30,8 @@ import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.ui.theme.OlliteRTSearchHighlight
 
 internal val SearchHighlightColor = OlliteRTSearchHighlight.copy(alpha = 0.35f)
+
+internal val LocalSearchQuery = compositionLocalOf { "" }
 
 // ── Log filter model ────────────────────────────────────────────────────────
 
@@ -75,7 +81,7 @@ internal fun RequestLogEntry.matchesChipFilters(filter: LogFilter): Boolean {
  * Check text query against all searchable fields including request/response bodies.
  * Always searches bodies — runs on [Dispatchers.Default] to avoid main-thread jank.
  */
-internal fun RequestLogEntry.matchesTextQuery(query: String): Boolean {
+internal fun RequestLogEntry.matchesTextQuery(query: String, context: Context? = null): Boolean {
   if (query.isEmpty()) return true
   if (path.contains(query, ignoreCase = true)) return true
   if (modelName?.contains(query, ignoreCase = true) == true) return true
@@ -83,16 +89,21 @@ internal fun RequestLogEntry.matchesTextQuery(query: String): Boolean {
   if (method.contains(query, ignoreCase = true)) return true
   if (requestBody?.contains(query, ignoreCase = true) == true) return true
   if (responseBody?.contains(query, ignoreCase = true) == true) return true
+  if (method == "EVENT" && context != null) {
+    if (resolveCategoryLabel(context, eventCategory).contains(query, ignoreCase = true)) return true
+    val parsed = parseEventType(path, requestBody)
+    if (parsed != null && resolveEventHeadline(context, parsed).contains(query, ignoreCase = true)) return true
+  }
   return false
 }
 
 /** Combined filter: chip filters + text query. Pending entries hidden during text search. */
-internal fun RequestLogEntry.matchesFilter(filter: LogFilter): Boolean {
+internal fun RequestLogEntry.matchesFilter(filter: LogFilter, context: Context? = null): Boolean {
   // Pending entries hidden during active text search — incomplete content can't be
   // reliably matched. They reappear instantly when the user clears the search.
   if (isPending && filter.query.isNotEmpty()) return false
   if (!matchesChipFilters(filter)) return false
-  if (!matchesTextQuery(filter.query)) return false
+  if (!matchesTextQuery(filter.query, context)) return false
   return true
 }
 
@@ -150,5 +161,25 @@ internal fun overlaySearchHighlights(
     for (range in matches) {
       addStyle(SpanStyle(background = SearchHighlightColor), range.first, range.last + 1)
     }
+  }
+}
+
+@Composable
+internal fun highlightIfSearching(text: AnnotatedString): AnnotatedString {
+  val query = LocalSearchQuery.current
+  return remember(text, query) {
+    if (query.isEmpty()) text else overlaySearchHighlights(text, query)
+  }
+}
+
+@Composable
+internal fun highlightPlainIfSearching(text: String, baseColor: Color? = null): AnnotatedString {
+  val query = LocalSearchQuery.current
+  return remember(text, query, baseColor) {
+    if (query.isEmpty()) buildAnnotatedString {
+      if (baseColor != null) pushStyle(SpanStyle(color = baseColor))
+      append(text)
+      if (baseColor != null) pop()
+    } else buildHighlightedString(text, query, baseColor)
   }
 }

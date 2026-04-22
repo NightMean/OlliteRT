@@ -298,8 +298,11 @@ fun LogsScreen(
 
   // Filtered entries — text queries always include body search (async on Dispatchers.Default).
   // Chip-only filters are cheap (<5ms for 1000 entries) and run inline.
+  // initialValue is emptyList() for text searches to prevent a flash of unfiltered results —
+  // produceState restarts when keys change, and the old initialValue = sourceEntries showed
+  // all cards with highlights for one frame before the async filter removed non-matches.
   val displayedEntries by produceState(
-    initialValue = sourceEntries,
+    initialValue = if (filter.query.isNotEmpty()) emptyList() else sourceEntries,
     key1 = sourceEntries,
     key2 = filter,
   ) {
@@ -307,16 +310,14 @@ fun LogsScreen(
       isSearching = false
       value = sourceEntries
     } else if (filter.query.isNotEmpty()) {
-      // Text search always includes bodies — run off main thread
       isSearching = true
       value = withContext(Dispatchers.Default) {
-        sourceEntries.filter { it.matchesFilter(filter) }
+        sourceEntries.filter { it.matchesFilter(filter, context) }
       }
       isSearching = false
     } else {
-      // Chip-only filters — cheap, run inline
       isSearching = false
-      value = sourceEntries.filter { it.matchesFilter(filter) }
+      value = sourceEntries.filter { it.matchesFilter(filter, context) }
     }
   }
 

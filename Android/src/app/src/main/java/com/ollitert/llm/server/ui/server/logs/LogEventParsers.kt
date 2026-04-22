@@ -16,12 +16,15 @@
 
 package com.ollitert.llm.server.ui.server.logs
 
+import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import com.ollitert.llm.server.R
+import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.ui.theme.OlliteRTForcedPurple
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
@@ -111,6 +114,7 @@ internal sealed class ParsedEventType {
     val instruction: String?,
     val transcription: String?,
   ) : ParsedEventType()
+
 }
 
 internal val INFERENCE_CHANGE_PREFIX = "Inference settings changed: "
@@ -373,6 +377,46 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
   }
 
   return null
+}
+
+// ── Event headline/category resolution (from string resources) ───────────────
+
+internal fun resolveEventHeadline(context: Context, parsed: ParsedEventType): String = when (parsed) {
+  is ParsedEventType.Loading -> context.getString(R.string.logs_headline_model_loading)
+  is ParsedEventType.Ready -> context.getString(R.string.logs_headline_model_loaded)
+  is ParsedEventType.Warmup -> context.getString(R.string.logs_headline_warmup_message)
+  is ParsedEventType.InferenceSettings -> context.getString(R.string.logs_headline_settings_changed)
+  is ParsedEventType.SettingsToggle -> context.getString(R.string.logs_headline_settings_changed)
+  is ParsedEventType.PromptActive -> context.getString(R.string.logs_headline_prompt_active, parsed.promptType)
+  is ParsedEventType.ServerStopped -> context.getString(R.string.logs_headline_server_stopped)
+  is ParsedEventType.WarmupSkipped -> context.getString(R.string.logs_headline_warmup_skipped)
+  is ParsedEventType.ModelLoadFailed -> context.getString(R.string.logs_headline_model_load_failed)
+  is ParsedEventType.ServerFailed -> context.getString(R.string.logs_headline_server_failed)
+  is ParsedEventType.ModelNotFound -> context.getString(R.string.logs_headline_model_not_found)
+  is ParsedEventType.ImageDecodeFailed -> context.getString(R.string.logs_headline_image_decode_failed)
+  is ParsedEventType.QueuedReload -> context.getString(R.string.logs_headline_queued_reload)
+  is ParsedEventType.ConversationResetFailed -> context.getString(R.string.logs_headline_conversation_reset_failed)
+  is ParsedEventType.SettingsBatch -> context.getString(R.string.logs_headline_settings_updated)
+  is ParsedEventType.ApiConfigChange -> context.getString(R.string.logs_headline_config_via_api)
+  is ParsedEventType.RestartRequested -> context.getString(R.string.logs_headline_model_restart)
+  is ParsedEventType.Unloading -> context.getString(R.string.logs_headline_model_unloading)
+  is ParsedEventType.KeepAliveUnloaded -> context.getString(R.string.logs_headline_model_idle_unloaded)
+  is ParsedEventType.KeepAliveReloading -> context.getString(R.string.logs_headline_model_reloading)
+  is ParsedEventType.KeepAliveReloaded -> context.getString(R.string.logs_headline_model_reloaded)
+  is ParsedEventType.UpdateAvailable -> context.getString(R.string.logs_headline_update_available)
+  is ParsedEventType.UpdateCurrent -> context.getString(R.string.logs_headline_up_to_date)
+  is ParsedEventType.UpdateAutoDisabled -> context.getString(R.string.logs_headline_update_check_disabled)
+  is ParsedEventType.MemoryPressure -> context.getString(R.string.logs_headline_memory_pressure)
+  is ParsedEventType.AudioTranscription -> context.getString(R.string.logs_headline_audio_transcription)
+}
+
+internal fun resolveCategoryLabel(context: Context, category: EventCategory): String = when (category) {
+  EventCategory.MODEL -> context.getString(R.string.logs_event_category_model)
+  EventCategory.SETTINGS -> context.getString(R.string.logs_event_category_settings)
+  EventCategory.SERVER -> context.getString(R.string.logs_event_category_server)
+  EventCategory.PROMPT -> context.getString(R.string.logs_event_category_prompt)
+  EventCategory.UPDATE -> context.getString(R.string.logs_event_category_update)
+  EventCategory.GENERAL -> context.getString(R.string.logs_event_category_general)
 }
 
 // ── Cached regex patterns for event parsing & highlighting ──────────────────

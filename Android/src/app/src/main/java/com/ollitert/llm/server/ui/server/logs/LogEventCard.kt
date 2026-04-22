@@ -54,6 +54,7 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,14 +104,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
   }
   val message = entry.path
 
-  val categoryLabel = when (entry.eventCategory) {
-    EventCategory.MODEL -> stringResource(R.string.logs_event_category_model)
-    EventCategory.SETTINGS -> stringResource(R.string.logs_event_category_settings)
-    EventCategory.SERVER -> stringResource(R.string.logs_event_category_server)
-    EventCategory.PROMPT -> stringResource(R.string.logs_event_category_prompt)
-    EventCategory.UPDATE -> stringResource(R.string.logs_event_category_update)
-    EventCategory.GENERAL -> stringResource(R.string.logs_event_category_general)
-  }
+  val categoryLabel = resolveCategoryLabel(context, entry.eventCategory)
   val categoryIcon = when (entry.eventCategory) {
     EventCategory.MODEL -> Icons.Outlined.Memory
     EventCategory.SETTINGS -> Icons.Outlined.Settings
@@ -130,40 +124,14 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
   val parsedEvent = remember(message, entry.requestBody) { parseEventType(message, entry.requestBody) }
 
   // Headline text shown next to the category badge
-  val headline = when (parsedEvent) {
-    is ParsedEventType.Loading -> stringResource(R.string.logs_headline_model_loading)
-    is ParsedEventType.Ready -> stringResource(R.string.logs_headline_model_loaded)
-    is ParsedEventType.Warmup -> stringResource(R.string.logs_headline_warmup_message)
-    is ParsedEventType.InferenceSettings -> stringResource(R.string.logs_headline_settings_changed)
-    is ParsedEventType.SettingsToggle -> stringResource(R.string.logs_headline_settings_changed)
-    is ParsedEventType.PromptActive -> stringResource(R.string.logs_headline_prompt_active, parsedEvent.promptType)
-    is ParsedEventType.ServerStopped -> stringResource(R.string.logs_headline_server_stopped)
-    is ParsedEventType.WarmupSkipped -> stringResource(R.string.logs_headline_warmup_skipped)
-    is ParsedEventType.ModelLoadFailed -> stringResource(R.string.logs_headline_model_load_failed)
-    is ParsedEventType.ServerFailed -> stringResource(R.string.logs_headline_server_failed)
-    is ParsedEventType.ModelNotFound -> stringResource(R.string.logs_headline_model_not_found)
-    is ParsedEventType.ImageDecodeFailed -> stringResource(R.string.logs_headline_image_decode_failed)
-    is ParsedEventType.QueuedReload -> stringResource(R.string.logs_headline_queued_reload)
-    is ParsedEventType.ConversationResetFailed -> stringResource(R.string.logs_headline_conversation_reset_failed)
-    is ParsedEventType.SettingsBatch -> stringResource(R.string.logs_headline_settings_updated)
-    is ParsedEventType.ApiConfigChange -> stringResource(R.string.logs_headline_config_via_api)
-    is ParsedEventType.RestartRequested -> stringResource(R.string.logs_headline_model_restart)
-    is ParsedEventType.Unloading -> stringResource(R.string.logs_headline_model_unloading)
-    is ParsedEventType.KeepAliveUnloaded -> stringResource(R.string.logs_headline_model_idle_unloaded)
-    is ParsedEventType.KeepAliveReloading -> stringResource(R.string.logs_headline_model_reloading)
-    is ParsedEventType.KeepAliveReloaded -> stringResource(R.string.logs_headline_model_reloaded)
-    is ParsedEventType.UpdateAvailable -> stringResource(R.string.logs_headline_update_available)
-    is ParsedEventType.UpdateCurrent -> stringResource(R.string.logs_headline_up_to_date)
-    is ParsedEventType.UpdateAutoDisabled -> stringResource(R.string.logs_headline_update_check_disabled)
-    is ParsedEventType.MemoryPressure -> stringResource(R.string.logs_headline_memory_pressure)
-    is ParsedEventType.AudioTranscription -> stringResource(R.string.logs_headline_audio_transcription)
-    null -> if (isDebug) stringResource(R.string.logs_headline_debug) else null
-  }
+  val headline = if (parsedEvent != null) resolveEventHeadline(context, parsedEvent)
+    else if (isDebug) stringResource(R.string.logs_headline_debug) else null
 
   // Hoisted here so footerOverflowing can observe maxValue and trigger recomposition
   // when the timing badges overflow the weight(1f) area.
   val footerScrollState = rememberScrollState()
 
+  CompositionLocalProvider(LocalSearchQuery provides searchQuery) {
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -201,7 +169,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       if (headline != null) {
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-          text = headline,
+          text = highlightPlainIfSearching(headline),
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
             fontSize = LOG_BODY_FONT_SIZE,
@@ -238,13 +206,13 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
     when (parsedEvent) {
       is ParsedEventType.Loading -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             append(stringResource(R.string.logs_event_loading_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
             append(stringResource(R.string.logs_event_loading_suffix))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -252,12 +220,12 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.Ready -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
             append(stringResource(R.string.logs_event_loaded_suffix))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -280,7 +248,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             .padding(12.dp),
         ) {
           Text(
-            text = parsedEvent.input,
+            text = highlightPlainIfSearching(parsedEvent.input),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurface,
           )
@@ -301,7 +269,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             .padding(12.dp),
         ) {
           Text(
-            text = parsedEvent.output,
+            text = highlightPlainIfSearching(parsedEvent.output),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurface,
           )
@@ -345,13 +313,13 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         // Show model name that was unloaded — sourced from the entry's modelName field
         if (entry.modelName != null) {
           Text(
-            text = buildAnnotatedString {
+            text = highlightIfSearching(buildAnnotatedString {
               append(stringResource(R.string.logs_event_model_unloaded_prefix))
               withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
                 append(entry.modelName)
               }
               append(stringResource(R.string.logs_event_model_unloaded_suffix))
-            },
+            }),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -360,7 +328,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.WarmupSkipped -> {
         Text(
-          text = parsedEvent.reason,
+          text = highlightPlainIfSearching(parsedEvent.reason),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -368,37 +336,32 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.ModelLoadFailed -> {
         Text(
-          text = parsedEvent.errorMessage,
+          text = highlightPlainIfSearching(parsedEvent.errorMessage, accentColor),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
 
       is ParsedEventType.ServerFailed -> {
         Text(
-          text = parsedEvent.errorMessage,
+          text = highlightPlainIfSearching(parsedEvent.errorMessage, accentColor),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
 
       is ParsedEventType.ModelNotFound -> {
-        // Show model name in primary color if extracted, otherwise the raw detail as error
         Text(
-          text = parsedEvent.detail,
+          text = highlightPlainIfSearching(parsedEvent.detail, OlliteRTPrimary),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = OlliteRTPrimary,
           fontWeight = FontWeight.SemiBold,
         )
       }
 
       is ParsedEventType.ImageDecodeFailed -> {
         Text(
-          text = parsedEvent.errorMessage,
+          text = highlightPlainIfSearching(parsedEvent.errorMessage, accentColor),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
@@ -408,18 +371,16 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         val modelText = if (name != null) stringResource(R.string.logs_event_queued_reload_model, name)
                         else stringResource(R.string.logs_event_queued_reload_generic)
         Text(
-          text = modelText,
+          text = highlightPlainIfSearching(modelText, OlliteRTPrimary),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = OlliteRTPrimary,
           fontWeight = FontWeight.Medium,
         )
       }
 
       is ParsedEventType.ConversationResetFailed -> {
         Text(
-          text = parsedEvent.errorMessage,
+          text = highlightPlainIfSearching(parsedEvent.errorMessage, accentColor),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
@@ -452,12 +413,12 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         // Show the model name being restarted if available
         if (entry.modelName != null) {
           Text(
-            text = buildAnnotatedString {
+            text = highlightIfSearching(buildAnnotatedString {
               append(stringResource(R.string.logs_event_reloading_prefix))
               withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
                 append(entry.modelName)
               }
-            },
+            }),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -466,13 +427,13 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.Unloading -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             append(stringResource(R.string.logs_event_unloading_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
             append(stringResource(R.string.logs_event_unloading_suffix))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -480,12 +441,12 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.KeepAliveUnloaded -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
             append(stringResource(R.string.logs_event_keepalive_unloaded_suffix, parsedEvent.idleMinutes))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -493,13 +454,13 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.KeepAliveReloading -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             append(stringResource(R.string.logs_event_keepalive_reloading_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
             append(stringResource(R.string.logs_event_keepalive_reloading_suffix))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -507,12 +468,12 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.KeepAliveReloaded -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
             append(stringResource(R.string.logs_event_keepalive_reloaded_suffix, parsedEvent.timeMs))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -520,21 +481,20 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.UpdateAvailable -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             append(stringResource(R.string.logs_event_version_prefix))
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.version)
             }
             append(stringResource(R.string.logs_event_version_suffix))
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // Show body details (current version, release URL) if present
         if (parsedEvent.body != null) {
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = parsedEvent.body,
+            text = highlightPlainIfSearching(parsedEvent.body),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           )
@@ -543,7 +503,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.UpdateCurrent -> {
         Text(
-          text = parsedEvent.body ?: stringResource(R.string.logs_event_update_none),
+          text = highlightPlainIfSearching(parsedEvent.body ?: stringResource(R.string.logs_event_update_none)),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -551,27 +511,23 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       is ParsedEventType.UpdateAutoDisabled -> {
         Text(
-          text = parsedEvent.body ?: stringResource(R.string.logs_event_update_auto_disabled),
+          text = highlightPlainIfSearching(parsedEvent.body ?: stringResource(R.string.logs_event_update_auto_disabled), accentColor),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
 
       is ParsedEventType.MemoryPressure -> {
-        // Android fired TRIM_MEMORY_RUNNING_CRITICAL — the system is critically low on RAM.
-        // This is an early warning that the OOM killer may terminate the process shortly.
         Text(
-          text = stringResource(R.string.logs_event_memory_pressure_body),
+          text = highlightPlainIfSearching(stringResource(R.string.logs_event_memory_pressure_body), accentColor),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
-          color = accentColor,
           fontWeight = FontWeight.Medium,
         )
       }
 
       is ParsedEventType.AudioTranscription -> {
         Text(
-          text = buildAnnotatedString {
+          text = highlightIfSearching(buildAnnotatedString {
             withStyle(SpanStyle(color = OlliteRTPrimary, fontWeight = FontWeight.SemiBold)) {
               append(parsedEvent.modelName)
             }
@@ -579,7 +535,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             append(" · ${parsedEvent.fileSize}")
             if (parsedEvent.language != null) append(" · ${parsedEvent.language}")
             append(" · ${parsedEvent.durationSec}")
-          },
+          }),
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -673,7 +629,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       if (suggestion != null) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          text = suggestion,
+          text = highlightPlainIfSearching(suggestion),
           style = MaterialTheme.typography.bodySmall.copy(fontSize = LOG_DETAIL_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 3,
@@ -732,6 +688,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       }
     }
   }
+  } // CompositionLocalProvider
 }
 
 // ── Settings change rows ─────────────────────────────────────────────────────
@@ -770,22 +727,18 @@ internal fun SettingsChangeRows(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           if (change.oldValue.isEmpty()) {
-            // No old value — just show param: new (e.g. initial set)
             Text(
-              text = "${change.paramName}: ${change.newValue}",
+              text = highlightPlainIfSearching("${change.paramName}: ${change.newValue}", rowColor ?: OlliteRTPrimary),
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
-              color = rowColor ?: OlliteRTPrimary,
               fontWeight = FontWeight.SemiBold,
             )
           } else {
-            // Left column: "Param: oldValue" — muted
             Text(
-              text = "${change.paramName}: ${change.oldValue}",
+              text = highlightPlainIfSearching("${change.paramName}: ${change.oldValue}",
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)),
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
-              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
               modifier = Modifier.weight(1f),
             )
-            // Center: arrow
             Text(
               text = "→",
               style = MaterialTheme.typography.labelSmall,
@@ -794,11 +747,9 @@ internal fun SettingsChangeRows(
               textAlign = TextAlign.Center,
               modifier = Modifier.width(28.dp),
             )
-            // Right column: "Param: newValue" — bold/bright
             Text(
-              text = "${change.paramName}: ${change.newValue}",
+              text = highlightPlainIfSearching("${change.paramName}: ${change.newValue}", rowColor ?: MaterialTheme.colorScheme.onSurface),
               style = MaterialTheme.typography.labelSmall.copy(fontFamily = SpaceGroteskFontFamily),
-              color = rowColor ?: MaterialTheme.colorScheme.onSurface,
               fontWeight = FontWeight.SemiBold,
               textAlign = TextAlign.End,
               modifier = Modifier.weight(1f),
@@ -830,9 +781,8 @@ internal fun SettingsChangeRows(
   if (!parsed.statusSuffix.isNullOrBlank()) {
     Spacer(modifier = Modifier.height(6.dp))
     Text(
-      text = parsed.statusSuffix,
+      text = highlightPlainIfSearching(parsed.statusSuffix, accentColor),
       style = MaterialTheme.typography.labelSmall,
-      color = accentColor,
       fontWeight = FontWeight.SemiBold,
       modifier = Modifier
         .clip(RoundedCornerShape(6.dp))
@@ -906,6 +856,7 @@ internal fun ExpandablePromptBox(
 ) {
   val isLong = text.length > 200 || text.count { it == '\n' } > 3
   var expanded by remember { mutableStateOf(false) }
+  val highlighted = highlightPlainIfSearching(text, textColor)
 
   Box(
     modifier = Modifier
@@ -917,13 +868,12 @@ internal fun ExpandablePromptBox(
   ) {
     if (expanded) {
       SelectionContainer {
-        Text(text = text, style = textStyle, color = textColor)
+        Text(text = highlighted, style = textStyle)
       }
     } else {
       Text(
-        text = text,
+        text = highlighted,
         style = textStyle,
-        color = textColor,
         maxLines = 4,
         overflow = TextOverflow.Ellipsis,
       )
