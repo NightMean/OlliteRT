@@ -28,8 +28,6 @@ import androidx.core.content.ContextCompat
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import kotlin.math.ln
-import kotlin.math.pow
 
 // ── Shared UI dimension constants ──────────────────────────────────────────────
 /** Max width for ModalBottomSheet content across the app. */
@@ -47,20 +45,6 @@ fun formatModelError(context: Context, error: String?): String = when {
 val SMALL_BUTTON_CONTENT_PADDING =
   PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
 
-/** Format the bytes into a human-readable format. */
-fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String {
-  val bytes = this
-
-  val unit = if (si) 1000 else 1024
-  if (bytes < unit) return "$bytes B"
-  val exp = (ln(bytes.toDouble()) / ln(unit.toDouble())).toInt()
-  val pre = (if (si) "kMGTPE" else "KMGTPE")[exp - 1] + if (si) "" else "i"
-  var formatString = "%.1f %sB"
-  if (extraDecimalForGbAndAbove && pre.lowercase() != "k" && pre != "M") {
-    formatString = "%.2f %sB"
-  }
-  return formatString.format(bytes / unit.toDouble().pow(exp.toDouble()), pre)
-}
 
 fun checkNotificationPermissionAndStartDownload(
   context: Context,

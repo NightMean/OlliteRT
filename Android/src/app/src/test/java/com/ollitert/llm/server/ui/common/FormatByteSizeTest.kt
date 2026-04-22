@@ -16,35 +16,55 @@
 
 package com.ollitert.llm.server.ui.common
 
-import com.ollitert.llm.server.common.formatByteSize
+import com.ollitert.llm.server.common.humanReadableSize
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FormatByteSizeTest {
 
   @Test
-  fun `formatByteSize - bytes range`() {
-    assertEquals("0 B", formatByteSize(0L))
-    assertEquals("512 B", formatByteSize(512L))
-    assertEquals("1023 B", formatByteSize(1023L))
+  fun `humanReadableSize - bytes range`() {
+    assertEquals("0 B", 0L.humanReadableSize())
+    assertEquals("512 B", 512L.humanReadableSize())
+    assertEquals("999 B", 999L.humanReadableSize())
   }
 
   @Test
-  fun `formatByteSize - KB range`() {
-    assertEquals("1.0 KB", formatByteSize(1024L))
-    assertEquals("1.5 KB", formatByteSize(1536L))
-    assertEquals("1023.9 KB", formatByteSize(1024L * 1024L - 100))
+  fun `humanReadableSize - kB range`() {
+    assertEquals("1.0 kB", 1000L.humanReadableSize())
+    assertEquals("1.5 kB", 1500L.humanReadableSize())
+    assertEquals("999.9 kB", 999_900L.humanReadableSize())
   }
 
   @Test
-  fun `formatByteSize - MB range`() {
-    assertEquals("1.0 MB", formatByteSize(1024L * 1024L))
-    assertEquals("2.5 MB", formatByteSize((2.5 * 1024 * 1024).toLong()))
+  fun `humanReadableSize - MB range`() {
+    assertEquals("1.0 MB", 1_000_000L.humanReadableSize())
+    assertEquals("2.5 MB", 2_500_000L.humanReadableSize())
   }
 
   @Test
-  fun `formatByteSize - Int overload delegates to Long`() {
-    assertEquals("512 B", formatByteSize(512))
-    assertEquals("1.0 KB", formatByteSize(1024))
+  fun `humanReadableSize - GB range`() {
+    assertEquals("1.0 GB", 1_000_000_000L.humanReadableSize())
+    assertEquals("3.5 GB", 3_500_000_000L.humanReadableSize())
+  }
+
+  @Test
+  fun `humanReadableSize - extra decimal for GB and above`() {
+    assertEquals("1.00 GB", 1_000_000_000L.humanReadableSize(extraDecimalForGbAndAbove = true))
+    assertEquals("1.5 kB", 1500L.humanReadableSize(extraDecimalForGbAndAbove = true))
+    assertEquals("2.5 MB", 2_500_000L.humanReadableSize(extraDecimalForGbAndAbove = true))
+  }
+
+  @Test
+  fun `humanReadableSize - binary mode`() {
+    assertEquals("1.0 KiB", 1024L.humanReadableSize(si = false))
+    assertEquals("1.0 MiB", (1024L * 1024L).humanReadableSize(si = false))
+    assertEquals("1.0 GiB", (1024L * 1024L * 1024L).humanReadableSize(si = false))
+  }
+
+  @Test
+  fun `humanReadableSize - Int overload delegates to Long`() {
+    assertEquals("512 B", 512.humanReadableSize())
+    assertEquals("1.0 kB", 1000.humanReadableSize())
   }
 }

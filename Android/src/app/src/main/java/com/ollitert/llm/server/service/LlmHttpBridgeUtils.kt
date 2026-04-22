@@ -18,7 +18,7 @@ package com.ollitert.llm.server.service
 
 import android.util.Log
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.common.formatByteSize
+import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
 import fi.iki.elonen.NanoHTTPD
 
@@ -92,7 +92,7 @@ object LlmHttpBridgeUtils {
       // Exclude backslash chars from count — they're JSON escape characters, not base64 data.
       val base64Chars = base64Payload.count { it != '=' && it != '\\' }
       val decodedBytes = (base64Chars * 3L) / 4L
-      val sizeLabel = formatByteSize(decodedBytes)
+      val sizeLabel = decodedBytes.humanReadableSize()
       // Extract the media category from the MIME type (e.g. "image" from "image/png").
       // Strip JSON-escaped slashes for clean display.
       val cleanMime = mimeType.replace("\\/", "/")

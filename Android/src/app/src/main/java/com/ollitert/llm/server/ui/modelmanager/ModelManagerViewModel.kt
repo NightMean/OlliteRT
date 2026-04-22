@@ -45,7 +45,7 @@ import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LlmHttpModelFactory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.ui.common.humanReadableSize
+import com.ollitert.llm.server.common.humanReadableSize
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers

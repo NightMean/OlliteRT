@@ -71,7 +71,7 @@ import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
-import com.ollitert.llm.server.ui.common.humanReadableSize
+import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily

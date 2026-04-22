@@ -132,7 +132,7 @@ class LlmHttpBridgeUtilsTest {
 
   @Test
   fun `compactBase64DataUris - replaces plain base64 png data URI`() {
-    // 2000 base64 chars ≈ 1500 decoded bytes → "1.5 KB"
+    // 2000 base64 chars ≈ 1500 decoded bytes → "1.5 kB"
     val payload = "A".repeat(2000)
     val input = """{"url":"data:image/png;base64,$payload"}"""
     val result = LlmHttpBridgeUtils.compactBase64DataUris(input)
@@ -182,8 +182,8 @@ class LlmHttpBridgeUtilsTest {
     val input = "data:image/png;base64,$payload"
     val result = LlmHttpBridgeUtils.compactBase64DataUris(input)
 
-    // 1500 base64 chars → 1500 * 3 / 4 = 1125 bytes = 1.1 KB
-    assertTrue("Should show KB size", result.contains("1.1 KB"))
+    // 1500 base64 chars → 1500 * 3 / 4 = 1125 bytes = 1.1 kB
+    assertTrue("Should show kB size", result.contains("1.1 kB"))
   }
 
   @Test
@@ -265,8 +265,8 @@ class LlmHttpBridgeUtilsTest {
     val input = "data:image/png;base64,$payload"
     val result = LlmHttpBridgeUtils.compactBase64DataUris(input)
 
-    // 1500 base64 chars → 1500 * 3 / 4 = 1125 bytes = 1.1 KB (not inflated by padding)
-    assertTrue("Padding should not inflate size", result.contains("1.1 KB"))
+    // 1500 base64 chars → 1500 * 3 / 4 = 1125 bytes = 1.1 kB (not inflated by padding)
+    assertTrue("Padding should not inflate size", result.contains("1.1 kB"))
   }
 
   @Test
@@ -293,7 +293,7 @@ class LlmHttpBridgeUtilsTest {
     val result = LlmHttpBridgeUtils.compactBase64DataUris(input)
 
     // Verify exact placeholder structure: data:MIME;base64,▌ PLACEHOLDER — SIZE CATEGORY data ▌
-    val expected = "data:image/png;base64,▌ PLACEHOLDER — 1.5 KB image data ▌"
+    val expected = "data:image/png;base64,▌ PLACEHOLDER — 1.5 kB image data ▌"
     assertEquals("Placeholder format must be exact", expected, result)
   }
 
@@ -308,14 +308,14 @@ class LlmHttpBridgeUtilsTest {
   }
 
   @Test
-  fun `compactBase64DataUris - formatByteSize boundary at exactly 1024 bytes`() {
-    // 1024 bytes = 1365.33 base64 chars → use 1368 chars (divisible by 4) to get exactly 1026 bytes
-    // which displays as "1.0 KB"
+  fun `compactBase64DataUris - SI kB unit at threshold boundary`() {
+    // 1368 base64 chars → 1368 * 3/4 = 1026 decoded bytes → "1.0 kB" (SI units, threshold ≥ 1000)
+    // This also exceeds the 1365-char compaction threshold so the payload is replaced.
     val payload = "A".repeat(1368)
     val input = "data:image/png;base64,$payload"
     val result = LlmHttpBridgeUtils.compactBase64DataUris(input)
 
-    assertTrue("Should show KB not bytes", result.contains("KB"))
+    assertTrue("Should show kB not bytes", result.contains("kB"))
     assertFalse("Should not show B unit", result.contains(" B "))
   }
 }

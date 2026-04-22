@@ -41,7 +41,7 @@ import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.common.ClickableLink
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
-import com.ollitert.llm.server.ui.common.humanReadableSize
+import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.customColors
 import com.ollitert.llm.server.ui.theme.labelSmallNarrow

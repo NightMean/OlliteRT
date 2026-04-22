@@ -98,7 +98,7 @@ import com.ollitert.llm.server.proto.LlmConfig
 import com.ollitert.llm.server.ui.common.ConfigEditorsPanel
 import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
 import com.ollitert.llm.server.ui.common.ensureValidFileName
-import com.ollitert.llm.server.ui.common.humanReadableSize
+import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.common.isStorageLow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -67,7 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.formatByteSize
+import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.ui.server.CancelledColor
@@ -191,7 +191,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       // so the badge reflects the true request size, not the smaller compacted version.
       val requestSize = remember(entry.requestBody, entry.originalRequestBodySize) {
         val sizeChars = if (entry.originalRequestBodySize > 0) entry.originalRequestBodySize else entry.requestBody.length
-        formatByteSize(sizeChars)
+        sizeChars.humanReadableSize()
       }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
@@ -208,7 +208,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     // Compacted prompt preview — shown between Request and Response when compaction was applied.
     // This is the actual prompt that was sent to inference after compaction strategies were applied.
     if (!entry.compactedPrompt.isNullOrBlank()) {
-      val compactedSize = remember(entry.compactedPrompt) { formatByteSize(entry.compactedPrompt.length) }
+      val compactedSize = remember(entry.compactedPrompt) { entry.compactedPrompt.length.humanReadableSize() }
       val isLong = remember(entry.compactedPrompt) { entry.compactedPrompt.length > COLLAPSED_MAX_CHARS || entry.compactedPrompt.count { it == '\n' } > COLLAPSED_MAX_LINES }
       val badges = remember(entry.compactionDetails) { parseCompactionBadges(entry.compactionDetails) }
       Spacer(modifier = Modifier.height(10.dp))
@@ -295,7 +295,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     } else if (!entry.responseBody.isNullOrBlank()) {
       val formatted = remember(entry.responseBody) { prettyPrintJson(entry.responseBody) }
       val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
-      val responseSize = remember(entry.responseBody) { formatByteSize(entry.responseBody.length) }
+      val responseSize = remember(entry.responseBody) { entry.responseBody.length.humanReadableSize() }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
         label = stringResource(R.string.logs_entry_response_label, responseSize),

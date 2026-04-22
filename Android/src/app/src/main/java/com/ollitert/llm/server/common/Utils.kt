@@ -29,6 +29,8 @@ import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.ln
+import kotlin.math.pow
 
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
   val index = message.indexOf("=== Source Location Trace")
@@ -106,12 +108,17 @@ fun copyToClipboard(context: Context, label: String, text: String, formatSuffix:
   Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
 }
 
-/** Format a byte count as a human-readable string (B/KB/MB), using binary 1024 thresholds. */
-fun formatByteSize(bytes: Long): String = when {
-  bytes < 1024L -> "$bytes B"
-  bytes < 1024L * 1024L -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0)
-  else -> String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
+/** Format a byte count as a human-readable string (e.g. "1.5 kB", "3.20 GB"). */
+fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String {
+  val bytes = this
+  val unit = if (si) 1000 else 1024
+  if (bytes < unit) return "$bytes B"
+  val exp = (ln(bytes.toDouble()) / ln(unit.toDouble())).toInt()
+  val pre = (if (si) "kMGTPE" else "KMGTPE")[exp - 1] + if (si) "" else "i"
+  val formatString = if (extraDecimalForGbAndAbove && pre.lowercase() != "k" && pre != "M") "%.2f %sB" else "%.1f %sB"
+  return String.format(java.util.Locale.US, formatString, bytes / unit.toDouble().pow(exp.toDouble()), pre)
 }
 
-/** Int overload for Compose contexts where sizes come as Int (e.g. String.length). */
-fun formatByteSize(bytes: Int): String = formatByteSize(bytes.toLong())
+/** Int overload for contexts where sizes come as Int (e.g. String.length). */
+fun Int.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String =
+  toLong().humanReadableSize(si, extraDecimalForGbAndAbove)
