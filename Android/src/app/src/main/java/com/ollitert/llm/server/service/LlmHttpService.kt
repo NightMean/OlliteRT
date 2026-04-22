@@ -709,6 +709,14 @@ class LlmHttpService : Service() {
     if (wakeLock?.isHeld == true) wakeLock?.release()
     wakeLock = null
     logger.shutdown()
+    try {
+      val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+        applicationContext, OlliteRTApplication.PersistenceEntryPoint::class.java
+      )
+      entryPoint.requestLogPersistence().shutdown()
+    } catch (e: Exception) {
+      Log.w(logTag, "Failed to shut down RequestLogPersistence", e)
+    }
     super.onDestroy()
   }
 

@@ -226,6 +226,13 @@ class RequestLogPersistence @Inject constructor(
     }
   }
 
+  fun shutdown() {
+    pruningJob?.cancel()
+    // Do NOT cancel the scope — pending DB writes (e.g., "Server stopped" event,
+    // clear-on-stop onEntriesCleared()) are launched on this scope earlier in onDestroy().
+    // The scope will be GC'd when the process exits.
+  }
+
   companion object {
     private const val TAG = "LogPersistence"
     private const val DEFAULT_IN_MEMORY_CAP = DEFAULT_IN_MEMORY_LOG_CAP
