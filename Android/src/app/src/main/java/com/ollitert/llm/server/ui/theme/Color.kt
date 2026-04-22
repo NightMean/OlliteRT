@@ -83,3 +83,30 @@ val OlliteRTWarningContainer = Color(0xFF554C33)
 val OlliteRTWarningText = Color(0xFFFCC934)
 val OlliteRTDeleteRed = Color(0xFFE57373)
 val OlliteRTForcedPurple = Color(0xFFCE93D8)
+
+// Custom theme colors
+val OlliteRTModelInfoIcon = Color(0xFFCCCCCC)
+val OlliteRTErrorText = Color(0xFFEE675C)
+
+// Log semantic colors
+val OlliteRTThinkingGrey = Color(0xFFB0B3BE)
+val OlliteRTCancelledAmber = Color(0xFFFFB74D)
+val OlliteRTWarningYellow = Color(0xFFFFF176)
+val OlliteRTContextOverflowRed = Color(0xFFEF5350)
+val OlliteRTSearchHighlight = Color(0xFFFFD54F)
+val OlliteRTSubtleGrey = Color(0xFFBDBDBD)
+val OlliteRTFailedDownloadRed = Color(0xFFAA0000)
+
+// Log event highlight colors
+val OlliteRTValueArrowBlue = Color(0xFF64B5F6)
+
+// JSON syntax highlighting colors
+val OlliteRTJsonKey = Color(0xFF82AAFF)
+val OlliteRTJsonString = Color(0xFFC3E88D)
+val OlliteRTJsonNumber = Color(0xFFF78C6C)
+val OlliteRTJsonBoolNull = Color(0xFFFF5370)
+val OlliteRTJsonBrace = Color(0xFF89DDFF)
+
+// Model badge colors
+val OlliteRTBadgeNew = Color(0xFF4CAF50)
+val OlliteRTBadgeFastest = Color(0xFF2196F3)

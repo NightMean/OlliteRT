@@ -23,9 +23,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.ui.theme.OlliteRTSearchHighlight
 
-/** Semi-transparent yellow highlight for search matches — layered on top of existing text styling. */
-internal val SearchHighlightColor = Color(0xFFFFD54F).copy(alpha = 0.35f)
+internal val SearchHighlightColor = OlliteRTSearchHighlight.copy(alpha = 0.35f)
 
 // ── Log filter model ────────────────────────────────────────────────────────
 

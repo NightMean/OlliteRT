@@ -80,9 +80,9 @@ data class CustomColors(
   val modelCardBgColor: Color = OlliteRTSurfaceContainerLow,
   val linkColor: Color = OlliteRTLinkColor,
   val successColor: Color = OlliteRTSuccessColor,
-  val modelInfoIconColor: Color = Color(0xFFCCCCCC),
+  val modelInfoIconColor: Color = OlliteRTModelInfoIcon,
   val warningTextColor: Color = OlliteRTWarningText,
-  val errorTextColor: Color = Color(0xFFEE675C),
+  val errorTextColor: Color = OlliteRTErrorText,
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }

@@ -22,6 +22,11 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import com.ollitert.llm.server.ui.theme.OlliteRTForcedPurple
+import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
+import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTValueArrowBlue
 import org.json.JSONObject
 
 // ── Event message parsing ────────────────────────────────────────────────────
@@ -383,10 +388,8 @@ internal val PATTERN_QUOTED = Regex(""""[^"]*"""")
 
 // ── Event text highlighting ──────────────────────────────────────────────────
 
-/** Accent color for arrows in settings/event values. */
-internal val ValueArrowColor = Color(0xFF64B5F6) // light blue
-/** Color for quoted text in event messages. */
-internal val QuotedTextColor = Color(0xFFCE93D8) // soft purple
+internal val ValueArrowColor = OlliteRTValueArrowBlue
+internal val QuotedTextColor = OlliteRTForcedPurple
 
 /**
  * Highlights key values in event messages using AnnotatedString.
@@ -405,9 +408,9 @@ internal fun highlightEventMessage(
 
   data class StyledSpan(val start: Int, val end: Int, val style: SpanStyle)
   val spans = mutableListOf<StyledSpan>()
-  val primaryColor = Color(0xFFAFC6FF)
-  val greenColor = Color(0xFF4ADE80)
-  val defaultText = Color(0xFFE5E2E3)
+  val primaryColor = OlliteRTPrimary
+  val greenColor = OlliteRTGreen400
+  val defaultText = OlliteRTOnBackground
 
   PATTERN_TIME_MS.findAll(message).forEach {
     spans.add(StyledSpan(it.range.first, it.range.last + 1,

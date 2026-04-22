@@ -124,19 +124,23 @@ import com.ollitert.llm.server.ui.server.logs.StatusRange
 import com.ollitert.llm.server.ui.server.logs.copyAllLogsToClipboard
 import com.ollitert.llm.server.ui.server.logs.exportLogsAsJson
 import com.ollitert.llm.server.ui.server.logs.matchesFilter
+import com.ollitert.llm.server.ui.theme.OlliteRTCancelledAmber
+import com.ollitert.llm.server.ui.theme.OlliteRTContextOverflowRed
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTThinkingGrey
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal val EventColor = OlliteRTPrimary // matches the app's blue accent
-internal val ThinkingColor = Color(0xFFB0B3BE) // muted grey — subtle indicator, not eye-catching
-internal val CancelledColor = Color(0xFFFFB74D) // amber for cancelled/stopped requests
-internal val WarningColor = Color(0xFFFFF176) // yellow for warnings (e.g. compacted tool schemas)
-internal val TruncatedColor = Color(0xFFFFB74D) // amber for history truncation
-internal val ContextOverflowColor = Color(0xFFEF5350) // red for context window exceeded errors
+internal val EventColor = OlliteRTPrimary
+internal val ThinkingColor = OlliteRTThinkingGrey
+internal val CancelledColor = OlliteRTCancelledAmber
+internal val WarningColor = OlliteRTWarningYellow
+internal val TruncatedColor = OlliteRTCancelledAmber
+internal val ContextOverflowColor = OlliteRTContextOverflowRed
 
 // Log filter model, search highlighting — moved to logs/LogFilters.kt
 

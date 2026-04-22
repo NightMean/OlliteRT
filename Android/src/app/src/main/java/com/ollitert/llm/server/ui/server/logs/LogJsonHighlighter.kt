@@ -16,12 +16,17 @@
 
 package com.ollitert.llm.server.ui.server.logs
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import com.ollitert.llm.server.ui.theme.OlliteRTJsonBoolNull
+import com.ollitert.llm.server.ui.theme.OlliteRTJsonBrace
+import com.ollitert.llm.server.ui.theme.OlliteRTJsonKey
+import com.ollitert.llm.server.ui.theme.OlliteRTJsonNumber
+import com.ollitert.llm.server.ui.theme.OlliteRTJsonString
+import com.ollitert.llm.server.ui.theme.OlliteRTSubtleGrey
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -37,19 +42,18 @@ internal fun tryParseJson(text: String): Any {
   }
 }
 
-// JSON syntax highlighting colors
-internal val JsonKeyColor = Color(0xFF82AAFF)      // blue — object keys
-internal val JsonStringColor = Color(0xFFC3E88D)   // green — string values
-internal val JsonNumberColor = Color(0xFFF78C6C)   // orange — numbers
-internal val JsonBoolNullColor = Color(0xFFFF5370)  // red/pink — true, false, null
-internal val JsonBraceColor = Color(0xFF89DDFF)     // cyan — brackets, braces, colons, commas
+internal val JsonKeyColor = OlliteRTJsonKey
+internal val JsonStringColor = OlliteRTJsonString
+internal val JsonNumberColor = OlliteRTJsonNumber
+internal val JsonBoolNullColor = OlliteRTJsonBoolNull
+internal val JsonBraceColor = OlliteRTJsonBrace
 
 internal val jsonTokenRegex = Regex(
   """("(?:[^"\\]|\\.)*")\s*:|("(?:[^"\\]|\\.)*")|([-+]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b|\bnull\b)|([{}\[\]:,])""",
 )
 
 internal fun highlightJson(text: String): AnnotatedString = buildAnnotatedString {
-  val fallbackColor = Color(0xFFBDBDBD) // light grey for non-JSON / whitespace
+  val fallbackColor = OlliteRTSubtleGrey
   var lastIndex = 0
   for (match in jsonTokenRegex.findAll(text)) {
     // Append any text between tokens (whitespace, newlines) in fallback color

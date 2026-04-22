@@ -56,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -74,6 +73,7 @@ import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.delay
 
@@ -300,7 +300,7 @@ fun StatusScreen(
             Text(
               text = stringResource(R.string.status_idle_unloaded),
               style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFFFFF176).copy(alpha = 0.8f),
+              color = OlliteRTWarningYellow.copy(alpha = 0.8f),
             )
           } else if (!isStopped && modelLoadTimeMs > 0) {
             Text(

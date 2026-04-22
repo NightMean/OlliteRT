@@ -38,13 +38,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.ModelBadge
+import com.ollitert.llm.server.ui.theme.OlliteRTBadgeFastest
+import com.ollitert.llm.server.ui.theme.OlliteRTBadgeNew
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
 
 private data class BadgeStyle(val icon: ImageVector?, val tint: Color)
 
 private val KNOWN_STYLES = mapOf(
-  "best_overall" to BadgeStyle(Icons.Filled.Star, Color(0xFFFCC934)),
-  "new" to BadgeStyle(Icons.Filled.NewReleases, Color(0xFF4CAF50)),
-  "fastest" to BadgeStyle(Icons.Filled.Speed, Color(0xFF2196F3)),
+  "best_overall" to BadgeStyle(Icons.Filled.Star, OlliteRTWarningText),
+  "new" to BadgeStyle(Icons.Filled.NewReleases, OlliteRTBadgeNew),
+  "fastest" to BadgeStyle(Icons.Filled.Speed, OlliteRTBadgeFastest),
 )
 
 @Composable

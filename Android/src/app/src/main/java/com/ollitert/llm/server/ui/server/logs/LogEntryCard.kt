@@ -76,7 +76,10 @@ import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.server.isContextOverflowError
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
+import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
+import com.ollitert.llm.server.ui.theme.OlliteRTOnSurfaceVariant
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTSubtleGrey
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -134,7 +137,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       // Path text — fully visible, no truncation. Latch detects wrap to reposition IP.
       if (searchQuery.isNotEmpty()) {
         val highlighted = remember(entry.path, searchQuery) {
-          buildHighlightedString(entry.path, searchQuery, baseColor = Color(0xFFE5E2E3))
+          buildHighlightedString(entry.path, searchQuery, baseColor = OlliteRTOnBackground)
         }
         Text(
           text = highlighted,
@@ -572,7 +575,7 @@ internal fun ExpandableBodySection(
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
               ),
-              color = Color(0xFFBDBDBD),
+              color = OlliteRTSubtleGrey,
             )
           }
         }
@@ -640,7 +643,7 @@ private fun EntryIpPill(entry: RequestLogEntry, searchQuery: String) {
   if (entry.clientIp == null) return
   if (searchQuery.isNotEmpty()) {
     val highlighted = remember(entry.clientIp, searchQuery) {
-      buildHighlightedString(entry.clientIp, searchQuery, baseColor = Color(0xFFC2C6D8))
+      buildHighlightedString(entry.clientIp, searchQuery, baseColor = OlliteRTOnSurfaceVariant)
     }
     Text(
       text = highlighted,
