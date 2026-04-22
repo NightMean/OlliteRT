@@ -99,11 +99,35 @@ class ModelFileManager(
   }
 
   override fun isModelDownloaded(model: Model): Boolean {
+    model.updatable = false
+
+    // Check if the current (latest) version is downloaded.
+    if (checkIfModelDownloaded(model, model.version)) return true
+
+    // Check if any previous version from updatableModelFiles is on disk.
+    for (updatableFile in model.updatableModelFiles) {
+      if (updatableFile.commitHash.isEmpty()) continue
+      if (checkIfModelDownloaded(model, updatableFile.commitHash, updatableFile.fileName)) {
+        model.version = updatableFile.commitHash
+        model.downloadFileName = updatableFile.fileName
+        model.updatable = true
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private fun checkIfModelDownloaded(
+    model: Model,
+    version: String,
+    fileName: String = model.downloadFileName,
+  ): Boolean {
     val modelRelativePath =
-      listOf(model.normalizedName, model.version, model.downloadFileName)
+      listOf(model.normalizedName, version, fileName)
         .joinToString(File.separator)
     val downloadedFileExists =
-      model.downloadFileName.isNotEmpty() &&
+      fileName.isNotEmpty() &&
         ((model.localModelFilePathOverride.isEmpty() &&
           isFileInExternalFilesDir(modelRelativePath)) ||
           (model.localModelFilePathOverride.isNotEmpty() &&
@@ -113,7 +137,7 @@ class ModelFileManager(
       model.isZip &&
         model.unzipDir.isNotEmpty() &&
         isFileInExternalFilesDir(
-          listOf(model.normalizedName, model.version, model.unzipDir).joinToString(File.separator)
+          listOf(model.normalizedName, version, model.unzipDir).joinToString(File.separator)
         )
 
     return downloadedFileExists || unzippedDirectoryExists

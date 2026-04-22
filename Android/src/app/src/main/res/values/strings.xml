@@ -677,6 +677,11 @@
   <string name="model_stop_server_for_benchmark" translatable="false">Stop the server first to run benchmarks</string>
   <string name="model_loading_hint_wait" translatable="false">Please wait for the current model to finish loading</string>
 
+  <!-- Model update -->
+  <string name="update" translatable="false">Update</string>
+  <string name="update_available" translatable="false">Update available</string>
+  <string name="about_this_update" translatable="false">About this update</string>
+
   <!-- Donate dialog: Platform labels -->
   <string name="donate_github_sponsors" translatable="false">GitHub Sponsors</string>
   <string name="donate_buy_me_a_coffee" translatable="false">Buy Me a Coffee</string>

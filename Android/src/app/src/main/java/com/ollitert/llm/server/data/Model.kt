@@ -29,6 +29,12 @@ enum class ModelCapability {
   NPU,
 }
 
+/** A previous version of a model file, used to detect updatable models on disk. */
+data class ModelFile(
+  @SerializedName("fileName") val fileName: String,
+  @SerializedName("commitHash") val commitHash: String,
+)
+
 data class ModelDataFile(
   val url: String,
   val downloadFileName: String,
@@ -126,7 +132,7 @@ data class Model(
    * It will be used to define the file path on local device to store the downloaded model.
    * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
    */
-  val downloadFileName: String = "_",
+  var downloadFileName: String = "_",
 
   /**
    * (optional)
@@ -136,7 +142,7 @@ data class Model(
    * It will be used to define the file path on local device to store the downloaded model.
    * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
    */
-  val version: String = "_",
+  var version: String = "_",
 
   /**
    * (optional, experimental)
@@ -217,6 +223,12 @@ data class Model(
   /** Non-null when the model is incompatible with this app version (e.g. "Requires app version 0.9.0"). */
   val incompatibilityReason: String? = null,
 
+  /** Previous model file versions from the allowlist, used to detect stale downloads. */
+  val updatableModelFiles: List<ModelFile> = listOf(),
+
+  /** Human-readable description of what changed in the latest version. */
+  val updateInfo: String = "",
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 
@@ -229,6 +241,12 @@ data class Model(
   var prevConfigValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
   var accessToken: String? = null,
+
+  /** Set to true when a stale version is found on disk and a newer version is available. */
+  var updatable: Boolean = false,
+
+  /** The latest model file info (commit + filename), used to re-download on update. */
+  var latestModelFile: ModelFile? = null,
 ) {
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")

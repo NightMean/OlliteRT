@@ -65,6 +65,8 @@ data class AllowedModel(
   val pinned: Boolean? = null,
   val minAppVersion: String? = null,
   val maxAppVersion: String? = null,
+  val updatableModelFiles: List<ModelFile>? = null,
+  val updateInfo: String? = null,
 ) {
   fun isCompatibleWith(appVersion: SemVer): Boolean {
     val min = minAppVersion?.let { SemVer.parse(it) }
@@ -205,6 +207,9 @@ data class AllowedModel(
       badge = badge?.let { ModelBadge.fromKey(it) },
       pinned = pinned == true,
       incompatibilityReason = incompatibilityReason,
+      updatableModelFiles = updatableModelFiles ?: listOf(),
+      updateInfo = updateInfo ?: "",
+      latestModelFile = ModelFile(fileName = downloadedFileName, commitHash = version),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = true,
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,

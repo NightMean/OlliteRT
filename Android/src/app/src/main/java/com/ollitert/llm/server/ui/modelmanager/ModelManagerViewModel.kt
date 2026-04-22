@@ -256,6 +256,16 @@ constructor(
     // worker from writing to deleted paths and reporting false success.
     downloadRepository.cancelDownloadModel(model)
 
+    // If the downloaded version is stale (updatable), reset to the latest version so
+    // re-downloading picks up the newest file.
+    if (model.updatable) {
+      model.updatable = false
+      model.latestModelFile?.let {
+        model.version = it.commitHash
+        model.downloadFileName = it.fileName
+      }
+    }
+
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {

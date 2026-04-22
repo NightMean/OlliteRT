@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -104,6 +105,42 @@ fun DownloadModelPanel(
         // Invisible overlay to show toast when disabled
         if (isServerActive) {
           LoadingBlockingOverlay(stringResource(R.string.model_stop_server_for_benchmark))
+        }
+      }
+
+      Spacer(modifier = Modifier.width(8.dp))
+    }
+
+    // Update button — shown when a newer version is available in the allowlist.
+    if (model.updatable && downloadSucceeded) {
+      Button(
+        modifier = Modifier.height(42.dp),
+        colors = ButtonDefaults.buttonColors(
+          containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        onClick = {
+          model.latestModelFile?.let {
+            model.version = it.commitHash
+            model.downloadFileName = it.fileName
+          }
+          model.updatable = false
+          modelManagerViewModel.downloadModel(model)
+        },
+      ) {
+        val textColor = MaterialTheme.colorScheme.onSecondaryContainer
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(Icons.Outlined.Update, contentDescription = null, tint = textColor)
+          Text(
+            stringResource(R.string.update),
+            color = textColor,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+          )
         }
       }
 
