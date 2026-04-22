@@ -651,6 +651,7 @@
   <string name="capability_vision" translatable="false">Vision</string>
   <string name="capability_audio" translatable="false">Audio</string>
   <string name="capability_thinking" translatable="false">Thinking</string>
+  <string name="capability_npu" translatable="false">NPU</string>
 
   <!-- Models screen: Error/empty states -->
   <string name="models_failed_to_load" translatable="false">Failed to load models</string>

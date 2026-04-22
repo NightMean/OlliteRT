@@ -197,6 +197,7 @@ data class AllowedModel(
         if (llmSupportImage == true) add(ModelCapability.VISION)
         if (llmSupportAudio == true) add(ModelCapability.AUDIO)
         if (llmSupportThinking == true) add(ModelCapability.THINKING)
+        if (accelerators.any { it == Accelerator.NPU || it == Accelerator.TPU }) add(ModelCapability.NPU)
       },
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,

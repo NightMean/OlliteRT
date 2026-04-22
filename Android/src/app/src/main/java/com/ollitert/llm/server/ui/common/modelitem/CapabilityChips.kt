@@ -59,6 +59,7 @@ fun CapabilityChips(
           ModelCapability.VISION -> R.string.capability_vision
           ModelCapability.AUDIO -> R.string.capability_audio
           ModelCapability.THINKING -> R.string.capability_thinking
+          ModelCapability.NPU -> R.string.capability_npu
         }
         CapabilityChip(label = stringResource(label), searchQuery = searchQuery)
       }

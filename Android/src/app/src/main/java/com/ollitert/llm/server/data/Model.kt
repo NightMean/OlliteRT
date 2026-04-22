@@ -26,6 +26,7 @@ enum class ModelCapability {
   VISION,
   AUDIO,
   THINKING,
+  NPU,
 }
 
 data class ModelDataFile(
@@ -298,6 +299,7 @@ data class Model(
 val Model.llmSupportImage: Boolean get() = ModelCapability.VISION in capabilities
 val Model.llmSupportAudio: Boolean get() = ModelCapability.AUDIO in capabilities
 val Model.llmSupportThinking: Boolean get() = ModelCapability.THINKING in capabilities
+val Model.llmSupportsNpu: Boolean get() = ModelCapability.NPU in capabilities
 
 enum class ModelDownloadStatusType {
   NOT_DOWNLOADED,
