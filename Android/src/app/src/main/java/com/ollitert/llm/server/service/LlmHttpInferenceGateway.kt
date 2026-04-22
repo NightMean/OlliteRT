@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import android.util.Log
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
 import java.util.concurrent.CountDownLatch
@@ -35,6 +36,8 @@ typealias InferenceRunner = (
   onPartial: (partial: String, done: Boolean, thought: String?) -> Unit,
   onError: (message: String) -> Unit,
 ) -> Unit
+
+private const val TAG = "LlmHttpInferenceGateway"
 
 object LlmHttpInferenceGateway {
 
@@ -77,7 +80,9 @@ object LlmHttpInferenceGateway {
             { e ->
               errorOccurred = true
               onError(e)
-              try { cancelInference() } catch (_: Throwable) {}
+              try { cancelInference() } catch (t: Throwable) {
+                Log.w(TAG, "cancelInference() failed during error callback cleanup", t)
+              }
               latch.countDown()
             },
           )
@@ -93,7 +98,9 @@ object LlmHttpInferenceGateway {
           onCaughtThrowable?.invoke(t)
           if (!errorOccurred) {
             onError(t.message ?: "unknown_error")
-            try { cancelInference() } catch (_: Throwable) {}
+            try { cancelInference() } catch (t2: Throwable) {
+              Log.w(TAG, "cancelInference() failed during exception recovery", t2)
+            }
           }
         }
       }

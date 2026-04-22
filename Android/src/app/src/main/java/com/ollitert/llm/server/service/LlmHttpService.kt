@@ -639,7 +639,9 @@ class LlmHttpService : Service() {
     loadThread = null
     server?.stop()
     inferenceExecutor?.shutdownNow()
-    try { inferenceExecutor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (_: InterruptedException) {}
+    try { inferenceExecutor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (e: InterruptedException) {
+      Log.w(logTag, "Interrupted waiting for inference executor shutdown", e)
+    }
     inferenceExecutor = null
     val modelName = defaultModel?.name
 

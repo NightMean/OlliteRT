@@ -185,7 +185,9 @@ object ServerLlmModelHelper : LlmModelHelper {
         ExperimentalFlags.enableConversationConstrainedDecoding = false
       }
     } catch (e: Exception) {
-      try { engine?.close() } catch (_: Exception) {}
+      try { engine?.close() } catch (e: Exception) {
+        Log.w(TAG, "Engine.close() failed during error cleanup (may already be closed by another thread)", e)
+      }
       System.gc()
       onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
@@ -263,7 +265,9 @@ object ServerLlmModelHelper : LlmModelHelper {
       // If new Conversation creation failed, the model is in a broken state —
       // close the Engine (which holds hundreds of MB of native memory) and null
       // the instance so the next request triggers a full re-initialization.
-      try { (model.instance as? LlmModelInstance)?.engine?.close() } catch (_: Exception) {}
+      try { (model.instance as? LlmModelInstance)?.engine?.close() } catch (e: Exception) {
+        Log.w(TAG, "Engine.close() failed during conversation reset (may already be closed by another thread)", e)
+      }
       model.instance = null
       System.gc()
     }
