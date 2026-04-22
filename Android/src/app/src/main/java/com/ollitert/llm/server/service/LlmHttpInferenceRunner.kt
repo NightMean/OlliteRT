@@ -587,7 +587,7 @@ class LlmHttpInferenceRunner(
             if (!format.stopSequences.isNullOrEmpty()) {
               val currentText = fullText.toString()
               var stopIdx = currentText.length
-              for (stop in format.stopSequences!!) {
+              for (stop in format.stopSequences.orEmpty()) {
                 val idx = currentText.indexOf(stop)
                 if (idx in 0 until stopIdx) stopIdx = idx
               }

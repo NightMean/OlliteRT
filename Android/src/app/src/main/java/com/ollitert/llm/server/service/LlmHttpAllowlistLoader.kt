@@ -75,12 +75,12 @@ class LlmHttpAllowlistLoader(
             lastSource = "asset"
             bundled
           } else {
-            lastSource = "external:${file!!.absolutePath}"
+            lastSource = "external:${file?.absolutePath ?: "unknown"}"
             diskCache
           }
         }
         diskCache != null -> {
-          lastSource = "external:${file!!.absolutePath}"
+          lastSource = "external:${file?.absolutePath ?: "unknown"}"
           diskCache
         }
         bundled != null -> {
