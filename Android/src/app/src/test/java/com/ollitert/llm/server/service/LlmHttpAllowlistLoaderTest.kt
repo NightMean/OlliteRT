@@ -43,7 +43,7 @@ class LlmHttpAllowlistLoaderTest {
   fun returnsEmptyListWhenNoFilesAndNoAssets() {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
-      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, packageName = "test.pkg")
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
       val result = loader.load()
       assertTrue("should return empty list when no allowlist file", result.isEmpty())
     } finally {
@@ -56,7 +56,7 @@ class LlmHttpAllowlistLoaderTest {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText(minimalAllowlistJson)
-      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, packageName = "test.pkg")
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
       val result = loader.load()
       assertEquals(1, result.size)
       assertEquals("TestModel", result.first().name)
@@ -72,7 +72,6 @@ class LlmHttpAllowlistLoaderTest {
     try {
       val loader = LlmHttpAllowlistLoader(
         externalFilesDir = dir,
-        packageName = "test.pkg",
         assetReader = { minimalAllowlistJson },
       )
       val result = loader.load()
@@ -90,7 +89,6 @@ class LlmHttpAllowlistLoaderTest {
       File(dir, "model_allowlist.json").writeText(minimalAllowlistJson)
       val loader = LlmHttpAllowlistLoader(
         externalFilesDir = dir,
-        packageName = "test.pkg",
         assetReader = { """{"models":[]}""" },
       )
       val result = loader.load()
@@ -117,7 +115,6 @@ class LlmHttpAllowlistLoaderTest {
       ]}"""
       val loader = LlmHttpAllowlistLoader(
         externalFilesDir = dir,
-        packageName = "test.pkg",
         assetReader = { newerBundled },
       )
       val result = loader.load()
@@ -145,7 +142,6 @@ class LlmHttpAllowlistLoaderTest {
       ]}"""
       val loader = LlmHttpAllowlistLoader(
         externalFilesDir = dir,
-        packageName = "test.pkg",
         assetReader = { olderBundled },
       )
       val result = loader.load()
@@ -164,7 +160,7 @@ class LlmHttpAllowlistLoaderTest {
       val allowlistFile = File(dir, "model_allowlist.json")
       allowlistFile.writeText(minimalAllowlistJson)
 
-      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, packageName = "test.pkg")
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
       val first = loader.load()
       assertEquals(1, first.size)
 
@@ -182,7 +178,7 @@ class LlmHttpAllowlistLoaderTest {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText("not valid json {{{")
-      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, packageName = "test.pkg")
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
       val result = loader.load()
       assertTrue("malformed JSON should yield empty list", result.isEmpty())
       assertEquals("error", loader.lastSource)
@@ -216,7 +212,6 @@ class LlmHttpAllowlistLoaderTest {
 
       val loader = LlmHttpAllowlistLoader(
         externalFilesDir = dir,
-        packageName = "test.pkg",
         appVersionName = "0.8.0",
       )
       val result = loader.load()
@@ -234,7 +229,6 @@ class LlmHttpAllowlistLoaderTest {
       File(dir, "model_allowlist.json").writeText("")
       val loader = LlmHttpAllowlistLoader(
         externalFilesDir = dir,
-        packageName = "test.pkg",
         assetReader = { minimalAllowlistJson },
       )
       val result = loader.load()
@@ -249,7 +243,6 @@ class LlmHttpAllowlistLoaderTest {
   fun handlesNullExternalFilesDirGracefully() {
     val loader = LlmHttpAllowlistLoader(
       externalFilesDir = null,
-      packageName = "test.pkg",
       assetReader = { minimalAllowlistJson },
     )
     val result = loader.load()

@@ -377,7 +377,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
 
             values[config.key.label] =
               config.options
-                .filterIndexed { index, option -> selectionStates[index] }
+                .filterIndexed { index, _ -> selectionStates[index] }
                 .joinToString(",")
           },
           checked = selectionStates[index],

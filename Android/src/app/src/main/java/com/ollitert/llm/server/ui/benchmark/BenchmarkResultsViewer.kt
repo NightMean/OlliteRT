@@ -102,7 +102,6 @@ import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
-import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.theme.customColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -115,7 +114,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun BenchmarkResultsViewer(
   initialModelName: String,
-  modelManagerViewModel: ModelManagerViewModel,
   viewModel: BenchmarkViewModel,
   onClose: () -> Unit,
 ) {

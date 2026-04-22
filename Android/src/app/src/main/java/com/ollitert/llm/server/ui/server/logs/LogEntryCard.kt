@@ -17,8 +17,6 @@
 package com.ollitert.llm.server.ui.server.logs
 
 import com.ollitert.llm.server.common.formatByteSize
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat

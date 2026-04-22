@@ -72,7 +72,6 @@ fun DownloadModelPanel(
     if (showBenchmarkButton && downloadSucceeded) {
       // Benchmark button.
       val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
-      val context = androidx.compose.ui.platform.LocalContext.current
       Box(modifier = Modifier.weight(1f)) {
         Button(
           modifier = Modifier.height(42.dp).fillMaxWidth(),

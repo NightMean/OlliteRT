@@ -143,7 +143,7 @@ fun Long.bytesToMb(): Long = this / (1024L * 1024L)
 // Current device's SOC in lowercase.
 val SOC =
   (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      Build.SOC_MODEL ?: ""
+      Build.SOC_MODEL
     } else {
       ""
     })

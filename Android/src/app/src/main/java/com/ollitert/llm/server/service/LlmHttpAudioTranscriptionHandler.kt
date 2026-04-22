@@ -24,7 +24,6 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportAudio
 import fi.iki.elonen.NanoHTTPD
-import java.io.ByteArrayOutputStream
 import java.io.File
 
 private const val MAX_FILE_SIZE_BYTES = 25_000_000L

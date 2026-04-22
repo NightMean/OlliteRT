@@ -65,7 +65,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -141,7 +140,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.service.LlmHttpErrorSuggestions
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.EventCategory
@@ -150,12 +148,6 @@ import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
-import org.json.JSONObject
-import org.json.JSONArray
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 internal val EventColor = OlliteRTPrimary // matches the app's blue accent
 internal val ThinkingColor = Color(0xFFB0B3BE) // muted grey — subtle indicator, not eye-catching

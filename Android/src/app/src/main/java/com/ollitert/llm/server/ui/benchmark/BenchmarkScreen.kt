@@ -284,7 +284,6 @@ fun BenchmarkScreen(
     ) {
       BenchmarkResultsViewer(
         initialModelName = selectedModelName,
-        modelManagerViewModel = modelManagerViewModel,
         viewModel = viewModel,
         onClose = { viewModel.setShowResultsViewer(showResultsViewer = false) },
       )

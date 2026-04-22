@@ -28,8 +28,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import fi.iki.elonen.NanoHTTPD
-import java.io.ByteArrayInputStream
-import java.util.concurrent.Executors
 
 // ── HTTP Response Helpers ────────────────────────────────────────────────────
 // Use NanoHTTPD.newFixedLengthResponse (static) so they work outside NanoHTTPD subclasses.

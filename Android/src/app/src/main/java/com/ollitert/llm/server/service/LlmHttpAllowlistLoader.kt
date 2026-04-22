@@ -32,7 +32,6 @@ import java.io.File
  */
 class LlmHttpAllowlistLoader(
   private val externalFilesDir: File?,
-  private val packageName: String,
   private val appVersionName: String = "",
   private val assetReader: () -> String? = { null },
 ) {

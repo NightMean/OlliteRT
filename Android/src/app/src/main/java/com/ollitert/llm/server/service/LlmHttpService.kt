@@ -122,7 +122,6 @@ class LlmHttpService : Service() {
       )
       allowlistLoader = LlmHttpAllowlistLoader(
         externalFilesDir = getExternalFilesDir(null),
-        packageName = packageName,
         appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
           try { assets.open("model_allowlist.json").reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled model_allowlist.json", e); null }

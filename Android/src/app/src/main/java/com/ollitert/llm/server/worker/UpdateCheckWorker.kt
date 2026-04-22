@@ -20,7 +20,6 @@ import com.ollitert.llm.server.common.GitHubConfig
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri

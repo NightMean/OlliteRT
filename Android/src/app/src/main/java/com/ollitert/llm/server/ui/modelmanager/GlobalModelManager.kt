@@ -132,8 +132,6 @@ import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningContainer
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
-import kotlin.text.endsWith
-import kotlin.text.lowercase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
