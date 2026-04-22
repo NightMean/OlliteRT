@@ -24,6 +24,7 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportAudio
 import fi.iki.elonen.NanoHTTPD
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 private const val MAX_FILE_SIZE_BYTES = 25_000_000L
@@ -64,10 +65,12 @@ class LlmHttpAudioTranscriptionHandler(
       }
     }
 
-    // Parse multipart form data — NanoHTTPD writes file uploads to temp files on disk
-    val files = HashMap<String, String>()
-    try {
-      session.parseBody(files)
+    // Parse multipart form data manually because NanoHTTPD's parseBody() only puts parts
+    // with a Content-Type header into the files map. Some clients (Open WebUI, curl without
+    // explicit type) send audio files without a part-level Content-Type, causing NanoHTTPD to
+    // decode the binary audio as a UTF-8 string into session.parameters — corrupting the data.
+    val parsed = try {
+      parseMultipartAudio(session)
     } catch (e: Exception) {
       Log.w(LOG_TAG, "Multipart parse failed", e)
       return openAiError(
@@ -78,9 +81,7 @@ class LlmHttpAudioTranscriptionHandler(
       )
     }
 
-    // Extract form fields
-    val audioTempPath = files["file"]
-    if (audioTempPath == null) {
+    if (parsed.fileBytes == null) {
       return openAiError(
         NanoHTTPD.Response.Status.BAD_REQUEST,
         "Missing required 'file' field in multipart form data.",
@@ -89,32 +90,32 @@ class LlmHttpAudioTranscriptionHandler(
       )
     }
 
-    val tempFile = File(audioTempPath)
+    if (parsed.fileBytes.isEmpty()) {
+      return openAiError(
+        NanoHTTPD.Response.Status.BAD_REQUEST,
+        "Uploaded audio file is empty.",
+        "invalid_request_error",
+        "empty_file",
+      )
+    }
+
+    if (parsed.fileBytes.size > MAX_FILE_SIZE_BYTES) {
+      return openAiError(
+        NanoHTTPD.Response.Status.BAD_REQUEST,
+        "File too large (${parsed.fileBytes.size / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
+        "invalid_request_error",
+        "file_too_large",
+      )
+    }
+
+    val tempFile = File(context.cacheDir, "audio_upload_${System.currentTimeMillis()}.tmp")
+    tempFile.writeBytes(parsed.fileBytes)
     try {
-      if (!tempFile.exists() || tempFile.length() == 0L) {
-        return openAiError(
-          NanoHTTPD.Response.Status.BAD_REQUEST,
-          "Uploaded audio file is empty.",
-          "invalid_request_error",
-          "empty_file",
-        )
-      }
-
-      // Secondary size check after parseBody (clients may use chunked encoding without Content-Length)
-      if (tempFile.length() > MAX_FILE_SIZE_BYTES) {
-        return openAiError(
-          NanoHTTPD.Response.Status.BAD_REQUEST,
-          "File too large (${tempFile.length() / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
-          "invalid_request_error",
-          "file_too_large",
-        )
-      }
-
-      val language = session.parameters["language"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-      val prompt = session.parameters["prompt"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-      val temperatureStr = session.parameters["temperature"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-      val responseFormat = session.parameters["response_format"]?.firstOrNull()?.takeIf { it.isNotBlank() } ?: "json"
-      val requestedModel = session.parameters["model"]?.firstOrNull()
+      val language = parsed.fields["language"]?.takeIf { it.isNotBlank() }
+      val prompt = parsed.fields["prompt"]?.takeIf { it.isNotBlank() }
+      val temperatureStr = parsed.fields["temperature"]?.takeIf { it.isNotBlank() }
+      val responseFormat = parsed.fields["response_format"]?.takeIf { it.isNotBlank() } ?: "json"
+      val requestedModel = parsed.fields["model"]
 
       if (requestedModel != null) {
         Log.d(LOG_TAG, "Client requested model='$requestedModel', using active model='${model.name}'")
@@ -337,6 +338,115 @@ class LlmHttpAudioTranscriptionHandler(
       val escaped = escapeJsonString(message)
       val body = """{"error":{"message":$escaped,"type":"$type","code":"$code"}}"""
       return NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", body)
+    }
+
+    private class MultipartResult(
+      val fileBytes: ByteArray?,
+      val fields: Map<String, String>,
+    )
+
+    /**
+     * Binary-safe multipart/form-data parser. NanoHTTPD's parseBody() only stores parts
+     * with a Content-Type header in the files map — parts without it (common for audio
+     * uploads from Open WebUI, curl, etc.) get decoded as UTF-8 strings, corrupting
+     * binary data. This parser extracts raw bytes for the "file" part and text values
+     * for all other form fields.
+     */
+    private fun parseMultipartAudio(session: NanoHTTPD.IHTTPSession): MultipartResult {
+      val contentType = session.headers["content-type"] ?: ""
+      val boundaryMatch = Regex("""boundary=(.+)""").find(contentType)
+        ?: throw IllegalArgumentException("Missing boundary in content-type")
+      val boundary = boundaryMatch.groupValues[1].trim()
+
+      // Read the full body. NanoHTTPD buffers small bodies in memory and large ones
+      // to a temp file, but the inputStream is positioned at the body start after
+      // headers have been parsed. We need to read content-length bytes.
+      val bodySize = session.headers["content-length"]?.toLongOrNull()
+        ?: throw IllegalArgumentException("Missing content-length header")
+      if (bodySize > MAX_FILE_SIZE_BYTES + 10_000) {
+        throw IllegalArgumentException("Request body too large")
+      }
+
+      val bodyBytes = ByteArray(bodySize.toInt())
+      var totalRead = 0
+      val inputStream = session.inputStream
+      while (totalRead < bodyBytes.size) {
+        val read = inputStream.read(bodyBytes, totalRead, bodyBytes.size - totalRead)
+        if (read == -1) break
+        totalRead += read
+      }
+
+      val boundaryBytes = "--$boundary".toByteArray(Charsets.US_ASCII)
+      val positions = findAllOccurrences(bodyBytes, boundaryBytes)
+      if (positions.size < 2) {
+        throw IllegalArgumentException("Invalid multipart body: fewer than 2 boundary markers")
+      }
+
+      var fileBytes: ByteArray? = null
+      val fields = mutableMapOf<String, String>()
+
+      for (i in 0 until positions.size - 1) {
+        val partStart = positions[i] + boundaryBytes.size
+        // Skip \r\n after boundary
+        val headerStart = if (partStart + 1 < bodyBytes.size &&
+          bodyBytes[partStart] == '\r'.code.toByte() && bodyBytes[partStart + 1] == '\n'.code.toByte()
+        ) partStart + 2 else partStart
+
+        // Find end of headers (blank line = \r\n\r\n)
+        val headerEndMarker = "\r\n\r\n".toByteArray(Charsets.US_ASCII)
+        val headerEndPos = indexOf(bodyBytes, headerEndMarker, headerStart)
+          ?: continue
+        val dataStart = headerEndPos + headerEndMarker.size
+
+        // Part data ends at next boundary, minus the \r\n before it
+        val dataEnd = positions[i + 1] - 2 // skip \r\n before next boundary
+
+        val headerText = String(bodyBytes, headerStart, headerEndPos - headerStart, Charsets.US_ASCII)
+        val nameMatch = Regex("""name="([^"]+)"""").find(headerText)
+        val partName = nameMatch?.groupValues?.get(1) ?: continue
+        val hasFilename = Regex("""filename="([^"]*)"""").containsMatchIn(headerText)
+
+        if (partName == "file" || hasFilename) {
+          if (dataEnd > dataStart) {
+            fileBytes = bodyBytes.copyOfRange(dataStart, dataEnd)
+          } else {
+            fileBytes = ByteArray(0)
+          }
+        } else {
+          val value = String(bodyBytes, dataStart, maxOf(0, dataEnd - dataStart), Charsets.UTF_8)
+          fields[partName] = value
+        }
+      }
+
+      return MultipartResult(fileBytes, fields)
+    }
+
+    private fun findAllOccurrences(haystack: ByteArray, needle: ByteArray): List<Int> {
+      val positions = mutableListOf<Int>()
+      var i = 0
+      while (i <= haystack.size - needle.size) {
+        if (matchesAt(haystack, i, needle)) {
+          positions.add(i)
+          i += needle.size
+        } else {
+          i++
+        }
+      }
+      return positions
+    }
+
+    private fun indexOf(haystack: ByteArray, needle: ByteArray, from: Int): Int? {
+      for (i in from..haystack.size - needle.size) {
+        if (matchesAt(haystack, i, needle)) return i
+      }
+      return null
+    }
+
+    private fun matchesAt(haystack: ByteArray, offset: Int, needle: ByteArray): Boolean {
+      for (j in needle.indices) {
+        if (haystack[offset + j] != needle[j]) return false
+      }
+      return true
     }
   }
 }
