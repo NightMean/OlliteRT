@@ -198,8 +198,13 @@ class LlmHttpAudioTranscriptionHandler(
         }
       }
 
-      // Parse temperature
-      val temperature = temperatureStr?.toDoubleOrNull()
+      // Parse temperature, respecting the "Ignore Client Sampler Parameters" toggle
+      val ignoreClientSampler = LlmHttpPrefs.isIgnoreClientSamplerParams(context)
+      val temperature = if (ignoreClientSampler) null else temperatureStr?.toDoubleOrNull()
+      if (ignoreClientSampler && temperatureStr != null && logId != null) {
+        val ignored = describeClientSamplerParams(temperatureStr.toDoubleOrNull(), topP = null, topK = null, maxTokens = null)
+        if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
+      }
       val configSnapshot = buildPerRequestConfig(model, temperature)
 
       // Run inference

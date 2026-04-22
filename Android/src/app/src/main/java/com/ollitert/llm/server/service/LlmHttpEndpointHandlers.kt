@@ -21,6 +21,14 @@ import android.content.Context
 import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.MAX_MAX_TOKENS
+import com.ollitert.llm.server.data.MAX_TEMPERATURE
+import com.ollitert.llm.server.data.MAX_TOPK
+import com.ollitert.llm.server.data.MAX_TOPP
+import com.ollitert.llm.server.data.MIN_MAX_TOKENS
+import com.ollitert.llm.server.data.MIN_TEMPERATURE
+import com.ollitert.llm.server.data.MIN_TOPK
+import com.ollitert.llm.server.data.MIN_TOPP
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.llmSupportAudio
@@ -501,20 +509,20 @@ class LlmHttpEndpointHandlers(
    * Builds a human-readable summary of client-supplied sampler params that will be ignored.
    * Returns null if the client didn't send any overrides.
    */
-  private fun describeClientSamplerParams(
-    temperature: Double?,
-    topP: Double?,
-    topK: Int?,
-    maxTokens: Int?,
-  ): String? {
-    val parts = mutableListOf<String>()
-    temperature?.let { parts.add("temperature=$it") }
-    topP?.let { parts.add("top_p=$it") }
-    topK?.let { parts.add("top_k=$it") }
-    maxTokens?.let { parts.add("max_tokens=$it") }
-    return if (parts.isEmpty()) null else parts.joinToString(", ")
-  }
+}
 
+internal fun describeClientSamplerParams(
+  temperature: Double?,
+  topP: Double?,
+  topK: Int?,
+  maxTokens: Int?,
+): String? {
+  val parts = mutableListOf<String>()
+  temperature?.let { parts.add("temperature=$it") }
+  topP?.let { parts.add("top_p=$it") }
+  topK?.let { parts.add("top_k=$it") }
+  maxTokens?.let { parts.add("max_tokens=$it") }
+  return if (parts.isEmpty()) null else parts.joinToString(", ")
 }
 
 /**
@@ -533,16 +541,19 @@ internal fun buildPerRequestConfig(
 ): Map<String, Any>? {
   if (temperature == null && topP == null && topK == null && maxTokens == null) return null
   val overridden = model.configValues.toMutableMap()
-  temperature?.let { overridden[ConfigKeys.TEMPERATURE.label] = it.toFloat() }
-  topP?.let { overridden[ConfigKeys.TOPP.label] = it.toFloat() }
-  topK?.let { overridden[ConfigKeys.TOPK.label] = it }
+  temperature?.let {
+    overridden[ConfigKeys.TEMPERATURE.label] = it.toFloat().coerceIn(MIN_TEMPERATURE, MAX_TEMPERATURE)
+  }
+  topP?.let {
+    overridden[ConfigKeys.TOPP.label] = it.toFloat().coerceIn(MIN_TOPP, MAX_TOPP)
+  }
+  topK?.let {
+    overridden[ConfigKeys.TOPK.label] = it.coerceIn(MIN_TOPK, MAX_TOPK)
+  }
   maxTokens?.let {
+    val clamped = it.coerceIn(MIN_MAX_TOKENS, MAX_MAX_TOKENS)
     val engineMax = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
-    if (engineMax != null) {
-      overridden[ConfigKeys.MAX_TOKENS.label] = it.coerceAtMost(engineMax)
-    } else {
-      overridden[ConfigKeys.MAX_TOKENS.label] = it
-    }
+    overridden[ConfigKeys.MAX_TOKENS.label] = if (engineMax != null) clamped.coerceAtMost(engineMax) else clamped
   }
   return overridden.toMap()
 }
