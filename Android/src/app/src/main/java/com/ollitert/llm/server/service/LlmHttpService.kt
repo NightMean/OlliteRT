@@ -98,6 +98,14 @@ class LlmHttpService : Service() {
    * sits idle with the screen off. Acquired when the server starts, released in onDestroy().
    */
   private var wakeLock: android.os.PowerManager.WakeLock? = null
+  /**
+   * WiFi lock held for the entire server lifetime to keep the WiFi radio active when the
+   * screen is off. Many OEMs (Samsung, Xiaomi, Huawei) put WiFi into low-power mode when
+   * the screen turns off — even with a partial wake lock held — making the HTTP server
+   * unreachable on the LAN. WIFI_MODE_FULL_HIGH_PERF keeps the radio at full power.
+   */
+  @Suppress("DEPRECATION") // WifiLock is deprecated in API 34+ but still functional
+  private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
 
   private lateinit var logger: LlmHttpLogger
   private lateinit var allowlistLoader: LlmHttpAllowlistLoader
@@ -140,6 +148,12 @@ class LlmHttpService : Service() {
       // Acquired in onStartCommand once the server starts, released in onDestroy.
       val pm = getSystemService(POWER_SERVICE) as? android.os.PowerManager
       wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "OlliteRT::Server")?.apply {
+        setReferenceCounted(false)
+      }
+      @Suppress("DEPRECATION")
+      val wm = getSystemService(WIFI_SERVICE) as? android.net.wifi.WifiManager
+      @Suppress("DEPRECATION")
+      wifiLock = wm?.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "OlliteRT::Server")?.apply {
         setReferenceCounted(false)
       }
       LlmHttpNotificationHelper.createChannel(this)
@@ -214,6 +228,7 @@ class LlmHttpService : Service() {
     // Keep CPU awake for the entire server lifetime so the HTTP server stays reachable
     // on locked/idle devices (e.g. dedicated "closet server" use case).
     wakeLock?.acquire()
+    wifiLock?.acquire()
 
     // Handle reload action: clean up current model first, then proceed with normal start.
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
@@ -707,6 +722,8 @@ class LlmHttpService : Service() {
       RequestLogStore.clear()
     }
     // Release wake lock if still held (e.g. service killed mid-inference)
+    if (wifiLock?.isHeld == true) wifiLock?.release()
+    wifiLock = null
     if (wakeLock?.isHeld == true) wakeLock?.release()
     wakeLock = null
     logger.shutdown()
