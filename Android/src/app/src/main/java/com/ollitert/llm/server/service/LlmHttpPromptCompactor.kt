@@ -22,13 +22,14 @@ package com.ollitert.llm.server.service
  * When a prompt exceeds the model's max context tokens, strategies are applied
  * in order until the prompt fits:
  * 1. Conversation history truncation — keep system/developer messages + last N non-system messages
- * 2. Tool schema compaction — reduce to names+descriptions only, then remove entirely
+ * 2. Tool schema compaction — reduce to names+descriptions only
  * 3. Prompt trimming — hard-trim the string, keeping the tail (most recent content)
+ * 4. Full tool removal — strip tool schemas entirely (only reachable when trimming is disabled)
  *
  * Each strategy is gated by its own setting toggle:
  * - "Truncate Conversation History" gates history truncation
- * - "Compact Tool Schemas" gates tool schema reduction
- * - "Trim Prompt" gates hard-trimming as last resort
+ * - "Compact Tool Schemas" gates tool compaction (2) and full tool removal (4)
+ * - "Trim Prompt" gates hard-trimming; when enabled, trimming always resolves before (4)
  */
 object LlmHttpPromptCompactor {
 
@@ -119,8 +120,9 @@ object LlmHttpPromptCompactor {
     }
 
     // --- Strategy 2: Tool schema compaction ---
+    // Only compacts tools to names+descriptions. Does NOT remove tools — gives Strategy 3
+    // (trimming) a chance to fit the prompt with compact tools before escalating to removal.
     if (hasTools && compactToolSchemas) {
-      // Try compact tool schemas (names + descriptions only)
       val compactPrompt = LlmHttpRequestAdapter.buildToolAwarePrompt(
         currentMessages, tools, toolChoice, chatTemplate, compact = true, interleaveImagePlaceholders = interleaveImagePlaceholders,
       )
@@ -129,20 +131,11 @@ object LlmHttpPromptCompactor {
         return CompactionResult(compactPrompt, true, strategies)
       }
       currentToolsCompact = true
-
-      // Compact tools still too large — remove tools entirely
-      val noToolsPrompt = LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
-      if (estimateTokens(noToolsPrompt) <= maxContext) {
-        strategies.add("tools:removed")
-        return CompactionResult(noToolsPrompt, true, strategies)
-      }
-      currentToolsRemoved = true
-      strategies.add("tools:removed")
+      strategies.add("tools:compacted")
     }
 
-    // --- Strategy 3: Prompt trimming (last resort) ---
+    // --- Strategy 3: Prompt trimming ---
     if (trimPrompts) {
-      // Build the best prompt we have so far (with whatever messages/tools remain)
       val currentPrompt = when {
         hasTools && !currentToolsRemoved && currentToolsCompact ->
           LlmHttpRequestAdapter.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, compact = true, interleaveImagePlaceholders = interleaveImagePlaceholders)
@@ -152,14 +145,24 @@ object LlmHttpPromptCompactor {
           LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
       }
 
-      val maxChars = maxContext * 4 // Reverse the token estimate
+      val maxChars = maxContext * 4
       if (currentPrompt.length > maxChars) {
-        // Keep the tail — most recent content is more important
         val trimmed = currentPrompt.takeLast(maxChars)
         strategies.add("trimmed")
         return CompactionResult(trimmed, true, strategies)
       }
       return CompactionResult(currentPrompt, strategies.isNotEmpty(), strategies)
+    }
+
+    // --- Strategy 4: Full tool removal (last resort before giving up) ---
+    if (hasTools && compactToolSchemas && !currentToolsRemoved) {
+      val noToolsPrompt = LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
+      if (estimateTokens(noToolsPrompt) <= maxContext) {
+        strategies.add("tools:removed")
+        return CompactionResult(noToolsPrompt, true, strategies)
+      }
+      currentToolsRemoved = true
+      strategies.add("tools:removed")
     }
 
     // Compaction strategies exhausted or not enabled — return best effort
@@ -240,7 +243,7 @@ object LlmHttpPromptCompactor {
     }
 
     // No more strategies — return best effort with whatever truncation was done
-    val bestPrompt = if (strategies.isNotEmpty() && truncateHistory) {
+    val bestPrompt = if (strategies.isNotEmpty()) {
       val systemMsgs = messages.filter { it.role == "system" || it.role == "developer" }
       val nonSystemMsgs = messages.filter { it.role != "system" && it.role != "developer" }
       LlmHttpRequestAdapter.buildConversationPrompt(systemMsgs + nonSystemMsgs.takeLast(1), chatTemplate)

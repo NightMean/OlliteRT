@@ -30,7 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,7 +67,6 @@ fun ModelNameAndStatus(
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   var curDownloadProgress = 0f
 
-  val context = LocalContext.current
   Column(modifier = modifier) {
     // Model name — end padding reserves space for the overlaid action icons
     // (delete 40dp + settings 40dp + 8dp gap + 12dp card padding = 100dp worst case).
@@ -99,10 +97,7 @@ fun ModelNameAndStatus(
     }
 
     // Status icon + size + download progress details.
-    var showDownloadStatusUI = true
-
-    if (showDownloadStatusUI) {
-      Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         // Status icon.
         StatusIcon(
           model = model,
@@ -177,7 +172,6 @@ fun ModelNameAndStatus(
           }
         }
       }
-    }
 
     // Learn more url.
     if (!model.imported && model.learnMoreUrl.isNotEmpty()) {
