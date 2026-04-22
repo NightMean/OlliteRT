@@ -18,6 +18,7 @@
 package com.ollitert.llm.server.di
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
@@ -26,17 +27,16 @@ import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.data.BenchmarkResultsSerializer
-import com.ollitert.llm.server.data.SettingsSerializer
-import com.ollitert.llm.server.data.UserDataSerializer
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
 import com.ollitert.llm.server.data.DefaultDownloadRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.SettingsSerializer
+import com.ollitert.llm.server.data.UserDataSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.Settings
 import com.ollitert.llm.server.proto.UserData
-import android.util.Log
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

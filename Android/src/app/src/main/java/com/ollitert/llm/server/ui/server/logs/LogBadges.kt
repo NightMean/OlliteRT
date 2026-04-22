@@ -22,14 +22,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
-import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.formatByteSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.server.ContextOverflowColor
 import com.ollitert.llm.server.ui.server.TruncatedColor
 import com.ollitert.llm.server.ui.server.WarningColor

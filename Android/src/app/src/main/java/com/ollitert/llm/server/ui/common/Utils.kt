@@ -17,7 +17,6 @@
 
 package com.ollitert.llm.server.ui.common
 
-import com.ollitert.llm.server.R
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -26,6 +25,7 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import kotlin.math.ln

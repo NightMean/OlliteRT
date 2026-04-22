@@ -19,9 +19,9 @@ package com.ollitert.llm.server.data
 
 import android.os.Build
 import android.util.Log
-import com.ollitert.llm.server.common.isPixel10
-import com.ollitert.llm.server.common.SemVer
 import com.google.gson.annotations.SerializedName
+import com.ollitert.llm.server.common.SemVer
+import com.ollitert.llm.server.common.isPixel10
 
 private const val TAG = "OlliteRTModelAllowlist"
 

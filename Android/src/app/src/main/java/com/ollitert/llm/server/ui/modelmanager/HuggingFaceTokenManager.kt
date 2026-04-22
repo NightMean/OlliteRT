@@ -21,7 +21,6 @@ import android.content.Context
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.proto.AccessTokenData
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService

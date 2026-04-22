@@ -23,16 +23,17 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.Environment
+import android.os.StatFs
 import android.util.Log
-import com.ollitert.llm.server.R
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
-import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
 import com.ollitert.llm.server.data.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.KEY_MODEL_COMMIT_HASH
@@ -50,9 +51,10 @@ import com.ollitert.llm.server.data.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.KEY_MODEL_URL
+import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.TMP_FILE_EXT
-import android.os.Environment
-import android.os.StatFs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -62,8 +64,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 private const val TAG = "OlliteRTDownloadWorker"
 

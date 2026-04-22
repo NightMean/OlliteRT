@@ -19,8 +19,8 @@ package com.ollitert.llm.server.data
 
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
-import com.ollitert.llm.server.proto.BenchmarkResults
 import com.google.protobuf.InvalidProtocolBufferException
+import com.ollitert.llm.server.proto.BenchmarkResults
 import java.io.InputStream
 import java.io.OutputStream
 

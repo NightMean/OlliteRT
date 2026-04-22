@@ -17,9 +17,10 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
-import com.ollitert.llm.server.data.bytesToGb
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
+import android.os.StatFs
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.animation.core.Animatable
@@ -30,9 +31,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -72,24 +73,25 @@ import com.ollitert.llm.server.data.BooleanSwitchConfig
 import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.ConfigKey
 import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.EditableTextConfig
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
-import com.ollitert.llm.server.data.MAX_MAX_TOKENS
-import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.DEFAULT_TEMPERATURE
 import com.ollitert.llm.server.data.DEFAULT_TOPK
 import com.ollitert.llm.server.data.DEFAULT_TOPP
+import com.ollitert.llm.server.data.EditableTextConfig
 import com.ollitert.llm.server.data.IMPORTS_DIR
+import com.ollitert.llm.server.data.LabelConfig
+import com.ollitert.llm.server.data.MAX_MAX_TOKENS
 import com.ollitert.llm.server.data.MAX_TEMPERATURE
 import com.ollitert.llm.server.data.MAX_TOPK
 import com.ollitert.llm.server.data.MAX_TOPP
+import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.MIN_TEMPERATURE
 import com.ollitert.llm.server.data.MIN_TOPK
 import com.ollitert.llm.server.data.MIN_TOPP
-import com.ollitert.llm.server.data.LabelConfig
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.SegmentedButtonConfig
 import com.ollitert.llm.server.data.ValueType
+import com.ollitert.llm.server.data.bytesToGb
 import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
@@ -98,16 +100,14 @@ import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
 import com.ollitert.llm.server.ui.common.ensureValidFileName
 import com.ollitert.llm.server.ui.common.humanReadableSize
 import com.ollitert.llm.server.ui.common.isStorageLow
-import android.os.Environment
-import android.os.StatFs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 private const val TAG = "OlliteRTModelImportDialog"
 

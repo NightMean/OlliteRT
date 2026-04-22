@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.service
 
-import kotlinx.serialization.encodeToString
+import com.ollitert.llm.server.service.LlmHttpRequestAdapter.IMAGE_PLACEHOLDER
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject

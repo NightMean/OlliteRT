@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.ui.server.settings
 
-import com.ollitert.llm.server.service.LlmHttpBridgeUtils
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -49,8 +48,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.common.copyToClipboard
+import com.ollitert.llm.server.service.LlmHttpBridgeUtils
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary

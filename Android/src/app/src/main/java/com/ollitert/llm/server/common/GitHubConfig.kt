@@ -16,6 +16,10 @@
 
 package com.ollitert.llm.server.common
 
+import com.ollitert.llm.server.common.GitHubConfig.OWNER
+import com.ollitert.llm.server.common.GitHubConfig.REPO
+
+
 /**
  * Single source of truth for the OlliteRT GitHub repository location.
  * All repo-derived URLs are built from [OWNER] and [REPO] so that a repo

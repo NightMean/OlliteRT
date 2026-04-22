@@ -16,23 +16,19 @@
 
 package com.ollitert.llm.server.data
 
-import androidx.datastore.core.DataStoreFactory
 // Serializers now in same package (data) — no explicit import needed
+import androidx.datastore.core.DataStoreFactory
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.ImportedModel
-import java.io.FileOutputStream
-import java.nio.file.Path
-import kotlin.io.path.createTempDirectory
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Test
+import java.io.FileOutputStream
+import java.nio.file.Path
+import kotlin.io.path.createTempDirectory
 
 class DataStoreRepositoryTest {
 

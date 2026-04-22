@@ -17,17 +17,17 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.ServerMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * ViewModel that exposes server state to the UI layer.

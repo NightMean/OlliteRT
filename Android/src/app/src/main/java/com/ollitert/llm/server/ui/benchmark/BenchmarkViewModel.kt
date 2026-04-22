@@ -20,7 +20,11 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.benchmark
 import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.proto.BenchmarkResult
@@ -28,23 +32,19 @@ import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkStats
 import com.ollitert.llm.server.proto.ValueSeries
-import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.ExperimentalApi
-import com.google.ai.edge.litertlm.benchmark
 import com.ollitert.llm.server.service.ServerMetrics
-import com.ollitert.llm.server.common.ServerStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
-import javax.inject.Inject
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
+import javax.inject.Inject
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.random.Random
 
 private const val TAG = "OlliteRTBenchmarkVM"
 

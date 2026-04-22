@@ -19,7 +19,6 @@ package com.ollitert.llm.server.ui.server.settings
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BugReport
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PhoneAndroid

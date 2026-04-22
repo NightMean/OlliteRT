@@ -17,7 +17,7 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
-import com.ollitert.llm.server.R
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,18 +26,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
-import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.common.formatModelError
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,22 +42,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.ui.common.MarkdownText
-import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollitert.llm.server.common.ServerStatus
-import androidx.compose.ui.platform.LocalContext
-import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.service.LlmHttpService
-import android.widget.Toast
 import com.ollitert.llm.server.service.EventCategory
+import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.ui.common.MarkdownText
+import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.formatModelError
+import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.InferenceSettingsSheet
-import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.customColors
 
 /**

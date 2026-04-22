@@ -20,10 +20,10 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.os.SystemClock
 import android.util.Base64
-import com.ollitert.llm.server.R
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.IMPORTS_DIR
 import com.ollitert.llm.server.data.KEEP_ALIVE_RECHECK_MS
 import com.ollitert.llm.server.data.LlmHttpPrefs

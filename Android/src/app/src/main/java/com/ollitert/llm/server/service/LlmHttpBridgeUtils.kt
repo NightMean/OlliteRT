@@ -18,8 +18,8 @@ package com.ollitert.llm.server.service
 
 import android.util.Log
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
 import com.ollitert.llm.server.common.formatByteSize
+import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
 import fi.iki.elonen.NanoHTTPD
 
 object LlmHttpBridgeUtils {

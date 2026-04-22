@@ -18,10 +18,10 @@ package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.DefaultConfig
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 class LlmHttpModelFactoryTest {
   @Test

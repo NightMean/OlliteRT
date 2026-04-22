@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.service
 
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test

@@ -18,9 +18,9 @@
 package com.ollitert.llm.server.runtime
 
 import android.content.Context
-import com.ollitert.llm.server.data.Model
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ToolProvider
+import com.ollitert.llm.server.data.Model
 import kotlinx.coroutines.CoroutineScope
 
 typealias ResultListener =

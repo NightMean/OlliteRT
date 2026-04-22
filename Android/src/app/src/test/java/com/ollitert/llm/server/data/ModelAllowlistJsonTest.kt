@@ -16,8 +16,8 @@
 
 package com.ollitert.llm.server.data
 
-import com.ollitert.llm.server.common.SemVer
 import com.google.gson.JsonSyntaxException
+import com.ollitert.llm.server.common.SemVer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

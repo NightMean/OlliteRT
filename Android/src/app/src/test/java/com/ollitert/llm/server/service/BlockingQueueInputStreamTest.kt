@@ -16,12 +16,12 @@
 
 package com.ollitert.llm.server.service
 
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Tests for [BlockingQueueInputStream] — an InputStream backed by a LinkedBlockingQueue.

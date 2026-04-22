@@ -17,9 +17,6 @@
 package com.ollitert.llm.server.ui.server
 
 import android.widget.Toast
-import androidx.compose.ui.res.stringResource
-import com.ollitert.llm.server.R
-import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -44,13 +41,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,9 +56,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.ui.common.OlliteSearchBar
+import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
+import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.server.settings.AdvancedCard
 import com.ollitert.llm.server.ui.server.settings.AutoLaunchCard
 import com.ollitert.llm.server.ui.server.settings.CardId

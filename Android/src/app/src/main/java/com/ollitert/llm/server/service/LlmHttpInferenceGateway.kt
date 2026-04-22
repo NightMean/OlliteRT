@@ -19,6 +19,7 @@ package com.ollitert.llm.server.service
 import android.util.Log
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
+import com.ollitert.llm.server.service.LlmHttpInferenceGateway.executeStreaming
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit

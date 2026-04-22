@@ -17,19 +17,19 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
-import com.ollitert.llm.server.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.SettingDef
 import com.ollitert.llm.server.ui.server.settings.SettingEntry

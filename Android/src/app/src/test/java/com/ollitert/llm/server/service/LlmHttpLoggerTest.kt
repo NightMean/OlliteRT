@@ -18,12 +18,11 @@ package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.data.LOG_FILE_MAX_BYTES
 import com.ollitert.llm.server.data.MAX_PAYLOAD_LOG_CHARS
-import java.io.File
-import kotlin.io.path.createTempDirectory
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 class LlmHttpLoggerTest {
 

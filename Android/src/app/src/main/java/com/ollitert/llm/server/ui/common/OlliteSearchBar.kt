@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable

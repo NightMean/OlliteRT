@@ -28,8 +28,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,20 +37,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.service.LlmHttpService
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.service.LlmHttpService
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar
 import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
 import com.ollitert.llm.server.ui.navigation.OlliteRTRoutes
-import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.navigation.OlliteRTTab
 import com.ollitert.llm.server.ui.navigation.OlliteRTTopBar
 import com.ollitert.llm.server.ui.server.ServerViewModel
+import kotlinx.coroutines.flow.map
 
 /** Root composable for the OlliteRT app. */
 @Composable

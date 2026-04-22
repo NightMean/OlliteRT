@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.worker
 
-import com.ollitert.llm.server.common.GitHubConfig
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -38,6 +37,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS

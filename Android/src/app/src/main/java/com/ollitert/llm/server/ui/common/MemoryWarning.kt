@@ -17,7 +17,6 @@
 
 package com.ollitert.llm.server.ui.common
 
-import com.ollitert.llm.server.data.bytesToGb
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
@@ -25,8 +24,8 @@ import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -50,6 +49,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.bytesToGb
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 private const val TAG = "OlliteRTMemoryWarning"

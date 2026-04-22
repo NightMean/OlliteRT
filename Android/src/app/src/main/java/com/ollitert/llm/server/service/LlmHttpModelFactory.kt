@@ -22,8 +22,8 @@ import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.IMPORTS_DIR
-import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.MIN_MAX_TOKENS
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCapability
 import com.ollitert.llm.server.data.RuntimeType

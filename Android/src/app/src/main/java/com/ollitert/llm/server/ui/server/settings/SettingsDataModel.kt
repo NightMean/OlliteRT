@@ -17,10 +17,10 @@
 package com.ollitert.llm.server.ui.server.settings
 
 import android.content.Context
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**

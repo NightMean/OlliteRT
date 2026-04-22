@@ -16,13 +16,13 @@
 
 package com.ollitert.llm.server.ui.server.logs
 
-import com.ollitert.llm.server.R
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
+import com.ollitert.llm.server.service.RequestLogEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray

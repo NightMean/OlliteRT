@@ -22,24 +22,23 @@ import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.JsonSyntaxException
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.getJsonResponse
-import com.ollitert.llm.server.data.Config
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
-import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.EMPTY_MODEL
+import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.SOC
-import com.ollitert.llm.server.data.TMP_FILE_EXT
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.service.EventCategory
@@ -47,22 +46,20 @@ import com.ollitert.llm.server.service.LlmHttpModelFactory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.humanReadableSize
-import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import java.net.HttpURLConnection
+import java.net.URL
+import javax.inject.Inject
 
 private const val TAG = "OlliteRTModelManagerVM"
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"

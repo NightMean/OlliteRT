@@ -21,8 +21,8 @@ import android.app.Application
 import android.util.Log
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
+import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn

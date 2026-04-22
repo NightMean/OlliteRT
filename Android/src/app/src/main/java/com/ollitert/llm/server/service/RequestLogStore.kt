@@ -16,12 +16,19 @@
 
 package com.ollitert.llm.server.service
 
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
+import com.ollitert.llm.server.service.RequestLogStore.DEFAULT_MAX_ENTRIES
+import com.ollitert.llm.server.service.RequestLogStore._entries
+import com.ollitert.llm.server.service.RequestLogStore.cancelRequest
+import com.ollitert.llm.server.service.RequestLogStore.entries
+import com.ollitert.llm.server.service.RequestLogStore.maxEntries
+import com.ollitert.llm.server.service.RequestLogStore.pendingPartialText
+import com.ollitert.llm.server.service.RequestLogStore.setMaxEntries
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
 

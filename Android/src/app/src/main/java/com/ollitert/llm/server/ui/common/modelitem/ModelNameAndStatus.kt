@@ -17,7 +17,6 @@
 
 package com.ollitert.llm.server.ui.common.modelitem
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
@@ -31,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,12 +40,10 @@ import com.ollitert.llm.server.data.MODEL_INFO_ICON_SIZE
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.ui.common.ClickableLink
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
-import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.ui.common.humanReadableSize
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.customColors
 import com.ollitert.llm.server.ui.theme.labelSmallNarrow
 

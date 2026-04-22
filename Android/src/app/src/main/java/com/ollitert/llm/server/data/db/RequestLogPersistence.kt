@@ -24,9 +24,6 @@ import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
-import java.util.concurrent.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,6 +31,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.CancellationException
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Write-behind persistence bridge between [RequestLogStore] (in-memory) and Room.
