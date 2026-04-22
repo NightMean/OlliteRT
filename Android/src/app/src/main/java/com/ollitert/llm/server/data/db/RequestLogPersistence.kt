@@ -26,10 +26,13 @@ import com.squareup.moshi.Moshi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.concurrent.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +54,7 @@ class RequestLogPersistence @Inject constructor(
 ) : RequestLogStore.PersistenceCallback {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+  private var pruningJob: Job? = null
   private val isEnabled: Boolean get() = LlmHttpPrefs.isLogPersistenceEnabled(context)
 
   /**
@@ -67,6 +71,8 @@ class RequestLogPersistence @Inject constructor(
           // Prune first so expired/excess entries are removed before loading into memory.
           prune()
           loadFromDb()
+        } catch (e: CancellationException) {
+          throw e
         } catch (e: Exception) {
           Log.e(TAG, "Failed to load persisted logs", e)
         }
@@ -91,6 +97,8 @@ class RequestLogPersistence @Inject constructor(
     scope.launch {
       try {
         dao.upsert(RequestLogEntity.fromEntry(entry, moshi))
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to persist new log entry ${entry.id}", e)
       }
@@ -104,6 +112,8 @@ class RequestLogPersistence @Inject constructor(
     scope.launch {
       try {
         dao.upsert(RequestLogEntity.fromEntry(entry, moshi))
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to persist log entry update ${entry.id}", e)
       }
@@ -115,6 +125,8 @@ class RequestLogPersistence @Inject constructor(
     scope.launch {
       try {
         dao.deleteAll()
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to clear persisted logs", e)
       }
@@ -134,6 +146,8 @@ class RequestLogPersistence @Inject constructor(
         val entries = RequestLogStore.entries.value
         val entities = entries.map { RequestLogEntity.fromEntry(it, moshi) }
         dao.upsertAll(entities)
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to bulk-persist current entries", e)
       }
@@ -145,6 +159,8 @@ class RequestLogPersistence @Inject constructor(
     scope.launch {
       try {
         dao.deleteAll()
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to clear persisted logs", e)
       }
@@ -178,6 +194,8 @@ class RequestLogPersistence @Inject constructor(
       if (maxCount > 0) {
         dao.pruneToCount(maxCount)
       }
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       Log.e(TAG, "Log pruning failed", e)
     }
@@ -188,9 +206,11 @@ class RequestLogPersistence @Inject constructor(
    * Interval = configured retention period, clamped between 1 minute and 6 hours.
    * If auto-delete is disabled (0), falls back to 6 hours for count-based pruning only.
    */
-  private fun schedulePruning() {
-    scope.launch {
-      while (true) {
+  internal fun schedulePruning() {
+    pruningJob?.cancel()
+    if (!isEnabled) return
+    pruningJob = scope.launch {
+      while (isActive) {
         val retentionMinutes = LlmHttpPrefs.getLogAutoDeleteMinutes(context)
         val intervalMs = if (retentionMinutes > 0) {
           (retentionMinutes * 60_000L).coerceIn(
@@ -201,7 +221,7 @@ class RequestLogPersistence @Inject constructor(
           com.ollitert.llm.server.data.MAX_PRUNE_INTERVAL_MS
         }
         delay(intervalMs)
-        if (isEnabled) prune()
+        prune()
       }
     }
   }

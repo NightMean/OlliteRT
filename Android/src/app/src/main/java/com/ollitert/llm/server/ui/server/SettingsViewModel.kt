@@ -254,6 +254,8 @@ class SettingsViewModel @Inject constructor(
     portEntry.update(port)
 
     // ── Persist to SharedPreferences ──
+    val wasLogPersistenceEnabled = LlmHttpPrefs.isLogPersistenceEnabled(context)
+    val oldAutoDeleteMinutes = LlmHttpPrefs.getLogAutoDeleteMinutes(context)
     // Bearer token uses effective value (blank when toggle is off)
     LlmHttpPrefs.setBearerToken(context, effectiveBearerToken)
     // All non-Custom settings: persist via the definition's write lambda
@@ -286,6 +288,12 @@ class SettingsViewModel @Inject constructor(
       persistence.persistCurrentEntries()
     }
     persistence.updateMaxEntries()
+    val pruningConfigChanged = LlmHttpPrefs.isLogPersistenceEnabled(context) != wasLogPersistenceEnabled
+        || (LlmHttpPrefs.isLogPersistenceEnabled(context)
+            && LlmHttpPrefs.getLogAutoDeleteMinutes(context) != oldAutoDeleteMinutes)
+    if (pruningConfigChanged) {
+      persistence.schedulePruning()
+    }
 
     // ── Advance saved baselines ──
     portEntry.apply()
@@ -442,6 +450,7 @@ class SettingsViewModel @Inject constructor(
 
     // Side effects
     persistence.updateMaxEntries()
+    persistence.schedulePruning()
     persistence.clearPersistedLogs()
     UpdateCheckWorker.scheduleUpdateCheck(context)
   }
