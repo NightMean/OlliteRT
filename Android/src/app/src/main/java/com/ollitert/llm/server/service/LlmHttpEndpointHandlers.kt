@@ -206,7 +206,7 @@ class LlmHttpEndpointHandlers(
 
     if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
-      return okJsonText(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(model.name)))
+      return emptyChatResponse(model.name, stream = req.stream == true, sseExtraHeaders = sseExtraHeaders)
     }
 
     val includeUsage = req.stream_options?.include_usage == true
@@ -486,6 +486,23 @@ class LlmHttpEndpointHandlers(
   }
 
   // ── SSE response helpers ─────────────────────────────────────────────────
+
+  /** Empty response for /v1/chat/completions — returns SSE or JSON depending on stream flag. */
+  private fun emptyChatResponse(modelId: String, stream: Boolean, sseExtraHeaders: Map<String, String> = emptyMap()): NanoHTTPD.Response {
+    return if (stream) {
+      val chatId = "chatcmpl-${java.util.UUID.randomUUID()}"
+      val now = System.currentTimeMillis() / 1000
+      val payload = LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelId, now) +
+        LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelId, now) +
+        LlmHttpResponseRenderer.SSE_DONE
+      val sseStream = BlockingQueueInputStream()
+      sseStream.enqueue(payload)
+      sseStream.finish()
+      FlushingSseResponse(sseStream, sseExtraHeaders)
+    } else {
+      okJsonText(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(modelId)))
+    }
+  }
 
   /** Empty response for /v1/responses — returns SSE or JSON depending on stream flag. */
   private fun emptyResponse(modelId: String, stream: Boolean, sseExtraHeaders: Map<String, String> = emptyMap()): NanoHTTPD.Response {
