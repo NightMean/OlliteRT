@@ -89,7 +89,7 @@ class LlmHttpPrometheusRendererTest {
     ServerMetrics.incrementRequestCount()
     ServerMetrics.addTokens(150)
     ServerMetrics.addTokensIn(500)
-    ServerMetrics.incrementErrorCount()
+    ServerMetrics.incrementErrorCount(ErrorCategory.INFERENCE)
     ServerMetrics.recordModality(hasImages = false, hasAudio = false) // text
     ServerMetrics.recordModality(hasImages = true, hasAudio = false) // image
     ServerMetrics.recordLatency(250)

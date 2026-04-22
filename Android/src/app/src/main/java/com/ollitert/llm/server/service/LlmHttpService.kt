@@ -95,7 +95,8 @@ class LlmHttpService : Service() {
    * Partial wake lock held for the entire server lifetime to keep the CPU awake while serving.
    * Without this, Doze mode suspends CPU on a locked/idle device — making the HTTP server
    * unreachable between requests. Essential for "closet server" use cases where the device
-   * sits idle with the screen off. Acquired when the server starts, released in onDestroy().
+   * sits idle with the screen off for days/weeks. Intentionally acquired without a timeout —
+   * the server is designed to run 24/7, and the lock is released in onDestroy().
    */
   private var wakeLock: android.os.PowerManager.WakeLock? = null
   /**
@@ -103,8 +104,8 @@ class LlmHttpService : Service() {
    * screen is off. Many OEMs (Samsung, Xiaomi, Huawei) put WiFi into low-power mode when
    * the screen turns off — even with a partial wake lock held — making the HTTP server
    * unreachable on the LAN. WIFI_MODE_FULL_HIGH_PERF keeps the radio at full power.
+   * Like the wake lock, held without a timeout for 24/7 operation; released in onDestroy().
    */
-  @Suppress("DEPRECATION") // WifiLock is deprecated in API 34+ but still functional
   private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
 
   private lateinit var logger: LlmHttpLogger
@@ -150,9 +151,8 @@ class LlmHttpService : Service() {
       wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "OlliteRT::Server")?.apply {
         setReferenceCounted(false)
       }
-      @Suppress("DEPRECATION")
       val wm = getSystemService(WIFI_SERVICE) as? android.net.wifi.WifiManager
-      @Suppress("DEPRECATION")
+      @Suppress("DEPRECATION") // WIFI_MODE_FULL_HIGH_PERF deprecated in API 34, no equivalent for keeping WiFi at full power
       wifiLock = wm?.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "OlliteRT::Server")?.apply {
         setReferenceCounted(false)
       }
@@ -471,8 +471,16 @@ class LlmHttpService : Service() {
         cleanupLatch.get()?.let { latch ->
           if (latch.count > 0) {
             Log.i(logTag, "Waiting for previous model cleanup to finish...")
-            latch.await(CLEANUP_AWAIT_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
-            Log.i(logTag, "Previous cleanup finished, proceeding with model load")
+            val cleanedUp = latch.await(CLEANUP_AWAIT_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+            if (cleanedUp) {
+              Log.i(logTag, "Previous cleanup finished, proceeding with model load")
+            } else {
+              // Native cleanup is still running — Thread.interrupt() can't break JNI calls,
+              // and refusing to load would leave the server permanently stuck. Proceed and
+              // accept the small risk of a native resource race (SIGSEGV). In practice this
+              // only happens with severely buggy GPU drivers that deadlock in Engine.close().
+              Log.w(logTag, "Previous cleanup did not finish within ${CLEANUP_AWAIT_TIMEOUT_SECONDS}s, proceeding anyway — native resource race possible")
+            }
           }
         }
 
@@ -622,6 +630,7 @@ class LlmHttpService : Service() {
     return START_STICKY
   }
 
+  @Suppress("DEPRECATION") // onTrimMemory deprecated in API 34, but onTrimMemory is still called by the framework
   override fun onTrimMemory(level: Int) {
     super.onTrimMemory(level)
     // TRIM_MEMORY_RUNNING_CRITICAL = 15: the system is critically low on memory and the process
@@ -629,7 +638,6 @@ class LlmHttpService : Service() {
     // can see "System memory pressure" in the Logs tab before a crash, rather than the app dying
     // silently. The GC hint doesn't free the model's native memory (which is the bulk of our
     // footprint) but helps release JVM wrapper objects sooner.
-    @Suppress("DEPRECATION")
     if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
       RequestLogStore.addEvent(
         "System memory pressure (critical)",

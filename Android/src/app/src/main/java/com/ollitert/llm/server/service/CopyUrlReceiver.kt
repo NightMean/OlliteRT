@@ -29,8 +29,13 @@ import com.ollitert.llm.server.common.copyToClipboard
 class CopyUrlReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
-    val url = intent.getStringExtra(EXTRA_URL) ?: return
-    copyToClipboard(context, context.getString(R.string.clipboard_label_endpoint), url)
+    try {
+      val url = intent.getStringExtra(EXTRA_URL) ?: return
+      copyToClipboard(context, context.getString(R.string.clipboard_label_endpoint), url)
+    } catch (_: Exception) {
+      // Unhandled exceptions in onReceive() crash the app. Some OEMs throw
+      // SecurityException from ClipboardManager when called from a notification action.
+    }
   }
 
   companion object {

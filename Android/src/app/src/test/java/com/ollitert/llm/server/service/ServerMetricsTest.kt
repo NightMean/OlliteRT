@@ -165,18 +165,7 @@ class ServerMetricsTest {
     assertEquals(1L, ServerMetrics.audioRequests.value)
   }
 
-  // ── incrementErrorCount() ────────────────────────────────────────────────
-
-  @Test
-  fun incrementErrorCountNoCategory() {
-    ServerMetrics.incrementErrorCount()
-    assertEquals(1L, ServerMetrics.errorCount.value)
-    // Category counters should remain zero
-    assertEquals(0L, ServerMetrics.modelLoadErrors.value)
-    assertEquals(0L, ServerMetrics.inferenceErrors.value)
-    assertEquals(0L, ServerMetrics.networkErrors.value)
-    assertEquals(0L, ServerMetrics.systemErrors.value)
-  }
+  // ── incrementErrorCount(category) ───────────────────────────────────────
 
   @Test
   fun incrementErrorCountModelLoad() {
@@ -208,11 +197,9 @@ class ServerMetricsTest {
 
   @Test
   fun incrementErrorCountMixedCategoriesAccumulate() {
-    ServerMetrics.incrementErrorCount()
     ServerMetrics.incrementErrorCount(ErrorCategory.INFERENCE)
     ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
-    // Aggregate should be 3 (1 uncategorized + 2 categorized)
-    assertEquals(3L, ServerMetrics.errorCount.value)
+    assertEquals(2L, ServerMetrics.errorCount.value)
     assertEquals(1L, ServerMetrics.inferenceErrors.value)
     assertEquals(1L, ServerMetrics.networkErrors.value)
     assertEquals(0L, ServerMetrics.modelLoadErrors.value)

@@ -23,7 +23,6 @@ import kotlin.math.abs
 enum class ValueType {
   INT,
   FLOAT,
-  DOUBLE,
   STRING,
   BOOLEAN,
 }
@@ -161,15 +160,6 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         else -> ""
       }
 
-    ValueType.DOUBLE ->
-      when (value) {
-        is Int -> value.toDouble()
-        is Float -> value.toDouble()
-        is Double -> value
-        is String -> value.toDoubleOrNull() ?: ""
-        is Boolean -> if (value) 1.0 else 0.0
-        else -> ""
-      }
 
     ValueType.BOOLEAN ->
       when (value) {

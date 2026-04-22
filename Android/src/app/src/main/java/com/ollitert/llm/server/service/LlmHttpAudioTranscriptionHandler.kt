@@ -109,7 +109,16 @@ class LlmHttpAudioTranscriptionHandler(
     }
 
     val tempFile = File(context.cacheDir, "audio_upload_${System.currentTimeMillis()}.tmp")
-    tempFile.writeBytes(parsed.fileBytes)
+    try {
+      tempFile.writeBytes(parsed.fileBytes)
+    } catch (e: java.io.IOException) {
+      return openAiError(
+        NanoHTTPD.Response.Status.INTERNAL_ERROR,
+        "Failed to write audio to temp file: ${e.message}",
+        "server_error",
+        "disk_write_failed",
+      )
+    }
     try {
       val language = parsed.fields["language"]?.takeIf { it.isNotBlank() }
       val prompt = parsed.fields["prompt"]?.takeIf { it.isNotBlank() }

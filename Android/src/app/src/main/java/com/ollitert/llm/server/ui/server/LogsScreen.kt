@@ -1078,11 +1078,3 @@ internal fun BouncingDots() {
 
 // TODO: Model-based prompt compaction. When implemented, this animation will be used
 // in the pending state to indicate the model is actively compacting/summarizing the prompt.
-// Event message parsing, highlighting — moved to logs/LogEventParsers.kt
-
-// Event card and entry card composables — moved to logs/LogEventCard.kt and logs/LogEntryCard.kt
-
-// Clipboard/export functions — moved to logs/LogClipboardExport.kt
-// Badge composables, formatters — moved to logs/LogBadges.kt
-
-// JSON highlighting — moved to logs/LogJsonHighlighter.kt

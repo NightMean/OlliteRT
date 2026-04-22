@@ -333,11 +333,6 @@ object ServerMetrics {
     }
   }
 
-  /** Increment the aggregate error counter (no category breakdown). */
-  fun incrementErrorCount() {
-    _errorCountFlow.value = _errorCount.incrementAndGet()
-  }
-
   /** Increment both the aggregate and per-category error counters. */
   fun incrementErrorCount(category: ErrorCategory) {
     _errorCountFlow.value = _errorCount.incrementAndGet()

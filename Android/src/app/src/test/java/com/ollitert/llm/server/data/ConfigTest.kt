@@ -97,34 +97,6 @@ class ConfigTest {
     assertEquals(1f, convertValueToTargetType(true, ValueType.FLOAT))
   }
 
-  // ── convertValueToTargetType() — DOUBLE ──────────────────────────────────
-
-  @Test
-  fun convertDoubleFromDouble() {
-    assertEquals(3.14, convertValueToTargetType(3.14, ValueType.DOUBLE))
-  }
-
-  @Test
-  fun convertDoubleFromInt() {
-    assertEquals(5.0, convertValueToTargetType(5, ValueType.DOUBLE))
-  }
-
-  @Test
-  fun convertDoubleFromFloat() {
-    val result = convertValueToTargetType(2.5f, ValueType.DOUBLE) as Double
-    assertEquals(2.5, result, 0.001)
-  }
-
-  @Test
-  fun convertDoubleFromValidString() {
-    assertEquals(1.5, convertValueToTargetType("1.5", ValueType.DOUBLE))
-  }
-
-  @Test
-  fun convertDoubleFromInvalidStringReturnsFallback() {
-    assertEquals("", convertValueToTargetType("nope", ValueType.DOUBLE))
-  }
-
   // ── convertValueToTargetType() — BOOLEAN ─────────────────────────────────
 
   @Test
