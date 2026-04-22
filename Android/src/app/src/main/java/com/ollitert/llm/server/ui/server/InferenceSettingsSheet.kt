@@ -93,6 +93,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
@@ -141,10 +142,14 @@ fun InferenceSettingsSheet(
       (configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
     )
   }
-  var useGpu by remember {
-    mutableStateOf(
-      configValues[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
-    )
+  // NPU/TPU availability is driven entirely by the model allowlist — there is no runtime API in
+  // LiteRT LM SDK (0.10.0) to detect whether the device actually has an NPU/TPU. If a model's
+  // allowlist entry includes "npu", we show it here; otherwise it stays hidden.
+  val availableAccelerators = model.accelerators.ifEmpty { listOf(Accelerator.GPU) }
+  var selectedAccelerator by remember {
+    val current = configValues[ConfigKeys.ACCELERATOR.label]?.toString() ?: ""
+    val matched = availableAccelerators.find { it.label.equals(current, ignoreCase = true) }
+    mutableStateOf(matched ?: availableAccelerators.first())
   }
 
   // Extract per-model min/max limits from NumberSliderConfig objects
@@ -187,7 +192,9 @@ fun InferenceSettingsSheet(
           topK = defaults[ConfigKeys.TOPK.label].toIntSafe() ?: 40
           topP = defaults[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f
           enableThinking = (defaults[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
-          useGpu = defaults[ConfigKeys.ACCELERATOR.label]?.toString()?.contains("GPU", ignoreCase = true) ?: true
+          val defaultAcc = defaults[ConfigKeys.ACCELERATOR.label]?.toString() ?: ""
+          selectedAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
+            ?: availableAccelerators.first()
           systemPrompt = ""
           Toast.makeText(context, modelSettingsResetText, Toast.LENGTH_SHORT).show()
         }) {
@@ -348,26 +355,41 @@ fun InferenceSettingsSheet(
       }
 
       // Accelerator toggle in a container
-      Row(
+      Column(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(16.dp))
           .background(MaterialTheme.colorScheme.surfaceContainerHigh)
           .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
       ) {
-        Text(
-          text = stringResource(R.string.inference_settings_accelerator),
-          style = MaterialTheme.typography.bodyLarge,
-          fontWeight = FontWeight.Medium,
-          color = MaterialTheme.colorScheme.onSurface,
-          modifier = Modifier.weight(1f),
-        )
-        // Segmented toggle: GPU | CPU
-        AcceleratorToggle(
-          useGpu = useGpu,
-          onToggle = { useGpu = it },
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = stringResource(R.string.inference_settings_accelerator),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+          )
+          AcceleratorToggle(
+            options = availableAccelerators,
+            selected = selectedAccelerator,
+            onSelect = { selectedAccelerator = it },
+          )
+        }
+        if (availableAccelerators.size == 1) {
+          Spacer(modifier = Modifier.height(6.dp))
+          Text(
+            text = stringResource(
+              R.string.inference_settings_accelerator_only,
+              availableAccelerators.first().label,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
       }
 
       // Advanced section — custom system prompt (gated by Settings toggle)
@@ -462,7 +484,7 @@ fun InferenceSettingsSheet(
           newValues[ConfigKeys.TOPK.label] = clampedTopK
           newValues[ConfigKeys.TOPP.label] = clampedTopP
           newValues[ConfigKeys.ENABLE_THINKING.label] = enableThinking
-          newValues[ConfigKeys.ACCELERATOR.label] = if (useGpu) "GPU" else "CPU"
+          newValues[ConfigKeys.ACCELERATOR.label] = selectedAccelerator.label
           onApply(newValues, systemPrompt)
         },
         modifier = Modifier
@@ -625,14 +647,17 @@ private fun ParameterInputBox(
 
 @Composable
 private fun AcceleratorToggle(
-  useGpu: Boolean,
-  onToggle: (Boolean) -> Unit,
+  options: List<Accelerator>,
+  selected: Accelerator,
+  onSelect: (Accelerator) -> Unit,
 ) {
-  val toggleWidth = 140.dp
-  val halfWidth = toggleWidth / 2
+  val segmentWidth = 70.dp
+  val toggleWidth = segmentWidth * options.size
+  val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
+  val singleOption = options.size == 1
 
   val offsetX by animateDpAsState(
-    targetValue = if (useGpu) 0.dp else halfWidth,
+    targetValue = segmentWidth * selectedIndex,
     animationSpec = tween(200),
     label = "toggle_offset",
   )
@@ -648,7 +673,7 @@ private fun AcceleratorToggle(
     Box(
       modifier = Modifier
         .offset(x = offsetX)
-        .width(halfWidth)
+        .width(segmentWidth)
         .height(36.dp)
         .clip(RoundedCornerShape(50))
         .background(OlliteRTPrimary),
@@ -656,51 +681,35 @@ private fun AcceleratorToggle(
 
     // Labels
     Row(modifier = Modifier.matchParentSize()) {
-      Box(
-        modifier = Modifier
-          .weight(1f)
-          .height(36.dp)
-          .clip(RoundedCornerShape(50))
-          .clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-          ) { onToggle(true) },
-        contentAlignment = Alignment.Center,
-      ) {
-        val gpuTextColor by animateColorAsState(
-          targetValue = if (useGpu) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
-          animationSpec = tween(200),
-          label = "gpu_text",
-        )
-        Text(
-          text = stringResource(R.string.inference_settings_accelerator_gpu),
-          style = MaterialTheme.typography.labelLarge,
-          fontWeight = FontWeight.Bold,
-          color = gpuTextColor,
-        )
-      }
-      Box(
-        modifier = Modifier
-          .weight(1f)
-          .height(36.dp)
-          .clip(RoundedCornerShape(50))
-          .clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-          ) { onToggle(false) },
-        contentAlignment = Alignment.Center,
-      ) {
-        val cpuTextColor by animateColorAsState(
-          targetValue = if (!useGpu) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
-          animationSpec = tween(200),
-          label = "cpu_text",
-        )
-        Text(
-          text = stringResource(R.string.inference_settings_accelerator_cpu),
-          style = MaterialTheme.typography.labelLarge,
-          fontWeight = FontWeight.Bold,
-          color = cpuTextColor,
-        )
+      options.forEach { accelerator ->
+        val isSelected = accelerator == selected
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .height(36.dp)
+            .clip(RoundedCornerShape(50))
+            .then(
+              if (singleOption) Modifier
+              else Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+              ) { onSelect(accelerator) }
+            ),
+          contentAlignment = Alignment.Center,
+        ) {
+          val textColor by animateColorAsState(
+            targetValue = if (isSelected) Color.Black
+              else MaterialTheme.colorScheme.onSurfaceVariant,
+            animationSpec = tween(200),
+            label = "accel_text_${accelerator.label}",
+          )
+          Text(
+            text = accelerator.label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+          )
+        }
       }
     }
   }

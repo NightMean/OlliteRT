@@ -731,6 +731,7 @@
   <string name="inference_settings_accelerator">Accelerator</string>
   <string name="inference_settings_accelerator_gpu" translatable="false">GPU</string>
   <string name="inference_settings_accelerator_cpu" translatable="false">CPU</string>
+  <string name="inference_settings_accelerator_only">This model only supports %1$s acceleration</string>
   <string name="inference_settings_custom_system_prompt">Custom System Prompt</string>
   <string name="inference_settings_system_prompt_description">Prepended to every conversation as a system instruction</string>
   <string name="inference_settings_label_system_prompt" translatable="false">SYSTEM PROMPT</string>
