@@ -160,7 +160,9 @@ class LlmHttpInferenceRunner(
       }
     }
 
-    val originalConfig = if (configSnapshot != null) model.configValues else null
+    // Captured inside the resetConversation lambda (which runs under inferenceLock) so
+    // that concurrent updateConfigValues() writes are visible before we snapshot.
+    var originalConfig: Map<String, Any>? = null
 
     val result = LlmHttpInferenceGateway.execute(
       prompt = prompt,
@@ -168,7 +170,10 @@ class LlmHttpInferenceRunner(
       executor = executor,
       inferenceLock = inferenceLock,
       resetConversation = {
-        if (configSnapshot != null) model.configValues = configSnapshot
+        if (configSnapshot != null) {
+          originalConfig = model.configValues
+          model.configValues = configSnapshot
+        }
         ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
       },
       runInference = { input, onPartial, onError ->
@@ -552,11 +557,9 @@ class LlmHttpInferenceRunner(
       }
     }
 
-    // Read before the executor applies the snapshot. configValues is @Volatile so the
-    // read is visibility-safe without a lock. Do NOT wrap in synchronized(inferenceLock) —
-    // the onToken callback runs inside the executor's synchronized block, and the LiteRT
-    // SDK may deliver callbacks on a different thread, causing a deadlock.
-    val originalConfig = if (configSnapshot != null) model.configValues else null
+    // Captured inside the resetConversation lambda (which runs under inferenceLock) so
+    // that concurrent updateConfigValues() writes are visible before we snapshot.
+    var originalConfig: Map<String, Any>? = null
 
     LlmHttpInferenceGateway.executeStreaming(
       prompt = prompt,
@@ -564,7 +567,10 @@ class LlmHttpInferenceRunner(
       executor = executor,
       inferenceLock = inferenceLock,
       resetConversation = {
-        if (configSnapshot != null) model.configValues = configSnapshot
+        if (configSnapshot != null) {
+          originalConfig = model.configValues
+          model.configValues = configSnapshot
+        }
         ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
       },
       runInference = { input, onPartial, onError ->
