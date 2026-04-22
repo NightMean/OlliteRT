@@ -88,6 +88,11 @@ class LlmHttpModelLifecycle(
    * (onStartCommand, ACTION_RELOAD, onDestroy) and the inference hot path (selectModel) must
    * hold this lock. Without it, a keep-alive unload can race with an in-flight request, causing
    * the request thread to use a Model whose native Engine is being destroyed concurrently.
+   *
+   * Lock ordering (to prevent deadlock):
+   * 1. keepAliveLock — outermost, for model lifecycle transitions (load, unload, idle reload, select)
+   * 2. inferenceLock (in LlmHttpService) — innermost, for serializing inference and config writes
+   * Never acquire keepAliveLock while holding inferenceLock.
    */
   val keepAliveLock = Any()
 

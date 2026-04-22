@@ -66,7 +66,8 @@ class LlmHttpService : Service() {
   private val requestCounter = AtomicLong(0)
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
-  /** Shared lock for serializing inference and config writes — passed to InferenceRunner and used by updateConfigValues. */
+  /** Shared lock for serializing inference and config writes — passed to InferenceRunner and Server.
+   *  Must always be acquired AFTER keepAliveLock (in LlmHttpModelLifecycle), never before it. */
   private val inferenceLock = Any()
   @Volatile private var loadThread: Thread? = null
 

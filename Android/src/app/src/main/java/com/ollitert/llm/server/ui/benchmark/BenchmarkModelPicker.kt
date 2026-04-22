@@ -108,7 +108,7 @@ fun BenchmarkModelPicker(
           modifier = Modifier.padding(16.dp),
         )
         LazyColumn {
-          items(modelNames) { modelName ->
+          items(modelNames, key = { it }) { modelName ->
             Row(
               modifier =
                 Modifier.clickable {
