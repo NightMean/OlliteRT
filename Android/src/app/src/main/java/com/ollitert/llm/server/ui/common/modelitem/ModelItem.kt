@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -207,11 +208,15 @@ fun ModelItem(
 
   // Edit imported model defaults dialog
   if (showEditDefaults && model.imported) {
-    val existingInfo = modelManagerViewModel.dataStoreRepository.readImportedModels()
-      .firstOrNull { it.fileName == model.name }
-    if (existingInfo != null) {
+    var existingInfo by remember { mutableStateOf<com.ollitert.llm.server.proto.ImportedModel?>(null) }
+    LaunchedEffect(model.name) {
+      existingInfo = modelManagerViewModel.dataStoreRepository.readImportedModels()
+        .firstOrNull { it.fileName == model.name }
+    }
+    val loadedInfo = existingInfo
+    if (loadedInfo != null) {
       com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog(
-        existingModel = existingInfo,
+        existingModel = loadedInfo,
         isCurrentlyActive = activeModelName == model.name && serverStatus != ServerStatus.STOPPED,
         onDismiss = { showEditDefaults = false },
         onDone = { updated ->

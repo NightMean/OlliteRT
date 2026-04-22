@@ -56,6 +56,7 @@ import java.net.URL
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -152,6 +153,10 @@ constructor(
   private val lifecycleProvider: AppLifecycleProvider,
   @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
+  // Synchronous one-time read — NavHost requires startDestination during first composition.
+  // This is the only acceptable runBlocking survivor in the codebase.
+  val onboardingCompleted: Boolean = runBlocking { dataStoreRepository.isOnboardingCompleted() }
+
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
@@ -183,6 +188,10 @@ constructor(
 
   override fun onCleared() {
     tokenManager.dispose()
+  }
+
+  fun completeOnboarding() {
+    viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.setOnboardingCompleted() }
   }
 
   fun getModelByName(name: String): Model? {
@@ -265,13 +274,14 @@ constructor(
     )
 
     if (model.imported) {
-      // Update data store.
-      val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-      val importedModelIndex = importedModels.indexOfFirst { it.fileName == model.name }
-      if (importedModelIndex >= 0) {
-        importedModels.removeAt(importedModelIndex)
+      viewModelScope.launch(Dispatchers.IO) {
+        val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+        val importedModelIndex = importedModels.indexOfFirst { it.fileName == model.name }
+        if (importedModelIndex >= 0) {
+          importedModels.removeAt(importedModelIndex)
+        }
+        dataStoreRepository.saveImportedModels(importedModels = importedModels)
       }
-      dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
     _uiState.update { current ->
       val statusMap = current.modelDownloadStatus.toMutableMap()
@@ -390,15 +400,16 @@ constructor(
       )
     }
 
-    // Add to data store.
-    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-    val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
-    if (importedModelIndex >= 0) {
-      Log.d(TAG, "duplicated imported model found in data store. Removing it first")
-      importedModels.removeAt(importedModelIndex)
+    viewModelScope.launch(Dispatchers.IO) {
+      val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+      val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
+      if (importedModelIndex >= 0) {
+        Log.d(TAG, "duplicated imported model found in data store. Removing it first")
+        importedModels.removeAt(importedModelIndex)
+      }
+      importedModels.add(info)
+      dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
-    importedModels.add(info)
-    dataStoreRepository.saveImportedModels(importedModels = importedModels)
 
     RequestLogStore.addEvent(
       "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
@@ -416,8 +427,9 @@ constructor(
   fun updateImportedModelDefaults(updatedInfo: ImportedModel) {
     Log.d(TAG, "updating imported model defaults: ${updatedInfo.fileName}")
 
-    // Persist updated proto entry
-    dataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
+    viewModelScope.launch(Dispatchers.IO) {
+      dataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
+    }
 
     // Clear inference config overrides so saved values don't conflict with new defaults
     LlmHttpPrefs.clearInferenceConfig(context, updatedInfo.fileName)
@@ -442,7 +454,7 @@ constructor(
   }
 
   // Token management — delegated to HuggingFaceTokenManager
-  fun getTokenStatusAndData() = tokenManager.getTokenStatusAndData()
+  suspend fun getTokenStatusAndData() = tokenManager.getTokenStatusAndData()
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) =
     tokenManager.handleAuthResult(result, onTokenRequested)
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) =
@@ -639,12 +651,14 @@ constructor(
 
   fun clearLoadModelAllowlistError() {
     processModels()
-    _uiState.update {
-      createUiState()
-        .copy(
-          loadingModelAllowlist = false,
-          loadingModelAllowlistError = "",
-        )
+    viewModelScope.launch(Dispatchers.IO) {
+      _uiState.update {
+        createUiState()
+          .copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = "",
+          )
+      }
     }
   }
 
@@ -663,7 +677,7 @@ constructor(
     return ModelManagerUiState()
   }
 
-  private fun createUiState(): ModelManagerUiState {
+  private suspend fun createUiState(): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
     for (model in uiState.value.models) {

@@ -64,8 +64,7 @@ fun OlliteRTApp(
   val backStackEntry by navController.currentBackStackEntryAsState()
   val currentRoute = backStackEntry?.destination?.route
 
-  // Determine start destination based on onboarding state
-  val startDestination = if (modelManagerViewModel.dataStoreRepository.isOnboardingCompleted()) {
+  val startDestination = if (modelManagerViewModel.onboardingCompleted) {
     OlliteRTRoutes.MODELS
   } else {
     OlliteRTRoutes.GETTING_STARTED

@@ -46,7 +46,7 @@ class HuggingFaceTokenManager(
     authService.dispose()
   }
 
-  override fun getTokenStatusAndData(): TokenStatusAndData {
+  override suspend fun getTokenStatusAndData(): TokenStatusAndData {
     var tokenStatus = TokenStatus.NOT_STORED
     Log.d(TAG, "Reading token data from data store...")
     val tokenData = dataStoreRepository.readAccessTokenData()
@@ -147,12 +147,16 @@ class HuggingFaceTokenManager(
     }
   }
 
+  // Called from AppAuth performTokenRequest callback (non-coroutine, background thread).
+  // runBlocking is acceptable here — narrow boundary on a background thread.
   override fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
-    dataStoreRepository.saveAccessTokenData(
-      accessToken = accessToken,
-      refreshToken = refreshToken,
-      expiresAt = expiresAt,
-    )
+    kotlinx.coroutines.runBlocking {
+      dataStoreRepository.saveAccessTokenData(
+        accessToken = accessToken,
+        refreshToken = refreshToken,
+        expiresAt = expiresAt,
+      )
+    }
   }
 
 }

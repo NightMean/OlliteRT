@@ -34,7 +34,7 @@ interface TokenManager {
   val authService: AuthorizationService
   var curAccessToken: String
   fun dispose()
-  fun getTokenStatusAndData(): TokenStatusAndData
+  suspend fun getTokenStatusAndData(): TokenStatusAndData
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit)
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long)
 }

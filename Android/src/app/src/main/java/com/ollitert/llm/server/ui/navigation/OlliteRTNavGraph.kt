@@ -238,7 +238,7 @@ fun OlliteRTNavHost(
     composable(OlliteRTRoutes.GETTING_STARTED) {
       GettingStartedScreen(
         onGetStartedClick = {
-          modelManagerViewModel.dataStoreRepository.setOnboardingCompleted()
+          modelManagerViewModel.completeOnboarding()
           navController.navigate(OlliteRTRoutes.MODELS) {
             popUpTo(OlliteRTRoutes.GETTING_STARTED) { inclusive = true }
           }

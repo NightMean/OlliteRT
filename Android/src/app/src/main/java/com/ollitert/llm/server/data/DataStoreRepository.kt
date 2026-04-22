@@ -25,27 +25,26 @@ import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.Settings
 import com.ollitert.llm.server.proto.UserData
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 
 interface DataStoreRepository {
-  fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
-  fun clearAccessTokenData()
-  fun readAccessTokenData(): AccessTokenData?
+  suspend fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
+  suspend fun clearAccessTokenData()
+  suspend fun readAccessTokenData(): AccessTokenData?
 
-  fun saveImportedModels(importedModels: List<ImportedModel>)
-  fun readImportedModels(): List<ImportedModel>
-  fun updateImportedModel(fileName: String, updatedModel: ImportedModel)
+  suspend fun saveImportedModels(importedModels: List<ImportedModel>)
+  suspend fun readImportedModels(): List<ImportedModel>
+  suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel)
 
-  fun setHasSeenBenchmarkComparisonHelp(seen: Boolean)
-  fun getHasSeenBenchmarkComparisonHelp(): Boolean
+  suspend fun setHasSeenBenchmarkComparisonHelp(seen: Boolean)
+  suspend fun getHasSeenBenchmarkComparisonHelp(): Boolean
 
-  fun addBenchmarkResult(result: BenchmarkResult)
-  fun getAllBenchmarkResults(): List<BenchmarkResult>
-  fun deleteBenchmarkResult(index: Int)
-  fun setBenchmarkResults(results: List<BenchmarkResult>)
+  suspend fun addBenchmarkResult(result: BenchmarkResult)
+  suspend fun getAllBenchmarkResults(): List<BenchmarkResult>
+  suspend fun deleteBenchmarkResult(index: Int)
+  suspend fun setBenchmarkResults(results: List<BenchmarkResult>)
 
-  fun isOnboardingCompleted(): Boolean
-  fun setOnboardingCompleted()
+  suspend fun isOnboardingCompleted(): Boolean
+  suspend fun setOnboardingCompleted()
 }
 
 class DefaultDataStoreRepository(
@@ -54,117 +53,91 @@ class DefaultDataStoreRepository(
   private val benchmarkResultsDataStore: DataStore<BenchmarkResults>,
 ) : DataStoreRepository {
 
-  override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
-    runBlocking {
-      userDataDataStore.updateData { userData ->
-        userData
-          .toBuilder()
-          .setAccessTokenData(
-            AccessTokenData.newBuilder()
-              .setAccessToken(accessToken)
-              .setRefreshToken(refreshToken)
-              .setExpiresAtMs(expiresAt)
-              .build()
-          )
-          .build()
-      }
+  override suspend fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
+    userDataDataStore.updateData { userData ->
+      userData
+        .toBuilder()
+        .setAccessTokenData(
+          AccessTokenData.newBuilder()
+            .setAccessToken(accessToken)
+            .setRefreshToken(refreshToken)
+            .setExpiresAtMs(expiresAt)
+            .build()
+        )
+        .build()
     }
   }
 
-  override fun clearAccessTokenData() {
-    runBlocking {
-      userDataDataStore.updateData { userData ->
-        userData.toBuilder().clearAccessTokenData().build()
-      }
+  override suspend fun clearAccessTokenData() {
+    userDataDataStore.updateData { userData ->
+      userData.toBuilder().clearAccessTokenData().build()
     }
   }
 
-  override fun readAccessTokenData(): AccessTokenData? {
-    return runBlocking {
-      val userData = userDataDataStore.data.first()
-      userData.accessTokenData
+  override suspend fun readAccessTokenData(): AccessTokenData? {
+    val userData = userDataDataStore.data.first()
+    return userData.accessTokenData
+  }
+
+  override suspend fun saveImportedModels(importedModels: List<ImportedModel>) {
+    dataStore.updateData { settings ->
+      settings.toBuilder().clearImportedModel().addAllImportedModel(importedModels).build()
     }
   }
 
-  override fun saveImportedModels(importedModels: List<ImportedModel>) {
-    runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().clearImportedModel().addAllImportedModel(importedModels).build()
-      }
+  override suspend fun readImportedModels(): List<ImportedModel> {
+    val settings = dataStore.data.first()
+    return settings.importedModelList
+  }
+
+  override suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel) {
+    dataStore.updateData { settings ->
+      val models = settings.importedModelList.toMutableList()
+      val index = models.indexOfFirst { it.fileName == fileName }
+      if (index >= 0) models[index] = updatedModel else models.add(updatedModel)
+      settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
     }
   }
 
-  override fun readImportedModels(): List<ImportedModel> {
-    return runBlocking {
-      val settings = dataStore.data.first()
-      settings.importedModelList
+  override suspend fun setHasSeenBenchmarkComparisonHelp(seen: Boolean) {
+    dataStore.updateData { settings ->
+      settings.toBuilder().setHasSeenBenchmarkComparisonHelp(seen).build()
     }
   }
 
-  override fun updateImportedModel(fileName: String, updatedModel: ImportedModel) {
-    runBlocking {
-      dataStore.updateData { settings ->
-        val models = settings.importedModelList.toMutableList()
-        val index = models.indexOfFirst { it.fileName == fileName }
-        if (index >= 0) models[index] = updatedModel else models.add(updatedModel)
-        settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
-      }
+  override suspend fun getHasSeenBenchmarkComparisonHelp(): Boolean {
+    val settings = dataStore.data.first()
+    return settings.hasSeenBenchmarkComparisonHelp
+  }
+
+  override suspend fun addBenchmarkResult(result: BenchmarkResult) {
+    benchmarkResultsDataStore.updateData { results ->
+      results.toBuilder().addResult(0, result).build()
     }
   }
 
-  override fun setHasSeenBenchmarkComparisonHelp(seen: Boolean) {
-    runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().setHasSeenBenchmarkComparisonHelp(seen).build()
-      }
+  override suspend fun getAllBenchmarkResults(): List<BenchmarkResult> {
+    return benchmarkResultsDataStore.data.first().resultList
+  }
+
+  override suspend fun deleteBenchmarkResult(index: Int) {
+    benchmarkResultsDataStore.updateData { results ->
+      results.toBuilder().removeResult(index).build()
     }
   }
 
-  override fun getHasSeenBenchmarkComparisonHelp(): Boolean {
-    return runBlocking {
-      val settings = dataStore.data.first()
-      settings.hasSeenBenchmarkComparisonHelp
+  override suspend fun setBenchmarkResults(results: List<BenchmarkResult>) {
+    benchmarkResultsDataStore.updateData { existing ->
+      existing.toBuilder().clearResult().addAllResult(results).build()
     }
   }
 
-  override fun addBenchmarkResult(result: BenchmarkResult) {
-    runBlocking {
-      benchmarkResultsDataStore.updateData { results ->
-        results.toBuilder().addResult(0, result).build()
-      }
-    }
+  override suspend fun isOnboardingCompleted(): Boolean {
+    val settings = dataStore.data.first()
+    return settings.isTosAccepted // reuse existing proto field for onboarding gate
   }
 
-  override fun getAllBenchmarkResults(): List<BenchmarkResult> {
-    return runBlocking { benchmarkResultsDataStore.data.first().resultList }
-  }
-
-  override fun deleteBenchmarkResult(index: Int) {
-    runBlocking {
-      benchmarkResultsDataStore.updateData { results ->
-        results.toBuilder().removeResult(index).build()
-      }
-    }
-  }
-
-  override fun setBenchmarkResults(results: List<BenchmarkResult>) {
-    runBlocking {
-      benchmarkResultsDataStore.updateData { existing ->
-        existing.toBuilder().clearResult().addAllResult(results).build()
-      }
-    }
-  }
-
-  override fun isOnboardingCompleted(): Boolean {
-    return runBlocking {
-      val settings = dataStore.data.first()
-      settings.isTosAccepted // reuse existing proto field for onboarding gate
-    }
-  }
-
-  override fun setOnboardingCompleted() {
-    runBlocking {
-      dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
-    }
+  override suspend fun setOnboardingCompleted() {
+    dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
   }
 }

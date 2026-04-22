@@ -133,7 +133,7 @@ class LlmHttpService : Service() {
       modelLifecycle = LlmHttpModelLifecycle(
         context = this,
         allowlistLoader = allowlistLoader,
-        readImportedModels = { dataStoreRepo?.readImportedModels() ?: emptyList() },
+        readImportedModels = { kotlinx.coroutines.runBlocking { dataStoreRepo?.readImportedModels() ?: emptyList() } },
       )
       // Create a partial wake lock to keep the CPU awake while the server is running.
       // Acquired in onStartCommand once the server starts, released in onDestroy.
