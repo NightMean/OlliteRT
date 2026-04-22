@@ -155,7 +155,8 @@ object LlmHttpPromptCompactor {
     }
 
     // --- Strategy 4: Full tool removal (last resort before giving up) ---
-    if (hasTools && compactToolSchemas && !currentToolsRemoved) {
+    // Skip when tool_choice="required" — removing tools would make the contract impossible to satisfy.
+    if (hasTools && compactToolSchemas && !currentToolsRemoved && toolChoice != "required") {
       val noToolsPrompt = LlmHttpRequestAdapter.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
       if (estimateTokens(noToolsPrompt) <= maxContext) {
         strategies.add("tools:removed")
