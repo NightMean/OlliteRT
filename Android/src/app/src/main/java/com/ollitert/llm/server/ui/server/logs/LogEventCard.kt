@@ -204,7 +204,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           text = headline,
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
-            fontSize = 12.sp,
+            fontSize = LOG_BODY_FONT_SIZE,
           ),
           color = MaterialTheme.colorScheme.onSurface,
           fontWeight = FontWeight.SemiBold,
@@ -245,7 +245,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_loading_suffix))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -258,7 +258,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_loaded_suffix))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -281,7 +281,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         ) {
           Text(
             text = parsedEvent.input,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -302,7 +302,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         ) {
           Text(
             text = parsedEvent.output,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -334,8 +334,8 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           text = parsedEvent.promptText,
           textStyle = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
+            fontSize = LOG_DETAIL_FONT_SIZE,
+            lineHeight = LOG_BODY_LINE_HEIGHT,
           ),
           textColor = MaterialTheme.colorScheme.onSurface,
         )
@@ -352,7 +352,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
               }
               append(stringResource(R.string.logs_event_model_unloaded_suffix))
             },
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
@@ -361,7 +361,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.WarmupSkipped -> {
         Text(
           text = parsedEvent.reason,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -369,7 +369,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.ModelLoadFailed -> {
         Text(
           text = parsedEvent.errorMessage,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = accentColor,
           fontWeight = FontWeight.Medium,
         )
@@ -378,7 +378,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.ServerFailed -> {
         Text(
           text = parsedEvent.errorMessage,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = accentColor,
           fontWeight = FontWeight.Medium,
         )
@@ -388,7 +388,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         // Show model name in primary color if extracted, otherwise the raw detail as error
         Text(
           text = parsedEvent.detail,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = OlliteRTPrimary,
           fontWeight = FontWeight.SemiBold,
         )
@@ -397,7 +397,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.ImageDecodeFailed -> {
         Text(
           text = parsedEvent.errorMessage,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = accentColor,
           fontWeight = FontWeight.Medium,
         )
@@ -409,7 +409,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
                         else stringResource(R.string.logs_event_queued_reload_generic)
         Text(
           text = modelText,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = OlliteRTPrimary,
           fontWeight = FontWeight.Medium,
         )
@@ -418,7 +418,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.ConversationResetFailed -> {
         Text(
           text = parsedEvent.errorMessage,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = accentColor,
           fontWeight = FontWeight.Medium,
         )
@@ -458,7 +458,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
                 append(entry.modelName)
               }
             },
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
@@ -473,7 +473,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_unloading_suffix))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -486,7 +486,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_keepalive_unloaded_suffix, parsedEvent.idleMinutes))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -500,7 +500,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_keepalive_reloading_suffix))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -513,7 +513,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_keepalive_reloaded_suffix, parsedEvent.timeMs))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -527,7 +527,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             }
             append(stringResource(R.string.logs_event_version_suffix))
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         // Show body details (current version, release URL) if present
@@ -535,7 +535,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           Spacer(modifier = Modifier.height(4.dp))
           Text(
             text = parsedEvent.body,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           )
         }
@@ -544,7 +544,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.UpdateCurrent -> {
         Text(
           text = parsedEvent.body ?: stringResource(R.string.logs_event_update_none),
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -552,7 +552,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       is ParsedEventType.UpdateAutoDisabled -> {
         Text(
           text = parsedEvent.body ?: stringResource(R.string.logs_event_update_auto_disabled),
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = accentColor,
           fontWeight = FontWeight.Medium,
         )
@@ -563,7 +563,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         // This is an early warning that the OOM killer may terminate the process shortly.
         Text(
           text = stringResource(R.string.logs_event_memory_pressure_body),
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = accentColor,
           fontWeight = FontWeight.Medium,
         )
@@ -580,7 +580,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
             if (parsedEvent.language != null) append(" · ${parsedEvent.language}")
             append(" · ${parsedEvent.durationSec}")
           },
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (parsedEvent.instruction != null) {
@@ -594,7 +594,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           Spacer(modifier = Modifier.height(4.dp))
           ExpandablePromptBox(
             text = parsedEvent.instruction,
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             textColor = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -610,7 +610,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           Spacer(modifier = Modifier.height(4.dp))
           ExpandablePromptBox(
             text = parsedEvent.transcription,
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             textColor = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -629,13 +629,13 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           SelectionContainer {
             Text(
               text = styledMessage,
-              style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp, lineHeight = 17.sp),
+              style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE, lineHeight = 17.sp),
             )
           }
         } else {
           Text(
             text = styledMessage,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 12.sp, lineHeight = 17.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE, lineHeight = 17.sp),
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
           )
@@ -657,7 +657,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           Spacer(modifier = Modifier.height(6.dp))
           ExpandablePromptBox(
             text = entry.requestBody,
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = 11.sp),
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             textColor = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -674,7 +674,7 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
         Spacer(modifier = Modifier.height(4.dp))
         Text(
           text = suggestion,
-          style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+          style = MaterialTheme.typography.bodySmall.copy(fontSize = LOG_DETAIL_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 3,
           overflow = TextOverflow.Ellipsis,
@@ -851,8 +851,8 @@ internal fun SettingsChangeRows(
 internal fun PromptBeforeAfterBoxes(diff: PromptDiff) {
   val textStyle = MaterialTheme.typography.bodySmall.copy(
     fontFamily = SpaceGroteskFontFamily,
-    fontSize = 11.sp,
-    lineHeight = 16.sp,
+    fontSize = LOG_DETAIL_FONT_SIZE,
+    lineHeight = LOG_BODY_LINE_HEIGHT,
   )
 
   // Before

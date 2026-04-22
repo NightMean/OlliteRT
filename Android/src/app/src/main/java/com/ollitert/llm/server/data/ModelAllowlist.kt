@@ -20,6 +20,7 @@ package com.ollitert.llm.server.data
 import android.os.Build
 import android.util.Log
 import com.google.gson.annotations.SerializedName
+import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.isPixel10
 
@@ -79,7 +80,7 @@ data class AllowedModel(
     var version = commitHash
     var downloadedFileName = modelFile
     var downloadUrl =
-      url ?: "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
+      url ?: "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/$commitHash/$modelFile?download=true"
     var sizeInBytes = sizeInBytes
 
     // Handle per-soc model files.
@@ -91,7 +92,7 @@ data class AllowedModel(
           downloadedFileName = info.modelFile ?: "-"
           downloadUrl =
             info.url
-              ?: "https://huggingface.co/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
+              ?: "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
           sizeInBytes = info.sizeInBytes ?: -1
         }
       }
@@ -173,7 +174,7 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = downloadedFileName,
-      learnMoreUrl = "https://huggingface.co/${modelId}",
+      learnMoreUrl = "${GitHubConfig.HUGGINGFACE_BASE_URL}/${modelId}",
       capabilities = buildSet {
         if (llmSupportImage == true) add(ModelCapability.VISION)
         if (llmSupportAudio == true) add(ModelCapability.AUDIO)

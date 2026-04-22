@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
@@ -68,7 +69,7 @@ internal fun HfTokenCard(vm: SettingsViewModel, context: Context) {
       text = buildAnnotatedString {
         withLink(
           LinkAnnotation.Url(
-            url = "https://huggingface.co/settings/tokens",
+            url = "${GitHubConfig.HUGGINGFACE_BASE_URL}/settings/tokens",
             styles = TextLinkStyles(
               style = SpanStyle(
                 color = OlliteRTPrimary,

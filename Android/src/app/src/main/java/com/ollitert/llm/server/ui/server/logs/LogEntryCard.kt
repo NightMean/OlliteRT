@@ -84,6 +84,10 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+internal val LOG_BODY_FONT_SIZE = 12.sp
+internal val LOG_DETAIL_FONT_SIZE = 11.sp
+internal val LOG_BODY_LINE_HEIGHT = 16.sp
+
 internal const val COLLAPSED_MAX_LINES = 8
 internal const val COLLAPSED_MAX_CHARS = 600
 /**
@@ -271,7 +275,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
             text = cancelledDisplay,
             style = MaterialTheme.typography.bodySmall.copy(
               fontFamily = SpaceGroteskFontFamily,
-              fontSize = 11.sp,
+              fontSize = LOG_DETAIL_FONT_SIZE,
             ),
             color = MaterialTheme.colorScheme.onSurface,
           )
@@ -282,7 +286,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
                  else stringResource(R.string.logs_entry_client_disconnected),
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
-            fontSize = 11.sp,
+            fontSize = LOG_DETAIL_FONT_SIZE,
           ),
           color = CancelledColor,
           fontWeight = FontWeight.SemiBold,
@@ -309,7 +313,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       Spacer(modifier = Modifier.height(6.dp))
       Text(
         text = stringResource(R.string.logs_entry_ignored_params, entry.ignoredClientParams),
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = LOG_DETAIL_FONT_SIZE),
         color = WarningColor,
       )
     }
@@ -562,8 +566,8 @@ internal fun ExpandableBodySection(
               text = highlighted,
               style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = SpaceGroteskFontFamily,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
+                fontSize = LOG_DETAIL_FONT_SIZE,
+                lineHeight = LOG_BODY_LINE_HEIGHT,
               ),
             )
           } else {
@@ -572,8 +576,8 @@ internal fun ExpandableBodySection(
               text = body,
               style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = SpaceGroteskFontFamily,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
+                fontSize = LOG_DETAIL_FONT_SIZE,
+                lineHeight = LOG_BODY_LINE_HEIGHT,
               ),
               color = OlliteRTSubtleGrey,
             )
@@ -613,8 +617,8 @@ internal fun ExpandableBodySection(
           text = collapsedHighlighted,
           style = MaterialTheme.typography.bodySmall.copy(
             fontFamily = SpaceGroteskFontFamily,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
+            fontSize = LOG_DETAIL_FONT_SIZE,
+            lineHeight = LOG_BODY_LINE_HEIGHT,
           ),
           maxLines = COLLAPSED_MAX_LINES,
           overflow = TextOverflow.Ellipsis,

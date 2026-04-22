@@ -53,6 +53,12 @@ object GitHubConfig {
   const val DONATE_KOFI = "https://ko-fi.com/nightmean"
 
   // ---------------------------------------------------------------------------
+  // HuggingFace
+  // ---------------------------------------------------------------------------
+
+  const val HUGGINGFACE_BASE_URL = "https://huggingface.co"
+
+  // ---------------------------------------------------------------------------
   // Model allowlists and documentation (hosted in this repo)
   // ---------------------------------------------------------------------------
 

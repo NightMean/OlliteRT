@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
@@ -271,7 +272,7 @@ fun DownloadAndTryButton(
       if (needToDownloadFirst) {
         downloadStarted = true
         // For HuggingFace urls
-        if (model.url.startsWith("https://huggingface.co")) {
+        if (model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)) {
           checkingToken = true
 
           // Check if the url needs auth.
