@@ -63,6 +63,9 @@ class LlmHttpBridgeUtilsTest {
     assertEquals("line1\\nline2", LlmHttpBridgeUtils.escapeSseText("line1\nline2"))
     assertEquals("say \\\"hi\\\"", LlmHttpBridgeUtils.escapeSseText("say \"hi\""))
     assertEquals("back\\\\slash", LlmHttpBridgeUtils.escapeSseText("back\\slash"))
+    assertEquals("line1\\rline2", LlmHttpBridgeUtils.escapeSseText("line1\rline2"))
+    assertEquals("line1\\r\\nline2", LlmHttpBridgeUtils.escapeSseText("line1\r\nline2"))
+    assertEquals("col1\\tcol2", LlmHttpBridgeUtils.escapeSseText("col1\tcol2"))
   }
 
   // ── ID generation ──────────────────────────────────────────────────────

@@ -41,7 +41,7 @@ object LlmHttpBridgeUtils {
   }
 
   fun escapeSseText(value: String): String =
-    value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+    value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
 
   // ── ID generation ──────────────────────────────────────────────────────
   // OpenAI-compatible IDs use specific prefixes per object type.
