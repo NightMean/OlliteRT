@@ -245,6 +245,7 @@ class LlmHttpInferenceRunner(
     fun emitThinkingDelta(stream: BlockingQueueInputStream, text: String)
     fun emitContentDelta(stream: BlockingQueueInputStream, text: String)
     fun emitThinkingClose(stream: BlockingQueueInputStream)
+    fun emitCancellation(stream: BlockingQueueInputStream, headerWritten: Boolean)
     fun estimateInputTokens(prompt: String): Long
     fun estimateInputTokensInt(prompt: String): Int
     fun emitCompletion(
@@ -294,6 +295,13 @@ class LlmHttpInferenceRunner(
     override fun emitThinkingClose(stream: BlockingQueueInputStream) {
       val esc = LlmHttpBridgeUtils.escapeSseText("</think>")
       stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
+    }
+    override fun emitCancellation(stream: BlockingQueueInputStream, headerWritten: Boolean) {
+      if (!headerWritten) {
+        stream.enqueue(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
+      }
+      stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(modelName, respId, msgId, now, ""))
+      stream.finish()
     }
     override fun estimateInputTokens(prompt: String): Long = estimateTokensLongByLength(prompt.length)
     override fun estimateInputTokensInt(prompt: String): Int = estimateTokensByLength(prompt.length)
@@ -375,6 +383,14 @@ class LlmHttpInferenceRunner(
     }
     override fun emitThinkingClose(stream: BlockingQueueInputStream) {
       stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, "</think>"))
+    }
+    override fun emitCancellation(stream: BlockingQueueInputStream, headerWritten: Boolean) {
+      if (!headerWritten) {
+        stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
+      }
+      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
+      stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
+      stream.finish()
     }
     override fun estimateInputTokens(prompt: String): Long = estimateTokensLong(prompt)
     override fun estimateInputTokensInt(prompt: String): Int = estimateTokens(prompt)
@@ -587,6 +603,7 @@ class LlmHttpInferenceRunner(
             }
           }
           logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
+          format.emitCancellation(stream, headerWritten)
           return@executeStreaming
         }
         try {
