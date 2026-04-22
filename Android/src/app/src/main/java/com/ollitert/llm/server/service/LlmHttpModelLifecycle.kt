@@ -155,6 +155,13 @@ class LlmHttpModelLifecycle(
    * Reload the model after it was unloaded due to keep_alive idle timeout.
    * Blocks the calling thread (NanoHTTPD request thread) until the model is ready.
    * Returns the loaded model, or null if reload fails.
+   *
+   * Intentionally holds [keepAliveLock] for the full 10-60s model init. Releasing
+   * the lock during init would allow concurrent double-reloads (crashing the
+   * non-thread-safe native SDK) and keep-alive timer interference. The [isReloading]
+   * volatile is a best-effort optimization that gives most concurrent requests an
+   * immediate 503 — threads that slip past the TOCTOU window block on the lock and
+   * get a successful response once the model is ready, which is better than a 503.
    */
   fun reloadModelFromIdle(): Model? {
     synchronized(keepAliveLock) {
