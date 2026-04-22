@@ -19,6 +19,7 @@ package com.ollitert.llm.server.service
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
@@ -123,15 +124,30 @@ data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHtt
   val `object`: String = "response",
   val created: Long,
   val model: String,
-  val output: List<RespMessage>,
+  val output: List<RespOutputItem>,
   val usage: Usage,
+  val status: String = "completed",
 )
 
-@Serializable data class RespMessage(
+@Serializable
+sealed interface RespOutputItem
+
+@Serializable @SerialName("message")
+data class RespMessage(
+  val id: String = LlmHttpBridgeUtils.generateMessageId(),
   val role: String = "assistant",
   val content: List<RespContent>,
-  val finish_reason: String = "stop",
-)
+  val status: String = "completed",
+) : RespOutputItem
+
+@Serializable @SerialName("function_call")
+data class RespFunctionCall(
+  val id: String = LlmHttpBridgeUtils.generateFunctionCallId(),
+  val call_id: String,
+  val name: String,
+  val arguments: String,
+  val status: String = "completed",
+) : RespOutputItem
 
 @Serializable data class RespContent(
   val type: String = "text",

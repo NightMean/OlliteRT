@@ -274,8 +274,9 @@ class LlmHttpPayloadBuildersTest {
     assertEquals("my-model", resp.model)
     assertTrue("should start with resp-", resp.id.startsWith("resp-"))
     assertEquals(1, resp.output.size)
-    assertEquals(1, resp.output[0].content.size)
-    assertEquals("Hello", resp.output[0].content[0].text)
+    val msg = resp.output[0] as RespMessage
+    assertEquals(1, msg.content.size)
+    assertEquals("Hello", msg.content[0].text)
   }
 
   @Test
@@ -292,29 +293,62 @@ class LlmHttpPayloadBuildersTest {
     assertEquals(0, resp.usage.completion_tokens)
   }
 
-  // ── responsesResponseWithToolCall() ───────────────────────────────────────
+  // ── responsesResponseWithToolCalls() ──────────────────────────────────────
 
   @Test
-  fun responsesResponseWithToolCallHasCorrectStructure() {
-    val toolCall = ToolCall(id = "call-1", function = ToolCallFunction(name = "fn", arguments = "{}"))
-    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCall("m", toolCall, json = json)
-    assertEquals("tool_calls", resp.output[0].finish_reason)
-    assertEquals("output_tool_call", resp.output[0].content[0].type)
-    assertTrue("should contain serialized tool call", resp.output[0].content[0].text.orEmpty().contains("call-1"))
+  fun responsesResponseWithToolCallsHasCorrectStructure() {
+    val toolCalls = listOf(
+      ToolCall(id = "call-1", function = ToolCallFunction(name = "turn_on_light", arguments = "{\"device\":\"kitchen\"}")),
+    )
+    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCalls("m", toolCalls)
+    assertEquals(1, resp.output.size)
+    val fc = resp.output[0] as RespFunctionCall
+    assertEquals("turn_on_light", fc.name)
+    assertEquals("call-1", fc.call_id)
+    assertEquals("{\"device\":\"kitchen\"}", fc.arguments)
+    assertEquals("completed", fc.status)
+    assertEquals("completed", resp.status)
   }
 
   @Test
-  fun responsesResponseWithToolCallEstimatesTokens() {
+  fun responsesResponseWithToolCallsMultipleCallsAllPresent() {
+    val toolCalls = listOf(
+      ToolCall(id = "c1", function = ToolCallFunction(name = "fn1", arguments = "{}")),
+      ToolCall(id = "c2", function = ToolCallFunction(name = "fn2", arguments = "{\"x\":1}")),
+    )
+    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCalls("m", toolCalls)
+    assertEquals(2, resp.output.size)
+    assertEquals("fn1", (resp.output[0] as RespFunctionCall).name)
+    assertEquals("fn2", (resp.output[1] as RespFunctionCall).name)
+  }
+
+  @Test
+  fun responsesResponseWithToolCallsEstimatesTokens() {
     // arguments = "{}" = 2 chars → 2/4 = 0, coerceAtLeast(1)
-    val toolCall = ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}"))
-    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCall("m", toolCall, json = json)
+    val toolCalls = listOf(
+      ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}")),
+    )
+    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCalls("m", toolCalls)
     assertEquals(1, resp.usage.completion_tokens)
   }
 
   @Test
-  fun responsesResponseWithToolCallWithPromptLen() {
-    val toolCall = ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}"))
-    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCall("m", toolCall, promptLen = 40, json = json)
+  fun responsesResponseWithToolCallsWithPromptLen() {
+    val toolCalls = listOf(
+      ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}")),
+    )
+    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCalls("m", toolCalls, promptLen = 40)
     assertEquals(10, resp.usage.prompt_tokens)
+  }
+
+  @Test
+  fun responsesResponseWithToolCallsSerializesWithTypeDiscriminator() {
+    val toolCalls = listOf(
+      ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}")),
+    )
+    val resp = LlmHttpPayloadBuilders.responsesResponseWithToolCalls("m", toolCalls)
+    val serialized = json.encodeToString(ResponsesResponse.serializer(), resp)
+    assertTrue("should contain function_call type", serialized.contains("\"type\":\"function_call\""))
+    assertTrue("should contain call_id", serialized.contains("\"call_id\":\"c1\""))
   }
 }

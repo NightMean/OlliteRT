@@ -306,12 +306,14 @@ object LlmHttpPayloadBuilders {
     ),
   )
 
-  fun responsesResponseWithToolCall(modelName: String, toolCall: ToolCall, promptLen: Int = 0, json: Json) = ResponsesResponse(
+  fun responsesResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0) = ResponsesResponse(
     id = LlmHttpBridgeUtils.generateResponseId(), created = LlmHttpBridgeUtils.epochSeconds(), model = modelName,
-    output = listOf(RespMessage(content = listOf(RespContent(type = "output_tool_call", text = json.encodeToString(toolCall))), finish_reason = "tool_calls")),
+    output = toolCalls.map { tc ->
+      RespFunctionCall(call_id = tc.id, name = tc.function.name, arguments = tc.function.arguments)
+    },
     usage = Usage(
       prompt_tokens = estimateTokensByLength(promptLen),
-      completion_tokens = estimateTokens(toolCall.function.arguments),
+      completion_tokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments }),
     ),
   )
 }

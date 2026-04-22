@@ -147,6 +147,59 @@ object LlmHttpResponseRenderer {
   }
 
   /**
+   * Builds streaming SSE events for tool calls in Responses API format.
+   * Each tool call gets: output_item.added → function_call_arguments.delta →
+   * function_call_arguments.done → output_item.done.
+   * Then a response.completed event wrapping all tool calls.
+   */
+  fun buildResponsesStreamToolCallEvents(
+    respId: String,
+    modelId: String,
+    now: Long,
+    toolCalls: List<ToolCall>,
+    inputTokens: Int = 0,
+    outputTokens: Int = 0,
+  ): String = buildString {
+    val totalTokens = inputTokens + outputTokens
+
+    append(emitSseEvent("response.created", """{"type":"response.created","response":{"id":"$respId","object":"response","created_at":$now,"status":"in_progress","model":"$modelId","output":[]}}"""))
+    append(emitSseEvent("response.in_progress", """{"type":"response.in_progress","response":{"id":"$respId","object":"response","created_at":$now,"status":"in_progress","model":"$modelId","output":[]}}"""))
+
+    data class FcData(val fcId: String, val callId: String, val escapedName: String, val escapedArgs: String)
+    val fcDataList = toolCalls.map { tc ->
+      FcData(
+        fcId = LlmHttpBridgeUtils.generateFunctionCallId(),
+        callId = tc.id,
+        escapedName = LlmHttpBridgeUtils.escapeSseText(tc.function.name),
+        escapedArgs = LlmHttpBridgeUtils.escapeSseText(tc.function.arguments),
+      )
+    }
+
+    var seqNum = 0
+    for ((index, fc) in fcDataList.withIndex()) {
+      append(emitSseEvent("response.output_item.added",
+        """{"type":"response.output_item.added","output_index":$index,"item":{"id":"${fc.fcId}","type":"function_call","call_id":"${fc.callId}","name":"${fc.escapedName}","arguments":"","status":"in_progress"},"sequence_number":${seqNum++}}"""))
+
+      append(emitSseEvent("response.function_call_arguments.delta",
+        """{"type":"response.function_call_arguments.delta","output_index":$index,"item_id":"${fc.fcId}","delta":"${fc.escapedArgs}"}"""))
+
+      append(emitSseEvent("response.function_call_arguments.done",
+        """{"type":"response.function_call_arguments.done","output_index":$index,"item_id":"${fc.fcId}","arguments":"${fc.escapedArgs}"}"""))
+
+      append(emitSseEvent("response.output_item.done",
+        """{"type":"response.output_item.done","output_index":$index,"item":{"id":"${fc.fcId}","type":"function_call","call_id":"${fc.callId}","name":"${fc.escapedName}","arguments":"${fc.escapedArgs}","status":"completed"}}"""))
+    }
+
+    val outputItemsJson = fcDataList.withIndex().joinToString(",") { (index, fc) ->
+      """{"id":"${fc.fcId}","type":"function_call","call_id":"${fc.callId}","name":"${fc.escapedName}","arguments":"${fc.escapedArgs}","status":"completed"}"""
+    }
+    append(emitSseEvent("response.completed",
+      """{"type":"response.completed","response":{"id":"$respId","object":"response","created_at":$now,"status":"completed","model":"$modelId","output":[$outputItemsJson],"usage":{"input_tokens":$inputTokens,"output_tokens":$outputTokens,"total_tokens":$totalTokens}}}"""))
+
+    append("data: [DONE]\n\n")
+  }
+
+  /**
    * Builds streaming SSE chunks for one or more tool calls in chat.completion.chunk format.
    * Each tool call gets its own indexed entry in the `tool_calls` array, matching the
    * OpenAI streaming spec that HA integrations (extended_openai_conversation, local_openai) parse.

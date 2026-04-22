@@ -446,7 +446,7 @@ class LlmHttpEndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders, tools = if (hasTools) tools else null)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
@@ -467,7 +467,7 @@ class LlmHttpEndpointHandlers(
       if (hasTools) {
         val toolCalls = LlmHttpToolCallParser.parseAll(text, tools)
         if (toolCalls.isNotEmpty()) {
-          val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCall(model.name, toolCalls.first(), promptLen = prompt.length, json = json))
+          val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
           captureResponse(responseJson)
           return okJsonText(responseJson)
         }

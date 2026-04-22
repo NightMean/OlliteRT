@@ -328,6 +328,64 @@ class LlmHttpResponseRendererTest {
     assertTrue("should not contain timings", !result.contains("timings"))
   }
 
+  // ── buildResponsesStreamToolCallEvents ───────────────────────────────────
+
+  @Test
+  fun responsesStreamToolCallEventsSingleCallContainsAllEvents() {
+    val toolCalls = listOf(
+      ToolCall(id = "call-1", function = ToolCallFunction(name = "turn_on", arguments = "{\"device\":\"light\"}")),
+    )
+    val result = LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents("resp-1", "m", 1000L, toolCalls)
+    assertTrue(result.contains("event: response.created"))
+    assertTrue(result.contains("event: response.in_progress"))
+    assertTrue(result.contains("event: response.output_item.added"))
+    assertTrue(result.contains("event: response.function_call_arguments.delta"))
+    assertTrue(result.contains("event: response.function_call_arguments.done"))
+    assertTrue(result.contains("event: response.output_item.done"))
+    assertTrue(result.contains("event: response.completed"))
+    assertTrue(result.contains("data: [DONE]"))
+    assertTrue(result.contains("\"type\":\"function_call\""))
+    assertTrue(result.contains("\"call_id\":\"call-1\""))
+    assertTrue(result.contains("\"name\":\"turn_on\""))
+  }
+
+  @Test
+  fun responsesStreamToolCallEventsMultipleCallsIncrementOutputIndex() {
+    val toolCalls = listOf(
+      ToolCall(id = "c1", function = ToolCallFunction(name = "fn1", arguments = "{}")),
+      ToolCall(id = "c2", function = ToolCallFunction(name = "fn2", arguments = "{}")),
+    )
+    val result = LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents("r", "m", 1L, toolCalls)
+    assertTrue(result.contains("\"output_index\":0"))
+    assertTrue(result.contains("\"output_index\":1"))
+  }
+
+  @Test
+  fun responsesStreamToolCallEventsEmptyListEmitsOnlyEnvelope() {
+    val result = LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents("r", "m", 1L, emptyList())
+    assertTrue(result.contains("event: response.created"))
+    assertTrue(result.contains("event: response.completed"))
+    assertTrue(result.contains("data: [DONE]"))
+    assertTrue("should not contain function_call events", !result.contains("function_call_arguments"))
+  }
+
+  @Test
+  fun responsesStreamToolCallEventsIncludesSequenceNumber() {
+    val toolCalls = listOf(
+      ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}")),
+    )
+    val result = LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents("r", "m", 1L, toolCalls)
+    assertTrue(result.contains("\"sequence_number\":0"))
+  }
+
+  @Test
+  fun responsesStreamToolCallEventsIncludesUsage() {
+    val result = LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents("r", "m", 1L, emptyList(), inputTokens = 10, outputTokens = 5)
+    assertTrue(result.contains("\"input_tokens\":10"))
+    assertTrue(result.contains("\"output_tokens\":5"))
+    assertTrue(result.contains("\"total_tokens\":15"))
+  }
+
   // ── buildChatStreamToolCallChunks with empty list ────────────────────────
 
   @Test

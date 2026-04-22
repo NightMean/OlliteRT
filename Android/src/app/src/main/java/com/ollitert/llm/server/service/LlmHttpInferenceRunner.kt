@@ -272,11 +272,12 @@ class LlmHttpInferenceRunner(
     private val modelName: String,
     private val now: Long,
     private val json: Json,
+    private val tools: List<ToolSpec>?,
   ) : StreamingFormat {
     private val respId = LlmHttpBridgeUtils.generateResponseId()
     private val msgId = LlmHttpBridgeUtils.generateMessageId()
     override val sourceTag = "executeStreaming_responses"
-    override val bufferAllTokens = false
+    override val bufferAllTokens = tools != null
     override val stopSequences: List<String>? = null
 
     override fun emitHeader(stream: BlockingQueueInputStream) {
@@ -305,11 +306,31 @@ class LlmHttpInferenceRunner(
       ttfbMs: Long,
       totalLatencyMs: Long,
     ): List<ToolCall> {
-      val combinedText = buildCombinedText(fullText, fullThinking)
-      val esc = LlmHttpBridgeUtils.escapeSseText(combinedText)
-      stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(modelName, respId, msgId, now, esc, inputTokens = promptTokens, outputTokens = completionTokens))
+      val parsedToolCalls = if (tools != null) LlmHttpToolCallParser.parseAll(fullText, tools) else emptyList()
+
+      if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
+        stream.enqueue(LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents(
+          respId, modelName, now, parsedToolCalls, promptTokens, completionTokens))
+      } else {
+        val combinedText = buildCombinedText(fullText, fullThinking)
+        if (bufferAllTokens) {
+          stream.enqueue(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
+          if (fullThinking.isNotEmpty()) {
+            val thinkEsc = LlmHttpBridgeUtils.escapeSseText("<think>$fullThinking</think>")
+            stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, thinkEsc))
+          }
+          if (fullText.isNotEmpty()) {
+            val textEsc = LlmHttpBridgeUtils.escapeSseText(fullText)
+            stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, textEsc))
+          }
+        }
+        val esc = LlmHttpBridgeUtils.escapeSseText(combinedText)
+        stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(
+          modelName, respId, msgId, now, esc,
+          inputTokens = promptTokens, outputTokens = completionTokens))
+      }
       stream.finish()
-      return emptyList()
+      return parsedToolCalls
     }
     override fun buildLogResponseJson(
       combinedText: String,
@@ -320,9 +341,16 @@ class LlmHttpInferenceRunner(
       totalLatencyMs: Long,
       parsedToolCalls: List<ToolCall>,
     ): String {
-      return json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithText(modelName, combinedText, promptLen = promptLen))
+      return if (parsedToolCalls.isNotEmpty()) {
+        json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCalls(modelName, parsedToolCalls, promptLen = promptLen))
+      } else {
+        json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithText(modelName, combinedText, promptLen = promptLen))
+      }
     }
-    override fun buildLogEventSuffix(parsedToolCalls: List<ToolCall>) = ""
+    override fun buildLogEventSuffix(parsedToolCalls: List<ToolCall>): String {
+      if (parsedToolCalls.isEmpty()) return ""
+      return " tool_calls=${parsedToolCalls.joinToString(",") { it.function.name }} count=${parsedToolCalls.size}"
+    }
   }
 
   private class ChatCompletionsFormat(
@@ -417,9 +445,10 @@ class LlmHttpInferenceRunner(
     configSnapshot: Map<String, Any>? = null,
     json: Json,
     sseExtraHeaders: Map<String, String> = emptyMap(),
+    tools: List<ToolSpec>? = null,
   ): NanoHTTPD.Response {
     val now = LlmHttpBridgeUtils.epochSeconds()
-    val format = ResponsesApiFormat(model.name, now, json)
+    val format = ResponsesApiFormat(model.name, now, json, tools)
     return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, sseExtraHeaders)
   }
 
