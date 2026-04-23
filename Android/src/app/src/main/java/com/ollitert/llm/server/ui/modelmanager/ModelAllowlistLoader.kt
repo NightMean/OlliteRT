@@ -49,7 +49,9 @@ class ModelAllowlistLoader(
     try {
       Log.d(TAG, "Saving model allowlist to disk...")
       val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
-      file.writeText(content)
+      val tmpFile = File(externalFilesDir, "$MODEL_ALLOWLIST_FILENAME.tmp")
+      tmpFile.writeText(content)
+      tmpFile.renameTo(file)
       Log.d(TAG, "Done: saving model allowlist to disk.")
     } catch (e: Exception) {
       Log.e(TAG, "failed to write model allowlist to disk", e)
