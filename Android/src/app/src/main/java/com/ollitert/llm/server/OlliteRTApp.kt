@@ -178,31 +178,6 @@ fun OlliteRTApp(
           }
         },
         confirmButton = {
-          if (!isServerRunningWithModel) {
-            Button(
-              onClick = {
-                model.latestModelFile?.let {
-                  model.version = it.commitHash
-                  model.downloadFileName = it.fileName
-                }
-                model.updatable = false
-                modelManagerViewModel.downloadModel(model)
-                onDismissModelUpdateDialog()
-              },
-              shape = RoundedCornerShape(50),
-            ) {
-              Text(stringResource(R.string.update))
-            }
-          } else {
-            Button(
-              onClick = { onDismissModelUpdateDialog() },
-              shape = RoundedCornerShape(50),
-            ) {
-              Text(stringResource(R.string.ok))
-            }
-          }
-        },
-        dismissButton = {
           Row {
             TextButton(onClick = {
               val latestVersion = model.latestModelFile?.commitHash ?: model.version
@@ -217,6 +192,27 @@ fun OlliteRTApp(
             if (!isServerRunningWithModel) {
               TextButton(onClick = { onDismissModelUpdateDialog() }) {
                 Text(stringResource(R.string.model_update_dialog_later))
+              }
+              Button(
+                onClick = {
+                  model.latestModelFile?.let {
+                    model.version = it.commitHash
+                    model.downloadFileName = it.fileName
+                  }
+                  model.updatable = false
+                  modelManagerViewModel.downloadModel(model)
+                  onDismissModelUpdateDialog()
+                },
+                shape = RoundedCornerShape(50),
+              ) {
+                Text(stringResource(R.string.update))
+              }
+            } else {
+              Button(
+                onClick = { onDismissModelUpdateDialog() },
+                shape = RoundedCornerShape(50),
+              ) {
+                Text(stringResource(R.string.ok))
               }
             }
           }
