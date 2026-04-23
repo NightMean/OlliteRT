@@ -77,6 +77,7 @@ import com.ollitert.llm.server.ui.server.settings.ResetCard
 import com.ollitert.llm.server.ui.server.settings.ServerConfigCard
 import com.ollitert.llm.server.ui.server.settings.SettingsDialogs
 import com.ollitert.llm.server.ui.server.settings.SettingsFooter
+import com.ollitert.llm.server.ui.server.settings.RepositoriesCard
 import com.ollitert.llm.server.ui.server.settings.UpdatesCard
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
@@ -91,6 +92,7 @@ fun SettingsScreen(
   downloadedModelNames: List<String> = emptyList(),
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
   onSettingsSaved: () -> Unit = {},
+  onNavigateToRepositories: () -> Unit = {},
 ) {
   val context = LocalContext.current
 
@@ -240,6 +242,14 @@ fun SettingsScreen(
 
     AnimatedVisibility(visible = vm.cardVisible(CardId.HOME_ASSISTANT), enter = expandVertically(), exit = shrinkVertically()) {
       HomeAssistantCard(vm, context)
+    }
+    AnimatedVisibility(visible = vm.cardVisible(CardId.REPOSITORIES), enter = expandVertically(), exit = shrinkVertically()) {
+      RepositoriesCard(
+        repoCount = vm.repoCount,
+        enabledCount = vm.enabledRepoCount,
+        onNavigateToRepositories = onNavigateToRepositories,
+        searchQuery = vm.searchQuery,
+      )
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.UPDATES), enter = expandVertically(), exit = shrinkVertically()) {
       UpdatesCard(vm, context)

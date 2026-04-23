@@ -18,13 +18,18 @@ package com.ollitert.llm.server.ui.server
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_CACHE_PREFIX
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LlmHttpService
@@ -39,6 +44,8 @@ import com.ollitert.llm.server.ui.server.settings.settingDefsByKey
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -53,7 +60,29 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val persistence: RequestLogPersistence,
+  private val dataStoreRepository: DataStoreRepository,
 ) : ViewModel() {
+
+  var repoCount: Int by mutableIntStateOf(0)
+    private set
+  var enabledRepoCount: Int by mutableIntStateOf(0)
+    private set
+
+  init {
+    viewModelScope.launch(Dispatchers.IO) {
+      val repos = dataStoreRepository.readRepositories()
+      repoCount = repos.size
+      enabledRepoCount = repos.count { it.enabled }
+    }
+  }
+
+  fun refreshRepositoryCounts() {
+    viewModelScope.launch(Dispatchers.IO) {
+      val repos = dataStoreRepository.readRepositories()
+      repoCount = repos.size
+      enabledRepoCount = repos.count { it.enabled }
+    }
+  }
 
   // ─── Setting Entries (auto-generated from SettingDef metadata) ────────────
   // Each SettingEntry tracks saved + current value for one persisted setting.
@@ -453,6 +482,18 @@ class SettingsViewModel @Inject constructor(
     persistence.schedulePruning()
     persistence.clearPersistedLogs()
     UpdateCheckWorker.scheduleUpdateCheck(context)
+
+    viewModelScope.launch(Dispatchers.IO) {
+      dataStoreRepository.resetRepositories()
+      val dir = context.getExternalFilesDir(null)
+      if (dir != null) {
+        dir.listFiles { _, name ->
+          name.startsWith(MODEL_ALLOWLIST_CACHE_PREFIX) && name.endsWith(".json")
+            && name != MODEL_ALLOWLIST_OFFICIAL_FILENAME
+        }?.forEach { it.delete() }
+      }
+      refreshRepositoryCounts()
+    }
   }
 
   // ─── Validation ──────────────────────────────────────────────────────────

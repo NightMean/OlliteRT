@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -545,6 +546,13 @@ val RESET_TO_DEFAULTS = SettingDef.Custom(
   card = CardId.RESET,
 )
 
+val REPOSITORIES_NAV = SettingDef.Custom(
+  key = "repositories_nav",
+  labelRes = R.string.settings_card_repositories,
+  descriptionRes = R.string.settings_repositories_description,
+  card = CardId.REPOSITORIES,
+)
+
 // ─── All Setting Definitions (ordered) ──────────────────────────────────────
 
 val allSettingDefs: List<SettingDef> = listOf(
@@ -565,6 +573,8 @@ val allSettingDefs: List<SettingDef> = listOf(
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
   HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT,
+  // Repositories
+  REPOSITORIES_NAV,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
@@ -634,6 +644,12 @@ val allCardDefs: List<CardDef> = listOf(
     titleRes = R.string.settings_card_home_assistant,
     icon = CardIcon.Resource(R.drawable.ic_home_assistant),
     settings = listOf(HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT),
+  ),
+  CardDef(
+    id = CardId.REPOSITORIES,
+    titleRes = R.string.settings_card_repositories,
+    icon = CardIcon.Vector(Icons.Outlined.Inventory2),
+    settings = listOf(REPOSITORIES_NAV),
   ),
   CardDef(
     id = CardId.UPDATES,
