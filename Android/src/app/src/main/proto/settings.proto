@@ -48,12 +48,23 @@ message LlmConfig {
   bool support_thinking = 10;
 }
 
+message RepositoryEntry {
+  string id = 1;
+  string url = 2;
+  bool enabled = 3;
+  bool is_built_in = 4;
+  int32 content_version = 5;
+  int64 last_refresh_ms = 6;
+  string last_error = 7;
+}
+
 message Settings {
   reserved 1, 2, 3, 6, 8, 9, 10;
   repeated ImportedModel imported_model = 4;
   // Has the app tos been accepted.
   bool is_tos_accepted = 5;
   bool has_seen_benchmark_comparison_help = 7;
+  repeated RepositoryEntry repositories = 11;
 }
 
 message UserData {
