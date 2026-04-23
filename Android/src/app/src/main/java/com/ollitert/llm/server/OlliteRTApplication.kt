@@ -23,6 +23,7 @@ import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
 import com.ollitert.llm.server.data.db.RequestLogPersistence
+import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -72,8 +73,9 @@ class OlliteRTApplication : Application() {
       Log.e("OlliteRTApp", "Failed to clean up stale import temp files", e)
     }
 
-    // Create the update notification channel (safe to call on every start — no-ops if it exists).
+    // Create notification channels (safe to call on every start — no-ops if they exist).
     UpdateCheckWorker.createNotificationChannel(this)
+    AllowlistRefreshWorker.createNotificationChannel(this)
 
     // Clear stale update notification if the app was auto-updated since the last check.
     // Also restores cached update info to ServerMetrics if an update is still pending.
@@ -92,6 +94,13 @@ class OlliteRTApplication : Application() {
       }
     } catch (e: Exception) {
       Log.e("OlliteRTApp", "Failed to schedule update check", e)
+    }
+
+    // Schedule periodic allowlist refresh for model update detection.
+    try {
+      AllowlistRefreshWorker.scheduleAllowlistRefresh(this)
+    } catch (e: Exception) {
+      Log.e("OlliteRTApp", "Failed to schedule allowlist refresh", e)
     }
   }
 }
