@@ -13,6 +13,7 @@ Parsed by `ModelAllowlistJson.decode()` → `ModelAllowlist` / `AllowedModel` da
   - [Badge Values](#badge-values)
 - [DefaultConfig Object](#defaultconfig-object)
 - [SocModelFile Object](#socmodelfile-object)
+- [ModelFile Object](#modelfile-object)
 - [Example](#example)
 - [Backward Compatibility](#backward-compatibility)
 - [Related Files](#related-files)
@@ -66,6 +67,11 @@ Each entry in the `models` array.
 | `url` | `string` | `null` | Custom download URL (overrides HuggingFace URL construction) |
 | `runtimeType` | `string` | `null` | Runtime type: `litert_lm` or `unknown` |
 | `socToModelFiles` | `object` | `null` | Per-SoC model file overrides (see below) |
+| `pinned` | `boolean` | `null` | Pin model to top of the list |
+| `minAppVersion` | `string` | `null` | Minimum app version required (semver, e.g. `"1.0.0"`) |
+| `maxAppVersion` | `string` | `null` | Maximum app version supported (semver) |
+| `updatableModelFiles` | `ModelFile[]` | `null` | Previous model file versions. When the app finds a downloaded file matching one of these (by `commitHash`) but not the current `commitHash`, the model is marked as updatable |
+| `updateInfo` | `string` | `null` | Changelog text shown in the update dialog and exposed via `update_info` REST API field |
 
 ### Badge Values
 
@@ -107,6 +113,17 @@ Per-SoC overrides inside `socToModelFiles`. The key is the SoC identifier string
 
 ---
 
+## `ModelFile` Object
+
+Represents a previous model file version. Used in `updatableModelFiles` to detect stale downloads.
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `fileName` | `string` | The `.litertlm` filename for this version |
+| `commitHash` | `string` | HuggingFace commit hash identifying this version |
+
+---
+
 ## Example
 
 ```json
@@ -126,6 +143,13 @@ Per-SoC overrides inside `socToModelFiles`. The key is the SoC identifier string
       "llmSupportAudio": true,
       "llmSupportThinking": true,
       "badge": "best_overall",
+      "updatableModelFiles": [
+        {
+          "fileName": "gemma-4-E2B-it.litertlm",
+          "commitHash": "old_commit_hash_here"
+        }
+      ],
+      "updateInfo": "Improved reasoning and reduced hallucination.",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -161,3 +185,4 @@ Per-SoC overrides inside `socToModelFiles`. The key is the SoC identifier string
 | `data/Model.kt` | Domain `Model` class (output of `AllowedModel.toModel()`) |
 | `ui/common/modelitem/ModelBadgeChip.kt` | Badge chip composable |
 | `ui/modelmanager/ModelAllowlistLoader.kt` | Asset/disk/network loader for the allowlist |
+| `worker/AllowlistRefreshWorker.kt` | Periodic background worker that fetches allowlist updates and fires model update notifications |
