@@ -240,6 +240,61 @@ class LlmHttpAllowlistLoaderTest {
   }
 
   @Test
+  fun lastContentVersionSetAfterLoad() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      val json = """{"contentVersion": 42, "models": [
+        {"name": "TestModel", "modelId": "test/TestModel", "modelFile": "test.litertlm",
+         "description": "A test model", "sizeInBytes": 1000, "defaultConfig": {}}
+      ]}"""
+      File(dir, "model_allowlist.json").writeText(json)
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
+      assertEquals(0, loader.lastContentVersion)
+      loader.load()
+      assertEquals(42, loader.lastContentVersion)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun lastContentVersionZeroWhenNoModelsLoaded() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
+      loader.load()
+      assertEquals(0, loader.lastContentVersion)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun lastContentVersionUsesHigherOfDiskAndAsset() {
+    val dir = createTempDirectory("allowlist-test").toFile()
+    try {
+      val diskJson = """{"contentVersion": 5, "models": [
+        {"name": "DiskModel", "modelId": "test/disk", "modelFile": "disk.litertlm",
+         "description": "disk", "sizeInBytes": 100, "defaultConfig": {}}
+      ]}"""
+      File(dir, "model_allowlist.json").writeText(diskJson)
+
+      val assetJson = """{"contentVersion": 10, "models": [
+        {"name": "AssetModel", "modelId": "test/asset", "modelFile": "asset.litertlm",
+         "description": "asset", "sizeInBytes": 200, "defaultConfig": {}}
+      ]}"""
+      val loader = LlmHttpAllowlistLoader(
+        externalFilesDir = dir,
+        assetReader = { assetJson },
+      )
+      loader.load()
+      assertEquals(10, loader.lastContentVersion)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
   fun handlesNullExternalFilesDirGracefully() {
     val loader = LlmHttpAllowlistLoader(
       externalFilesDir = null,

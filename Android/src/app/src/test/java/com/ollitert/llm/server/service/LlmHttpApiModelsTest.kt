@@ -88,6 +88,28 @@ class LlmHttpApiModelsTest {
     assertTrue("Should contain system_fingerprint:null", serialized.contains("\"system_fingerprint\":null"))
   }
 
+  // ── LlmHttpModelItem: update_available ────────────────────────────────
+
+  @Test
+  fun modelItemUpdateAvailableDefaultsFalse() {
+    val item = LlmHttpModelItem(id = "test-model")
+    assertEquals(false, item.update_available)
+  }
+
+  @Test
+  fun modelItemUpdateAvailableSerializes() {
+    val item = LlmHttpModelItem(id = "test-model", update_available = true)
+    val serialized = json.encodeToString(item)
+    assertTrue(serialized.contains("\"update_available\":true"))
+  }
+
+  @Test
+  fun modelItemUpdateAvailableFalseSerializes() {
+    val item = LlmHttpModelItem(id = "test-model", update_available = false)
+    val serialized = json.encodeToString(item)
+    assertTrue(serialized.contains("\"update_available\":false"))
+  }
+
   // ── ChatRequest: stream_options──────────────────────────────────────
 
   @Test
