@@ -28,6 +28,7 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -64,9 +65,12 @@ import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -78,11 +82,13 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -110,12 +116,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCapability
+import com.ollitert.llm.server.data.OFFICIAL_REPO_ID
+import com.ollitert.llm.server.data.UNKNOWN_REPO_LABEL
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.RuntimeType
 import com.ollitert.llm.server.proto.ImportedModel
@@ -166,6 +175,7 @@ fun GlobalModelManager(
   onModelSelected: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
   onNavigateToSettings: () -> Unit = {},
+  onNavigateToRepositories: () -> Unit = {},
   modifier: Modifier = Modifier,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
@@ -176,6 +186,9 @@ fun GlobalModelManager(
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val showRecommendations by viewModel.showModelRecommendations.collectAsStateWithLifecycle()
   var showImportModelSheet by remember { mutableStateOf(false) }
+  var showImportUrlDialog by remember { mutableStateOf(false) }
+  var importUrlLoading by remember { mutableStateOf(false) }
+  var importUrlError by remember { mutableStateOf<String?>(null) }
   var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
   var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
   val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
@@ -186,16 +199,6 @@ fun GlobalModelManager(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
-
-  // Pull-to-refresh: separate from initial load so the indicator only appears on swipe,
-  // with a minimum visible duration so the spinner doesn't flash and vanish.
-  var isManualRefreshing by remember { mutableStateOf(false) }
-  LaunchedEffect(uiState.loadingModelAllowlist, isManualRefreshing) {
-    if (isManualRefreshing && !uiState.loadingModelAllowlist) {
-      delay(500)
-      isManualRefreshing = false
-    }
-  }
 
   // Show a toast when a manual retry fails to reach the model server
   LaunchedEffect(viewModel) {
@@ -265,6 +268,24 @@ fun GlobalModelManager(
         } ?: run { Log.d(TAG, "No file selected or URI is null.") }
       } else {
         Log.d(TAG, "File picking cancelled.")
+      }
+    }
+
+  val importModelListSuccessText = stringResource(R.string.import_model_list_success)
+  val modelListPickerLauncher: ActivityResultLauncher<Intent> =
+    rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+      if (result.resultCode == android.app.Activity.RESULT_OK) {
+        result.data?.data?.let { uri ->
+          viewModel.importModelList(uri) { error ->
+            if (error != null) {
+              Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            } else {
+              Toast.makeText(context, importModelListSuccessText, Toast.LENGTH_SHORT).show()
+            }
+          }
+        }
       }
     }
 
@@ -363,11 +384,8 @@ fun GlobalModelManager(
   }
 
   PullToRefreshBox(
-    isRefreshing = isManualRefreshing,
-    onRefresh = {
-      isManualRefreshing = true
-      viewModel.loadModelAllowlist(isManualRetry = true)
-    },
+    isRefreshing = uiState.loadingModelAllowlist,
+    onRefresh = { viewModel.loadModelAllowlist(isManualRetry = true) },
     modifier = modifier
       .fillMaxSize()
       .pointerInput(Unit) {
@@ -500,6 +518,30 @@ fun GlobalModelManager(
           }
         }
       }
+      // All repos disabled — no downloaded models: centered empty state
+      if (uiState.allReposDisabled && uiState.models.isEmpty()) {
+        item(key = "all_repos_disabled") {
+          Box(
+            modifier = Modifier
+              .fillParentMaxHeight(0.7f)
+              .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+          ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+              Text(
+                text = stringResource(R.string.no_repos_enabled),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+              )
+              Spacer(modifier = Modifier.height(16.dp))
+              Button(onClick = onNavigateToRepositories) {
+                Text(stringResource(R.string.button_go_to_model_sources))
+              }
+            }
+          }
+        }
+      }
 
       // Shimmer loading placeholders
       if (uiState.loadingModelAllowlist && builtInModels.isEmpty()) {
@@ -556,10 +598,9 @@ fun GlobalModelManager(
         }
       }
 
-      // Info banner when model list was loaded from cache/bundle instead of network.
-      // The app works fully offline — this just lets the user know the list may not include
-      // newer models that were published after their last successful fetch.
-      if (uiState.allowlistSource != null && uiState.allowlistSource != AllowlistSource.NETWORK && !uiState.loadingModelAllowlist) {
+      // Info banner when some/all repos are offline — the app works fully offline,
+      // this just lets the user know the list may not include newer models.
+      if (uiState.loadingModelAllowlistError.isNotEmpty() && uiState.models.isNotEmpty() && !uiState.loadingModelAllowlist) {
         item(key = "offline_info_banner") {
           Row(
             modifier = Modifier
@@ -579,12 +620,7 @@ fun GlobalModelManager(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              text = stringResource(
-                if (uiState.allowlistSource == AllowlistSource.DISK_CACHE)
-                  R.string.models_offline_cached
-                else
-                  R.string.models_offline_bundled
-              ),
+              text = uiState.loadingModelAllowlistError,
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.weight(1f),
@@ -632,40 +668,71 @@ fun GlobalModelManager(
         )
       }
 
-      // Built-in models section header — only shown when imported models are also visible
-      if (filteredBuiltInModels.isNotEmpty() && filteredImportedModels.isNotEmpty()) {
-        item(key = "built_in_models_label") {
-          Text(
-            stringResource(R.string.model_list_built_in_models_title),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier
-              .padding(horizontal = 16.dp)
-              .padding(top = 24.dp, bottom = 8.dp),
+      // Built-in models grouped by source repository (built-in repo always first)
+      val groupedByRepoId = filteredBuiltInModels.groupBy { it.sourceRepositoryId.ifEmpty { "unknown" } }
+      val sortedRepoIds = groupedByRepoId.keys.sortedWith(
+        compareByDescending<String> { it == OFFICIAL_REPO_ID }.thenBy { it }
+      )
+      val needsHeaders = sortedRepoIds.size > 1 || filteredImportedModels.isNotEmpty()
+      for ((index, repoId) in sortedRepoIds.withIndex()) {
+        val repoModels = groupedByRepoId[repoId] ?: continue
+        if (needsHeaders) {
+          val repoDisplayName = repoModels.first().sourceRepository.ifEmpty { UNKNOWN_REPO_LABEL }
+          val isFirst = index == 0 && filteredImportedModels.isEmpty()
+          item(key = "repo_header_$repoId") {
+            Text(
+              repoDisplayName,
+              color = MaterialTheme.colorScheme.onSurface,
+              style = MaterialTheme.typography.labelLarge,
+              modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = if (isFirst) 8.dp else 24.dp, bottom = 8.dp),
+            )
+          }
+        }
+        items(repoModels, key = { "builtin_${it.name}" }) { model ->
+          ModelItem(
+            model = model,
+            modelManagerViewModel = viewModel,
+            onModelClicked = handleClickModel,
+            onBenchmarkClicked = onBenchmarkClicked,
+            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+            serverStatus = serverStatus,
+            activeModelName = activeModelName,
+            lastError = lastError,
+            onStopServer = onStopServer,
+            onNavigateToSettings = onNavigateToSettings,
+            searchQuery = searchQuery,
+            showRecommendations = showRecommendations,
           )
         }
       }
 
-      // Built-in models
-      items(filteredBuiltInModels, key = { "builtin_${it.name}" }) { model ->
-        ModelItem(
-          model = model,
-          modelManagerViewModel = viewModel,
-          onModelClicked = handleClickModel,
-          onBenchmarkClicked = onBenchmarkClicked,
-          showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
-          serverStatus = serverStatus,
-          activeModelName = activeModelName,
-          lastError = lastError,
-          onStopServer = onStopServer,
-          onNavigateToSettings = onNavigateToSettings,
-          searchQuery = searchQuery,
-          showRecommendations = showRecommendations,
-        )
+      // All repos disabled banner — shown below downloaded models
+      if (uiState.allReposDisabled && uiState.models.isNotEmpty()) {
+        item(key = "all_repos_disabled_banner") {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+          ) {
+            Text(
+              text = stringResource(R.string.no_repos_enabled),
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = onNavigateToRepositories) {
+              Text(stringResource(R.string.button_go_to_model_sources))
+            }
+          }
+        }
       }
 
       // Empty state — distinguish between filter mismatch and allowlist load failure
-      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && !uiState.loadingModelAllowlist) {
+      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && !uiState.loadingModelAllowlist && !uiState.allReposDisabled) {
         item(key = "empty_state") {
           if (uiState.loadingModelAllowlistError.isNotEmpty()) {
             // Allowlist failed to load — show error with retry
@@ -761,38 +828,78 @@ fun GlobalModelManager(
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
       )
-      val cbImportFromLocalFile = stringResource(R.string.cd_import_model_from_local_file_button)
-      Box(
-        modifier = Modifier
-          .clickable {
-            scope.launch {
-              delay(200)
-              showImportModelSheet = false
-              val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "*/*"
-                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-              }
-              filePickerLauncher.launch(intent)
+      BottomSheetActionRow(
+        icon = Icons.AutoMirrored.Outlined.NoteAdd,
+        labelRes = R.string.label_import_from_local_file,
+        contentDescriptionRes = R.string.cd_import_model_from_local_file_button,
+        onClick = {
+          scope.launch {
+            delay(200)
+            showImportModelSheet = false
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+              addCategory(Intent.CATEGORY_OPENABLE)
+              type = "*/*"
+              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
             }
+            filePickerLauncher.launch(intent)
           }
-          .semantics {
-            role = Role.Button
-            contentDescription = cbImportFromLocalFile
-          },
-      ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        ) {
-          Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
-          Text(stringResource(R.string.label_import_from_local_file), modifier = Modifier.clearAndSetSemantics {})
-        }
-      }
+        },
+      )
+      BottomSheetActionRow(
+        icon = Icons.Outlined.Dns,
+        labelRes = R.string.label_import_from_model_list,
+        contentDescriptionRes = R.string.cd_import_model_list_button,
+        onClick = {
+          scope.launch {
+            delay(200)
+            showImportModelSheet = false
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+              addCategory(Intent.CATEGORY_OPENABLE)
+              type = "application/json"
+              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+            }
+            modelListPickerLauncher.launch(intent)
+          }
+        },
+      )
+      BottomSheetActionRow(
+        icon = Icons.Outlined.Link,
+        labelRes = R.string.label_import_from_url,
+        contentDescriptionRes = R.string.cd_import_model_list_url_button,
+        onClick = {
+          showImportModelSheet = false
+          showImportUrlDialog = true
+        },
+      )
     }
+  }
+
+  // Import model list from URL dialog
+  if (showImportUrlDialog) {
+    ImportModelListUrlDialog(
+      isLoading = importUrlLoading,
+      error = importUrlError,
+      onDismiss = {
+        if (!importUrlLoading) {
+          showImportUrlDialog = false
+          importUrlError = null
+        }
+      },
+      onImport = { url ->
+        importUrlLoading = true
+        importUrlError = null
+        viewModel.importModelListFromUrl(url) { error ->
+          importUrlLoading = false
+          if (error != null) {
+            importUrlError = error
+          } else {
+            showImportUrlDialog = false
+            importUrlError = null
+            Toast.makeText(context, importModelListSuccessText, Toast.LENGTH_SHORT).show()
+          }
+        }
+      },
+    )
   }
 
   // Import dialog
@@ -1041,4 +1148,97 @@ private fun getFileName(context: Context, uri: Uri): String? {
     return uri.lastPathSegment
   }
   return null
+}
+
+@Composable
+private fun BottomSheetActionRow(
+  icon: ImageVector,
+  @StringRes labelRes: Int,
+  @StringRes contentDescriptionRes: Int,
+  onClick: () -> Unit,
+) {
+  val cd = stringResource(contentDescriptionRes)
+  Box(
+    modifier = Modifier
+      .clickable(onClick = onClick)
+      .semantics {
+        role = Role.Button
+        contentDescription = cd
+      },
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp),
+    ) {
+      Icon(icon, contentDescription = null)
+      Text(stringResource(labelRes), modifier = Modifier.clearAndSetSemantics {})
+    }
+  }
+}
+
+@Composable
+private fun ImportModelListUrlDialog(
+  isLoading: Boolean,
+  error: String?,
+  onDismiss: () -> Unit,
+  onImport: (String) -> Unit,
+) {
+  var url by remember { mutableStateOf("") }
+
+  AlertDialog(
+    onDismissRequest = { if (!isLoading) onDismiss() },
+    title = { Text(stringResource(R.string.import_model_list_url_title)) },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+          value = url,
+          onValueChange = { url = it },
+          label = { Text(stringResource(R.string.import_model_list_url_label)) },
+          placeholder = { Text("https://...") },
+          singleLine = true,
+          enabled = !isLoading,
+          modifier = Modifier.fillMaxWidth(),
+          isError = error != null,
+          supportingText = if (error != null) {
+            { Text(error, color = MaterialTheme.colorScheme.error) }
+          } else null,
+        )
+        if (url.trim().startsWith("http://", ignoreCase = true)) {
+          Text(
+            stringResource(R.string.http_warning),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+          )
+        }
+        if (isLoading) {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Text(
+              stringResource(R.string.import_model_list_url_loading),
+              style = MaterialTheme.typography.bodySmall,
+            )
+          }
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(
+        onClick = { onImport(url.trim()) },
+        enabled = url.isNotBlank() && !isLoading,
+      ) {
+        Text(stringResource(R.string.button_import))
+      }
+    },
+    dismissButton = {
+      TextButton(onClick = onDismiss, enabled = !isLoading) {
+        Text(stringResource(R.string.cancel))
+      }
+    },
+  )
 }

@@ -49,7 +49,6 @@
   <string name="memory_warning_title" translatable="false">Memory Warning</string>
   <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
-  <string name="model_list_built_in_models_title" translatable="false">Built-in models</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_content_fail" translatable="false">Model "%s" could not be downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
@@ -128,6 +127,7 @@
   <string name="dialog_hf_token_invalid_title">HuggingFace Token Invalid</string>
   <string name="dialog_hf_token_invalid_body">Your HuggingFace token was rejected by the server. It may be expired, revoked, or incorrect.\n\nPlease check your token in Settings.</string>
   <string name="button_go_to_settings">Go to Settings</string>
+  <string name="button_go_to_model_sources">Go to Model Sources</string>
   <string name="dialog_storage_warning_title">Not Enough Storage</string>
   <string name="dialog_storage_warning_body">This download requires %1$.1f GB total:\n  \u2022 Model size: %2$.1f GB\n  \u2022 System reserve: %3$.0f GB\n\nAvailable: %4$.1f GB\n\nFree up at least %5$.1f GB to continue, or tap \"Download Anyway\" to skip the safety check.</string>
   <string name="button_download_anyway">Download Anyway</string>
@@ -145,6 +145,25 @@
   <string name="button_switch">Switch</string>
   <string name="label_import_model">Import model</string>
   <string name="label_import_from_local_file">From local model file (.litertlm)</string>
+  <string name="label_import_from_model_list">From model list file (.json)</string>
+  <string name="cd_import_model_list_button">Import model list from JSON file</string>
+  <string name="import_model_list_success">Model list imported successfully</string>
+  <string name="import_model_list_default_name">Imported model list</string>
+  <string name="import_model_list_error_read">Failed to read the file</string>
+  <string name="import_model_list_error_empty">The file is empty</string>
+  <string name="import_model_list_error_invalid_json">Invalid model list format</string>
+  <string name="import_model_list_error_no_models">The model list contains no models</string>
+  <string name="import_model_list_error_newer_version">This model list requires a newer app version</string>
+  <string name="import_model_list_error_invalid_url">Invalid URL</string>
+  <string name="http_warning">This URL uses an unencrypted connection. Data may be intercepted on untrusted networks.</string>
+  <string name="import_model_list_error_fetch">Could not reach this URL</string>
+  <string name="import_model_list_error_too_large">File is too large (max %1$s)</string>
+  <string name="label_import_from_url">From model list URL (.json)</string>
+  <string name="cd_import_model_list_url_button">Import model list from a direct JSON URL</string>
+  <string name="import_model_list_url_title">Import model list from URL</string>
+  <string name="import_model_list_url_label">Model list URL</string>
+  <string name="import_model_list_url_loading">Fetching model list…</string>
+  <string name="repo_detail_imported_locally">Imported from local file</string>
   <string name="dialog_import_model_title">Import Model</string>
   <string name="button_import">Import</string>
   <string name="button_replace">Replace</string>
@@ -337,6 +356,8 @@
   <string name="settings_show_model_recommendations_desc" translatable="false">Display badges and pin recommended models to the top of the list</string>
 
   <!-- Settings: App Updates card -->
+  <string name="settings_card_repositories">Model Sources</string>
+  <string name="settings_repositories_description">Manage model sources and allowlist URLs</string>
   <string name="settings_card_updates" translatable="false">App Updates</string>
 
   <!-- Settings: Developer card -->
@@ -825,6 +846,51 @@
   <string name="error_model_server_unreachable">Could not reach model server</string>
   <string name="error_model_list_load_failed">Failed to load model list</string>
   <string name="error_model_list_load_failed_detail">Failed to load model list: %1$s</string>
+  <string name="no_repos_enabled">No model sources enabled</string>
+  <string name="error_all_repos_offline">All model sources are unreachable</string>
+  <string name="error_showing_cached_list">Showing cached model list — couldn\'t check for updates</string>
+  <string name="error_some_repos_unavailable">%1$d of %2$d model sources are unreachable</string>
+
+  <!-- RepositoryListScreen -->
+  <string name="repo_list_title">Model Sources</string>
+  <string name="repo_add">Add model source</string>
+  <string name="repo_add_title">Add Model Source</string>
+  <string name="repo_add_url_label">URL</string>
+  <string name="repo_add_helper">Enter the URL of a model list JSON file</string>
+  <string name="repo_add_loading">Validating…</string>
+  <string name="repo_model_count">%1$d models</string>
+  <string name="repo_delete">Delete</string>
+  <string name="repo_delete_title">Remove model source?</string>
+  <string name="repo_delete_message">Remove %1$s? This won\'t delete any downloaded models.</string>
+  <string name="repo_disable_title">Disable model source?</string>
+  <string name="repo_disable_downloaded_info">You have %1$d downloaded model(s) from this source. They will remain on the Models screen until you delete them.</string>
+  <string name="repo_disable_confirm">Disable</string>
+  <string name="repo_disable_downloading_title">Download in progress</string>
+  <string name="repo_disable_downloading_message">%1$d model(s) from this source are currently downloading. Disabling will cancel the download(s).</string>
+  <string name="repo_disable_downloading_cancel_and_disable">Cancel download &amp; disable</string>
+  <string name="repo_delete_downloading_message">%1$d model(s) from this source are currently downloading. Deleting will cancel the download(s).</string>
+  <string name="repo_delete_downloading_cancel_and_delete">Cancel download &amp; delete</string>
+  <string name="repo_limit_warning">Approaching model source limit</string>
+  <string name="add" translatable="false">Add</string>
+  <string name="remove" translatable="false">Remove</string>
+
+  <!-- RepositoriesCard (Settings) -->
+  <string name="repo_card_no_sources">No model sources</string>
+  <string name="repo_card_one_source">1 source</string>
+  <string name="repo_card_sources">%1$d sources</string>
+  <string name="repo_card_sources_with_enabled">%1$d sources (%2$d enabled)</string>
+  <string name="repo_model_count_none">—</string>
+
+  <!-- RepositoryDetailScreen -->
+  <string name="repo_not_found">Model source not found</string>
+  <string name="repo_detail_description">Description</string>
+  <string name="repo_detail_url">URL</string>
+  <string name="repo_detail_models">Models</string>
+  <string name="repo_detail_version">Content version</string>
+  <string name="repo_detail_share">Share URL</string>
+  <string name="repo_detail_delete">Remove model source</string>
+  <string name="repo_detail_last_error">Last error</string>
+  <string name="repo_detail_models_section">Models in this source</string>
 
   <!-- ServerLlmModelHelper: error messages -->
   <string name="error_model_file_not_found">Model file not found: %1$s</string>

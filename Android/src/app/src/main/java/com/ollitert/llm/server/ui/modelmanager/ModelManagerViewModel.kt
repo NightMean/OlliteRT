@@ -19,29 +19,34 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import android.app.NotificationManager
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.JsonSyntaxException
 import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.common.getJsonResponse
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
+import com.ollitert.llm.server.data.fetchBounded
+import com.ollitert.llm.server.data.MAX_ALLOWLIST_RESPONSE_BYTES
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_TEST_FILENAME
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.LoadResult
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.Repository
+import com.ollitert.llm.server.data.RepositoryManager
 import com.ollitert.llm.server.data.SOC
+import com.ollitert.llm.server.data.repoCacheFilename
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.service.EventCategory
@@ -61,13 +66,14 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import javax.inject.Inject
 
 private const val TAG = "OlliteRTModelManagerVM"
-private const val ALLOWLIST_URL = GitHubConfig.ALLOWLIST_URL
-
 private const val TEST_MODEL_ALLOW_LIST = ""
 
 data class ModelInitializationStatus(
@@ -81,16 +87,6 @@ enum class ModelInitializationStatusType {
   INITIALIZING,
   INITIALIZED,
   ERROR,
-}
-
-/** Where the model allowlist was loaded from — used to show an info banner when offline. */
-enum class AllowlistSource {
-  /** Successfully fetched from GitHub (fresh list). */
-  NETWORK,
-  /** Network failed, loaded from a previously cached file on disk. */
-  DISK_CACHE,
-  /** Network failed and no cache, loaded from the APK's bundled asset. */
-  BUNDLED_ASSET,
 }
 
 enum class TokenStatus {
@@ -125,8 +121,8 @@ data class ModelManagerUiState(
   /** The error message when loading the model allowlist. */
   val loadingModelAllowlistError: String = "",
 
-  /** Where the allowlist was loaded from (network, disk cache, or bundled asset). */
-  val allowlistSource: AllowlistSource? = null,
+  /** True when every repository is disabled — shows "No repositories enabled" empty state. */
+  val allReposDisabled: Boolean = false,
 
   /** The currently selected model. */
   val selectedModel: Model = EMPTY_MODEL,
@@ -150,6 +146,7 @@ constructor(
   private val downloadRepository: DownloadRepository,
   val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
+  private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
   // Synchronous one-time read — NavHost requires startDestination during first composition.
@@ -208,6 +205,14 @@ constructor(
     }
   }
 
+  fun getActivelyDownloadingModelNames(): Set<String> {
+    val activeStatuses = setOf(ModelDownloadStatusType.IN_PROGRESS, ModelDownloadStatusType.UNZIPPING)
+    return uiState.value.modelDownloadStatus
+      .filter { (_, status) -> status.status in activeStatuses }
+      .keys
+  }
+
+
   fun processModels() {
     for (model in uiState.value.models) {
       model.preProcess()
@@ -256,6 +261,11 @@ constructor(
   fun cancelDownloadModel(model: Model) {
     downloadRepository.cancelDownloadModel(model)
     deleteModel(model = model)
+  }
+
+  fun cancelModelDownloadByName(modelName: String) {
+    val model = getAllModels().find { it.name == modelName } ?: return
+    cancelDownloadModel(model)
   }
 
   fun deleteModel(model: Model) {
@@ -504,152 +514,145 @@ constructor(
 
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
     _uiState.update {
-      it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "")
+      it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "", allReposDisabled = false)
     }
 
     viewModelScope.launch(Dispatchers.IO) {
-      // Clean up stale .tmp files from interrupted model imports on startup
       fileManager.cleanupStaleImportTmpFiles()
       try {
-        // Load model allowlist json.
-        var modelAllowlist: ModelAllowlist? = null
-        var allowlistSource: AllowlistSource = AllowlistSource.NETWORK
+        // Test allowlist override — development-only path
+        val testAllowlist = allowlistLoader.readTestAllowlist()
+        if (testAllowlist != null || TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
+          val allowlist = if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
+            try { ModelAllowlistJson.decode(TEST_MODEL_ALLOW_LIST) } catch (e: Exception) {
+              Log.e(TAG, "Failed to parse local test json", e)
+              null
+            }
+          } else testAllowlist
 
-        // Try to read the test allowlist first.
-        Log.d(TAG, "Loading test model allowlist.")
-        modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
-
-        // Local test only.
-        if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
-          Log.d(TAG, "Loading local model allowlist for testing.")
-          try {
-            modelAllowlist = ModelAllowlistJson.decode(TEST_MODEL_ALLOW_LIST)
-          } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "Failed to parse local test json", e)
+          if (allowlist != null) {
+            loadFromAllowlist(allowlist)
+            return@launch
           }
         }
 
-        if (modelAllowlist == null) {
-          // Load from the single master allowlist on GitHub.
-          // Version filtering is handled by minAppVersion/maxAppVersion in the JSON.
-          val url = ALLOWLIST_URL
-          Log.d(TAG, "Loading model allowlist from internet. Url: $url")
-          val data = getJsonResponse<ModelAllowlist>(url = url)
-          modelAllowlist = data?.let { ModelAllowlistJson.decode(it.textContent) }
+        // Migrate legacy single-file cache → per-repo filename
+        migrateDiskCacheIfNeeded()
 
-          if (modelAllowlist != null && data != null) {
-            val networkList = modelAllowlist
-            // Network succeeded — guard against a regressed remote JSON by comparing
-            // against the bundled asset's contentVersion.
-            val bundled = readModelAllowlistFromAssets()
-            if (bundled != null && bundled.contentVersion > networkList.contentVersion) {
-              Log.w(TAG, "Remote contentVersion (${networkList.contentVersion}) is behind bundled (${bundled.contentVersion}) — using bundled")
-              modelAllowlist = bundled
-              allowlistSource = AllowlistSource.BUNDLED_ASSET
-            } else {
-              allowlistSource = AllowlistSource.NETWORK
-              Log.d(TAG, "Done: loading model allowlist from internet")
-              saveModelAllowlistToDisk(modelAllowlistContent = data.textContent)
-            }
-          } else {
-            // Network failed — pick the freshest offline source by contentVersion.
-            Log.w(TAG, "Failed to load model allowlist from internet. Trying offline sources")
-            if (isManualRetry) _toastErrorChannel.trySend(context.getString(R.string.error_model_server_unreachable))
-            val diskCache = readModelAllowlistFromDisk()
-            val bundled = readModelAllowlistFromAssets()
+        // Sync Official repo URL in case the app was updated with a new default
+        syncOfficialRepoUrl()
 
-            when {
-              diskCache != null && bundled != null -> {
-                if (bundled.contentVersion > diskCache.contentVersion) {
-                  Log.d(TAG, "Bundled asset (v${bundled.contentVersion}) is newer than disk cache (v${diskCache.contentVersion})")
-                  modelAllowlist = bundled
-                  allowlistSource = AllowlistSource.BUNDLED_ASSET
-                } else {
-                  Log.d(TAG, "Disk cache (v${diskCache.contentVersion}) is current (bundled v${bundled.contentVersion})")
-                  modelAllowlist = diskCache
-                  allowlistSource = AllowlistSource.DISK_CACHE
-                }
-              }
-              diskCache != null -> {
-                modelAllowlist = diskCache
-                allowlistSource = AllowlistSource.DISK_CACHE
-              }
-              bundled != null -> {
-                modelAllowlist = bundled
-                allowlistSource = AllowlistSource.BUNDLED_ASSET
-              }
-            }
-          }
+        // Fetch fresh data from all enabled repos (network → disk cache).
+        // Failures are per-repo — loadAll() still picks up existing cache as fallback.
+        val refreshResult = repositoryManager.refreshAll(allowlistLoader)
+
+        val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
+        val loadResult = repositoryManager.loadAll(appVersion, allowlistLoader) { allowedModel ->
+          // NPU/SoC filtering — skip NPU-only models unsupported on this device
+          val accelerators = allowedModel.defaultConfig.accelerators?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+          if (accelerators.size == 1 && accelerators[0] == "npu") {
+            val supported = allowedModel.socToModelFiles?.containsKey(SOC) == true
+            if (!supported) Log.d(TAG, "Ignoring model '${allowedModel.name}' because it's NPU-only and not supported on SOC: $SOC")
+            supported
+          } else true
         }
 
-        if (modelAllowlist == null) {
+        // Check if all repos are disabled
+        val allDisabled = loadResult.repositories.isNotEmpty() &&
+          loadResult.repositories.all { !it.enabled }
+        if (allDisabled) {
+          val allModelsResult = repositoryManager.loadAll(
+            appVersion, allowlistLoader, ignoreDisabled = true,
+          ) { allowedModel ->
+            val accelerators = allowedModel.defaultConfig.accelerators?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+            if (accelerators.size == 1 && accelerators[0] == "npu") {
+              allowedModel.socToModelFiles?.containsKey(SOC) == true
+            } else true
+          }
           _uiState.update {
+            val statusMap = it.modelDownloadStatus.toMutableMap()
+            for (model in allModelsResult.models) {
+              if (model.name !in statusMap) {
+                statusMap[model.name] = getModelDownloadStatus(model = model)
+              }
+            }
+            val downloadedOnly = allModelsResult.models.filter { model ->
+              statusMap[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
+            }
             it.copy(
               loadingModelAllowlist = false,
-              loadingModelAllowlistError = context.getString(R.string.error_model_list_load_failed),
-              allowlistSource = null,
+              allReposDisabled = true,
+              models = downloadedOnly,
+              modelDownloadStatus = statusMap.toMap(),
             )
           }
           return@launch
         }
 
-        Log.d(TAG, "Allowlist: $modelAllowlist")
-
-        val sourceLabel = when (allowlistSource) {
-          AllowlistSource.NETWORK -> "network"
-          AllowlistSource.DISK_CACHE -> "disk cache"
-          AllowlistSource.BUNDLED_ASSET -> "bundled asset"
+        // Determine offline banner message by cross-referencing refresh failures
+        // with load results: a repo that failed to refresh but still loaded from
+        // cache is "stale" (has models), not "offline" (no models).
+        val enabledRepos = loadResult.repositories.filter { it.enabled }
+        val failedWithNoCache = enabledRepos.filter {
+          it.id in refreshResult.failedRepoIds && (it.modelCount == null || it.modelCount == 0)
         }
+        val failedWithCache = enabledRepos.filter {
+          it.id in refreshResult.failedRepoIds && it.modelCount != null && it.modelCount > 0
+        }
+        val errorMessage = when {
+          refreshResult.failedRepoIds.isEmpty() -> ""
+          failedWithNoCache.size == enabledRepos.size ->
+            context.getString(R.string.error_all_repos_offline)
+          failedWithNoCache.isNotEmpty() ->
+            context.getString(R.string.error_some_repos_unavailable, failedWithNoCache.size, enabledRepos.size)
+          failedWithCache.isNotEmpty() ->
+            context.getString(R.string.error_showing_cached_list)
+          else -> ""
+        }
+        // Log per-repo failures so they're visible in the Logs tab
+        for (repo in enabledRepos) {
+          if (repo.id in refreshResult.failedRepoIds) {
+            val name = repo.name.ifEmpty { repo.id }
+            val detail = repo.lastError.ifEmpty { "unreachable" }
+            RequestLogStore.addEvent(
+              "Model source refresh failed: $name ($detail)",
+              level = LogLevel.DEBUG,
+              category = EventCategory.UPDATE,
+            )
+          }
+        }
+
+        if (errorMessage.isNotEmpty() && isManualRetry) {
+          _toastErrorChannel.trySend(context.getString(R.string.error_model_server_unreachable))
+        }
+
+        if (loadResult.models.isEmpty() && failedWithNoCache.isNotEmpty()) {
+          _uiState.update {
+            it.copy(
+              loadingModelAllowlist = false,
+              loadingModelAllowlistError = context.getString(R.string.error_all_repos_offline),
+            )
+          }
+          return@launch
+        }
+
+        val models = loadResult.models
+
         RequestLogStore.addEvent(
-          "Model list loaded from $sourceLabel (v${modelAllowlist.contentVersion}, ${modelAllowlist.models.size} models)",
+          "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
           level = LogLevel.DEBUG,
           category = EventCategory.MODEL,
         )
 
-        val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
-
-        if (modelAllowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
-          Log.w(TAG, "Schema version ${modelAllowlist.schemaVersion} unsupported — clearing model list")
-          modelAllowlist = ModelAllowlist(schemaVersion = modelAllowlist.schemaVersion, models = emptyList())
-        }
-
-        // Convert models in the allowlist into a flat list.
-        val models = mutableListOf<Model>()
-        for (allowedModel in modelAllowlist.models) {
-          // Ignore the allowedModel if its accelerator is only npu and this device's soc is not in
-          // its socToModelFiles.
-          val accelerators = allowedModel.defaultConfig.accelerators ?: ""
-          val acceleratorList = accelerators.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-          if (acceleratorList.size == 1 && acceleratorList[0] == "npu") {
-            val socToModelFiles = allowedModel.socToModelFiles
-            if (socToModelFiles != null && !socToModelFiles.containsKey(SOC)) {
-              Log.d(
-                TAG,
-                "Ignoring model '${allowedModel.name}' because it's NPU-only and not supported on SOC: $SOC",
-              )
-              continue
-            }
-          }
-
-          models.add(allowedModel.toModel(appVersion = appVersion))
-        }
-
-        // Store models in state so processModels and createUiState can read them.
         _uiState.update { it.copy(models = models) }
-
-        // Process all models.
         processModels()
-
-        // Update UI state.
         _uiState.update {
           createUiState()
             .copy(
               loadingModelAllowlist = false,
-              allowlistSource = allowlistSource,
+              loadingModelAllowlistError = errorMessage,
             )
         }
-
-        // Process pending downloads.
         processPendingDownloads()
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
@@ -660,6 +663,37 @@ constructor(
           )
         }
       }
+    }
+  }
+
+  private suspend fun loadFromAllowlist(allowlist: ModelAllowlist) {
+    val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
+    val models = allowlist.models
+      .filter { allowedModel ->
+        val accelerators = allowedModel.defaultConfig.accelerators?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        if (accelerators.size == 1 && accelerators[0] == "npu") {
+          allowedModel.socToModelFiles?.containsKey(SOC) == true
+        } else true
+      }
+      .map { it.toModel(appVersion = appVersion) }
+
+    _uiState.update { it.copy(models = models) }
+    processModels()
+    _uiState.update {
+      createUiState().copy(loadingModelAllowlist = false)
+    }
+    processPendingDownloads()
+  }
+
+  private suspend fun syncOfficialRepoUrl() {
+    try {
+      val repos = dataStoreRepository.readRepositories()
+      val official = repos.find { it.isBuiltIn }
+      if (official != null && official.url != GitHubConfig.ALLOWLIST_URL) {
+        dataStoreRepository.updateRepository(official.copy(url = GitHubConfig.ALLOWLIST_URL))
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to sync Official repo URL", e)
     }
   }
 
@@ -680,12 +714,116 @@ constructor(
     lifecycleProvider.isAppInForeground = foreground
   }
 
-  // Allowlist I/O — delegated to ModelAllowlistLoader
-  private fun saveModelAllowlistToDisk(modelAllowlistContent: String) = allowlistLoader.saveToDisk(modelAllowlistContent)
-  private fun readModelAllowlistFromDisk(fileName: String = MODEL_ALLOWLIST_FILENAME) =
-    if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) allowlistLoader.readTestAllowlist()
-    else allowlistLoader.readFromDiskCache()
-  private fun readModelAllowlistFromAssets() = allowlistLoader.readFromAssets()
+  fun importModelListFromUrl(url: String, onResult: (String?) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val error = importModelListFromUrlInternal(url)
+      if (error == null) loadModelAllowlist()
+      withContext(Dispatchers.Main) { onResult(error) }
+    }
+  }
+
+  fun importModelList(uri: Uri, onResult: (String?) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val error = importModelListFromUri(uri)
+      if (error == null) loadModelAllowlist()
+      withContext(Dispatchers.Main) { onResult(error) }
+    }
+  }
+
+  private suspend fun importModelListFromUri(uri: Uri): String? {
+    val fileSize = try {
+      context.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L
+    } catch (_: Exception) { 0L }
+    if (fileSize > MAX_ALLOWLIST_RESPONSE_BYTES) {
+      return context.getString(
+        R.string.import_model_list_error_too_large,
+        "${MAX_ALLOWLIST_RESPONSE_BYTES / 1024 / 1024}MB",
+      )
+    }
+    val body = try {
+      context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to read model list file", e)
+      return context.getString(R.string.import_model_list_error_read)
+    }
+    if (body.isNullOrBlank()) return context.getString(R.string.import_model_list_error_empty)
+    return validateAndSaveModelList(body, repoUrl = "")
+  }
+
+  private suspend fun importModelListFromUrlInternal(url: String): String? {
+    val normalizedUrl = url.trim().trimEnd('/')
+    val parsed = try { java.net.URL(normalizedUrl) } catch (_: Exception) {
+      return context.getString(R.string.import_model_list_error_invalid_url)
+    }
+    if (parsed.protocol != "https" && parsed.protocol != "http") {
+      return context.getString(R.string.import_model_list_error_invalid_url)
+    }
+    val body = try {
+      fetchBounded(normalizedUrl, userAgent = "OlliteRT-ModelListImport")
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to fetch model list from URL", e)
+      null
+    }
+    if (body.isNullOrBlank()) return context.getString(R.string.import_model_list_error_fetch)
+    return validateAndSaveModelList(body, repoUrl = normalizedUrl)
+  }
+
+  private suspend fun validateAndSaveModelList(body: String, repoUrl: String): String? {
+    val allowlist: ModelAllowlist
+    try {
+      allowlist = ModelAllowlistJson.decode(body)
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to parse model list JSON", e)
+      return context.getString(R.string.import_model_list_error_invalid_json)
+    }
+
+    if (allowlist.models.isEmpty()) return context.getString(R.string.import_model_list_error_no_models)
+
+    if (allowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
+      return context.getString(R.string.import_model_list_error_newer_version)
+    }
+
+    val repoId = UUID.randomUUID().toString()
+    val cacheFilename = repoCacheFilename(repoId)
+    allowlistLoader.saveToDisk(body, cacheFilename)
+    if (allowlistLoader.readFromDiskCache(cacheFilename) == null) {
+      Log.w(TAG, "Disk cache write failed for imported model list")
+      return context.getString(R.string.import_model_list_error_read)
+    }
+    val repoName = allowlist.sourceName.ifEmpty {
+      context.getString(R.string.import_model_list_default_name)
+    }
+    dataStoreRepository.addRepository(
+      Repository(
+        id = repoId,
+        url = repoUrl,
+        enabled = true,
+        isBuiltIn = false,
+        contentVersion = allowlist.contentVersion,
+        lastRefreshMs = System.currentTimeMillis(),
+        lastError = "",
+        name = repoName,
+        description = allowlist.sourceDescription,
+        iconUrl = allowlist.sourceIconUrl,
+        modelCount = allowlist.models.size,
+      )
+    )
+    Log.d(TAG, "Imported model list as repo '$repoName' ($repoId) with ${allowlist.models.size} models")
+    return null
+  }
+
+  private fun migrateDiskCacheIfNeeded() {
+    val dir = context.getExternalFilesDir(null) ?: return
+    val officialFile = File(dir, MODEL_ALLOWLIST_OFFICIAL_FILENAME)
+    val legacyFile = File(dir, MODEL_ALLOWLIST_FILENAME)
+    if (!officialFile.exists() && legacyFile.exists()) {
+      if (legacyFile.renameTo(officialFile)) {
+        Log.d(TAG, "Migrated disk cache: $MODEL_ALLOWLIST_FILENAME → $MODEL_ALLOWLIST_OFFICIAL_FILENAME")
+      } else {
+        Log.e(TAG, "Failed to migrate disk cache")
+      }
+    }
+  }
 
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState()
