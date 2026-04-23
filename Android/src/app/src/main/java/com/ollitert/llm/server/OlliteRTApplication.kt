@@ -19,6 +19,12 @@ package com.ollitert.llm.server
 
 import android.app.Application
 import android.util.Log
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
@@ -27,12 +33,20 @@ import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
+import dagger.hilt.android.EarlyEntryPoint
+import dagger.hilt.android.EarlyEntryPoints
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.asResponseBody
+import okio.Buffer
+import okio.ForwardingSource
+import okio.buffer
 
 @HiltAndroidApp
-class OlliteRTApplication : Application() {
+class OlliteRTApplication : Application(), Configuration.Provider, SingletonImageLoader.Factory {
 
   /**
    * Entry point for accessing Hilt-managed singletons from [Application.onCreate].
@@ -50,6 +64,56 @@ class OlliteRTApplication : Application() {
   @InstallIn(SingletonComponent::class)
   interface DataStoreEntryPoint {
     fun dataStoreRepository(): DataStoreRepository
+  }
+
+  @EarlyEntryPoint
+  @InstallIn(SingletonComponent::class)
+  interface WorkerFactoryEntryPoint {
+    fun workerFactory(): HiltWorkerFactory
+  }
+
+  override val workManagerConfiguration: Configuration
+    get() {
+      val workerFactory = EarlyEntryPoints.get(this, WorkerFactoryEntryPoint::class.java).workerFactory()
+      return Configuration.Builder()
+        .setWorkerFactory(workerFactory)
+        .build()
+    }
+
+  override fun newImageLoader(context: PlatformContext): ImageLoader {
+    val maxImageBytes = 5L * 1024 * 1024
+    val secureClient = OkHttpClient.Builder()
+      .addNetworkInterceptor(Interceptor { chain ->
+        val url = chain.request().url
+        if (url.scheme != "https") {
+          throw SecurityException("Only HTTPS image URLs are allowed")
+        }
+        val response = chain.proceed(chain.request())
+        val contentLength = response.body?.contentLength() ?: -1
+        if (contentLength > maxImageBytes) {
+          response.close()
+          throw SecurityException("Image response exceeds 5MB limit")
+        }
+        val originalBody = response.body ?: return@Interceptor response
+        val limitedSource = object : ForwardingSource(originalBody.source()) {
+          var bytesRead = 0L
+          override fun read(sink: Buffer, byteCount: Long): Long {
+            val read = super.read(sink, byteCount)
+            if (read > 0) bytesRead += read
+            if (bytesRead > maxImageBytes) {
+              throw SecurityException("Image response exceeds 5MB streaming limit")
+            }
+            return read
+          }
+        }
+        val limitedBody = limitedSource.buffer()
+          .asResponseBody(originalBody.contentType(), originalBody.contentLength())
+        response.newBuilder().body(limitedBody).build()
+      })
+      .build()
+    return ImageLoader.Builder(context)
+      .components { add(OkHttpNetworkFetcherFactory(callFactory = { secureClient })) }
+      .build()
   }
 
   override fun onCreate() {

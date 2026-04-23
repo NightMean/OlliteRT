@@ -35,6 +35,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import androidx.hilt.work.HiltWorker
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
@@ -46,6 +47,8 @@ import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -59,9 +62,10 @@ import java.util.concurrent.TimeUnit
  * Channel-aware: stable checks /releases/latest (stable only), beta/dev fetch the
  * releases list and filter by tag pattern. See [fetchLatestRelease] for details.
  */
-class UpdateCheckWorker(
-  appContext: Context,
-  workerParams: WorkerParameters,
+@HiltWorker
+class UpdateCheckWorker @AssistedInject constructor(
+  @Assisted appContext: Context,
+  @Assisted workerParams: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParams) {
 
   override suspend fun doWork(): Result {

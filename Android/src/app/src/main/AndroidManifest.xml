@@ -112,6 +112,16 @@
             android:name="com.ollitert.llm.server.worker.UpdateDismissReceiver"
             android:exported="false" />
 
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+          <meta-data
+              android:name="androidx.work.WorkManagerInitializer"
+              tools:node="remove" />
+        </provider>
+
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
