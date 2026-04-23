@@ -187,6 +187,16 @@ fun GlobalModelManager(
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
 
+  // Pull-to-refresh: separate from initial load so the indicator only appears on swipe,
+  // with a minimum visible duration so the spinner doesn't flash and vanish.
+  var isManualRefreshing by remember { mutableStateOf(false) }
+  LaunchedEffect(uiState.loadingModelAllowlist, isManualRefreshing) {
+    if (isManualRefreshing && !uiState.loadingModelAllowlist) {
+      delay(500)
+      isManualRefreshing = false
+    }
+  }
+
   // Show a toast when a manual retry fails to reach the model server
   LaunchedEffect(viewModel) {
     viewModel.toastErrorEvents.collect { message ->
@@ -353,8 +363,11 @@ fun GlobalModelManager(
   }
 
   PullToRefreshBox(
-    isRefreshing = uiState.loadingModelAllowlist,
-    onRefresh = { viewModel.loadModelAllowlist(isManualRetry = true) },
+    isRefreshing = isManualRefreshing,
+    onRefresh = {
+      isManualRefreshing = true
+      viewModel.loadModelAllowlist(isManualRetry = true)
+    },
     modifier = modifier
       .fillMaxSize()
       .pointerInput(Unit) {
