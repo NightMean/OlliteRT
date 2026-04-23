@@ -106,6 +106,10 @@ private const val KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES = "update_check_consecut
 private const val DEFAULT_UPDATE_CHECK_ENABLED = true
 private const val DEFAULT_UPDATE_CHECK_INTERVAL_HOURS = 24
 
+// --- Model Update Detection ---
+private const val KEY_ALLOWLIST_CONTENT_VERSION = "allowlist_content_version"
+private const val KEY_IGNORED_MODEL_UPDATES = "ignored_model_updates"
+
 // --- DataStore Corruption Recovery ---
 private const val KEY_CORRUPTED_DATASTORES = "corrupted_datastores"
 
@@ -659,6 +663,30 @@ object LlmHttpPrefs {
 
   fun clearCorruptedDataStores(context: Context) {
     prefs(context).edit().remove(KEY_CORRUPTED_DATASTORES).apply()
+  }
+
+  // --- Model Update Detection ---
+
+  fun getAllowlistContentVersion(context: Context): Int =
+    prefs(context).getInt(KEY_ALLOWLIST_CONTENT_VERSION, 0)
+
+  fun setAllowlistContentVersion(context: Context, version: Int) {
+    prefs(context).edit().putInt(KEY_ALLOWLIST_CONTENT_VERSION, version).apply()
+  }
+
+  fun getIgnoredModelUpdates(context: Context): Set<String> =
+    prefs(context).getStringSet(KEY_IGNORED_MODEL_UPDATES, emptySet()) ?: emptySet()
+
+  fun addIgnoredModelUpdate(context: Context, nameVersion: String) {
+    val current = getIgnoredModelUpdates(context).toMutableSet()
+    current.add(nameVersion)
+    prefs(context).edit().putStringSet(KEY_IGNORED_MODEL_UPDATES, current).apply()
+  }
+
+  fun removeIgnoredModelUpdate(context: Context, nameVersion: String) {
+    val current = getIgnoredModelUpdates(context).toMutableSet()
+    current.remove(nameVersion)
+    prefs(context).edit().putStringSet(KEY_IGNORED_MODEL_UPDATES, current).apply()
   }
 
   /**
