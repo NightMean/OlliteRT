@@ -51,6 +51,7 @@ data class LlmHttpModelItem(
   val created: Long = LlmHttpBridgeUtils.epochSeconds(),
   val owned_by: String = "ollitert",
   val capabilities: LlmHttpModelCapabilities = LlmHttpModelCapabilities(),
+  val update_available: Boolean = false,
 )
 
 @Serializable

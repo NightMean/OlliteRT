@@ -177,6 +177,7 @@ object LlmHttpPayloadBuilders {
           audio = activeModel.llmSupportAudio,
           thinking = activeModel.llmSupportThinking && (activeModel.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false,
         ),
+        update_available = activeModel.updatable,
       )
       return json.encodeToString(LlmHttpModelItem.serializer(), item)
     }
@@ -215,6 +216,7 @@ object LlmHttpPayloadBuilders {
         audio = model.llmSupportAudio,
         thinking = model.llmSupportThinking && (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false,
       ),
+      update_available = model.updatable,
     )
     return json.encodeToString(LlmHttpModelList(data = listOf(item)))
   }
