@@ -26,6 +26,9 @@ Parsed by `ModelAllowlistJson.decode()` → `ModelAllowlist` / `AllowedModel` da
 {
   "schemaVersion": 1,
   "contentVersion": 1,
+  "sourceName": "Official",
+  "sourceDescription": "The official OlliteRT model source.",
+  "sourceIconUrl": "https://example.com/icon.png",
   "models": [ ... ]
 }
 ```
@@ -34,6 +37,9 @@ Parsed by `ModelAllowlistJson.decode()` → `ModelAllowlist` / `AllowedModel` da
 |:------|:-----|:---------|:--------|:------------|
 | `schemaVersion` | `int` | No | `1` | Schema format version. App rejects lists with unsupported versions |
 | `contentVersion` | `int` | No | `0` | Monotonically increasing content revision. When the network is unavailable, the app compares the disk cache's `contentVersion` against the bundled asset's and uses whichever is higher. **Bump this on every content change** (new models, changed fields, etc.) |
+| `sourceName` | `string` | No | `""` | Human-readable name for this model source (e.g. `"Official"`, `"Community"`). Used to identify the source when multiple repositories are configured |
+| `sourceDescription` | `string` | No | `""` | Human-readable description of the model source. Shown on the model source detail screen |
+| `sourceIconUrl` | `string` | No | `""` | URL to a model source icon image (PNG or JPEG, recommended 128x128). Loaded with Coil and shown on the model source list and detail screens |
 | `models` | `AllowedModel[]` | Yes | — | Array of model definitions |
 
 ---
@@ -130,6 +136,9 @@ Represents a previous model file version. Used in `updatableModelFiles` to detec
 {
   "schemaVersion": 1,
   "contentVersion": 1,
+  "sourceName": "Official",
+  "sourceDescription": "The official OlliteRT model source.",
+  "sourceIconUrl": "",
   "models": [
     {
       "name": "Gemma-4-E2B-it",

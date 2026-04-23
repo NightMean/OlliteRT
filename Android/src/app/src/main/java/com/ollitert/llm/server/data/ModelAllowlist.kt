@@ -232,6 +232,8 @@ data class ModelAllowlist(
   val schemaVersion: Int = 1,
   val contentVersion: Int = 0,
   val sourceName: String = "",
+  val sourceDescription: String = "",
+  val sourceIconUrl: String = "",
   val models: List<AllowedModel>,
 ) {
   companion object {

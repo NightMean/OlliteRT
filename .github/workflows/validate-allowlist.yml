@@ -68,6 +68,57 @@ jobs:
             echo "✓ contentVersion: $CONTENT_VERSION"
           fi
 
+          # 2c. sourceName (optional, must be a string if present)
+          SOURCE_NAME=$(python3 -c "
+          import json
+          data = json.load(open('$FILE'))
+          rn = data.get('sourceName')
+          if rn is None:
+              print('MISSING')
+          elif not isinstance(rn, str):
+              print('INVALID')
+          else:
+              print(rn)
+          ")
+          if [ "$SOURCE_NAME" = "MISSING" ]; then
+            echo "::warning::Missing 'sourceName' field (defaults to empty string)"
+          elif [ "$SOURCE_NAME" = "INVALID" ]; then
+            echo "::error::'sourceName' must be a string"
+            exit 1
+          else
+            echo "✓ sourceName: $SOURCE_NAME"
+          fi
+
+          # 2d. sourceDescription (optional, must be a string if present)
+          python3 -c "
+          import json, sys
+          data = json.load(open('$FILE'))
+          rd = data.get('sourceDescription')
+          if rd is None:
+              print('::warning::Missing sourceDescription field (defaults to empty string)')
+          elif not isinstance(rd, str):
+              print('::error::sourceDescription must be a string', file=sys.stderr)
+              sys.exit(1)
+          else:
+              print(f'✓ sourceDescription: {rd[:60]}')
+          "
+
+          # 2e. sourceIconUrl (optional, must be a string if present)
+          python3 -c "
+          import json, sys
+          data = json.load(open('$FILE'))
+          ri = data.get('sourceIconUrl')
+          if ri is None:
+              pass
+          elif not isinstance(ri, str):
+              print('::error::sourceIconUrl must be a string', file=sys.stderr)
+              sys.exit(1)
+          elif ri and not ri.startswith(('http://', 'https://')):
+              print(f'::warning::sourceIconUrl does not look like a URL: {ri}')
+          else:
+              print(f'✓ sourceIconUrl: {ri[:60] if ri else \"(empty)\"}')
+          "
+
           # 3. Has models array
           MODEL_COUNT=$(python3 -c "
           import json

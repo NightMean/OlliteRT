@@ -446,16 +446,52 @@ class ModelAllowlistJsonTest {
     assertEquals("", allowlist.sourceName)
   }
 
+  // --- sourceDescription ---
+
   @Test
-  fun filterCompatiblePreservesSourceName() {
+  fun decodesSourceDescriptionWhenPresent() {
+    val json = """{"schemaVersion": 1, "sourceDescription": "My models", "models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals("My models", allowlist.sourceDescription)
+  }
+
+  @Test
+  fun decodesSourceDescriptionMissingDefaultsToEmpty() {
+    val json = """{"schemaVersion": 1, "models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals("", allowlist.sourceDescription)
+  }
+
+  // --- sourceIconUrl ---
+
+  @Test
+  fun decodesSourceIconUrlWhenPresent() {
+    val json = """{"schemaVersion": 1, "sourceIconUrl": "https://example.com/icon.png", "models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals("https://example.com/icon.png", allowlist.sourceIconUrl)
+  }
+
+  @Test
+  fun decodesSourceIconUrlMissingDefaultsToEmpty() {
+    val json = """{"schemaVersion": 1, "models": []}"""
+    val allowlist = ModelAllowlistJson.decode(json)
+    assertEquals("", allowlist.sourceIconUrl)
+  }
+
+  @Test
+  fun filterCompatiblePreservesAllSourceFields() {
     val allowlist = ModelAllowlist(
       schemaVersion = 1,
       contentVersion = 3,
       sourceName = "Community",
+      sourceDescription = "Community models",
+      sourceIconUrl = "https://example.com/icon.png",
       models = listOf(makeFilterModel("A", minAppVersion = "1.0.0")),
     )
     val filtered = allowlist.filterCompatible(SemVer(1, 0, 0))
     assertEquals("Community", filtered.sourceName)
+    assertEquals("Community models", filtered.sourceDescription)
+    assertEquals("https://example.com/icon.png", filtered.sourceIconUrl)
   }
 
   @Test
