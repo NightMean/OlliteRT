@@ -34,19 +34,21 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
-import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.fetchBounded
+import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.MAX_MODELS_PER_REPO
+import com.ollitert.llm.server.data.MAX_REPO_ERROR_LENGTH
+import com.ollitert.llm.server.data.UNKNOWN_ERROR_FALLBACK
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.ui.modelmanager.ModelAllowlistLoader
 import com.ollitert.llm.server.ui.modelmanager.ModelFileManager
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
+import androidx.hilt.work.HiltWorker
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
 /**
@@ -57,124 +59,123 @@ import java.util.concurrent.TimeUnit
  * On a phone in Doze mode (primary use case: phone in a drawer), the job may stretch
  * to 36-72h — acceptable since model updates are not time-sensitive.
  */
-class AllowlistRefreshWorker(
-  appContext: Context,
-  workerParams: WorkerParameters,
+@HiltWorker
+class AllowlistRefreshWorker @AssistedInject constructor(
+  @Assisted appContext: Context,
+  @Assisted workerParams: WorkerParameters,
+  private val dataStoreRepository: DataStoreRepository,
 ) : CoroutineWorker(appContext, workerParams) {
 
   override suspend fun doWork(): Result {
     val context = applicationContext
-    try {
-      val rawJson = fetchAllowlistJson() ?: return Result.success()
-
-      val allowlist = ModelAllowlistJson.decode(rawJson)
-      if (allowlist.models.isEmpty()) {
-        Log.w(TAG, "Fetched allowlist is empty — skipping disk write to preserve cache")
-        return Result.success()
-      }
-
-      val cachedVersion = LlmHttpPrefs.getAllowlistContentVersion(context)
-      if (allowlist.contentVersion <= cachedVersion) {
-        Log.d(TAG, "Fetched contentVersion ${allowlist.contentVersion} <= cached $cachedVersion — skipping")
-        return Result.success()
-      }
-
-      val externalFilesDir = context.getExternalFilesDir(null)
-      if (externalFilesDir == null) {
-        Log.w(TAG, "External files dir unavailable — skipping")
-        return Result.success()
-      }
-
-      val fileManager = ModelFileManager(context, externalFilesDir)
-      // Collect models that are downloaded but have a newer version available.
-      // isModelDownloaded() mutates the Model (sets updatable, version, downloadFileName)
-      // but these are throwaway instances — the ViewModel's models are not affected.
-      val updatableModels = mutableListOf<UpdatableInfo>()
-
-      for (allowedModel in allowlist.models) {
-        val model = allowedModel.toModel()
-        if (fileManager.isModelDownloaded(model) && model.updatable) {
-          updatableModels.add(UpdatableInfo(
-            name = model.name,
-            displayName = model.displayName.ifEmpty { model.name },
-            latestVersion = allowedModel.commitHash,
-          ))
-        }
-      }
-
-      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-
-      // Clean up ignored entries for models that are no longer updatable (user downloaded the update)
-      val ignoredSet = LlmHttpPrefs.getIgnoredModelUpdates(context)
-      for (entry in ignoredSet) {
-        val entryName = entry.substringBefore(":")
-        if (updatableModels.none { it.name == entryName }) {
-          LlmHttpPrefs.removeIgnoredModelUpdate(context, entry)
-        }
-      }
-
-      // Cancel notifications for models that are no longer updatable
-      for (allowedModel in allowlist.models) {
-        val model = allowedModel.toModel()
-        if (fileManager.isModelDownloaded(model) && !model.updatable) {
-          mgr?.cancel(modelUpdateNotificationId(model.name))
-        }
-      }
-
-      // Fire per-model notifications
-      if (updatableModels.isNotEmpty() && canPostModelUpdateNotification(context)) {
-        val refreshedIgnored = LlmHttpPrefs.getIgnoredModelUpdates(context)
-        for (info in updatableModels) {
-          val dedupKey = "${info.name}:${info.latestVersion}"
-          if (dedupKey in refreshedIgnored) continue
-          postModelUpdateNotification(context, info.name, info.displayName)
-        }
-      }
-
-      if (updatableModels.isNotEmpty()) {
-        val message = if (updatableModels.size == 1) {
-          "Model update available: ${updatableModels[0].displayName}"
-        } else {
-          "Model updates available: ${updatableModels.joinToString(", ") { it.displayName }}"
-        }
-        RequestLogStore.addEvent(message, level = LogLevel.INFO, category = EventCategory.MODEL)
-      }
-
-      saveToDisk(externalFilesDir, rawJson)
-      LlmHttpPrefs.setAllowlistContentVersion(context, allowlist.contentVersion)
-
-    } catch (e: Exception) {
-      Log.w(TAG, "Allowlist refresh failed", e)
+    val externalFilesDir = context.getExternalFilesDir(null)
+    if (externalFilesDir == null) {
+      Log.w(TAG, "External files dir unavailable — skipping")
+      return Result.success()
     }
+
+    val repos = dataStoreRepository.readRepositories()
+    val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
+    val fileManager = ModelFileManager(context, externalFilesDir)
+    val allUpdatableModels = mutableListOf<UpdatableInfo>()
+    val nonUpdatableDownloaded = mutableListOf<String>()
+    val seenModelIds = mutableSetOf<String>()
+
+    for (repo in repos) {
+      if (!repo.enabled || repo.url.isBlank()) continue
+      try {
+        val rawJson = fetchBounded(repo.url, userAgent = "OlliteRT-AllowlistRefresh") ?: continue
+
+        val allowlist = ModelAllowlistJson.decode(rawJson)
+        if (allowlist.models.isEmpty()) {
+          Log.w(TAG, "Repo '${repo.id}': fetched allowlist is empty — skipping")
+          continue
+        }
+
+        var minVersion = repo.contentVersion
+        if (repo.isBuiltIn) {
+          val bundled = allowlistLoader.readFromAssets()
+          if (bundled != null && bundled.contentVersion > minVersion) {
+            minVersion = bundled.contentVersion
+          }
+        }
+        if (allowlist.contentVersion <= minVersion) {
+          Log.d(TAG, "Repo '${repo.id}': v${allowlist.contentVersion} <= min v$minVersion — skipping")
+          if (repo.lastError.isNotEmpty()) {
+            dataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
+          }
+          continue
+        }
+
+        allowlistLoader.saveToDisk(rawJson, repo.cacheFilename)
+        if (allowlistLoader.readFromDiskCache(repo.cacheFilename) == null) {
+          Log.w(TAG, "Disk cache write failed for '${repo.id}' — skipping DataStore update")
+          continue
+        }
+        dataStoreRepository.updateRepository(
+          repo.copy(
+            contentVersion = allowlist.contentVersion,
+            lastRefreshMs = System.currentTimeMillis(),
+            lastError = "",
+          )
+        )
+        Log.d(TAG, "Repo '${repo.id}' refreshed: v${allowlist.contentVersion}")
+
+        for (allowedModel in allowlist.models.take(MAX_MODELS_PER_REPO)) {
+          if (allowedModel.modelId in seenModelIds) continue
+          seenModelIds.add(allowedModel.modelId)
+          val model = allowedModel.toModel()
+          if (fileManager.isModelDownloaded(model)) {
+            if (model.updatable) {
+              allUpdatableModels.add(UpdatableInfo(
+                name = model.name,
+                displayName = model.displayName.ifEmpty { model.name },
+                latestVersion = allowedModel.commitHash,
+              ))
+            } else {
+              nonUpdatableDownloaded.add(model.name)
+            }
+          }
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
+        dataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
+      }
+    }
+
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+
+    for (name in nonUpdatableDownloaded) {
+      mgr?.cancel(modelUpdateNotificationId(name))
+    }
+
+    val ignoredSet = LlmHttpPrefs.getIgnoredModelUpdates(context)
+    for (entry in ignoredSet) {
+      val entryName = entry.substringBefore(":")
+      if (allUpdatableModels.none { it.name == entryName }) {
+        LlmHttpPrefs.removeIgnoredModelUpdate(context, entry)
+      }
+    }
+
+    if (allUpdatableModels.isNotEmpty() && canPostModelUpdateNotification(context)) {
+      val refreshedIgnored = LlmHttpPrefs.getIgnoredModelUpdates(context)
+      for (info in allUpdatableModels) {
+        val dedupKey = "${info.name}:${info.latestVersion}"
+        if (dedupKey in refreshedIgnored) continue
+        postModelUpdateNotification(context, info.name, info.displayName)
+      }
+    }
+
+    if (allUpdatableModels.isNotEmpty()) {
+      val message = if (allUpdatableModels.size == 1) {
+        "Model update available: ${allUpdatableModels[0].displayName}"
+      } else {
+        "Model updates available: ${allUpdatableModels.joinToString(", ") { it.displayName }}"
+      }
+      RequestLogStore.addEvent(message, level = LogLevel.INFO, category = EventCategory.MODEL)
+    }
+
     return Result.success()
-  }
-
-  private fun fetchAllowlistJson(): String? {
-    val connection = URL(GitHubConfig.ALLOWLIST_URL).openConnection() as HttpURLConnection
-    try {
-      connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-      connection.readTimeout = HTTP_READ_TIMEOUT_MS
-      connection.setRequestProperty("User-Agent", "OlliteRT-AllowlistRefresh")
-      val code = connection.responseCode
-      if (code !in 200..299) {
-        Log.w(TAG, "Allowlist fetch failed: HTTP $code")
-        return null
-      }
-      return connection.inputStream.bufferedReader().readText()
-    } finally {
-      connection.disconnect()
-    }
-  }
-
-  private fun saveToDisk(externalFilesDir: File, content: String) {
-    try {
-      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
-      val tmpFile = File(externalFilesDir, "$MODEL_ALLOWLIST_FILENAME.tmp")
-      tmpFile.writeText(content)
-      tmpFile.renameTo(file)
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to save allowlist to disk", e)
-    }
   }
 
   private fun postModelUpdateNotification(context: Context, modelName: String, displayName: String) {
@@ -219,7 +220,7 @@ class AllowlistRefreshWorker(
     private const val MODEL_UPDATE_BASE_NOTIFICATION_ID = 45
 
     fun modelUpdateNotificationId(modelName: String): Int =
-      MODEL_UPDATE_BASE_NOTIFICATION_ID + (modelName.hashCode() and 0xFFFF)
+      MODEL_UPDATE_BASE_NOTIFICATION_ID or (modelName.hashCode() and 0x7FFFFFFF)
 
     fun canPostModelUpdateNotification(context: Context): Boolean {
       if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
