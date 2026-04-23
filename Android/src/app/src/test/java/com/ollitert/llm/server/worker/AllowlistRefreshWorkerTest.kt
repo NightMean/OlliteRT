@@ -44,8 +44,10 @@ class AllowlistRefreshWorkerTest {
   }
 
   @Test
-  fun modelUpdateNotificationIdDoesNotOverflowIntoLargeRange() {
+  fun modelUpdateNotificationIdIsPositive() {
     val id = AllowlistRefreshWorker.modelUpdateNotificationId("any-model")
-    assertTrue("ID should be <= 45 + 0xFFFF", id <= 45 + 0xFFFF)
+    assertTrue("ID should be positive", id > 0)
+    val negativeHash = AllowlistRefreshWorker.modelUpdateNotificationId("a".repeat(100))
+    assertTrue("ID should be positive even with large hash", negativeHash > 0)
   }
 }
