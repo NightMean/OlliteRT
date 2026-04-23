@@ -336,8 +336,8 @@
   <string name="settings_show_model_recommendations" translatable="false">Show model recommendations</string>
   <string name="settings_show_model_recommendations_desc" translatable="false">Display badges and pin recommended models to the top of the list</string>
 
-  <!-- Settings: Updates card -->
-  <string name="settings_card_updates" translatable="false">Updates</string>
+  <!-- Settings: App Updates card -->
+  <string name="settings_card_updates" translatable="false">App Updates</string>
 
   <!-- Settings: Developer card -->
   <string name="settings_card_developer" translatable="false">Developer</string>
@@ -720,8 +720,22 @@
   <string name="log_corruption_recovered" translatable="false">DataStore corruption recovered — reset to defaults: %1$s</string>
 
   <!-- UpdateCheckWorker: Notification channel (visible in Android system notification settings) -->
-  <string name="notif_channel_update_name" translatable="false">Update Available</string>
-  <string name="notif_channel_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>
+  <string name="notif_channel_app_update_name" translatable="false">App Updates</string>
+  <string name="notif_channel_app_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>
+
+  <!-- AllowlistRefreshWorker: Model update notification channel and content -->
+  <string name="notif_channel_model_update_name" translatable="false">Model Updates</string>
+  <string name="notif_channel_model_update_desc" translatable="false">Notifications when newer model versions are available</string>
+  <string name="notif_model_update_title" translatable="false">Model update available</string>
+  <string name="notif_model_update_text" translatable="false">A newer version of %1$s is available</string>
+
+  <!-- Model Update Dialog (shown when tapping a model update notification) -->
+  <string name="model_update_dialog_title" translatable="false">Update available for %1$s</string>
+  <string name="model_update_dialog_body_empty" translatable="false">A newer version of this model is available.</string>
+  <string name="model_update_dialog_server_running" translatable="false">Stop the server before updating this model.</string>
+  <string name="model_update_dialog_ignore" translatable="false">Ignore this update</string>
+  <string name="model_update_dialog_later" translatable="false">Later</string>
+  <string name="model_update_dialog_not_found" translatable="false">Update info no longer available.</string>
 
   <!-- InferenceSettingsSheet -->
   <string name="inference_settings_title">Inference Settings</string>

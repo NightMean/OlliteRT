@@ -433,7 +433,7 @@ class UpdateCheckWorker(
   companion object {
     private const val TAG = "UpdateCheck"
     private const val WORK_NAME = "ollitert_update_check"
-    const val UPDATE_CHANNEL_ID = "ollitert-update"
+    const val UPDATE_CHANNEL_ID = "ollitert-app-update"
     const val UPDATE_NOTIFICATION_ID = 43
     private const val UPDATE_REQUEST_CODE = 100
     private const val UPDATE_DISMISS_REQUEST_CODE = 101
@@ -522,10 +522,10 @@ class UpdateCheckWorker(
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val channel = NotificationChannel(
           UPDATE_CHANNEL_ID,
-          context.getString(R.string.notif_channel_update_name),
+          context.getString(R.string.notif_channel_app_update_name),
           NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
-          description = context.getString(R.string.notif_channel_update_desc)
+          description = context.getString(R.string.notif_channel_app_update_desc)
         }
         val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         if (mgr == null) {
