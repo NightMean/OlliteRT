@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contentVersion": 1,
+  "sourceName": "Official",
   "models": [
     {
       "name": "Gemma-4-E2B-it",

@@ -231,6 +231,7 @@ data class AllowedModel(
 data class ModelAllowlist(
   val schemaVersion: Int = 1,
   val contentVersion: Int = 0,
+  val sourceName: String = "",
   val models: List<AllowedModel>,
 ) {
   companion object {
@@ -239,9 +240,8 @@ data class ModelAllowlist(
 
   fun filterCompatible(appVersion: SemVer): ModelAllowlist {
     if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
-      return ModelAllowlist(schemaVersion = schemaVersion, contentVersion = contentVersion, models = emptyList())
+      return copy(models = emptyList())
     }
-    val compatible = models.filter { it.isCompatibleWith(appVersion) }
-    return ModelAllowlist(schemaVersion = schemaVersion, contentVersion = contentVersion, models = compatible)
+    return copy(models = models.filter { it.isCompatibleWith(appVersion) })
   }
 }

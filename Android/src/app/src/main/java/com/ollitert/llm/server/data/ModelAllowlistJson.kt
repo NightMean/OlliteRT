@@ -26,7 +26,13 @@ object ModelAllowlistJson {
     val result = gson.fromJson(content, ModelAllowlist::class.java)
     // Gson bypasses Kotlin defaults; missing fields get Java zero-values instead of Kotlin defaults.
     val version = if (result.schemaVersion == 0) 1 else result.schemaVersion
+    val srcName = if (result.sourceName == null) "" else result.sourceName
     val models = if (result.models == null) emptyList() else result.models
-    return result.copy(schemaVersion = version, contentVersion = result.contentVersion, models = models)
+    return result.copy(
+      schemaVersion = version,
+      contentVersion = result.contentVersion,
+      sourceName = srcName,
+      models = models,
+    )
   }
 }
