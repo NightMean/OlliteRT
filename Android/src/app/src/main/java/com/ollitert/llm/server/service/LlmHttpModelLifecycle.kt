@@ -47,7 +47,7 @@ import java.io.File
  */
 class LlmHttpModelLifecycle(
   private val context: Context,
-  private val allowlistLoader: LlmHttpAllowlistLoader,
+  val allowlistLoader: LlmHttpAllowlistLoader,
   /** Reads imported models from DataStore. Provided by the service via Hilt EntryPoint. */
   private val readImportedModels: () -> List<ImportedModel> = { emptyList() },
 ) {

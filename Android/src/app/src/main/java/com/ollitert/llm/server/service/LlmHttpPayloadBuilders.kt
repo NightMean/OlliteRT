@@ -48,7 +48,7 @@ object LlmHttpPayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, allowlistLoader: LlmHttpAllowlistLoader? = null): String {
     val status = ServerMetrics.status.value
     val isIdle = ServerMetrics.isIdleUnloaded.value
     val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
@@ -75,6 +75,12 @@ object LlmHttpPayloadBuilders {
         put("latest_version", JsonPrimitive(latestVersion.removePrefix("v")))
         if (updateUrl != null) put("release_url", JsonPrimitive(updateUrl))
       }
+      if (allowlistLoader != null) {
+        put("allowlist_content_version", JsonPrimitive(allowlistLoader.lastContentVersion))
+        put("allowlist_source", JsonPrimitive(allowlistLoader.lastSource))
+      }
+      val modelUpdateAvailable = activeModel?.updatable == true
+      put("model_update_available", JsonPrimitive(modelUpdateAvailable))
       put("compatibility", JsonPrimitive("openai"))
       put("endpoints", JsonArray(listOf(
         JsonPrimitive("/v1/models"),

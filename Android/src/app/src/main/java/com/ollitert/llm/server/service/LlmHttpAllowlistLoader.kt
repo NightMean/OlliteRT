@@ -40,6 +40,8 @@ class LlmHttpAllowlistLoader(
   private var cached: ModelAllowlist? = null
   var lastSource: String = "unknown"
     private set
+  var lastContentVersion: Int = 0
+    private set
 
   /** Returns the current list of allowed models, falling back to cache on error. */
   fun load(): List<AllowedModel> {
@@ -47,6 +49,7 @@ class LlmHttpAllowlistLoader(
     val fresh = if (raw != null && appVersion != null) raw.filterCompatible(appVersion) else raw
     if (fresh != null && fresh.models.isNotEmpty()) {
       cached = fresh
+      lastContentVersion = fresh.contentVersion
       return fresh.models
     }
     if (lastSource == "unknown") lastSource = "empty"

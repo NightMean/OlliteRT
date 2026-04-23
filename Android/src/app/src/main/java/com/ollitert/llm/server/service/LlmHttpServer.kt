@@ -181,13 +181,13 @@ class LlmHttpServer(
               okJsonText(body)
             }
             LlmHttpRouteHandler.SERVER_INFO -> {
-              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName)
+              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader)
               responseBodySnapshot = body
               okJsonText(body)
             }
             LlmHttpRouteHandler.VERSION -> {
               // Same payload as / -- aliased for Home Assistant and monitoring tools
-              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName)
+              val body = LlmHttpPayloadBuilders.serverInfo(defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader)
               responseBodySnapshot = body
               okJsonText(body)
             }
