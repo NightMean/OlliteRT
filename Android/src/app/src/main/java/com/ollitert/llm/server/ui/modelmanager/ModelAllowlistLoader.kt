@@ -45,13 +45,16 @@ class ModelAllowlistLoader(
   }
 
   /** Save allowlist JSON to disk for future offline use. */
-  override fun saveToDisk(content: String) {
+  override fun saveToDisk(content: String, filename: String) {
     try {
-      Log.d(TAG, "Saving model allowlist to disk...")
-      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
-      val tmpFile = File(externalFilesDir, "$MODEL_ALLOWLIST_FILENAME.tmp")
+      Log.d(TAG, "Saving model allowlist to disk: $filename")
+      val file = File(externalFilesDir, filename)
+      val tmpFile = File(externalFilesDir, "$filename.tmp")
       tmpFile.writeText(content)
-      tmpFile.renameTo(file)
+      if (!tmpFile.renameTo(file)) {
+        Log.e(TAG, "Failed to rename tmp file to $filename")
+        tmpFile.delete()
+      }
       Log.d(TAG, "Done: saving model allowlist to disk.")
     } catch (e: Exception) {
       Log.e(TAG, "failed to write model allowlist to disk", e)
@@ -59,8 +62,8 @@ class ModelAllowlistLoader(
   }
 
   /** Read allowlist from disk cache. */
-  override fun readFromDiskCache(): ModelAllowlist? {
-    return readFromDisk(MODEL_ALLOWLIST_FILENAME)
+  override fun readFromDiskCache(filename: String): ModelAllowlist? {
+    return readFromDisk(filename)
   }
 
   /** Read allowlist from APK's bundled assets (fallback for fresh install). */
@@ -83,7 +86,6 @@ class ModelAllowlistLoader(
       val file = File(baseDir, fileName)
       if (file.exists()) {
         val content = file.readText()
-        Log.d(TAG, "Model allowlist content from local file: $content")
         return ModelAllowlistJson.decode(content)
       }
     } catch (e: Exception) {

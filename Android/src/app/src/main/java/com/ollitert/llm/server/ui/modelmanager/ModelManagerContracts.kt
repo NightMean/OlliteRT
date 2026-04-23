@@ -19,6 +19,7 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import androidx.activity.result.ActivityResult
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import net.openid.appauth.AuthorizationService
@@ -39,11 +40,11 @@ interface TokenManager {
   fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long)
 }
 
-/** Loads the model allowlist from network, disk cache, or bundled assets. */
+/** Loads the model allowlist from disk cache or bundled assets. */
 interface AllowlistLoader {
   fun readTestAllowlist(): ModelAllowlist?
-  fun saveToDisk(content: String)
-  fun readFromDiskCache(): ModelAllowlist?
+  fun saveToDisk(content: String, filename: String = MODEL_ALLOWLIST_OFFICIAL_FILENAME)
+  fun readFromDiskCache(filename: String = MODEL_ALLOWLIST_OFFICIAL_FILENAME): ModelAllowlist?
   fun readFromAssets(): ModelAllowlist?
 }
 
