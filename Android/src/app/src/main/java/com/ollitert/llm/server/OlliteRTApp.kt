@@ -17,6 +17,8 @@
 
 package com.ollitert.llm.server
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +28,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +62,8 @@ import kotlinx.coroutines.flow.map
 fun OlliteRTApp(
   modelManagerViewModel: ModelManagerViewModel,
   serverViewModel: ServerViewModel,
+  modelUpdateDialogName: String? = null,
+  onDismissModelUpdateDialog: () -> Unit = {},
   navController: NavHostController = rememberNavController(),
 ) {
   val backStackEntry by navController.currentBackStackEntryAsState()
@@ -129,6 +134,123 @@ fun OlliteRTApp(
         }
       },
     )
+  }
+
+  // ── Model Update Dialog ────────────────────────────────────────────────
+  // Shown when the user taps a model update notification. Uses the same
+  // overlay approach as the server error dialog above.
+  if (modelUpdateDialogName != null) {
+    val uiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+    val model = uiState.models.find { it.name == modelUpdateDialogName }
+    val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
+
+    if (model != null) {
+      val isServerRunningWithModel = serverStatus == ServerStatus.RUNNING &&
+        activeModelName == model.name
+      val displayName = model.displayName.ifEmpty { model.name }
+
+      AlertDialog(
+        onDismissRequest = { onDismissModelUpdateDialog() },
+        shape = RoundedCornerShape(32.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        title = {
+          Text(
+            text = stringResource(R.string.model_update_dialog_title, displayName),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+          )
+        },
+        text = {
+          Column {
+            if (isServerRunningWithModel) {
+              Text(
+                text = stringResource(R.string.model_update_dialog_server_running),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(bottom = 8.dp),
+              )
+            }
+            Text(
+              text = stringResource(R.string.model_update_dialog_body_empty),
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+          }
+        },
+        confirmButton = {
+          if (!isServerRunningWithModel) {
+            Button(
+              onClick = {
+                model.latestModelFile?.let {
+                  model.version = it.commitHash
+                  model.downloadFileName = it.fileName
+                }
+                model.updatable = false
+                modelManagerViewModel.downloadModel(model)
+                onDismissModelUpdateDialog()
+              },
+              shape = RoundedCornerShape(50),
+            ) {
+              Text(stringResource(R.string.update))
+            }
+          } else {
+            Button(
+              onClick = { onDismissModelUpdateDialog() },
+              shape = RoundedCornerShape(50),
+            ) {
+              Text(stringResource(R.string.ok))
+            }
+          }
+        },
+        dismissButton = {
+          Row {
+            TextButton(onClick = {
+              val latestVersion = model.latestModelFile?.commitHash ?: model.version
+              LlmHttpPrefs.addIgnoredModelUpdate(
+                context,
+                "${model.name}:$latestVersion",
+              )
+              onDismissModelUpdateDialog()
+            }) {
+              Text(stringResource(R.string.model_update_dialog_ignore))
+            }
+            if (!isServerRunningWithModel) {
+              TextButton(onClick = { onDismissModelUpdateDialog() }) {
+                Text(stringResource(R.string.model_update_dialog_later))
+              }
+            }
+          }
+        },
+      )
+    } else if (uiState.models.isNotEmpty()) {
+      AlertDialog(
+        onDismissRequest = { onDismissModelUpdateDialog() },
+        shape = RoundedCornerShape(32.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        title = {
+          Text(
+            text = stringResource(R.string.model_update_dialog_title, modelUpdateDialogName),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+          )
+        },
+        text = {
+          Text(
+            text = stringResource(R.string.model_update_dialog_not_found),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+        },
+        confirmButton = {
+          Button(
+            onClick = { onDismissModelUpdateDialog() },
+            shape = RoundedCornerShape(50),
+          ) {
+            Text(stringResource(R.string.ok))
+          }
+        },
+      )
+    }
   }
 
   // Top bar trailing content (e.g. save button on Settings screen)

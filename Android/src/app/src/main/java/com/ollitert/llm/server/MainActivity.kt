@@ -18,6 +18,7 @@
 package com.ollitert.llm.server
 
 import android.animation.ObjectAnimator
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -53,6 +54,7 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.ServerViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTTheme
+import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,6 +66,9 @@ class MainActivity : ComponentActivity() {
   private val serverViewModel: ServerViewModel by viewModels()
   private var splashScreenAboutToExit: Boolean = false
   private var contentSet: Boolean = false
+
+  var modelUpdateDialogName: String? by mutableStateOf(null)
+    private set
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -79,6 +84,8 @@ class MainActivity : ComponentActivity() {
             OlliteRTApp(
               modelManagerViewModel = modelManagerViewModel,
               serverViewModel = serverViewModel,
+              modelUpdateDialogName = modelUpdateDialogName,
+              onDismissModelUpdateDialog = { modelUpdateDialogName = null },
             )
 
             // Fade out a "mask" that has the same color as the background of the splash screen
@@ -165,6 +172,20 @@ class MainActivity : ComponentActivity() {
       window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     } else {
       window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    handleModelUpdateIntent(intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    handleModelUpdateIntent(intent)
+  }
+
+  private fun handleModelUpdateIntent(intent: Intent?) {
+    val modelName = intent?.getStringExtra(AllowlistRefreshWorker.EXTRA_MODEL_UPDATE_NAME)
+    if (modelName != null) {
+      modelUpdateDialogName = modelName
     }
   }
 }
