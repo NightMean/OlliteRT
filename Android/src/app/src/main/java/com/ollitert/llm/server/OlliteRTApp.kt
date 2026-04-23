@@ -287,10 +287,10 @@ fun OlliteRTApp(
               launchSingleTop = true
             }
           },
-          onBackClick = if (isSettings) {
+          onBackClick = if (!showNav) {
             {
               // Dispatch back press so BackHandler in child screens can intercept
-              // (e.g. SettingsScreen unsaved changes guard)
+              // (e.g. SettingsScreen unsaved changes guard, repo hasChanges guard)
               val dispatcher = navController.context as? androidx.activity.OnBackPressedDispatcherOwner
               dispatcher?.onBackPressedDispatcher?.onBackPressed()
                 ?: navController.navigateUp()

@@ -27,18 +27,22 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.IntOffset
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -54,9 +58,15 @@ import com.ollitert.llm.server.ui.common.DonateDialog
 import com.ollitert.llm.server.ui.common.EngagementPromptDialog
 import com.ollitert.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollitert.llm.server.ui.modelmanager.GlobalModelManager
+import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelDownloadStatus
+import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.LogsScreen
 import com.ollitert.llm.server.ui.server.ServerViewModel
+import com.ollitert.llm.server.ui.repositories.RepositoryDetailScreen
+import com.ollitert.llm.server.ui.repositories.RepositoryListScreen
+import com.ollitert.llm.server.ui.repositories.RepositoryViewModel
 import com.ollitert.llm.server.ui.server.SettingsScreen
 import com.ollitert.llm.server.ui.server.StatusScreen
 
@@ -73,6 +83,19 @@ private fun AnimatedContentTransitionScope<*>.slideInLeft(): EnterTransition =
 
 private fun AnimatedContentTransitionScope<*>.slideOutRight(): ExitTransition =
   slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, exitTween())
+
+private fun activeDownloadsByRepoId(
+  models: List<Model>,
+  statuses: Map<String, ModelDownloadStatus>,
+): Map<String, String> {
+  val activeStatuses = setOf(ModelDownloadStatusType.IN_PROGRESS, ModelDownloadStatusType.UNZIPPING)
+  val activeNames = statuses
+    .filter { (_, status) -> status.status in activeStatuses }
+    .keys
+  return models
+    .filter { it.name in activeNames }
+    .associate { it.name to it.sourceRepositoryId }
+}
 
 @Composable
 fun OlliteRTNavHost(
@@ -157,7 +180,22 @@ fun OlliteRTNavHost(
     exitTransition = { fadeOut(tween(200)) },
   ) {
     // Models tab (main screen, reusing GlobalModelManager)
-    composable(OlliteRTRoutes.MODELS) {
+    composable(OlliteRTRoutes.MODELS) { backStackEntry ->
+      val reposChanged = backStackEntry.savedStateHandle
+        .getStateFlow("reposChanged", false)
+        .collectAsStateWithLifecycle()
+      LaunchedEffect(reposChanged.value) {
+        if (reposChanged.value) {
+          modelManagerViewModel.loadModelAllowlist()
+          backStackEntry.savedStateHandle["reposChanged"] = false
+        }
+      }
+      val modelsLifecycleOwner = LocalLifecycleOwner.current
+      LaunchedEffect(modelsLifecycleOwner) {
+        modelsLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+          modelManagerViewModel.loadModelAllowlist()
+        }
+      }
       val modelsContext = LocalContext.current
       val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
@@ -186,6 +224,7 @@ fun OlliteRTNavHost(
           serverViewModel.switchModel(modelName)
         },
         onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) },
+        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) },
       )
     }
 
@@ -210,7 +249,19 @@ fun OlliteRTNavHost(
       OlliteRTRoutes.SETTINGS,
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
-    ) {
+    ) { settingsBackStackEntry ->
+      val reposChanged = settingsBackStackEntry.savedStateHandle
+        .getStateFlow("reposChanged", false)
+        .collectAsStateWithLifecycle()
+      val settingsViewModel: com.ollitert.llm.server.ui.server.SettingsViewModel = hiltViewModel()
+      LaunchedEffect(reposChanged.value) {
+        if (reposChanged.value) {
+          settingsViewModel.refreshRepositoryCounts()
+          settingsBackStackEntry.savedStateHandle["reposChanged"] = false
+          navController.previousBackStackEntry?.savedStateHandle
+            ?.set("reposChanged", true)
+        }
+      }
       val settingsServerStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val settingsActiveModel by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val downloadedModelNames = modelManagerViewModel.getAllDownloadedModels().map { it.name }
@@ -231,6 +282,85 @@ fun OlliteRTNavHost(
         downloadedModelNames = downloadedModelNames,
         onSetTopBarTrailingContent = onSetTopBarTrailingContent,
         onSettingsSaved = { modelManagerViewModel.refreshShowModelRecommendations() },
+        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) },
+      )
+    }
+
+    // Repository list
+    composable(
+      OlliteRTRoutes.REPOSITORIES,
+      enterTransition = { slideInLeft() },
+      exitTransition = { slideOutRight() },
+    ) { repoListBackStackEntry ->
+      val detailChanged = repoListBackStackEntry.savedStateHandle
+        .getStateFlow("detailReposChanged", false)
+        .collectAsStateWithLifecycle()
+      val repoViewModel: RepositoryViewModel = hiltViewModel()
+      var detailMadeChanges by rememberSaveable { mutableStateOf(false) }
+      LaunchedEffect(detailChanged.value) {
+        if (detailChanged.value) {
+          detailMadeChanges = true
+          repoViewModel.loadRepositories()
+          repoListBackStackEntry.savedStateHandle["detailReposChanged"] = false
+        }
+      }
+
+      val modelManagerState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+      val downloadedModelRepoIds by remember {
+        derivedStateOf<Map<String, String>> {
+          modelManagerState.models
+            .filter { it.isLlm && modelManagerState.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED }
+            .associate { it.name to it.sourceRepositoryId }
+        }
+      }
+      val downloadingModelRepoIds by remember {
+        derivedStateOf { activeDownloadsByRepoId(modelManagerState.models, modelManagerState.modelDownloadStatus) }
+      }
+      RepositoryListScreen(
+        viewModel = repoViewModel,
+        onBackClick = { reposChanged ->
+          if (reposChanged || detailMadeChanges) {
+            navController.previousBackStackEntry?.savedStateHandle
+              ?.set("reposChanged", true)
+          }
+          navController.popBackStack()
+        },
+        onRepoClick = { repoId ->
+          navController.navigate(OlliteRTRoutes.repositoryDetail(repoId))
+        },
+        downloadedModelRepoIds = downloadedModelRepoIds,
+        downloadingModelRepoIds = downloadingModelRepoIds,
+        onCancelDownload = { modelName ->
+          modelManagerViewModel.cancelModelDownloadByName(modelName)
+        },
+      )
+    }
+
+    // Repository detail
+    composable(
+      route = OlliteRTRoutes.REPOSITORY_DETAIL,
+      arguments = listOf(navArgument("repoId") { type = NavType.StringType }),
+      enterTransition = { slideInLeft() },
+      exitTransition = { slideOutRight() },
+    ) { detailBackStackEntry ->
+      val repoId = detailBackStackEntry.arguments?.getString("repoId") ?: return@composable
+      val detailViewModel: RepositoryViewModel = hiltViewModel()
+      val detailModelManagerState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+      val detailDownloadingRepoIds by remember {
+        derivedStateOf { activeDownloadsByRepoId(detailModelManagerState.models, detailModelManagerState.modelDownloadStatus) }
+      }
+      RepositoryDetailScreen(
+        viewModel = detailViewModel,
+        repoId = repoId,
+        onBackClick = { reposChanged ->
+          navController.previousBackStackEntry?.savedStateHandle
+            ?.set("detailReposChanged", reposChanged)
+          navController.popBackStack()
+        },
+        downloadingModelRepoIds = detailDownloadingRepoIds,
+        onCancelDownload = { modelName ->
+          modelManagerViewModel.cancelModelDownloadByName(modelName)
+        },
       )
     }
 

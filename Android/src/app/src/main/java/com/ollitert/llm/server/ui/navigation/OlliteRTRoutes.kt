@@ -16,6 +16,8 @@
 
 package com.ollitert.llm.server.ui.navigation
 
+import android.net.Uri
+
 /** Navigation route constants for the OlliteRT app. */
 object OlliteRTRoutes {
   const val GETTING_STARTED = "getting_started"
@@ -24,6 +26,9 @@ object OlliteRTRoutes {
   const val LOGS = "logs"
   const val SETTINGS = "settings"
   const val BENCHMARK = "benchmark/{modelName}"
+  const val REPOSITORIES = "repositories"
+  const val REPOSITORY_DETAIL = "repository/{repoId}"
 
-  fun benchmark(modelName: String) = "benchmark/$modelName"
+  fun benchmark(modelName: String) = "benchmark/${Uri.encode(modelName)}"
+  fun repositoryDetail(repoId: String) = "repository/${Uri.encode(repoId)}"
 }
