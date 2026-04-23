@@ -17,6 +17,7 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
+import android.app.NotificationManager
 import android.content.Context
 import android.util.Log
 import androidx.activity.result.ActivityResult
@@ -48,6 +49,7 @@ import com.ollitert.llm.server.service.LlmHttpModelFactory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.common.humanReadableSize
+import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -230,6 +232,11 @@ constructor(
   }
 
   fun downloadModel(model: Model) {
+    if (model.updatable) {
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      mgr?.cancel(AllowlistRefreshWorker.modelUpdateNotificationId(model.name))
+    }
+
     // Update status.
     setDownloadStatus(
       curModel = model,
