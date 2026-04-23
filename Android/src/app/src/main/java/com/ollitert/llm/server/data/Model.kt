@@ -232,6 +232,12 @@ data class Model(
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 
+  /** Which repository this model came from (display name, e.g. "Official" or "alice/my-models"). */
+  val sourceRepository: String = "",
+
+  /** Stable repository ID for ordering sections (built-in = "official", user repos = UUID). */
+  val sourceRepositoryId: String = "",
+
   // The following fields are managed by the app. Don't need to set manually.
   //
   var normalizedName: String = "",

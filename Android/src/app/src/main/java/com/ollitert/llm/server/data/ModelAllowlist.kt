@@ -44,6 +44,14 @@ data class SocModelFile(
   @SerializedName("sizeInBytes") val sizeInBytes: Long?,
 )
 
+private fun parseAccelerator(value: String): Accelerator? = when (value) {
+  "cpu" -> Accelerator.CPU
+  "gpu" -> Accelerator.GPU
+  "npu" -> Accelerator.NPU
+  "tpu" -> Accelerator.TPU
+  else -> null
+}
+
 /** A model in the model allowlist. */
 data class AllowedModel(
   val name: String,
@@ -77,7 +85,18 @@ data class AllowedModel(
     return true
   }
 
-  fun toModel(appVersion: SemVer? = null): Model {
+  private fun incompatibilityReasonFor(appVersion: SemVer): String? {
+    val min = minAppVersion?.let { SemVer.parse(it) }
+    val max = maxAppVersion?.let { SemVer.parse(it) }
+    val effectiveMax = if (min != null && max != null && max < min) null else max
+    return when {
+      min != null && appVersion < min -> "Requires app version $minAppVersion"
+      effectiveMax != null && appVersion > effectiveMax -> "Not available after version $maxAppVersion"
+      else -> null
+    }
+  }
+
+  fun toModel(appVersion: SemVer? = null, repositoryName: String = "", repositoryId: String = ""): Model {
     // Construct HF download url.
     var version = commitHash
     var downloadedFileName = modelFile
@@ -118,20 +137,7 @@ data class AllowedModel(
     }
 
     if (acceleratorsStr != null) {
-      val items = acceleratorsStr.split(",")
-      accelerators = mutableListOf()
-      for (item in items) {
-        if (item == "cpu") {
-          accelerators.add(Accelerator.CPU)
-        } else if (item == "gpu") {
-          accelerators.add(Accelerator.GPU)
-        } else if (item == "npu") {
-          accelerators.add(Accelerator.NPU)
-        } else if (item == "tpu") {
-          accelerators.add(Accelerator.TPU)
-        }
-      }
-      // Remove GPU from pixel 10 devices.
+      accelerators = acceleratorsStr.split(",").mapNotNull { parseAccelerator(it) }.toMutableList()
       if (isPixel10()) {
         accelerators.remove(Accelerator.GPU)
       }
@@ -141,15 +147,7 @@ data class AllowedModel(
       if (isPixel10()) {
         visionAccStr = visionAccStr.replace(Regex("\\bnpu\\b"), "tpu")
       }
-      if (visionAccStr == "cpu") {
-        visionAccelerator = Accelerator.CPU
-      } else if (visionAccStr == "gpu") {
-        visionAccelerator = Accelerator.GPU
-      } else if (visionAccStr == "npu") {
-        visionAccelerator = Accelerator.NPU
-      } else if (visionAccStr == "tpu") {
-        visionAccelerator = Accelerator.TPU
-      }
+      parseAccelerator(visionAccStr)?.let { visionAccelerator = it }
     }
     val npuOnly =
       accelerators.size == 1 &&
@@ -175,14 +173,8 @@ data class AllowedModel(
         .toMutableList()
 
     val incompatibilityReason = appVersion?.let { ver ->
-      val minVer = minAppVersion?.let { SemVer.parse(it) }
-      val maxVer = maxAppVersion?.let { SemVer.parse(it) }
-      val effectiveMax = if (minVer != null && maxVer != null && maxVer < minVer) null else maxVer
-      when {
-        minVer != null && ver < minVer -> "Requires app version $minAppVersion"
-        effectiveMax != null && ver > effectiveMax -> "Not available after version $maxAppVersion"
-        else -> null
-      }
+      if (isCompatibleWith(ver)) null
+      else incompatibilityReasonFor(ver)
     }
 
     return Model(
@@ -213,6 +205,8 @@ data class AllowedModel(
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = true,
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
+      sourceRepository = repositoryName,
+      sourceRepositoryId = repositoryId,
     )
   }
 

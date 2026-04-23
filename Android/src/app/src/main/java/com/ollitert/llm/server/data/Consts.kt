@@ -117,6 +117,18 @@ const val SSE_BUFFER_SIZE_BYTES = 8 * 1024
 const val MODEL_ALLOWLIST_CACHE_PREFIX = "model_allowlist_"
 const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 const val MODEL_ALLOWLIST_TEST_FILENAME = "${MODEL_ALLOWLIST_CACHE_PREFIX}test.json"
+const val MODEL_ALLOWLIST_OFFICIAL_FILENAME = "${MODEL_ALLOWLIST_CACHE_PREFIX}official.json"
+const val OFFICIAL_REPO_ID = "official"
+const val MAX_REPO_NAME_LENGTH = 100
+const val MAX_REPO_DESCRIPTION_LENGTH = 500
+const val MAX_REPO_ICON_URL_LENGTH = 2048
+const val MAX_ALLOWLIST_RESPONSE_BYTES = 10L * 1024 * 1024
+const val MAX_REDIRECTS = 5
+const val MAX_MODELS_PER_REPO = 500
+const val REPO_LIMIT_WARNING_THRESHOLD = 16
+const val UNKNOWN_REPO_LABEL = "Unknown"
+const val MAX_REPO_ERROR_LENGTH = 200
+const val UNKNOWN_ERROR_FALLBACK = "Unknown error"
 
 // Base64 data URI compaction threshold — payloads shorter than ~1 KB (1365 base64 chars ≈ 1024 bytes)
 // are left inline (thumbnails, icons). Longer payloads are replaced with a size placeholder
