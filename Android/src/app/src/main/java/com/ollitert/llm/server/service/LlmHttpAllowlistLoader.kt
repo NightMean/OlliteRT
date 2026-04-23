@@ -18,7 +18,9 @@ package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.AllowedModel
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
@@ -57,44 +59,102 @@ class LlmHttpAllowlistLoader(
   }
 
   private fun readFromFiles(): ModelAllowlist? {
-    return try {
-      val file = externalFilesDir?.let { File(it, MODEL_ALLOWLIST_FILENAME) }
-      // Check both exists AND non-empty — a 0-byte file can be left behind
-      // when a write is interrupted by a crash (e.g. disk full during model
-      // switch). Without the length check, the empty file shadows the bundled
-      // asset fallback, causing "model not found" errors on restart.
-      val diskCache = if (file != null && file.exists() && file.length() > 0L) {
-        ModelAllowlistJson.decode(file.readText())
-      } else null
+    if (externalFilesDir == null) {
+      val assetContent = assetReader()
+      if (assetContent != null) {
+        try {
+          val decoded = ModelAllowlistJson.decode(assetContent)
+          lastSource = "asset"
+          lastContentVersion = decoded.contentVersion
+          return decoded
+        } catch (_: Exception) { /* fall through */ }
+      }
+      lastSource = "empty"
+      return null
+    }
 
-      val assetText = assetReader()
-      val bundled = assetText?.let { ModelAllowlistJson.decode(it) }
+    // Migrate legacy single-file cache to per-repo naming.
+    // Must run here too — service may start before the ViewModel.
+    val officialFile = File(externalFilesDir, MODEL_ALLOWLIST_OFFICIAL_FILENAME)
+    val legacyFile = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
+    if (!officialFile.exists() && legacyFile.exists()) {
+      if (!legacyFile.renameTo(officialFile)) {
+        legacyFile.copyTo(officialFile, overwrite = true)
+        legacyFile.delete()
+      }
+    }
 
-      // Pick the source with the higher contentVersion so a stale disk cache
-      // never shadows a newer bundled asset shipped with an app update.
-      when {
-        diskCache != null && bundled != null -> {
-          if (bundled.contentVersion > diskCache.contentVersion) {
-            lastSource = "asset"
-            bundled
-          } else {
-            lastSource = "external:${file?.absolutePath ?: "unknown"}"
-            diskCache
+    val allModels = mutableListOf<AllowedModel>()
+    var bestContentVersion = 0
+
+    // Process Official first (hardcoded filename), then remaining files alphabetically
+    val otherFiles = externalFilesDir.listFiles { _, name ->
+      name.startsWith(MODEL_ALLOWLIST_CACHE_PREFIX) && name.endsWith(".json") && name != MODEL_ALLOWLIST_OFFICIAL_FILENAME
+    }?.sorted() ?: emptyList()
+
+    val filesToProcess = buildList {
+      if (officialFile.exists() && officialFile.length() > 0L) add(officialFile)
+      addAll(otherFiles.filter { it.length() > 0L })
+    }
+
+    // If no disk files but we have a bundled asset, use it
+    if (filesToProcess.isEmpty()) {
+      val assetContent = assetReader()
+      if (assetContent != null) {
+        try {
+          val decoded = ModelAllowlistJson.decode(assetContent)
+          lastSource = "asset"
+          lastContentVersion = decoded.contentVersion
+          return decoded
+        } catch (_: Exception) {
+          lastSource = "error"
+          return null
+        }
+      }
+      lastSource = "empty"
+      return null
+    }
+
+    // Also check bundled asset for Official (regression guard)
+    var bundledAllowlist: ModelAllowlist? = null
+    try {
+      val assetContent = assetReader()
+      if (assetContent != null) bundledAllowlist = ModelAllowlistJson.decode(assetContent)
+    } catch (_: Exception) { }
+
+    val seenModelIds = mutableSetOf<String>()
+    for (file in filesToProcess) {
+      try {
+        var decoded = ModelAllowlistJson.decode(file.readText())
+
+        // For Official file: use bundled asset if it has higher contentVersion
+        if (file.name == MODEL_ALLOWLIST_OFFICIAL_FILENAME && bundledAllowlist != null) {
+          if (bundledAllowlist.contentVersion > decoded.contentVersion) {
+            decoded = bundledAllowlist
           }
         }
-        diskCache != null -> {
-          lastSource = "external:${file?.absolutePath ?: "unknown"}"
-          diskCache
+
+        if (decoded.contentVersion > bestContentVersion) {
+          bestContentVersion = decoded.contentVersion
         }
-        bundled != null -> {
-          lastSource = "asset"
-          bundled
+
+        for (model in decoded.models) {
+          if (model.modelId !in seenModelIds) {
+            seenModelIds.add(model.modelId)
+            allModels.add(model)
+          }
         }
-        else -> null
+      } catch (_: Exception) {
+        // Skip malformed files — no android.util.Log in this JVM-testable class
       }
-    } catch (e: Exception) {
-      lastSource = "error"
-      null
     }
+
+    lastSource = "external:${filesToProcess.first().absolutePath}"
+    lastContentVersion = bestContentVersion
+    return ModelAllowlist(
+      schemaVersion = 1,
+      contentVersion = bestContentVersion,
+      models = allModels,
+    )
   }
 }

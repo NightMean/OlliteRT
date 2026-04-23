@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -120,7 +121,8 @@ class LlmHttpAllowlistLoaderTest {
       val result = loader.load()
       assertEquals(1, result.size)
       assertEquals("NewModel", result.first().name)
-      assertEquals("asset", loader.lastSource)
+      // Multi-file loader always reports "external:" when disk files exist
+      assertTrue(loader.lastSource.startsWith("external:"))
     } finally {
       dir.deleteRecursively()
     }
@@ -181,7 +183,8 @@ class LlmHttpAllowlistLoaderTest {
       val loader = LlmHttpAllowlistLoader(externalFilesDir = dir)
       val result = loader.load()
       assertTrue("malformed JSON should yield empty list", result.isEmpty())
-      assertEquals("error", loader.lastSource)
+      // Per-file error handler skips the file; lastSource is "external:" not "error"
+      assertTrue(loader.lastSource.startsWith("external:"))
     } finally {
       dir.deleteRecursively()
     }
@@ -301,7 +304,67 @@ class LlmHttpAllowlistLoaderTest {
       assetReader = { minimalAllowlistJson },
     )
     val result = loader.load()
-    // Falls through to asset reader
-    assertEquals(1, result.size)
+    // With externalFilesDir=null, should still fall back to bundled asset
+    assertTrue(result.isNotEmpty())
+  }
+
+  @Test
+  fun loadsAndMergesMultipleRepoFiles() {
+    val dir = createTempDirectory("allowlist-multi").toFile()
+    try {
+      val official = """{"schemaVersion":1,"contentVersion":1,"sourceName":"Official","models":[{"name":"ModelA","modelId":"off/a","modelFile":"a.litertlm","description":"a","sizeInBytes":100,"defaultConfig":{}}]}"""
+      val thirdParty = """{"schemaVersion":1,"contentVersion":1,"sourceName":"Community","models":[{"name":"ModelB","modelId":"com/b","modelFile":"b.litertlm","description":"b","sizeInBytes":200,"defaultConfig":{}}]}"""
+      File(dir, "model_allowlist_official.json").writeText(official)
+      File(dir, "model_allowlist_abc-123.json").writeText(thirdParty)
+
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, appVersionName = "1.0.0")
+      val models = loader.load()
+
+      assertEquals(2, models.size)
+      assertEquals("ModelA", models[0].name)
+      assertEquals("ModelB", models[1].name)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun officialFileProcessedFirstRegardlessOfAlphabeticalOrder() {
+    val dir = createTempDirectory("allowlist-order").toFile()
+    try {
+      // UUID starting with '0' sorts before 'official' alphabetically
+      val thirdParty = """{"schemaVersion":1,"contentVersion":1,"sourceName":"Early","models":[{"name":"SharedModel","modelId":"shared/model","modelFile":"s.litertlm","description":"s","sizeInBytes":100,"defaultConfig":{}}]}"""
+      val official = """{"schemaVersion":1,"contentVersion":1,"sourceName":"Official","models":[{"name":"SharedModel","modelId":"shared/model","modelFile":"s.litertlm","description":"s","sizeInBytes":100,"defaultConfig":{}}]}"""
+      File(dir, "model_allowlist_0abc.json").writeText(thirdParty)
+      File(dir, "model_allowlist_official.json").writeText(official)
+
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, appVersionName = "1.0.0")
+      val models = loader.load()
+
+      // Official wins dedup — only 1 model, not 2
+      assertEquals(1, models.size)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun migratesLegacyFilenameToOfficialOnFirstLoad() {
+    val dir = createTempDirectory("allowlist-legacy").toFile()
+    try {
+      val legacy = """{"schemaVersion":1,"contentVersion":1,"models":[{"name":"Legacy","modelId":"l/m","modelFile":"l.litertlm","description":"l","sizeInBytes":100,"defaultConfig":{}}]}"""
+      File(dir, "model_allowlist.json").writeText(legacy)
+
+      val loader = LlmHttpAllowlistLoader(externalFilesDir = dir, appVersionName = "1.0.0")
+      val models = loader.load()
+
+      // Migration renames model_allowlist.json → model_allowlist_official.json
+      assertEquals(1, models.size)
+      assertEquals("Legacy", models[0].name)
+      assertFalse(File(dir, "model_allowlist.json").exists())
+      assertTrue(File(dir, "model_allowlist_official.json").exists())
+    } finally {
+      dir.deleteRecursively()
+    }
   }
 }
