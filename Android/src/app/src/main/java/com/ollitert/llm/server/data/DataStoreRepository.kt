@@ -45,6 +45,14 @@ interface DataStoreRepository {
 
   suspend fun isOnboardingCompleted(): Boolean
   suspend fun setOnboardingCompleted()
+
+  suspend fun readRepositories(): List<Repository>
+  suspend fun addRepository(repo: Repository)
+  suspend fun seedRepositoryIfAbsent(repo: Repository)
+  suspend fun updateRepository(repo: Repository)
+  suspend fun toggleRepositoryEnabled(id: String, enabled: Boolean)
+  suspend fun removeRepository(id: String)
+  suspend fun resetRepositories()
 }
 
 class DefaultDataStoreRepository(
@@ -139,5 +147,83 @@ class DefaultDataStoreRepository(
 
   override suspend fun setOnboardingCompleted() {
     dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
+  }
+
+  override suspend fun readRepositories(): List<Repository> {
+    val settings = dataStore.data.first()
+    return settings.repositoriesList.map { Repository.fromProto(it) }
+  }
+
+  override suspend fun addRepository(repo: Repository) {
+    dataStore.updateData { settings ->
+      settings.toBuilder()
+        .addRepositories(repo.toProto())
+        .build()
+    }
+  }
+
+  override suspend fun seedRepositoryIfAbsent(repo: Repository) {
+    dataStore.updateData { settings ->
+      if (settings.repositoriesList.any { it.id == repo.id }) {
+        settings
+      } else {
+        settings.toBuilder()
+          .addRepositories(repo.toProto())
+          .build()
+      }
+    }
+  }
+
+  override suspend fun updateRepository(repo: Repository) {
+    dataStore.updateData { settings ->
+      val index = settings.repositoriesList.indexOfFirst { it.id == repo.id }
+      if (index >= 0) {
+        settings.toBuilder()
+          .setRepositories(index, repo.toProto())
+          .build()
+      } else {
+        settings
+      }
+    }
+  }
+
+  override suspend fun toggleRepositoryEnabled(id: String, enabled: Boolean) {
+    dataStore.updateData { settings ->
+      val index = settings.repositoriesList.indexOfFirst { it.id == id }
+      if (index >= 0) {
+        val current = settings.repositoriesList[index]
+        settings.toBuilder()
+          .setRepositories(index, current.toBuilder().setEnabled(enabled).build())
+          .build()
+      } else {
+        settings
+      }
+    }
+  }
+
+  override suspend fun removeRepository(id: String) {
+    dataStore.updateData { settings ->
+      val filtered = settings.repositoriesList.filter { it.id != id }
+      settings.toBuilder()
+        .clearRepositories()
+        .addAllRepositories(filtered)
+        .build()
+    }
+  }
+
+  override suspend fun resetRepositories() {
+    dataStore.updateData { settings ->
+      val official = settings.repositoriesList.find { it.isBuiltIn }
+      settings.toBuilder()
+        .clearRepositories()
+        .apply {
+          if (official != null) {
+            addRepositories(
+              official.toBuilder().setEnabled(true).setLastError("").build()
+            )
+          }
+        }
+        .build()
+    }
   }
 }
