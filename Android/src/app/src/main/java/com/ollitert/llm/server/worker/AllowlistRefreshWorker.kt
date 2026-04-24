@@ -217,10 +217,11 @@ class AllowlistRefreshWorker @AssistedInject constructor(
     private const val WORK_NAME = "allowlist_refresh_work"
     const val MODEL_UPDATE_CHANNEL_ID = "ollitert-model-update"
     const val EXTRA_MODEL_UPDATE_NAME = "model_update_name"
-    private const val MODEL_UPDATE_BASE_NOTIFICATION_ID = 45
+    private const val MODEL_UPDATE_BASE_NOTIFICATION_ID = 1000
+    private const val MODEL_UPDATE_ID_RANGE = 10_000
 
     fun modelUpdateNotificationId(modelName: String): Int =
-      MODEL_UPDATE_BASE_NOTIFICATION_ID or (modelName.hashCode() and 0x7FFFFFFF)
+      MODEL_UPDATE_BASE_NOTIFICATION_ID + (modelName.hashCode() and 0x7FFFFFFF) % MODEL_UPDATE_ID_RANGE
 
     fun canPostModelUpdateNotification(context: Context): Boolean {
       if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
