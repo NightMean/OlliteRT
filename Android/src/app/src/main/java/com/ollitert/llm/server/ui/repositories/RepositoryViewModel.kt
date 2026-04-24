@@ -21,10 +21,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
-import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
-import com.ollitert.llm.server.data.MAX_REDIRECTS
-import com.ollitert.llm.server.data.MAX_ALLOWLIST_RESPONSE_BYTES
+import com.ollitert.llm.server.data.FetchResult
+import com.ollitert.llm.server.data.fetchBoundedResult
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import com.ollitert.llm.server.data.REPO_LIMIT_WARNING_THRESHOLD
@@ -41,7 +39,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 import javax.inject.Inject
@@ -230,115 +227,53 @@ class RepositoryViewModel @Inject constructor(
       return AddRepoResult.Error("This repository is already added")
     }
 
-    var connection: HttpURLConnection? = null
-    try {
-      var currentUrl = normalizedUrl
-      var redirectCount = 0
-      while (true) {
-        connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
-          connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-          readTimeout = HTTP_READ_TIMEOUT_MS
-          requestMethod = "GET"
-          instanceFollowRedirects = false
-        }
-
-        val responseCode = connection.responseCode
-        if (responseCode == 301 || responseCode == 302 || responseCode == 307 || responseCode == 308) {
-          if (++redirectCount > MAX_REDIRECTS) {
-            return AddRepoResult.Error("Too many redirects")
-          }
-          val location = connection.getHeaderField("Location")
-            ?: return AddRepoResult.Error("Redirect with no Location header")
-          val redirectUrl = try { URL(location) } catch (_: Exception) {
-            return AddRepoResult.Error("Invalid redirect URL")
-          }
-          if (redirectUrl.protocol != "https" && redirectUrl.protocol != "http") {
-            return AddRepoResult.Error("Redirect to unsupported protocol")
-          }
-          val currentParsed = try { URL(currentUrl) } catch (_: Exception) { null }
-          if (currentParsed?.protocol == "https" && redirectUrl.protocol == "http") {
-            return AddRepoResult.Error("Redirect from HTTPS to HTTP is not allowed")
-          }
-          connection.disconnect()
-          connection = null
-          currentUrl = location
-          continue
-        }
-        if (responseCode == 401 || responseCode == 403) {
-          return AddRepoResult.Error("Access denied — private repositories are not supported")
-        }
-        if (responseCode == 404) {
-          return AddRepoResult.Error("No file found at this URL")
-        }
-        if (responseCode !in 200..299) {
-          return AddRepoResult.Error("Server returned an error (HTTP $responseCode)")
-        }
-
-        val contentLength = connection.getHeaderField("Content-Length")?.toLongOrNull()
-        if (contentLength != null && contentLength > MAX_ALLOWLIST_RESPONSE_BYTES) {
-          return AddRepoResult.Error("Response too large (>${MAX_ALLOWLIST_RESPONSE_BYTES / 1024 / 1024}MB)")
-        }
-
-        val body = connection.inputStream.bufferedReader().use { reader ->
-          val sb = StringBuilder()
-          val buffer = CharArray(8192)
-          var totalRead = 0L
-          var read: Int
-          while (reader.read(buffer).also { read = it } != -1) {
-            totalRead += read
-            if (totalRead > MAX_ALLOWLIST_RESPONSE_BYTES) {
-              return AddRepoResult.Error("Response too large")
-            }
-            sb.append(buffer, 0, read)
-          }
-          sb.toString()
-        }
-
-        val allowlist: ModelAllowlist
-        try {
-          allowlist = ModelAllowlistJson.decode(body)
-        } catch (e: Exception) {
-          return AddRepoResult.Error("Could not load a valid model list from this URL")
-        }
-
-        if (allowlist.models.isEmpty()) {
-          return AddRepoResult.Error("This URL does not contain a valid model list")
-        }
-
-        if (allowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
-          return AddRepoResult.Error("This repository requires a newer version of OlliteRT")
-        }
-
-        val repoId = UUID.randomUUID().toString()
-        allowlistLoader.saveToDisk(body, repoCacheFilename(repoId))
-        if (allowlistLoader.readFromDiskCache(repoCacheFilename(repoId)) == null) {
-          return AddRepoResult.Error("Failed to save repository data to disk")
-        }
-
-        val repoName = allowlist.sourceName.ifEmpty { deriveRepositoryName(normalizedUrl) }
-        val newRepo = Repository(
-          id = repoId,
-          url = normalizedUrl,
-          enabled = true,
-          isBuiltIn = false,
-          contentVersion = allowlist.contentVersion,
-          lastRefreshMs = System.currentTimeMillis(),
-          lastError = "",
-          name = repoName,
-          description = allowlist.sourceDescription,
-          iconUrl = allowlist.sourceIconUrl,
-          modelCount = allowlist.models.size,
-        )
-        dataStoreRepository.addRepository(newRepo)
-        loadRepositories()
-        return AddRepoResult.Success
-      }
-
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to add repository", e)
-      return AddRepoResult.Error("Could not reach this URL")
-    } finally {
-      connection?.disconnect()
+    val body = when (val result = fetchBoundedResult(normalizedUrl, "OlliteRT-AddRepo")) {
+      is FetchResult.Success -> result.body
+      is FetchResult.HttpError -> return AddRepoResult.Error(when (result.code) {
+        401, 403 -> "Access denied — private repositories are not supported"
+        404 -> "No file found at this URL"
+        else -> "Server returned an error (HTTP ${result.code})"
+      })
+      is FetchResult.NetworkError -> return AddRepoResult.Error(result.message)
     }
+
+    val allowlist: ModelAllowlist
+    try {
+      allowlist = ModelAllowlistJson.decode(body)
+    } catch (e: Exception) {
+      return AddRepoResult.Error("Could not load a valid model list from this URL")
+    }
+
+    if (allowlist.models.isEmpty()) {
+      return AddRepoResult.Error("This URL does not contain a valid model list")
+    }
+
+    if (allowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
+      return AddRepoResult.Error("This repository requires a newer version of OlliteRT")
+    }
+
+    val repoId = UUID.randomUUID().toString()
+    allowlistLoader.saveToDisk(body, repoCacheFilename(repoId))
+    if (allowlistLoader.readFromDiskCache(repoCacheFilename(repoId)) == null) {
+      return AddRepoResult.Error("Failed to save repository data to disk")
+    }
+
+    val repoName = allowlist.sourceName.ifEmpty { deriveRepositoryName(normalizedUrl) }
+    val newRepo = Repository(
+      id = repoId,
+      url = normalizedUrl,
+      enabled = true,
+      isBuiltIn = false,
+      contentVersion = allowlist.contentVersion,
+      lastRefreshMs = System.currentTimeMillis(),
+      lastError = "",
+      name = repoName,
+      description = allowlist.sourceDescription,
+      iconUrl = allowlist.sourceIconUrl,
+      modelCount = allowlist.models.size,
+    )
+    dataStoreRepository.addRepository(newRepo)
+    loadRepositories()
+    return AddRepoResult.Success
   }
 }
