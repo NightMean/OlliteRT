@@ -871,6 +871,7 @@
   <string name="repo_delete_downloading_message">%1$d model(s) from this source are currently downloading. Deleting will cancel the download(s).</string>
   <string name="repo_delete_downloading_cancel_and_delete">Cancel download &amp; delete</string>
   <string name="repo_limit_warning">Approaching model source limit</string>
+  <string name="repo_toggle_label">Toggle %1$s</string>
   <string name="add" translatable="false">Add</string>
   <string name="remove" translatable="false">Remove</string>
 

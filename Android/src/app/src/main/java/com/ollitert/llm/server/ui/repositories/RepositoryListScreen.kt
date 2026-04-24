@@ -94,14 +94,22 @@ fun RepositoryListScreen(
 
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   var hasChanges by rememberSaveable { mutableStateOf(false) }
-  var showAddDialog by remember { mutableStateOf(false) }
-  var disableInfoRepo by remember { mutableStateOf<Repository?>(null) }
-  var downloadingBlockRepo by remember { mutableStateOf<Repository?>(null) }
-  var downloadingBlockModelNames by remember { mutableStateOf<List<String>>(emptyList()) }
+  var showAddDialog by rememberSaveable { mutableStateOf(false) }
+  var disableInfoRepoId by rememberSaveable { mutableStateOf<String?>(null) }
+  var downloadingBlockRepoId by rememberSaveable { mutableStateOf<String?>(null) }
+  var downloadingBlockModelNames by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
 
   BackHandler { onBackClick(hasChanges) }
 
   Box(modifier = modifier.fillMaxSize()) {
+    if (uiState.isLoading && uiState.repositories.isEmpty()) {
+      CircularProgressIndicator(
+        modifier = Modifier
+          .align(Alignment.Center)
+          .size(40.dp),
+      )
+    }
+
     LazyColumn(
       modifier = Modifier
         .fillMaxSize()
@@ -128,13 +136,13 @@ fun RepositoryListScreen(
             if (!enabled) {
               val downloading = viewModel.getDownloadingModelNamesForRepo(repo.id, downloadingModelRepoIds)
               if (downloading.isNotEmpty()) {
-                downloadingBlockRepo = repo
+                downloadingBlockRepoId = repo.id
                 downloadingBlockModelNames = downloading
                 return@RepositoryRow
               }
               val count = viewModel.getDownloadedModelCountForRepo(repo.id, downloadedModelRepoIds)
               if (count > 0) {
-                disableInfoRepo = repo
+                disableInfoRepoId = repo.id
                 return@RepositoryRow
               }
             }
@@ -192,25 +200,25 @@ fun RepositoryListScreen(
   }
 
   // Info dialog when disabling a repo that has downloaded models
-  disableInfoRepo?.let { repo ->
-    val count = viewModel.getDownloadedModelCountForRepo(repo.id, downloadedModelRepoIds)
+  disableInfoRepoId?.let { repoId ->
+    val count = viewModel.getDownloadedModelCountForRepo(repoId, downloadedModelRepoIds)
     AlertDialog(
-      onDismissRequest = { disableInfoRepo = null },
+      onDismissRequest = { disableInfoRepoId = null },
       title = { Text(stringResource(R.string.repo_disable_title)) },
       text = {
         Text(stringResource(R.string.repo_disable_downloaded_info, count))
       },
       confirmButton = {
         TextButton(onClick = {
-          viewModel.toggleRepo(repo.id, false)
+          viewModel.toggleRepo(repoId, false)
           hasChanges = true
-          disableInfoRepo = null
+          disableInfoRepoId = null
         }) {
           Text(stringResource(R.string.repo_disable_confirm))
         }
       },
       dismissButton = {
-        TextButton(onClick = { disableInfoRepo = null }) {
+        TextButton(onClick = { disableInfoRepoId = null }) {
           Text(stringResource(R.string.cancel))
         }
       },
@@ -218,9 +226,9 @@ fun RepositoryListScreen(
   }
 
   // Dialog when disabling a repo that has actively downloading models
-  downloadingBlockRepo?.let { repo ->
+  downloadingBlockRepoId?.let { repoId ->
     AlertDialog(
-      onDismissRequest = { downloadingBlockRepo = null },
+      onDismissRequest = { downloadingBlockRepoId = null },
       title = { Text(stringResource(R.string.repo_disable_downloading_title)) },
       text = {
         Text(stringResource(R.string.repo_disable_downloading_message, downloadingBlockModelNames.size))
@@ -230,9 +238,9 @@ fun RepositoryListScreen(
           for (name in downloadingBlockModelNames) {
             onCancelDownload(name)
           }
-          viewModel.toggleRepo(repo.id, false)
+          viewModel.toggleRepo(repoId, false)
           hasChanges = true
-          downloadingBlockRepo = null
+          downloadingBlockRepoId = null
           downloadingBlockModelNames = emptyList()
         }) {
           Text(stringResource(R.string.repo_disable_downloading_cancel_and_disable), color = MaterialTheme.colorScheme.error)
@@ -240,7 +248,7 @@ fun RepositoryListScreen(
       },
       dismissButton = {
         TextButton(onClick = {
-          downloadingBlockRepo = null
+          downloadingBlockRepoId = null
           downloadingBlockModelNames = emptyList()
         }) {
           Text(stringResource(R.string.cancel))
@@ -299,9 +307,11 @@ private fun RepositoryRow(
     }
 
     // Enable/disable toggle
+    val toggleLabel = stringResource(R.string.repo_toggle_label, repo.name.ifEmpty { repo.url })
     Switch(
       checked = repo.enabled,
       onCheckedChange = onToggle,
+      modifier = Modifier.semantics { contentDescription = toggleLabel },
     )
   }
 }
@@ -347,7 +357,7 @@ private fun AddRepositoryDialog(
   onDismiss: () -> Unit,
   onAdd: (String) -> Unit,
 ) {
-  var url by remember { mutableStateOf("") }
+  var url by rememberSaveable { mutableStateOf("") }
 
   AlertDialog(
     onDismissRequest = { if (!isAdding) onDismiss() },

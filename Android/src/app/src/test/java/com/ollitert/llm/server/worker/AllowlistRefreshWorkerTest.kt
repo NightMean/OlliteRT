@@ -50,4 +50,19 @@ class AllowlistRefreshWorkerTest {
     val negativeHash = AllowlistRefreshWorker.modelUpdateNotificationId("a".repeat(100))
     assertTrue("ID should be positive even with large hash", negativeHash > 0)
   }
+
+  @Test
+  fun modelUpdateNotificationIdStaysWithinRange() {
+    val id = AllowlistRefreshWorker.modelUpdateNotificationId("any-model")
+    assertTrue("ID should be < 11000 (base + range)", id < 11000)
+    val largeHash = AllowlistRefreshWorker.modelUpdateNotificationId("a".repeat(100))
+    assertTrue("ID should be < 11000 even with large hash", largeHash < 11000)
+  }
+
+  @Test
+  fun modelUpdateNotificationIdHandlesEmptyString() {
+    val id = AllowlistRefreshWorker.modelUpdateNotificationId("")
+    assertTrue("ID should be >= 1000 for empty string", id >= 1000)
+    assertTrue("ID should be < 11000 for empty string", id < 11000)
+  }
 }

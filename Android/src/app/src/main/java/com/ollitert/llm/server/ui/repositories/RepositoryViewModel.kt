@@ -82,14 +82,19 @@ class RepositoryViewModel @Inject constructor(
   fun loadRepositories() {
     viewModelScope.launch(Dispatchers.IO) {
       _uiState.update { it.copy(isLoading = true) }
-      val repos = dataStoreRepository.readRepositories()
-      val enriched = repos.map { repo -> enrichRepo(repo) }
-      val userRepoCount = enriched.count { !it.isBuiltIn }
-      _uiState.update { it.copy(
-        repositories = enriched,
-        isLoading = false,
-        repoCountWarning = userRepoCount >= REPO_LIMIT_WARNING_THRESHOLD,
-      ) }
+      try {
+        val repos = dataStoreRepository.readRepositories()
+        val enriched = repos.map { repo -> enrichRepo(repo) }
+        val userRepoCount = enriched.count { !it.isBuiltIn }
+        _uiState.update { it.copy(
+          repositories = enriched,
+          isLoading = false,
+          repoCountWarning = userRepoCount >= REPO_LIMIT_WARNING_THRESHOLD,
+        ) }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to load repositories", e)
+        _uiState.update { it.copy(isLoading = false) }
+      }
     }
   }
 
@@ -152,7 +157,13 @@ class RepositoryViewModel @Inject constructor(
   fun loadRepoDetail(repoId: String) {
     viewModelScope.launch(Dispatchers.IO) {
       _uiState.update { it.copy(isLoading = true) }
-      val repos = dataStoreRepository.readRepositories()
+      val repos = try {
+        dataStoreRepository.readRepositories()
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to read repositories for detail", e)
+        _uiState.update { it.copy(isLoading = false) }
+        return@launch
+      }
       val repo = repos.find { it.id == repoId }
       if (repo == null) {
         _uiState.update { it.copy(isLoading = false, selectedRepo = null, detailModels = emptyList()) }

@@ -79,8 +79,8 @@ fun RepositoryDetailScreen(
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   var hasChanges by rememberSaveable { mutableStateOf(false) }
-  var showDeleteDialog by remember { mutableStateOf(false) }
-  var downloadingBlockModelNames by remember { mutableStateOf<List<String>>(emptyList()) }
+  var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+  var downloadingBlockModelNames by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
 
   LaunchedEffect(repoId) {
     viewModel.loadRepoDetail(repoId)
