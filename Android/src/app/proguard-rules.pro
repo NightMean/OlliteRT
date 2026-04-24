@@ -25,20 +25,6 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# --- Moshi ---
-# Keep Moshi adapters and @JsonClass-annotated classes
--keep class com.squareup.moshi.** { *; }
--keep @com.squareup.moshi.JsonQualifier @interface *
--keepclassmembers @com.squareup.moshi.JsonClass class * extends java.lang.Enum {
-    <fields>;
-    **[] values();
-}
--keepclasseswithmembers class * {
-    @com.squareup.moshi.* <methods>;
-}
-# Keep generated JsonAdapter classes
--keep class **JsonAdapter { *; }
-
 # --- Kotlin Reflect ---
 # Used for runtime type inspection
 -keep class kotlin.reflect.** { *; }

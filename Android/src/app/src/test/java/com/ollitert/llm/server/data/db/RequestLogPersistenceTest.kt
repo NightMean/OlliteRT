@@ -19,8 +19,8 @@ package com.ollitert.llm.server.data.db
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
-import com.squareup.moshi.Moshi
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -75,18 +75,17 @@ class RequestLogPersistenceTest {
    */
   private class TestPersistence(
     private val dao: FakeDao,
-    private val moshi: Moshi,
     var enabled: Boolean = true,
   ) : RequestLogStore.PersistenceCallback {
 
     override fun onEntryAdded(entry: RequestLogEntry) {
       if (!enabled) return
-      runBlocking { dao.upsert(RequestLogEntity.fromEntry(entry, moshi)) }
+      runBlocking { dao.upsert(RequestLogEntity.fromEntry(entry)) }
     }
 
     override fun onEntryUpdated(entry: RequestLogEntry, isTerminal: Boolean) {
       if (!enabled || !isTerminal) return
-      runBlocking { dao.upsert(RequestLogEntity.fromEntry(entry, moshi)) }
+      runBlocking { dao.upsert(RequestLogEntity.fromEntry(entry)) }
     }
 
     override fun onEntriesCleared() {
@@ -96,7 +95,7 @@ class RequestLogPersistenceTest {
 
     fun persistCurrentEntries() = runBlocking {
       val entries = RequestLogStore.entries.value
-      dao.upsertAll(entries.map { RequestLogEntity.fromEntry(it, moshi) })
+      dao.upsertAll(entries.map { RequestLogEntity.fromEntry(it) })
     }
 
     fun clearPersistedLogs() = runBlocking { dao.deleteAll() }
@@ -108,7 +107,7 @@ class RequestLogPersistenceTest {
     }
   }
 
-  private val moshi = Moshi.Builder().build()
+  private val json = Json { ignoreUnknownKeys = true }
   private lateinit var fakeDao: FakeDao
   private lateinit var persistence: TestPersistence
 
@@ -127,7 +126,7 @@ class RequestLogPersistenceTest {
     RequestLogStore.setPersistenceCallback(null)
     RequestLogStore.setMaxEntries(100)
     fakeDao = FakeDao()
-    persistence = TestPersistence(fakeDao, moshi)
+    persistence = TestPersistence(fakeDao)
     RequestLogStore.setPersistenceCallback(persistence)
   }
 
@@ -151,17 +150,15 @@ class RequestLogPersistenceTest {
       RequestLogStore.update("req1") { it.copy(partialText = "token $i") }
     }
     // Still just 1 row (the initial add), upsert not called for streaming
-    val entityAfterStreaming = fakeDao.rows["req1"]!!
+    val entityAfterStreaming = fakeDao.rows.getValue("req1")
     // The entity in the DB should still be the initial add (isPending=true in extras)
-    val extrasAfterStreaming = moshi.adapter(RequestLogEntity.ExtrasJson::class.java)
-      .fromJson(entityAfterStreaming.extras)!!
+    val extrasAfterStreaming = json.decodeFromString<RequestLogEntity.ExtrasJson>(entityAfterStreaming.extras)
     assertTrue("DB entry should still be pending after streaming updates", extrasAfterStreaming.isPending)
 
     // 3. Complete (terminal) → persisted
     RequestLogStore.update("req1") { it.copy(isPending = false, responseBody = "done", latencyMs = 500) }
-    val finalEntity = fakeDao.rows["req1"]!!
-    val finalExtras = moshi.adapter(RequestLogEntity.ExtrasJson::class.java)
-      .fromJson(finalEntity.extras)!!
+    val finalEntity = fakeDao.rows.getValue("req1")
+    val finalExtras = json.decodeFromString<RequestLogEntity.ExtrasJson>(finalEntity.extras)
     assertFalse("DB entry should be completed after terminal update", finalExtras.isPending)
     assertEquals("done", finalExtras.responseBody)
   }
@@ -171,8 +168,8 @@ class RequestLogPersistenceTest {
     RequestLogStore.add(entry("cancel-me", isPending = true))
     RequestLogStore.update("cancel-me") { it.copy(isCancelled = true) }
 
-    val entity = fakeDao.rows["cancel-me"]!!
-    val extras = moshi.adapter(RequestLogEntity.ExtrasJson::class.java).fromJson(entity.extras)!!
+    val entity = fakeDao.rows.getValue("cancel-me")
+    val extras = json.decodeFromString<RequestLogEntity.ExtrasJson>(entity.extras)
     assertTrue("cancelled entry should be persisted", extras.isCancelled)
   }
 
@@ -188,7 +185,7 @@ class RequestLogPersistenceTest {
   @Test
   fun disabledPersistenceDoesNotClearDb() {
     // Pre-populate DB
-    runBlocking { fakeDao.upsert(RequestLogEntity.fromEntry(entry("existing"), moshi)) }
+    runBlocking { fakeDao.upsert(RequestLogEntity.fromEntry(entry("existing"))) }
     persistence.enabled = false
     RequestLogStore.clear()
     assertEquals("should not clear DB when disabled", 1, fakeDao.rows.size)
@@ -248,9 +245,9 @@ class RequestLogPersistenceTest {
   fun pruneByCountRemovesOldestEntries() {
     val now = System.currentTimeMillis()
     runBlocking {
-      fakeDao.upsert(RequestLogEntity.fromEntry(entry("old", timestamp = now - 3000), moshi))
-      fakeDao.upsert(RequestLogEntity.fromEntry(entry("mid", timestamp = now - 2000), moshi))
-      fakeDao.upsert(RequestLogEntity.fromEntry(entry("new", timestamp = now - 1000), moshi))
+      fakeDao.upsert(RequestLogEntity.fromEntry(entry("old", timestamp = now - 3000)))
+      fakeDao.upsert(RequestLogEntity.fromEntry(entry("mid", timestamp = now - 2000)))
+      fakeDao.upsert(RequestLogEntity.fromEntry(entry("new", timestamp = now - 1000)))
     }
     assertEquals(3, fakeDao.rows.size)
 
@@ -268,8 +265,8 @@ class RequestLogPersistenceTest {
     val twoDaysAgo = now - 2 * 86_400_000L
     val tenDaysAgo = now - 10 * 86_400_000L
     runBlocking {
-      fakeDao.upsert(RequestLogEntity.fromEntry(entry("recent", timestamp = twoDaysAgo), moshi))
-      fakeDao.upsert(RequestLogEntity.fromEntry(entry("expired", timestamp = tenDaysAgo), moshi))
+      fakeDao.upsert(RequestLogEntity.fromEntry(entry("recent", timestamp = twoDaysAgo)))
+      fakeDao.upsert(RequestLogEntity.fromEntry(entry("expired", timestamp = tenDaysAgo)))
     }
 
     persistence.prune(maxCount = 10000, retentionMinutes = 7L * 24 * 60)
@@ -290,21 +287,19 @@ class RequestLogPersistenceTest {
           id = "db-1", timestamp = now, method = "POST", path = "/test",
           requestBody = "body1", statusCode = 200, level = LogLevel.INFO,
         ),
-        moshi,
       ))
       fakeDao.upsert(RequestLogEntity.fromEntry(
         RequestLogEntry(
           id = "db-2", timestamp = now - 1000, method = "GET", path = "/v1/models",
           statusCode = 200, level = LogLevel.INFO,
         ),
-        moshi,
       ))
     }
 
     // Simulate startup load
     runBlocking {
       val entities = fakeDao.getRecent(100)
-      val entries = entities.map { it.toEntry(moshi) }
+      val entries = entities.map { it.toEntry() }
       RequestLogStore.loadEntries(entries)
     }
 

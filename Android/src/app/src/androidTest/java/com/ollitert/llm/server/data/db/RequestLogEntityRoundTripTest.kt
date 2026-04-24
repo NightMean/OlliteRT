@@ -22,7 +22,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
-import com.squareup.moshi.Moshi
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -36,7 +35,6 @@ class RequestLogEntityRoundTripTest {
 
   private lateinit var db: OlliteDatabase
   private lateinit var dao: RequestLogDao
-  private val moshi = Moshi.Builder().build()
 
   @Before
   fun setUp() {
@@ -88,10 +86,10 @@ class RequestLogEntityRoundTripTest {
       itlMs = 40.8,
     )
 
-    val entity = RequestLogEntity.fromEntry(original, moshi)
+    val entity = RequestLogEntity.fromEntry(original)
     dao.upsert(entity)
     val loaded = dao.getRecent(1).single()
-    val restored = loaded.toEntry(moshi)
+    val restored = loaded.toEntry()
 
     assertEquals(original.id, restored.id)
     assertEquals(original.timestamp, restored.timestamp)
@@ -142,9 +140,9 @@ class RequestLogEntityRoundTripTest {
       ignoredClientParams = null,
     )
 
-    val entity = RequestLogEntity.fromEntry(original, moshi)
+    val entity = RequestLogEntity.fromEntry(original)
     dao.upsert(entity)
-    val restored = dao.getRecent(1).single().toEntry(moshi)
+    val restored = dao.getRecent(1).single().toEntry()
 
     assertNull(restored.modelName)
     assertNull(restored.requestBody)
@@ -174,7 +172,7 @@ class RequestLogEntityRoundTripTest {
       extras = "NOT VALID JSON {{{",
     )
     dao.upsert(entity)
-    val restored = dao.getRecent(1).single().toEntry(moshi)
+    val restored = dao.getRecent(1).single().toEntry()
 
     assertEquals("corrupt", restored.id)
     assertNull(restored.requestBody)
@@ -200,7 +198,7 @@ class RequestLogEntityRoundTripTest {
       extras = "{}",
     )
     dao.upsert(entity)
-    val restored = dao.getRecent(1).single().toEntry(moshi)
+    val restored = dao.getRecent(1).single().toEntry()
     assertEquals(LogLevel.INFO, restored.level)
   }
 
@@ -222,7 +220,7 @@ class RequestLogEntityRoundTripTest {
       extras = "{}",
     )
     dao.upsert(entity)
-    val restored = dao.getRecent(1).single().toEntry(moshi)
+    val restored = dao.getRecent(1).single().toEntry()
     assertEquals(EventCategory.GENERAL, restored.eventCategory)
   }
 
@@ -235,9 +233,9 @@ class RequestLogEntityRoundTripTest {
         path = "/ping",
         level = level,
       )
-      val entity = RequestLogEntity.fromEntry(entry, moshi)
+      val entity = RequestLogEntity.fromEntry(entry)
       dao.upsert(entity)
-      val restored = dao.getRecent(100).first { it.id == "level-${level.name}" }.toEntry(moshi)
+      val restored = dao.getRecent(100).first { it.id == "level-${level.name}" }.toEntry()
       assertEquals(level, restored.level)
     }
   }
@@ -251,9 +249,9 @@ class RequestLogEntityRoundTripTest {
         path = cat.name,
         eventCategory = cat,
       )
-      val entity = RequestLogEntity.fromEntry(entry, moshi)
+      val entity = RequestLogEntity.fromEntry(entry)
       dao.upsert(entity)
-      val restored = dao.getRecent(100).first { it.id == "cat-${cat.name}" }.toEntry(moshi)
+      val restored = dao.getRecent(100).first { it.id == "cat-${cat.name}" }.toEntry()
       assertEquals(cat, restored.eventCategory)
     }
   }

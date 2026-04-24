@@ -24,8 +24,8 @@ import com.ollitert.llm.server.service.ErrorKind
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
-import com.squareup.moshi.JsonClass
-import com.squareup.moshi.Moshi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /**
  * Room entity for persisted request logs.
@@ -62,12 +62,7 @@ data class RequestLogEntity(
   val extras: String,
 ) {
 
-  /**
-   * Moshi-serialized JSON structure for non-indexed fields.
-   * Unknown keys are silently ignored on deserialization, so old DB rows
-   * deserialize safely even after new fields are added here.
-   */
-  @JsonClass(generateAdapter = true)
+  @Serializable
   data class ExtrasJson(
     val requestBody: String? = null,
     val originalRequestBodySize: Int = 0,
@@ -93,10 +88,9 @@ data class RequestLogEntity(
   )
 
   /** Convert back to the in-memory [RequestLogEntry]. */
-  fun toEntry(moshi: Moshi): RequestLogEntry {
-    val adapter = moshi.adapter(ExtrasJson::class.java)
+  fun toEntry(): RequestLogEntry {
     val ext = try {
-      adapter.fromJson(extras) ?: ExtrasJson()
+      json.decodeFromString<ExtrasJson>(extras)
     } catch (_: Exception) {
       ExtrasJson()
     }
@@ -137,9 +131,10 @@ data class RequestLogEntity(
   }
 
   companion object {
+    private val json = Json { ignoreUnknownKeys = true }
+
     /** Convert an in-memory [RequestLogEntry] to a persistable entity. */
-    fun fromEntry(entry: RequestLogEntry, moshi: Moshi): RequestLogEntity {
-      val adapter = moshi.adapter(ExtrasJson::class.java)
+    fun fromEntry(entry: RequestLogEntry): RequestLogEntity {
       val ext = ExtrasJson(
         requestBody = entry.requestBody,
         originalRequestBodySize = entry.originalRequestBodySize,
@@ -175,7 +170,7 @@ data class RequestLogEntity(
         isStreaming = entry.isStreaming,
         inputTokenEstimate = entry.inputTokenEstimate,
         maxContextTokens = entry.maxContextTokens,
-        extras = adapter.toJson(ext),
+        extras = json.encodeToString(ext),
       )
     }
   }

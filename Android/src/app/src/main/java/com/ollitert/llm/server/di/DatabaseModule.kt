@@ -20,7 +20,6 @@ import android.content.Context
 import androidx.room.Room
 import com.ollitert.llm.server.data.db.OlliteDatabase
 import com.ollitert.llm.server.data.db.RequestLogDao
-import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,8 +41,4 @@ object DatabaseModule {
 
   @Provides
   fun provideRequestLogDao(db: OlliteDatabase): RequestLogDao = db.requestLogDao()
-
-  @Provides
-  @Singleton
-  fun provideMoshi(): Moshi = Moshi.Builder().build()
 }

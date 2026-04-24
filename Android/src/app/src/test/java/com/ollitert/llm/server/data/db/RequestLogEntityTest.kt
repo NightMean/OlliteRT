@@ -19,7 +19,6 @@ package com.ollitert.llm.server.data.db
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
-import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -27,8 +26,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RequestLogEntityTest {
-
-  private val moshi = Moshi.Builder().build()
 
   private fun fullEntry() = RequestLogEntry(
     id = "log-123-1",
@@ -64,8 +61,8 @@ class RequestLogEntityTest {
   @Test
   fun roundTripPreservesAllFields() {
     val original = fullEntry()
-    val entity = RequestLogEntity.fromEntry(original, moshi)
-    val restored = entity.toEntry(moshi)
+    val entity = RequestLogEntity.fromEntry(original)
+    val restored = entity.toEntry()
 
     assertEquals(original.id, restored.id)
     assertEquals(original.timestamp, restored.timestamp)
@@ -103,7 +100,7 @@ class RequestLogEntityTest {
       path = "/v1/models",
       // All nullable fields left as null/default
     )
-    val restored = RequestLogEntity.fromEntry(entry, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(entry).toEntry()
 
     assertNull(restored.requestBody)
     assertNull(restored.responseBody)
@@ -126,7 +123,7 @@ class RequestLogEntityTest {
       modelName = "gemma3",
       eventCategory = EventCategory.MODEL,
     )
-    val restored = RequestLogEntity.fromEntry(event, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(event).toEntry()
 
     assertEquals("EVENT", restored.method)
     assertEquals("Model loaded: gemma3 (1234ms)", restored.path)
@@ -145,7 +142,7 @@ class RequestLogEntityTest {
       cancelledByUser = true,
       partialText = "partial output before cancel",
     )
-    val restored = RequestLogEntity.fromEntry(entry, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(entry).toEntry()
 
     assertTrue(restored.isCancelled)
     assertTrue(restored.cancelledByUser)
@@ -165,7 +162,7 @@ class RequestLogEntityTest {
       maxContextTokens = 4000,
       isExactTokenCount = true,
     )
-    val restored = RequestLogEntity.fromEntry(entry, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(entry).toEntry()
 
     assertEquals(500, restored.statusCode)
     assertEquals(LogLevel.ERROR, restored.level)
@@ -179,7 +176,7 @@ class RequestLogEntityTest {
   @Test
   fun fromEntryMapsIndexedColumnsCorrectly() {
     val entry = fullEntry()
-    val entity = RequestLogEntity.fromEntry(entry, moshi)
+    val entity = RequestLogEntity.fromEntry(entry)
 
     assertEquals("log-123-1", entity.id)
     assertEquals(1700000000000, entity.timestamp)
@@ -204,7 +201,7 @@ class RequestLogEntityTest {
       level = LogLevel.ERROR,
       eventCategory = EventCategory.SETTINGS,
     )
-    val entity = RequestLogEntity.fromEntry(entry, moshi)
+    val entity = RequestLogEntity.fromEntry(entry)
 
     assertEquals("ERROR", entity.level)
     assertEquals("SETTINGS", entity.eventCategory)
@@ -215,7 +212,7 @@ class RequestLogEntityTest {
   @Test
   fun extrasColumnContainsNonIndexedFields() {
     val entry = fullEntry()
-    val entity = RequestLogEntity.fromEntry(entry, moshi)
+    val entity = RequestLogEntity.fromEntry(entry)
 
     // extras should be valid JSON containing the non-indexed fields
     assertTrue("extras should contain requestBody", entity.extras.contains("messages"))
@@ -242,7 +239,7 @@ class RequestLogEntityTest {
       maxContextTokens = 0,
       extras = """{"requestBody":"hi","unknownFutureField":"value","anotherNew":42}""",
     )
-    val restored = entity.toEntry(moshi)
+    val restored = entity.toEntry()
 
     // Should deserialize without error, unknown keys silently ignored
     assertEquals("hi", restored.requestBody)
@@ -266,7 +263,7 @@ class RequestLogEntityTest {
       maxContextTokens = 0,
       extras = "this is not valid json",
     )
-    val restored = entity.toEntry(moshi)
+    val restored = entity.toEntry()
 
     // Should not throw — falls back to ExtrasJson defaults
     assertNull(restored.requestBody)
@@ -292,7 +289,7 @@ class RequestLogEntityTest {
       maxContextTokens = 0,
       extras = "{}",
     )
-    val restored = entity.toEntry(moshi)
+    val restored = entity.toEntry()
     assertEquals(LogLevel.INFO, restored.level)
   }
 
@@ -313,7 +310,7 @@ class RequestLogEntityTest {
       maxContextTokens = 0,
       extras = "{}",
     )
-    val restored = entity.toEntry(moshi)
+    val restored = entity.toEntry()
     assertEquals(EventCategory.GENERAL, restored.eventCategory)
   }
 
@@ -328,7 +325,7 @@ class RequestLogEntityTest {
       path = "/v1/chat/completions",
       requestBody = largeBody,
     )
-    val restored = RequestLogEntity.fromEntry(entry, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(entry).toEntry()
     assertEquals(largeBody, restored.requestBody)
   }
 
@@ -341,7 +338,7 @@ class RequestLogEntityTest {
       path = "/test",
       requestBody = body,
     )
-    val restored = RequestLogEntity.fromEntry(entry, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(entry).toEntry()
     assertEquals(body, restored.requestBody)
   }
 
@@ -359,7 +356,7 @@ class RequestLogEntityTest {
       cancelledByUser = true,
       isExactTokenCount = true,
     )
-    val restored = RequestLogEntity.fromEntry(entry, moshi).toEntry(moshi)
+    val restored = RequestLogEntity.fromEntry(entry).toEntry()
 
     assertTrue(restored.isStreaming)
     assertTrue(restored.isPending)

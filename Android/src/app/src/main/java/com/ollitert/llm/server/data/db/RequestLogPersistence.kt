@@ -22,7 +22,6 @@ import com.ollitert.llm.server.data.DEFAULT_IN_MEMORY_LOG_CAP
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
-import com.squareup.moshi.Moshi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +48,6 @@ import javax.inject.Singleton
 @Singleton
 class RequestLogPersistence @Inject constructor(
   private val dao: RequestLogDao,
-  private val moshi: Moshi,
   @param:ApplicationContext private val context: Context,
 ) : RequestLogStore.PersistenceCallback {
 
@@ -96,7 +94,7 @@ class RequestLogPersistence @Inject constructor(
     if (!isEnabled) return
     scope.launch {
       try {
-        dao.upsert(RequestLogEntity.fromEntry(entry, moshi))
+        dao.upsert(RequestLogEntity.fromEntry(entry))
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
@@ -111,7 +109,7 @@ class RequestLogPersistence @Inject constructor(
     if (!isEnabled || !isTerminal) return
     scope.launch {
       try {
-        dao.upsert(RequestLogEntity.fromEntry(entry, moshi))
+        dao.upsert(RequestLogEntity.fromEntry(entry))
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
@@ -144,7 +142,7 @@ class RequestLogPersistence @Inject constructor(
     scope.launch {
       try {
         val entries = RequestLogStore.entries.value
-        val entities = entries.map { RequestLogEntity.fromEntry(it, moshi) }
+        val entities = entries.map { RequestLogEntity.fromEntry(it) }
         dao.upsertAll(entities)
       } catch (e: CancellationException) {
         throw e
@@ -173,7 +171,7 @@ class RequestLogPersistence @Inject constructor(
     val maxEntries = LlmHttpPrefs.getLogMaxEntries(context)
     val entities = dao.getRecent(maxEntries)
     if (entities.isNotEmpty()) {
-      val entries = entities.map { it.toEntry(moshi) }
+      val entries = entities.map { it.toEntry() }
       RequestLogStore.loadEntries(entries)
     }
   }
