@@ -211,7 +211,7 @@ fun OlliteRTNavHost(
           serverViewModel.startServer(modelName = model.name)
         },
         onBenchmarkClicked = { model ->
-          navController.navigate(OlliteRTRoutes.benchmark(model.name))
+          navController.navigate(OlliteRTRoutes.benchmark(model.name)) { launchSingleTop = true }
         },
         serverStatus = serverStatus,
         activeModelName = activeModelName,
@@ -223,7 +223,7 @@ fun OlliteRTNavHost(
           manualStartPending = true
           serverViewModel.switchModel(modelName)
         },
-        onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) },
+        onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) { launchSingleTop = true } },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) { launchSingleTop = true } },
       )
     }

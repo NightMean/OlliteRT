@@ -40,7 +40,7 @@ class AllowlistRefreshWorkerTest {
   @Test
   fun modelUpdateNotificationIdStartsFromBaseId() {
     val id = AllowlistRefreshWorker.modelUpdateNotificationId("any-model")
-    assertTrue("ID should be >= 45 (base ID)", id >= 45)
+    assertTrue("ID should be >= 1000 (base ID)", id >= 1000)
   }
 
   @Test
