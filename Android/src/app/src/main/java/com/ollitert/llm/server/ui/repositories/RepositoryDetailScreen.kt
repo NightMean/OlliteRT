@@ -51,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,7 +78,7 @@ fun RepositoryDetailScreen(
   modifier: Modifier = Modifier,
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-  var hasChanges by remember { mutableStateOf(false) }
+  var hasChanges by rememberSaveable { mutableStateOf(false) }
   var showDeleteDialog by remember { mutableStateOf(false) }
   var downloadingBlockModelNames by remember { mutableStateOf<List<String>>(emptyList()) }
 

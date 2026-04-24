@@ -80,9 +80,12 @@ class AllowlistRefreshWorker @AssistedInject constructor(
     val allUpdatableModels = mutableListOf<UpdatableInfo>()
     val nonUpdatableDownloaded = mutableListOf<String>()
     val seenModelIds = mutableSetOf<String>()
+    var enabledRepoCount = 0
+    var failedRepoCount = 0
 
     for (repo in repos) {
       if (!repo.enabled || repo.url.isBlank()) continue
+      enabledRepoCount++
       try {
         val rawJson = fetchBounded(repo.url, userAgent = "OlliteRT-AllowlistRefresh") ?: continue
 
@@ -139,8 +142,14 @@ class AllowlistRefreshWorker @AssistedInject constructor(
         }
       } catch (e: Exception) {
         Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
+        failedRepoCount++
         dataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
+    }
+
+    if (enabledRepoCount > 0 && failedRepoCount == enabledRepoCount) {
+      Log.w(TAG, "All $enabledRepoCount enabled repos failed — requesting retry")
+      return Result.retry()
     }
 
     val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
