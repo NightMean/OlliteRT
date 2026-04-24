@@ -64,6 +64,7 @@ import com.ollitert.llm.server.data.LabelConfig
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.SegmentedButtonConfig
 import com.ollitert.llm.server.data.ValueType
+import java.util.Locale
 
 /** Composable function to display a list of config editor rows. */
 @Composable
@@ -170,7 +171,7 @@ fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String,
 
 fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
   return when (valueType) {
-    ValueType.FLOAT -> "%.2f".format(value)
+    ValueType.FLOAT -> String.format(Locale.US, "%.2f", value)
     ValueType.INT -> "${value.toInt()}"
     else -> ""
   }

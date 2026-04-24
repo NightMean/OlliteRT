@@ -102,6 +102,7 @@ import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import java.util.Locale
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -261,7 +262,7 @@ fun InferenceSettingsSheet(
       ) {
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_temperature),
-          value = "%.1f".format(temperature),
+          value = String.format(Locale.US, "%.1f", temperature),
           onValueChange = { temperature = it.toFloat() },
           min = tempRange.first,
           max = tempRange.second,
@@ -298,7 +299,7 @@ fun InferenceSettingsSheet(
         )
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_top_p),
-          value = "%.2f".format(topP),
+          value = String.format(Locale.US, "%.2f", topP),
           onValueChange = { topP = it.toFloat() },
           min = topPRange.first,
           max = topPRange.second,
@@ -535,7 +536,7 @@ private fun ParameterInputBox(
       val parsed = raw.toFloatOrNull() ?: return
       val clamped = parsed.coerceIn(min, max)
       val formatted = if (clamped == clamped.toInt().toFloat()) clamped.toInt().toString()
-        else "%.2f".format(clamped).trimEnd('0').trimEnd('.')
+        else String.format(Locale.US, "%.2f", clamped).trimEnd('0').trimEnd('.')
       textValue = formatted
       onValueChange(clamped)
     } else {
