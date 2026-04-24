@@ -21,14 +21,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import android.widget.Toast
-import com.google.gson.Gson
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
-import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -38,48 +32,6 @@ fun cleanUpMediapipeTaskErrorMessage(message: String): String {
     return message.substring(0, index)
   }
   return message
-}
-
-inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
-  var connection: HttpURLConnection? = null
-  try {
-    connection = URL(url).openConnection() as HttpURLConnection
-    connection.requestMethod = "GET"
-    connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-    connection.readTimeout = HTTP_READ_TIMEOUT_MS
-    connection.connect()
-
-    val responseCode = connection.responseCode
-    if (responseCode == HttpURLConnection.HTTP_OK) {
-      val response = connection.inputStream.bufferedReader().use { it.readText() }
-
-      val jsonObj = parseJson<T>(response)
-      return if (jsonObj != null) {
-        JsonObjAndTextContent(jsonObj = jsonObj, textContent = response)
-      } else {
-        null
-      }
-    } else {
-      Log.e("AGUtils", "HTTP error: $responseCode")
-    }
-  } catch (e: Exception) {
-    Log.e("AGUtils", "Error when getting or parsing json response", e)
-  } finally {
-    connection?.disconnect()
-  }
-
-  return null
-}
-
-/** Parses a JSON string into an object of type [T] using Gson. */
-inline fun <reified T> parseJson(response: String): T? {
-  return try {
-    val gson = Gson()
-    gson.fromJson(response, T::class.java)
-  } catch (e: Exception) {
-    Log.e("AGUtils", "Error parsing JSON string", e)
-    null
-  }
 }
 
 fun isPixel10(): Boolean {

@@ -37,7 +37,6 @@ import com.ollitert.llm.server.data.MAX_ALLOWLIST_RESPONSE_BYTES
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.data.LoadResult
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson

@@ -75,8 +75,6 @@
   <string name="filter_available" translatable="false">Available</string>
   <string name="filter_imported" translatable="false">Imported</string>
   <string name="no_models_match_search" translatable="false">No models match your search</string>
-  <string name="models_offline_cached" translatable="false">Showing previously fetched model list — tap Retry to check for updates</string>
-  <string name="models_offline_bundled" translatable="false">Could not reach model server — showing models bundled with this version</string>
   <string name="retry" translatable="false">Retry</string>
   <string name="wifi_warning_title" translatable="false">No Wi-Fi Connection</string>
   <string name="wifi_warning_content" translatable="false">The server needs Wi-Fi to accept connections from other devices. You can still start the server, but it will only be reachable via localhost.</string>
@@ -775,8 +773,6 @@
   <string name="inference_settings_thinking_supported">Enables the model\'s thinking mode for step-by-step reasoning</string>
   <string name="inference_settings_thinking_unsupported">This model does not support thinking mode</string>
   <string name="inference_settings_accelerator">Accelerator</string>
-  <string name="inference_settings_accelerator_gpu" translatable="false">GPU</string>
-  <string name="inference_settings_accelerator_cpu" translatable="false">CPU</string>
   <string name="inference_settings_accelerator_only">This model only supports %1$s acceleration</string>
   <string name="inference_settings_custom_system_prompt">Custom System Prompt</string>
   <string name="inference_settings_system_prompt_description">Prepended to every conversation as a system instruction</string>
@@ -849,7 +845,6 @@
 
   <!-- ModelManagerViewModel: error/toast messages -->
   <string name="error_model_server_unreachable">Could not reach model server</string>
-  <string name="error_model_list_load_failed">Failed to load model list</string>
   <string name="error_model_list_load_failed_detail">Failed to load model list: %1$s</string>
   <string name="no_repos_enabled">No model sources enabled</string>
   <string name="error_all_repos_offline">All model sources are unreachable</string>
@@ -857,14 +852,12 @@
   <string name="error_some_repos_unavailable">%1$d of %2$d model sources are unreachable</string>
 
   <!-- RepositoryListScreen -->
-  <string name="repo_list_title">Model Sources</string>
   <string name="repo_add">Add model source</string>
   <string name="repo_add_title">Add Model Source</string>
   <string name="repo_add_url_label">URL</string>
   <string name="repo_add_helper">Enter the URL of a model list JSON file</string>
   <string name="repo_add_loading">Validating…</string>
   <string name="repo_model_count">%1$d models</string>
-  <string name="repo_delete">Delete</string>
   <string name="repo_delete_title">Remove model source?</string>
   <string name="repo_delete_message">Remove %1$s? This won\'t delete any downloaded models.</string>
   <string name="repo_disable_title">Disable model source?</string>
