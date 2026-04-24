@@ -63,16 +63,15 @@ internal fun MethodBadge(method: String) {
 @Composable
 internal fun StatusBadge(statusCode: Int, contextOverflow: Boolean = false, errorKind: ErrorKind? = null) {
   val isSuccess = statusCode in 200..299
-  val hasError = errorKind != null
   val color = when {
     contextOverflow -> ContextOverflowColor
-    hasError -> MaterialTheme.colorScheme.error
+    errorKind != null -> MaterialTheme.colorScheme.error
     isSuccess -> OlliteRTGreen400
     else -> MaterialTheme.colorScheme.error
   }
   val label = when {
     contextOverflow -> stringResource(R.string.logs_status_context_exceeded)
-    hasError -> errorKindLabel(errorKind!!, statusCode)
+    errorKind != null -> errorKindLabel(errorKind, statusCode)
     else -> {
       val reasonPhrase = when (statusCode) {
         400 -> stringResource(R.string.logs_status_bad_request)
