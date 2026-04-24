@@ -171,7 +171,7 @@ sealed class SettingDef(
 /** Icon source for a settings card — either a vector icon or a drawable resource. */
 sealed class CardIcon {
   data class Vector(val icon: ImageVector) : CardIcon()
-  data class Resource(@DrawableRes val resId: Int) : CardIcon()
+  data class Resource(@param:DrawableRes val resId: Int) : CardIcon()
 }
 
 /** Describes a settings card: its identity, display metadata, and ordered list of settings. */

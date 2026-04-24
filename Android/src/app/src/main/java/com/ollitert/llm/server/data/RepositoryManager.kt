@@ -39,7 +39,7 @@ data class LoadResult(
 @Singleton
 class RepositoryManager @Inject constructor(
   private val dataStoreRepository: DataStoreRepository,
-  @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
+  @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
 ) {
 
   suspend fun loadAll(

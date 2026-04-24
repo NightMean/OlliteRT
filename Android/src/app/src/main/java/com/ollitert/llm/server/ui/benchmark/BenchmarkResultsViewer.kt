@@ -344,7 +344,7 @@ fun BenchmarkResultsViewer(
                       Accordions(
                         title = "$modelName · ${llmResult.baiscInfo.accelerator}",
                         subtitle =
-                          SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                          SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
                             .format(Date(llmResult.baiscInfo.startMs)),
                         boldTitle = true,
                         expanded = result.expanded,
@@ -558,7 +558,7 @@ fun BenchmarkResultsViewer(
                                 label = stringResource(R.string.benchmark_stat_first_init_time),
                                 value =
                                   String.format(
-                                    Locale.getDefault(),
+                                    Locale.US,
                                     "%.2f",
                                     llmResult.stats.firstInitTimeMs,
                                   ),
@@ -808,7 +808,7 @@ private fun StatRow(
           if (curBaselineValue != null && rawValue != null) {
             val doubleValue = rawValue
             val pct = (doubleValue - curBaselineValue) / curBaselineValue * 100
-            val strPct = String.format(Locale.getDefault(), "%.1f", abs(pct))
+            val strPct = String.format(Locale.US, "%.1f", abs(pct))
             val sign = if (pct >= 0.0) "+" else "-"
             val betterSign = if (lessIsBetter) "-" else "+"
             val color =
@@ -898,7 +898,7 @@ private fun ValueSeriesRow(
           }
         AnimatedContent(value) { curValue ->
           Text(
-            String.format(Locale.getDefault(), "%.2f", curValue),
+            String.format(Locale.US, "%.2f", curValue),
             style = MaterialTheme.typography.labelMedium,
             color = textColor,
             maxLines = 1,
@@ -913,7 +913,7 @@ private fun ValueSeriesRow(
         ) { curBaselineValue ->
           if (curBaselineValue != null && abs(curBaselineValue) > 1e-6) {
             val pct = (value - curBaselineValue) / curBaselineValue * 100
-            val strPct = String.format(Locale.getDefault(), "%.1f", abs(pct))
+            val strPct = String.format(Locale.US, "%.1f", abs(pct))
             val sign = if (pct >= 0.0) "+" else "-"
             val betterSign = if (lessIsBetter) "-" else "+"
             val color =

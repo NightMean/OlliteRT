@@ -90,7 +90,7 @@ fun BenchmarkValueSeriesViewer(title: String, valueSeries: ValueSeries, onDismis
             if (tappedValue == null) {
               stringResource(R.string.tap_to_see_value)
             } else {
-              "Value: ${String.format(Locale.getDefault(), "%.2f", tappedValue)}"
+              "Value: ${String.format(Locale.US, "%.2f", tappedValue)}"
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -208,7 +208,7 @@ fun BenchmarkValueSeriesViewer(title: String, valueSeries: ValueSeries, onDismis
 private fun StatCell(key: String, value: Double) {
   Column() {
     Text(
-      String.format(Locale.getDefault(), "%.2f", value),
+      String.format(Locale.US, "%.2f", value),
       style = MaterialTheme.typography.labelMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       maxLines = 1,

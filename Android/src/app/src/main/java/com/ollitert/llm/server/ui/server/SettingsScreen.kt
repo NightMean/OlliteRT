@@ -96,7 +96,7 @@ fun SettingsScreen(
 ) {
   val context = LocalContext.current
 
-  val vm: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+  val vm: SettingsViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
 
   val settingsSavedText = stringResource(R.string.toast_settings_saved)
 

@@ -1,21 +1,19 @@
 [versions]
-# AGP 9.1.1 is blocked by protobuf-gradle-plugin 0.9.6 (BaseExtension cast failure).
-# Upgrade to AGP 9 + Hilt 2.59.2 + Gradle 9.3.1 when protobuf-gradle-plugin 0.9.7 ships.
-agp = "8.9.1"
+agp = "9.2.0"
 kotlin = "2.3.20"
 coreKtx = "1.18.0"
 junit = "4.13.2"
-junitVersion = "1.2.1"
+junitVersion = "1.3.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
-composeBom = "2026.03.01"
-navigation = "2.9.7"
+composeBom = "2026.04.01"
+navigation = "2.9.8"
 serializationPlugin = "2.3.20"
 serializationJson = "1.11.0"
 materialIconExtended = "1.7.8"
 workRuntime = "2.11.2"
 dataStore = "1.2.1"
-protobuf = "0.9.6"
+protobuf = "0.10.0"
 protobufJavaLite = "4.34.1"
 #noinspection GradleDependency — 0.10.1 released on GitHub but not yet published to Google Maven
 litertlm = "0.10.0"
@@ -24,15 +22,15 @@ commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
 netOpenidAppauth = "0.11.1"
 splashscreen = "1.2.0"
-hilt = "2.58"
+hilt = "2.59.2"
 hiltNavigation = "1.3.0"
 ossLicenses = "0.11.0"
-playServicesOssLicenses = "17.5.0"
+playServicesOssLicenses = "17.5.1"
 room = "2.8.4"
-ksp = "2.3.6"
+ksp = "2.3.7"
 coroutinesTest = "1.10.2"
-androidxTestCore = "1.6.1"
-coil = "3.1.0"
+androidxTestCore = "1.7.0"
+coil = "3.4.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -69,12 +67,11 @@ androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref =
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
-hilt-work = { group = "androidx.hilt", name = "hilt-work", version = "1.2.0" }
-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version = "1.2.0" }
+hilt-work = { group = "androidx.hilt", name = "hilt-work", version = "1.3.0" }
+hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version = "1.3.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "serializationPlugin" }
 protobuf = {id = "com.google.protobuf", version.ref = "protobuf"}

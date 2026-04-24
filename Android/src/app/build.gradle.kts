@@ -19,7 +19,6 @@ import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.protobuf)
@@ -101,8 +100,6 @@ android {
       dimension = "channel"
       applicationIdSuffix = ".dev"
       versionNameSuffix = "-dev"
-      // App label shown in launcher and recent apps
-      resValue("string", "app_label", "OlliteRT Dev")
       // BuildConfig field to identify flavor at runtime
       buildConfigField("String", "CHANNEL", "\"dev\"")
       // Update channel: dev sees all releases (stable, beta, dev)
@@ -114,7 +111,6 @@ android {
       dimension = "channel"
       applicationIdSuffix = ".beta"
       versionNameSuffix = "-beta"
-      resValue("string", "app_label", "OlliteRT Beta")
       buildConfigField("String", "CHANNEL", "\"beta\"")
       // Update channel: beta sees beta and stable releases
       buildConfigField("String", "UPDATE_CHANNEL", "\"beta\"")
@@ -123,7 +119,6 @@ android {
     create("stable") {
       dimension = "channel"
       // No suffix — this is the production release
-      resValue("string", "app_label", "OlliteRT")
       buildConfigField("String", "CHANNEL", "\"stable\"")
       // Update channel: stable only (GitHub's /releases/latest auto-skips pre-releases)
       buildConfigField("String", "UPDATE_CHANNEL", "\"stable\"")
@@ -228,5 +223,11 @@ tasks.named("preBuild") { dependsOn(syncAllowlist) }
 
 protobuf {
   protoc { artifact = "com.google.protobuf:protoc:4.34.1" }
-  generateProtoTasks { all().forEach { it.plugins { create("java") { option("lite") } } } }
+  generateProtoTasks {
+    all().forEach { task ->
+      task.builtins {
+        create("java") { option("lite") }
+      }
+    }
+  }
 }
