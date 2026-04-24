@@ -64,6 +64,8 @@
   <string name="select_model" translatable="false">Select a model</string>
   <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
   <string name="try_it" translatable="false">Start Server</string>
+  <string name="repo_list_heading" translatable="false">Model Sources</string>
+  <string name="repo_list_subheading" translatable="false">Manage the sources your models are downloaded from.</string>
   <string name="search_models" translatable="false">Search models…</string>
   <string name="filter_all" translatable="false">All</string>
   <string name="filter_downloaded" translatable="false">Downloaded</string>

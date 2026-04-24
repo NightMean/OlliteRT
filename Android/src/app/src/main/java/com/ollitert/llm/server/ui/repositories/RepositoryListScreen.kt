@@ -117,6 +117,23 @@ fun RepositoryListScreen(
       contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+      // Heading
+      item(key = "heading") {
+        Column(modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)) {
+          Text(
+            text = stringResource(R.string.repo_list_heading),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(16.dp))
+          Text(
+            text = stringResource(R.string.repo_list_subheading),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+
       if (uiState.repoCountWarning) {
         item(key = "limit_warning") {
           Text(
