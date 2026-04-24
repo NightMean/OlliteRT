@@ -69,5 +69,11 @@ __pycache__/
 # Generated bundled assets (synced by Gradle from /model_allowlists/)
 Android/src/app/src/main/assets/model_allowlist.json
 
+# Signed APK output from Android Studio's "Generate Signed APK" wizard
+# (uses app/{flavor}/release/, separate from Gradle's build/outputs/apk/)
+Android/src/app/beta/
+Android/src/app/stable/
+Android/src/app/dev/
+
 # Working directories
 .tmp/
