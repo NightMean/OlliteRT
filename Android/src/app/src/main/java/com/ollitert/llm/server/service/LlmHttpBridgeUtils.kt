@@ -35,6 +35,7 @@ object LlmHttpBridgeUtils {
 
   fun isBearerAuthorized(expectedToken: String, authorizationHeader: String?): Boolean {
     if (expectedToken.isBlank()) return true
+    // Constant-time comparison prevents timing attacks that could reveal the token byte-by-byte.
     val expected = "Bearer $expectedToken".toByteArray(Charsets.UTF_8)
     val actual = (authorizationHeader ?: "").toByteArray(Charsets.UTF_8)
     return java.security.MessageDigest.isEqual(expected, actual)

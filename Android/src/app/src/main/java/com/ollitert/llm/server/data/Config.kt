@@ -165,7 +165,7 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
       when (value) {
         is Int -> value != 0
         is Boolean -> value
-        is Float -> abs(value) > 1e-6
+        is Float -> abs(value) > 1e-6  // avoid floating-point rounding treating 0.0f as true
         is Double -> abs(value) > 1e-6
         is String -> value.isNotEmpty()
         else -> false

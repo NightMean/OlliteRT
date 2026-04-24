@@ -281,6 +281,8 @@ class LlmHttpInferenceRunner(
     private val respId = LlmHttpBridgeUtils.generateResponseId()
     private val msgId = LlmHttpBridgeUtils.generateMessageId()
     override val sourceTag = "executeStreaming_responses"
+    // When tools are present, buffer all tokens so tool calls can be parsed atomically
+    // before emitting any SSE events. Streaming partial tool call JSON would be invalid.
     override val bufferAllTokens = tools != null
     override val stopSequences: List<String>? = null
 
@@ -373,6 +375,7 @@ class LlmHttpInferenceRunner(
   ) : StreamingFormat {
     private val chatId = LlmHttpBridgeUtils.generateChatCompletionId()
     override val sourceTag = "executeStreaming_chat"
+    // Buffer all tokens when tools are present — tool calls must be parsed atomically.
     override val bufferAllTokens = tools != null
 
     override fun emitHeader(stream: BlockingQueueInputStream) {
@@ -611,6 +614,8 @@ class LlmHttpInferenceRunner(
           return@executeStreaming
         }
         try {
+          // TTFB includes thinking tokens — the model is producing output even if it's
+          // reasoning internally. Without this, TTFB would only start on visible output.
           if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
             firstTokenMs = SystemClock.elapsedRealtime()
           }
@@ -648,6 +653,9 @@ class LlmHttpInferenceRunner(
                 ServerLlmModelHelper.stopResponse(model)
               }
             }
+            // In streaming (non-buffered) mode, emit the closing </think> tag before content
+            // when transitioning from thinking to regular output. The tag was opened when the
+            // first thinking token arrived but never closed — we close it on the first content token.
             if (!format.bufferAllTokens && !stopSequenceTriggered) {
               val text = if (thinkingTagOpened) {
                 thinkingTagOpened = false

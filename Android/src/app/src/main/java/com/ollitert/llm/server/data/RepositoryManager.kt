@@ -82,6 +82,8 @@ class RepositoryManager @Inject constructor(
       var allowlist = allowlistLoader.readFromDiskCache(cacheFilename)
         ?: if (entry.isBuiltIn) allowlistLoader.readFromAssets() else null
 
+      // App update may bundle a newer allowlist than the disk cache (e.g. remote JSON regression).
+      // Always prefer the higher contentVersion to prevent stale remote data from shadowing updates.
       if (entry.isBuiltIn && allowlist != null) {
         val bundled = allowlistLoader.readFromAssets()
         if (bundled != null && bundled.contentVersion > allowlist.contentVersion) {

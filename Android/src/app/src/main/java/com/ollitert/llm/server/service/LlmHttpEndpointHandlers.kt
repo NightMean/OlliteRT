@@ -84,7 +84,8 @@ class LlmHttpEndpointHandlers(
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
     }
-    // Apply prompt compaction for raw prompts (only trimming is possible)
+    // Raw prompts have no message structure, so history truncation and tool schema compaction
+    // aren't possible — only hard string trimming can reduce the prompt size.
     val trimPromptsGen = LlmHttpPrefs.isAutoTrimPrompts(context)
     val maxContextGen = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultGen = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
@@ -294,7 +295,8 @@ class LlmHttpEndpointHandlers(
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
     }
-    // Apply prompt compaction for raw prompts (only trimming is possible)
+    // Raw prompts have no message structure, so history truncation and tool schema compaction
+    // aren't possible — only hard string trimming can reduce the prompt size.
     val trimPromptsCompl = LlmHttpPrefs.isAutoTrimPrompts(context)
     val maxContextCompl = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultCompl = LlmHttpPromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
@@ -326,7 +328,7 @@ class LlmHttpEndpointHandlers(
       return okJsonText(responseJson)
     }
 
-    // Parse stop sequences from JsonElement (can be String or List<String>)
+    // OpenAI spec allows `"stop": "text"` (single string) or `"stop": ["a","b"]` (array).
     val stopSequences: List<String>? = when (req.stop) {
       is JsonNull -> null
       is JsonPrimitive -> req.stop.jsonPrimitive.content.takeIf { it.isNotBlank() }?.let { listOf(it) }

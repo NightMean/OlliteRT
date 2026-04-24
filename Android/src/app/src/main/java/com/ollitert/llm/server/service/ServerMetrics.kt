@@ -316,7 +316,7 @@ object ServerMetrics {
 
   fun recordLatency(ms: Long) {
     _lastLatencyMs.value = ms
-    // Update peak if this is the highest latency seen
+    // Synchronized: MutableStateFlow.value read-compare-write isn't atomic without explicit locking.
     synchronized(this) {
       if (ms > _peakLatencyMs.value) _peakLatencyMs.value = ms
     }

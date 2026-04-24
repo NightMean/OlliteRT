@@ -48,7 +48,8 @@ object LlmHttpAudioPreprocessor {
   fun detectFormat(bytes: ByteArray): AudioFormat {
     if (bytes.size < 4) return AudioFormat.UNKNOWN
 
-    // WAV: "RIFF" at 0-3 AND "WAVE" at 8-11
+    // WAV: "RIFF" at 0-3 AND "WAVE" at 8-11. Both checks required because RIFF is also
+    // used by AVI and other container formats — "WAVE" at offset 8 distinguishes audio.
     if (bytes.size >= 12 &&
       bytes[0] == 'R'.code.toByte() &&
       bytes[1] == 'I'.code.toByte() &&
