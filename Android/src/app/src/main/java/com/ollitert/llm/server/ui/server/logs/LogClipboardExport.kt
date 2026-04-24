@@ -115,9 +115,8 @@ internal suspend fun copyAllLogsToClipboard(context: Context, entries: List<Requ
       context, "OlliteRT Logs", json,
       toastOverride = context.getString(R.string.toast_copied_entries_json, entries.size)
     )
-  } catch (_: Exception) {
-    // TransactionTooLargeException (or similar) — clipboard has a ~1MB Binder limit.
-    // With many entries and large request/response bodies, the JSON can exceed this.
+  } catch (_: RuntimeException) {
+    // TransactionTooLargeException (Binder ~1MB limit) or other clipboard failures.
     Toast.makeText(
       context,
       context.getString(R.string.toast_clipboard_too_large, entries.size),

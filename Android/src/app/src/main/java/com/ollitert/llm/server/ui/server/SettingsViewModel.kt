@@ -69,11 +69,7 @@ class SettingsViewModel @Inject constructor(
     private set
 
   init {
-    viewModelScope.launch(Dispatchers.IO) {
-      val repos = dataStoreRepository.readRepositories()
-      repoCount = repos.size
-      enabledRepoCount = repos.count { it.enabled }
-    }
+    refreshRepositoryCounts()
   }
 
   fun refreshRepositoryCounts() {
