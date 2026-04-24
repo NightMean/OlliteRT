@@ -276,6 +276,7 @@ fun OlliteRTNavHost(
         onStopServer = { serverViewModel.stopServer() },
         onNavigateToModels = {
           navController.navigate(OlliteRTRoutes.MODELS) {
+            launchSingleTop = true
             popUpTo(OlliteRTRoutes.SETTINGS) { inclusive = true }
           }
         },
@@ -401,7 +402,7 @@ fun OlliteRTNavHost(
     intent.data = null
     Log.d("OlliteRTNavGraph", "deep link: $data")
     if (data.toString() == "com.ollitert.llm.server://global_model_manager") {
-      navController.navigate(OlliteRTRoutes.MODELS)
+      navController.navigate(OlliteRTRoutes.MODELS) { launchSingleTop = true }
     }
   }
 }
