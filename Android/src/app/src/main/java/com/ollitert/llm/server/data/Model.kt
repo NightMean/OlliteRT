@@ -299,17 +299,17 @@ data class Model(
 
   fun getIntConfigValue(key: ConfigKey, defaultValue: Int = 0): Int {
     return getTypedConfigValue(key = key, valueType = ValueType.INT, defaultValue = defaultValue)
-      as Int
+      as? Int ?: defaultValue
   }
 
   fun getFloatConfigValue(key: ConfigKey, defaultValue: Float = 0.0f): Float {
     return getTypedConfigValue(key = key, valueType = ValueType.FLOAT, defaultValue = defaultValue)
-      as Float
+      as? Float ?: defaultValue
   }
 
   fun getStringConfigValue(key: ConfigKey, defaultValue: String = ""): String {
     return getTypedConfigValue(key = key, valueType = ValueType.STRING, defaultValue = defaultValue)
-      as String
+      as? String ?: defaultValue
   }
 
   private fun getTypedConfigValue(key: ConfigKey, valueType: ValueType, defaultValue: Any): Any {

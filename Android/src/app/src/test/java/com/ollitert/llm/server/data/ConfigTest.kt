@@ -51,7 +51,7 @@ class ConfigTest {
 
   @Test
   fun convertIntFromInvalidStringReturnsFallback() {
-    assertEquals("", convertValueToTargetType("abc", ValueType.INT))
+    assertEquals(0, convertValueToTargetType("abc", ValueType.INT))
   }
 
   @Test
@@ -62,6 +62,11 @@ class ConfigTest {
   @Test
   fun convertIntFromBooleanFalse() {
     assertEquals(0, convertValueToTargetType(false, ValueType.INT))
+  }
+
+  @Test
+  fun convertIntFromUnknownTypeReturnsZero() {
+    assertEquals(0, convertValueToTargetType(listOf(1, 2), ValueType.INT))
   }
 
   // ── convertValueToTargetType() — FLOAT ───────────────────────────────────
@@ -89,12 +94,17 @@ class ConfigTest {
 
   @Test
   fun convertFloatFromInvalidStringReturnsFallback() {
-    assertEquals("", convertValueToTargetType("xyz", ValueType.FLOAT))
+    assertEquals(0f, convertValueToTargetType("xyz", ValueType.FLOAT))
   }
 
   @Test
   fun convertFloatFromBooleanTrue() {
     assertEquals(1f, convertValueToTargetType(true, ValueType.FLOAT))
+  }
+
+  @Test
+  fun convertFloatFromUnknownTypeReturnsZero() {
+    assertEquals(0f, convertValueToTargetType(listOf(1, 2), ValueType.FLOAT))
   }
 
   // ── convertValueToTargetType() — BOOLEAN ─────────────────────────────────

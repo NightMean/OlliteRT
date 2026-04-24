@@ -145,9 +145,9 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         is Int -> value
         is Float -> value.toInt()
         is Double -> value.toInt()
-        is String -> value.toIntOrNull() ?: ""
+        is String -> value.toIntOrNull() ?: 0
         is Boolean -> if (value) 1 else 0
-        else -> ""
+        else -> 0
       }
 
     ValueType.FLOAT ->
@@ -155,9 +155,9 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         is Int -> value.toFloat()
         is Float -> value
         is Double -> value.toFloat()
-        is String -> value.toFloatOrNull() ?: ""
+        is String -> value.toFloatOrNull() ?: 0f
         is Boolean -> if (value) 1f else 0f
-        else -> ""
+        else -> 0f
       }
 
 

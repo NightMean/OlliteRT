@@ -290,12 +290,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
  */
 @Composable
 fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<String, Any>) {
-  val switchValue =
-    try {
-      values[config.key.label] as Boolean
-    } catch (e: Exception) {
-      false
-    }
+  val switchValue = values[config.key.label] as? Boolean ?: false
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
@@ -310,7 +305,7 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
  */
 @Composable
 fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<String, Any>) {
-  val selectedOptions: List<String> = remember { (values[config.key.label] as String).split(",") }
+  val selectedOptions: List<String> = remember { (values[config.key.label] as? String ?: "").split(",") }
   var selectionStates: List<Boolean> by remember {
     mutableStateOf(
       List(config.options.size) { index -> selectedOptions.contains(config.options[index]) }
