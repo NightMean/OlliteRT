@@ -140,11 +140,11 @@ class RepositoryViewModel @Inject constructor(
 
   fun deleteRepo(id: String) {
     viewModelScope.launch(Dispatchers.IO) {
+      dataStoreRepository.removeRepository(id)
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {
         java.io.File(dir, repoCacheFilename(id)).delete()
       }
-      dataStoreRepository.removeRepository(id)
       loadRepositories()
     }
   }
@@ -300,6 +300,9 @@ class RepositoryViewModel @Inject constructor(
 
         val repoId = UUID.randomUUID().toString()
         allowlistLoader.saveToDisk(body, repoCacheFilename(repoId))
+        if (allowlistLoader.readFromDiskCache(repoCacheFilename(repoId)) == null) {
+          return AddRepoResult.Error("Failed to save repository data to disk")
+        }
 
         val repoName = allowlist.sourceName.ifEmpty { deriveRepositoryName(normalizedUrl) }
         val newRepo = Repository(
