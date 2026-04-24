@@ -100,7 +100,7 @@ fun OlliteRTTopBar(
       ) {
         Image(
           painter = painterResource(id = R.drawable.ic_brand),
-          contentDescription = null,
+          contentDescription = stringResource(R.string.topbar_brand),
           modifier = Modifier
             .size(28.dp)
             .clip(RoundedCornerShape(6.dp)),

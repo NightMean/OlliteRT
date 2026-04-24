@@ -392,7 +392,9 @@ fun StatusScreen(
             color = if (endpointUrl != null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
             fontFamily = SpaceGroteskFontFamily,
             textDecoration = if (endpointUrl != null) TextDecoration.Underline else TextDecoration.None,
-            modifier = if (endpointUrl != null) Modifier.clickable { uriHandler.openUri(endpointUrl) } else Modifier,
+            modifier = if (endpointUrl != null) Modifier.clickable(
+              onClickLabel = stringResource(R.string.status_open_endpoint),
+            ) { uriHandler.openUri(endpointUrl) } else Modifier,
           )
           val corsLabel = if (corsOrigins == "*") "all origins" else "restricted"
           Spacer(modifier = Modifier.height(2.dp))

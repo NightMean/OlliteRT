@@ -401,6 +401,7 @@
   <string name="status_active_api_endpoint" translatable="false">Active API Endpoint</string>
   <string name="status_endpoint_placeholder" translatable="false">—</string>
   <string name="status_copy_endpoint_tooltip" translatable="false">Copy endpoint URL</string>
+  <string name="status_open_endpoint" translatable="false">Open endpoint in browser</string>
 
   <!-- Status: Section headers -->
   <string name="status_section_metrics" translatable="false">Metrics</string>
