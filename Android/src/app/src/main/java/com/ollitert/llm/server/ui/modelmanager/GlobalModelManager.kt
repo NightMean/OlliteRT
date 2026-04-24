@@ -71,7 +71,6 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -83,7 +82,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.SnackbarHost
@@ -102,7 +100,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -136,6 +133,7 @@ import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.UrlInputDialog
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.common.modelitem.ModelItem
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -1188,71 +1186,14 @@ private fun ImportModelListUrlDialog(
   onDismiss: () -> Unit,
   onImport: (String) -> Unit,
 ) {
-  var url by rememberSaveable { mutableStateOf("") }
-  val clipboardManager = LocalContext.current.getSystemService(android.content.ClipboardManager::class.java)
-
-  AlertDialog(
-    onDismissRequest = { if (!isLoading) onDismiss() },
-    title = { Text(stringResource(R.string.import_model_list_url_title)) },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-          value = url,
-          onValueChange = { url = it },
-          label = { Text(stringResource(R.string.import_model_list_url_label)) },
-          placeholder = { Text("https://...") },
-          singleLine = true,
-          enabled = !isLoading,
-          modifier = Modifier.fillMaxWidth(),
-          isError = error != null,
-          supportingText = if (error != null) {
-            { Text(error, color = MaterialTheme.colorScheme.error) }
-          } else null,
-        )
-        if (url.trim().startsWith("http://", ignoreCase = true)) {
-          Text(
-            stringResource(R.string.http_warning),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-          )
-        }
-        if (isLoading) {
-          Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-            Text(
-              stringResource(R.string.import_model_list_url_loading),
-              style = MaterialTheme.typography.bodySmall,
-            )
-          }
-        }
-      }
-    },
-    confirmButton = {
-      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(
-          onClick = {
-            clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()?.let { url = it }
-          },
-          enabled = !isLoading,
-        ) {
-          Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
-          Spacer(Modifier.size(4.dp))
-          Text(stringResource(R.string.paste))
-        }
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = onDismiss, enabled = !isLoading) {
-          Text(stringResource(R.string.cancel))
-        }
-        TextButton(
-          onClick = { onImport(url.trim()) },
-          enabled = url.isNotBlank() && !isLoading,
-        ) {
-          Text(stringResource(R.string.button_import))
-        }
-      }
-    },
+  UrlInputDialog(
+    title = stringResource(R.string.import_model_list_url_title),
+    label = stringResource(R.string.import_model_list_url_label),
+    confirmText = stringResource(R.string.button_import),
+    loadingText = stringResource(R.string.import_model_list_url_loading),
+    isLoading = isLoading,
+    error = error,
+    onDismiss = onDismiss,
+    onConfirm = onImport,
   )
 }

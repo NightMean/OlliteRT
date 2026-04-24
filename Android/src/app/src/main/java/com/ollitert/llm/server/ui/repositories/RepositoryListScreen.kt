@@ -37,7 +37,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
@@ -48,7 +47,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -80,6 +78,7 @@ import coil3.request.crossfade
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
+import com.ollitert.llm.server.ui.common.UrlInputDialog
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -411,76 +410,15 @@ private fun AddRepositoryDialog(
   onDismiss: () -> Unit,
   onAdd: (String) -> Unit,
 ) {
-  var url by rememberSaveable { mutableStateOf("") }
-  val clipboardManager = LocalContext.current.getSystemService(android.content.ClipboardManager::class.java)
-
-  AlertDialog(
-    onDismissRequest = { if (!isAdding) onDismiss() },
-    title = { Text(stringResource(R.string.repo_add_title)) },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-          stringResource(R.string.repo_add_helper),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-          value = url,
-          onValueChange = { url = it },
-          label = { Text(stringResource(R.string.repo_add_url_label)) },
-          placeholder = { Text("https://...") },
-          singleLine = true,
-          enabled = !isAdding,
-          modifier = Modifier.fillMaxWidth(),
-          isError = error != null,
-          supportingText = if (error != null) {
-            { Text(error, color = MaterialTheme.colorScheme.error) }
-          } else null,
-        )
-        if (url.trim().startsWith("http://", ignoreCase = true)) {
-          Text(
-            stringResource(R.string.http_warning),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-          )
-        }
-        if (isAdding) {
-          Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-            Text(
-              stringResource(R.string.repo_add_loading),
-              style = MaterialTheme.typography.bodySmall,
-            )
-          }
-        }
-      }
-    },
-    confirmButton = {
-      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(
-          onClick = {
-            clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()?.let { url = it }
-          },
-          enabled = !isAdding,
-        ) {
-          Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
-          Spacer(Modifier.size(4.dp))
-          Text(stringResource(R.string.paste))
-        }
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = onDismiss, enabled = !isAdding) {
-          Text(stringResource(R.string.cancel))
-        }
-        TextButton(
-          onClick = { onAdd(url.trim()) },
-          enabled = url.isNotBlank() && !isAdding,
-        ) {
-          Text(stringResource(R.string.add))
-        }
-      }
-    },
+  UrlInputDialog(
+    title = stringResource(R.string.repo_add_title),
+    label = stringResource(R.string.repo_add_url_label),
+    confirmText = stringResource(R.string.add),
+    loadingText = stringResource(R.string.repo_add_loading),
+    helperText = stringResource(R.string.repo_add_helper),
+    isLoading = isAdding,
+    error = error,
+    onDismiss = onDismiss,
+    onConfirm = onAdd,
   )
 }
