@@ -224,7 +224,7 @@ fun OlliteRTNavHost(
           serverViewModel.switchModel(modelName)
         },
         onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) },
-        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) },
+        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) { launchSingleTop = true } },
       )
     }
 
@@ -282,7 +282,7 @@ fun OlliteRTNavHost(
         downloadedModelNames = downloadedModelNames,
         onSetTopBarTrailingContent = onSetTopBarTrailingContent,
         onSettingsSaved = { modelManagerViewModel.refreshShowModelRecommendations() },
-        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) },
+        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) { launchSingleTop = true } },
       )
     }
 
@@ -326,7 +326,7 @@ fun OlliteRTNavHost(
           navController.popBackStack()
         },
         onRepoClick = { repoId ->
-          navController.navigate(OlliteRTRoutes.repositoryDetail(repoId))
+          navController.navigate(OlliteRTRoutes.repositoryDetail(repoId)) { launchSingleTop = true }
         },
         downloadedModelRepoIds = downloadedModelRepoIds,
         downloadingModelRepoIds = downloadingModelRepoIds,
