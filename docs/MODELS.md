@@ -8,6 +8,8 @@
 - [RAM Requirements](#ram-requirements)
 - [Context Window](#context-window)
 - [Importing Your Own Models](#importing-your-own-models)
+- [Model Sources](#model-sources)
+- [Model Updates](#model-updates)
 - [Model Storage](#model-storage)
 
 ---
@@ -77,11 +79,19 @@ When a conversation exceeds the context window, OlliteRT can automatically compa
 
 ## Importing Your Own Models
 
-OlliteRT supports importing `.litertlm` model files from local storage:
+OlliteRT supports three ways to import models. Tap the **+** button on the Models screen to see the options:
 
-1. Go to the **Models** screen
-2. Tap the **Import** button
-3. Select a `.litertlm` file from your device
+**From a local `.litertlm` file:**
+- Select a `.litertlm` model file from your device storage
+
+**From a model list file (`.json`):**
+- Select a JSON file from your device that follows the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md) — all models in the list are added to your Models screen in one go
+
+**From a model list URL (`.json`):**
+- Enter a URL pointing to a JSON model list (e.g. a raw GitHub link) — fetches the list and adds all models
+
+> [!TIP]
+> The JSON file and URL imports are one-time operations — models are added but the source is not tracked. For ongoing access to a third-party model source with automatic refresh and update detection, [add it as a model source](#model-sources) instead.
 
 > [!IMPORTANT]
 > - Only `.litertlm` format is supported — **GGUF files cannot be used** (LiteRT runtime limitation)
@@ -90,10 +100,44 @@ OlliteRT supports importing `.litertlm` model files from local storage:
 >
 > If import fails, see [Troubleshooting → Model import fails](TROUBLESHOOTING.md#model-import-fails).
 
+## Model Sources
+
+OlliteRT uses a model source system for managing where models come from — similar to how F-Droid manages app repositories. Each model source is a JSON URL that provides a list of models available for download.
+
+### Built-in Source
+
+The **Official** model source is included by default and points to the [LiteRT community](https://huggingface.co/litert-community) models on HuggingFace. It cannot be removed.
+
+### Custom Model Sources
+
+You can add custom model sources to make additional models available:
+
+1. Go to **Settings → Model Sources**
+2. Tap the **+** button
+3. Enter the URL of a model list JSON file (e.g. a raw GitHub link) following the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md)
+
+Custom model sources can be enabled, disabled, or removed at any time. Disabled sources are hidden from the Models screen but their configuration is preserved.
+
+### Automatic Refresh
+
+Model sources are automatically refreshed approximately every 24 hours in the background to check for new models and updates. You can also pull-to-refresh on the Models screen to trigger an immediate refresh.
+
+> [!TIP]
+> If you want to create your own model source, see the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md) for the JSON format.
+
+## Model Updates
+
+OlliteRT can detect when a newer version of a downloaded model is available in a model source:
+
+- A background worker periodically checks each enabled model source for updated model files
+- When an update is found, a notification is shown and the model card displays an update indicator
+- The `/v1/models` API response includes an `update_available` field per model
+- To update, download the new version — it replaces the existing model file
+
 ## Model Storage
 
 Models are stored in the app's private storage directory. You can manage them from the Models screen:
 
-- **Download** — one-tap download from HuggingFace
+- **Download** — one-tap download from HuggingFace (or from custom model sources)
 - **Delete** — removes the model file and frees storage
 - **Storage indicator** — the bottom bar shows available vs used storage

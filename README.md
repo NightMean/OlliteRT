@@ -29,7 +29,7 @@
 **No cloud. No API keys. No subscriptions. Just your phone.**
 
 ## Features
-- **Multi-model Support** — One-tap download from HuggingFace or import your own `.litertlm` files from local storage
+- **Multi-model Support** — One-tap download from HuggingFace, import `.litertlm` files or model lists from local storage, or add custom model sources via JSON URL
 - **Multimodal & Reasoning** — Vision, audio, thinking, streaming support, and tool calling (experimental) for capable models
 - **Benchmark Built-in** — Test and compare models on your device to find the best fit for your hardware
 - **Activity Logs** — Detailed request/response logs with search, filtering, and JSON highlighting
@@ -101,6 +101,7 @@ See the **[Model Guide](docs/MODELS.md)** for recommendations, capability detail
 | `POST` | `/v1/responses` | OpenAI Responses API |
 | `GET`  | `/v1/models` | List available models |
 | `POST` | `/v1/audio/transcriptions` | Audio transcription |
+| `GET`  | `/` or `/v1` | Server info (version, status, endpoints) |
 | `GET`  | `/metrics` | Prometheus metrics |
 | `GET`  | `/health` | Health check (with optional `?metrics=true`) |
 

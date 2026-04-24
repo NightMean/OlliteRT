@@ -31,12 +31,14 @@ OlliteRT's `GET /health?metrics=true` endpoint returns a JSON payload with serve
 | Status | `status` | `ok`, `idle` (keep-alive unloaded), `loading`, `stopped` |
 | Model | `model` | Currently loaded (or idle-unloaded) model name |
 | Uptime | `uptime_seconds` | Seconds since server entered RUNNING state |
-| Update Available | `update_available` | `true` if a newer OlliteRT version exists |
+| Update Available | `update_available` | `true` if a newer OlliteRT version exists (app update, not model update) |
+| Version | `version` | OlliteRT version string (e.g. `"1.2.0"`) |
 | Thinking | `thinking_enabled` | Whether chain-of-thought mode is active |
 | Accelerator | `accelerator` | `gpu`, `cpu`, or `gpu,cpu` |
 | Idle Unloaded | `is_idle_unloaded` | `true` if model was unloaded by keep-alive |
 | Requests | `metrics.requests_total` | Total requests processed |
 | Errors | `metrics.errors_total` | Total request errors |
+| TTFB (last) | `metrics.ttfb_last_ms` | Last request time to first token (ms) |
 | TTFB (avg) | `metrics.ttfb_avg_ms` | Average time to first token (ms) |
 | Decode Speed | `metrics.decode_tokens_per_second` | Last request decode throughput (tokens/s) |
 | Peak Decode Speed | `metrics.decode_tokens_per_second_peak` | Peak decode throughput since start |

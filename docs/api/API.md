@@ -13,6 +13,7 @@ OlliteRT exposes an OpenAI-compatible HTTP API on your local network. Default po
 - [Models](#models--get-v1models)
 - [Health](#health--get-health)
 - [Error Responses](#error-responses)
+- [Server Info](#server-info--get--or-get-v1)
 - [Prometheus Metrics](#prometheus-metrics--get-metrics)
 
 ---
@@ -26,6 +27,7 @@ OlliteRT exposes an OpenAI-compatible HTTP API on your local network. Default po
 | `POST` | `/v1/responses` | OpenAI Responses API |
 | `POST` | `/v1/audio/transcriptions` | Audio transcription |
 | `GET`  | `/v1/models` | List available models |
+| `GET`  | `/` or `/v1` | Server info (version, status, endpoints) |
 | `GET`  | `/metrics` | Prometheus metrics (exposition format) |
 | `GET`  | `/health` | Health check (add `?metrics=true` for detailed JSON stats) |
 
@@ -201,7 +203,7 @@ curl http://PHONE_IP:8000/v1/audio/transcriptions \
 
 ## Models — `GET /v1/models`
 
-Returns a list of available models.
+Returns a list of available models with their capabilities and update status.
 
 ```json
 {
@@ -209,20 +211,118 @@ Returns a list of available models.
   "data": [{
     "id": "Gemma-4-E2B-it",
     "object": "model",
-    "owned_by": "ollitert"
+    "created": 1234567890,
+    "owned_by": "ollitert",
+    "capabilities": {
+      "image": true,
+      "audio": true,
+      "thinking": true
+    },
+    "update_available": false
   }]
 }
 ```
 
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `id` | string | Model name |
+| `object` | string | Always `"model"` |
+| `created` | integer | Unix timestamp |
+| `owned_by` | string | Always `"ollitert"` |
+| `capabilities` | object | `image`, `audio`, `thinking` booleans indicating model capabilities |
+| `update_available` | boolean | `true` if a newer version of this model is available in the allowlist |
+
 ## Health — `GET /health`
 
-Returns server health status.
+Returns server health status. Also available at `/v1/health`.
+
+### Base Response
 
 ```json
-{"status": "ok"}
+{
+  "status": "ok",
+  "model": "Gemma-4-E2B-it",
+  "uptime_seconds": 3600,
+  "update_available": false
+}
 ```
 
-With `?metrics=true`, returns detailed JSON metrics including throughput, latency, token counts, and more.
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `status` | string | `ok`, `idle` (keep-alive unloaded), `loading`, `stopped` |
+| `model` | string | Currently loaded (or idle-unloaded) model name. Omitted if no model. |
+| `uptime_seconds` | integer | Seconds since server entered RUNNING state. Omitted if not running. |
+| `update_available` | boolean | `true` if a newer OlliteRT version exists |
+
+### Extended Response — `GET /health?metrics=true`
+
+Appends server info and a `metrics` object to the base response:
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `version` | string | OlliteRT version string |
+| `thinking_enabled` | boolean | Whether chain-of-thought mode is active |
+| `accelerator` | string | `gpu`, `cpu`, or `gpu,cpu` |
+| `is_idle_unloaded` | boolean | `true` if model was unloaded by keep-alive timeout |
+| `metrics.requests_total` | integer | Total requests processed |
+| `metrics.errors_total` | integer | Total request errors |
+| `metrics.prompt_tokens_total` | integer | Total prompt tokens (estimated) |
+| `metrics.generation_tokens_total` | integer | Total generated tokens (estimated) |
+| `metrics.requests_text` | integer | Total text-only requests |
+| `metrics.requests_image` | integer | Total image multimodal requests |
+| `metrics.requests_audio` | integer | Total audio multimodal requests |
+| `metrics.ttfb_last_ms` | number | Last request time to first token (ms) |
+| `metrics.ttfb_avg_ms` | number | Average time to first token (ms) |
+| `metrics.decode_tokens_per_second` | number | Last request decode throughput (tokens/s) |
+| `metrics.decode_tokens_per_second_peak` | number | Peak decode throughput since start |
+| `metrics.prefill_tokens_per_second` | number | Last request prefill throughput (tokens/s) |
+| `metrics.inter_token_latency_ms` | number | Last inter-token latency (ms) |
+| `metrics.request_latency_last_ms` | number | Last request total latency (ms) |
+| `metrics.request_latency_avg_ms` | number | Average request latency (ms) |
+| `metrics.request_latency_peak_ms` | number | Peak request latency (ms) |
+| `metrics.context_utilization_percent` | number | Last request context window usage (%) |
+| `metrics.model_load_time_seconds` | number | Model load/warmup time (seconds) |
+| `metrics.is_inferring` | boolean | `true` if a request is currently being processed |
+
+## Server Info — `GET /` or `GET /v1`
+
+Returns server identity, version, status, update availability, and the full list of supported endpoints. Does not require authentication.
+
+```json
+{
+  "name": "OlliteRT",
+  "version": "1.2.0",
+  "build": 42,
+  "git_hash": "abc1234",
+  "status": "ok",
+  "model": "Gemma-4-E2B-it",
+  "uptime_seconds": 3600,
+  "update_available": false,
+  "allowlist_content_version": "2026.04.20",
+  "allowlist_source": "Official",
+  "model_update_available": false,
+  "compatibility": "openai",
+  "endpoints": ["/v1/models", "/v1/completions", "/v1/chat/completions", "..."]
+}
+```
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `name` | string | Always `"OlliteRT"` |
+| `version` | string | App version (e.g. `"1.2.0"`) |
+| `build` | integer | Version code |
+| `git_hash` | string | Build git commit hash |
+| `status` | string | `ok`, `idle`, `loading`, `stopped` |
+| `model` | string | Currently loaded model name (omitted if none) |
+| `uptime_seconds` | integer | Seconds since RUNNING state (omitted if not running) |
+| `update_available` | boolean | `true` if a newer OlliteRT version exists |
+| `latest_version` | string | Newest available version (only present when `update_available` is `true`) |
+| `release_url` | string | GitHub release URL (only present when `update_available` is `true`) |
+| `allowlist_content_version` | string | Version of the model allowlist currently cached |
+| `allowlist_source` | string | Name of the active model source repository |
+| `model_update_available` | boolean | `true` if the currently loaded model has a newer version in the allowlist |
+| `compatibility` | string | Always `"openai"` |
+| `endpoints` | array | List of supported endpoint paths |
 
 ## Error Responses
 

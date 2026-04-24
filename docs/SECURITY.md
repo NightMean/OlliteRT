@@ -5,6 +5,7 @@
 - [Bearer Token Authentication](#bearer-token-authentication)
 - [Network Exposure](#network-exposure)
 - [Server Control Endpoints](#server-control-endpoints)
+- [Model Sources](#model-sources)
 - [Model Security](#model-security)
 
 ---
@@ -32,6 +33,7 @@ Authorization: Bearer your-token-here
 Requests without a valid token receive a `401 Unauthorized` response. See [Troubleshooting → 401 Unauthorized](TROUBLESHOOTING.md#401-unauthorized-error) if you're having auth issues.
 
 **Endpoints exempt from auth:**
+- `GET /` and `GET /v1` — server info (version, status, endpoints)
 - `GET /health` — health check (returns only status, no sensitive data)
 - `GET /metrics` — Prometheus metrics
 - `GET /ping` — simple liveness check
@@ -97,9 +99,20 @@ The `/v1/server/*` endpoints allow remote control of the server:
 > [!IMPORTANT]
 > Without bearer token authentication enabled, anyone on your network can access these endpoints — including stopping your server or changing its settings. Enable auth in Settings to restrict access.
 
+## Model Sources
+
+OlliteRT supports custom model sources — JSON-based model lists fetched from a URL you configure. The built-in Official source points to a JSON file hosted on GitHub.
+
+### Security Considerations
+
+- **Use HTTPS URLs** — model source data is fetched over whatever protocol the URL specifies. HTTP URLs transmit data in plain text and are vulnerable to man-in-the-middle attacks that could serve a tampered model list
+- **Only add sources you trust** — a model source controls which models appear in your model list and where they are downloaded from
+- **Fetching is periodic** — each enabled model source is fetched approximately every 24 hours to check for model updates. Only the HTTP request is sent; no device data, usage metrics, or personal information is included
+- **Per-source isolation** — a failure or timeout fetching one model source does not affect others
+
 ## Model Security
 
-- Models are downloaded from [HuggingFace](https://huggingface.co/litert-community)
+- Models are downloaded from [HuggingFace](https://huggingface.co/litert-community) (for the built-in Official source) or from URLs specified by custom model sources
 - Downloads use HTTPS and are pinned to a specific commit hash, but there is no post-download checksum verification
 - Models are stored in the app's private storage directory — not accessible to other apps
 - Imported models from local storage are copied to app-private storage

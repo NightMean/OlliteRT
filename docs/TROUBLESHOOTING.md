@@ -6,6 +6,7 @@
 - [Multimodal](#multimodal)
 - [Thinking Mode](#thinking-mode)
 - [Server](#server)
+- [Model Sources & Updates](#model-sources--updates)
 - [Tool Calling](#tool-calling-experimental)
 - [Voice Transcription](#voice-transcription)
 
@@ -155,6 +156,25 @@ OlliteRT needs notification permission to show the foreground service notificati
 
 > [!NOTE]
 > The server will still run without the notification, but Android may kill it in the background more aggressively.
+
+## Model Sources & Updates
+
+### Custom model source not loading / shows no models
+
+- **Check the URL** — the URL must point directly to a JSON file following the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md). If using GitHub, use the **raw** URL (e.g. `https://raw.githubusercontent.com/...`), not the GitHub page URL
+- **Check JSON format** — the JSON must have a top-level `models` array. See [MODEL_ALLOWLIST_SCHEMA.md](MODEL_ALLOWLIST_SCHEMA.md) for the required structure
+- **Source is disabled** — disabled model sources don't appear on the Models screen. Check Settings → Model Sources and make sure the source is toggled on
+- **Network error** — the source URL may be unreachable. OlliteRT shows a banner on the Models screen when sources are offline (e.g. "2 of 3 model sources are unreachable"). Pull-to-refresh to retry
+
+### Model update notifications not appearing
+
+- **Notification permission** — make sure OlliteRT has notification permission and the "Model Updates" notification channel is not muted in Android Settings → Apps → OlliteRT → Notifications
+- **No updates available** — the background worker checks for updates approximately every 24 hours. If no newer model files exist in the source, no notification is shown
+- **Battery optimization** — if OlliteRT is battery-optimized, Android may prevent the background worker from running. See [Auto-start on boot doesn't work](#auto-start-on-boot-doesnt-work) for how to disable battery optimization
+
+### Models from a deleted source still appear
+
+When you delete a model source and navigate back, the Models screen refreshes automatically — models from that source should disappear immediately. If they persist, pull-to-refresh on the Models screen. Downloaded model files are not deleted when a source is removed — only the listing is removed.
 
 ## Tool Calling (Experimental)
 

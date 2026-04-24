@@ -54,7 +54,7 @@ This document describes OlliteRT's internal architecture for contributors and an
 ```
 com.ollitert.llm.server/
 ├── common/          # Shared constants, config (ProjectConfig, GitHubConfig)
-├── data/            # Data models, serializers, config keys
+├── data/            # Data models, serializers, config keys, repository management
 │   └── db/          # Room database, DAOs, log persistence
 ├── di/              # Hilt dependency injection modules
 ├── runtime/         # LiteRT SDK bridge (ServerLlmModelHelper)
@@ -66,11 +66,12 @@ com.ollitert.llm.server/
 │   ├── gettingstarted/ # One-time onboarding screen
 │   ├── modelmanager/   # Models screen + download management
 │   ├── navigation/     # Bottom nav, app scaffold, routing
+│   ├── repositories/   # Model Sources screens (list + detail), ViewModel
 │   ├── server/         # Status + Settings screens
 │   │   ├── logs/       # Logs screen, event parsing, card rendering
 │   │   └── settings/   # Settings cards, data model, definitions, validators
 │   └── theme/          # Colors, typography, design tokens
-└── worker/          # Background work (downloads, update checks, update dismiss)
+└── worker/          # Background work (downloads, update checks, allowlist refresh)
 ```
 
 ## Key Components
@@ -128,6 +129,8 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `Config.kt` | Per-model inference config keys, types, and defaults |
 | `Consts.kt` | Shared constants (WorkManager keys, UI dimensions, storage thresholds) |
 | `Types.kt` | Enums for hardware accelerators (CPU, GPU, NPU) |
+| `Repository.kt` | Repository data class with proto serialization — represents a model source |
+| `RepositoryManager.kt` | Coordinates multiple model sources — per-source allowlist loading, deduplication, CRUD |
 | `ModelAllowlist.kt` | Data classes for model allowlist definitions — see [JSON schema](MODEL_ALLOWLIST_SCHEMA.md) |
 | `ModelAllowlistJson.kt` | JSON parser for model allowlist |
 | `ModelBadge.kt` | Badge sealed class (`BestOverall`, `New`, `Fastest`, `Other`) |
@@ -143,6 +146,16 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `db/RequestLogEntity.kt` | Room entity with indexed columns and JSON extras |
 | `db/RequestLogPersistence.kt` | Log entry persistence to Room with pruning |
 
+### Worker Layer (`worker/`)
+
+Background tasks managed by WorkManager with Hilt integration (`@HiltWorker`).
+
+| File | Responsibility |
+|:-----|:---------------|
+| `AllowlistRefreshWorker.kt` | Periodic allowlist refresh (~24h) — fetches each enabled model source's list, detects model updates, fires notifications |
+| `UpdateCheckWorker.kt` | Periodic app update check — queries GitHub Releases API for newer OlliteRT versions |
+| `DownloadWorker.kt` | Model file download with progress tracking |
+
 ### UI Layer (`ui/`)
 
 All screens use Jetpack Compose with Material 3. State is managed via `@HiltViewModel` classes. Settings uses a data-driven `SettingEntry<T>` model with Compose `mutableStateOf`; other ViewModels expose `StateFlow`.
@@ -154,6 +167,7 @@ All screens use Jetpack Compose with Material 3. State is managed via `@HiltView
 | Status | `server/StatusScreen.kt` | Live metrics dashboard |
 | Logs | `server/LogsScreen.kt` + `server/logs/` | Request/response logs with event parsing |
 | Settings | `server/SettingsScreen.kt`, `SettingsViewModel.kt` + `server/settings/` (12 card files, data model, definitions, dialogs, footer, renderers, validators) | Server configuration |
+| Model Sources | `repositories/RepositoryListScreen.kt`, `RepositoryDetailScreen.kt`, `RepositoryViewModel.kt` | Model source management — add, remove, enable/disable model sources |
 | Benchmark | `benchmark/` | Model performance benchmarking |
 
 ## Threading Model
@@ -170,7 +184,7 @@ Requests are processed one at a time. The inference lock serializes all model in
 | Mechanism | Used For | Why |
 |:----------|:---------|:----|
 | **SharedPreferences** | Server config, per-model settings, feature toggles | Synchronous reads needed by the service on every request |
-| **Proto DataStore** | HuggingFace token, imported model registry, onboarding state, benchmarks | Typed schemas, async API, encryption-ready |
+| **Proto DataStore** | HuggingFace token, imported model registry, onboarding state, benchmarks, model source configuration | Typed schemas, async API, encryption-ready |
 | **Room** | Request log history | Queryable, prunable, survives process death |
 
 ## Request Flow
@@ -202,7 +216,8 @@ Client HTTP request
 | **[Room](https://developer.android.com/training/data-storage/room)** | SQLite database for request log persistence |
 | **[Proto DataStore](https://developer.android.com/topic/libraries/architecture/datastore)** | Typed key-value storage (settings, credentials, imports) |
 | **[Protobuf Java Lite](https://protobuf.dev/)** | Serialization format for DataStore schemas |
-| **[WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)** | Background tasks (downloads, update checks) |
+| **[WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)** | Background tasks (downloads, update checks, allowlist refresh) |
+| **[Coil](https://coil-kt.github.io/coil/)** | Async image loading (model source icons) |
 | **[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)** | JSON serialization for API models |
 | **[Gson](https://github.com/google/gson)** | JSON serialization (used by LiteRT SDK and allowlist parsing) |
 | **[Moshi](https://github.com/square/moshi)** | JSON serialization (used by model config and data layer) |

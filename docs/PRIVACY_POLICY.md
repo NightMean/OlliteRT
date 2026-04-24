@@ -32,6 +32,9 @@ OlliteRT makes outbound network connections only for the following purposes:
 | **HuggingFace model download** | When you download a model | HTTP request to `huggingface.co` | Don't download models (import from local storage instead) |
 | **HuggingFace OAuth** | When signing in to download gated models | Standard OAuth flow with HuggingFace | Optional — only needed for gated models |
 | **GitHub update check** | Periodically (configurable) | HTTP request to GitHub Releases API | Disable in Settings → Auto-Launch & Behavior |
+| **Model source refresh** | Periodically (~24 hours) and on pull-to-refresh | HTTPS request to each enabled model source URL to fetch the model list JSON | Remove the source in Settings → Model Sources |
+
+Custom model sources are fetched from URLs you configure. The built-in Official source points to a JSON file hosted on GitHub. If you add a custom model source, OlliteRT will periodically fetch its URL — only the HTTP request itself is sent; no device data, usage metrics, or personal information is included.
 
 The app **does not** make any other network connections. There are no analytics endpoints, crash reporters, or telemetry services.
 
@@ -74,6 +77,8 @@ The app does **not** request: camera, microphone, location, contacts, phone, SMS
 |:--------|:--------|:---------------|
 | HuggingFace | Model hosting and downloads | [huggingface.co/privacy](https://huggingface.co/privacy) |
 | GitHub | Update checks, release downloads | [docs.github.com/privacy](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) |
+
+If you add custom model sources, OlliteRT will make network requests to whatever URLs you configure. Review the privacy practices of any third-party model source you add.
 
 No other third-party services, SDKs, or libraries that collect user data are included in the app.
 

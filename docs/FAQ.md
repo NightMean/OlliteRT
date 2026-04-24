@@ -24,6 +24,8 @@
 - [How does tool calling work?](#how-does-tool-calling-work)
 - [Can I use OlliteRT with Home Assistant?](#can-i-use-ollitert-with-home-assistant)
 - [How do I monitor OlliteRT from Home Assistant?](#how-do-i-monitor-ollitert-from-home-assistant)
+- [How do I add or create a custom model source?](#how-do-i-add-or-create-a-custom-model-source)
+- [How do I update a downloaded model?](#how-do-i-update-a-downloaded-model)
 
 ---
 
@@ -255,3 +257,25 @@ See the [Client Setup Guide](CLIENT_SETUP.md#home-assistant) for the full setup 
 ### How do I monitor OlliteRT from Home Assistant?
 
 Use the built-in REST API to monitor and control the server. See [HOME_ASSISTANT.md](integrations/HOME_ASSISTANT.md) for the full guide.
+
+---
+
+### How do I add or create a custom model source?
+
+**To add an existing model source:** Go to **Settings → Model Sources**, tap **+**, and enter the URL of a JSON model list (e.g. a raw GitHub link). The source is refreshed automatically (~24 hours) to check for new models. You can enable, disable, or remove it at any time.
+
+**To create your own model source:** Host a JSON file following the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md) — for example, in a GitHub repository. The JSON defines model names, download URLs, capabilities, and metadata. Once hosted, add the raw URL as a model source in OlliteRT.
+
+See the [Model Guide → Model Sources](MODELS.md#model-sources) for more details. You can also do a one-time import from a local JSON file or URL without adding it as a tracked source — see [Importing Your Own Models](MODELS.md#importing-your-own-models).
+
+---
+
+### How do I update a downloaded model?
+
+OlliteRT checks your model sources periodically (~24 hours) for updated model files. When an update is available:
+
+- A notification appears on your device
+- The model card on the Models screen shows an update indicator
+- The `/v1/models` API response includes `"update_available": true` for that model
+
+To update, tap the model card and download the new version — it replaces the existing file. You can also pull-to-refresh on the Models screen to check for updates immediately.
