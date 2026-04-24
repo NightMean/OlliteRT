@@ -410,6 +410,9 @@
 
   <!-- Status: Section headers -->
   <string name="status_section_metrics" translatable="false">Metrics</string>
+  <string name="status_metrics_info_tooltip" translatable="false">Token estimation info</string>
+  <string name="status_metrics_info_title" translatable="false">Estimated Metrics</string>
+  <string name="status_metrics_info_body" translatable="false">Token counts (Tokens In, Tokens Out) and metrics derived from them (Decode Speed, Prefill Speed, Throughput, Inter-Token Latency) are estimates based on character length ÷ 4.\n\nThe LiteRT SDK does not expose exact token counts, so this approximation is used instead. Actual values may vary depending on the tokenizer.</string>
   <string name="status_section_request_types" translatable="false">Request Types</string>
   <string name="status_section_advanced" translatable="false">Advanced</string>
 

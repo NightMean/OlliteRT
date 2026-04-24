@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
@@ -43,9 +44,17 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,6 +88,7 @@ import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatusScreen(
   serverViewModel: ServerViewModel,
@@ -417,12 +427,45 @@ fun StatusScreen(
     }
 
     // ── Core metrics (always shown) ──
-    Text(
-      text = stringResource(R.string.status_section_metrics),
-      style = MaterialTheme.typography.titleSmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(top = 4.dp),
-    )
+    var showMetricsInfoDialog by remember { mutableStateOf(false) }
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        text = stringResource(R.string.status_section_metrics),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.weight(1f))
+      TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = { PlainTooltip { Text(stringResource(R.string.status_metrics_info_tooltip)) } },
+        state = rememberTooltipState(),
+      ) {
+        IconButton(onClick = { showMetricsInfoDialog = true }, modifier = Modifier.size(32.dp)) {
+          Icon(
+            imageVector = Icons.Outlined.Info,
+            contentDescription = stringResource(R.string.status_metrics_info_tooltip),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+          )
+        }
+      }
+    }
+
+    if (showMetricsInfoDialog) {
+      AlertDialog(
+        onDismissRequest = { showMetricsInfoDialog = false },
+        title = { Text(stringResource(R.string.status_metrics_info_title)) },
+        text = { Text(stringResource(R.string.status_metrics_info_body)) },
+        confirmButton = {
+          TextButton(onClick = { showMetricsInfoDialog = false }) {
+            Text(stringResource(R.string.ok))
+          }
+        },
+      )
+    }
 
     Row(
       modifier = Modifier.fillMaxWidth(),
