@@ -10,7 +10,7 @@
   <p><strong>Turn your Android phone into an OpenAI-compatible API LLM server — fully local, private, and open source</strong></p>
 
   <div>
-    <a href="https://github.com/NightMean/ollitert/releases/latest"><img src="https://img.shields.io/github/v/release/NightMean/ollitert?style=flat" alt="GitHub Release" /></a>
+    <a href="https://github.com/NightMean/ollitert/releases/latest"><img src="https://img.shields.io/github/v/release/NightMean/ollitert?include_prereleases&style=flat" alt="GitHub Release" /></a>
     <a href="https://github.com/NightMean/ollitert/releases"><img src="https://img.shields.io/github/downloads/NightMean/ollitert/total?style=flat" alt="Downloads" /></a>
     <a href="https://www.buymeacoffee.com/nightmean"><img src="https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee" /></a>
     <br />
