@@ -247,8 +247,7 @@ class DefaultDownloadRepository(
     val channelId = "download_notification"
     val channelName = context.getString(R.string.notif_channel_download_name)
 
-    // Create the NotificationChannel, but only on API 26+ because
-    // the NotificationChannel class is new and not in the support library
+    // Create the NotificationChannel (always available since minSdk 31)
     val importance = NotificationManager.IMPORTANCE_HIGH
     val channel = NotificationChannel(channelId, channelName, importance)
     val notificationManager =

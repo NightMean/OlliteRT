@@ -79,12 +79,10 @@ data class Model(
   /**
    * (optional)
    *
-   * A list of configurable parameters for the model.
+   * A list of configurable parameters for the model (e.g. topK, temperature).
+   * Used by the inference layer and the benchmark screen.
    *
-   * If set, a gear icon appears on the right side of the model main screen's app bar. When
-   * selected, a dialog pops up, allowing users to update the model's configurations.
-   *
-   * See [Config] for more details
+   * See [Config] for more details.
    */
   var configs: List<Config> = listOf(),
 
@@ -165,12 +163,13 @@ data class Model(
    * manually manage model files instead of downloading them. This dir is relative to the app's
    * "External Files Directory", which is: /storage/emulated/0/Android/data/<app_id>/files/.
    *
-   * The <app_id> depends on how the app was built:
-   * - `com.ollitert.llm.server` for builds from the GitHub source.
-   * - `com.ollitert.llm.server` for other builds (Play store, internal, etc).
+   * The <app_id> depends on the product flavor:
+   * - `com.ollitert.llm.server` for stable builds.
+   * - `com.ollitert.llm.server.beta` for beta builds.
+   * - `com.ollitert.llm.server.dev` for dev builds.
    *
    * For example, if this field is set to "my_model/local_dir/", then the location you should push
-   * files to is (assuming non-github builds):
+   * files to is (assuming stable builds):
    *
    * /storage/emulated/0/Android/data/com.ollitert.llm.server/files/my_model/local_dir/
    *
@@ -346,4 +345,4 @@ data class ModelDownloadStatus(
 // Configs.
 
 val EMPTY_MODEL: Model =
-  Model(name = "empty", downloadFileName = "empty.tflite", url = "", sizeInBytes = 0L)
+  Model(name = "empty", downloadFileName = "empty.litertlm", url = "", sizeInBytes = 0L)

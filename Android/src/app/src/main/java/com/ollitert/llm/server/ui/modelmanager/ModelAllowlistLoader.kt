@@ -28,11 +28,12 @@ import java.io.File
 private const val TAG = "AllowlistLoader"
 
 /**
- * Loads the model allowlist from network, disk cache, or bundled assets.
+ * Loads the model allowlist from disk cache or bundled assets.
  * Pure I/O layer — does not touch ViewModel state or coroutine scopes.
  * The ViewModel calls these methods from its own coroutine scope.
  *
- * Loading chain: test file → network (GitHub) → disk cache → bundled asset.
+ * Loading chain: test file → disk cache → bundled asset.
+ * Network fetching is handled by [RepositoryManager], not this class.
  */
 class ModelAllowlistLoader(
   private val context: Context,

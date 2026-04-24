@@ -148,6 +148,8 @@ object ServerLlmModelHelper : LlmModelHelper {
         visionBackend = if (supportImage) visionBackend else null,
         audioBackend = if (supportAudio) Backend.CPU() else null,
         maxNumTokens = maxTokens,
+        // /data/local/tmp is tmpfs (RAM-backed) which doesn't support mmap; redirect to
+        // persistent storage so LiteRT can memory-map working files.
         cacheDir =
           if (modelPath.startsWith("/data/local/tmp"))
             context.getExternalFilesDir(null)?.absolutePath
@@ -168,6 +170,7 @@ object ServerLlmModelHelper : LlmModelHelper {
         val conversation =
           engine.createConversation(
             ConversationConfig(
+              // NPU/TPU backends handle sampling internally; passing SamplerConfig is unsupported.
               samplerConfig =
                 if (preferredBackend is Backend.NPU) {
                   null
@@ -237,6 +240,7 @@ object ServerLlmModelHelper : LlmModelHelper {
         val newConversation =
           engine.createConversation(
             ConversationConfig(
+              // NPU/TPU backends handle sampling internally; passing SamplerConfig is unsupported.
               samplerConfig =
                 if (accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label) {
                   null

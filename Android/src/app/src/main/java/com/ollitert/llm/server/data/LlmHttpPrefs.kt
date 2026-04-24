@@ -691,7 +691,7 @@ object LlmHttpPrefs {
 
   /**
    * Clear all settings and restore defaults. Wipes the entire SharedPreferences store,
-   * including per-model inference configs, system prompts, and chat templates.
+   * including per-model inference configs and system prompts.
    * The cached prefs instance is invalidated so the next access picks up the cleared state.
    */
   fun resetToDefaults(context: Context) {

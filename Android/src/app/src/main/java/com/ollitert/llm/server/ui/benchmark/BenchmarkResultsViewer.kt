@@ -352,7 +352,7 @@ fun BenchmarkResultsViewer(
                         modifier = cardModifier,
                         titleRowAction = {
                           // A chip to toggle on/off baseline, used to set the comparison base.
-                          // Only visible when there are >2 results.
+                          // Only visible when there are >=2 results.
                           if (filteredResults.size > 1) {
                             FilterChip(
                               onClick = { viewModel.setBaseline(id = result.id) },

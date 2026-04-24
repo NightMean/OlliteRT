@@ -83,18 +83,19 @@ object LlmHttpPayloadBuilders {
       put("model_update_available", JsonPrimitive(modelUpdateAvailable))
       put("compatibility", JsonPrimitive("openai"))
       put("endpoints", JsonArray(listOf(
-        JsonPrimitive("/v1/models"),
-        JsonPrimitive("/v1/completions"),
         JsonPrimitive("/v1/chat/completions"),
+        JsonPrimitive("/v1/completions"),
         JsonPrimitive("/v1/responses"),
+        JsonPrimitive("/v1/audio/transcriptions"),
+        JsonPrimitive("/v1/models"),
+        JsonPrimitive("/v1/models/{id}"),
         JsonPrimitive("/health"),
         JsonPrimitive("/metrics"),
-        JsonPrimitive("/api/version"),
+        JsonPrimitive("/ping"),
         JsonPrimitive("/v1/server/stop"),
         JsonPrimitive("/v1/server/reload"),
         JsonPrimitive("/v1/server/thinking"),
         JsonPrimitive("/v1/server/config"),
-        JsonPrimitive("/v1/audio/transcriptions"),
       )))
     }
     return JsonObject(info).toString()

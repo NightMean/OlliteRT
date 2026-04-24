@@ -43,7 +43,7 @@ class ModelFileManager(
 
   /**
    * Delete stale .tmp files left by interrupted model imports.
-   * Delegates to the data-layer function in Consts.kt.
+   * Delegates to the data-layer function in ModelStorageUtils.kt.
    */
   fun cleanupStaleImportTmpFiles() {
     cleanupStaleImportTmpFiles(externalFilesDir)

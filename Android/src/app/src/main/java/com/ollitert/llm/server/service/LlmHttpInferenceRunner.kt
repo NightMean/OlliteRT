@@ -52,7 +52,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - [executor] / [inferenceLock]: serialized single-thread inference from NanoServer
  * - [context]: for reading SharedPreferences (LlmHttpPrefs)
  * - Callbacks for logging and system instruction — avoids coupling to the Service class
- * - Singletons: [ServerMetrics], [RequestLogStore], [ServerLlmModelHelper], [LlmHttpInferenceGateway]
+ * - Singletons: [ServerMetrics], [RequestLogStore], [ServerLlmModelHelper], [LlmHttpInferenceGateway],
+ *   [LlmHttpResponseRenderer], [LlmHttpPayloadBuilders], [LlmHttpToolCallParser], [LlmHttpErrorSuggestions]
  */
 class LlmHttpInferenceRunner(
   private val context: Context,

@@ -483,6 +483,7 @@ class SettingsViewModel @Inject constructor(
       dataStoreRepository.resetRepositories()
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {
+        // Delete only custom repo caches; keep the built-in official allowlist which ships with the APK.
         dir.listFiles { _, name ->
           name.startsWith(MODEL_ALLOWLIST_CACHE_PREFIX) && name.endsWith(".json")
             && name != MODEL_ALLOWLIST_OFFICIAL_FILENAME

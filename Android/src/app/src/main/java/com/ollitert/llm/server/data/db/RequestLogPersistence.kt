@@ -107,7 +107,7 @@ class RequestLogPersistence @Inject constructor(
 
   override fun onEntryUpdated(entry: RequestLogEntry, isTerminal: Boolean) {
     // Only persist terminal state changes (pending→complete or cancelled).
-    // Streaming partialText updates fire every ~150ms and are intentionally skipped.
+    // Streaming partialText updates fire every ~300ms and are intentionally skipped.
     if (!isEnabled || !isTerminal) return
     scope.launch {
       try {

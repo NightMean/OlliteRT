@@ -51,12 +51,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Foreground service exposing a minimal HTTP API for local LLM inference.
- * GET  /ping                  -> {status:"ok"}
- * GET  /v1/models             -> OpenAI-compatible model list
- * POST /generate              -> {text, usage}
- * POST /v1/chat/completions   -> OpenAI chat completions
- * POST /v1/responses          -> OpenAI responses API
+ * Foreground service exposing an OpenAI-compatible HTTP API for local LLM inference.
+ * See [LlmHttpRouteResolver] for the full endpoint table.
  */
 class LlmHttpService : Service() {
 
@@ -839,15 +835,13 @@ class LlmHttpService : Service() {
     val channelId = "ollitert-corruption"
     val mgr = getSystemService(NOTIFICATION_SERVICE) as? android.app.NotificationManager
     if (mgr != null) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        mgr.createNotificationChannel(
-          android.app.NotificationChannel(
-            channelId,
-            getString(R.string.notif_channel_corruption_name),
-            android.app.NotificationManager.IMPORTANCE_HIGH,
-          ).apply { description = getString(R.string.notif_channel_corruption_desc) }
-        )
-      }
+      mgr.createNotificationChannel(
+        android.app.NotificationChannel(
+          channelId,
+          getString(R.string.notif_channel_corruption_name),
+          android.app.NotificationManager.IMPORTANCE_HIGH,
+        ).apply { description = getString(R.string.notif_channel_corruption_desc) }
+      )
       val openIntent = PendingIntent.getActivity(
         this, 0,
         Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
@@ -909,11 +903,7 @@ class LlmHttpService : Service() {
         if (source != null) putExtra(EXTRA_START_SOURCE, source)
       }
       return try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          context.startForegroundService(intent)
-        } else {
-          context.startService(intent)
-        }
+        context.startForegroundService(intent)
         true
       } catch (e: Exception) {
         Log.e(TAG, "Failed to start service", e)
@@ -961,11 +951,7 @@ class LlmHttpService : Service() {
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
       }
       return try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          context.startForegroundService(intent)
-        } else {
-          context.startService(intent)
-        }
+        context.startForegroundService(intent)
         true
       } catch (e: Exception) {
         Log.e(TAG, "Failed to reload service", e)

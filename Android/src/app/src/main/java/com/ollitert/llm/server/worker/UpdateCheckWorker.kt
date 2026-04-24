@@ -22,7 +22,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -523,21 +522,19 @@ class UpdateCheckWorker @AssistedInject constructor(
 
     /** Create the update notification channel. Call from Application.onCreate(). */
     fun createNotificationChannel(context: Context) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val channel = NotificationChannel(
-          UPDATE_CHANNEL_ID,
-          context.getString(R.string.notif_channel_app_update_name),
-          NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-          description = context.getString(R.string.notif_channel_app_update_desc)
-        }
-        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        if (mgr == null) {
-          Log.e(TAG, "NotificationManager unavailable — cannot create update channel")
-          return
-        }
-        mgr.createNotificationChannel(channel)
+      val channel = NotificationChannel(
+        UPDATE_CHANNEL_ID,
+        context.getString(R.string.notif_channel_app_update_name),
+        NotificationManager.IMPORTANCE_DEFAULT,
+      ).apply {
+        description = context.getString(R.string.notif_channel_app_update_desc)
       }
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      if (mgr == null) {
+        Log.e(TAG, "NotificationManager unavailable — cannot create update channel")
+        return
+      }
+      mgr.createNotificationChannel(channel)
     }
 
     /**

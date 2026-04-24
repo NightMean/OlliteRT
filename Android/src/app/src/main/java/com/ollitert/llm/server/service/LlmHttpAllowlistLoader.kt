@@ -26,12 +26,12 @@ import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
 
 /**
- * Loads the model allowlist from the filesystem. Resolution order:
- * 1. [externalFilesDir]/model_allowlist.json
- * 2. [assetReader] (bundled asset, optional)
+ * Loads the model allowlist from the filesystem. Merges models from the official
+ * allowlist file, per-repo cache files, and the bundled asset (fallback).
+ * Repos can be individually enabled/disabled via [enabledCacheFilenames].
  *
  * Caches the last successful load so callers always get a valid list even
- * when the external file is temporarily unavailable.
+ * when the external files are temporarily unavailable.
  */
 class LlmHttpAllowlistLoader(
   private val externalFilesDir: File?,

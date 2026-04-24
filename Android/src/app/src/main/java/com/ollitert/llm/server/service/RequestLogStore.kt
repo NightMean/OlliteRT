@@ -93,7 +93,7 @@ data class RequestLogEntry(
  * When log persistence is enabled, a [PersistenceCallback] is registered to
  * asynchronously write entries to Room. The callback receives individual entry
  * events rather than observing the full StateFlow, which avoids reacting to
- * high-frequency [partialText] streaming updates (~150ms intervals).
+ * high-frequency [partialText] streaming updates (~300ms intervals).
  */
 object RequestLogStore {
 

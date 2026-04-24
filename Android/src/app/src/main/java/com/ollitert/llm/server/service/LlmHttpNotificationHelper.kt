@@ -22,7 +22,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.ollitert.llm.server.R
 
@@ -41,21 +40,19 @@ object LlmHttpNotificationHelper {
   const val CHANNEL_ID = "ollitert-server"
   const val NOTIFICATION_ID = 42
 
-  /** Creates the notification channel (required on Android O+). Safe to call multiple times. */
+  /** Creates the notification channel. Safe to call multiple times. */
   fun createChannel(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-      if (mgr == null) {
-        android.util.Log.e("LlmHttpNotification", "NotificationManager unavailable — cannot create channel")
-        return
-      }
-      val ch = NotificationChannel(
-        CHANNEL_ID,
-        context.getString(R.string.llm_http_channel_name),
-        NotificationManager.IMPORTANCE_LOW,
-      )
-      mgr.createNotificationChannel(ch)
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    if (mgr == null) {
+      android.util.Log.e("LlmHttpNotification", "NotificationManager unavailable — cannot create channel")
+      return
     }
+    val ch = NotificationChannel(
+      CHANNEL_ID,
+      context.getString(R.string.llm_http_channel_name),
+      NotificationManager.IMPORTANCE_LOW,
+    )
+    mgr.createNotificationChannel(ch)
   }
 
   /**

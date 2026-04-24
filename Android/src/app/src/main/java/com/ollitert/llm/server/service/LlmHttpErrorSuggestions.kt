@@ -83,7 +83,7 @@ object LlmHttpErrorSuggestions {
     val lower = error.lowercase()
     return when {
       // Context overflow — verified: LiteRT produces "N >= M" format
-      // (used by extractActualTokenCounts regex at LlmHttpService.kt)
+      // (used by extractActualTokenCounts regex at LlmHttpInferenceRunner.kt)
       lower.contains(">=") || lower.contains("too long") ||
         lower.contains("exceed") || lower.contains("too many tokens") ->
         ErrorKind.CONTEXT_OVERFLOW

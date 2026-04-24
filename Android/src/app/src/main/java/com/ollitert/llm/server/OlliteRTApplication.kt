@@ -95,6 +95,8 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
           throw SecurityException("Image response exceeds 5MB limit")
         }
         val originalBody = response.body ?: return@Interceptor response
+        // ForwardingSource enforces byte limit on the actual stream — contentLength can be
+        // missing (-1) or spoofed, so we must also verify bytes as they arrive.
         val limitedSource = object : ForwardingSource(originalBody.source()) {
           var bytesRead = 0L
           override fun read(sink: Buffer, byteCount: Long): Long {

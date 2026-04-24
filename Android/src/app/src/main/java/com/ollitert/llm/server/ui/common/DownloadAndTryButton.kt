@@ -110,30 +110,14 @@ private enum class HfTokenDialogReason { MISSING, INVALID }
 internal const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 
 /**
- * Handles the "Download & Try it" button click, managing the model download process based on
- * various conditions.
+ * Handles the "Download & Try it" button click, managing the model download process.
  *
- * If the button is enabled and not currently checking the token, it initiates a coroutine to handle
- * the download logic.
+ * For HuggingFace URLs that require authentication, uses the stored HF token from Settings.
+ * If the token is missing, prompts the user to set one; if invalid, shows an error dialog.
+ * For gated models (HTTP 403), displays an agreement acknowledgement sheet.
  *
- * For models requiring download first, it specifically addresses HuggingFace URLs by first checking
- * if authentication is necessary. If no authentication is needed, the download starts directly.
- * Otherwise, it checks the current token status; if the token is invalid or expired, a token
- * exchange flow is initiated. If a valid token exists, it attempts to access the download URL. If
- * access is granted, the download begins; if not, a new token is requested.
- *
- * For non-HuggingFace URLs that need downloading, the download starts directly.
- *
- * If the model doesn't need to be downloaded first, the provided `onClicked` callback is executed.
- *
- * Additionally, for gated HuggingFace models, if accessing the model after token exchange results
- * in a forbidden error, a modal bottom sheet is displayed, prompting the user to acknowledge the
- * user agreement by opening it in a custom tab. Upon closing the tab, the download process is
- * retried.
- *
- * The composable also manages UI states for indicating token checking and displaying the agreement
- * acknowledgement sheet, and it handles requesting notification permissions before initiating the
- * actual download.
+ * For non-HuggingFace URLs, the download starts directly. If the model is already downloaded,
+ * the [onClicked] callback is executed instead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -44,7 +44,7 @@ object LlmHttpInferenceGateway {
 
   /**
    * Fires inference on [executor] and delivers tokens via [onToken] as they arrive.
-   * Returns immediately; the caller receives the stream via the [PipedOutputStream] pattern.
+   * Returns immediately; the caller receives the stream via [onToken]/[onError] callbacks.
    * [onToken] is called with (partial, false) for each token and (*, true) once when done.
    * [onError] is called instead of [onToken] if inference fails.
    *

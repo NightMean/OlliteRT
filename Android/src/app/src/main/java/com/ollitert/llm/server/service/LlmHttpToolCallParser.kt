@@ -222,7 +222,8 @@ object LlmHttpToolCallParser {
 
   /**
    * Finds the first balanced JSON object `{...}` in the text.
-   * Handles nested braces correctly.
+   * Manual bracket balancing because models embed tool call JSON in prose text —
+   * a standard JSON parser would choke on the surrounding non-JSON content.
    */
   private fun extractFirstJsonObject(text: String): String? {
     val start = text.indexOf('{')

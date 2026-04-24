@@ -529,7 +529,7 @@ internal fun ExpandableBodySection(
 
   if (expanded) {
     // For large bodies, compute JSON + search highlighting off the main thread.
-    // Small bodies (<4KB) are fast enough to highlight synchronously.
+    // Small bodies (<1KB) are fast enough to highlight synchronously.
     val fullHighlighted by produceState(
       initialValue = if (body.length <= ASYNC_HIGHLIGHT_THRESHOLD) {
         val jsonStyled = highlightJson(body)
