@@ -149,6 +149,7 @@ class LlmHttpService : Service() {
               ?.toSet()
           } catch (e: Exception) { null }
         },
+        onError = { source, ex -> Log.w(logTag, "Allowlist parse error ($source)", ex) },
       )
       modelLifecycle = LlmHttpModelLifecycle(
         context = this,

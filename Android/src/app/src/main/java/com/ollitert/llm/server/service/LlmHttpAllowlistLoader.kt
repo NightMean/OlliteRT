@@ -38,6 +38,7 @@ class LlmHttpAllowlistLoader(
   private val appVersionName: String = "",
   private val assetReader: () -> String? = { null },
   private val enabledCacheFilenames: () -> Set<String>? = { null },
+  private val onError: (source: String, exception: Exception) -> Unit = { _, _ -> },
 ) {
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
   private var cached: ModelAllowlist? = null
@@ -68,7 +69,7 @@ class LlmHttpAllowlistLoader(
           lastSource = "asset"
           lastContentVersion = decoded.contentVersion
           return decoded
-        } catch (_: Exception) { /* fall through */ }
+        } catch (e: Exception) { onError("asset", e) }
       }
       lastSource = "empty"
       return null
@@ -113,7 +114,8 @@ class LlmHttpAllowlistLoader(
           lastSource = "asset"
           lastContentVersion = decoded.contentVersion
           return decoded
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+          onError("asset", e)
           lastSource = "error"
           return null
         }
@@ -127,7 +129,7 @@ class LlmHttpAllowlistLoader(
     try {
       val assetContent = assetReader()
       if (assetContent != null) bundledAllowlist = ModelAllowlistJson.decode(assetContent)
-    } catch (_: Exception) { }
+    } catch (e: Exception) { onError("bundled-asset", e) }
 
     val seenModelIds = mutableSetOf<String>()
     for (file in filesToProcess) {
@@ -151,8 +153,8 @@ class LlmHttpAllowlistLoader(
             allModels.add(model)
           }
         }
-      } catch (_: Exception) {
-        // Skip malformed files — no android.util.Log in this JVM-testable class
+      } catch (e: Exception) {
+        onError(file.name, e)
       }
     }
 

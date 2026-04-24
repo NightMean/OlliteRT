@@ -367,4 +367,37 @@ class LlmHttpAllowlistLoaderTest {
       dir.deleteRecursively()
     }
   }
+
+  @Test
+  fun onErrorCallbackFirsForMalformedFiles() {
+    val dir = createTempDirectory("allowlist-error").toFile()
+    try {
+      File(dir, "model_allowlist_official.json").writeText("{ not valid json !!!")
+      val errors = mutableListOf<Pair<String, Exception>>()
+      val loader = LlmHttpAllowlistLoader(
+        externalFilesDir = dir,
+        onError = { source, ex -> errors.add(source to ex) },
+      )
+      val models = loader.load()
+      assertTrue(models.isEmpty())
+      assertEquals(1, errors.size)
+      assertEquals("model_allowlist_official.json", errors[0].first)
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun onErrorCallbackFirsForMalformedAsset() {
+    val errors = mutableListOf<Pair<String, Exception>>()
+    val loader = LlmHttpAllowlistLoader(
+      externalFilesDir = null,
+      assetReader = { "{ broken json" },
+      onError = { source, ex -> errors.add(source to ex) },
+    )
+    val models = loader.load()
+    assertTrue(models.isEmpty())
+    assertEquals(1, errors.size)
+    assertEquals("asset", errors[0].first)
+  }
 }
