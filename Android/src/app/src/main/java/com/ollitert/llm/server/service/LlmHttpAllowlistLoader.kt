@@ -37,6 +37,7 @@ class LlmHttpAllowlistLoader(
   private val externalFilesDir: File?,
   private val appVersionName: String = "",
   private val assetReader: () -> String? = { null },
+  private val enabledCacheFilenames: () -> Set<String>? = { null },
 ) {
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
   private var cached: ModelAllowlist? = null
@@ -87,9 +88,12 @@ class LlmHttpAllowlistLoader(
     val allModels = mutableListOf<AllowedModel>()
     var bestContentVersion = 0
 
-    // Process Official first (hardcoded filename), then remaining files alphabetically
+    // Process Official first (hardcoded filename), then remaining files alphabetically.
+    // When enabledCacheFilenames is provided, only load cache files for enabled repos.
+    val enabled = enabledCacheFilenames()
     val otherFiles = externalFilesDir.listFiles { _, name ->
       name.startsWith(MODEL_ALLOWLIST_CACHE_PREFIX) && name.endsWith(".json") && name != MODEL_ALLOWLIST_OFFICIAL_FILENAME
+          && (enabled == null || name in enabled)
     }?.sorted() ?: emptyList()
 
     val filesToProcess = buildList {

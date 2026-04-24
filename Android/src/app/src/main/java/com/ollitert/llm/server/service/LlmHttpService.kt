@@ -123,13 +123,6 @@ class LlmHttpService : Service() {
         isEnabled = { LlmHttpPrefs.isPayloadLoggingEnabled(this) },
         isVerboseDebug = { LlmHttpPrefs.isVerboseDebugEnabled(this) },
       )
-      allowlistLoader = LlmHttpAllowlistLoader(
-        externalFilesDir = getExternalFilesDir(null),
-        appVersionName = BuildConfig.VERSION_NAME,
-        assetReader = {
-          try { assets.open(MODEL_ALLOWLIST_FILENAME).reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
-        },
-      )
       // Access DataStoreRepository via Hilt EntryPoint so imported models can be resolved
       // when starting the server. The DataStore singleton is managed by Hilt; creating a
       // second instance would corrupt the protobuf file.
@@ -142,6 +135,21 @@ class LlmHttpService : Service() {
         Log.w(logTag, "Failed to access DataStoreRepository — imported models won't be loadable", e)
         null
       }
+      allowlistLoader = LlmHttpAllowlistLoader(
+        externalFilesDir = getExternalFilesDir(null),
+        appVersionName = BuildConfig.VERSION_NAME,
+        assetReader = {
+          try { assets.open(MODEL_ALLOWLIST_FILENAME).reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
+        },
+        enabledCacheFilenames = {
+          try {
+            kotlinx.coroutines.runBlocking { dataStoreRepo?.readRepositories() }
+              ?.filter { it.enabled }
+              ?.map { it.cacheFilename }
+              ?.toSet()
+          } catch (e: Exception) { null }
+        },
+      )
       modelLifecycle = LlmHttpModelLifecycle(
         context = this,
         allowlistLoader = allowlistLoader,
