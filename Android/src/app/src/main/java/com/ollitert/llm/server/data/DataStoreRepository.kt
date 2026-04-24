@@ -203,7 +203,7 @@ class DefaultDataStoreRepository(
 
   override suspend fun removeRepository(id: String) {
     dataStore.updateData { settings ->
-      val filtered = settings.repositoriesList.filter { it.id != id }
+      val filtered = settings.repositoriesList.filter { it.id != id || it.isBuiltIn }
       settings.toBuilder()
         .clearRepositories()
         .addAllRepositories(filtered)

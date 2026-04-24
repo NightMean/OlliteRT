@@ -20,6 +20,8 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.ui.modelmanager.AllowlistLoader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,7 +47,7 @@ class RepositoryManager @Inject constructor(
     allowlistLoader: AllowlistLoader,
     ignoreDisabled: Boolean = false,
     modelFilter: (AllowedModel) -> Boolean = { true },
-  ): LoadResult {
+  ): LoadResult = withContext(Dispatchers.IO) {
     var repoEntries = dataStoreRepository.readRepositories()
       .sortedByDescending { it.isBuiltIn }
 
@@ -55,13 +57,13 @@ class RepositoryManager @Inject constructor(
         seedOfficialRepo(legacyContentVersion = legacyVersion)
       } catch (e: Exception) {
         Log.e(TAG, "Failed to seed Official repo", e)
-        return LoadResult(models = emptyList(), repositories = emptyList())
+        return@withContext LoadResult(models = emptyList(), repositories = emptyList())
       }
       repoEntries = dataStoreRepository.readRepositories()
         .sortedByDescending { it.isBuiltIn }
       if (repoEntries.isEmpty()) {
         Log.e(TAG, "Seeding succeeded but repo list is still empty")
-        return LoadResult(models = emptyList(), repositories = emptyList())
+        return@withContext LoadResult(models = emptyList(), repositories = emptyList())
       }
     }
 
@@ -124,7 +126,7 @@ class RepositoryManager @Inject constructor(
       allowedModel.toModel(appVersion, repositoryName = repoName, repositoryId = repoId)
     }
     val disambiguated = disambiguateDisplayNames(models)
-    return LoadResult(models = disambiguated, repositories = repositories)
+    LoadResult(models = disambiguated, repositories = repositories)
   }
 
   private suspend fun seedOfficialRepo(legacyContentVersion: Int = 0) {
@@ -141,7 +143,7 @@ class RepositoryManager @Inject constructor(
     )
   }
 
-  suspend fun refreshAll(allowlistLoader: AllowlistLoader): RefreshResult {
+  suspend fun refreshAll(allowlistLoader: AllowlistLoader): RefreshResult = withContext(Dispatchers.IO) {
     val repos = dataStoreRepository.readRepositories()
     val failedIds = mutableSetOf<String>()
     for (repo in repos) {
@@ -195,7 +197,7 @@ class RepositoryManager @Inject constructor(
         dataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
     }
-    return RefreshResult(failedRepoIds = failedIds)
+    RefreshResult(failedRepoIds = failedIds)
   }
 
   private fun fetchBoundedJson(url: String): String? =
