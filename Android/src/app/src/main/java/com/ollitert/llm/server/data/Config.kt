@@ -27,6 +27,7 @@ enum class ValueType {
   BOOLEAN,
 }
 
+// TODO: Extract ConfigKey labels to string resources for localization.
 data class ConfigKey(val id: String, val label: String)
 
 object ConfigKeys {
@@ -130,6 +131,7 @@ class SegmentedButtonConfig(
   override val defaultValue: String,
   val options: List<String>,
   val allowMultiple: Boolean = false,
+  val description: String? = null,
 ) :
   Config(
     key = key,
@@ -173,6 +175,12 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
 
     ValueType.STRING -> value.toString()
   }
+}
+
+fun preferredAcceleratorOrder(acc: Accelerator): Int = when (acc) {
+  Accelerator.NPU, Accelerator.TPU -> 0
+  Accelerator.GPU -> 1
+  Accelerator.CPU -> 2
 }
 
 fun createLlmChatConfigs(
@@ -225,8 +233,8 @@ fun createLlmChatConfigs(
         ),
         SegmentedButtonConfig(
           key = ConfigKeys.ACCELERATOR,
-          defaultValue = accelerators[0].label,
-          options = accelerators.map { it.label },
+          defaultValue = accelerators.sortedBy { preferredAcceleratorOrder(it) }.first().label,
+          options = accelerators.sortedBy { preferredAcceleratorOrder(it) }.map { it.label },
         ),
       )
       .toMutableList()
@@ -250,8 +258,8 @@ fun createLlmChatConfigsForNpuModel(
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
     SegmentedButtonConfig(
       key = ConfigKeys.ACCELERATOR,
-      defaultValue = accelerators[0].label,
-      options = accelerators.map { it.label },
+      defaultValue = accelerators.sortedBy { preferredAcceleratorOrder(it) }.first().label,
+      options = accelerators.sortedBy { preferredAcceleratorOrder(it) }.map { it.label },
     ),
   )
 }

@@ -136,7 +136,7 @@ private val SUPPORTED_ACCELERATORS: List<Accelerator> =
  * Builds the import config list with the file extension passed to the editable name field,
  * so the extension is shown as a read-only suffix next to the text input.
  */
-private fun buildImportConfigsLlm(fileExtension: String): List<Config> =
+private fun buildImportConfigsLlm(context: Context, fileExtension: String): List<Config> =
   listOf(
     EditableTextConfig(key = ConfigKeys.NAME, suffix = fileExtension),
     LabelConfig(key = ConfigKeys.MODEL_TYPE),
@@ -176,6 +176,7 @@ private fun buildImportConfigsLlm(fileExtension: String): List<Config> =
       defaultValue = SUPPORTED_ACCELERATORS[0].label,
       options = SUPPORTED_ACCELERATORS.map { it.label },
       allowMultiple = true,
+      description = context.getString(R.string.import_compatible_accelerators_description),
     ),
   )
 
@@ -211,7 +212,7 @@ fun ModelImportDialog(
   // Pending model to import when storage is low — shows a warning before proceeding.
   var pendingStorageModel by remember { mutableStateOf<ImportedModel?>(null) }
 
-  val importConfigs = remember { buildImportConfigsLlm(fileExtension) }
+  val importConfigs = remember { buildImportConfigsLlm(context, fileExtension) }
 
   val initialValues: Map<String, Any> = remember {
     mutableMapOf<String, Any>().apply {
@@ -420,9 +421,10 @@ fun EditImportedModelDialog(
     if (dotIndex > 0) existingModel.fileName.substring(dotIndex) else ""
   }
 
+  val context = LocalContext.current
   // Build configs without the name field — file name is fixed and cannot be changed here
   val editConfigs = remember {
-    buildImportConfigsLlm(fileExtension).filter { it.key != ConfigKeys.NAME && it.key != ConfigKeys.MODEL_TYPE }
+    buildImportConfigsLlm(context, fileExtension).filter { it.key != ConfigKeys.NAME && it.key != ConfigKeys.MODEL_TYPE }
   }
 
   // Pre-populate from existing proto values

@@ -314,6 +314,13 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    if (config.description != null) {
+      Text(
+        config.description,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
     MultiChoiceSegmentedButtonRow {
       config.options.forEachIndexed { index, label ->
         SegmentedButton(

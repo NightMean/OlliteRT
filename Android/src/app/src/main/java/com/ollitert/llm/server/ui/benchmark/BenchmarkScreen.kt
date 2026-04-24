@@ -75,6 +75,7 @@ import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.SegmentedButtonConfig
 import com.ollitert.llm.server.data.ValueType
 import com.ollitert.llm.server.data.convertValueToTargetType
+import com.ollitert.llm.server.data.preferredAcceleratorOrder
 import com.ollitert.llm.server.ui.common.ConfigEditorsPanel
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
@@ -105,11 +106,12 @@ fun BenchmarkScreen(
   val configs =
     remember(selectedModel) {
       mutableStateListOf<Config>().apply {
+        val sortedAccelerators = selectedModel.accelerators.sortedBy { preferredAcceleratorOrder(it) }
         add(
           SegmentedButtonConfig(
             key = ConfigKeys.ACCELERATOR,
-            defaultValue = selectedModel.accelerators.getOrNull(0)?.label ?: Accelerator.CPU.label,
-            options = selectedModel.accelerators.map { it.label },
+            defaultValue = sortedAccelerators.firstOrNull()?.label ?: Accelerator.CPU.label,
+            options = sortedAccelerators.map { it.label },
             allowMultiple = false,
           )
         )

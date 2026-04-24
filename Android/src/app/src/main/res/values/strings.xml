@@ -168,6 +168,7 @@
   <string name="import_model_list_url_loading">Fetching model list…</string>
   <string name="repo_detail_imported_locally">Imported from local file</string>
   <string name="dialog_import_model_title">Import Model</string>
+  <string name="import_compatible_accelerators_description">Select the accelerators supported by this model</string>
   <string name="button_import">Import</string>
   <string name="button_replace">Replace</string>
   <string name="dialog_replace_model_title">Replace existing model?</string>
