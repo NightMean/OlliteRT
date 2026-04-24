@@ -65,6 +65,7 @@ import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Link
@@ -1187,6 +1188,7 @@ private fun ImportModelListUrlDialog(
   onImport: (String) -> Unit,
 ) {
   var url by remember { mutableStateOf("") }
+  val clipboardManager = LocalContext.current.getSystemService(android.content.ClipboardManager::class.java)
 
   AlertDialog(
     onDismissRequest = { if (!isLoading) onDismiss() },
@@ -1228,16 +1230,27 @@ private fun ImportModelListUrlDialog(
       }
     },
     confirmButton = {
-      TextButton(
-        onClick = { onImport(url.trim()) },
-        enabled = url.isNotBlank() && !isLoading,
-      ) {
-        Text(stringResource(R.string.button_import))
-      }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss, enabled = !isLoading) {
-        Text(stringResource(R.string.cancel))
+      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        TextButton(
+          onClick = {
+            clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()?.let { url = it }
+          },
+          enabled = !isLoading,
+        ) {
+          Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(Modifier.size(4.dp))
+          Text(stringResource(R.string.paste))
+        }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = onDismiss, enabled = !isLoading) {
+          Text(stringResource(R.string.cancel))
+        }
+        TextButton(
+          onClick = { onImport(url.trim()) },
+          enabled = url.isNotBlank() && !isLoading,
+        ) {
+          Text(stringResource(R.string.button_import))
+        }
       }
     },
   )

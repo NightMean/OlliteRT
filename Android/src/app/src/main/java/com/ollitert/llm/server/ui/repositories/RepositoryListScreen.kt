@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
@@ -375,6 +376,7 @@ private fun AddRepositoryDialog(
   onAdd: (String) -> Unit,
 ) {
   var url by rememberSaveable { mutableStateOf("") }
+  val clipboardManager = LocalContext.current.getSystemService(android.content.ClipboardManager::class.java)
 
   AlertDialog(
     onDismissRequest = { if (!isAdding) onDismiss() },
@@ -421,16 +423,27 @@ private fun AddRepositoryDialog(
       }
     },
     confirmButton = {
-      TextButton(
-        onClick = { onAdd(url.trim()) },
-        enabled = url.isNotBlank() && !isAdding,
-      ) {
-        Text(stringResource(R.string.add))
-      }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss, enabled = !isAdding) {
-        Text(stringResource(R.string.cancel))
+      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        TextButton(
+          onClick = {
+            clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()?.let { url = it }
+          },
+          enabled = !isAdding,
+        ) {
+          Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(Modifier.size(4.dp))
+          Text(stringResource(R.string.paste))
+        }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = onDismiss, enabled = !isAdding) {
+          Text(stringResource(R.string.cancel))
+        }
+        TextButton(
+          onClick = { onAdd(url.trim()) },
+          enabled = url.isNotBlank() && !isAdding,
+        ) {
+          Text(stringResource(R.string.add))
+        }
       }
     },
   )

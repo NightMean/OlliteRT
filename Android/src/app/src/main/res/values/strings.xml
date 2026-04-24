@@ -876,6 +876,7 @@
   <string name="repo_toggle_label">Toggle %1$s</string>
   <string name="add" translatable="false">Add</string>
   <string name="remove" translatable="false">Remove</string>
+  <string name="paste" translatable="false">Paste</string>
 
   <!-- RepositoriesCard (Settings) -->
   <string name="repo_card_no_sources">No model sources</string>
