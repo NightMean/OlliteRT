@@ -625,6 +625,15 @@
   <string name="logs_status_error" translatable="false">Error</string>
   <string name="logs_status_ok" translatable="false">OK</string>
 
+  <!-- LogBadges: ErrorKind labels (streaming errors where status code stays 200) -->
+  <string name="logs_error_kind_timeout" translatable="false">Timeout</string>
+  <string name="logs_error_kind_oom" translatable="false">Out of Memory</string>
+  <string name="logs_error_kind_model_not_found" translatable="false">Model Not Found</string>
+  <string name="logs_error_kind_model_files_missing" translatable="false">Model Files Missing</string>
+  <string name="logs_error_kind_model_not_ready" translatable="false">Model Not Ready</string>
+  <string name="logs_error_kind_image_decode_failed" translatable="false">Image Decode Failed</string>
+  <string name="logs_error_kind_inference_error" translatable="false">Inference Error</string>
+
   <!-- LogClipboardExport -->
   <string name="logs_export_chooser_title" translatable="false">Export OlliteRT Logs</string>
 

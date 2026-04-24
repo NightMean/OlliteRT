@@ -139,29 +139,6 @@ internal val ContextOverflowColor = OlliteRTContextOverflowRed
 
 // Log filter model, search highlighting — moved to logs/LogFilters.kt
 
-/** Patterns that indicate a context window overflow error in the response body. */
-private val CONTEXT_OVERFLOW_PATTERNS = listOf(
-  "context", "token", "exceed", "too long", "too many tokens", ">=",
-)
-
-/**
- * Checks if a response body contains a context window overflow error.
- * Detects patterns like "1031 >= 1024", "exceeds context", "token limit exceeded", etc.
- * Only matches actual error responses — not success responses that happen to contain
- * metric field names like "errors_total" or "context_utilization_percent".
- */
-internal fun isContextOverflowError(responseBody: String?, statusCode: Int = 200): Boolean {
-  if (responseBody.isNullOrBlank()) return false
-  // Only check error responses (4xx/5xx) — successful responses can contain
-  // metric field names like "errors_total" and "context_utilization_percent"
-  // that would false-positive (e.g. /health?metrics=true).
-  if (statusCode in 200..299) return false
-  val lower = responseBody.lowercase()
-  val hasError = lower.contains("error") || lower.contains("fail")
-  val hasOverflow = CONTEXT_OVERFLOW_PATTERNS.any { lower.contains(it) }
-  return hasError && hasOverflow
-}
-
 /**
  * Easter-egg "Generating" messages with rarity tiers.
  * First [DEFAULT_COUNT] pending entries always show "Generating".

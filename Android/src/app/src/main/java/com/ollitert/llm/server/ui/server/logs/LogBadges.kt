@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.service.ErrorKind
 import com.ollitert.llm.server.ui.server.ContextOverflowColor
 import com.ollitert.llm.server.ui.server.TruncatedColor
 import com.ollitert.llm.server.ui.server.WarningColor
@@ -60,16 +61,18 @@ internal fun MethodBadge(method: String) {
 }
 
 @Composable
-internal fun StatusBadge(statusCode: Int, contextOverflow: Boolean = false) {
+internal fun StatusBadge(statusCode: Int, contextOverflow: Boolean = false, errorKind: ErrorKind? = null) {
   val isSuccess = statusCode in 200..299
+  val hasError = errorKind != null
   val color = when {
     contextOverflow -> ContextOverflowColor
+    hasError -> MaterialTheme.colorScheme.error
     isSuccess -> OlliteRTGreen400
     else -> MaterialTheme.colorScheme.error
   }
   val label = when {
-    // Context overflow gets a specific label regardless of status code
     contextOverflow -> stringResource(R.string.logs_status_context_exceeded)
+    hasError -> errorKindLabel(errorKind!!, statusCode)
     else -> {
       val reasonPhrase = when (statusCode) {
         400 -> stringResource(R.string.logs_status_bad_request)
@@ -96,6 +99,20 @@ internal fun StatusBadge(statusCode: Int, contextOverflow: Boolean = false) {
     fontWeight = FontWeight.SemiBold,
     fontFamily = SpaceGroteskFontFamily,
   )
+}
+
+@Composable
+private fun errorKindLabel(errorKind: ErrorKind, statusCode: Int): String = when (errorKind) {
+  ErrorKind.CONTEXT_OVERFLOW -> stringResource(R.string.logs_status_context_exceeded)
+  ErrorKind.TIMEOUT -> stringResource(R.string.logs_error_kind_timeout)
+  ErrorKind.OOM -> stringResource(R.string.logs_error_kind_oom)
+  ErrorKind.MODEL_NOT_FOUND -> stringResource(R.string.logs_error_kind_model_not_found)
+  ErrorKind.MODEL_FILES_MISSING -> stringResource(R.string.logs_error_kind_model_files_missing)
+  ErrorKind.MODEL_INSTANCE_NULL -> stringResource(R.string.logs_error_kind_model_not_ready)
+  ErrorKind.IMAGE_DECODE_FAILED -> stringResource(R.string.logs_error_kind_image_decode_failed)
+  ErrorKind.UNKNOWN_LITERT -> stringResource(R.string.logs_error_kind_inference_error)
+  ErrorKind.UNKNOWN -> "$statusCode ${stringResource(R.string.logs_status_error)}"
+  ErrorKind.PORT_BIND_FAILURE -> "$statusCode ${stringResource(R.string.logs_status_error)}"
 }
 
 @Composable

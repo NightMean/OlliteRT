@@ -244,7 +244,7 @@ class LlmHttpEndpointHandlers(
         if (logId != null) {
           val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
         return badRequest(errorMsg)
       }
@@ -353,7 +353,7 @@ class LlmHttpEndpointHandlers(
       if (logId != null) {
         val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
         val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-        RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
+        RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
       }
       return badRequest(errorMsg)
     }
@@ -464,7 +464,7 @@ class LlmHttpEndpointHandlers(
         if (logId != null) {
           val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR) }
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
         return badRequest(errorMsg)
       }

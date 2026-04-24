@@ -20,6 +20,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.ollitert.llm.server.service.ErrorKind
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
@@ -83,6 +84,7 @@ data class RequestLogEntity(
     val partialText: String? = null,
     val isExactTokenCount: Boolean = false,
     val ignoredClientParams: String? = null,
+    val errorKind: String? = null,
     // Per-request performance metrics
     val ttfbMs: Long = 0,
     val decodeSpeed: Double = 0.0,
@@ -126,6 +128,7 @@ data class RequestLogEntity(
       maxContextTokens = maxContextTokens,
       isExactTokenCount = ext.isExactTokenCount,
       ignoredClientParams = ext.ignoredClientParams,
+      errorKind = ext.errorKind?.let { try { ErrorKind.valueOf(it) } catch (_: Exception) { null } },
       ttfbMs = ext.ttfbMs,
       decodeSpeed = ext.decodeSpeed,
       prefillSpeed = ext.prefillSpeed,
@@ -153,6 +156,7 @@ data class RequestLogEntity(
         partialText = entry.partialText,
         isExactTokenCount = entry.isExactTokenCount,
         ignoredClientParams = entry.ignoredClientParams,
+        errorKind = entry.errorKind?.name,
         ttfbMs = entry.ttfbMs,
         decodeSpeed = entry.decodeSpeed,
         prefillSpeed = entry.prefillSpeed,

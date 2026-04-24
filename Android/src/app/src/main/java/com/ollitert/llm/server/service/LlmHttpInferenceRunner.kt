@@ -767,6 +767,7 @@ class LlmHttpInferenceRunner(
               isPending = false,
               latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
               level = LogLevel.ERROR,
+              errorKind = kind,
               inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
               maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
               isExactTokenCount = actualTokens != null || it.isExactTokenCount,

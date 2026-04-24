@@ -72,6 +72,8 @@ data class RequestLogEntry(
   val isExactTokenCount: Boolean = false,
   /** Client-supplied sampler params that were ignored due to the "Ignore Client Sampler" setting. */
   val ignoredClientParams: String? = null,
+  /** Classified error type, set when inference fails. Null for successful requests. */
+  val errorKind: ErrorKind? = null,
   // ── Per-request performance metrics ──
   // Computed at inference completion and stored per-entry for the Logs info popup.
   /** Time to first token in ms (0 if unavailable, e.g. non-streaming without TTFB tracking). */

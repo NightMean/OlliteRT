@@ -74,7 +74,7 @@ import com.ollitert.llm.server.ui.server.CancelledColor
 import com.ollitert.llm.server.ui.server.PendingResponseSection
 import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.server.WarningColor
-import com.ollitert.llm.server.ui.server.isContextOverflowError
+import com.ollitert.llm.server.service.ErrorKind
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
 import com.ollitert.llm.server.ui.theme.OlliteRTOnSurfaceVariant
@@ -322,7 +322,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     // or on a separate row above when they'd overflow. Measured dynamically via
     // SubcomposeLayout so the layout scales correctly across phones and tablets.
     if (!entry.isPending) {
-      val contextOverflow = remember(entry.responseBody, entry.statusCode) { isContextOverflowError(entry.responseBody, entry.statusCode) }
+      val contextOverflow = entry.errorKind == ErrorKind.CONTEXT_OVERFLOW
 
       Spacer(modifier = Modifier.height(10.dp))
 
@@ -733,7 +733,7 @@ private fun EntryActionButtons(
  */
 @Composable
 private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
-  StatusBadge(statusCode = entry.statusCode, contextOverflow = contextOverflow)
+  StatusBadge(statusCode = entry.statusCode, contextOverflow = contextOverflow, errorKind = entry.errorKind)
   FooterDot()
   Text(
     text = "${entry.latencyMs}ms",
