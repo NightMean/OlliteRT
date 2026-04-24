@@ -1,4 +1,4 @@
-name: Validate Model Allowlist
+name: Validate model allowlist — schema, fields, versions
 
 on:
   push:

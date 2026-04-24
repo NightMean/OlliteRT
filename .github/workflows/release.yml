@@ -1,4 +1,4 @@
-name: Release OlliteRT APK
+name: Build and release signed APK from version tag (stable/beta/dev)
 
 on:
   push:
@@ -9,6 +9,10 @@ on:
       tag:
         description: 'Tag to build (e.g. v1.0.0, v1.0.0-beta.1)'
         required: true
+      publish:
+        description: 'Create a GitHub Release (uncheck to keep APK as artifact only)'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -30,6 +34,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
           # Full history needed for git rev-list --count (auto versionCode)
           fetch-depth: 0
 
@@ -147,7 +152,15 @@ jobs:
 
           echo "dir=$RELEASE_DIR" >> "$GITHUB_OUTPUT"
 
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: apk-${{ steps.tag.outputs.tag }}
+          path: Android/src/${{ steps.apks.outputs.dir }}/*.apk
+          retention-days: 90
+
       - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' || github.event.inputs.publish == 'true' }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
@@ -163,7 +176,7 @@ jobs:
     # Only run for stable releases (not beta/dev — no store listing for those).
     # Uses needs.release.outputs.tag (not github.ref) because workflow_dispatch
     # sets github.ref to the branch name, not the tag entered by the user.
-    if: ${{ !contains(needs.release.outputs.tag, '-beta.') && !contains(needs.release.outputs.tag, '-dev.') }}
+    if: ${{ (github.event_name == 'push' || github.event.inputs.publish == 'true') && !contains(needs.release.outputs.tag, '-beta.') && !contains(needs.release.outputs.tag, '-dev.') }}
     permissions:
       contents: write
     concurrency:

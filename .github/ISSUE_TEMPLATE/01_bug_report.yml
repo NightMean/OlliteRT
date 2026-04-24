@@ -129,9 +129,7 @@ body:
     attributes:
       label: Debug logs
       description: >-
-        Attach the exported debug log file from Settings → Developer → Export Debug Logs,
-        or paste any error messages from the Status screen.
-      render: shell
+        Attach the exported debug log file from Settings → Developer → Export Debug Logs.
 
   - type: markdown
     attributes:
@@ -148,8 +146,7 @@ body:
     attributes:
       label: Request/response logs
       description: >-
-        Attach the exported JSON file from the Logs tab Export button,
-        or paste the relevant request/response entries.
+        Attach the exported JSON file from the Logs tab → Share button.
 
   - type: textarea
     id: additional

@@ -1,4 +1,4 @@
-name: OlliteRT Build & Test
+name: Validate build — compile, test, lint
 
 on:
   push:
