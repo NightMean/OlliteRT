@@ -879,9 +879,9 @@
 
   <!-- RepositoriesCard (Settings) -->
   <string name="repo_card_no_sources">No model sources</string>
-  <string name="repo_card_one_source">1 source</string>
-  <string name="repo_card_sources">%1$d sources</string>
-  <string name="repo_card_sources_with_enabled">%1$d sources (%2$d enabled)</string>
+  <string name="repo_card_all_enabled">%1$d enabled · 0 disabled</string>
+  <string name="repo_card_enabled_disabled">%1$d enabled · %2$d disabled</string>
+  <string name="repo_card_tap_hint">Tap to manage model sources</string>
   <string name="repo_model_count_none">—</string>
 
   <!-- RepositoryDetailScreen -->

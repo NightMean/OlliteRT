@@ -16,12 +16,17 @@
 
 package com.ollitert.llm.server.ui.server.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Inventory2
@@ -31,9 +36,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.common.highlightSearchMatches
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
 internal fun RepositoriesCard(
@@ -42,30 +50,35 @@ internal fun RepositoriesCard(
   onNavigateToRepositories: () -> Unit,
   searchQuery: String = "",
 ) {
-  val subtitle = when {
+  val disabledCount = repoCount - enabledCount
+  val statusLine = when {
     repoCount == 0 -> stringResource(R.string.repo_card_no_sources)
-    repoCount == enabledCount -> if (repoCount == 1) stringResource(R.string.repo_card_one_source) else stringResource(R.string.repo_card_sources, repoCount)
-    else -> stringResource(R.string.repo_card_sources_with_enabled, repoCount, enabledCount)
+    disabledCount == 0 -> stringResource(R.string.repo_card_all_enabled, enabledCount)
+    else -> stringResource(R.string.repo_card_enabled_disabled, enabledCount, disabledCount)
   }
 
-  SettingsCard(
-    icon = Icons.Outlined.Inventory2,
-    title = stringResource(R.string.settings_card_repositories),
-    searchQuery = searchQuery,
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(24.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerLow)
+      .clickable { onNavigateToRepositories() }
+      .padding(20.dp),
   ) {
-    Row(
-      verticalAlignment = Alignment.CenterVertically,
-      modifier = Modifier
-        .fillMaxWidth()
-        .clickable { onNavigateToRepositories() }
-        .padding(vertical = 8.dp),
-    ) {
-      Text(
-        text = subtitle,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Icon(
+        imageVector = Icons.Outlined.Inventory2,
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(20.dp),
       )
-      Spacer(Modifier.weight(1f))
+      Spacer(modifier = Modifier.width(8.dp))
+      Text(
+        text = highlightSearchMatches(stringResource(R.string.settings_card_repositories), searchQuery, OlliteRTPrimary),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.weight(1f),
+      )
       Icon(
         Icons.AutoMirrored.Outlined.KeyboardArrowRight,
         contentDescription = null,
@@ -73,5 +86,17 @@ internal fun RepositoriesCard(
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+      text = statusLine,
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+      text = stringResource(R.string.repo_card_tap_hint),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+    )
   }
 }
