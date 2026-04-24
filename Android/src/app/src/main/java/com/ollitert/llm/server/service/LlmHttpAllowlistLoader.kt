@@ -96,8 +96,11 @@ class LlmHttpAllowlistLoader(
           && (enabled == null || name in enabled)
     }?.sorted() ?: emptyList()
 
+    // Official file is subject to the same enabled filter as third-party repos —
+    // users can disable the built-in repo to hide its models from the server.
+    val officialEnabled = enabled == null || MODEL_ALLOWLIST_OFFICIAL_FILENAME in enabled
     val filesToProcess = buildList {
-      if (officialFile.exists() && officialFile.length() > 0L) add(officialFile)
+      if (officialEnabled && officialFile.exists() && officialFile.length() > 0L) add(officialFile)
       addAll(otherFiles.filter { it.length() > 0L })
     }
 
