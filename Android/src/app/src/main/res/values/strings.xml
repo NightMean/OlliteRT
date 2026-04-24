@@ -664,6 +664,7 @@
   <string name="status_pill_starting" translatable="false">STARTING</string>
   <string name="status_pill_running" translatable="false">RUNNING</string>
   <string name="status_pill_error" translatable="false">ERROR</string>
+  <string name="status_pill_processing" translatable="false">PROCESSING</string>
 
   <!-- Getting Started screen -->
   <string name="getting_started_subtitle" translatable="false">Turn your device into a local OpenAI-compatible server capable of hosting powerful, optimized LLMs</string>

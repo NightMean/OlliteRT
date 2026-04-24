@@ -39,6 +39,7 @@ class ServerViewModel @Inject constructor(
 ) : ViewModel() {
 
   val status = ServerMetrics.status
+  val isInferring = ServerMetrics.isInferring
   val activeModelName = ServerMetrics.activeModelName
   val activeModelSize = ServerMetrics.activeModelSize
   val port = ServerMetrics.port

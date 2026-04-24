@@ -68,6 +68,7 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 @Composable
 fun OlliteRTTopBar(
   serverStatus: ServerStatus,
+  isInferring: Boolean = false,
   onSettingsClick: () -> Unit,
   onBackClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
@@ -124,6 +125,7 @@ fun OlliteRTTopBar(
     // Center: Status pill — always truly centered on screen
     StatusPill(
       serverStatus = serverStatus,
+      isInferring = isInferring,
       modifier = Modifier.align(Alignment.Center),
     )
 
@@ -156,13 +158,16 @@ fun OlliteRTTopBar(
 @Composable
 fun StatusPill(
   serverStatus: ServerStatus,
+  isInferring: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
-  val (dotColor, label) = when (serverStatus) {
-    ServerStatus.STOPPED -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_stopped)
-    ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to stringResource(R.string.status_pill_starting)
-    ServerStatus.RUNNING -> OlliteRTGreen400 to stringResource(R.string.status_pill_running)
-    ServerStatus.ERROR -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_error)
+  val isProcessing = serverStatus == ServerStatus.RUNNING && isInferring
+  val (dotColor, label) = when {
+    isProcessing -> OlliteRTPrimary to stringResource(R.string.status_pill_processing)
+    serverStatus == ServerStatus.STOPPED -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_stopped)
+    serverStatus == ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to stringResource(R.string.status_pill_starting)
+    serverStatus == ServerStatus.RUNNING -> OlliteRTGreen400 to stringResource(R.string.status_pill_running)
+    else -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_error)
   }
 
   val animatedDotColor by animateColorAsState(

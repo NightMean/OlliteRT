@@ -91,6 +91,7 @@ fun OlliteRTApp(
   // Collected here because the dialog must overlay all screens. These flows only
   // emit on status transitions (rare), not per-token, so recomposition cost is minimal.
   val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
+  val isInferring by serverViewModel.isInferring.collectAsStateWithLifecycle()
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
@@ -283,6 +284,7 @@ fun OlliteRTApp(
       if (showTopBar) {
         OlliteRTTopBar(
           serverStatus = serverStatus,
+          isInferring = isInferring,
           onSettingsClick = {
             navController.navigate(OlliteRTRoutes.SETTINGS) {
               launchSingleTop = true
