@@ -189,11 +189,9 @@ fun ModelNameAndStatus(
               if (isPartiallyDownloaded) {
                 sizeLabel = "$sizeLabel${stringResource(R.string.model_status_resuming_suffix)}"
               }
-              curDownloadProgress =
+              curDownloadProgress = if (downloadStatus.totalBytes > 0) {
                 downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
-              if (curDownloadProgress.isNaN()) {
-                curDownloadProgress = 0f
-              }
+              } else 0f
             }
             // Status for unzipping.
             else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
