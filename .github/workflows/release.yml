@@ -128,9 +128,7 @@ jobs:
           shopt -s nullglob
           for APK in "$OUT_DIR"/*.apk; do
             BASENAME=$(basename "$APK")
-            if [[ "$BASENAME" == *"universal"* ]]; then
-              DEST="$RELEASE_DIR/OlliteRT-${TAG}-universal.apk"
-            elif [[ "$BASENAME" == *"arm64-v8a"* ]]; then
+            if [[ "$BASENAME" == *"arm64-v8a"* ]]; then
               DEST="$RELEASE_DIR/OlliteRT-${TAG}-arm64-v8a.apk"
             elif [[ "$BASENAME" == *"x86_64"* ]]; then
               DEST="$RELEASE_DIR/OlliteRT-${TAG}-x86_64.apk"
