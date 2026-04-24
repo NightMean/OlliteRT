@@ -154,7 +154,7 @@ fun SettingsScreen(
         tint = OlliteRTPrimary,
       )
     }
-    onDispose { onSetTopBarTrailingContent(null) }
+    onDispose { }
   }
 
   Box(

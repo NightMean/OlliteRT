@@ -249,8 +249,10 @@ fun OlliteRTApp(
     }
   }
 
-  // Top bar trailing content (e.g. save button on Settings screen)
+  // Top bar trailing content (e.g. save button on Settings, info on Repositories).
+  // Reset on route change so outgoing screen's onDispose doesn't race with incoming screen's setup.
   var topBarTrailingContent: (@Composable () -> Unit)? by remember { mutableStateOf(null) }
+  LaunchedEffect(currentRoute) { topBarTrailingContent = null }
 
   // Determine which screens show the bottom nav and top bar
   val showNav = currentRoute in listOf(
@@ -279,7 +281,6 @@ fun OlliteRTApp(
     containerColor = MaterialTheme.colorScheme.surface,
     topBar = {
       if (showTopBar) {
-        val isSettings = currentRoute == OlliteRTRoutes.SETTINGS
         OlliteRTTopBar(
           serverStatus = serverStatus,
           onSettingsClick = {
@@ -298,7 +299,7 @@ fun OlliteRTApp(
           } else {
             null
           },
-          trailingContent = if (isSettings) topBarTrailingContent else null,
+          trailingContent = if (!showNav) topBarTrailingContent else null,
         )
       }
     },

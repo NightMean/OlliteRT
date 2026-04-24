@@ -66,6 +66,9 @@
   <string name="try_it" translatable="false">Start Server</string>
   <string name="repo_list_heading" translatable="false">Model Sources</string>
   <string name="repo_list_subheading" translatable="false">Manage the sources your models are downloaded from.</string>
+  <string name="repo_info_button" translatable="false">About model sources</string>
+  <string name="repo_info_title" translatable="false">About Model Sources</string>
+  <string name="repo_info_body" translatable="false">Model sources provide lists of models available for download. OlliteRT ships with a built-in source that is kept up to date automatically.\n\nYou can add custom sources by providing a URL to a compatible model list. Disabling a source hides its models from the download list but does not remove any models already downloaded.\n\nModels that appear in multiple sources are shown once, using the first enabled source.</string>
   <string name="search_models" translatable="false">Search models…</string>
   <string name="filter_all" translatable="false">All</string>
   <string name="filter_downloaded" translatable="false">Downloaded</string>

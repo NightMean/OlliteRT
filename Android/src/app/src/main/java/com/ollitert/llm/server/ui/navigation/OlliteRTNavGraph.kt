@@ -334,6 +334,7 @@ fun OlliteRTNavHost(
         onCancelDownload = { modelName ->
           modelManagerViewModel.cancelModelDownloadByName(modelName)
         },
+        onSetTopBarTrailingContent = onSetTopBarTrailingContent,
       )
     }
 

@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
@@ -45,6 +46,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PlainTooltip
@@ -56,6 +58,7 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,6 +92,7 @@ fun RepositoryListScreen(
   downloadedModelRepoIds: Map<String, String> = emptyMap(),
   downloadingModelRepoIds: Map<String, String> = emptyMap(),
   onCancelDownload: (modelName: String) -> Unit = {},
+  onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   LaunchedEffect(Unit) { viewModel.loadRepositories() }
@@ -99,6 +103,26 @@ fun RepositoryListScreen(
   var disableInfoRepoId by rememberSaveable { mutableStateOf<String?>(null) }
   var downloadingBlockRepoId by rememberSaveable { mutableStateOf<String?>(null) }
   var downloadingBlockModelNames by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+  var showInfoDialog by rememberSaveable { mutableStateOf(false) }
+
+  DisposableEffect(Unit) {
+    onSetTopBarTrailingContent {
+      TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = { PlainTooltip { Text(stringResource(R.string.repo_info_button)) } },
+        state = rememberTooltipState(),
+      ) {
+        IconButton(onClick = { showInfoDialog = true }) {
+          Icon(
+            Icons.Outlined.Info,
+            contentDescription = stringResource(R.string.repo_info_button),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+    }
+    onDispose { }
+  }
 
   BackHandler { onBackClick(hasChanges) }
 
@@ -270,6 +294,19 @@ fun RepositoryListScreen(
           downloadingBlockModelNames = emptyList()
         }) {
           Text(stringResource(R.string.cancel))
+        }
+      },
+    )
+  }
+
+  if (showInfoDialog) {
+    AlertDialog(
+      onDismissRequest = { showInfoDialog = false },
+      title = { Text(stringResource(R.string.repo_info_title)) },
+      text = { Text(stringResource(R.string.repo_info_body)) },
+      confirmButton = {
+        TextButton(onClick = { showInfoDialog = false }) {
+          Text(stringResource(R.string.ok))
         }
       },
     )
