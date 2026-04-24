@@ -559,6 +559,8 @@ val allSettingDefs: List<SettingDef> = listOf(
   // General
   KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
   HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
+  // Repositories
+  REPOSITORIES_NAV,
   // HF Token
   HF_TOKEN,
   // Server Config
@@ -573,8 +575,6 @@ val allSettingDefs: List<SettingDef> = listOf(
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
   HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT,
-  // Repositories
-  REPOSITORIES_NAV,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
@@ -600,6 +600,12 @@ val allCardDefs: List<CardDef> = listOf(
       HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
       SHOW_MODEL_RECOMMENDATIONS,
     ),
+  ),
+  CardDef(
+    id = CardId.REPOSITORIES,
+    titleRes = R.string.settings_card_repositories,
+    icon = CardIcon.Vector(Icons.Outlined.Inventory2),
+    settings = listOf(REPOSITORIES_NAV),
   ),
   CardDef(
     id = CardId.HF_TOKEN,
@@ -644,12 +650,6 @@ val allCardDefs: List<CardDef> = listOf(
     titleRes = R.string.settings_card_home_assistant,
     icon = CardIcon.Resource(R.drawable.ic_home_assistant),
     settings = listOf(HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT),
-  ),
-  CardDef(
-    id = CardId.REPOSITORIES,
-    titleRes = R.string.settings_card_repositories,
-    icon = CardIcon.Vector(Icons.Outlined.Inventory2),
-    settings = listOf(REPOSITORIES_NAV),
   ),
   CardDef(
     id = CardId.UPDATES,

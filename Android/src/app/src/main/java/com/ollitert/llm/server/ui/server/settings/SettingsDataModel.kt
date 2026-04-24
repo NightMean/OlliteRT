@@ -47,6 +47,7 @@ class SettingEntry<T>(initialValue: T) {
 /** Identifies which settings card a setting belongs to. */
 enum class CardId {
   GENERAL,
+  REPOSITORIES,
   HF_TOKEN,
   SERVER_CONFIG,
   AUTO_LAUNCH,
@@ -54,7 +55,6 @@ enum class CardId {
   METRICS,
   LOG_PERSISTENCE,
   HOME_ASSISTANT,
-  REPOSITORIES,
   UPDATES,
   ADVANCED,
   DEVELOPER,

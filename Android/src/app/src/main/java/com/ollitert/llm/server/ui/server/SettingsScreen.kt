@@ -208,6 +208,14 @@ fun SettingsScreen(
     AnimatedVisibility(visible = vm.cardVisible(CardId.GENERAL), enter = expandVertically(), exit = shrinkVertically()) {
       GeneralCard(vm)
     }
+    AnimatedVisibility(visible = vm.cardVisible(CardId.REPOSITORIES), enter = expandVertically(), exit = shrinkVertically()) {
+      RepositoriesCard(
+        repoCount = vm.repoCount,
+        enabledCount = vm.enabledRepoCount,
+        onNavigateToRepositories = onNavigateToRepositories,
+        searchQuery = vm.searchQuery,
+      )
+    }
     AnimatedVisibility(visible = vm.cardVisible(CardId.HF_TOKEN), enter = expandVertically(), exit = shrinkVertically()) {
       HfTokenCard(vm, context)
     }
@@ -242,14 +250,6 @@ fun SettingsScreen(
 
     AnimatedVisibility(visible = vm.cardVisible(CardId.HOME_ASSISTANT), enter = expandVertically(), exit = shrinkVertically()) {
       HomeAssistantCard(vm, context)
-    }
-    AnimatedVisibility(visible = vm.cardVisible(CardId.REPOSITORIES), enter = expandVertically(), exit = shrinkVertically()) {
-      RepositoriesCard(
-        repoCount = vm.repoCount,
-        enabledCount = vm.enabledRepoCount,
-        onNavigateToRepositories = onNavigateToRepositories,
-        searchQuery = vm.searchQuery,
-      )
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.UPDATES), enter = expandVertically(), exit = shrinkVertically()) {
       UpdatesCard(vm, context)
