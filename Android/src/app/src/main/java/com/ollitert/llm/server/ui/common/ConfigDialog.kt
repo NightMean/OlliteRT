@@ -106,12 +106,7 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
     // Field label.
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     // Content label.
-    val label =
-      try {
-        values[config.key.label] as String
-      } catch (e: Exception) {
-        ""
-      }
+    val label = values[config.key.label] as? String ?: ""
     Text(label, style = MaterialTheme.typography.bodyMedium)
   }
 }
@@ -122,13 +117,7 @@ fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String,
   var isFocused by remember { mutableStateOf(false) }
   val focusRequester = remember { FocusRequester() }
   var textValue by remember {
-    mutableStateOf(
-      try {
-        values[config.key.label] as String
-      } catch (e: Exception) {
-        ""
-      }
-    )
+    mutableStateOf(values[config.key.label] as? String ?: "")
   }
 
   Column(modifier = Modifier.fillMaxWidth()) {
@@ -180,22 +169,10 @@ fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String,
 }
 
 fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
-  return try {
-    when (valueType) {
-      ValueType.FLOAT -> {
-        "%.2f".format(value)
-      }
-
-      ValueType.INT -> {
-        "${value.toInt()}"
-      }
-
-      else -> {
-        ""
-      }
-    }
-  } catch (e: Exception) {
-    ""
+  return when (valueType) {
+    ValueType.FLOAT -> "%.2f".format(value)
+    ValueType.INT -> "${value.toInt()}"
+    else -> ""
   }
 }
 
@@ -223,17 +200,11 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
       // value or out of the slider range, temporary while user is still editing the text.
       var textFieldDisplayValue by remember {
         mutableStateOf(
-          getTextFieldDisplayValue(config.valueType, values[config.key.label] as Float)
+          getTextFieldDisplayValue(config.valueType, values[config.key.label] as? Float ?: 0f)
         )
       }
 
-      // Number slider.
-      val sliderValue =
-        try {
-          values[config.key.label] as Float
-        } catch (e: Exception) {
-          0f
-        }
+      val sliderValue = values[config.key.label] as? Float ?: 0f
 
       Text(
         text = getTextFieldDisplayValue(config.valueType, config.sliderMin),
@@ -263,7 +234,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
             // When leaving focus, display the internal value so that any invalid value is cleared.
             if (!isFocused) {
               textFieldDisplayValue =
-                getTextFieldDisplayValue(config.valueType, values[config.key.label] as Float)
+                getTextFieldDisplayValue(config.valueType, values[config.key.label] as? Float ?: 0f)
             }
           },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -298,12 +269,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
     }
 
     if (config.key == ConfigKeys.MAX_TOKENS) {
-      val sliderValue =
-        try {
-          values[config.key.label] as Float
-        } catch (e: Exception) {
-          0f
-        }
+      val sliderValue = values[config.key.label] as? Float ?: 0f
       if (sliderValue >= 10000f) {
         Text(
           text = stringResource(R.string.max_tokens_warning_message),
