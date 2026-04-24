@@ -62,6 +62,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
@@ -143,6 +145,13 @@ fun StatusScreen(
   }
 
   val context = LocalContext.current
+
+  var authOn by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context).isNotBlank()) }
+  var corsOrigins by remember { mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context)) }
+  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    authOn = LlmHttpPrefs.getBearerToken(context).isNotBlank()
+    corsOrigins = LlmHttpPrefs.getCorsAllowedOrigins(context)
+  }
 
   var showReloadDialog by remember { mutableStateOf(false) }
 
@@ -385,8 +394,6 @@ fun StatusScreen(
             textDecoration = if (endpointUrl != null) TextDecoration.Underline else TextDecoration.None,
             modifier = if (endpointUrl != null) Modifier.clickable { uriHandler.openUri(endpointUrl) } else Modifier,
           )
-          val authOn = remember { LlmHttpPrefs.getBearerToken(context).isNotBlank() }
-          val corsOrigins = remember { LlmHttpPrefs.getCorsAllowedOrigins(context) }
           val corsLabel = if (corsOrigins == "*") "all origins" else "restricted"
           Spacer(modifier = Modifier.height(2.dp))
           Text(
