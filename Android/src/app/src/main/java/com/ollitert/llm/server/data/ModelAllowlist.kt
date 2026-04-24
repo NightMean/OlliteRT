@@ -19,29 +19,32 @@ package com.ollitert.llm.server.data
 
 import android.os.Build
 import android.util.Log
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.isPixel10
 
 private const val TAG = "OlliteRTModelAllowlist"
 
+@Serializable
 data class DefaultConfig(
-  @SerializedName("topK") val topK: Int? = null,
-  @SerializedName("topP") val topP: Float? = null,
-  @SerializedName("temperature") val temperature: Float? = null,
-  @SerializedName("accelerators") val accelerators: String? = null,
-  @SerializedName("visionAccelerator") val visionAccelerator: String? = null,
-  @SerializedName("maxContextLength") val maxContextLength: Int? = null,
-  @SerializedName("maxTokens") val maxTokens: Int? = null,
+  @SerialName("topK") val topK: Int? = null,
+  @SerialName("topP") val topP: Float? = null,
+  @SerialName("temperature") val temperature: Float? = null,
+  @SerialName("accelerators") val accelerators: String? = null,
+  @SerialName("visionAccelerator") val visionAccelerator: String? = null,
+  @SerialName("maxContextLength") val maxContextLength: Int? = null,
+  @SerialName("maxTokens") val maxTokens: Int? = null,
 )
 
 /** A model file on HF for a specific SOC. */
+@Serializable
 data class SocModelFile(
-  @SerializedName("modelFile") val modelFile: String?,
-  @SerializedName("url") val url: String?,
-  @SerializedName("commitHash") val commitHash: String?,
-  @SerializedName("sizeInBytes") val sizeInBytes: Long?,
+  @SerialName("modelFile") val modelFile: String?,
+  @SerialName("url") val url: String?,
+  @SerialName("commitHash") val commitHash: String?,
+  @SerialName("sizeInBytes") val sizeInBytes: Long?,
 )
 
 private fun parseAccelerator(value: String): Accelerator? = when (value) {
@@ -53,6 +56,7 @@ private fun parseAccelerator(value: String): Accelerator? = when (value) {
 }
 
 /** A model in the model allowlist. */
+@Serializable
 data class AllowedModel(
   val name: String,
   val modelId: String,
@@ -222,13 +226,14 @@ data class AllowedModel(
  * (new models, changed fields, removed entries). Without this, app updates that ship a
  * newer bundled asset won't override a stale disk cache on existing devices.
  */
+@Serializable
 data class ModelAllowlist(
   val schemaVersion: Int = 1,
   val contentVersion: Int = 0,
   val sourceName: String = "",
   val sourceDescription: String = "",
   val sourceIconUrl: String = "",
-  val models: List<AllowedModel>,
+  val models: List<AllowedModel> = emptyList(),
 ) {
   companion object {
     const val SUPPORTED_SCHEMA_VERSION = 1

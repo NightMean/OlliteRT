@@ -39,13 +39,6 @@
 # Keep generated JsonAdapter classes
 -keep class **JsonAdapter { *; }
 
-# --- Gson ---
-# Gson uses reflection to instantiate data classes. R8 strips constructors and
-# merges classes it considers unused, which causes "Abstract classes can't be
-# instantiated" errors at runtime (e.g. Category, ModelAllowlist, AllowedModel).
-# Keep all data model classes in the data package that Gson deserializes.
--keep class com.ollitert.llm.server.data.** { *; }
-
 # --- Kotlin Reflect ---
 # Used for runtime type inspection
 -keep class kotlin.reflect.** { *; }

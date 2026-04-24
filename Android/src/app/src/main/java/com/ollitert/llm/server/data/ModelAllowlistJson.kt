@@ -16,27 +16,10 @@
 
 package com.ollitert.llm.server.data
 
-import com.google.gson.Gson
+import kotlinx.serialization.json.Json
 
 object ModelAllowlistJson {
-  private val gson = Gson()
+  private val json = Json { ignoreUnknownKeys = true }
 
-  @Suppress("SENSELESS_COMPARISON")
-  fun decode(content: String): ModelAllowlist {
-    val result = gson.fromJson(content, ModelAllowlist::class.java)
-    // Gson bypasses Kotlin defaults; missing fields get Java zero-values instead of Kotlin defaults.
-    val version = if (result.schemaVersion == 0) 1 else result.schemaVersion
-    val srcName = if (result.sourceName == null) "" else result.sourceName
-    val srcDesc = if (result.sourceDescription == null) "" else result.sourceDescription
-    val srcIcon = if (result.sourceIconUrl == null) "" else result.sourceIconUrl
-    val models = if (result.models == null) emptyList() else result.models
-    return result.copy(
-      schemaVersion = version,
-      contentVersion = result.contentVersion,
-      sourceName = srcName,
-      sourceDescription = srcDesc,
-      sourceIconUrl = srcIcon,
-      models = models,
-    )
-  }
+  fun decode(content: String): ModelAllowlist = json.decodeFromString<ModelAllowlist>(content)
 }

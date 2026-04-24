@@ -30,6 +30,9 @@ import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTValueArrowBlue
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.json.JSONObject
 
 // ── Event message parsing ────────────────────────────────────────────────────
@@ -342,9 +345,9 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
     var transcription: String? = null
     if (eventBody != null) {
       try {
-        val json = com.google.gson.JsonParser.parseString(eventBody).asJsonObject
-        instruction = json.get("instruction")?.takeIf { !it.isJsonNull }?.asString?.ifEmpty { null }
-        transcription = json.get("transcription")?.takeIf { !it.isJsonNull }?.asString?.ifEmpty { null }
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(eventBody).jsonObject
+        instruction = json["instruction"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
+        transcription = json["transcription"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
       } catch (_: Exception) {
         transcription = eventBody
       }

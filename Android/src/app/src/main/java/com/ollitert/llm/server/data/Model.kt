@@ -18,7 +18,8 @@
 package com.ollitert.llm.server.data
 
 import android.content.Context
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.io.File
 
 /** Capability that a model may support. */
@@ -30,9 +31,10 @@ enum class ModelCapability {
 }
 
 /** A previous version of a model file, used to detect updatable models on disk. */
+@Serializable
 data class ModelFile(
-  @SerializedName("fileName") val fileName: String,
-  @SerializedName("commitHash") val commitHash: String,
+  @SerialName("fileName") val fileName: String,
+  @SerialName("commitHash") val commitHash: String,
 )
 
 data class ModelDataFile(
@@ -44,9 +46,10 @@ data class ModelDataFile(
 const val IMPORTS_DIR = "__imports"
 private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
+@Serializable
 enum class RuntimeType {
-  @SerializedName("unknown") UNKNOWN,
-  @SerializedName("litert_lm") LITERT_LM,
+  @SerialName("unknown") UNKNOWN,
+  @SerialName("litert_lm") LITERT_LM,
 }
 
 /** A model available for serving. */

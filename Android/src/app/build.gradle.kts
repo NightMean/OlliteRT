@@ -191,7 +191,6 @@ dependencies {
   implementation(libs.material.icon.extended)
   implementation(libs.androidx.work.runtime)
   implementation(libs.androidx.datastore)
-  implementation(libs.com.google.code.gson)
   implementation("org.nanohttpd:nanohttpd:2.3.1")
   implementation(libs.litertlm)
   implementation(libs.commonmark)

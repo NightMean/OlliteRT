@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.data
 
-import com.google.gson.JsonSyntaxException
 import com.ollitert.llm.server.common.SemVer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -86,7 +85,7 @@ class ModelAllowlistJsonTest {
     assertEquals("Gemma3-1B-IT", allowlist.models.first().name)
   }
 
-  @Test(expected = JsonSyntaxException::class)
+  @Test(expected = kotlinx.serialization.SerializationException::class)
   fun rejectsMalformedJson() {
     ModelAllowlistJson.decode("""{"models":[{"name":"broken"}""")
   }
@@ -131,11 +130,9 @@ class ModelAllowlistJsonTest {
     assertEquals(null, model.badge)
   }
 
-  @Suppress("SENSELESS_COMPARISON")
-  @Test
-  fun decodesModelWithMissingNameAsNull() {
-    val json =
-      """
+  @Test(expected = kotlinx.serialization.SerializationException::class)
+  fun rejectsModelWithMissingRequiredName() {
+    val json = """
       {
         "models": [
           {
@@ -147,13 +144,9 @@ class ModelAllowlistJsonTest {
           }
         ]
       }
-      """.trimIndent()
+    """.trimIndent()
 
-    val allowlist = ModelAllowlistJson.decode(json)
-
-    assertEquals(1, allowlist.models.size)
-    // Gson bypasses Kotlin's non-null guarantee — `name` is String (non-null) but Gson sets it to null
-    assertTrue(allowlist.models.first().name == null)
+    ModelAllowlistJson.decode(json)
   }
 
   @Test
