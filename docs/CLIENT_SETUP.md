@@ -22,7 +22,7 @@ Every integration uses the same three values:
 | Setting | Value | Where to find it |
 |:--------|:------|:-----------------|
 | **Base URL** | `http://PHONE_IP:8000/v1` | Status screen → tap the endpoint to copy |
-| **API Key** | Your bearer token | Settings → Server Configuration (if auth is enabled) |
+| **API Key** | Your bearer token (if auth is enabled — enter any value if the client requires it but auth is disabled) | Settings → Server Configuration |
 | **Model** | e.g. `Gemma-4-E2B-it` | Any model name shown on the Models screen |
 
 > [!TIP]

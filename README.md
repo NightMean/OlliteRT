@@ -39,7 +39,7 @@
 - **Broad Compatibility** — Home Assistant, Open WebUI, OpenClaw, Python, curl — if it talks to OpenAI, it works
 
 > [!NOTE]
-> Home Assistant currently requires a custom integration such as [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) or [Local OpenAI LLM](https://github.com/cavefire/local_openai_llm) and [OpenAI STT](https://github.com/NightMean/OpenAI_STT_HASS) for voice commands — see the [Home Assistant client setup](docs/CLIENT_SETUP.md#home-assistant)
+> Home Assistant currently requires a custom integration such as [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) or [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm) and [OpenAI STT](https://github.com/NightMean/OpenAI_STT_HASS) for voice commands — see the [Home Assistant client setup](docs/CLIENT_SETUP.md#home-assistant)
 
 <sub>* I am not responsible for any swollen batteries, crispy phones, or spontaneous pocket warmers. Please don't run your LLM on your phone while it's under your pillow. You've been warned.</sub>
 
@@ -86,7 +86,7 @@ See the **[Model Guide](docs/MODELS.md)** for recommendations, capability detail
 
 ## Integrations
 
-- **[Prometheus metrics](docs/integrations/PROMETHEUS.md)** — `/metrics` endpoint with 22 metrics for Grafana, Datadog, etc.
+- **[Prometheus metrics](docs/integrations/PROMETHEUS.md)** — `/metrics` endpoint with 29 metrics for Grafana, Datadog, etc.
 - **[Home Assistant REST API](docs/integrations/HOME_ASSISTANT.md)** — monitor server status, control model, update settings remotely
 
 ## API Endpoints
@@ -99,11 +99,13 @@ See the **[Model Guide](docs/MODELS.md)** for recommendations, capability detail
 | `POST` | `/v1/chat/completions` | OpenAI Chat Completions API (streaming + non-streaming) |
 | `POST` | `/v1/completions` | OpenAI Completions API |
 | `POST` | `/v1/responses` | OpenAI Responses API |
-| `GET`  | `/v1/models` | List available models |
 | `POST` | `/v1/audio/transcriptions` | Audio transcription |
+| `GET`  | `/v1/models` | List available models |
+| `GET`  | `/v1/models/{id}` | Get detail for a specific model |
 | `GET`  | `/` or `/v1` | Server info (version, status, endpoints) |
-| `GET`  | `/metrics` | Prometheus metrics |
 | `GET`  | `/health` | Health check (with optional `?metrics=true`) |
+| `GET`  | `/metrics` | Prometheus metrics |
+| `GET`  | `/ping` | Simple liveness check |
 
 </details>
 

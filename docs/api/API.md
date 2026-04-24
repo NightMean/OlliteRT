@@ -11,6 +11,7 @@ OlliteRT exposes an OpenAI-compatible HTTP API on your local network. Default po
 - [Responses API](#responses-api--post-v1responses)
 - [Audio Transcriptions](#audio-transcriptions--post-v1audiotranscriptions)
 - [Models](#models--get-v1models)
+- [Model Detail](#model-detail--get-v1modelsid)
 - [Health](#health--get-health)
 - [Error Responses](#error-responses)
 - [Server Info](#server-info--get--or-get-v1)
@@ -27,19 +28,25 @@ OlliteRT exposes an OpenAI-compatible HTTP API on your local network. Default po
 | `POST` | `/v1/responses` | OpenAI Responses API |
 | `POST` | `/v1/audio/transcriptions` | Audio transcription |
 | `GET`  | `/v1/models` | List available models |
+| `GET`  | `/v1/models/{id}` | Get detail for a specific model |
 | `GET`  | `/` or `/v1` | Server info (version, status, endpoints) |
-| `GET`  | `/metrics` | Prometheus metrics (exposition format) |
 | `GET`  | `/health` | Health check (add `?metrics=true` for detailed JSON stats) |
+| `GET`  | `/metrics` | Prometheus metrics (exposition format) |
+| `GET`  | `/ping` | Simple liveness check — returns `{"status":"ok"}` |
 
 ## Authentication
 
-Bearer token authentication is optional and can be enabled in the app's Settings screen. See the [Security Guide](../SECURITY.md) for details on authentication and network exposure.
+Bearer token authentication is **optional** and disabled by default. When disabled, all endpoints are open — no API key or header is needed.
 
-When enabled, include the token in the `Authorization` header:
+To enable authentication, go to Settings → Server Configuration and toggle **Require Bearer Token**. When enabled, include the token in the `Authorization` header:
 
 ```
 Authorization: Bearer your-token
 ```
+
+Some clients (Home Assistant integrations, Open WebUI) require an API key field even when auth is disabled — enter any non-empty value (e.g. `unused`). OlliteRT ignores the header entirely when bearer auth is not enabled.
+
+See the [Security Guide](../SECURITY.md) for details on network exposure and credential storage.
 
 > [!TIP]
 > All inference endpoints accept the same core parameters (`temperature`, `top_p`, `top_k`, `max_tokens`, `stream`). The parameter tables below document each endpoint's full set.
@@ -232,6 +239,12 @@ Returns a list of available models with their capabilities and update status.
 | `capabilities` | object | `image`, `audio`, `thinking` booleans indicating model capabilities |
 | `update_available` | boolean | `true` if a newer version of this model is available in the allowlist |
 
+## Model Detail — `GET /v1/models/{id}`
+
+Returns detail for a specific model by name. The model ID is case-insensitive. Returns `404` if the model is not loaded (or not idle-unloaded by keep-alive).
+
+The response has the same shape as a single entry from the `/v1/models` list.
+
 ## Health — `GET /health`
 
 Returns server health status. Also available at `/v1/health`.
@@ -350,6 +363,6 @@ See [Troubleshooting → Connection Issues](../TROUBLESHOOTING.md#connection-iss
 
 ## Prometheus Metrics — `GET /metrics`
 
-Returns server metrics in [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) (`text/plain; version=0.0.4`). Includes 9 counters and 13 gauges covering throughput, latency, token counts, and more.
+Returns server metrics in [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) (`text/plain; version=0.0.4`). Includes 10 counters and 19 gauges covering throughput, latency, token counts, memory, and more.
 
 For the full list of metrics and Grafana setup, see the [Prometheus Integration Guide](../integrations/PROMETHEUS.md).

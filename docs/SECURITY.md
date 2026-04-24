@@ -32,7 +32,10 @@ Authorization: Bearer your-token-here
 
 Requests without a valid token receive a `401 Unauthorized` response. See [Troubleshooting → 401 Unauthorized](TROUBLESHOOTING.md#401-unauthorized-error) if you're having auth issues.
 
-**Endpoints exempt from auth:**
+> [!NOTE]
+> When bearer auth is **disabled** (the default), all endpoints are open — no API key or header is needed. OlliteRT ignores the `Authorization` header entirely. Some clients require an API key field even when auth is disabled — enter any non-empty value (e.g. `unused`).
+
+**Endpoints exempt from auth (even when enabled):**
 - `GET /` and `GET /v1` — server info (version, status, endpoints)
 - `GET /health` — health check (returns only status, no sensitive data)
 - `GET /metrics` — Prometheus metrics

@@ -65,9 +65,16 @@ All data is stored in Android's app-private directories, which are not accessibl
 | Permission | Why It's Needed |
 |:-----------|:----------------|
 | `FOREGROUND_SERVICE` | Keeps the HTTP server running when the app is in the background |
-| `INTERNET` | Model downloads and update checks |
-| `POST_NOTIFICATIONS` | Server status notification and update alerts |
+| `FOREGROUND_SERVICE_DATA_SYNC` | Foreground service type for the HTTP server (required by Android 14+) |
+| `FOREGROUND_SERVICE_CONNECTED_DEVICE` | Foreground service type for serving network clients (required by Android 14+) |
+| `INTERNET` | Model downloads, update checks, and model source refresh |
+| `ACCESS_NETWORK_STATE` | Detect network availability before model downloads and source refresh |
+| `ACCESS_WIFI_STATE` | Read the device's local IP address for the Status screen endpoint display |
+| `CHANGE_NETWORK_STATE` | Request network connectivity for model downloads |
+| `WAKE_LOCK` | Prevent the CPU from sleeping during model downloads (used by WorkManager) |
+| `POST_NOTIFICATIONS` | Server status notification, model update alerts, and download progress |
 | `RECEIVE_BOOT_COMPLETED` | Auto-start server on device boot (optional, user-enabled) |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt the user to exempt OlliteRT from battery optimization so Android doesn't kill the server |
 
 The app does **not** request: camera, microphone, location, contacts, phone, SMS, or storage permissions.
 

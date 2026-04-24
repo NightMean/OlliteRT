@@ -94,7 +94,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `LlmHttpApiModels.kt` | Kotlin data classes for OpenAI API request/response format |
 | `LlmHttpAudioTranscriptionHandler.kt` | Audio transcription endpoint (`/v1/audio/transcriptions`) |
 | `LlmHttpAudioPreprocessor.kt` | Audio format detection and stereo-to-mono downmix |
-| `LlmHttpToolCallParser.kt` | Post-inference [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection (5 output patterns) |
+| `LlmHttpToolCallParser.kt` | Post-inference [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection — 5 single-call patterns (`tool_call` wrapper, `<tool_call>` XML, native Gemma `<\|tool_call>`, `function` wrapper, bare `name`+`arguments` JSON) and 3 multi-call patterns (multiple XML blocks, multiple Gemma blocks, JSON array) |
 | `LlmHttpRequestAdapter.kt` | Prompt building, tool schema injection, image/audio extraction, tool_choice resolution |
 | `LlmHttpPromptCompactor.kt` | Context window overflow handling |
 | `LlmHttpPrometheusRenderer.kt` | Prometheus `/metrics` exposition format |
@@ -135,6 +135,8 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `ModelAllowlistJson.kt` | JSON parser for model allowlist |
 | `ModelBadge.kt` | Badge sealed class (`BestOverall`, `New`, `Fastest`, `Other`) |
 | `ModelStorageUtils.kt` | Temp file cleanup and storage requirement checks |
+| `RepositoryNameFallback.kt` | Derives human-readable names for model sources when metadata is unavailable |
+| `BoundedHttpFetcher.kt` | Size-limited HTTP fetcher for model source JSON (10 MB cap) |
 | `LlmHttpPrefs.kt` | SharedPreferences accessor for server config |
 | `DataStoreRepository.kt` | Interface for persisting app state to Proto DataStore |
 | `DownloadRepository.kt` | Manages model downloads with progress tracking |
@@ -155,6 +157,7 @@ Background tasks managed by WorkManager with Hilt integration (`@HiltWorker`).
 | `AllowlistRefreshWorker.kt` | Periodic allowlist refresh (~24h) — fetches each enabled model source's list, detects model updates, fires notifications |
 | `UpdateCheckWorker.kt` | Periodic app update check — queries GitHub Releases API for newer OlliteRT versions |
 | `DownloadWorker.kt` | Model file download with progress tracking |
+| `UpdateDismissReceiver.kt` | Suppresses re-posting update notification after user dismisses it |
 
 ### UI Layer (`ui/`)
 
@@ -166,7 +169,7 @@ All screens use Jetpack Compose with Material 3. State is managed via `@HiltView
 | Models | `modelmanager/` | Model list, download, import, delete |
 | Status | `server/StatusScreen.kt` | Live metrics dashboard |
 | Logs | `server/LogsScreen.kt` + `server/logs/` | Request/response logs with event parsing |
-| Settings | `server/SettingsScreen.kt`, `SettingsViewModel.kt` + `server/settings/` (12 card files, data model, definitions, dialogs, footer, renderers, validators) | Server configuration |
+| Settings | `server/SettingsScreen.kt`, `SettingsViewModel.kt` + `server/settings/` (13 card files, data model, definitions, dialogs, footer, renderers, validators) | Server configuration |
 | Model Sources | `repositories/RepositoryListScreen.kt`, `RepositoryDetailScreen.kt`, `RepositoryViewModel.kt` | Model source management — add, remove, enable/disable model sources |
 | Benchmark | `benchmark/` | Model performance benchmarking |
 
