@@ -396,10 +396,11 @@ fun StatusScreen(
               onClickLabel = stringResource(R.string.status_open_endpoint),
             ) { uriHandler.openUri(endpointUrl) } else Modifier,
           )
-          val corsLabel = if (corsOrigins == "*") "all origins" else "restricted"
+          val corsLabel = if (corsOrigins == "*") stringResource(R.string.status_cors_all_origins) else stringResource(R.string.status_cors_restricted)
+          val authLabel = if (authOn) stringResource(R.string.status_auth_on) else stringResource(R.string.status_auth_off)
           Spacer(modifier = Modifier.height(2.dp))
           Text(
-            text = "Auth: ${if (authOn) "on" else "off"} · CORS: $corsLabel",
+            text = stringResource(R.string.status_auth_cors, authLabel, corsLabel),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           )

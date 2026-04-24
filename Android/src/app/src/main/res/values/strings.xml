@@ -402,6 +402,11 @@
   <string name="status_endpoint_placeholder" translatable="false">—</string>
   <string name="status_copy_endpoint_tooltip" translatable="false">Copy endpoint URL</string>
   <string name="status_open_endpoint" translatable="false">Open endpoint in browser</string>
+  <string name="status_auth_cors" translatable="false">Auth: %1$s · CORS: %2$s</string>
+  <string name="status_auth_on" translatable="false">on</string>
+  <string name="status_auth_off" translatable="false">off</string>
+  <string name="status_cors_all_origins" translatable="false">all origins</string>
+  <string name="status_cors_restricted" translatable="false">restricted</string>
 
   <!-- Status: Section headers -->
   <string name="status_section_metrics" translatable="false">Metrics</string>
