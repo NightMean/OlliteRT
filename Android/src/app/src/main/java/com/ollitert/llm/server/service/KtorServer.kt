@@ -43,6 +43,7 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.server.request.receiveMultipart
@@ -105,6 +106,15 @@ class KtorServer(
     engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
       configureCors()
       install(ContentNegotiation) { json(json) }
+      install(StatusPages) {
+        status(HttpStatusCode.NotFound) { call, _ ->
+          val uri = call.request.uri
+          val unsupportedMsg = LlmHttpRouteResolver.getUnsupportedEndpointMessage(uri)
+          val response = if (unsupportedMsg != null) httpJsonError(404, unsupportedMsg)
+          else httpNotFound()
+          withGetLogging(call) { response }
+        }
+      }
       routing {
         configureGetRoutes()
         configurePostRoutes()
@@ -372,11 +382,28 @@ class KtorServer(
     }
 
     // ── Audio transcription ──
+    // Can't use withRequestLogging — multipart body requires receiveMultipart() instead of receiveText().
     post("/v1/audio/transcriptions") {
       if (!requireAuth(call)) return@post
+      val startMs = SystemClock.elapsedRealtime()
+      val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
+      RequestLogStore.add(
+        RequestLogEntry(
+          id = logId,
+          method = "POST",
+          path = "/v1/audio/transcriptions",
+          modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
+          clientIp = call.clientIp(),
+          isPending = true,
+        ),
+      )
+
       val contentLength = call.request.headers["Content-Length"]?.toLongOrNull() ?: 0L
       if (contentLength > 25_000_000L) {
-        call.respondHttpResponse(httpJsonError(400, "File too large (${contentLength / 1_000_000}MB). Maximum: 25MB."))
+        val response = httpJsonError(400, "File too large (${contentLength / 1_000_000}MB). Maximum: 25MB.")
+        finalizeLogEntry(logId, startMs, response, null, response.body)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(response)
         return@post
       }
 
@@ -395,16 +422,26 @@ class KtorServer(
       val model = when (val sel = modelLifecycle.selectModel(null)) {
         is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
         is LlmHttpModelLifecycle.ModelSelection.Error -> {
-          call.respondHttpResponse(HttpResponse.Json(
+          val response = HttpResponse.Json(
             statusCode = sel.statusCode,
             body = LlmHttpResponseRenderer.renderJsonError(sel.message),
             extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-          ))
+          )
+          finalizeLogEntry(logId, startMs, response, null, response.body)
+          call.response.headers.append("x-request-id", logId)
+          call.respondHttpResponse(response)
           return@post
         }
       }
-      // withRequestLogging not used here — audio handler does its own body/response capture
-      val response = audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = null)
+
+      val response = audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId)
+      val responseBody = when (response) {
+        is HttpResponse.Json -> response.body
+        is HttpResponse.PlainText -> response.body
+        else -> null
+      }
+      finalizeLogEntry(logId, startMs, response, "[multipart audio ${contentLength} bytes]", responseBody)
+      call.response.headers.append("x-request-id", logId)
       call.respondHttpResponse(response)
     }
   }
@@ -441,7 +478,13 @@ class KtorServer(
       httpInternalError(t.message ?: "internal_error")
     }
 
-    finalizeLogEntry(logId, startMs, response, requestBodySnapshot = null, responseBodySnapshot = null)
+    val responseBodySnapshot = when (response) {
+      is HttpResponse.Json -> response.body
+      is HttpResponse.PlainText -> response.body
+      is HttpResponse.Binary -> "[binary ${response.bytes.size} bytes]"
+      is HttpResponse.Sse -> null
+    }
+    finalizeLogEntry(logId, startMs, response, requestBodySnapshot = null, responseBodySnapshot = responseBodySnapshot)
     call.response.headers.append("x-request-id", logId)
     call.respondHttpResponse(response)
   }
