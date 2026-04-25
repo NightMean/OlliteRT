@@ -83,6 +83,17 @@ val COMPACT_IMAGE_DATA = SettingDef.Toggle(
   write = { ctx, v -> LlmHttpPrefs.setCompactImageData(ctx, v) },
 )
 
+val RESOLVE_CLIENT_HOSTNAMES = SettingDef.Toggle(
+  key = "resolve_client_hostnames",
+  labelRes = R.string.settings_resolve_client_hostnames,
+  descriptionRes = R.string.settings_resolve_client_hostnames_desc,
+  card = CardId.GENERAL,
+  default = false,
+  prefsKey = "resolve_client_hostnames",
+  read = { LlmHttpPrefs.isResolveClientHostnames(it) },
+  write = { ctx, v -> LlmHttpPrefs.setResolveClientHostnames(ctx, v) },
+)
+
 val HIDE_HEALTH_LOGS = SettingDef.Toggle(
   key = "hide_health_logs",
   labelRes = R.string.settings_hide_health_logs,
@@ -558,7 +569,8 @@ val REPOSITORIES_NAV = SettingDef.Custom(
 val allSettingDefs: List<SettingDef> = listOf(
   // General
   KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
-  HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
+  RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
+  SHOW_MODEL_RECOMMENDATIONS,
   // Repositories
   REPOSITORIES_NAV,
   // HF Token
@@ -597,8 +609,8 @@ val allCardDefs: List<CardDef> = listOf(
     icon = CardIcon.Vector(Icons.Outlined.PhoneAndroid),
     settings = listOf(
       KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
-      HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
-      SHOW_MODEL_RECOMMENDATIONS,
+      RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
+      KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
     ),
   ),
   CardDef(

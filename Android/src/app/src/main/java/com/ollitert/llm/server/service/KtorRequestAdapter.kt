@@ -19,5 +19,6 @@ package com.ollitert.llm.server.service
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
 
-internal fun ApplicationCall.clientIp(): String =
-  request.origin.remoteHost
+internal fun ApplicationCall.clientIp(resolveHostnames: Boolean = false): String =
+  if (resolveHostnames) request.origin.remoteHost
+  else request.origin.remoteAddress

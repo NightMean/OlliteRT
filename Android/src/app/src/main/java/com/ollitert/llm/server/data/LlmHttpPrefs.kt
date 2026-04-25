@@ -79,6 +79,10 @@ private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 private const val KEY_COMPACT_IMAGE_DATA = "compact_image_data"
 private const val DEFAULT_COMPACT_IMAGE_DATA = true
 
+// --- Resolve Client Hostnames (show hostname instead of IP in Logs) ---
+private const val KEY_RESOLVE_CLIENT_HOSTNAMES = "resolve_client_hostnames"
+private const val DEFAULT_RESOLVE_CLIENT_HOSTNAMES = false
+
 // --- Hide Health Logs (suppress /health endpoint entries from the Logs tab) ---
 private const val KEY_HIDE_HEALTH_LOGS = "hide_health_logs"
 private const val DEFAULT_HIDE_HEALTH_LOGS = false
@@ -523,6 +527,13 @@ object LlmHttpPrefs {
 
   fun setCompactImageData(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_COMPACT_IMAGE_DATA, enabled).apply()
+  }
+
+  fun isResolveClientHostnames(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_RESOLVE_CLIENT_HOSTNAMES, DEFAULT_RESOLVE_CLIENT_HOSTNAMES)
+
+  fun setResolveClientHostnames(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_RESOLVE_CLIENT_HOSTNAMES, enabled).apply()
   }
 
   fun isHideHealthLogs(context: Context): Boolean =

@@ -393,7 +393,7 @@ class KtorServer(
           method = "POST",
           path = "/v1/audio/transcriptions",
           modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
-          clientIp = call.clientIp(),
+          clientIp = call.clientIp(LlmHttpPrefs.isResolveClientHostnames(serviceContext)),
           isPending = true,
         ),
       )
@@ -465,7 +465,7 @@ class KtorServer(
         method = call.request.local.method.value,
         path = call.request.uri,
         modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
-        clientIp = call.clientIp(),
+        clientIp = call.clientIp(LlmHttpPrefs.isResolveClientHostnames(serviceContext)),
         isPending = true,
       ),
     )
@@ -510,7 +510,7 @@ class KtorServer(
     val startMs = SystemClock.elapsedRealtime()
     val method = call.request.local.method.value
     val path = call.request.uri
-    val clientIp = call.clientIp()
+    val clientIp = call.clientIp(LlmHttpPrefs.isResolveClientHostnames(serviceContext))
 
     // Add a pending log entry immediately so it appears in the Logs tab
     val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
