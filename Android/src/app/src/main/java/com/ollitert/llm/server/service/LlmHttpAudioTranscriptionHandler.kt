@@ -23,7 +23,6 @@ import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportAudio
-import fi.iki.elonen.NanoHTTPD
 import java.io.File
 
 private const val MAX_FILE_SIZE_BYTES = 25_000_000L
@@ -32,8 +31,10 @@ private const val LOG_TAG = "AudioTranscription"
 /**
  * Handles POST /v1/audio/transcriptions — OpenAI Whisper-compatible endpoint.
  *
- * Accepts multipart/form-data with an audio file and optional fields (model, language,
- * prompt, temperature, response_format). Passes audio directly to the LiteRT SDK via
+ * Accepts pre-parsed multipart data: fileBytes from the "file" part, fields for
+ * all other form fields (model, language, prompt, temperature, response_format).
+ * Content-Length checking and multipart parsing happen in the caller (KtorServer)
+ * before this method is invoked. Passes audio directly to the LiteRT SDK via
  * Content.AudioBytes — the model natively processes audio without prompt engineering.
  */
 class LlmHttpAudioTranscriptionHandler(
@@ -43,65 +44,38 @@ class LlmHttpAudioTranscriptionHandler(
 ) {
 
   fun handle(
-    session: NanoHTTPD.IHTTPSession,
+    fileBytes: ByteArray?,
+    fields: Map<String, String>,
+    contentLength: Long,
     model: Model,
-    captureBody: (String) -> Unit,
-    captureResponse: (String) -> Unit,
-    logId: String?,
-  ): NanoHTTPD.Response {
+    captureBody: (String) -> Unit = {},
+    captureResponse: (String) -> Unit = {},
+    logId: String? = null,
+  ): HttpResponse {
     val startMs = SystemClock.elapsedRealtime()
 
-    // Check Content-Length before parseBody() to reject oversized uploads before
-    // NanoHTTPD buffers the entire multipart body into heap memory.
-    session.headers["content-length"]?.toLongOrNull()?.let { contentLength ->
-      if (contentLength > MAX_FILE_SIZE_BYTES) {
-        return openAiError(
-          NanoHTTPD.Response.Status.BAD_REQUEST,
-          "File too large (${contentLength / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
-          "invalid_request_error",
-          "file_too_large",
-        )
-      }
-    }
-
-    // Parse multipart form data manually because NanoHTTPD's parseBody() only puts parts
-    // with a Content-Type header into the files map. Some clients (Open WebUI, curl without
-    // explicit type) send audio files without a part-level Content-Type, causing NanoHTTPD to
-    // decode the binary audio as a UTF-8 string into session.parameters — corrupting the data.
-    val parsed = try {
-      parseMultipartAudio(session)
-    } catch (e: Exception) {
-      Log.w(LOG_TAG, "Multipart parse failed", e)
+    if (fileBytes == null) {
       return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
-        "Failed to parse multipart form data: ${e.message}",
-        "invalid_request_error",
-        "parse_error",
-      )
-    }
-
-    if (parsed.fileBytes == null) {
-      return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
+        400,
         "Missing required 'file' field in multipart form data.",
         "invalid_request_error",
         "missing_file",
       )
     }
 
-    if (parsed.fileBytes.isEmpty()) {
+    if (fileBytes.isEmpty()) {
       return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
+        400,
         "Uploaded audio file is empty.",
         "invalid_request_error",
         "empty_file",
       )
     }
 
-    if (parsed.fileBytes.size > MAX_FILE_SIZE_BYTES) {
+    if (fileBytes.size > MAX_FILE_SIZE_BYTES) {
       return openAiError(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
-        "File too large (${parsed.fileBytes.size / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
+        400,
+        "File too large (${fileBytes.size / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
         "invalid_request_error",
         "file_too_large",
       )
@@ -109,21 +83,21 @@ class LlmHttpAudioTranscriptionHandler(
 
     val tempFile = File(context.cacheDir, "audio_upload_${System.currentTimeMillis()}.tmp")
     try {
-      tempFile.writeBytes(parsed.fileBytes)
+      tempFile.writeBytes(fileBytes)
     } catch (e: java.io.IOException) {
       return openAiError(
-        NanoHTTPD.Response.Status.INTERNAL_ERROR,
+        500,
         "Failed to write audio to temp file: ${e.message}",
         "server_error",
         "disk_write_failed",
       )
     }
     try {
-      val language = parsed.fields["language"]?.takeIf { it.isNotBlank() }
-      val prompt = parsed.fields["prompt"]?.takeIf { it.isNotBlank() }
-      val temperatureStr = parsed.fields["temperature"]?.takeIf { it.isNotBlank() }
-      val responseFormat = parsed.fields["response_format"]?.takeIf { it.isNotBlank() } ?: "json"
-      val requestedModel = parsed.fields["model"]
+      val language = fields["language"]?.takeIf { it.isNotBlank() }
+      val prompt = fields["prompt"]?.takeIf { it.isNotBlank() }
+      val temperatureStr = fields["temperature"]?.takeIf { it.isNotBlank() }
+      val responseFormat = fields["response_format"]?.takeIf { it.isNotBlank() } ?: "json"
+      val requestedModel = fields["model"]
 
       if (requestedModel != null) {
         Log.d(LOG_TAG, "Client requested model='$requestedModel', using active model='${model.name}'")
@@ -142,7 +116,7 @@ class LlmHttpAudioTranscriptionHandler(
       // Validate model supports audio
       if (!model.llmSupportAudio) {
         return openAiError(
-          NanoHTTPD.Response.Status.BAD_REQUEST,
+          400,
           "The active model '${model.name}' does not support audio input. Load a model with audio capability (e.g. Gemma 4).",
           "invalid_request_error",
           "model_not_supported",
@@ -161,7 +135,7 @@ class LlmHttpAudioTranscriptionHandler(
         format = LlmHttpAudioPreprocessor.detectFormat(rawBytes)
         if (format == AudioFormat.UNKNOWN) {
           return openAiError(
-            NanoHTTPD.Response.Status.BAD_REQUEST,
+            400,
             "Unsupported audio format. Supported: wav, mp3, ogg, flac.",
             "invalid_request_error",
             "unsupported_format",
@@ -174,7 +148,7 @@ class LlmHttpAudioTranscriptionHandler(
         audioBytes = LlmHttpAudioPreprocessor.ensureMono(rawBytes, format)
       } catch (e: IllegalArgumentException) {
         return openAiError(
-          NanoHTTPD.Response.Status.BAD_REQUEST,
+          400,
           e.message ?: "Audio preprocessing failed.",
           "invalid_request_error",
           "unsupported_format",
@@ -228,7 +202,7 @@ class LlmHttpAudioTranscriptionHandler(
         val (errorMsg, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
         ServerMetrics.incrementErrorCount(kind.category)
         return openAiError(
-          NanoHTTPD.Response.Status.INTERNAL_ERROR,
+          500,
           errorMsg,
           "server_error",
           "inference_error",
@@ -299,13 +273,9 @@ class LlmHttpAudioTranscriptionHandler(
       captureResponse(responseBody)
 
       return if (responseFormat == "text") {
-        NanoHTTPD.newFixedLengthResponse(
-          NanoHTTPD.Response.Status.OK,
-          "text/plain; charset=utf-8",
-          responseBody,
-        )
+        HttpResponse.PlainText(200, "text/plain; charset=utf-8", responseBody)
       } else {
-        okJsonText(responseBody)
+        httpOkJson(responseBody)
       }
     } finally {
       tempFile.delete()
@@ -342,124 +312,10 @@ class LlmHttpAudioTranscriptionHandler(
       return sb.toString()
     }
 
-    private fun openAiError(
-      status: NanoHTTPD.Response.Status,
-      message: String,
-      type: String,
-      code: String,
-    ): NanoHTTPD.Response {
+    private fun openAiError(statusCode: Int, message: String, type: String, code: String): HttpResponse {
       val escaped = escapeJsonString(message)
       val body = """{"error":{"message":$escaped,"type":"$type","code":"$code"}}"""
-      return NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", body)
-    }
-
-    private class MultipartResult(
-      val fileBytes: ByteArray?,
-      val fields: Map<String, String>,
-    )
-
-    /**
-     * Binary-safe multipart/form-data parser. NanoHTTPD's parseBody() only stores parts
-     * with a Content-Type header in the files map — parts without it (common for audio
-     * uploads from Open WebUI, curl, etc.) get decoded as UTF-8 strings, corrupting
-     * binary data. This parser extracts raw bytes for the "file" part and text values
-     * for all other form fields.
-     */
-    private fun parseMultipartAudio(session: NanoHTTPD.IHTTPSession): MultipartResult {
-      val contentType = session.headers["content-type"] ?: ""
-      val boundaryMatch = Regex("""boundary=(.+)""").find(contentType)
-        ?: throw IllegalArgumentException("Missing boundary in content-type")
-      val boundary = boundaryMatch.groupValues[1].trim()
-
-      // Read the full body. NanoHTTPD buffers small bodies in memory and large ones
-      // to a temp file, but the inputStream is positioned at the body start after
-      // headers have been parsed. We need to read content-length bytes.
-      val bodySize = session.headers["content-length"]?.toLongOrNull()
-        ?: throw IllegalArgumentException("Missing content-length header")
-      if (bodySize > MAX_FILE_SIZE_BYTES + 10_000) {
-        throw IllegalArgumentException("Request body too large")
-      }
-
-      val bodyBytes = ByteArray(bodySize.toInt())
-      var totalRead = 0
-      val inputStream = session.inputStream
-      while (totalRead < bodyBytes.size) {
-        val read = inputStream.read(bodyBytes, totalRead, bodyBytes.size - totalRead)
-        if (read == -1) break
-        totalRead += read
-      }
-
-      val boundaryBytes = "--$boundary".toByteArray(Charsets.US_ASCII)
-      val positions = findAllOccurrences(bodyBytes, boundaryBytes)
-      if (positions.size < 2) {
-        throw IllegalArgumentException("Invalid multipart body: fewer than 2 boundary markers")
-      }
-
-      var fileBytes: ByteArray? = null
-      val fields = mutableMapOf<String, String>()
-
-      for (i in 0 until positions.size - 1) {
-        val partStart = positions[i] + boundaryBytes.size
-        // Skip \r\n after boundary
-        val headerStart = if (partStart + 1 < bodyBytes.size &&
-          bodyBytes[partStart] == '\r'.code.toByte() && bodyBytes[partStart + 1] == '\n'.code.toByte()
-        ) partStart + 2 else partStart
-
-        // Find end of headers (blank line = \r\n\r\n)
-        val headerEndMarker = "\r\n\r\n".toByteArray(Charsets.US_ASCII)
-        val headerEndPos = indexOf(bodyBytes, headerEndMarker, headerStart)
-          ?: continue
-        val dataStart = headerEndPos + headerEndMarker.size
-
-        // Part data ends at next boundary, minus the \r\n before it
-        val dataEnd = positions[i + 1] - 2 // skip \r\n before next boundary
-
-        val headerText = String(bodyBytes, headerStart, headerEndPos - headerStart, Charsets.US_ASCII)
-        val nameMatch = Regex("""name="([^"]+)"""").find(headerText)
-        val partName = nameMatch?.groupValues?.get(1) ?: continue
-        val hasFilename = Regex("""filename="([^"]*)"""").containsMatchIn(headerText)
-
-        if (partName == "file" || hasFilename) {
-          if (dataEnd > dataStart) {
-            fileBytes = bodyBytes.copyOfRange(dataStart, dataEnd)
-          } else {
-            fileBytes = ByteArray(0)
-          }
-        } else {
-          val value = String(bodyBytes, dataStart, maxOf(0, dataEnd - dataStart), Charsets.UTF_8)
-          fields[partName] = value
-        }
-      }
-
-      return MultipartResult(fileBytes, fields)
-    }
-
-    private fun findAllOccurrences(haystack: ByteArray, needle: ByteArray): List<Int> {
-      val positions = mutableListOf<Int>()
-      var i = 0
-      while (i <= haystack.size - needle.size) {
-        if (matchesAt(haystack, i, needle)) {
-          positions.add(i)
-          i += needle.size
-        } else {
-          i++
-        }
-      }
-      return positions
-    }
-
-    private fun indexOf(haystack: ByteArray, needle: ByteArray, from: Int): Int? {
-      for (i in from..haystack.size - needle.size) {
-        if (matchesAt(haystack, i, needle)) return i
-      }
-      return null
-    }
-
-    private fun matchesAt(haystack: ByteArray, offset: Int, needle: ByteArray): Boolean {
-      for (j in needle.indices) {
-        if (haystack[offset + j] != needle[j]) return false
-      }
-      return true
+      return HttpResponse.Json(statusCode, body)
     }
   }
 }

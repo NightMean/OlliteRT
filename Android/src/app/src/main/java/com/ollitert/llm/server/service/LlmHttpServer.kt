@@ -307,7 +307,7 @@ class LlmHttpServer(
                 return@serve applyCorsHeaders(jsonError(status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }, corsHeaders)
               }
               }
-              audioTranscriptionHandler.handle(session, model, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+              audioTranscriptionHandler.handle(null, emptyMap(), 0L, model, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId).toNanoResponse()
             }
           }
         }

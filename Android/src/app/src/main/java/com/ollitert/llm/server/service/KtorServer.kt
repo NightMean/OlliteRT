@@ -43,7 +43,12 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.http.content.PartData
+import io.ktor.http.content.forEachPart
+import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveText
+import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
 import io.ktor.server.request.uri
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
@@ -357,13 +362,41 @@ class KtorServer(
       }
     }
 
-    // ── Audio transcription placeholder ──
-    // Full multipart handling will be migrated in a later task.
+    // ── Audio transcription ──
     post("/v1/audio/transcriptions") {
       if (!requireAuth(call)) return@post
-      call.respondHttpResponse(
-        httpJsonError(501, "Audio transcription not yet available via Ktor server"),
-      )
+      val contentLength = call.request.headers["Content-Length"]?.toLongOrNull() ?: 0L
+      if (contentLength > 25_000_000L) {
+        call.respondHttpResponse(httpJsonError(400, "File too large (${contentLength / 1_000_000}MB). Maximum: 25MB."))
+        return@post
+      }
+
+      val multipart = call.receiveMultipart()
+      var fileBytes: ByteArray? = null
+      val fields = mutableMapOf<String, String>()
+      multipart.forEachPart { part ->
+        when (part) {
+          is PartData.FileItem -> fileBytes = part.provider().readRemaining().readByteArray()
+          is PartData.FormItem -> fields[part.name ?: ""] = part.value
+          else -> {}
+        }
+        part.dispose()
+      }
+
+      val model = when (val sel = modelLifecycle.selectModel(null)) {
+        is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
+        is LlmHttpModelLifecycle.ModelSelection.Error -> {
+          call.respondHttpResponse(HttpResponse.Json(
+            statusCode = sel.statusCode,
+            body = LlmHttpResponseRenderer.renderJsonError(sel.message),
+            extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
+          ))
+          return@post
+        }
+      }
+      // withRequestLogging not used here — audio handler does its own body/response capture
+      val response = audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = null)
+      call.respondHttpResponse(response)
     }
   }
 
