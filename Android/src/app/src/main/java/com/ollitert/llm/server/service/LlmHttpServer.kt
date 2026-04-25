@@ -50,6 +50,34 @@ internal fun unauthorized(error: String) =
   jsonError(NanoHTTPD.Response.Status.UNAUTHORIZED, error).also { it.addHeader("WWW-Authenticate", "Bearer") }
 internal fun methodNotAllowed() = jsonError(NanoHTTPD.Response.Status.METHOD_NOT_ALLOWED, "method_not_allowed")
 
+// ── Body parsing ────────────────────────────────────────────────────────────
+
+private sealed class Either<out L, out R> {
+  data class Left<L>(val value: L) : Either<L, Nothing>()
+  data class Right<R>(val value: R) : Either<Nothing, R>()
+}
+
+private fun safeParseBody(
+  session: NanoHTTPD.IHTTPSession,
+  allowEmpty: Boolean = false,
+): Either<NanoHTTPD.Response, String> {
+  val payload = HashMap<String, String>()
+  return try {
+    session.parseBody(payload)
+    val body = payload["postData"]
+    if (body == null && !allowEmpty) Either.Left(badRequest("empty body"))
+    else Either.Right(body ?: "")
+  } catch (_: OutOfMemoryError) {
+    System.gc()
+    Log.w("LlmHttpServer", "parseBody() OOM — returning HTTP 413 to client")
+    ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
+    Either.Left(jsonError(
+      NanoHTTPD.Response.Status.PAYLOAD_TOO_LARGE,
+      "Request body too large — server ran out of memory parsing the request",
+    ))
+  }
+}
+
 // ── LlmHttpServer ────────────────────────────────────────────────────────────
 
 /**
