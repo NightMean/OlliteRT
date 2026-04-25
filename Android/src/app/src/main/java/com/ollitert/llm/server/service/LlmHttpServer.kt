@@ -226,10 +226,10 @@ class LlmHttpServer(
                 is Either.Right -> parsed.value
               }
               when (route.handler) {
-                LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-                LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-                LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
-                LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+                LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId).toNanoResponse()
+                LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId).toNanoResponse()
+                LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId).toNanoResponse()
+                LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId).toNanoResponse()
               }
             }
 

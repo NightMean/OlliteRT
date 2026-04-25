@@ -27,7 +27,6 @@ import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
-import fi.iki.elonen.NanoHTTPD
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -296,43 +295,33 @@ class KtorServer(
 
   private fun Routing.configurePostRoutes() {
     // ── Inference routes — delegated to LlmHttpEndpointHandlers ──
-    // Handlers currently return NanoHTTPD.Response; the nanoResponseToHttpResponse() bridge
-    // converts them for Ktor. This is temporary — will be cleaned up when handlers migrate
-    // to HttpResponse return types in a later task.
+    // Handlers return HttpResponse directly (including HttpResponse.Sse for streaming).
 
     post("/generate") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
-        nanoResponseToHttpResponse(
-          endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId),
-        )
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
+        endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId)
       }
     }
 
     post("/v1/completions") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
-        nanoResponseToHttpResponse(
-          endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId),
-        )
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
+        endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId)
       }
     }
 
     post("/v1/chat/completions") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
-        nanoResponseToHttpResponse(
-          endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId, sseExtraHeaders),
-        )
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
+        endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId)
       }
     }
 
     post("/v1/responses") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
-        nanoResponseToHttpResponse(
-          endpointHandlers.handleResponses(body, captureBody, captureResponse, logId, sseExtraHeaders),
-        )
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
+        endpointHandlers.handleResponses(body, captureBody, captureResponse, logId)
       }
     }
 
@@ -378,52 +367,6 @@ class KtorServer(
     }
   }
 
-  // ── NanoHTTPD → HttpResponse bridge ───────────────────────────────────────
-  // Temporary bridge: converts NanoHTTPD.Response from inference handlers into
-  // HttpResponse so withRequestLogging/respondHttpResponse can dispatch them.
-  // Will be removed when handlers are migrated to return HttpResponse directly.
-
-  private fun nanoResponseToHttpResponse(resp: NanoHTTPD.Response): HttpResponse {
-    val statusCode = resp.status?.requestStatus ?: 200
-    val mimeType = resp.mimeType ?: "application/json"
-
-    return if (mimeType == "text/event-stream") {
-      // Streaming response — pipe the NanoHTTPD InputStream through SseWriter.
-      // The InputStream is a BlockingQueueInputStream that the inference thread writes to.
-      val inputStream = resp.data
-      HttpResponse.Sse { writer ->
-        withContext(Dispatchers.IO) {
-          try {
-            val buffer = ByteArray(4096)
-            while (true) {
-              val bytesRead = inputStream.read(buffer)
-              if (bytesRead == -1) break
-              writer.emit(String(buffer, 0, bytesRead, Charsets.UTF_8))
-            }
-          } catch (_: Exception) {
-            // Client disconnected or stream ended — stop piping
-          } finally {
-            try { inputStream.close() } catch (_: Exception) {}
-          }
-        }
-      }
-    } else {
-      // Non-streaming response — read full body from InputStream
-      val bodyBytes = try {
-        resp.data?.use { it.readBytes() }
-      } catch (_: Exception) {
-        null
-      }
-      val body = bodyBytes?.toString(Charsets.UTF_8) ?: ""
-
-      if (mimeType.contains("json")) {
-        HttpResponse.Json(statusCode, body)
-      } else {
-        HttpResponse.PlainText(statusCode, mimeType, body)
-      }
-    }
-  }
-
   // ── Request logging middleware ─────────────────────────────────────────────
   // Replicates the logging pattern from LlmHttpServer.serve() (lines 86-361).
 
@@ -463,9 +406,8 @@ class KtorServer(
       ),
     )
 
-    // For streaming responses, x-request-id must be available to the handler so it can
-    // be baked into the FlushingSseResponse (NanoHTTPD workaround). CORS is handled by
-    // Ktor's CORS plugin, so only x-request-id is needed.
+    // For streaming responses, x-request-id is set as a response header after the handler
+    // returns. CORS is handled by Ktor's CORS plugin.
     val sseExtraHeaders = mapOf("x-request-id" to logId)
 
     var requestBodySnapshot: String? = null

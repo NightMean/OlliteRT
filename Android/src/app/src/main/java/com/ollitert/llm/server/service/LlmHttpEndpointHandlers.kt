@@ -43,11 +43,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 
 // ── NanoHTTPD bridge ────────────────────────────────────────────────────────
-// Converts HttpResponse to NanoHTTPD.Response so the existing NanoHTTPD serve() dispatcher
-// can return them while inference handlers are progressively migrated to HttpResponse.
-// SSE (streaming) responses are not convertible — they are still produced directly as
-// FlushingSseResponse/NanoHTTPD.Response by the streaming inference paths.
-private fun HttpResponse.toNanoResponse(): NanoHTTPD.Response = when (this) {
+// Converts HttpResponse to NanoHTTPD.Response so the dead-code LlmHttpServer (NanoHTTPD)
+// can still compile until it is deleted in a later task. SSE responses throw because
+// NanoHTTPD uses BlockingQueueInputStream, not SseWriter. This is fine since LlmHttpServer
+// is dead code and will be removed in Task 12.
+internal fun HttpResponse.toNanoResponse(): NanoHTTPD.Response = when (this) {
   is HttpResponse.Json -> {
     val status = NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR
     NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", body).also { r ->
@@ -93,19 +93,19 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
     logPayload("POST /generate raw", body, requestId)
     val req = try { json.decodeFromString<GenReq>(body) }
-      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(null)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
         statusCode = sel.statusCode,
         body = LlmHttpResponseRenderer.renderJsonError(sel.message),
         extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      ).toNanoResponse()
+      )
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
@@ -134,14 +134,14 @@ class LlmHttpEndpointHandlers(
     if (text == null) {
       val (enrichedError, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
       ServerMetrics.incrementErrorCount(kind.category)
-      return httpBadRequest(enrichedError).toNanoResponse()
+      return httpBadRequest(enrichedError)
     }
     val promptTokens = estimateTokens(prompt)
     val completionTokens = estimateTokens(text)
     val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
     val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(promptTokens, completionTokens), timings = timings))
     captureResponse(responseJson)
-    return httpOkJson(responseJson).toNanoResponse()
+    return httpOkJson(responseJson)
   }
 
   // ── /v1/chat/completions ─────────────────────────────────────────────────
@@ -151,16 +151,15 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
-    sseExtraHeaders: Map<String, String> = emptyMap(),
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
     logPayload("POST /v1/chat/completions raw", body, requestId)
     val req = try { json.decodeFromString<ChatRequest>(body) }
-      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
-      return httpBadRequest("tool_choice required but tools empty").toNanoResponse()
+      return httpBadRequest("tool_choice required but tools empty")
     val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
@@ -168,7 +167,7 @@ class LlmHttpEndpointHandlers(
         statusCode = sel.statusCode,
         body = LlmHttpResponseRenderer.renderJsonError(sel.message),
         extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      ).toNanoResponse()
+      )
     }
     // Build prompt with progressive compaction if context window is exceeded.
     // Three independent toggles for progressive prompt compaction:
@@ -230,7 +229,7 @@ class LlmHttpEndpointHandlers(
 
     if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
-      return emptyChatResponse(model.name, stream = req.stream == true, sseExtraHeaders = sseExtraHeaders)
+      return emptyChatResponse(model.name, stream = req.stream == true)
     }
 
     val includeUsage = req.stream_options?.include_usage == true
@@ -251,12 +250,12 @@ class LlmHttpEndpointHandlers(
     // Apply per-request sampler overrides (temperature, top_p, top_k, max_tokens).
     // These are picked up by resetConversation() before inference — no model reload needed.
     // Config is applied inside the executor thread (via configSnapshot) to avoid a race
-    // where the NanoHTTPD thread restores config before the executor reads it.
+    // where the calling thread restores config before the executor reads it.
     val stopSeqs = req.stop.ifEmpty { null }
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders)
+      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
@@ -270,7 +269,7 @@ class LlmHttpEndpointHandlers(
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
-        return httpBadRequest(errorMsg).toNanoResponse()
+        return httpBadRequest(errorMsg)
       }
       val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSeqs)
 
@@ -285,7 +284,7 @@ class LlmHttpEndpointHandlers(
           val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
           val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
           captureResponse(responseJson)
-          return httpOkJson(responseJson).toNanoResponse()
+          return httpOkJson(responseJson)
         }
       }
 
@@ -293,7 +292,7 @@ class LlmHttpEndpointHandlers(
       val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
       captureResponse(responseJson)
-      httpOkJson(responseJson).toNanoResponse()
+      httpOkJson(responseJson)
     }
   }
 
@@ -304,19 +303,19 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
     logPayload("POST /v1/completions raw", body, requestId)
     val req = try { json.decodeFromString<CompletionRequest>(body) }
-      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
       is LlmHttpModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
         statusCode = sel.statusCode,
         body = LlmHttpResponseRenderer.renderJsonError(sel.message),
         extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      ).toNanoResponse()
+      )
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
@@ -348,7 +347,7 @@ class LlmHttpEndpointHandlers(
         usage = Usage(0, 0),
       ))
       captureResponse(responseJson)
-      return httpOkJson(responseJson).toNanoResponse()
+      return httpOkJson(responseJson)
     }
 
     // OpenAI spec allows `"stop": "text"` (single string) or `"stop": ["a","b"]` (array).
@@ -380,7 +379,7 @@ class LlmHttpEndpointHandlers(
         val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
         RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
       }
-      return httpBadRequest(errorMsg).toNanoResponse()
+      return httpBadRequest(errorMsg)
     }
 
     val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
@@ -396,7 +395,7 @@ class LlmHttpEndpointHandlers(
       timings = timings,
     ))
     captureResponse(responseJson)
-    return httpOkJson(responseJson).toNanoResponse()
+    return httpOkJson(responseJson)
   }
 
   // ── /v1/responses ────────────────────────────────────────────────────────
@@ -406,16 +405,15 @@ class LlmHttpEndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
-    sseExtraHeaders: Map<String, String> = emptyMap(),
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
     logPayload("POST /v1/responses raw", body, requestId)
     val req = try { json.decodeFromString<ResponsesRequest>(body) }
-      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
-      return httpBadRequest("tool_choice required but tools empty").toNanoResponse()
+      return httpBadRequest("tool_choice required but tools empty")
     val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
@@ -423,7 +421,7 @@ class LlmHttpEndpointHandlers(
         statusCode = sel.statusCode,
         body = LlmHttpResponseRenderer.renderJsonError(sel.message),
         extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      ).toNanoResponse()
+      )
     }
     // Build prompt with progressive compaction if context window is exceeded
     val truncateHistoryResp = LlmHttpPrefs.isAutoTruncateHistory(context)
@@ -455,7 +453,7 @@ class LlmHttpEndpointHandlers(
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/responses")
-      return emptyResponse(model.name, stream = req.stream == true, sseExtraHeaders = sseExtraHeaders)
+      return emptyResponse(model.name, stream = req.stream == true)
     }
 
     val tools = req.tools.orEmpty()
@@ -472,12 +470,12 @@ class LlmHttpEndpointHandlers(
       if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
     }
     // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
-    // a race where the NanoHTTPD thread restores config before the executor reads it.
+    // a race where the calling thread restores config before the executor reads it.
     // For non-streaming: config is also applied via configSnapshot on the executor thread.
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, sseExtraHeaders = sseExtraHeaders, tools = if (hasTools) tools else null)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, tools = if (hasTools) tools else null)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
@@ -491,7 +489,7 @@ class LlmHttpEndpointHandlers(
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
-        return httpBadRequest(errorMsg).toNanoResponse()
+        return httpBadRequest(errorMsg)
       }
 
       // Check if the model output contains tool call(s)
@@ -500,48 +498,46 @@ class LlmHttpEndpointHandlers(
         if (toolCalls.isNotEmpty()) {
           val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
           captureResponse(responseJson)
-          return httpOkJson(responseJson).toNanoResponse()
+          return httpOkJson(responseJson)
         }
       }
 
       val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithText(model.name, text, promptLen = prompt.length))
       captureResponse(responseJson)
-      httpOkJson(responseJson).toNanoResponse()
+      httpOkJson(responseJson)
     }
   }
 
   // ── SSE response helpers ─────────────────────────────────────────────────
 
   /** Empty response for /v1/chat/completions — returns SSE or JSON depending on stream flag. */
-  private fun emptyChatResponse(modelId: String, stream: Boolean, sseExtraHeaders: Map<String, String> = emptyMap()): NanoHTTPD.Response {
+  private fun emptyChatResponse(modelId: String, stream: Boolean): HttpResponse {
     return if (stream) {
       val chatId = "chatcmpl-${java.util.UUID.randomUUID()}"
       val now = System.currentTimeMillis() / 1000
       val payload = LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelId, now) +
         LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelId, now) +
         LlmHttpResponseRenderer.SSE_DONE
-      val sseStream = BlockingQueueInputStream()
-      sseStream.enqueue(payload)
-      sseStream.finish()
-      FlushingSseResponse(sseStream, sseExtraHeaders)
+      HttpResponse.Sse { writer ->
+        writer.emit(payload)
+        writer.finish()
+      }
     } else {
-      httpOkJson(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(modelId))).toNanoResponse()
+      httpOkJson(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(modelId)))
     }
   }
 
   /** Empty response for /v1/responses — returns SSE or JSON depending on stream flag. */
-  private fun emptyResponse(modelId: String, stream: Boolean, sseExtraHeaders: Map<String, String> = emptyMap()): NanoHTTPD.Response {
+  private fun emptyResponse(modelId: String, stream: Boolean): HttpResponse {
     val body = LlmHttpPayloadBuilders.responsesResponseWithText(modelId, "")
     return if (stream) {
-      // Use chunked SSE (via BlockingQueueInputStream + FlushingSseResponse) to match
-      // the transfer encoding that streaming inference responses use.
       val payload = LlmHttpResponseRenderer.buildTextSsePayload(modelId, "")
-      val stream = BlockingQueueInputStream()
-      stream.enqueue(payload)
-      stream.finish()
-      FlushingSseResponse(stream, sseExtraHeaders)
+      HttpResponse.Sse { writer ->
+        writer.emit(payload)
+        writer.finish()
+      }
     } else {
-      httpOkJson(json.encodeToString(body)).toNanoResponse()
+      httpOkJson(json.encodeToString(body))
     }
   }
 

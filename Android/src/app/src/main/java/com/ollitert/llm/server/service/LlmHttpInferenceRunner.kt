@@ -35,7 +35,7 @@ import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
-import fi.iki.elonen.NanoHTTPD
+import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.Json
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
@@ -240,20 +240,30 @@ class LlmHttpInferenceRunner(
 
   // ── Streaming format abstraction ──────────────────────────────────────────
 
+  /**
+   * Channel events bridging the executor thread (producer) to the Ktor coroutine (consumer).
+   * The executor's onToken/onError callbacks send events via trySend(); the Ktor coroutine
+   * consumes them and calls the appropriate SseWriter/format methods.
+   */
+  private sealed interface StreamEvent {
+    data class Token(val partial: String, val done: Boolean, val thought: String?) : StreamEvent
+    data class Error(val error: String) : StreamEvent
+  }
+
   private sealed interface StreamingFormat {
     val sourceTag: String
     val bufferAllTokens: Boolean
     val stopSequences: List<String>?
 
-    fun emitHeader(stream: BlockingQueueInputStream)
-    fun emitThinkingDelta(stream: BlockingQueueInputStream, text: String)
-    fun emitContentDelta(stream: BlockingQueueInputStream, text: String)
-    fun emitThinkingClose(stream: BlockingQueueInputStream)
-    fun emitCancellation(stream: BlockingQueueInputStream, headerWritten: Boolean)
+    suspend fun emitHeader(writer: SseWriter)
+    suspend fun emitThinkingDelta(writer: SseWriter, text: String)
+    suspend fun emitContentDelta(writer: SseWriter, text: String)
+    suspend fun emitThinkingClose(writer: SseWriter)
+    suspend fun emitCancellation(writer: SseWriter, headerWritten: Boolean)
     fun estimateInputTokens(prompt: String): Long
     fun estimateInputTokensInt(prompt: String): Int
-    fun emitCompletion(
-      stream: BlockingQueueInputStream,
+    suspend fun emitCompletion(
+      writer: SseWriter,
       fullText: String,
       fullThinking: String,
       promptTokens: Int,
@@ -287,32 +297,32 @@ class LlmHttpInferenceRunner(
     override val bufferAllTokens = tools != null
     override val stopSequences: List<String>? = null
 
-    override fun emitHeader(stream: BlockingQueueInputStream) {
-      stream.enqueue(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
+    override suspend fun emitHeader(writer: SseWriter) {
+      writer.emit(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
     }
-    override fun emitThinkingDelta(stream: BlockingQueueInputStream, text: String) {
+    override suspend fun emitThinkingDelta(writer: SseWriter, text: String) {
       val esc = LlmHttpBridgeUtils.escapeSseText(text)
-      stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
+      writer.emit(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
     }
-    override fun emitContentDelta(stream: BlockingQueueInputStream, text: String) {
+    override suspend fun emitContentDelta(writer: SseWriter, text: String) {
       val esc = LlmHttpBridgeUtils.escapeSseText(text)
-      stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
+      writer.emit(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
     }
-    override fun emitThinkingClose(stream: BlockingQueueInputStream) {
+    override suspend fun emitThinkingClose(writer: SseWriter) {
       val esc = LlmHttpBridgeUtils.escapeSseText("</think>")
-      stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
+      writer.emit(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, esc))
     }
-    override fun emitCancellation(stream: BlockingQueueInputStream, headerWritten: Boolean) {
+    override suspend fun emitCancellation(writer: SseWriter, headerWritten: Boolean) {
       if (!headerWritten) {
-        stream.enqueue(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
+        writer.emit(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
       }
-      stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(modelName, respId, msgId, now, ""))
-      stream.finish()
+      writer.emit(LlmHttpResponseRenderer.buildStreamingFooter(modelName, respId, msgId, now, ""))
+      writer.finish()
     }
     override fun estimateInputTokens(prompt: String): Long = estimateTokensLongByLength(prompt.length)
     override fun estimateInputTokensInt(prompt: String): Int = estimateTokensByLength(prompt.length)
-    override fun emitCompletion(
-      stream: BlockingQueueInputStream,
+    override suspend fun emitCompletion(
+      writer: SseWriter,
       fullText: String,
       fullThinking: String,
       promptTokens: Int,
@@ -323,27 +333,27 @@ class LlmHttpInferenceRunner(
       val parsedToolCalls = if (tools != null) LlmHttpToolCallParser.parseAll(fullText, tools) else emptyList()
 
       if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
-        stream.enqueue(LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents(
+        writer.emit(LlmHttpResponseRenderer.buildResponsesStreamToolCallEvents(
           respId, modelName, now, parsedToolCalls, promptTokens, completionTokens))
       } else {
         val combinedText = buildCombinedText(fullText, fullThinking)
         if (bufferAllTokens) {
-          stream.enqueue(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
+          writer.emit(LlmHttpResponseRenderer.buildStreamingHeader(modelName, respId, msgId, now))
           if (fullThinking.isNotEmpty()) {
             val thinkEsc = LlmHttpBridgeUtils.escapeSseText("<think>$fullThinking</think>")
-            stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, thinkEsc))
+            writer.emit(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, thinkEsc))
           }
           if (fullText.isNotEmpty()) {
             val textEsc = LlmHttpBridgeUtils.escapeSseText(fullText)
-            stream.enqueue(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, textEsc))
+            writer.emit(LlmHttpResponseRenderer.buildTextDeltaSseEvent(msgId, textEsc))
           }
         }
         val esc = LlmHttpBridgeUtils.escapeSseText(combinedText)
-        stream.enqueue(LlmHttpResponseRenderer.buildStreamingFooter(
+        writer.emit(LlmHttpResponseRenderer.buildStreamingFooter(
           modelName, respId, msgId, now, esc,
           inputTokens = promptTokens, outputTokens = completionTokens))
       }
-      stream.finish()
+      writer.finish()
       return parsedToolCalls
     }
     override fun buildLogResponseJson(
@@ -379,30 +389,30 @@ class LlmHttpInferenceRunner(
     // Buffer all tokens when tools are present — tool calls must be parsed atomically.
     override val bufferAllTokens = tools != null
 
-    override fun emitHeader(stream: BlockingQueueInputStream) {
-      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
+    override suspend fun emitHeader(writer: SseWriter) {
+      writer.emit(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
     }
-    override fun emitThinkingDelta(stream: BlockingQueueInputStream, text: String) {
-      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, text))
+    override suspend fun emitThinkingDelta(writer: SseWriter, text: String) {
+      writer.emit(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, text))
     }
-    override fun emitContentDelta(stream: BlockingQueueInputStream, text: String) {
-      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, text))
+    override suspend fun emitContentDelta(writer: SseWriter, text: String) {
+      writer.emit(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, text))
     }
-    override fun emitThinkingClose(stream: BlockingQueueInputStream) {
-      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, "</think>"))
+    override suspend fun emitThinkingClose(writer: SseWriter) {
+      writer.emit(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, "</think>"))
     }
-    override fun emitCancellation(stream: BlockingQueueInputStream, headerWritten: Boolean) {
+    override suspend fun emitCancellation(writer: SseWriter, headerWritten: Boolean) {
       if (!headerWritten) {
-        stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
+        writer.emit(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
       }
-      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
-      stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
-      stream.finish()
+      writer.emit(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
+      writer.emit(LlmHttpResponseRenderer.SSE_DONE)
+      writer.finish()
     }
     override fun estimateInputTokens(prompt: String): Long = estimateTokensLong(prompt)
     override fun estimateInputTokensInt(prompt: String): Int = estimateTokens(prompt)
-    override fun emitCompletion(
-      stream: BlockingQueueInputStream,
+    override suspend fun emitCompletion(
+      writer: SseWriter,
       fullText: String,
       fullThinking: String,
       promptTokens: Int,
@@ -412,24 +422,24 @@ class LlmHttpInferenceRunner(
     ): List<ToolCall> {
       val parsedToolCalls = if (tools != null) LlmHttpToolCallParser.parseAll(fullText, tools) else emptyList()
       if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
-        stream.enqueue(LlmHttpResponseRenderer.buildChatStreamToolCallChunks(chatId, modelName, now, parsedToolCalls))
+        writer.emit(LlmHttpResponseRenderer.buildChatStreamToolCallChunks(chatId, modelName, now, parsedToolCalls))
       } else {
         if (bufferAllTokens) {
-          stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
+          writer.emit(LlmHttpResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
           if (fullThinking.isNotEmpty()) {
-            stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, "<think>$fullThinking</think>"))
+            writer.emit(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, "<think>$fullThinking</think>"))
           }
           if (fullText.isNotEmpty()) {
-            stream.enqueue(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, fullText))
+            writer.emit(LlmHttpResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, fullText))
           }
         }
-        stream.enqueue(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
+        writer.emit(LlmHttpResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
       }
       val timings = LlmHttpPayloadBuilders.buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
       val timingsJson = if (timings != null) json.encodeToString(timings) else null
-      stream.enqueue(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, modelName, now, promptTokens, completionTokens, timingsJson))
-      stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
-      stream.finish()
+      writer.emit(LlmHttpResponseRenderer.buildChatStreamUsageChunk(chatId, modelName, now, promptTokens, completionTokens, timingsJson))
+      writer.emit(LlmHttpResponseRenderer.SSE_DONE)
+      writer.finish()
       return parsedToolCalls
     }
     override fun buildLogResponseJson(
@@ -467,12 +477,11 @@ class LlmHttpInferenceRunner(
     logId: String? = null,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
-    sseExtraHeaders: Map<String, String> = emptyMap(),
     tools: List<ToolSpec>? = null,
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val now = LlmHttpBridgeUtils.epochSeconds()
     val format = ResponsesApiFormat(model.name, now, json, tools)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, sseExtraHeaders)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot)
   }
 
   // ── Streaming inference: /v1/chat/completions ────────────────────────────
@@ -491,11 +500,10 @@ class LlmHttpInferenceRunner(
     tools: List<ToolSpec>? = null,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
-    sseExtraHeaders: Map<String, String> = emptyMap(),
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val now = LlmHttpBridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, sseExtraHeaders)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot)
   }
 
   // ── Unified streaming implementation ────────────────────────────────────
@@ -511,12 +519,13 @@ class LlmHttpInferenceRunner(
     audioClips: List<ByteArray>,
     logId: String?,
     configSnapshot: Map<String, Any>?,
-    sseExtraHeaders: Map<String, String>,
-  ): NanoHTTPD.Response {
+  ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
     ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
 
+    // Pre-validation must happen BEFORE returning HttpResponse.Sse — the caller needs
+    // a JSON error response, not a streaming response that immediately errors.
     val eagerVision = LlmHttpPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
@@ -527,10 +536,9 @@ class LlmHttpInferenceRunner(
           val errorJson = LlmHttpResponseRenderer.renderJsonError("model_init_failed: $initErr")
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
         }
-        return NanoHTTPD.newFixedLengthResponse(
-          NanoHTTPD.Response.Status.INTERNAL_ERROR,
-          "application/json; charset=utf-8",
-          LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
+        return HttpResponse.Json(
+          statusCode = 500,
+          body = LlmHttpResponseRenderer.renderJsonError("model_init_failed"),
         )
       }
     }
@@ -539,62 +547,298 @@ class LlmHttpInferenceRunner(
       (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
-    val fullText = StringBuilder()
-    val fullThinking = StringBuilder()
-    var headerWritten = false
-    var thinkingTagOpened = false
-    var lastLogUpdateMs = 0L
-    var firstTokenMs = 0L
-    var inferenceCompleted = false
-    var stopSequenceTriggered = false
+    // Read prefs eagerly (before the Ktor coroutine runs) — SharedPreferences reads
+    // should happen on the calling thread, not inside the SSE writer lambda.
     val streamPreview = LlmHttpPrefs.isStreamLogsPreview(context)
     val keepPartial = LlmHttpPrefs.isKeepPartialResponse(context)
 
-    val stream = BlockingQueueInputStream()
+    return HttpResponse.Sse { writer ->
+      val channel = Channel<StreamEvent>(Channel.UNLIMITED)
 
-    if (logId != null) {
-      RequestLogStore.registerCancellation(logId) {
-        stream.cancel()
-        // Signal LiteRT immediately so prefill-phase cancellation doesn't have to
-        // wait for the first onToken callback before stopResponse is called.
-        ServerLlmModelHelper.stopResponse(model)
-      }
-    }
+      val fullText = StringBuilder()
+      val fullThinking = StringBuilder()
+      var headerWritten = false
+      var thinkingTagOpened = false
+      var lastLogUpdateMs = 0L
+      var firstTokenMs = 0L
+      var inferenceCompleted = false
+      var stopSequenceTriggered = false
 
-    // Captured inside the resetConversation lambda (which runs under inferenceLock) so
-    // that concurrent updateConfigValues() writes are visible before we snapshot.
-    var originalConfig: Map<String, Any>? = null
-
-    LlmHttpInferenceGateway.executeStreaming(
-      prompt = prompt,
-      timeoutSeconds = timeoutSeconds,
-      executor = executor,
-      inferenceLock = inferenceLock,
-      resetConversation = {
-        if (configSnapshot != null) {
-          originalConfig = model.configValues
-          model.configValues = configSnapshot
+      if (logId != null) {
+        RequestLogStore.registerCancellation(logId) {
+          channel.close()
+          // Signal LiteRT immediately so prefill-phase cancellation doesn't have to
+          // wait for the first onToken callback before stopResponse is called.
+          ServerLlmModelHelper.stopResponse(model)
         }
-        ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
-      },
-      runInference = { input, onPartial, onError ->
-        ServerLlmModelHelper.runInference(
-          model = model,
-          input = input,
-          resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
-          cleanUpListener = {},
-          onError = onError,
-          images = images,
-          audioClips = audioClips,
-          extraContext = extraContext,
-        )
-      },
-      cancelInference = { ServerLlmModelHelper.stopResponse(model) },
-      onToken = { partial, done, thought ->
-        if (stream.isCancelled) {
+      }
+
+      // Captured inside the resetConversation lambda (which runs under inferenceLock) so
+      // that concurrent updateConfigValues() writes are visible before we snapshot.
+      var originalConfig: Map<String, Any>? = null
+
+      // Launch inference on the executor thread. Callbacks send events into the channel
+      // via trySend() — non-blocking from the executor thread's perspective.
+      LlmHttpInferenceGateway.executeStreaming(
+        prompt = prompt,
+        timeoutSeconds = timeoutSeconds,
+        executor = executor,
+        inferenceLock = inferenceLock,
+        resetConversation = {
+          if (configSnapshot != null) {
+            originalConfig = model.configValues
+            model.configValues = configSnapshot
+          }
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
+        },
+        runInference = { input, onPartial, onError ->
+          ServerLlmModelHelper.runInference(
+            model = model,
+            input = input,
+            resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
+            cleanUpListener = {},
+            onError = onError,
+            images = images,
+            audioClips = audioClips,
+            extraContext = extraContext,
+          )
+        },
+        cancelInference = { ServerLlmModelHelper.stopResponse(model) },
+        onToken = { partial, done, thought ->
+          channel.trySend(StreamEvent.Token(partial, done, thought))
+        },
+        onError = { error ->
+          channel.trySend(StreamEvent.Error(error))
+        },
+        onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },
+      )
+
+      // Consume events from the channel in the Ktor coroutine context.
+      // The for-loop terminates when the channel is closed (by done, error, or cancellation).
+      // Safety timeout: generous buffer beyond inference timeout to catch gateway bugs that
+      // would otherwise hang this coroutine indefinitely.
+      try {
+        kotlinx.coroutines.withTimeout((timeoutSeconds + 30) * 1000) {
+          for (event in channel) {
+            // Check for client disconnect (Ktor closed the writer)
+            if (writer.isCancelled) {
+              if (logId != null) RequestLogStore.unregisterCancellation(logId)
+              if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+              ServerLlmModelHelper.stopResponse(model)
+              if (!inferenceCompleted) {
+                inferenceCompleted = true
+                ServerMetrics.onInferenceCompleted()
+              }
+              if (logId != null) {
+                val cancelledPartial = if (keepPartial && (fullText.isNotEmpty() || fullThinking.isNotEmpty())) {
+                  buildString {
+                    if (fullThinking.isNotEmpty()) {
+                      append("<think>"); append(fullThinking); append("</think>")
+                    }
+                    append(fullText)
+                  }
+                } else null
+                RequestLogStore.update(logId) {
+                  it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
+                }
+              }
+              logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
+              format.emitCancellation(writer, headerWritten)
+              channel.close()
+              break
+            }
+
+            when (event) {
+              is StreamEvent.Token -> {
+                val partial = event.partial
+                val done = event.done
+                val thought = event.thought
+                try {
+                  // TTFB includes thinking tokens — the model is producing output even if it's
+                  // reasoning internally. Without this, TTFB would only start on visible output.
+                  if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
+                    firstTokenMs = SystemClock.elapsedRealtime()
+                  }
+                  if (!format.bufferAllTokens) {
+                    if (!headerWritten) {
+                      headerWritten = true
+                      format.emitHeader(writer)
+                    }
+                    if (!thought.isNullOrEmpty()) {
+                      fullThinking.append(thought)
+                      val thinkText = if (!thinkingTagOpened) {
+                        thinkingTagOpened = true
+                        "<think>$thought"
+                      } else {
+                        thought
+                      }
+                      format.emitThinkingDelta(writer, thinkText)
+                    }
+                  } else {
+                    if (!thought.isNullOrEmpty()) fullThinking.append(thought)
+                  }
+                  if (partial.isNotEmpty() && !stopSequenceTriggered) {
+                    fullText.append(partial)
+                    if (!format.stopSequences.isNullOrEmpty()) {
+                      val currentText = fullText.toString()
+                      var stopIdx = currentText.length
+                      for (stop in format.stopSequences.orEmpty()) {
+                        val idx = currentText.indexOf(stop)
+                        if (idx in 0 until stopIdx) stopIdx = idx
+                      }
+                      if (stopIdx < currentText.length) {
+                        fullText.clear()
+                        fullText.append(currentText.substring(0, stopIdx))
+                        stopSequenceTriggered = true
+                        ServerLlmModelHelper.stopResponse(model)
+                      }
+                    }
+                    // In streaming (non-buffered) mode, emit the closing </think> tag before content
+                    // when transitioning from thinking to regular output. The tag was opened when the
+                    // first thinking token arrived but never closed — we close it on the first content token.
+                    if (!format.bufferAllTokens && !stopSequenceTriggered) {
+                      val text = if (thinkingTagOpened) {
+                        thinkingTagOpened = false
+                        "</think>$partial"
+                      } else {
+                        partial
+                      }
+                      format.emitContentDelta(writer, text)
+                    }
+                  }
+                  if (streamPreview && logId != null && !done) {
+                    val nowMs = SystemClock.elapsedRealtime()
+                    if (nowMs - lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
+                      lastLogUpdateMs = nowMs
+                      val previewText = try {
+                        buildString {
+                          if (fullThinking.isNotEmpty()) {
+                            append("<think>")
+                            append(fullThinking)
+                            if (!thinkingTagOpened) append("</think>")
+                          }
+                          append(fullText)
+                        }
+                      } catch (e: Exception) {
+                        Log.e("OlliteRT", "Error building thinking preview: ${e.message}", e)
+                        fullText.toString()
+                      }
+                      RequestLogStore.updatePartialText(logId, previewText)
+                    }
+                  }
+                  if (done) {
+                    if (logId != null) RequestLogStore.unregisterCancellation(logId)
+                    if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+                    val outputLen = fullText.length
+                    val inputTokens = format.estimateInputTokens(prompt)
+                    val outputTokens = estimateTokensLongByLength(outputLen)
+                    val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
+                    val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
+                    val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
+                    ServerMetrics.addTokens(outputTokens)
+                    ServerMetrics.recordLatency(totalLatencyMs)
+                    ServerMetrics.recordTtfb(ttfbMs)
+                    if (firstTokenMs > 0) {
+                      ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
+                    }
+                    emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
+                    inferenceCompleted = true
+                    ServerMetrics.onInferenceCompleted()
+                    val promptTokens = format.estimateInputTokensInt(prompt)
+                    val completionTokens = estimateTokensByLength(outputLen)
+
+                    if (!format.bufferAllTokens && thinkingTagOpened) {
+                      thinkingTagOpened = false
+                      format.emitThinkingClose(writer)
+                    }
+
+                    val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs)
+
+                    if (logId != null) {
+                      val combinedText = buildCombinedText(fullText, fullThinking)
+                      val responseJson = format.buildLogResponseJson(combinedText, prompt.length, promptTokens, completionTokens, ttfbMs, totalLatencyMs, parsedToolCalls)
+                      val generationMs = totalLatencyMs - ttfbMs
+                      val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
+                      val reqPrefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
+                      val reqItlMs = if (outputTokens > 1 && generationMs > 0) generationMs.toDouble() / (outputTokens - 1) else 0.0
+                      RequestLogStore.update(logId) {
+                        it.copy(
+                          responseBody = responseJson,
+                          partialText = null,
+                          isPending = false,
+                          latencyMs = totalLatencyMs,
+                          isThinking = fullThinking.isNotEmpty(),
+                          ttfbMs = ttfbMs,
+                          decodeSpeed = reqDecodeSpeed,
+                          prefillSpeed = reqPrefillSpeed,
+                          itlMs = reqItlMs,
+                        )
+                      }
+                    }
+                    logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${format.buildLogEventSuffix(parsedToolCalls)}")
+                    channel.close()
+                  }
+                } catch (e: Exception) {
+                  if (logId != null) RequestLogStore.unregisterCancellation(logId)
+                  if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+                  if (!inferenceCompleted) {
+                    inferenceCompleted = true
+                    ServerMetrics.onInferenceCompleted()
+                  }
+                  logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
+                  if (logId != null) {
+                    val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
+                    RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
+                  }
+                  try { writer.finish() } catch (e2: Exception) { Log.w("OlliteRT", "writer.finish() failed during cleanup", e2) }
+                  channel.close()
+                }
+              }
+
+              is StreamEvent.Error -> {
+                if (logId != null) RequestLogStore.unregisterCancellation(logId)
+                if (originalConfig != null && model.instance != null) model.configValues = originalConfig
+                if (!inferenceCompleted) {
+                  inferenceCompleted = true
+                  ServerMetrics.onInferenceCompleted()
+                }
+                val (enrichedError, kind) = enrichLlmError(event.error, context)
+                ServerMetrics.incrementErrorCount(kind.category)
+                logEvent("request_error id=$requestId endpoint=$endpoint error=${event.error} streaming=true")
+                val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
+                if (logId != null) {
+                  val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind)
+                  val actualTokens = extractActualTokenCounts(event.error)
+                  RequestLogStore.update(logId) {
+                    it.copy(
+                      partialText = null,
+                      responseBody = errorJson,
+                      isPending = false,
+                      latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+                      level = LogLevel.ERROR,
+                      errorKind = kind,
+                      inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
+                      maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
+                      isExactTokenCount = actualTokens != null || it.isExactTokenCount,
+                    )
+                  }
+                }
+                try {
+                  writer.emit("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind)}\n\n")
+                  writer.emit(LlmHttpResponseRenderer.SSE_DONE)
+                  writer.finish()
+                } catch (e: Exception) { Log.w("OlliteRT", "writer.finish() failed during cleanup", e) }
+                channel.close()
+              }
+            }
+          }
+        }
+        // Channel closed externally (user tapped Cancel in Logs) — clean up.
+        // Normal completion and error paths set inferenceCompleted=true before closing
+        // the channel, so this block only fires for the external-cancel case.
+        if (!inferenceCompleted) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
           if (originalConfig != null && model.instance != null) model.configValues = originalConfig
-          ServerLlmModelHelper.stopResponse(model)
           inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()
           if (logId != null) {
@@ -611,188 +855,20 @@ class LlmHttpInferenceRunner(
             }
           }
           logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
-          format.emitCancellation(stream, headerWritten)
-          return@executeStreaming
+          try { format.emitCancellation(writer, headerWritten) } catch (_: Exception) {}
         }
-        try {
-          // TTFB includes thinking tokens — the model is producing output even if it's
-          // reasoning internally. Without this, TTFB would only start on visible output.
-          if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
-            firstTokenMs = SystemClock.elapsedRealtime()
-          }
-          if (!format.bufferAllTokens) {
-            if (!headerWritten) {
-              headerWritten = true
-              format.emitHeader(stream)
-            }
-            if (!thought.isNullOrEmpty()) {
-              fullThinking.append(thought)
-              val thinkText = if (!thinkingTagOpened) {
-                thinkingTagOpened = true
-                "<think>$thought"
-              } else {
-                thought
-              }
-              format.emitThinkingDelta(stream, thinkText)
-            }
-          } else {
-            if (!thought.isNullOrEmpty()) fullThinking.append(thought)
-          }
-          if (partial.isNotEmpty() && !stopSequenceTriggered) {
-            fullText.append(partial)
-            if (!format.stopSequences.isNullOrEmpty()) {
-              val currentText = fullText.toString()
-              var stopIdx = currentText.length
-              for (stop in format.stopSequences.orEmpty()) {
-                val idx = currentText.indexOf(stop)
-                if (idx in 0 until stopIdx) stopIdx = idx
-              }
-              if (stopIdx < currentText.length) {
-                fullText.clear()
-                fullText.append(currentText.substring(0, stopIdx))
-                stopSequenceTriggered = true
-                ServerLlmModelHelper.stopResponse(model)
-              }
-            }
-            // In streaming (non-buffered) mode, emit the closing </think> tag before content
-            // when transitioning from thinking to regular output. The tag was opened when the
-            // first thinking token arrived but never closed — we close it on the first content token.
-            if (!format.bufferAllTokens && !stopSequenceTriggered) {
-              val text = if (thinkingTagOpened) {
-                thinkingTagOpened = false
-                "</think>$partial"
-              } else {
-                partial
-              }
-              format.emitContentDelta(stream, text)
-            }
-          }
-          if (streamPreview && logId != null && !done) {
-            val nowMs = SystemClock.elapsedRealtime()
-            if (nowMs - lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
-              lastLogUpdateMs = nowMs
-              val previewText = try {
-                buildString {
-                  if (fullThinking.isNotEmpty()) {
-                    append("<think>")
-                    append(fullThinking)
-                    if (!thinkingTagOpened) append("</think>")
-                  }
-                  append(fullText)
-                }
-              } catch (e: Exception) {
-                Log.e("OlliteRT", "Error building thinking preview: ${e.message}", e)
-                fullText.toString()
-              }
-              RequestLogStore.updatePartialText(logId, previewText)
-            }
-          }
-          if (done) {
-            if (logId != null) RequestLogStore.unregisterCancellation(logId)
-            if (originalConfig != null && model.instance != null) model.configValues = originalConfig
-            val outputLen = fullText.length
-            val inputTokens = format.estimateInputTokens(prompt)
-            val outputTokens = estimateTokensLongByLength(outputLen)
-            val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
-            val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
-            val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
-            ServerMetrics.addTokens(outputTokens)
-            ServerMetrics.recordLatency(totalLatencyMs)
-            ServerMetrics.recordTtfb(ttfbMs)
-            if (firstTokenMs > 0) {
-              ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
-            }
-            emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
-            inferenceCompleted = true
-            ServerMetrics.onInferenceCompleted()
-            val promptTokens = format.estimateInputTokensInt(prompt)
-            val completionTokens = estimateTokensByLength(outputLen)
-
-            if (!format.bufferAllTokens && thinkingTagOpened) {
-              thinkingTagOpened = false
-              format.emitThinkingClose(stream)
-            }
-
-            val parsedToolCalls = format.emitCompletion(stream, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs)
-
-            if (logId != null) {
-              val combinedText = buildCombinedText(fullText, fullThinking)
-              val responseJson = format.buildLogResponseJson(combinedText, prompt.length, promptTokens, completionTokens, ttfbMs, totalLatencyMs, parsedToolCalls)
-              val generationMs = totalLatencyMs - ttfbMs
-              val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
-              val reqPrefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
-              val reqItlMs = if (outputTokens > 1 && generationMs > 0) generationMs.toDouble() / (outputTokens - 1) else 0.0
-              RequestLogStore.update(logId) {
-                it.copy(
-                  responseBody = responseJson,
-                  partialText = null,
-                  isPending = false,
-                  latencyMs = totalLatencyMs,
-                  isThinking = fullThinking.isNotEmpty(),
-                  ttfbMs = ttfbMs,
-                  decodeSpeed = reqDecodeSpeed,
-                  prefillSpeed = reqPrefillSpeed,
-                  itlMs = reqItlMs,
-                )
-              }
-            }
-            logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${format.buildLogEventSuffix(parsedToolCalls)}")
-          }
-        } catch (e: Exception) {
-          if (logId != null) RequestLogStore.unregisterCancellation(logId)
-
-          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
-          if (!inferenceCompleted) {
-            inferenceCompleted = true
-            ServerMetrics.onInferenceCompleted()
-          }
-          logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
-          if (logId != null) {
-            val errorJson = LlmHttpResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
-            RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
-          }
-          try { stream.finish() } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }
-        }
-      },
-      onError = { error ->
+      } catch (_: kotlinx.coroutines.CancellationException) {
+        // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-
         if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         if (!inferenceCompleted) {
           inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()
         }
-        val (enrichedError, kind) = enrichLlmError(error, context)
-        ServerMetrics.incrementErrorCount(kind.category)
-        logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
-        val suggestion = LlmHttpErrorSuggestions.suggest(kind, context)
-        if (logId != null) {
-          val errorJson = LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind)
-          val actualTokens = extractActualTokenCounts(error)
-          RequestLogStore.update(logId) {
-            it.copy(
-              partialText = null,
-              responseBody = errorJson,
-              isPending = false,
-              latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
-              level = LogLevel.ERROR,
-              errorKind = kind,
-              inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
-              maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
-              isExactTokenCount = actualTokens != null || it.isExactTokenCount,
-            )
-          }
-        }
-        try {
-          stream.enqueue("data: ${LlmHttpResponseRenderer.renderJsonError(enrichedError, suggestion, kind)}\n\n")
-          stream.enqueue(LlmHttpResponseRenderer.SSE_DONE)
-          stream.finish()
-        } catch (e: Exception) { Log.w("OlliteRT", "stream.finish() failed during cleanup", e) }
-      },
-      onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },
-    )
-
-    return FlushingSseResponse(stream, sseExtraHeaders)
+        ServerLlmModelHelper.stopResponse(model)
+        logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
+      }
+    }
   }
 
   // ── Warmup ───────────────────────────────────────────────────────────────
