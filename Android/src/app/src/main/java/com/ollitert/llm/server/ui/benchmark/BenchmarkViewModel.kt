@@ -24,6 +24,7 @@ import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.benchmark
 import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.common.cleanUpMediapipeTaskErrorMessage
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.Model
@@ -224,7 +225,15 @@ constructor(
         throw e
       } catch (e: Exception) {
         Log.e(TAG, "Benchmark failed: ${e.message}", e)
-        _uiState.update { it.copy(errorMessage = e.message ?: "Unknown error") }
+        val rawMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
+        val userMsg = when {
+          rawMsg.contains("Failed to create engine", ignoreCase = true) ->
+            "The model engine could not be initialized. This usually means the selected accelerator (GPU/NPU) is not supported on this device.\n\nTry switching to CPU in the benchmark settings."
+          rawMsg.contains("out of memory", ignoreCase = true) || rawMsg.contains("OOM", ignoreCase = true) ->
+            "The device ran out of memory while loading the model. Try closing other apps or using a smaller model."
+          else -> rawMsg
+        }
+        _uiState.update { it.copy(errorMessage = userMsg) }
       } finally {
         setRunning(running = false)
       }
