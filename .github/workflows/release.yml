@@ -9,6 +9,10 @@ on:
       tag:
         description: 'Tag to build (e.g. v1.0.0, v1.0.0-beta.1)'
         required: true
+      create_tag:
+        description: 'Create the tag if it does not exist yet'
+        type: boolean
+        default: false
       publish:
         description: 'Create a GitHub Release (uncheck to keep APK as artifact only)'
         type: boolean
@@ -16,6 +20,11 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  # Normalize: dispatch uses 'v1.0.0', push uses 'refs/tags/v1.0.0'
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -31,12 +40,69 @@ jobs:
         working-directory: Android/src
 
     steps:
+      - name: Validate tag format
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if [[ ! "$INPUT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+|-dev\.[0-9]+)?$ ]]; then
+            echo "::error::Invalid tag format: $INPUT_TAG (expected vX.Y.Z, vX.Y.Z-beta.N, or vX.Y.Z-dev.N)"
+            exit 1
+          fi
+        working-directory: .
+
+      - name: Validate signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          MISSING=()
+          [ -z "$KEYSTORE_BASE64" ] && MISSING+=("KEYSTORE_BASE64")
+          [ -z "$STORE_PASSWORD" ] && MISSING+=("STORE_PASSWORD")
+          [ -z "$KEY_ALIAS" ] && MISSING+=("KEY_ALIAS")
+          [ -z "$KEY_PASSWORD" ] && MISSING+=("KEY_PASSWORD")
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "::error::Missing signing secrets: ${MISSING[*]} — configure in repository Settings > Secrets"
+            exit 1
+          fi
+        working-directory: .
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-          # Full history needed for git rev-list --count (auto versionCode)
+          # Always checkout default branch for workflow_dispatch (tag may
+          # not exist yet, or we need to verify it first). Push-triggered
+          # runs checkout the tag directly via GITHUB_REF.
+          ref: ${{ github.event_name == 'push' && github.ref || '' }}
+          # Full history + tags needed for git rev-list --count (auto
+          # versionCode) and tag verification/creation
           fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve tag ref
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          CREATE_TAG: ${{ github.event.inputs.create_tag }}
+        run: |
+          if git rev-parse "$INPUT_TAG" >/dev/null 2>&1; then
+            if [ "$CREATE_TAG" = "true" ]; then
+              echo "::warning::Tag $INPUT_TAG already exists — building from existing tag"
+            fi
+            git checkout "$INPUT_TAG"
+          elif [ "$CREATE_TAG" = "true" ]; then
+            # Push with [skip ci] message to avoid triggering a duplicate
+            # workflow run via the on.push.tags trigger
+            git tag -a "$INPUT_TAG" -m "[skip ci] Release $INPUT_TAG"
+            git push origin "$INPUT_TAG"
+            echo "Created and pushed tag $INPUT_TAG"
+          else
+            echo "::error::Tag $INPUT_TAG does not exist. Check 'Create the tag' to create it, or push the tag first."
+            exit 1
+          fi
+        working-directory: .
 
       - name: Determine tag and channel
         id: tag
@@ -109,10 +175,6 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::KEYSTORE_BASE64 secret is not set — configure it in repository Settings > Secrets"
-            exit 1
-          fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
         working-directory: .
 
@@ -159,6 +221,43 @@ jobs:
 
           echo "dir=$RELEASE_DIR" >> "$GITHUB_OUTPUT"
 
+      - name: Generate SHA256 checksums
+        id: checksums
+        env:
+          RELEASE_DIR: ${{ steps.apks.outputs.dir }}
+        run: |
+          cd "$RELEASE_DIR"
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Job summary
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          CHANNEL: ${{ steps.tag.outputs.channel }}
+          VERSION_CODE: ${{ github.run_number }}
+          RELEASE_DIR: ${{ steps.apks.outputs.dir }}
+        run: |
+          {
+            echo "## Release Build: $TAG"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| **Tag** | \`$TAG\` |"
+            echo "| **Channel** | $CHANNEL |"
+            echo "| **Version code** | $VERSION_CODE |"
+            echo "| **Commit** | \`$(git rev-parse --short HEAD)\` |"
+            echo ""
+            echo "### APKs"
+            echo "\`\`\`"
+            ls -lh "$RELEASE_DIR"/*.apk | awk '{print $NF, $5}'
+            echo "\`\`\`"
+            echo ""
+            echo "### SHA256 Checksums"
+            echo "\`\`\`"
+            cat "$RELEASE_DIR/SHA256SUMS.txt"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -174,7 +273,9 @@ jobs:
           name: OlliteRT ${{ steps.tag.outputs.tag }}
           prerelease: ${{ steps.tag.outputs.prerelease }}
           generate_release_notes: true
-          files: Android/src/${{ steps.apks.outputs.dir }}/*.apk
+          files: |
+            Android/src/${{ steps.apks.outputs.dir }}/*.apk
+            Android/src/${{ steps.apks.outputs.dir }}/SHA256SUMS.txt
           token: ${{ secrets.GITHUB_TOKEN }}
 
   fastlane-changelog:
