@@ -142,7 +142,8 @@ Full API docs and examples: **[docs/api/API.md](docs/api/API.md)**
 
 ## Building from Source
 
-See [docs/BUILDING.md](docs/BUILDING.md) for build instructions, signing setup, and HuggingFace OAuth configuration.
+- **[Building](docs/BUILDING.md)** — build instructions, signing setup, and HuggingFace OAuth configuration
+- **[Architecture](docs/ARCHITECTURE.md)** — package structure, request flow, and dependency list
 
 Product flavors — all installable side-by-side:
 
@@ -166,7 +167,7 @@ What happens on your phone stays on your phone. If that matters to you, consider
 
 - **[Google AI Edge Gallery](https://github.com/google-ai-edge/gallery)** — Original project this was built upon
 - **[LiteRT](https://github.com/google/litert)** — Google's on-device AI runtime
-- **[NanoHTTPD](https://github.com/NanoHttpd/nanohttpd)** — Lightweight HTTP server for Java/Android
+- **[Ktor](https://ktor.io/)** — Coroutine-based HTTP server framework
 
 ## License
 

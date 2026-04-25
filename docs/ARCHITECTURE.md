@@ -32,7 +32,7 @@ This document describes OlliteRT's internal architecture for contributors and an
 │  ┌────────────────┴───────────────────────┐          │
 │  │        LlmHttpService (Foreground)     │ ← Server │
 │  │  ┌─────────────┐  ┌─────────────────┐  │          │
-│  │  │  NanoHTTPD  │  │  LiteRT Engine  │  │          │
+│  │  │  Ktor CIO   │  │  LiteRT Engine  │  │          │
 │  │  │  HTTP Server│  │  (GPU/CPU)      │  │          │
 │  │  └──────┬──────┘  └───────┬─────────┘  │          │
 │  │         │                 │            │          │
@@ -83,12 +83,15 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | File | Responsibility |
 |:-----|:---------------|
 | `LlmHttpService.kt` | Service lifecycle — start, stop, model loading, intent handling |
-| `LlmHttpServer.kt` | NanoHTTPD HTTP server — routing, CORS, auth, response dispatch |
+| `KtorServer.kt` | Ktor CIO HTTP server — routing, CORS plugin, auth plugin, response dispatch |
+| `KtorRequestAdapter.kt` | Adapts Ktor `ApplicationCall` to the internal request model |
+| `KtorSseWriter.kt` | SSE streaming writer — wraps Ktor's `Writer` from `respondTextWriter` |
+| `SseWriter.kt` | SSE writer interface — abstracts streaming output for testability |
+| `HttpResponse.kt` | Sealed class for response types (JSON, Binary, PlainText, SSE) |
 | `LlmHttpRouteResolver.kt` | URL → handler mapping for all endpoints |
-| `LlmHttpEndpointHandlers.kt` | Inference API endpoints (`/generate`, `/v1/chat/completions`, `/v1/completions`, `/v1/responses`) |
+| `LlmHttpEndpointHandlers.kt` | Inference API endpoints (`/v1/chat/completions`, `/v1/completions`, `/v1/responses`) |
 | `LlmHttpInferenceRunner.kt` | Inference execution — streaming, non-streaming, tool call detection |
 | `LlmHttpInferenceGateway.kt` | Request validation and inference orchestration |
-| `LlmHttpBodyParser.kt` | Request body parsing and validation |
 | `LlmHttpPayloadBuilders.kt` | JSON response construction (health, models, server info) |
 | `LlmHttpResponseRenderer.kt` | Renders LLM responses to JSON with capabilities metadata |
 | `LlmHttpApiModels.kt` | Kotlin data classes for OpenAI API request/response format |
@@ -102,15 +105,12 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `LlmHttpModelFactory.kt` | Builds `Model` instances from allowlist and imported sources |
 | `LlmHttpAllowlistLoader.kt` | Loads and caches the allowed model list |
 | `LlmHttpNotificationHelper.kt` | Foreground notification building |
-| `LlmHttpCorsHelper.kt` | CORS header management |
 | `LlmHttpBridgeUtils.kt` | Utility functions for ID generation, model normalization, authorization, SSE escaping, and base64 compaction |
 | `LlmHttpErrorSuggestions.kt` | Maps error types to user-facing recovery suggestions |
 | `LlmHttpLogger.kt` | File-based request/response logging |
 | `TokenEstimation.kt` | Estimates token count from character length |
 | `ServerMetrics.kt` | Singleton metrics accumulator (counters, gauges, timing) |
 | `RequestLogStore.kt` | In-memory log store for the Logs screen |
-| `FlushingSseResponse.kt` | NanoHTTPD response that flushes SSE chunks immediately |
-| `BlockingQueueInputStream.kt` | Thread-safe InputStream backed by a queue for SSE streaming |
 | `BootReceiver.kt` | Auto-starts the server on device boot if configured |
 | `CopyUrlReceiver.kt` | Copies server endpoint URL to clipboard from notification |
 
@@ -194,26 +194,25 @@ Requests are processed one at a time. The inference lock serializes all model in
 
 ```
 Client HTTP request
-  → NanoHTTPD (LlmHttpServer)
-    → CORS header computation (LlmHttpCorsHelper)
-    → Route resolution (LlmHttpRouteResolver)
-    → Auth check (bearer token)
+  → Ktor CIO (KtorServer)
+    → CORS plugin (automatic preflight + headers)
+    → Auth plugin (bearer token validation)
+    → Route resolution (KtorServer routing DSL)
+    → Request adaptation (KtorRequestAdapter → internal request model)
     → Endpoint orchestration (LlmHttpEndpointHandlers)
-      → Body parsing (LlmHttpBodyParser)
       → Request adaptation (LlmHttpRequestAdapter — prompt building, tool schema, image/audio)
       → Prompt compaction (LlmHttpPromptCompactor — history truncation, context fitting)
       → Inference (LlmHttpInferenceRunner → LlmHttpInferenceGateway → ServerLlmModelHelper → LiteRT Engine)
       → Tool call detection (LlmHttpToolCallParser)
       → Response building (LlmHttpPayloadBuilders)
-    → CORS headers applied
-    → HTTP response to client
+    → HTTP response to client (JSON, SSE stream, or binary)
 ```
 ## Dependencies
 
 | Library | Purpose |
 |:--------|:--------|
 | **[LiteRT LM](https://github.com/google-ai-edge/LiteRT-LM)** | On-device LLM inference runtime |
-| **[NanoHTTPD](https://github.com/NanoHttpd/nanohttpd)** | Lightweight HTTP server |
+| **[Ktor CIO](https://ktor.io/)** | Coroutine-based HTTP server (CORS, auth, content negotiation, status pages plugins) |
 | **[Hilt](https://dagger.dev/hilt/)** | Dependency injection |
 | **[Jetpack Compose](https://developer.android.com/compose)** | UI framework (Material 3) |
 | **[Room](https://developer.android.com/training/data-storage/room)** | SQLite database for request log persistence |

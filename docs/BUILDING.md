@@ -199,6 +199,6 @@ To set up OAuth:
 
 ## R8 & ProGuard
 
-Release builds (`*Release` variants) are minified and shrunk with R8. ProGuard rules are in `Android/src/app/proguard-rules.pro` with keep rules for kotlinx.serialization, Kotlin Reflect, NanoHTTPD, Protobuf Lite, Hilt/Dagger, LiteRT LM, AppAuth, and Compose.
+Release builds (`*Release` variants) are minified and shrunk with R8. ProGuard rules are in `Android/src/app/proguard-rules.pro` with keep rules for kotlinx.serialization, Kotlin Reflect, Ktor CIO, Protobuf Lite, Hilt/Dagger, LiteRT LM, AppAuth, and Compose.
 
 If you add a new library that uses reflection or serialization, you may need to add ProGuard keep rules to that file — otherwise R8 will strip classes that are only accessed via reflection, causing runtime crashes in release builds only.
