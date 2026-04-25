@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.service
 
-import fi.iki.elonen.NanoHTTPD
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -29,23 +28,23 @@ class LlmHttpRouteResolverTest {
   fun resolvesKnownRoutesWithExpectedAuth() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.PING, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/ping"),
+      LlmHttpRouteResolver.resolve("GET", "/ping"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.MODELS, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1/models"),
+      LlmHttpRouteResolver.resolve("GET", "/v1/models"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.GENERATE, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/generate"),
+      LlmHttpRouteResolver.resolve("POST", "/generate"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.CHAT_COMPLETIONS, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/chat/completions"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/chat/completions"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.RESPONSES, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/responses"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/responses"),
     )
   }
 
@@ -53,29 +52,29 @@ class LlmHttpRouteResolverTest {
   fun resolvesServerInfoRoutes() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/"),
+      LlmHttpRouteResolver.resolve("GET", "/"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1"),
+      LlmHttpRouteResolver.resolve("GET", "/v1"),
     )
   }
 
   @Test
   fun returnsNullForUnknownRouteOrWrongMethod() {
-    assertNull(LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/generate"))
-    assertNull(LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/models"))
-    assertNull(LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/unknown"))
+    assertNull(LlmHttpRouteResolver.resolve("GET", "/generate"))
+    assertNull(LlmHttpRouteResolver.resolve("POST", "/v1/models"))
+    assertNull(LlmHttpRouteResolver.resolve("GET", "/unknown"))
   }
 
   @Test
   fun getPostAndOptionsAreSupported() {
-    assertTrue(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.GET))
-    assertTrue(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.POST))
-    assertTrue(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.OPTIONS))
-    assertFalse(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.DELETE))
-    assertFalse(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.PUT))
-    assertFalse(LlmHttpRouteResolver.isSupportedMethod(NanoHTTPD.Method.PATCH))
+    assertTrue(LlmHttpRouteResolver.isSupportedMethod("GET"))
+    assertTrue(LlmHttpRouteResolver.isSupportedMethod("POST"))
+    assertTrue(LlmHttpRouteResolver.isSupportedMethod("OPTIONS"))
+    assertFalse(LlmHttpRouteResolver.isSupportedMethod("DELETE"))
+    assertFalse(LlmHttpRouteResolver.isSupportedMethod("PUT"))
+    assertFalse(LlmHttpRouteResolver.isSupportedMethod("PATCH"))
   }
 
   // ── Additional routes───────────────────────────────────────────────────
@@ -84,11 +83,11 @@ class LlmHttpRouteResolverTest {
   fun resolvesHealthRoutes() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.HEALTH, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/health"),
+      LlmHttpRouteResolver.resolve("GET", "/health"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.HEALTH, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1/health"),
+      LlmHttpRouteResolver.resolve("GET", "/v1/health"),
     )
   }
 
@@ -96,7 +95,7 @@ class LlmHttpRouteResolverTest {
   fun resolvesCompletionsRoute() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.COMPLETIONS, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/completions"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/completions"),
     )
   }
 
@@ -104,11 +103,11 @@ class LlmHttpRouteResolverTest {
   fun resolvesModelDetailRoute() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.MODEL_DETAIL, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1/models/Gemma-3n-E4B"),
+      LlmHttpRouteResolver.resolve("GET", "/v1/models/Gemma-3n-E4B"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.MODEL_DETAIL, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1/models/some-model-name"),
+      LlmHttpRouteResolver.resolve("GET", "/v1/models/some-model-name"),
     )
   }
 
@@ -117,7 +116,7 @@ class LlmHttpRouteResolverTest {
     // /v1/models (without trailing path) should still resolve to MODELS, not MODEL_DETAIL
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.MODELS, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/v1/models"),
+      LlmHttpRouteResolver.resolve("GET", "/v1/models"),
     )
   }
 
@@ -148,7 +147,7 @@ class LlmHttpRouteResolverTest {
   fun resolvesMetricsRoute() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.METRICS, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/metrics"),
+      LlmHttpRouteResolver.resolve("GET", "/metrics"),
     )
   }
 
@@ -156,7 +155,7 @@ class LlmHttpRouteResolverTest {
   fun resolvesVersionRoute() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.VERSION, requiresAuth = false),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/api/version"),
+      LlmHttpRouteResolver.resolve("GET", "/api/version"),
     )
   }
 
@@ -164,19 +163,19 @@ class LlmHttpRouteResolverTest {
   fun resolvesServerControlRoutes() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.SERVER_STOP, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/stop"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/server/stop"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.SERVER_RELOAD, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/reload"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/server/reload"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.SERVER_THINKING, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/thinking"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/server/thinking"),
     )
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.SERVER_CONFIG, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/server/config"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/server/config"),
     )
   }
 
@@ -184,13 +183,13 @@ class LlmHttpRouteResolverTest {
   fun resolvesDebugModelsAlias() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.MODELS, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/debug/models"),
+      LlmHttpRouteResolver.resolve("GET", "/debug/models"),
     )
   }
 
   @Test
   fun metricsRouteDoesNotRequireAuth() {
-    val route = LlmHttpRouteResolver.resolve(NanoHTTPD.Method.GET, "/metrics")
+    val route = LlmHttpRouteResolver.resolve("GET", "/metrics")
     assertNotNull(route)
     assertFalse("Metrics endpoint should not require auth", route!!.requiresAuth)
   }
@@ -207,13 +206,13 @@ class LlmHttpRouteResolverTest {
   fun resolvesAudioTranscriptionRoute() {
     assertEquals(
       LlmHttpRoute(LlmHttpRouteHandler.AUDIO_TRANSCRIPTION, requiresAuth = true),
-      LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/audio/transcriptions"),
+      LlmHttpRouteResolver.resolve("POST", "/v1/audio/transcriptions"),
     )
   }
 
   @Test
   fun audioTranscriptionRouteRequiresAuth() {
-    val route = LlmHttpRouteResolver.resolve(NanoHTTPD.Method.POST, "/v1/audio/transcriptions")
+    val route = LlmHttpRouteResolver.resolve("POST", "/v1/audio/transcriptions")
     assertNotNull(route)
     assertTrue("Audio transcription endpoint should require auth", route!!.requiresAuth)
   }
