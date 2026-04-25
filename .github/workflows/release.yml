@@ -7,14 +7,18 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v1.0.0, v1.0.0-beta.1)'
+        description: 'Version tag (e.g. v1.0.0, v1.0.0-beta.1, v1.0.0-dev.2)'
         required: true
+      build_only:
+        description: 'Build APK only — no tag, no release (for test builds)'
+        type: boolean
+        default: false
       create_tag:
-        description: 'Create the tag if it does not exist yet'
+        description: 'Create the tag if it does not exist yet (ignored when build_only)'
         type: boolean
         default: false
       publish:
-        description: 'Create a GitHub Release (uncheck to keep APK as artifact only)'
+        description: 'Create a GitHub Release (ignored when build_only)'
         type: boolean
         default: true
 
@@ -82,7 +86,7 @@ jobs:
           fetch-tags: true
 
       - name: Resolve tag ref
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_only != 'true' }}
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           CREATE_TAG: ${{ github.event.inputs.create_tag }}
@@ -142,6 +146,7 @@ jobs:
           fi
 
       - name: Validate tag version matches gradle.properties
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.build_only != 'true' }}
         env:
           TAG_VERSION: ${{ steps.tag.outputs.version }}
         run: |
@@ -234,37 +239,64 @@ jobs:
           CHANNEL: ${{ steps.tag.outputs.channel }}
           VERSION_CODE: ${{ github.run_number }}
           RELEASE_DIR: ${{ steps.apks.outputs.dir }}
+          BUILD_ONLY: ${{ github.event.inputs.build_only }}
+          GRADLE_TASK: ${{ steps.tag.outputs.task }}
+          REPO: ${{ github.repository }}
+          PUBLISH: ${{ github.event.inputs.publish }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_FULL=$(git rev-parse HEAD)
+          APK_FILE=$(ls "$RELEASE_DIR"/*.apk | head -1)
+          APK_NAME=$(basename "$APK_FILE")
+          APK_SIZE=$(numfmt --to=iec-i --suffix=B "$(stat -c%s "$APK_FILE")")
+          BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
+          JDK_VERSION=$(java -version 2>&1 | head -1)
+          SDK_VERSION=$(cat "$ANDROID_HOME/cmdline-tools/latest/source.properties" 2>/dev/null | grep -oP '(?<=Pkg.Revision=).+' || echo "unknown")
+
+          SUFFIX=""
+          if [ "$BUILD_ONLY" = "true" ]; then SUFFIX=" (build only)"; fi
+
           {
-            echo "## Release Build: $TAG"
+            echo "## Release Build: ${TAG}${SUFFIX}"
             echo ""
-            echo "| Property | Value |"
-            echo "|----------|-------|"
-            echo "| **Tag** | \`$TAG\` |"
-            echo "| **Channel** | $CHANNEL |"
-            echo "| **Version code** | $VERSION_CODE |"
-            echo "| **Commit** | \`$(git rev-parse --short HEAD)\` |"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Channel** | ${CHANNEL} |"
+            echo "| **Version code** | ${VERSION_CODE} |"
+            echo "| **Commit** | [\`${COMMIT_SHA}\`](https://github.com/${REPO}/commit/${COMMIT_FULL}) |"
+            echo "| **Branch** | \`${BRANCH}\` |"
+            echo "| **Gradle task** | \`${GRADLE_TASK}\` |"
+            echo "| **APK** | \`${APK_NAME}\` |"
+            echo "| **Size** | ${APK_SIZE} |"
             echo ""
-            echo "### APKs"
-            echo "\`\`\`"
-            ls -lh "$RELEASE_DIR"/*.apk | awk '{print $NF, $5}'
-            echo "\`\`\`"
+            if [ "$BUILD_ONLY" != "true" ] && { [ "$EVENT_NAME" = "push" ] || [ "$PUBLISH" = "true" ]; }; then
+              echo "**Release:** [GitHub Release](https://github.com/${REPO}/releases/tag/${TAG})"
+              echo ""
+            fi
+            echo "<details><summary>Build environment</summary>"
             echo ""
-            echo "### SHA256 Checksums"
+            echo "- JDK: \`${JDK_VERSION}\`"
+            echo "- Android SDK: \`${SDK_VERSION}\`"
+            echo "</details>"
+            echo ""
+            echo "<details><summary>SHA256 checksum</summary>"
+            echo ""
             echo "\`\`\`"
             cat "$RELEASE_DIR/SHA256SUMS.txt"
             echo "\`\`\`"
+            echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: apk-${{ steps.tag.outputs.tag }}
+          name: OlliteRT-${{ steps.tag.outputs.tag }}-arm64-v8a
           path: Android/src/${{ steps.apks.outputs.dir }}/*.apk
           retention-days: 90
 
       - name: Create GitHub Release
-        if: ${{ github.event_name == 'push' || github.event.inputs.publish == 'true' }}
+        if: ${{ github.event.inputs.build_only != 'true' && (github.event_name == 'push' || github.event.inputs.publish == 'true') }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
@@ -282,7 +314,7 @@ jobs:
     # Only run for stable releases (not beta/dev — no store listing for those).
     # Uses needs.release.outputs.tag (not github.ref) because workflow_dispatch
     # sets github.ref to the branch name, not the tag entered by the user.
-    if: ${{ (github.event_name == 'push' || github.event.inputs.publish == 'true') && !contains(needs.release.outputs.tag, '-beta.') && !contains(needs.release.outputs.tag, '-dev.') }}
+    if: ${{ github.event.inputs.build_only != 'true' && (github.event_name == 'push' || github.event.inputs.publish == 'true') && !contains(needs.release.outputs.tag, '-beta.') && !contains(needs.release.outputs.tag, '-dev.') }}
     permissions:
       contents: write
     concurrency:
