@@ -34,6 +34,9 @@ data class RefreshResult(
 data class LoadResult(
   val models: List<Model>,
   val repositories: List<Repository>,
+  val totalBeforeVersionFilter: Int = 0,
+  val droppedByVersionFilter: Int = 0,
+  val lowestRequiredVersion: String? = null,
 )
 
 @Singleton
@@ -71,6 +74,9 @@ class RepositoryManager @Inject constructor(
 
     val repoModelsList = mutableListOf<RepoModels>()
     val repositories = mutableListOf<Repository>()
+    var totalBeforeVersionFilter = 0
+    var droppedByVersionFilter = 0
+    val droppedMinVersions = mutableListOf<String>()
 
     for (entry in repoEntries) {
       if (!entry.enabled && !ignoreDisabled) {
@@ -99,6 +105,16 @@ class RepositoryManager @Inject constructor(
       }
 
       val filtered = if (appVersion != null) allowlist.filterCompatible(appVersion) else allowlist
+      totalBeforeVersionFilter += allowlist.models.size
+      val dropped = allowlist.models.size - filtered.models.size
+      droppedByVersionFilter += dropped
+      if (dropped > 0 && appVersion != null) {
+        allowlist.models
+          .filter { !it.isCompatibleWith(appVersion) }
+          .mapNotNull { it.minAppVersion }
+          .minByOrNull { SemVer.parse(it) ?: SemVer(Int.MAX_VALUE, 0, 0) }
+          ?.let { droppedMinVersions.add(it) }
+      }
       val repoName = allowlist.sourceName.ifEmpty { deriveRepositoryName(entry.url) }
         .let { truncateMetadata(it, MAX_REPO_NAME_LENGTH) }
       val repoDesc = truncateMetadata(allowlist.sourceDescription, MAX_REPO_DESCRIPTION_LENGTH)
@@ -128,7 +144,17 @@ class RepositoryManager @Inject constructor(
       allowedModel.toModel(appVersion, repositoryName = repoName, repositoryId = repoId)
     }
     val disambiguated = disambiguateDisplayNames(models)
-    LoadResult(models = disambiguated, repositories = repositories)
+    val lowestRequired = droppedMinVersions
+      .mapNotNull { SemVer.parse(it) }
+      .minOrNull()
+      ?.toString()
+    LoadResult(
+      models = disambiguated,
+      repositories = repositories,
+      totalBeforeVersionFilter = totalBeforeVersionFilter,
+      droppedByVersionFilter = droppedByVersionFilter,
+      lowestRequiredVersion = lowestRequired,
+    )
   }
 
   private suspend fun seedOfficialRepo(legacyContentVersion: Int = 0) {

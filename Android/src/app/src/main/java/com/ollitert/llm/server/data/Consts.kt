@@ -114,6 +114,8 @@ const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400"
 const val SSE_BUFFER_SIZE_BYTES = 8 * 1024
 
 // Model allowlist asset/disk-cache filenames.
+// Master lives at /model_allowlists/v1/model_allowlist.json (repo root) — Gradle copies it
+// into assets/ on every build (see syncAllowlist task in app/build.gradle.kts).
 const val MODEL_ALLOWLIST_CACHE_PREFIX = "model_allowlist_"
 const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 const val MODEL_ALLOWLIST_TEST_FILENAME = "${MODEL_ALLOWLIST_CACHE_PREFIX}test.json"

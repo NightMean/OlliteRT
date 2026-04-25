@@ -731,6 +731,28 @@ fun GlobalModelManager(
         }
       }
 
+      // Footer: some models hidden by version compatibility
+      val hasVisibleModels = filteredBuiltInModels.isNotEmpty() || filteredImportedModels.isNotEmpty()
+      if (hasVisibleModels && uiState.droppedByVersionFilter > 0 && !uiState.loadingModelAllowlist) {
+        item(key = "version_filter_footer") {
+          val count = uiState.droppedByVersionFilter
+          val modelWord = if (count == 1) "model" else "models"
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(vertical = 16.dp, horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              text = stringResource(R.string.models_hidden_by_version, count, modelWord),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+              textAlign = TextAlign.Center,
+            )
+          }
+        }
+      }
+
       // Empty state — distinguish between filter mismatch and allowlist load failure
       if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && !uiState.loadingModelAllowlist && !uiState.allReposDisabled) {
         item(key = "empty_state") {
@@ -767,7 +789,18 @@ fun GlobalModelManager(
               }
             }
           } else {
-            // Filters/search yielded no results
+            val hasActiveSearchOrFilter = searchQuery.isNotEmpty() ||
+              activeFilter != ModelFilter.ALL ||
+              activeCapabilities.isNotEmpty()
+            val requiredVersion = uiState.requiredVersion
+            val emptyText = when {
+              hasActiveSearchOrFilter -> stringResource(R.string.no_models_match_search)
+              uiState.emptyReason == ModelEmptyReason.VERSION_TOO_OLD ->
+                stringResource(R.string.no_models_version_too_old, requiredVersion ?: "?")
+              uiState.totalBeforeFilters == 0 ->
+                stringResource(R.string.no_models_empty_source)
+              else -> stringResource(R.string.no_models_not_compatible)
+            }
             Box(
               modifier = Modifier
                 .fillMaxWidth()
@@ -775,7 +808,7 @@ fun GlobalModelManager(
               contentAlignment = Alignment.Center,
             ) {
               Text(
-                text = stringResource(R.string.no_models_match_search),
+                text = emptyText,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

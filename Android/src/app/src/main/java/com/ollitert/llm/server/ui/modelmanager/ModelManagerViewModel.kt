@@ -104,6 +104,12 @@ data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData
 
 data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
 
+enum class ModelEmptyReason {
+  NONE,
+  VERSION_TOO_OLD,
+  UNKNOWN,
+}
+
 data class ModelManagerUiState(
   /** Flat list of all models (built-in + imported). */
   val models: List<Model> = listOf(),
@@ -129,6 +135,11 @@ data class ModelManagerUiState(
   val configValuesUpdateTrigger: Long = 0L,
   // Bumped when storage changes (download complete, model deleted).
   val storageUpdateTrigger: Long = 0L,
+
+  val emptyReason: ModelEmptyReason = ModelEmptyReason.NONE,
+  val requiredVersion: String? = null,
+  val droppedByVersionFilter: Int = 0,
+  val totalBeforeFilters: Int = 0,
 )
 
 /**
@@ -592,8 +603,10 @@ constructor(
         // with load results: a repo that failed to refresh but still loaded from
         // cache is "stale" (has models), not "offline" (no models).
         val enabledRepos = loadResult.repositories.filter { it.enabled }
+        // modelCount == null means the allowlist couldn't be read at all (truly no cache);
+        // modelCount == 0 means the allowlist loaded but all models were filtered out (e.g. version).
         val failedWithNoCache = enabledRepos.filter {
-          it.id in refreshResult.failedRepoIds && (it.modelCount == null || it.modelCount == 0)
+          it.id in refreshResult.failedRepoIds && it.modelCount == null
         }
         val failedWithCache = enabledRepos.filter {
           it.id in refreshResult.failedRepoIds && it.modelCount != null && it.modelCount > 0
@@ -637,6 +650,13 @@ constructor(
 
         val models = loadResult.models
 
+        val emptyReason = when {
+          models.isNotEmpty() -> ModelEmptyReason.NONE
+          loadResult.droppedByVersionFilter > 0 -> ModelEmptyReason.VERSION_TOO_OLD
+          failedWithNoCache.isEmpty() && enabledRepos.isNotEmpty() -> ModelEmptyReason.UNKNOWN
+          else -> ModelEmptyReason.NONE
+        }
+
         RequestLogStore.addEvent(
           "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
           level = LogLevel.DEBUG,
@@ -650,6 +670,10 @@ constructor(
             .copy(
               loadingModelAllowlist = false,
               loadingModelAllowlistError = errorMessage,
+              emptyReason = emptyReason,
+              requiredVersion = loadResult.lowestRequiredVersion,
+              droppedByVersionFilter = loadResult.droppedByVersionFilter,
+              totalBeforeFilters = loadResult.totalBeforeVersionFilter,
             )
         }
         processPendingDownloads()

@@ -76,6 +76,10 @@
   <string name="filter_available" translatable="false">Available</string>
   <string name="filter_imported" translatable="false">Imported</string>
   <string name="no_models_match_search" translatable="false">No models match your search</string>
+  <string name="no_models_version_too_old" translatable="false">No compatible models found. Update to version %1$s or newer.</string>
+  <string name="no_models_empty_source" translatable="false">No models found in your model sources. Try refreshing or adding a new source.</string>
+  <string name="no_models_not_compatible" translatable="false">Models were found but none could be loaded. The model source may contain invalid data.</string>
+  <string name="models_hidden_by_version" translatable="false">%1$d %2$s hidden — requires a newer app version</string>
   <string name="retry" translatable="false">Retry</string>
   <string name="wifi_warning_title" translatable="false">No Wi-Fi Connection</string>
   <string name="wifi_warning_content" translatable="false">The server needs Wi-Fi to accept connections from other devices. You can still start the server, but it will only be reachable via localhost.</string>
