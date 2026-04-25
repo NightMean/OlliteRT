@@ -33,6 +33,11 @@ val gitHash: String = providers.exec {
   commandLine("git", "rev-parse", "--short", "HEAD")
 }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
+// When CI passes a version that already contains a channel suffix (e.g. "0.9.0-dev.1"),
+// skip the flavor's versionNameSuffix to avoid double-suffixing ("0.9.0-dev.1-dev").
+val versionFromProperty = findProperty("APP_VERSION_NAME") as String
+val ciVersionHasChannel = versionFromProperty.contains("-dev") || versionFromProperty.contains("-beta")
+
 // Auto versionCode: when APP_VERSION_CODE is "auto", derive from git commit count.
 // CI can pass an explicit number via -PAPP_VERSION_CODE=N to override.
 val resolvedVersionCode: Int = run {
@@ -99,7 +104,7 @@ android {
     create("dev") {
       dimension = "channel"
       applicationIdSuffix = ".dev"
-      versionNameSuffix = "-dev"
+      if (!ciVersionHasChannel) versionNameSuffix = "-dev"
       // BuildConfig field to identify flavor at runtime
       buildConfigField("String", "CHANNEL", "\"dev\"")
       // Update channel: dev sees all releases (stable, beta, dev)
@@ -110,7 +115,7 @@ android {
     create("beta") {
       dimension = "channel"
       applicationIdSuffix = ".beta"
-      versionNameSuffix = "-beta"
+      if (!ciVersionHasChannel) versionNameSuffix = "-beta"
       buildConfigField("String", "CHANNEL", "\"beta\"")
       // Update channel: beta sees beta and stable releases
       buildConfigField("String", "UPDATE_CHANNEL", "\"beta\"")

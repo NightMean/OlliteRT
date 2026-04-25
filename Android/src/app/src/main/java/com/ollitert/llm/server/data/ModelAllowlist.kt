@@ -84,8 +84,11 @@ data class AllowedModel(
     val min = minAppVersion?.let { SemVer.parse(it) }
     val max = maxAppVersion?.let { SemVer.parse(it) }
     val effectiveMax = if (min != null && max != null && max < min) null else max
-    if (min != null && appVersion < min) return false
-    if (effectiveMax != null && appVersion > effectiveMax) return false
+    // Compare base versions only (strip pre-release) so dev/beta builds aren't
+    // excluded by their own release's minAppVersion (e.g. 0.9.0-dev.1 >= 0.9.0).
+    val appBase = appVersion.copy(preRelease = null)
+    if (min != null && appBase < min.copy(preRelease = null)) return false
+    if (effectiveMax != null && appBase > effectiveMax.copy(preRelease = null)) return false
     return true
   }
 
@@ -93,9 +96,10 @@ data class AllowedModel(
     val min = minAppVersion?.let { SemVer.parse(it) }
     val max = maxAppVersion?.let { SemVer.parse(it) }
     val effectiveMax = if (min != null && max != null && max < min) null else max
+    val appBase = appVersion.copy(preRelease = null)
     return when {
-      min != null && appVersion < min -> "Requires app version $minAppVersion"
-      effectiveMax != null && appVersion > effectiveMax -> "Not available after version $maxAppVersion"
+      min != null && appBase < min.copy(preRelease = null) -> "Requires app version $minAppVersion"
+      effectiveMax != null && appBase > effectiveMax.copy(preRelease = null) -> "Not available after version $maxAppVersion"
       else -> null
     }
   }

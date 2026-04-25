@@ -340,6 +340,25 @@ class ModelAllowlistJsonTest {
   }
 
   @Test
+  fun filterCompatiblePreReleaseBuildMatchesOwnMinVersion() {
+    val models = listOf(
+      makeFilterModel("Model", minAppVersion = "0.9.0"),
+    )
+    val allowlist = ModelAllowlist(schemaVersion = 1, models = models)
+
+    // Dev/beta builds of 0.9.0 should be compatible with minAppVersion=0.9.0
+    val devBuild = allowlist.filterCompatible(SemVer.parse("0.9.0-dev.1")!!)
+    assertEquals(1, devBuild.models.size)
+
+    val betaBuild = allowlist.filterCompatible(SemVer.parse("0.9.0-beta.2")!!)
+    assertEquals(1, betaBuild.models.size)
+
+    // But a dev build of 0.8.0 should still be excluded
+    val oldDev = allowlist.filterCompatible(SemVer.parse("0.8.0-dev.1")!!)
+    assertEquals(0, oldDev.models.size)
+  }
+
+  @Test
   fun filterCompatibleUnsupportedSchemaReturnsEmpty() {
     val models = listOf(makeFilterModel("Model"))
     val allowlist = ModelAllowlist(schemaVersion = 99, models = models)
