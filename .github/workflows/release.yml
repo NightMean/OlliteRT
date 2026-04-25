@@ -259,6 +259,14 @@ jobs:
           sha256sum *.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Upload APK artifacts
+        id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: OlliteRT-${{ steps.tag.outputs.tag }}-arm64-v8a
+          path: Android/src/${{ steps.apks.outputs.dir }}/*.apk
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
       - name: Job summary
         env:
           TAG: ${{ steps.tag.outputs.tag }}
@@ -273,6 +281,7 @@ jobs:
           COMPILE_SDK: ${{ steps.sdk.outputs.compile_sdk }}
           BUILD_TOOLS: ${{ steps.sdk.outputs.build_tools }}
           RETENTION_DAYS: ${{ env.ARTIFACT_RETENTION_DAYS }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
           COMMIT_SHA=$(git rev-parse --short HEAD)
           COMMIT_FULL=$(git rev-parse HEAD)
@@ -306,6 +315,7 @@ jobs:
             echo "| **Commit** | [\`${COMMIT_SHA}\`](https://github.com/${REPO}/commit/${COMMIT_FULL}) |"
             echo "| **APK** | \`${APK_NAME}\` |"
             echo "| **Size** | ${APK_SIZE} |"
+            echo "| **Download** | [OlliteRT-${TAG}-arm64-v8a.zip](${ARTIFACT_URL}) |"
             if [ "$WILL_PUBLISH" != "true" ]; then
               echo "| **Artifact expires** | ${EXPIRY_DATE} |"
             fi
@@ -332,13 +342,6 @@ jobs:
             echo "\`\`\`"
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload APK artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: OlliteRT-${{ steps.tag.outputs.tag }}-arm64-v8a
-          path: Android/src/${{ steps.apks.outputs.dir }}/*.apk
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
       - name: Create GitHub Release
         if: ${{ github.event.inputs.build_only != 'true' && (github.event_name == 'push' || github.event.inputs.publish == 'true') }}
