@@ -82,10 +82,23 @@ android {
       if (keystorePropsFile.exists()) {
         val props = Properties()
         keystorePropsFile.inputStream().use { props.load(it) }
-        storeFile = file(props.getProperty("storeFile"))
-        storePassword = props.getProperty("storePassword")
-        keyAlias = props.getProperty("keyAlias")
-        keyPassword = props.getProperty("keyPassword")
+        val ksFile = props.getProperty("storeFile")
+        val missing = listOfNotNull(
+          if (ksFile.isNullOrBlank()) "storeFile" else null,
+          if (props.getProperty("storePassword").isNullOrBlank()) "storePassword" else null,
+          if (props.getProperty("keyAlias").isNullOrBlank()) "keyAlias" else null,
+          if (props.getProperty("keyPassword").isNullOrBlank()) "keyPassword" else null,
+        )
+        if (missing.isNotEmpty()) {
+          logger.warn("WARNING: keystore.properties is missing values: ${missing.joinToString()}. Release builds will use debug signing.")
+        } else if (!file(ksFile).exists()) {
+          logger.warn("WARNING: Keystore file not found at $ksFile. Release builds will use debug signing.")
+        } else {
+          storeFile = file(ksFile)
+          storePassword = props.getProperty("storePassword")
+          keyAlias = props.getProperty("keyAlias")
+          keyPassword = props.getProperty("keyPassword")
+        }
       } else if (System.getenv("KEYSTORE_FILE") != null) {
         storeFile = file(System.getenv("KEYSTORE_FILE"))
         storePassword = System.getenv("STORE_PASSWORD")
@@ -148,11 +161,11 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Use release keystore if available, otherwise fall back to debug for local dev
-      signingConfig = if (signingConfigs.findByName("release")?.storeFile != null) {
-        signingConfigs.getByName("release")
+      val releaseKeystore = signingConfigs.findByName("release")?.takeIf { it.storeFile != null }
+      if (releaseKeystore != null) {
+        signingConfig = releaseKeystore
       } else {
-        signingConfigs.getByName("debug")
+        logger.warn("WARNING: Release keystore not configured — release builds will fail. Create keystore.properties to fix.")
       }
     }
   }

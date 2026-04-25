@@ -126,20 +126,32 @@ The short git commit hash is automatically captured at build time and available 
 
 ## Signing Release Builds
 
-Release builds require a signing keystore. Two methods are supported:
+Release builds **require** a signing keystore — they will fail without one. Debug builds are not affected and always use the debug keystore.
 
-### Option A: Local `keystore.properties` file
+The build validates the signing config at configuration time:
+- Missing or blank properties → warning with the specific missing fields
+- Keystore file doesn't exist at the given path → warning with the path
+- No signing config at all → release build fails at the signing step
+
+> [!IMPORTANT]
+> Use **forward slashes** in paths, even on Windows (`C:/Users/you/keystore.jks`). Java's `Properties.load()` treats backslashes as escape characters and silently strips them.
+
+### Option A: Local `keystore.properties` file (recommended for local dev)
 
 Create `Android/src/keystore.properties` (gitignored):
 
 ```properties
-storeFile=../path/to/your-keystore.jks
+storeFile=/path/to/your-keystore.jks
 storePassword=your-store-password
 keyAlias=your-key-alias
 keyPassword=your-key-password
 ```
 
+All four fields are required. The `storeFile` path can be absolute or relative to the `app/` module directory.
+
 ### Option B: Environment variables (CI)
+
+The GitHub Actions release workflow uses this method with repository secrets:
 
 ```bash
 export KEYSTORE_FILE=/path/to/keystore.jks
@@ -148,8 +160,7 @@ export KEY_ALIAS=...
 export KEY_PASSWORD=...
 ```
 
-> [!WARNING]
-> If neither is configured, release builds fall back to the debug keystore — suitable for local testing only, not for distribution.
+### Building
 
 ```bash
 # Signed release build
@@ -158,6 +169,9 @@ export KEY_PASSWORD=...
 # Android App Bundle (for Play Store)
 ./gradlew :app:bundleStableRelease
 ```
+
+> [!NOTE]
+> If you see `WARNING: Release keystore not configured` during a debug build, this is informational only — debug builds are not affected. You only need the keystore for release variants.
 
 ## HuggingFace OAuth
 
