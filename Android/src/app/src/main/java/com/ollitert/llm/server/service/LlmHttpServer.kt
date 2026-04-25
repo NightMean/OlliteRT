@@ -99,7 +99,7 @@ class LlmHttpServer(
 
     // Suppress /health log entries when the user has enabled "Hide Health Logs"
     if (LlmHttpPrefs.isHideHealthLogs(serviceContext)) {
-      val route = LlmHttpRouteResolver.resolve(session.method, session.uri)
+      val route = LlmHttpRouteResolver.resolve(session.method.name, session.uri)
       if (route?.handler == LlmHttpRouteHandler.HEALTH) {
         val includeMetrics = session.parameters?.get("metrics")?.firstOrNull()?.equals("true", ignoreCase = true) == true
         val body = LlmHttpPayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics)
@@ -127,10 +127,10 @@ class LlmHttpServer(
     var requestBodySnapshot: String? = null
     var responseBodySnapshot: String? = null
     val response = try {
-      if (!LlmHttpRouteResolver.isSupportedMethod(session.method)) {
+      if (!LlmHttpRouteResolver.isSupportedMethod(session.method.name)) {
         methodNotAllowed()
       } else {
-        val route = LlmHttpRouteResolver.resolve(session.method, session.uri)
+        val route = LlmHttpRouteResolver.resolve(session.method.name, session.uri)
         val authError = if (route?.requiresAuth == true) requireAuth(session) else null
         if (route == null) {
           // Browsers auto-request /favicon.ico when visiting the server URL — serve the app icon.

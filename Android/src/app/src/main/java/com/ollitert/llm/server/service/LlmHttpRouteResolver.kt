@@ -16,8 +16,6 @@
 
 package com.ollitert.llm.server.service
 
-import fi.iki.elonen.NanoHTTPD
-
 enum class LlmHttpRouteHandler {
   PING,
   HEALTH,
@@ -48,15 +46,15 @@ data class LlmHttpRoute(
 )
 
 object LlmHttpRouteResolver {
-  fun isSupportedMethod(method: NanoHTTPD.Method): Boolean {
-    return method == NanoHTTPD.Method.GET || method == NanoHTTPD.Method.POST || method == NanoHTTPD.Method.OPTIONS
+  fun isSupportedMethod(method: String): Boolean {
+    return method == "GET" || method == "POST" || method == "OPTIONS"
   }
 
-  fun resolve(method: NanoHTTPD.Method, rawUri: String): LlmHttpRoute? {
+  fun resolve(method: String, rawUri: String): LlmHttpRoute? {
     val normalized = rawUri.replace("//", "/")
     val uri = if (normalized.length > 1 && normalized.endsWith("/")) normalized.dropLast(1) else normalized
     return when (method) {
-      NanoHTTPD.Method.GET ->
+      "GET" ->
         when {
           uri == "/ping" -> LlmHttpRoute(handler = LlmHttpRouteHandler.PING, requiresAuth = false)
           uri == "/health" || uri == "/v1/health" -> LlmHttpRoute(handler = LlmHttpRouteHandler.HEALTH, requiresAuth = false)
@@ -68,7 +66,7 @@ object LlmHttpRouteResolver {
           uri.startsWith("/v1/models/") -> LlmHttpRoute(handler = LlmHttpRouteHandler.MODEL_DETAIL, requiresAuth = true)
           else -> null
         }
-      NanoHTTPD.Method.POST ->
+      "POST" ->
         when (uri) {
           "/generate" -> LlmHttpRoute(handler = LlmHttpRouteHandler.GENERATE, requiresAuth = true)
           "/v1/completions" -> LlmHttpRoute(handler = LlmHttpRouteHandler.COMPLETIONS, requiresAuth = true)
