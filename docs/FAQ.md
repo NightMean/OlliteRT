@@ -31,31 +31,9 @@
 
 ### What are the minimum requirements?
 
-| Requirement | Minimum | Recommended |
-|:------------|:--------|:------------|
-| **Android** | 12 (API 31) | 12+ |
-| **Architecture** | arm64-v8a or x86_64 | arm64-v8a |
-| **RAM** | 6 GB (text-only models) | 8 GB+ (multimodal models) |
+**Android 12+** (API 31) on an **arm64-v8a** device with at least **6 GB RAM** (8 GB+ recommended for multimodal models). Nearly all Android phones from 2017+ meet these requirements.
 
-**Android 12+** is required by Google's [LiteRT](https://ai.google.dev/edge/litert) runtime — it uses GPU acceleration APIs not available on older versions.
-
-> [!IMPORTANT]
-> 32-bit devices (armeabi-v7a, x86) are not supported.
-
-Most modern phones are **arm64-v8a**. If unsure, download the **universal** APK.
-
-<details>
-<summary><strong>How to check your architecture — click to expand</strong></summary>
-
-Install [Droid Hardware Info](https://play.google.com/store/apps/details?id=com.inkwired.droidinfo) and look at the **CPU Architecture** field.
-
-| Architecture | Devices |
-|:-------------|:--------|
-| **arm64-v8a** | Almost all modern Android phones and tablets (2017+) |
-| **x86_64** | Some Chromebooks, Android emulators |
-| **Universal** | Works on all architectures (larger APK size) |
-
-</details>
+Android 12 is the minimum because Google's [LiteRT](https://ai.google.dev/edge/litert) runtime requires GPU acceleration APIs not available on older versions. **Other architectures (armeabi-v7a, x86, x86_64) are not supported**  — the LiteRT native library crashes on x86_64 emulators due to unsupported CPU instructions, and 32-bit architectures have no native libraries at all.
 
 See the [Model Guide](MODELS.md) for per-model RAM requirements.
 

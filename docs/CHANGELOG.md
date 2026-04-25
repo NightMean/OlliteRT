@@ -3,7 +3,7 @@
 All notable changes to OlliteRT are documented in [GitHub Releases](https://github.com/NightMean/ollitert/releases).
 
 > [!TIP]
-> Each release includes signed APK downloads (per architecture + universal) and a full summary of changes.
+> Each release includes a signed arm64-v8a APK download and a full summary of changes.
 
 ## Release Tag Convention
 

@@ -126,16 +126,14 @@ android {
     }
   }
 
-  // Only arm64-v8a and x86_64 are supported — LiteRT LM does not ship native
-  // libraries for armeabi-v7a or x86, so the app would crash on inference.
-  // Per-ABI APK splits reduce download size by ~50% (each ABI carries ~20-24 MB
-  // of native libraries).
+  // Only arm64-v8a is supported — LiteRT LM's x86_64 native library crashes
+  // with SIGILL on Android emulators, and 32-bit architectures have no native
+  // libraries at all.
   splits {
     abi {
       isEnable = true
-      // Reset the default ABI list, then include only the supported ones.
       reset()
-      include("arm64-v8a", "x86_64")
+      include("arm64-v8a")
       isUniversalApk = false
     }
   }
@@ -160,6 +158,16 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+}
+
+androidComponents {
+  onVariants { variant ->
+    val flavor = variant.flavorName ?: "stable"
+    val buildTypeName = variant.buildType ?: "debug"
+    variant.outputs.forEach { output ->
+      output.outputFileName.set("OlliteRT-${flavor}-${gitHash}-arm64-v8a-${buildTypeName}.apk")
+    }
   }
 }
 

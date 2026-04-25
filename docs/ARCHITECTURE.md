@@ -222,9 +222,8 @@ Client HTTP request
 | **[WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)** | Background tasks (downloads, update checks, allowlist refresh) |
 | **[Coil](https://coil-kt.github.io/coil/)** | Async image loading (model source icons) |
 | **[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)** | JSON serialization for API models |
-| **[Gson](https://github.com/google/gson)** | JSON serialization (used by LiteRT SDK and allowlist parsing) |
-| **[Moshi](https://github.com/square/moshi)** | JSON serialization (used by model config and data layer) |
 | **[AppAuth](https://github.com/openid/AppAuth-Android)** | OAuth 2.0 flow for HuggingFace sign-in |
 | **[Commonmark](https://github.com/commonmark/commonmark-java)** | Markdown parsing for rich text rendering |
 | **[Compose Rich Text](https://github.com/nicehash/compose-richtext)** | Rich text rendering in Compose |
 | **[Splash Screen](https://developer.android.com/develop/ui/views/launch/splash-screen)** | Android 12+ splash screen API |
+| **[OSS Licenses](https://developers.google.com/android/guides/opensource)** | Open source license display |

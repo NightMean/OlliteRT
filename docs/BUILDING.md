@@ -17,8 +17,9 @@
 ## Prerequisites
 
 - **Android Studio** (latest stable) or the Android SDK command-line tools
-- **JDK 21** — required to run Gradle (AGP 8.9+ needs JDK 17 minimum). Android Studio bundles a compatible JBR. The bytecode target is Java 11.
+- **JDK 21** — required by AGP 9.x. Android Studio bundles a compatible JBR. The bytecode target is Java 11.
 - **Android SDK** — API level 36 (`compileSdk 36`), target SDK 35
+- **Gradle** 9.4.1 (bundled via wrapper)
 - **Git** — required at build time to embed the commit hash in `BuildConfig.GIT_HASH` and for auto-versioning (`APP_VERSION_CODE=auto`)
 - **Minimum SDK** — Android 12 (API 31)
 
@@ -60,16 +61,20 @@ JAVA_HOME="/path/to/jbr" ANDROID_HOME="/path/to/sdk" ./gradlew :app:assembleStab
 After building, APKs are in:
 
 ```
-Android/src/app/build/outputs/apk/stable/debug/
-├── app-stable-arm64-v8a-debug.apk    ← most modern phones
-├── app-stable-x86_64-debug.apk       ← emulators, Chromebooks
-└── app-stable-universal-debug.apk    ← works on both (larger)
+Android/src/app/build/outputs/apk/{flavor}/{buildType}/
+└── OlliteRT-{flavor}-{gitHash}-arm64-v8a-{buildType}.apk
+
+# For the Quick Start command (assembleStableDebug):
+#   OlliteRT-stable-3b93b24-arm64-v8a-debug.apk
+#
+# Other examples:
+#   OlliteRT-stable-3b93b24-arm64-v8a-release.apk
+#   OlliteRT-beta-3b93b24-arm64-v8a-release.apk
+#   OlliteRT-dev-3b93b24-arm64-v8a-debug.apk
 ```
 
-The build produces **per-ABI splits** — each APK contains native libraries for only one architecture, cutting size by ~50%. The universal APK includes both and works everywhere.
-
 > [!NOTE]
-> Only **arm64-v8a** and **x86_64** are supported. LiteRT does not ship native libraries for 32-bit architectures (armeabi-v7a, x86). Nearly all Android devices from 2017+ are 64-bit.
+> Only **arm64-v8a** is supported. The LiteRT native library crashes on x86_64 emulators (SIGILL — unsupported CPU instructions), and 32-bit architectures have no native libraries at all. Nearly all Android devices from 2017+ are arm64-v8a.
 
 ## Product Flavors
 
@@ -180,6 +185,6 @@ To set up OAuth:
 
 ## R8 & ProGuard
 
-Release builds (`*Release` variants) are minified and shrunk with R8. ProGuard rules are in `Android/src/app/proguard-rules.pro` with keep rules for kotlinx.serialization, Gson, Protobuf, Hilt, LiteRT LM, AppAuth, and NanoHTTPD.
+Release builds (`*Release` variants) are minified and shrunk with R8. ProGuard rules are in `Android/src/app/proguard-rules.pro` with keep rules for kotlinx.serialization, Kotlin Reflect, NanoHTTPD, Protobuf Lite, Hilt/Dagger, LiteRT LM, AppAuth, and Compose.
 
 If you add a new library that uses reflection or serialization, you may need to add ProGuard keep rules to that file — otherwise R8 will strip classes that are only accessed via reflection, causing runtime crashes in release builds only.

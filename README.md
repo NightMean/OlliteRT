@@ -63,7 +63,7 @@
 4. **Configure your client** — Use the endpoint shown on the Status screen (e.g. `http://PHONE_IP:8000/v1`) with any OpenAI-compatible client — Open WebUI, OpenClaw, Home Assistant, Python, etc. See **[Client Setup](docs/CLIENT_SETUP.md)** for detailed guides.
 
 > [!IMPORTANT]
-> Requires: Android 12+ · **arm64-v8a** or x86_64 device · 6 GB RAM minimum · 8 GB+ recommended for multimodal models (see [model table](#available-models))
+> Requires: Android 12+ · **arm64-v8a** device · 6 GB RAM minimum · 8 GB+ recommended for multimodal models (see [model table](#available-models))
 
 ## Available Models
 
@@ -116,7 +116,7 @@ Full API docs and examples: **[docs/api/API.md](docs/api/API.md)**
 <details>
 <summary><strong>Known limitations — click to expand</strong></summary>
 
-- **arm64-v8a and x86_64 only** — 32-bit devices (armeabi-v7a, x86) are not supported because the LiteRT runtime does not ship native libraries for those architectures. Nearly all Android devices from 2017+ are 64-bit.
+- **arm64-v8a only** — other architectures (armeabi-v7a, x86, x86_64) are not supported. The LiteRT runtime ships native libraries for x86_64 but they crash on Android emulators due to unsupported CPU instructions. Nearly all Android devices from 2017+ are arm64-v8a.
 - **Single model, single request** — one model loaded at a time, requests queue sequentially (LiteRT SDK limitation). On-demand model loading via client requests is planned for a future release.
 - **Tool calling is prompt-based** — LiteRT's native tool calling only supports compile-time definitions, so runtime tool schemas from API clients are injected via prompt. Results may vary by model.
 - **Token counts are estimated** — the LiteRT runtime doesn't expose a tokenizer API, so counts are approximated using character length ÷ 4. Reasonably accurate for English text, less so for code or multilingual content.

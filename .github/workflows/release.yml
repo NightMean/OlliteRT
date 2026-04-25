@@ -133,13 +133,7 @@ jobs:
           shopt -s nullglob
           for APK in "$OUT_DIR"/*.apk; do
             BASENAME=$(basename "$APK")
-            if [[ "$BASENAME" == *"arm64-v8a"* ]]; then
-              DEST="$RELEASE_DIR/OlliteRT-${TAG}-arm64-v8a.apk"
-            elif [[ "$BASENAME" == *"x86_64"* ]]; then
-              DEST="$RELEASE_DIR/OlliteRT-${TAG}-x86_64.apk"
-            else
-              DEST="$RELEASE_DIR/OlliteRT-${TAG}.apk"
-            fi
+            DEST="$RELEASE_DIR/OlliteRT-${TAG}-arm64-v8a.apk"
             cp "$APK" "$DEST"
             SIZE=$(stat -c%s "$DEST")
             echo "$(basename "$DEST"): $(numfmt --to=iec-i --suffix=B $SIZE)"
