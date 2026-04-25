@@ -42,6 +42,29 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 
+// ── NanoHTTPD bridge ────────────────────────────────────────────────────────
+// Converts HttpResponse to NanoHTTPD.Response so the existing NanoHTTPD serve() dispatcher
+// can return them while inference handlers are progressively migrated to HttpResponse.
+// SSE (streaming) responses are not convertible — they are still produced directly as
+// FlushingSseResponse/NanoHTTPD.Response by the streaming inference paths.
+private fun HttpResponse.toNanoResponse(): NanoHTTPD.Response = when (this) {
+  is HttpResponse.Json -> {
+    val status = NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR
+    NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", body).also { r ->
+      extraHeaders.forEach { (k, v) -> r.addHeader(k, v) }
+    }
+  }
+  is HttpResponse.Binary -> NanoHTTPD.newFixedLengthResponse(
+    NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR,
+    contentType, bytes.inputStream(), bytes.size.toLong()
+  )
+  is HttpResponse.PlainText -> NanoHTTPD.newFixedLengthResponse(
+    NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR,
+    contentType, body
+  )
+  is HttpResponse.Sse -> throw UnsupportedOperationException("SSE responses cannot be converted to NanoHTTPD")
+}
+
 /**
  * Handles the four inference API endpoints:
  * - POST /generate
@@ -66,23 +89,23 @@ class LlmHttpEndpointHandlers(
   // ── /generate ────────────────────────────────────────────────────────────
 
   fun handleGenerate(
-    session: NanoHTTPD.IHTTPSession,
+    body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val body = when (val parsed = safeParseBody(session)) {
-      is Either.Left -> return parsed.value
-      is Either.Right -> parsed.value
-    }
     captureBody(body)
     logPayload("POST /generate raw", body, requestId)
     val req = try { json.decodeFromString<GenReq>(body) }
-      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
     val model = when (val sel = modelLifecycle.selectModel(null)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
+        statusCode = sel.statusCode,
+        body = LlmHttpResponseRenderer.renderJsonError(sel.message),
+        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
+      ).toNanoResponse()
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
@@ -111,41 +134,41 @@ class LlmHttpEndpointHandlers(
     if (text == null) {
       val (enrichedError, kind) = LlmHttpInferenceRunner.enrichLlmError(llmError ?: "llm error", context)
       ServerMetrics.incrementErrorCount(kind.category)
-      return badRequest(enrichedError)
+      return httpBadRequest(enrichedError).toNanoResponse()
     }
     val promptTokens = estimateTokens(prompt)
     val completionTokens = estimateTokens(text)
     val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
     val responseJson = json.encodeToString(GenRes(text = text, usage = Usage(promptTokens, completionTokens), timings = timings))
     captureResponse(responseJson)
-    return okJsonText(responseJson)
+    return httpOkJson(responseJson).toNanoResponse()
   }
 
   // ── /v1/chat/completions ─────────────────────────────────────────────────
 
   fun handleChatCompletion(
-    session: NanoHTTPD.IHTTPSession,
+    body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
     sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val body = when (val parsed = safeParseBody(session)) {
-      is Either.Left -> return parsed.value
-      is Either.Right -> parsed.value
-    }
     captureBody(body)
     logPayload("POST /v1/chat/completions raw", body, requestId)
     val req = try { json.decodeFromString<ChatRequest>(body) }
-      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
-      return badRequest("tool_choice required but tools empty")
+      return httpBadRequest("tool_choice required but tools empty").toNanoResponse()
     val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
+        statusCode = sel.statusCode,
+        body = LlmHttpResponseRenderer.renderJsonError(sel.message),
+        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
+      ).toNanoResponse()
     }
     // Build prompt with progressive compaction if context window is exceeded.
     // Three independent toggles for progressive prompt compaction:
@@ -247,7 +270,7 @@ class LlmHttpEndpointHandlers(
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
-        return badRequest(errorMsg)
+        return httpBadRequest(errorMsg).toNanoResponse()
       }
       val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSeqs)
 
@@ -262,7 +285,7 @@ class LlmHttpEndpointHandlers(
           val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
           val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
           captureResponse(responseJson)
-          return okJsonText(responseJson)
+          return httpOkJson(responseJson).toNanoResponse()
         }
       }
 
@@ -270,30 +293,30 @@ class LlmHttpEndpointHandlers(
       val timings = LlmHttpPayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(LlmHttpPayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
       captureResponse(responseJson)
-      okJsonText(responseJson)
+      httpOkJson(responseJson).toNanoResponse()
     }
   }
 
   // ── /v1/completions ──────────────────────────────────────────────────────
 
   fun handleCompletions(
-    session: NanoHTTPD.IHTTPSession,
+    body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val body = when (val parsed = safeParseBody(session)) {
-      is Either.Left -> return parsed.value
-      is Either.Right -> parsed.value
-    }
     captureBody(body)
     logPayload("POST /v1/completions raw", body, requestId)
     val req = try { json.decodeFromString<CompletionRequest>(body) }
-      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
+        statusCode = sel.statusCode,
+        body = LlmHttpResponseRenderer.renderJsonError(sel.message),
+        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
+      ).toNanoResponse()
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
@@ -325,7 +348,7 @@ class LlmHttpEndpointHandlers(
         usage = Usage(0, 0),
       ))
       captureResponse(responseJson)
-      return okJsonText(responseJson)
+      return httpOkJson(responseJson).toNanoResponse()
     }
 
     // OpenAI spec allows `"stop": "text"` (single string) or `"stop": ["a","b"]` (array).
@@ -357,7 +380,7 @@ class LlmHttpEndpointHandlers(
         val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
         RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
       }
-      return badRequest(errorMsg)
+      return httpBadRequest(errorMsg).toNanoResponse()
     }
 
     val (text, _) = LlmHttpInferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
@@ -373,34 +396,34 @@ class LlmHttpEndpointHandlers(
       timings = timings,
     ))
     captureResponse(responseJson)
-    return okJsonText(responseJson)
+    return httpOkJson(responseJson).toNanoResponse()
   }
 
   // ── /v1/responses ────────────────────────────────────────────────────────
 
   fun handleResponses(
-    session: NanoHTTPD.IHTTPSession,
+    body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
     sseExtraHeaders: Map<String, String> = emptyMap(),
   ): NanoHTTPD.Response {
     val requestId = nextRequestId()
-    val body = when (val parsed = safeParseBody(session)) {
-      is Either.Left -> return parsed.value
-      is Either.Right -> parsed.value
-    }
     captureBody(body)
     logPayload("POST /v1/responses raw", body, requestId)
     val req = try { json.decodeFromString<ResponsesRequest>(body) }
-      catch (e: SerializationException) { return badRequest("Invalid JSON: ${e.message}") }
+      catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}").toNanoResponse() }
     val toolChoiceStr = LlmHttpRequestAdapter.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
-      return badRequest("tool_choice required but tools empty")
+      return httpBadRequest("tool_choice required but tools empty").toNanoResponse()
     val requestedId = LlmHttpBridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-      is LlmHttpModelLifecycle.ModelSelection.Error -> return jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }
+      is LlmHttpModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
+        statusCode = sel.statusCode,
+        body = LlmHttpResponseRenderer.renderJsonError(sel.message),
+        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
+      ).toNanoResponse()
     }
     // Build prompt with progressive compaction if context window is exceeded
     val truncateHistoryResp = LlmHttpPrefs.isAutoTruncateHistory(context)
@@ -468,7 +491,7 @@ class LlmHttpEndpointHandlers(
           val errorJson = LlmHttpResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
-        return badRequest(errorMsg)
+        return httpBadRequest(errorMsg).toNanoResponse()
       }
 
       // Check if the model output contains tool call(s)
@@ -477,13 +500,13 @@ class LlmHttpEndpointHandlers(
         if (toolCalls.isNotEmpty()) {
           val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
           captureResponse(responseJson)
-          return okJsonText(responseJson)
+          return httpOkJson(responseJson).toNanoResponse()
         }
       }
 
       val responseJson = json.encodeToString(LlmHttpPayloadBuilders.responsesResponseWithText(model.name, text, promptLen = prompt.length))
       captureResponse(responseJson)
-      okJsonText(responseJson)
+      httpOkJson(responseJson).toNanoResponse()
     }
   }
 
@@ -502,7 +525,7 @@ class LlmHttpEndpointHandlers(
       sseStream.finish()
       FlushingSseResponse(sseStream, sseExtraHeaders)
     } else {
-      okJsonText(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(modelId)))
+      httpOkJson(json.encodeToString(LlmHttpPayloadBuilders.emptyChatResponse(modelId))).toNanoResponse()
     }
   }
 
@@ -518,7 +541,7 @@ class LlmHttpEndpointHandlers(
       stream.finish()
       FlushingSseResponse(stream, sseExtraHeaders)
     } else {
-      okJsonText(json.encodeToString(body))
+      httpOkJson(json.encodeToString(body)).toNanoResponse()
     }
   }
 

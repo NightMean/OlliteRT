@@ -216,10 +216,22 @@ class LlmHttpServer(
             }
 
             // ── Inference routes — delegated to LlmHttpEndpointHandlers ──
-            LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-            LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
-            LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
-            LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(session, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+            // Body is parsed here and passed pre-parsed so handlers are decoupled from NanoHTTPD.
+            LlmHttpRouteHandler.GENERATE,
+            LlmHttpRouteHandler.COMPLETIONS,
+            LlmHttpRouteHandler.CHAT_COMPLETIONS,
+            LlmHttpRouteHandler.RESPONSES -> {
+              val inferenceBody: String = when (val parsed = safeParseBody(session)) {
+                is Either.Left -> return@serve applyCorsHeaders(parsed.value, corsHeaders)
+                is Either.Right -> parsed.value
+              }
+              when (route.handler) {
+                LlmHttpRouteHandler.GENERATE -> endpointHandlers.handleGenerate(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+                LlmHttpRouteHandler.COMPLETIONS -> endpointHandlers.handleCompletions(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
+                LlmHttpRouteHandler.CHAT_COMPLETIONS -> endpointHandlers.handleChatCompletion(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+                LlmHttpRouteHandler.RESPONSES -> endpointHandlers.handleResponses(inferenceBody, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId, sseExtraHeaders = sseExtraHeaders)
+              }
+            }
 
             // ── Server control endpoints ──
             // IMPORTANT: When adding new /v1/server/* endpoints, also update the HA YAML
@@ -262,7 +274,10 @@ class LlmHttpServer(
             LlmHttpRouteHandler.AUDIO_TRANSCRIPTION -> {
               val model = when (val sel = modelLifecycle.selectModel(null)) {
                 is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-                is LlmHttpModelLifecycle.ModelSelection.Error -> return@serve applyCorsHeaders(jsonError(sel.status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }, corsHeaders)
+                is LlmHttpModelLifecycle.ModelSelection.Error -> {
+                val status = NanoHTTPD.Response.Status.lookup(sel.statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR
+                return@serve applyCorsHeaders(jsonError(status, sel.message).also { r -> sel.retryAfterSeconds?.let { r.addHeader("Retry-After", it.toString()) } }, corsHeaders)
+              }
               }
               audioTranscriptionHandler.handle(session, model, captureBody = captureBody, captureResponse = { responseBodySnapshot = it }, logId = logId)
             }

@@ -32,7 +32,6 @@ import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
-import fi.iki.elonen.NanoHTTPD
 import java.io.File
 
 /**
@@ -274,7 +273,7 @@ class LlmHttpModelLifecycle(
   /** Result of [selectModel]: either the active model or a descriptive error. */
   sealed class ModelSelection {
     data class Ok(val model: Model) : ModelSelection()
-    data class Error(val status: NanoHTTPD.Response.Status, val message: String, val retryAfterSeconds: Int? = null) : ModelSelection()
+    data class Error(val statusCode: Int, val message: String, val retryAfterSeconds: Int? = null) : ModelSelection()
   }
 
   /**
@@ -286,7 +285,7 @@ class LlmHttpModelLifecycle(
     // If another thread is already reloading the model, return 503 immediately instead
     // of blocking this NanoHTTPD thread for 10-60+ seconds on keepAliveLock.
     if (isReloading) {
-      return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry in a few seconds", retryAfterSeconds = 30)
+      return ModelSelection.Error(503, "Model is reloading after idle timeout, please retry in a few seconds", retryAfterSeconds = 30)
     }
     // Hold keepAliveLock to prevent the keep-alive timer from unloading the model between
     // our read of defaultModel and the caller's use of the returned Model object.
@@ -297,11 +296,11 @@ class LlmHttpModelLifecycle(
       // idle-unloaded.
       if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
         reloadModelFromIdle()
-          ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "Model is reloading after idle timeout, please retry")
+          ?: return ModelSelection.Error(503, "Model is reloading after idle timeout, please retry")
       }
 
       val active = defaultModel
-        ?: return ModelSelection.Error(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, "No model is currently loaded")
+        ?: return ModelSelection.Error(503, "No model is currently loaded")
 
       val requested = requestedModel?.trim().orEmpty()
       if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
@@ -318,7 +317,7 @@ class LlmHttpModelLifecycle(
       }
       // The requested model doesn't match the active model. Return a descriptive error.
       return ModelSelection.Error(
-        NanoHTTPD.Response.Status.BAD_REQUEST,
+        400,
         "Model '${requested}' is not loaded. Currently loaded: '${active.name}'. " +
           "Please select '${active.name}' in your client or load the requested model on the device first."
       )
