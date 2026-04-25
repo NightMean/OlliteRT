@@ -56,7 +56,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class LlmHttpService : Service() {
 
-  private var server: LlmHttpServer? = null
+  private var server: KtorServer? = null
   private var inferenceRunner: LlmHttpInferenceRunner? = null
   private var inferenceExecutor: java.util.concurrent.ExecutorService? = null
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -421,7 +421,7 @@ class LlmHttpService : Service() {
       inferenceRunner = runner,
       modelLifecycle = modelLifecycle,
     )
-    server = LlmHttpServer(
+    server = KtorServer(
       port = port,
       serviceContext = this,
       endpointHandlers = handlers,
