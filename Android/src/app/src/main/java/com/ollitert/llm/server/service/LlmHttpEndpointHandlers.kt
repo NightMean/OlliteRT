@@ -48,7 +48,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * - POST /v1/completions
  * - POST /v1/responses
  *
- * Separated from LlmHttpServer to isolate request parsing, prompt compaction,
+ * Separated from KtorServer to isolate request parsing, prompt compaction,
  * per-request config management, and response building from HTTP routing,
  * auth, CORS, and server control concerns.
  */

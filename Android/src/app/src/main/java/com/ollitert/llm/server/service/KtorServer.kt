@@ -89,7 +89,7 @@ class KtorServer(
 
   private var engine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
 
-  // Convenience accessors for model state (mirrors LlmHttpServer pattern)
+  // Convenience accessors for model state
   private val defaultModel: Model? get() = modelLifecycle.defaultModel
   private val keepAliveUnloadedModelName: String? get() = modelLifecycle.keepAliveUnloadedModelName
 
@@ -235,54 +235,63 @@ class KtorServer(
     get("/v1/health") { handleHealth(call) }
 
     get("/") {
-      val body = LlmHttpPayloadBuilders.serverInfo(
-        defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
-      )
-      call.respondHttpResponse(httpOkJson(body))
+      withGetLogging(call) {
+        val body = LlmHttpPayloadBuilders.serverInfo(
+          defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
+        )
+        httpOkJson(body)
+      }
     }
 
     get("/v1") {
-      val body = LlmHttpPayloadBuilders.serverInfo(
-        defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
-      )
-      call.respondHttpResponse(httpOkJson(body))
+      withGetLogging(call) {
+        val body = LlmHttpPayloadBuilders.serverInfo(
+          defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
+        )
+        httpOkJson(body)
+      }
     }
 
     get("/api/version") {
-      val body = LlmHttpPayloadBuilders.serverInfo(
-        defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
-      )
-      call.respondHttpResponse(httpOkJson(body))
+      withGetLogging(call) {
+        val body = LlmHttpPayloadBuilders.serverInfo(
+          defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
+        )
+        httpOkJson(body)
+      }
     }
 
     get("/metrics") {
-      val body = LlmHttpPrometheusRenderer.render()
-      call.respondHttpResponse(
-        HttpResponse.PlainText(200, LlmHttpPrometheusRenderer.CONTENT_TYPE, body),
-      )
+      withGetLogging(call) {
+        val body = LlmHttpPrometheusRenderer.render()
+        HttpResponse.PlainText(200, LlmHttpPrometheusRenderer.CONTENT_TYPE, body)
+      }
     }
 
     get("/v1/models") {
       if (!requireAuth(call)) return@get
-      val body = LlmHttpPayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
-      call.respondHttpResponse(httpOkJson(body))
+      withGetLogging(call) {
+        val body = LlmHttpPayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+        httpOkJson(body)
+      }
     }
 
     get("/debug/models") {
       if (!requireAuth(call)) return@get
-      val body = LlmHttpPayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
-      call.respondHttpResponse(httpOkJson(body))
+      withGetLogging(call) {
+        val body = LlmHttpPayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+        httpOkJson(body)
+      }
     }
 
     get("/v1/models/{id...}") {
       if (!requireAuth(call)) return@get
-      val body = LlmHttpPayloadBuilders.modelDetail(
-        defaultModel, call.request.uri, json, keepAliveUnloadedModelName,
-      )
-      if (body != null) {
-        call.respondHttpResponse(httpOkJson(body))
-      } else {
-        call.respondHttpResponse(httpNotFound("model_not_found"))
+      withGetLogging(call) {
+        val body = LlmHttpPayloadBuilders.modelDetail(
+          defaultModel, call.request.uri, json, keepAliveUnloadedModelName,
+        )
+        if (body != null) httpOkJson(body)
+        else httpNotFound("model_not_found")
       }
     }
 
@@ -401,7 +410,41 @@ class KtorServer(
   }
 
   // ── Request logging middleware ─────────────────────────────────────────────
-  // Replicates the logging pattern from LlmHttpServer.serve() (lines 86-361).
+
+  /**
+   * Lightweight logging wrapper for GET routes. Creates a log entry, runs the
+   * handler, finalizes with status/latency, and sends the response. No body
+   * parsing or OOM protection needed — GET routes have no request body.
+   */
+  private suspend fun withGetLogging(
+    call: ApplicationCall,
+    handler: suspend () -> HttpResponse,
+  ) {
+    val startMs = SystemClock.elapsedRealtime()
+    val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
+    RequestLogStore.add(
+      RequestLogEntry(
+        id = logId,
+        method = call.request.local.method.value,
+        path = call.request.uri,
+        modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
+        clientIp = call.clientIp(),
+        isPending = true,
+      ),
+    )
+
+    val response = try {
+      handler()
+    } catch (t: Throwable) {
+      ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+      emitDebugStackTrace(t, "ktor_get_catch_all", null)
+      httpInternalError(t.message ?: "internal_error")
+    }
+
+    finalizeLogEntry(logId, startMs, response, requestBodySnapshot = null, responseBodySnapshot = null)
+    call.response.headers.append("x-request-id", logId)
+    call.respondHttpResponse(response)
+  }
 
   /**
    * Wraps a POST route handler with request logging: creates a pending log entry,
@@ -611,8 +654,6 @@ class KtorServer(
 
   /**
    * Handles POST /v1/server/thinking — toggle thinking mode on/off.
-   * Ported from LlmHttpServer.handleServerThinking(), accepts body as String
-   * parameter instead of reading from the HTTP session directly.
    */
   private fun handleServerThinking(body: String): HttpResponse {
     val model = defaultModel
@@ -667,8 +708,6 @@ class KtorServer(
 
   /**
    * Handles POST /v1/server/config — update inference settings.
-   * Ported from LlmHttpServer.handleServerConfig(), accepts body as String
-   * parameter instead of reading from the HTTP session directly.
    */
   private fun handleServerConfig(body: String): HttpResponse {
     val model = defaultModel
@@ -838,9 +877,13 @@ class KtorServer(
   private suspend fun handleHealth(call: ApplicationCall) {
     val includeMetrics =
       call.request.queryParameters["metrics"]?.equals("true", ignoreCase = true) == true
-    val body = LlmHttpPayloadBuilders.health(
-      defaultModel, keepAliveUnloadedModelName, includeMetrics,
+    val response = httpOkJson(
+      LlmHttpPayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics),
     )
-    call.respondHttpResponse(httpOkJson(body))
+    if (LlmHttpPrefs.isHideHealthLogs(serviceContext)) {
+      call.respondHttpResponse(response)
+    } else {
+      withGetLogging(call) { response }
+    }
   }
 }
