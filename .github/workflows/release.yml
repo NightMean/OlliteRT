@@ -166,13 +166,36 @@ jobs:
           java-version: '21'
           cache: gradle
 
+      - name: Read SDK versions from build config
+        id: sdk
+        run: |
+          COMPILE_SDK=$(grep -oP '(?<=compileSdk\s=\s)\d+' app/build.gradle.kts)
+          BUILD_TOOLS=$(grep -oP '(?<=buildToolsVersion\s=\s")[^"]+' app/build.gradle.kts || echo "${COMPILE_SDK}.0.0")
+          echo "compile_sdk=$COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "build_tools=$BUILD_TOOLS" >> "$GITHUB_OUTPUT"
+          echo "SDK: platforms;android-${COMPILE_SDK} build-tools;${BUILD_TOOLS}"
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
+      - name: Cache Android SDK packages
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms
+            ${{ env.ANDROID_HOME }}/build-tools
+            ${{ env.ANDROID_HOME }}/platform-tools
+          key: android-sdk-${{ steps.sdk.outputs.compile_sdk }}-${{ steps.sdk.outputs.build_tools }}
+
       - name: Install Android SDK packages
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        env:
+          COMPILE_SDK: ${{ steps.sdk.outputs.compile_sdk }}
+          BUILD_TOOLS: ${{ steps.sdk.outputs.build_tools }}
         run: |
           sdkmanager --licenses < /dev/null > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          sdkmanager "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}" "platform-tools"
 
       - name: Decode release keystore
         env:
