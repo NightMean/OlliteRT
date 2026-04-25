@@ -657,11 +657,13 @@ constructor(
           else -> ModelEmptyReason.NONE
         }
 
-        RequestLogStore.addEvent(
-          "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
-          level = LogLevel.DEBUG,
-          category = EventCategory.MODEL,
-        )
+        if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+          RequestLogStore.addEvent(
+            "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
+            level = LogLevel.DEBUG,
+            category = EventCategory.MODEL,
+          )
+        }
 
         _uiState.update { it.copy(models = models) }
         processModels()
