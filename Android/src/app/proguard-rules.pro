@@ -30,9 +30,10 @@
 -keep class kotlin.reflect.** { *; }
 -keep class kotlin.Metadata { *; }
 
-# --- NanoHTTPD ---
-# HTTP server — must keep the serve() entry point and response classes
--keep class org.nanohttpd.** { *; }
+# --- Ktor CIO ---
+# Ktor references java.lang.management classes not present on Android
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean
 
 # --- Protobuf Lite ---
 -keep class * extends com.google.protobuf.GeneratedMessageLite { *; }
