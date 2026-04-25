@@ -668,7 +668,7 @@
   <string name="status_pill_processing" translatable="false">PROCESSING</string>
 
   <!-- Getting Started screen -->
-  <string name="getting_started_subtitle" translatable="false">Turn your device into a local OpenAI-compatible server capable of hosting powerful, optimized LLMs</string>
+  <string name="getting_started_subtitle" translatable="false">Turn your device into a local OpenAI-compatible API server with text, vision, and speech-to-text support</string>
   <string name="getting_started_permission_notice" translatable="false">You\u2019ll be asked for notification and battery optimization permissions to keep the server running reliably.</string>
   <string name="getting_started_button" translatable="false">Get Started</string>
   <string name="getting_started_learn_more" translatable="false">Learn More</string>
@@ -676,11 +676,11 @@
   <string name="getting_started_hero_highlight" translatable="false">On-Device</string>
   <string name="getting_started_hero_line3" translatable="false">\nLLM Server</string>
   <string name="getting_started_step1_title" translatable="false">Download a model</string>
-  <string name="getting_started_step1_desc" translatable="false">Select from our optimized catalog or import local files</string>
+  <string name="getting_started_step1_desc" translatable="false">Choose from available models</string>
   <string name="getting_started_step2_title" translatable="false">Start the server</string>
-  <string name="getting_started_step2_desc" translatable="false">Initialize the inference engine with local hardware</string>
+  <string name="getting_started_step2_desc" translatable="false">Select your model and tap start</string>
   <string name="getting_started_step3_title" translatable="false">Connect your client</string>
-  <string name="getting_started_step3_desc" translatable="false">Point any OpenAI-compatible app to your local IP</string>
+  <string name="getting_started_step3_desc" translatable="false">Point any OpenAI-compatible app to your phone’s local network IP address</string>
 
   <!-- Models screen: Search & filters -->
   <string name="models_clear_search" translatable="false">Clear search</string>

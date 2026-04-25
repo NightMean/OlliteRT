@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -120,140 +121,156 @@ fun GettingStartedScreen(
     requestBatteryOptimizationExemption()
   }
 
-  // Centered max-width container for tablets — onboarding should feel focused, not stretched.
-  // verticalScroll requires unbounded height, so weight() doesn't work for centering — the Box
-  // with Alignment.Center handles vertical centering instead.
-  Box(
-    modifier = modifier.fillMaxSize(),
-    contentAlignment = Alignment.Center,
-  ) {
+  // Outer Column splits the screen: scrollable content (weight) + pinned bottom actions.
+  // The button is always visible regardless of screen size or font scaling.
   Column(
-    modifier = Modifier
-      .widthIn(max = 600.dp)
-      .fillMaxWidth()
-      .navigationBarsPadding()
-      .verticalScroll(scrollState)
-      .padding(horizontal = 24.dp, vertical = if (isShortScreen) 16.dp else 48.dp),
+    modifier = modifier.fillMaxSize(),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    if (isShortScreen) {
-      Spacer(modifier = Modifier.height(16.dp))
-    } else {
-      Spacer(modifier = Modifier.height(32.dp))
+    // Scrollable content area — takes all remaining space after the bottom section
+    Column(
+      modifier = Modifier
+        .weight(1f)
+        .fillMaxWidth()
+        .verticalScroll(scrollState),
+      horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+      Column(
+        modifier = Modifier
+          .widthIn(max = 600.dp)
+          .fillMaxWidth()
+          .padding(horizontal = 24.dp)
+          .padding(top = if (isShortScreen) 12.dp else 32.dp, bottom = if (isShortScreen) 12.dp else 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
+        Spacer(modifier = Modifier.height(if (isShortScreen) 8.dp else 16.dp))
+
+        // Hero title with gradient highlight on "On-Device"
+        HeroTitle()
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Subtitle
+        Text(
+          text = stringResource(R.string.getting_started_subtitle),
+          style = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+          ),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          textAlign = TextAlign.Center,
+          modifier = Modifier.padding(horizontal = 4.dp),
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Setup steps card
+        SetupSteps()
+      }
+      Spacer(modifier = Modifier.weight(1f))
     }
 
-    // Hero title with gradient highlight on "On-Device"
-    HeroTitle()
-
-    Spacer(modifier = Modifier.height(20.dp))
-
-    // Subtitle
-    Text(
-      text = stringResource(R.string.getting_started_subtitle),
-      style = MaterialTheme.typography.bodyLarge.copy(
-        fontSize = 17.sp,
-        lineHeight = 26.sp,
-      ),
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      textAlign = TextAlign.Center,
-      modifier = Modifier.padding(horizontal = 4.dp),
-    )
-
-    Spacer(modifier = Modifier.height(40.dp))
-
-    // Setup steps card
-    SetupSteps()
-
-    Spacer(modifier = Modifier.height(40.dp))
-
-    // Permission notice — notification + battery optimization
-    Text(
-      text = stringResource(R.string.getting_started_permission_notice),
-      style = MaterialTheme.typography.bodyLarge.copy(
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-      ),
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      textAlign = TextAlign.Center,
-      modifier = Modifier.padding(horizontal = 4.dp),
-    )
-
-    Spacer(modifier = Modifier.height(28.dp))
-
-    Button(
-      onClick = {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-          // Android 13+: notification permission first, then battery opt in the callback
-          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-          // Pre-Android 13: notification permission not needed, go straight to battery opt
-          requestBatteryOptimizationExemption()
-        }
-      },
+    // Pinned bottom section — always visible
+    Column(
       modifier = Modifier
-        .widthIn(max = 400.dp)
+        .widthIn(max = 600.dp)
         .fillMaxWidth()
-        .height(if (isShortScreen) 52.dp else 64.dp),
-      shape = RoundedCornerShape(50),
-      colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+        .navigationBarsPadding()
+        .padding(horizontal = 24.dp)
+        .padding(top = 12.dp, bottom = 16.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      Box(
+      // Permission notice — notification + battery optimization
+      Text(
+        text = stringResource(R.string.getting_started_permission_notice),
+        style = MaterialTheme.typography.bodyLarge.copy(
+          fontSize = 14.sp,
+          lineHeight = 20.sp,
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = 4.dp),
+      )
+
+      Spacer(modifier = Modifier.height(12.dp))
+
+      Button(
+        onClick = {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+: notification permission first, then battery opt in the callback
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+          } else {
+            // Pre-Android 13: notification permission not needed, go straight to battery opt
+            requestBatteryOptimizationExemption()
+          }
+        },
         modifier = Modifier
-          .fillMaxSize()
-          .background(
-            brush = Brush.linearGradient(listOf(OlliteRTPrimary, OlliteRTDeepBlue)),
-            shape = RoundedCornerShape(50),
-          ),
-        contentAlignment = Alignment.Center,
+          .widthIn(max = 400.dp)
+          .fillMaxWidth()
+          .height(if (isShortScreen) 52.dp else 64.dp),
+        shape = RoundedCornerShape(50),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+      ) {
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .background(
+              brush = Brush.linearGradient(listOf(OlliteRTPrimary, OlliteRTDeepBlue)),
+              shape = RoundedCornerShape(50),
+            ),
+          contentAlignment = Alignment.Center,
+        ) {
+          Text(
+            text = stringResource(R.string.getting_started_button),
+            style = MaterialTheme.typography.labelLarge.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 18.sp,
+              fontWeight = FontWeight.SemiBold,
+            ),
+            color = Color.White,
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(16.dp))
+
+      // "Learn More" hyperlink — bold with link icon
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable {
+          context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(GitHubConfig.REPO_URL))
+          )
+        },
       ) {
         Text(
-          text = stringResource(R.string.getting_started_button),
-          style = MaterialTheme.typography.labelLarge.copy(
-            fontFamily = SpaceGroteskFontFamily,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+          text = stringResource(R.string.getting_started_learn_more),
+          style = MaterialTheme.typography.bodyMedium.copy(
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
           ),
-          color = Color.White,
+          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(
+          imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+          modifier = Modifier.size(16.dp),
         )
       }
+
+      Spacer(modifier = Modifier.height(12.dp))
     }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    // "Learn More" hyperlink — bold with link icon
-    Row(
-      verticalAlignment = Alignment.CenterVertically,
-      modifier = Modifier.clickable {
-        context.startActivity(
-          Intent(Intent.ACTION_VIEW, Uri.parse(GitHubConfig.REPO_URL))
-        )
-      },
-    ) {
-      Text(
-        text = stringResource(R.string.getting_started_learn_more),
-        style = MaterialTheme.typography.bodyMedium.copy(
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Bold,
-        ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-      )
-      Spacer(modifier = Modifier.width(4.dp))
-      Icon(
-        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-        modifier = Modifier.size(16.dp),
-      )
-    }
-
-    Spacer(modifier = Modifier.height(24.dp))
-  } // Column
-  } // Box (max-width wrapper)
+  } // Outer Column
 }
 
 @Composable
 private fun HeroTitle() {
   val gradientBrush = Brush.linearGradient(listOf(OlliteRTPrimary, OlliteRTDeepBlue))
+  val screenHeightDp = LocalConfiguration.current.screenHeightDp
+  val heroFontSize = (screenHeightDp * 0.055f).coerceIn(36f, 48f).sp
+  val heroLineHeight = (screenHeightDp * 0.065f).coerceIn(44f, 56f).sp
 
   Text(
     text = buildAnnotatedString {
@@ -270,8 +287,8 @@ private fun HeroTitle() {
     style = MaterialTheme.typography.displayLarge.copy(
       fontFamily = SpaceGroteskFontFamily,
       fontWeight = FontWeight.Bold,
-      fontSize = 48.sp,
-      lineHeight = 56.sp,
+      fontSize = heroFontSize,
+      lineHeight = heroLineHeight,
       letterSpacing = (-1).sp,
     ),
     textAlign = TextAlign.Center,
@@ -300,7 +317,7 @@ private fun SetupSteps() {
         shape = RoundedCornerShape(24.dp),
       )
       .padding(24.dp),
-    verticalArrangement = Arrangement.spacedBy(24.dp),
+    verticalArrangement = Arrangement.spacedBy(20.dp),
   ) {
     steps.forEachIndexed { index, (title, description) ->
       SetupStep(number = index + 1, title = title, description = description)
