@@ -62,12 +62,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 /**
- * Ktor CIO embedded HTTP server that replaces [LlmHttpServer] (NanoHTTPD).
+ * Ktor CIO embedded HTTP server.
  *
  * Routes requests to [LlmHttpEndpointHandlers] for inference endpoints and
  * handles server info, health, metrics, model listing, and favicon directly.
- * CORS is configured via the Ktor CORS plugin; bearer auth uses the same
- * constant-time comparison as the NanoHTTPD server.
+ * CORS is configured via the Ktor CORS plugin; bearer auth uses constant-time
+ * comparison.
  *
  * Separated from [LlmHttpService] to isolate HTTP concerns (routing, auth,
  * CORS, request/response formatting) from Android Service lifecycle concerns.
@@ -612,7 +612,7 @@ class KtorServer(
   /**
    * Handles POST /v1/server/thinking — toggle thinking mode on/off.
    * Ported from LlmHttpServer.handleServerThinking(), accepts body as String
-   * parameter instead of reading from NanoHTTPD session.
+   * parameter instead of reading from the HTTP session directly.
    */
   private fun handleServerThinking(body: String): HttpResponse {
     val model = defaultModel
@@ -668,7 +668,7 @@ class KtorServer(
   /**
    * Handles POST /v1/server/config — update inference settings.
    * Ported from LlmHttpServer.handleServerConfig(), accepts body as String
-   * parameter instead of reading from NanoHTTPD session.
+   * parameter instead of reading from the HTTP session directly.
    */
   private fun handleServerConfig(body: String): HttpResponse {
     val model = defaultModel

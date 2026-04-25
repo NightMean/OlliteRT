@@ -149,7 +149,7 @@ object RequestLogStore {
 
   /**
    * Maps pending log-entry IDs to callbacks that cancel the in-flight inference.
-   * For streaming: the callback calls [BlockingQueueInputStream.cancel].
+   * For streaming: the callback closes the channel and calls stopResponse.
    * For non-streaming: the callback calls [ServerLlmModelHelper.stopResponse].
    */
   private val pendingCancellations = ConcurrentHashMap<String, () -> Unit>()

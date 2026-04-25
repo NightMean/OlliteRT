@@ -186,7 +186,7 @@ object ServerMetrics {
 
   /**
    * True when the model was unloaded due to keep_alive idle timeout.
-   * The server is still running (NanoHTTPD up, port bound) but the native Engine/Conversation
+   * The server is still running (Ktor up, port bound) but the native Engine/Conversation
    * have been freed to reclaim RAM. The next inference request will auto-reload the model.
    */
   private val _isIdleUnloaded = MutableStateFlow(false)

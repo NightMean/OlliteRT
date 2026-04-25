@@ -33,7 +33,6 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
-import fi.iki.elonen.NanoHTTPD
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -41,29 +40,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
-
-// ── NanoHTTPD bridge ────────────────────────────────────────────────────────
-// Converts HttpResponse to NanoHTTPD.Response so the dead-code LlmHttpServer (NanoHTTPD)
-// can still compile until it is deleted in a later task. SSE responses throw because
-// NanoHTTPD uses BlockingQueueInputStream, not SseWriter. This is fine since LlmHttpServer
-// is dead code and will be removed in Task 12.
-internal fun HttpResponse.toNanoResponse(): NanoHTTPD.Response = when (this) {
-  is HttpResponse.Json -> {
-    val status = NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR
-    NanoHTTPD.newFixedLengthResponse(status, "application/json; charset=utf-8", body).also { r ->
-      extraHeaders.forEach { (k, v) -> r.addHeader(k, v) }
-    }
-  }
-  is HttpResponse.Binary -> NanoHTTPD.newFixedLengthResponse(
-    NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR,
-    contentType, bytes.inputStream(), bytes.size.toLong()
-  )
-  is HttpResponse.PlainText -> NanoHTTPD.newFixedLengthResponse(
-    NanoHTTPD.Response.Status.lookup(statusCode) ?: NanoHTTPD.Response.Status.INTERNAL_ERROR,
-    contentType, body
-  )
-  is HttpResponse.Sse -> throw UnsupportedOperationException("SSE responses cannot be converted to NanoHTTPD")
-}
 
 /**
  * Handles the four inference API endpoints:
@@ -568,7 +544,7 @@ internal fun describeClientSamplerParams(
  * Returns null if no overrides are needed. Extracted as a top-level function
  * so multiple endpoint handlers (chat completions, transcription) can share it.
  * Used for streaming requests where the config must be applied on the executor
- * thread, not the NanoHTTPD thread.
+ * thread, not the request-handling thread.
  */
 internal fun buildPerRequestConfig(
   model: Model,

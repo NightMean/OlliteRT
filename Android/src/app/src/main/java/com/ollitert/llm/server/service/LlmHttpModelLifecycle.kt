@@ -151,7 +151,7 @@ class LlmHttpModelLifecycle(
 
   /**
    * Reload the model after it was unloaded due to keep_alive idle timeout.
-   * Blocks the calling thread (NanoHTTPD request thread) until the model is ready.
+   * Blocks the calling thread (request handler thread) until the model is ready.
    * Returns the loaded model, or null if reload fails.
    *
    * Intentionally holds [keepAliveLock] for the full 10-60s model init. Releasing
@@ -283,7 +283,7 @@ class LlmHttpModelLifecycle(
    */
   fun selectModel(requestedModel: String?): ModelSelection {
     // If another thread is already reloading the model, return 503 immediately instead
-    // of blocking this NanoHTTPD thread for 10-60+ seconds on keepAliveLock.
+    // of blocking the request thread for 10-60+ seconds on keepAliveLock.
     if (isReloading) {
       return ModelSelection.Error(503, "Model is reloading after idle timeout, please retry in a few seconds", retryAfterSeconds = 30)
     }

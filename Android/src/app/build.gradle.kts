@@ -212,7 +212,6 @@ dependencies {
   implementation(libs.material.icon.extended)
   implementation(libs.androidx.work.runtime)
   implementation(libs.androidx.datastore)
-  implementation("org.nanohttpd:nanohttpd:2.3.1")
   implementation(libs.ktor.server.core)
   implementation(libs.ktor.server.cio)
   implementation(libs.ktor.server.content.negotiation)
