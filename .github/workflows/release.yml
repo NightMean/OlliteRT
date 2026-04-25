@@ -93,9 +93,7 @@ jobs:
             fi
             git checkout "$INPUT_TAG"
           elif [ "$CREATE_TAG" = "true" ]; then
-            # Push with [skip ci] message to avoid triggering a duplicate
-            # workflow run via the on.push.tags trigger
-            git tag -a "$INPUT_TAG" -m "[skip ci] Release $INPUT_TAG"
+            git tag "$INPUT_TAG"
             git push origin "$INPUT_TAG"
             echo "Created and pushed tag $INPUT_TAG"
           else
