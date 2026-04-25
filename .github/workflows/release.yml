@@ -32,6 +32,9 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  JDK_VERSION: '21'
+  PYTHON_VERSION: '3.12'
+  ARTIFACT_RETENTION_DAYS: '90'
 
 jobs:
   release:
@@ -163,7 +166,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.JDK_VERSION }}
           cache: gradle
 
       - name: Read SDK versions from build config
@@ -267,6 +270,9 @@ jobs:
           REPO: ${{ github.repository }}
           PUBLISH: ${{ github.event.inputs.publish }}
           EVENT_NAME: ${{ github.event_name }}
+          COMPILE_SDK: ${{ steps.sdk.outputs.compile_sdk }}
+          BUILD_TOOLS: ${{ steps.sdk.outputs.build_tools }}
+          RETENTION_DAYS: ${{ env.ARTIFACT_RETENTION_DAYS }}
         run: |
           COMMIT_SHA=$(git rev-parse --short HEAD)
           COMMIT_FULL=$(git rev-parse HEAD)
@@ -276,37 +282,53 @@ jobs:
           BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
           JDK_VERSION=$(java -version 2>&1 | head -1)
           SDK_VERSION=$(cat "$ANDROID_HOME/cmdline-tools/latest/source.properties" 2>/dev/null | grep -oP '(?<=Pkg.Revision=).+' || echo "unknown")
+          GRADLE_VERSION=$(./gradlew --version 2>/dev/null | grep -oP '(?<=Gradle )\S+' || echo "unknown")
+          EXPIRY_DATE=$(date -d "+${RETENTION_DAYS} days" "+%B %d, %Y")
 
           SUFFIX=""
           if [ "$BUILD_ONLY" = "true" ]; then SUFFIX=" (build only)"; fi
 
+          WILL_PUBLISH="false"
+          if [ "$EVENT_NAME" = "push" ] || [ "$PUBLISH" = "true" ]; then
+            if [ "$BUILD_ONLY" != "true" ]; then
+              WILL_PUBLISH="true"
+            fi
+          fi
+
           {
             echo "## Release Build: ${TAG}${SUFFIX}"
             echo ""
-            echo "| | |"
-            echo "|---|---|"
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| **Branch** | \`${BRANCH}\` |"
             echo "| **Channel** | ${CHANNEL} |"
             echo "| **Version code** | ${VERSION_CODE} |"
             echo "| **Commit** | [\`${COMMIT_SHA}\`](https://github.com/${REPO}/commit/${COMMIT_FULL}) |"
-            echo "| **Branch** | \`${BRANCH}\` |"
-            echo "| **Gradle task** | \`${GRADLE_TASK}\` |"
             echo "| **APK** | \`${APK_NAME}\` |"
             echo "| **Size** | ${APK_SIZE} |"
+            if [ "$WILL_PUBLISH" != "true" ]; then
+              echo "| **Artifact expires** | ${EXPIRY_DATE} |"
+            fi
             echo ""
-            if [ "$BUILD_ONLY" != "true" ] && { [ "$EVENT_NAME" = "push" ] || [ "$PUBLISH" = "true" ]; }; then
+            if [ "$WILL_PUBLISH" = "true" ]; then
               echo "**Release:** [GitHub Release](https://github.com/${REPO}/releases/tag/${TAG})"
               echo ""
             fi
             echo "<details><summary>Build environment</summary>"
             echo ""
+            echo "- Gradle task: \`${GRADLE_TASK}\`"
+            echo "- Gradle: \`${GRADLE_VERSION}\`"
             echo "- JDK: \`${JDK_VERSION}\`"
             echo "- Android SDK: \`${SDK_VERSION}\`"
+            echo "- compileSdk: \`${COMPILE_SDK}\`"
+            echo "- buildTools: \`${BUILD_TOOLS}\`"
             echo "</details>"
             echo ""
+            CHECKSUM=$(awk '{print $1}' "$RELEASE_DIR/SHA256SUMS.txt" | head -1)
             echo "<details><summary>SHA256 checksum</summary>"
             echo ""
             echo "\`\`\`"
-            cat "$RELEASE_DIR/SHA256SUMS.txt"
+            echo "$CHECKSUM"
             echo "\`\`\`"
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -316,7 +338,7 @@ jobs:
         with:
           name: OlliteRT-${{ steps.tag.outputs.tag }}-arm64-v8a
           path: Android/src/${{ steps.apks.outputs.dir }}/*.apk
-          retention-days: 90
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
       - name: Create GitHub Release
         if: ${{ github.event.inputs.build_only != 'true' && (github.event_name == 'push' || github.event.inputs.publish == 'true') }}
@@ -353,7 +375,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Configure git
         run: |
