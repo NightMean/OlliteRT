@@ -17,9 +17,17 @@
 package com.ollitert.llm.server.service
 
 import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
+import android.util.Log
+import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
+import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LlmHttpPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.runtime.ServerLlmModelHelper
+import fi.iki.elonen.NanoHTTPD
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -36,13 +44,17 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.request.receiveText
 import io.ktor.server.request.uri
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 /**
@@ -68,6 +80,8 @@ class KtorServer(
   private val audioTranscriptionHandler: LlmHttpAudioTranscriptionHandler,
   private val inferenceLock: Any,
 ) {
+
+  private val logTag = "KtorServer"
 
   private var engine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
 
@@ -278,10 +292,570 @@ class KtorServer(
     }
   }
 
-  // ── POST routes (placeholder for Task 6) ──────────────────────────────────
+  // ── POST routes ────────────────────────────────────────────────────────────
 
   private fun Routing.configurePostRoutes() {
-    // Will be implemented in Task 6
+    // ── Inference routes — delegated to LlmHttpEndpointHandlers ──
+    // Handlers currently return NanoHTTPD.Response; the nanoResponseToHttpResponse() bridge
+    // converts them for Ktor. This is temporary — will be cleaned up when handlers migrate
+    // to HttpResponse return types in a later task.
+
+    post("/generate") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
+        nanoResponseToHttpResponse(
+          endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId),
+        )
+      }
+    }
+
+    post("/v1/completions") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
+        nanoResponseToHttpResponse(
+          endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId),
+        )
+      }
+    }
+
+    post("/v1/chat/completions") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
+        nanoResponseToHttpResponse(
+          endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId, sseExtraHeaders),
+        )
+      }
+    }
+
+    post("/v1/responses") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, sseExtraHeaders ->
+        nanoResponseToHttpResponse(
+          endpointHandlers.handleResponses(body, captureBody, captureResponse, logId, sseExtraHeaders),
+        )
+      }
+    }
+
+    // ── Server control endpoints ──
+    // IMPORTANT: When adding new /v1/server/* endpoints, also update the HA YAML
+    // template in SettingsScreen.kt (haConfig buildString block) with the new rest_command.
+
+    post("/v1/server/stop") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { _, _, _, _, _ ->
+        handleServerStop()
+      }
+    }
+
+    post("/v1/server/reload") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { _, _, _, _, _ ->
+        handleServerReload()
+      }
+    }
+
+    post("/v1/server/thinking") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { body, _, _, _, _ ->
+        handleServerThinking(body)
+      }
+    }
+
+    post("/v1/server/config") {
+      if (!requireAuth(call)) return@post
+      withRequestLogging(call) { body, _, _, _, _ ->
+        handleServerConfig(body)
+      }
+    }
+
+    // ── Audio transcription placeholder ──
+    // Full multipart handling will be migrated in a later task.
+    post("/v1/audio/transcriptions") {
+      if (!requireAuth(call)) return@post
+      call.respondHttpResponse(
+        httpJsonError(501, "Audio transcription not yet available via Ktor server"),
+      )
+    }
+  }
+
+  // ── NanoHTTPD → HttpResponse bridge ───────────────────────────────────────
+  // Temporary bridge: converts NanoHTTPD.Response from inference handlers into
+  // HttpResponse so withRequestLogging/respondHttpResponse can dispatch them.
+  // Will be removed when handlers are migrated to return HttpResponse directly.
+
+  private fun nanoResponseToHttpResponse(resp: NanoHTTPD.Response): HttpResponse {
+    val statusCode = resp.status?.requestStatus ?: 200
+    val mimeType = resp.mimeType ?: "application/json"
+
+    return if (mimeType == "text/event-stream") {
+      // Streaming response — pipe the NanoHTTPD InputStream through SseWriter.
+      // The InputStream is a BlockingQueueInputStream that the inference thread writes to.
+      val inputStream = resp.data
+      HttpResponse.Sse { writer ->
+        withContext(Dispatchers.IO) {
+          try {
+            val buffer = ByteArray(4096)
+            while (true) {
+              val bytesRead = inputStream.read(buffer)
+              if (bytesRead == -1) break
+              writer.emit(String(buffer, 0, bytesRead, Charsets.UTF_8))
+            }
+          } catch (_: Exception) {
+            // Client disconnected or stream ended — stop piping
+          } finally {
+            try { inputStream.close() } catch (_: Exception) {}
+          }
+        }
+      }
+    } else {
+      // Non-streaming response — read full body from InputStream
+      val bodyBytes = try {
+        resp.data?.use { it.readBytes() }
+      } catch (_: Exception) {
+        null
+      }
+      val body = bodyBytes?.toString(Charsets.UTF_8) ?: ""
+
+      if (mimeType.contains("json")) {
+        HttpResponse.Json(statusCode, body)
+      } else {
+        HttpResponse.PlainText(statusCode, mimeType, body)
+      }
+    }
+  }
+
+  // ── Request logging middleware ─────────────────────────────────────────────
+  // Replicates the logging pattern from LlmHttpServer.serve() (lines 86-361).
+
+  /**
+   * Wraps a POST route handler with request logging: creates a pending log entry,
+   * reads the body with OOM protection, invokes the handler, finalizes the log
+   * entry with status/latency/metrics, and sends the response.
+   *
+   * The handler lambda receives the request body, capture callbacks, log ID, and
+   * SSE extra headers, and returns an [HttpResponse].
+   */
+  private suspend fun withRequestLogging(
+    call: ApplicationCall,
+    handler: suspend (
+      body: String,
+      captureBody: (String) -> Unit,
+      captureResponse: (String) -> Unit,
+      logId: String,
+      sseExtraHeaders: Map<String, String>,
+    ) -> HttpResponse,
+  ) {
+    val startMs = SystemClock.elapsedRealtime()
+    val method = call.request.local.method.value
+    val path = call.request.uri
+    val clientIp = call.clientIp()
+
+    // Add a pending log entry immediately so it appears in the Logs tab
+    val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
+    RequestLogStore.add(
+      RequestLogEntry(
+        id = logId,
+        method = method,
+        path = path,
+        modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
+        clientIp = clientIp,
+        isPending = true,
+      ),
+    )
+
+    // For streaming responses, x-request-id must be available to the handler so it can
+    // be baked into the FlushingSseResponse (NanoHTTPD workaround). CORS is handled by
+    // Ktor's CORS plugin, so only x-request-id is needed.
+    val sseExtraHeaders = mapOf("x-request-id" to logId)
+
+    var requestBodySnapshot: String? = null
+    var responseBodySnapshot: String? = null
+
+    val response: HttpResponse = try {
+      // Read body with OOM protection — oversized payloads should fail the request,
+      // not destroy the loaded model.
+      val body = try {
+        withContext(Dispatchers.IO) { call.receiveText() }
+      } catch (_: OutOfMemoryError) {
+        System.gc()
+        Log.w(logTag, "receiveText() OOM — returning HTTP 413 to client")
+        ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
+        val oomResponse = httpPayloadTooLarge(
+          "Request body too large — server ran out of memory parsing the request",
+        )
+        requestBodySnapshot = "[OOM during body read]"
+        finalizeLogEntry(logId, startMs, oomResponse, requestBodySnapshot, responseBodySnapshot)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(oomResponse)
+        return
+      }
+
+      // Capture body for logging (with optional base64 compaction for images)
+      val compactImages = LlmHttpPrefs.isCompactImageData(serviceContext)
+      val captureBody = { rawBody: String ->
+        val stored = if (compactImages) LlmHttpBridgeUtils.compactBase64DataUris(rawBody) else rawBody
+        val originalSize = if (compactImages && stored.length != rawBody.length) rawBody.length else 0
+        requestBodySnapshot = stored
+        RequestLogStore.update(logId) {
+          it.copy(requestBody = stored, originalRequestBodySize = originalSize)
+        }
+      }
+      val captureResponse = { resp: String -> responseBodySnapshot = resp }
+
+      handler(body, captureBody, captureResponse, logId, sseExtraHeaders)
+    } catch (t: Throwable) {
+      if (t is OutOfMemoryError) {
+        // Close native Engine/Conversation before nullifying — just setting instance = null
+        // leaks GB-scale native memory because GC may not finalize the wrapper promptly.
+        defaultModel?.let { ServerLlmModelHelper.safeCleanup(it) }
+        ServerMetrics.onServerError(t.message ?: "Out of memory")
+      }
+      ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+      emitDebugStackTrace(t, "ktor_serve_catch_all", null)
+      responseBodySnapshot = t.message
+      httpInternalError(t.message ?: "internal_error")
+    }
+
+    finalizeLogEntry(logId, startMs, response, requestBodySnapshot, responseBodySnapshot)
+
+    // Set x-request-id response header for request tracing (Open WebUI, etc.)
+    call.response.headers.append("x-request-id", logId)
+    call.respondHttpResponse(response)
+
+    // Reset keep-alive idle timer after successful POST requests (inference routes
+    // that touch the model). Non-inference GET routes don't reset it.
+    val statusCode = when (response) {
+      is HttpResponse.Json -> response.statusCode
+      is HttpResponse.PlainText -> response.statusCode
+      is HttpResponse.Binary -> response.statusCode
+      is HttpResponse.Sse -> 200 // SSE always starts as 200
+    }
+    if (statusCode in 200..299) {
+      modelLifecycle.resetKeepAliveTimer()
+    }
+  }
+
+  /**
+   * Finalizes a log entry with status code, latency, streaming detection,
+   * and per-request performance metrics. For streaming responses, metadata
+   * is set but isPending is left for the streaming callbacks to finalize.
+   */
+  private fun finalizeLogEntry(
+    logId: String,
+    startMs: Long,
+    response: HttpResponse,
+    requestBodySnapshot: String?,
+    responseBodySnapshot: String?,
+  ) {
+    val elapsedMs = SystemClock.elapsedRealtime() - startMs
+    val statusCode = when (response) {
+      is HttpResponse.Json -> response.statusCode
+      is HttpResponse.PlainText -> response.statusCode
+      is HttpResponse.Binary -> response.statusCode
+      is HttpResponse.Sse -> 200
+    }
+    val isStreaming = response is HttpResponse.Sse
+    val isThinking = responseBodySnapshot?.contains("<think>") == true
+
+    RequestLogStore.update(logId) {
+      // If the cancel handler already finalized this entry (user tapped Stop), don't overwrite it.
+      if (it.isCancelled) return@update it.copy(
+        requestBody = requestBodySnapshot ?: it.requestBody,
+      )
+      val level = when {
+        statusCode !in 200..299 -> LogLevel.ERROR
+        it.isCompacted -> LogLevel.WARNING
+        else -> LogLevel.INFO
+      }
+      // For non-streaming error responses, the handler already set responseBody with the
+      // detailed error JSON (e.g. from LiteRT). Preserve it if responseBodySnapshot is null.
+      val finalResponseBody = if (isStreaming) it.responseBody
+      else (responseBodySnapshot ?: it.responseBody)
+      // Extract actual token counts from LiteRT error messages (e.g. "6579 >= 4000")
+      val actualTokens = finalResponseBody?.let { body ->
+        LlmHttpInferenceRunner.extractActualTokenCounts(body)
+      }
+      // For non-streaming requests, read per-request performance metrics from ServerMetrics.
+      // Streaming requests set their own metrics in the done callback.
+      val perReqTtfb = if (!isStreaming) ServerMetrics.lastTtfbMs.value else it.ttfbMs
+      val perReqDecode = if (!isStreaming) ServerMetrics.lastDecodeSpeed.value else it.decodeSpeed
+      val perReqPrefill = if (!isStreaming) ServerMetrics.lastPrefillSpeed.value else it.prefillSpeed
+      val perReqItl = if (!isStreaming) ServerMetrics.lastItlMs.value else it.itlMs
+      it.copy(
+        requestBody = requestBodySnapshot ?: it.requestBody,
+        responseBody = finalResponseBody,
+        statusCode = statusCode,
+        latencyMs = if (isStreaming) it.latencyMs else elapsedMs,
+        isStreaming = isStreaming,
+        isThinking = isThinking,
+        modelName = defaultModel?.name,
+        level = level,
+        isPending = if (isStreaming) it.isPending else false,
+        inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
+        maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
+        isExactTokenCount = actualTokens != null || it.isExactTokenCount,
+        ttfbMs = perReqTtfb,
+        decodeSpeed = perReqDecode,
+        prefillSpeed = perReqPrefill,
+        itlMs = perReqItl,
+      )
+    }
+  }
+
+  // ── Server control handlers ───────────────────────────────────────────────
+
+  /**
+   * Handles POST /v1/server/stop — triggers graceful shutdown via the same
+   * intent the notification Stop button uses. Response is sent before the
+   * service actually stops.
+   */
+  private fun handleServerStop(): HttpResponse {
+    val stopIntent = Intent(serviceContext, LlmHttpService::class.java).apply {
+      action = LlmHttpService.ACTION_STOP
+    }
+    return try {
+      serviceContext.startService(stopIntent)
+      httpOkJson("""{"success":true,"message":"Server stopping"}""")
+    } catch (e: Exception) {
+      Log.e(logTag, "Failed to send stop intent", e)
+      httpInternalError("Failed to stop server: ${e.message}")
+    }
+  }
+
+  /**
+   * Handles POST /v1/server/reload — triggers a model reload via the same
+   * intent the UI uses. Also works when the model is idle-unloaded by keep_alive.
+   */
+  private fun handleServerReload(): HttpResponse {
+    val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
+      ?: return httpBadRequest("No model loaded")
+    val reloadPort = ServerMetrics.port.value
+    LlmHttpService.reload(serviceContext, reloadPort, modelName)
+    return httpOkJson("""{"success":true,"message":"Model reloading","model":"$modelName"}""")
+  }
+
+  /**
+   * Handles POST /v1/server/thinking — toggle thinking mode on/off.
+   * Ported from LlmHttpServer.handleServerThinking(), accepts body as String
+   * parameter instead of reading from NanoHTTPD session.
+   */
+  private fun handleServerThinking(body: String): HttpResponse {
+    val model = defaultModel
+    val isIdle = ServerMetrics.isIdleUnloaded.value
+    val modelName = model?.name ?: keepAliveUnloadedModelName
+      ?: return httpBadRequest("No model loaded")
+    // When model is loaded, check thinking support. When idle-unloaded, skip the check —
+    // we can't inspect model capabilities without the Model object, but the saved config
+    // will be applied when the model reloads.
+    if (model != null && !model.llmSupportThinking) {
+      return httpBadRequest("Model does not support thinking")
+    }
+    // Read current state from model if loaded, otherwise from persisted prefs
+    val currentConfig = model?.configValues
+      ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName)
+    val currentState = (currentConfig?.get(ConfigKeys.ENABLE_THINKING.label) as? Boolean) ?: false
+    // Parse { "enabled": true/false } — default to toggling current state
+    val requestedState = if (body.isNotBlank()) {
+      try {
+        val obj = org.json.JSONObject(body)
+        obj.optBoolean("enabled", !currentState)
+      } catch (_: Exception) {
+        !currentState
+      }
+    } else {
+      !currentState // No body = toggle
+    }
+    // Update in-memory config if model is loaded, always persist to prefs
+    val updatedConfig = (currentConfig ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.label to requestedState)
+    if (model != null) {
+      synchronized(inferenceLock) { model.configValues = updatedConfig }
+    }
+    LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updatedConfig)
+    ServerMetrics.setThinkingEnabled(requestedState)
+    // Log using the same "Settings updated" format as the Settings UI
+    val oldLabel = if (currentState) "enabled" else "disabled"
+    val newLabel = if (requestedState) "enabled" else "disabled"
+    RequestLogStore.addEvent(
+      "Config via REST API (1 change)",
+      modelName = modelName,
+      category = EventCategory.SETTINGS,
+      body = "Thinking: $oldLabel → $newLabel",
+    )
+    val result = org.json.JSONObject().apply {
+      put("success", true)
+      put("thinking_enabled", requestedState)
+      put("model", modelName)
+      put("model_loaded", !isIdle)
+    }
+    return httpOkJson(result.toString())
+  }
+
+  /**
+   * Handles POST /v1/server/config — update inference settings.
+   * Ported from LlmHttpServer.handleServerConfig(), accepts body as String
+   * parameter instead of reading from NanoHTTPD session.
+   */
+  private fun handleServerConfig(body: String): HttpResponse {
+    val model = defaultModel
+    val isIdle = ServerMetrics.isIdleUnloaded.value
+    val modelName = model?.name ?: keepAliveUnloadedModelName
+      ?: return httpBadRequest("No model loaded")
+    // Read config from model if loaded, otherwise from persisted prefs
+    val currentConfig = model?.configValues
+      ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName) ?: emptyMap()
+    if (body.isBlank()) {
+      // GET-like: return current config
+      val current = org.json.JSONObject().apply {
+        put("temperature", (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+        put("max_tokens", (currentConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+        put("top_k", (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
+        put("top_p", (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
+        put("thinking_enabled", currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+        put("model", modelName)
+        put("model_loaded", !isIdle)
+        // Behavior toggles read from SharedPreferences
+        put("auto_truncate_history", LlmHttpPrefs.isAutoTruncateHistory(serviceContext))
+        put("auto_trim_prompts", LlmHttpPrefs.isAutoTrimPrompts(serviceContext))
+        put("compact_tool_schemas", LlmHttpPrefs.isCompactToolSchemas(serviceContext))
+        put("warmup_enabled", LlmHttpPrefs.isWarmupEnabled(serviceContext))
+        put("keep_alive_enabled", LlmHttpPrefs.isKeepAliveEnabled(serviceContext))
+        put("keep_alive_minutes", LlmHttpPrefs.getKeepAliveMinutes(serviceContext))
+        put("custom_prompts_enabled", LlmHttpPrefs.isCustomPromptsEnabled(serviceContext))
+        put("system_prompt", LlmHttpPrefs.getSystemPrompt(serviceContext, modelName))
+      }
+      return httpOkJson(current.toString())
+    }
+    return try {
+      val obj = org.json.JSONObject(body)
+      val updated = currentConfig.toMutableMap()
+      val changes = mutableListOf<String>()
+      if (obj.has("temperature")) {
+        val old = (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat()
+        val v = obj.getDouble("temperature").toFloat()
+        updated[ConfigKeys.TEMPERATURE.label] = v
+        changes.add("Temperature: ${old ?: "unset"} → $v")
+      }
+      if (obj.has("max_tokens")) {
+        val old = (currentConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+        val v = obj.getInt("max_tokens")
+        updated[ConfigKeys.MAX_TOKENS.label] = v
+        changes.add("Max Tokens: ${old ?: "unset"} → $v")
+      }
+      if (obj.has("top_k")) {
+        val old = (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt()
+        val v = obj.getInt("top_k")
+        updated[ConfigKeys.TOPK.label] = v
+        changes.add("Top-K: ${old ?: "unset"} → $v")
+      }
+      if (obj.has("top_p")) {
+        val old = (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toFloat()
+        val v = obj.getDouble("top_p").toFloat()
+        updated[ConfigKeys.TOPP.label] = v
+        changes.add("Top-P: ${old ?: "unset"} → $v")
+      }
+      if (obj.has("thinking_enabled")) {
+        val v = obj.getBoolean("thinking_enabled")
+        if (model == null || model.llmSupportThinking) {
+          val old = currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
+          updated[ConfigKeys.ENABLE_THINKING.label] = v
+          ServerMetrics.setThinkingEnabled(v)
+          changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+        }
+      }
+      // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
+      if (obj.has("auto_truncate_history")) {
+        val old = LlmHttpPrefs.isAutoTruncateHistory(serviceContext)
+        val v = obj.getBoolean("auto_truncate_history")
+        LlmHttpPrefs.setAutoTruncateHistory(serviceContext, v)
+        changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("auto_trim_prompts")) {
+        val old = LlmHttpPrefs.isAutoTrimPrompts(serviceContext)
+        val v = obj.getBoolean("auto_trim_prompts")
+        LlmHttpPrefs.setAutoTrimPrompts(serviceContext, v)
+        changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("compact_tool_schemas")) {
+        val old = LlmHttpPrefs.isCompactToolSchemas(serviceContext)
+        val v = obj.getBoolean("compact_tool_schemas")
+        LlmHttpPrefs.setCompactToolSchemas(serviceContext, v)
+        changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("warmup_enabled")) {
+        val old = LlmHttpPrefs.isWarmupEnabled(serviceContext)
+        val v = obj.getBoolean("warmup_enabled")
+        LlmHttpPrefs.setWarmupEnabled(serviceContext, v)
+        changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("keep_alive_enabled")) {
+        val old = LlmHttpPrefs.isKeepAliveEnabled(serviceContext)
+        val v = obj.getBoolean("keep_alive_enabled")
+        LlmHttpPrefs.setKeepAliveEnabled(serviceContext, v)
+        if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
+        changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("keep_alive_minutes")) {
+        val old = LlmHttpPrefs.getKeepAliveMinutes(serviceContext)
+        val v = obj.getInt("keep_alive_minutes")
+        if (v < 1 || v > 7200) {
+          return httpBadRequest("keep_alive_minutes out of range")
+        }
+        LlmHttpPrefs.setKeepAliveMinutes(serviceContext, v)
+        if (LlmHttpPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+        changes.add("Keep Alive Minutes: $old → $v")
+      }
+      if (obj.has("custom_prompts_enabled")) {
+        val old = LlmHttpPrefs.isCustomPromptsEnabled(serviceContext)
+        val v = obj.getBoolean("custom_prompts_enabled")
+        LlmHttpPrefs.setCustomPromptsEnabled(serviceContext, v)
+        changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+      if (obj.has("system_prompt")) {
+        val old = LlmHttpPrefs.getSystemPrompt(serviceContext, modelName)
+        val v = obj.getString("system_prompt")
+        LlmHttpPrefs.setSystemPrompt(serviceContext, modelName, v)
+        val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
+        val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
+        changes.add("System Prompt: $oldDisplay → $newDisplay")
+      }
+      if (changes.isEmpty()) {
+        httpBadRequest("No recognized config fields")
+      } else {
+        // Update in-memory config if model is loaded, always persist to prefs
+        if (model != null) {
+          synchronized(inferenceLock) { model.configValues = updated.toMap() }
+        }
+        LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updated)
+        // Log using the same format as the Settings UI
+        RequestLogStore.addEvent(
+          "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
+          modelName = modelName,
+          category = EventCategory.SETTINGS,
+          body = changes.joinToString("\n"),
+        )
+        val current = org.json.JSONObject().apply {
+          put("success", true)
+          put("model", modelName)
+          put("model_loaded", !isIdle)
+          put("temperature", (updated[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+          put("max_tokens", (updated[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+          put("top_k", (updated[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
+          put("top_p", (updated[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
+          put("thinking_enabled", updated[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+          put("auto_truncate_history", LlmHttpPrefs.isAutoTruncateHistory(serviceContext))
+          put("auto_trim_prompts", LlmHttpPrefs.isAutoTrimPrompts(serviceContext))
+          put("compact_tool_schemas", LlmHttpPrefs.isCompactToolSchemas(serviceContext))
+          put("warmup_enabled", LlmHttpPrefs.isWarmupEnabled(serviceContext))
+          put("keep_alive_enabled", LlmHttpPrefs.isKeepAliveEnabled(serviceContext))
+          put("keep_alive_minutes", LlmHttpPrefs.getKeepAliveMinutes(serviceContext))
+          put("custom_prompts_enabled", LlmHttpPrefs.isCustomPromptsEnabled(serviceContext))
+          put("system_prompt", LlmHttpPrefs.getSystemPrompt(serviceContext, modelName))
+        }
+        httpOkJson(current.toString())
+      }
+    } catch (e: org.json.JSONException) {
+      httpBadRequest("Invalid JSON body")
+    }
   }
 
   // ── Shared route handlers ─────────────────────────────────────────────────
