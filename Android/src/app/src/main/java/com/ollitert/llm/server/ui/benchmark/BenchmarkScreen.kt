@@ -326,6 +326,22 @@ fun BenchmarkScreen(
     )
   }
 
+  uiState.errorMessage?.let { errorMsg ->
+    AlertDialog(
+      title = { Text(stringResource(R.string.benchmark_error_title)) },
+      text = { Text(errorMsg) },
+      onDismissRequest = { viewModel.dismissError() },
+      confirmButton = {
+        Button(
+          onClick = { viewModel.dismissError() },
+          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
+        ) {
+          Text(stringResource(R.string.ok))
+        }
+      },
+    )
+  }
+
   if (uiState.serverConflictWarning) {
     AlertDialog(
       title = { Text(stringResource(R.string.benchmark_server_conflict_title)) },

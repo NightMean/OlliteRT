@@ -74,6 +74,7 @@ data class BenchmarkUiState(
   val totalRunCount: Int = 0,
   val completedRunCount: Int = 0,
   val serverConflictWarning: Boolean = false,
+  val errorMessage: String? = null,
 )
 
 @HiltViewModel
@@ -97,6 +98,10 @@ constructor(
 
   fun dismissServerConflictWarning() {
     _uiState.update { it.copy(serverConflictWarning = false) }
+  }
+
+  fun dismissError() {
+    _uiState.update { it.copy(errorMessage = null) }
   }
 
   @OptIn(ExperimentalApi::class)
@@ -212,12 +217,14 @@ constructor(
           )
           .build()
       val newId = addBenchmarkResult(result = result)
+      Log.d(TAG, "Benchmark completed: ${model.name}, $runCount runs, saved as $newId")
       collapseAll()
       setExpanded(id = newId, expanded = true)
       } catch (e: kotlinx.coroutines.CancellationException) {
-        throw e  // Preserve structured concurrency — never swallow cancellation
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Benchmark failed: ${e.message}", e)
+        _uiState.update { it.copy(errorMessage = e.message ?: "Unknown error") }
       } finally {
         setRunning(running = false)
       }
@@ -255,7 +262,14 @@ constructor(
     )
     _uiState.update { _uiState.value.copy(results = newResults) }
 
-    viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.addBenchmarkResult(result) }
+    viewModelScope.launch(Dispatchers.IO) {
+      try {
+        dataStoreRepository.addBenchmarkResult(result)
+        Log.d(TAG, "Benchmark result persisted to DataStore")
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to persist benchmark result: ${e.message}", e)
+      }
+    }
 
     return newId
   }
