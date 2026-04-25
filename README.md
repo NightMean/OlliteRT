@@ -55,8 +55,7 @@
 
 ## Quick Start
 
-1. **Download & install** the APK — pick the one matching your device architecture
-   <br>(Most modern phones use **arm64-v8a**)
+1. **Download & install** the APK
    <br><a href="https://github.com/NightMean/ollitert/releases/latest"><img src="assets/Github/Download_Get_it_on_Github.png" alt="Get it on GitHub" height="45" /></a>
 2. **Download a model** — **Gemma 4 E2B** is recommended for most devices (2.4 GB, runs on 8 GB RAM)
 3. **Start the server** — Tap the Start Server button on the downloaded model card
