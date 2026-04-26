@@ -55,42 +55,22 @@ class AudioTranscriptionHandler(
     val startMs = SystemClock.elapsedRealtime()
 
     if (fileBytes == null) {
-      return openAiError(
-        400,
-        "Missing required 'file' field in multipart form data.",
-        "invalid_request_error",
-        "missing_file",
-      )
+      return httpBadRequest("Missing required 'file' field in multipart form data.")
     }
 
     if (fileBytes.isEmpty()) {
-      return openAiError(
-        400,
-        "Uploaded audio file is empty.",
-        "invalid_request_error",
-        "empty_file",
-      )
+      return httpBadRequest("Uploaded audio file is empty.")
     }
 
     if (fileBytes.size > MAX_FILE_SIZE_BYTES) {
-      return openAiError(
-        400,
-        "File too large (${fileBytes.size / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.",
-        "invalid_request_error",
-        "file_too_large",
-      )
+      return httpBadRequest("File too large (${fileBytes.size / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
     }
 
     val tempFile = File(context.cacheDir, "audio_upload_${System.currentTimeMillis()}.tmp")
     try {
       tempFile.writeBytes(fileBytes)
     } catch (e: java.io.IOException) {
-      return openAiError(
-        500,
-        "Failed to write audio to temp file: ${e.message}",
-        "server_error",
-        "disk_write_failed",
-      )
+      return httpInternalError("Failed to write audio to temp file: ${e.message}")
     }
     try {
       val language = fields["language"]?.takeIf { it.isNotBlank() }
@@ -100,21 +80,11 @@ class AudioTranscriptionHandler(
 
       // srt/vtt require word-level timestamps — LiteRT returns raw text without timing data
       if (responseFormat in TranscriptionFormatter.UNSUPPORTED_FORMATS) {
-        return openAiError(
-          400,
-          "response_format '$responseFormat' requires word-level timing which the LiteRT runtime does not provide. Use json, text, or verbose_json.",
-          "invalid_request_error",
-          "unsupported_response_format",
-        )
+        return httpBadRequest("response_format '$responseFormat' requires word-level timing which the LiteRT runtime does not provide. Use json, text, or verbose_json.")
       }
 
       if (responseFormat !in TranscriptionFormatter.VALID_FORMATS) {
-        return openAiError(
-          400,
-          "Invalid response_format '$responseFormat'. Supported: json, text, verbose_json.",
-          "invalid_request_error",
-          "invalid_response_format",
-        )
+        return httpBadRequest("Invalid response_format '$responseFormat'. Supported: json, text, verbose_json.")
       }
 
       val requestedModel = fields["model"]
@@ -135,12 +105,7 @@ class AudioTranscriptionHandler(
 
       // Validate model supports audio
       if (!model.llmSupportAudio) {
-        return openAiError(
-          400,
-          "The active model '${model.name}' does not support audio input. Load a model with audio capability (e.g. Gemma 4).",
-          "invalid_request_error",
-          "model_not_supported",
-        )
+        return httpBadRequest("The active model '${model.name}' does not support audio input. Load a model with audio capability (e.g. Gemma 4).")
       }
 
       // Read and preprocess audio
@@ -154,12 +119,7 @@ class AudioTranscriptionHandler(
         val rawBytes = tempFile.readBytes()
         format = AudioPreprocessor.detectFormat(rawBytes)
         if (format == AudioFormat.UNKNOWN) {
-          return openAiError(
-            400,
-            "Unsupported audio format. Supported: wav, mp3, ogg, flac.",
-            "invalid_request_error",
-            "unsupported_format",
-          )
+          return httpBadRequest("Unsupported audio format. Supported: wav, mp3, ogg, flac.")
         }
         if (format == AudioFormat.WAV) {
           wavInfo = AudioPreprocessor.inspectWav(rawBytes)
@@ -167,12 +127,7 @@ class AudioTranscriptionHandler(
         }
         audioBytes = AudioPreprocessor.ensureMono(rawBytes, format)
       } catch (e: IllegalArgumentException) {
-        return openAiError(
-          400,
-          e.message ?: "Audio preprocessing failed.",
-          "invalid_request_error",
-          "unsupported_format",
-        )
+        return httpBadRequest(e.message ?: "Audio preprocessing failed.")
       }
       val preprocessMs = SystemClock.elapsedRealtime() - preprocessStart
 
@@ -221,12 +176,7 @@ class AudioTranscriptionHandler(
       if (rawOutput == null) {
         val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
         ServerMetrics.incrementErrorCount(kind.category)
-        return openAiError(
-          500,
-          errorMsg,
-          "server_error",
-          "inference_error",
-        )
+        return httpInternalError(errorMsg, kind = kind)
       }
 
       // Strip thinking tags if present, trim whitespace
@@ -308,34 +258,5 @@ class AudioTranscriptionHandler(
     private fun stripThinkingTags(text: String): String =
       text.replace(THINKING_TAG_REGEX, "")
 
-    private fun escapeJsonString(value: String): String {
-      val sb = StringBuilder(value.length + 2)
-      sb.append('"')
-      for (ch in value) {
-        when (ch) {
-          '"' -> sb.append("\\\"")
-          '\\' -> sb.append("\\\\")
-          '\n' -> sb.append("\\n")
-          '\r' -> sb.append("\\r")
-          '\t' -> sb.append("\\t")
-          else -> {
-            if (ch.code < 0x20) {
-              sb.append("\\u")
-              sb.append(String.format("%04x", ch.code))
-            } else {
-              sb.append(ch)
-            }
-          }
-        }
-      }
-      sb.append('"')
-      return sb.toString()
-    }
-
-    private fun openAiError(statusCode: Int, message: String, type: String, code: String): HttpResponse {
-      val escaped = escapeJsonString(message)
-      val body = """{"error":{"message":$escaped,"type":"$type","code":"$code"}}"""
-      return HttpResponse.Json(statusCode, body)
-    }
   }
 }
