@@ -433,7 +433,7 @@ object ServerMetrics {
 
   /**
    * Push a memory snapshot from the UI polling loop.
-   * Called every few seconds by a [LaunchedEffect] in StatusScreen using
+   * Called every few seconds by a [LaunchedEffect] in [com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar] using
    * [android.os.Debug.getNativeHeapAllocatedSize], [Runtime.getRuntime], and
    * [android.app.ActivityManager.MemoryInfo].
    */
