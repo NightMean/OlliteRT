@@ -140,8 +140,14 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     }
 
     // Create notification channels (safe to call on every start — no-ops if they exist).
-    UpdateCheckWorker.createNotificationChannel(this)
-    AllowlistRefreshWorker.createNotificationChannel(this)
+    // Wrapped in try-catch: corrupted NotificationManager can throw, and this was the only
+    // pair of calls in onCreate() not already protected.
+    try {
+      UpdateCheckWorker.createNotificationChannel(this)
+      AllowlistRefreshWorker.createNotificationChannel(this)
+    } catch (e: Exception) {
+      Log.e("OlliteRTApp", "Failed to create notification channels — notifications may not work", e)
+    }
 
     // Clear stale update notification if the app was auto-updated since the last check.
     // Also restores cached update info to ServerMetrics if an update is still pending.
