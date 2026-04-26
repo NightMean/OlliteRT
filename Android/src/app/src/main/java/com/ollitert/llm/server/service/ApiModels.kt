@@ -238,7 +238,11 @@ object ChatContentSerializer : KSerializer<ChatContent> {
 
   override fun serialize(encoder: Encoder, value: ChatContent) {
     val jsonEncoder = encoder as JsonEncoder
-    jsonEncoder.encodeJsonElement(JsonPrimitive(value.text))
+    if (value.text.isEmpty() && value.parts.isEmpty()) {
+      jsonEncoder.encodeJsonElement(JsonNull)
+    } else {
+      jsonEncoder.encodeJsonElement(JsonPrimitive(value.text))
+    }
   }
 }
 
