@@ -363,12 +363,14 @@ class EndpointHandlers(
     val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
     val promptTokens = estimateTokens(prompt)
     val completionTokens = estimateTokens(text)
+    val effectiveMaxCompl = (configSnapshotBlocking ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
+    val finishReasonCompl = FinishReason.infer(completionTokens, effectiveMaxCompl?.toInt())
     val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
     val responseJson = json.encodeToString(CompletionResponse(
       id = BridgeUtils.generateCompletionId(),
       created = BridgeUtils.epochSeconds(),
       model = model.name,
-      choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = "stop")),
+      choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = finishReasonCompl)),
       usage = Usage(promptTokens, completionTokens),
       timings = timings,
     ))
