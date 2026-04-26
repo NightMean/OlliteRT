@@ -349,7 +349,8 @@ Returns server identity, version, status, update availability, and the full list
   "error": {
     "message": "Model is not loaded",
     "type": "server_error",
-    "code": 503
+    "param": null,
+    "code": null
   }
 }
 ```
