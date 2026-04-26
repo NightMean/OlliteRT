@@ -60,6 +60,7 @@ See the [Security Guide](../SECURITY.md) for details on network exposure and cre
 | `model` | string | Yes | Model name (e.g. `Gemma-4-E2B-it`) |
 | `messages` | array | Yes | Array of message objects (`role` + `content`) |
 | `stream` | boolean | No | Enable SSE streaming (default: `false`) |
+| `stream_options` | object | No | Streaming options. Set `{"include_usage": true}` to receive a usage chunk before `[DONE]` |
 | `temperature` | number | No | Sampling temperature (0.0 - 2.0) |
 | `top_p` | number | No | Nucleus sampling threshold |
 | `top_k` | integer | No | Top-k sampling |
@@ -140,12 +141,26 @@ Supported audio formats: `wav`, `mp3`, `ogg`, `flac`. Audio must be mono — ste
 When `stream: true`, the response is sent as Server-Sent Events:
 
 ```
-data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"Hello"},"index":0}]}
+data: {"id":"chatcmpl-...","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"!"},"index":0,"finish_reason":"stop"}]}
+data: {"id":"chatcmpl-...","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-...","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-...","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 
 data: [DONE]
 ```
+
+When `stream_options: {"include_usage": true}` is set, a usage chunk is emitted before `[DONE]`:
+
+```
+data: {"id":"chatcmpl-...","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":8,"total_tokens":18}}
+
+data: [DONE]
+```
+
+Without `stream_options` (the default), no usage chunk is emitted — the stream ends with the `finish_reason` chunk followed by `[DONE]`.
 
 ## Text Completions — `POST /v1/completions`
 
