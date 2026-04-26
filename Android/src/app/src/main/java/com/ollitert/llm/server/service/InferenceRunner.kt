@@ -213,7 +213,7 @@ class InferenceRunner(
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
       if (logId != null) {
         RequestLogStore.update(logId) {
-          it.copy(partialText = partial, isPending = false, isCancelled = true, latencyMs = result.totalMs)
+          it.copy(partialText = partial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = result.totalMs)
         }
       }
       logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false user_stopped=true outputChars=${result.output?.length ?: 0}")
@@ -649,7 +649,7 @@ class InferenceRunner(
                   }
                 } else null
                 RequestLogStore.update(logId) {
-                  it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
+                  it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
                 }
               }
               logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
@@ -861,7 +861,7 @@ class InferenceRunner(
               }
             } else null
             RequestLogStore.update(logId) {
-              it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
+              it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
             }
           }
           logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
