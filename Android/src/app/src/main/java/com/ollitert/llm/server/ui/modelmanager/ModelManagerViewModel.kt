@@ -678,6 +678,7 @@ constructor(
               totalBeforeFilters = loadResult.totalBeforeVersionFilter,
             )
         }
+        notifyStorageChanged()
         processPendingDownloads()
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
