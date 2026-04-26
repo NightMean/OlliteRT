@@ -447,7 +447,7 @@ class KtorServer(
         audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId)
       } catch (_: kotlinx.coroutines.CancellationException) {
         RequestLogStore.update(logId) {
-          it.copy(requestBody = "[multipart audio ${contentLength} bytes]", isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - startMs)
+          it.copy(requestBody = "[multipart audio ${contentLength} bytes]", isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
         }
         throw kotlinx.coroutines.CancellationException("Client disconnected")
       }
@@ -582,7 +582,7 @@ class KtorServer(
       handler(body, captureBody, captureResponse, logId, sseExtraHeaders)
     } catch (_: kotlinx.coroutines.CancellationException) {
       RequestLogStore.update(logId) {
-        it.copy(requestBody = requestBodySnapshot ?: it.requestBody, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - startMs)
+        it.copy(requestBody = requestBodySnapshot ?: it.requestBody, isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
       }
       throw kotlinx.coroutines.CancellationException("Client disconnected")
     } catch (t: Throwable) {
@@ -640,9 +640,11 @@ class KtorServer(
     val isThinking = responseBodySnapshot?.contains("<think>") == true
 
     RequestLogStore.update(logId) {
-      // If the cancel handler already finalized this entry (user tapped Stop), don't overwrite it.
+      // If the cancel handler already finalized this entry (user tapped Stop or client
+      // disconnected), preserve the cancel state but fill in the status code if still at default.
       if (it.isCancelled) return@update it.copy(
         requestBody = requestBodySnapshot ?: it.requestBody,
+        statusCode = if (it.statusCode == 200) statusCode else it.statusCode,
       )
       val level = when {
         statusCode !in 200..299 -> LogLevel.ERROR

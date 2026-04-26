@@ -201,7 +201,7 @@ class InferenceRunner(
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
       if (logId != null) {
         RequestLogStore.update(logId) {
-          it.copy(partialText = partial, isPending = false, isCancelled = true, latencyMs = result.totalMs)
+          it.copy(partialText = partial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = result.totalMs)
         }
       }
       logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false client_disconnected=true outputChars=${result.output?.length ?: 0}")

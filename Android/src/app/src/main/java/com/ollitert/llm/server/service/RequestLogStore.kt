@@ -258,7 +258,7 @@ object RequestLogStore {
     // Finalize all still-pending entries in the list.
     _entries.update { current ->
       current.map { entry ->
-        if (entry.isPending) entry.copy(isPending = false, isCancelled = true) else entry
+        if (entry.isPending) entry.copy(isPending = false, isCancelled = true, statusCode = 499) else entry
       }
     }
   }
@@ -290,7 +290,7 @@ object RequestLogStore {
   fun loadEntries(entries: List<RequestLogEntry>) {
     _entries.update {
       entries.map { entry ->
-        if (entry.isPending) entry.copy(isPending = false, isCancelled = true) else entry
+        if (entry.isPending) entry.copy(isPending = false, isCancelled = true, statusCode = 499) else entry
       }
     }
   }
