@@ -204,7 +204,7 @@ class EndpointHandlers(
 
     if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=/v1/chat/completions")
-      return emptyChatResponse(model.name, stream = req.stream == true)
+      return emptyChatResponse(model.name, stream = req.stream == true, logId = logId)
     }
 
     val includeUsage = req.stream_options?.include_usage == true
@@ -324,7 +324,7 @@ class EndpointHandlers(
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/completions")
-      return emptyCompletionResponse(model.name, stream = req.stream == true)
+      return emptyCompletionResponse(model.name, stream = req.stream == true, logId = logId)
     }
 
     // OpenAI spec allows `"stop": "text"` (single string) or `"stop": ["a","b"]` (array).
@@ -440,7 +440,7 @@ class EndpointHandlers(
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/responses")
-      return emptyResponse(model.name, stream = req.stream == true)
+      return emptyResponse(model.name, stream = req.stream == true, logId = logId)
     }
 
     val tools = req.tools.orEmpty()
@@ -498,7 +498,7 @@ class EndpointHandlers(
   // ── SSE response helpers ─────────────────────────────────────────────────
 
   /** Empty response for /v1/chat/completions — returns SSE or JSON depending on stream flag. */
-  private fun emptyChatResponse(modelId: String, stream: Boolean): HttpResponse {
+  private fun emptyChatResponse(modelId: String, stream: Boolean, logId: String?): HttpResponse {
     return if (stream) {
       val chatId = "chatcmpl-${java.util.UUID.randomUUID()}"
       val now = System.currentTimeMillis() / 1000
@@ -508,6 +508,7 @@ class EndpointHandlers(
       HttpResponse.Sse { writer ->
         writer.emit(payload)
         writer.finish()
+        if (logId != null) RequestLogStore.update(logId) { it.copy(isPending = false) }
       }
     } else {
       httpOkJson(json.encodeToString(PayloadBuilders.emptyChatResponse(modelId)))
@@ -515,13 +516,14 @@ class EndpointHandlers(
   }
 
   /** Empty response for /v1/responses — returns SSE or JSON depending on stream flag. */
-  private fun emptyResponse(modelId: String, stream: Boolean): HttpResponse {
+  private fun emptyResponse(modelId: String, stream: Boolean, logId: String?): HttpResponse {
     val body = PayloadBuilders.responsesResponseWithText(modelId, "")
     return if (stream) {
       val payload = ResponseRenderer.buildTextSsePayload(modelId, "")
       HttpResponse.Sse { writer ->
         writer.emit(payload)
         writer.finish()
+        if (logId != null) RequestLogStore.update(logId) { it.copy(isPending = false) }
       }
     } else {
       httpOkJson(json.encodeToString(body))
@@ -529,7 +531,7 @@ class EndpointHandlers(
   }
 
   /** Empty response for /v1/completions — returns SSE or JSON depending on stream flag. */
-  private fun emptyCompletionResponse(modelId: String, stream: Boolean): HttpResponse {
+  private fun emptyCompletionResponse(modelId: String, stream: Boolean, logId: String?): HttpResponse {
     return if (stream) {
       val cmplId = BridgeUtils.generateCompletionId()
       val now = System.currentTimeMillis() / 1000
@@ -538,6 +540,7 @@ class EndpointHandlers(
       HttpResponse.Sse { writer ->
         writer.emit(payload)
         writer.finish()
+        if (logId != null) RequestLogStore.update(logId) { it.copy(isPending = false) }
       }
     } else {
       httpOkJson(json.encodeToString(CompletionResponse(
