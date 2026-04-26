@@ -64,7 +64,7 @@ class EndpointHandlers(
 
   // ── /generate ────────────────────────────────────────────────────────────
 
-  fun handleGenerate(
+  suspend fun handleGenerate(
     body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
@@ -122,7 +122,7 @@ class EndpointHandlers(
 
   // ── /v1/chat/completions ─────────────────────────────────────────────────
 
-  fun handleChatCompletion(
+  suspend fun handleChatCompletion(
     body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
@@ -274,7 +274,7 @@ class EndpointHandlers(
 
   // ── /v1/completions ──────────────────────────────────────────────────────
 
-  fun handleCompletions(
+  suspend fun handleCompletions(
     body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
@@ -376,7 +376,7 @@ class EndpointHandlers(
 
   // ── /v1/responses ────────────────────────────────────────────────────────
 
-  fun handleResponses(
+  suspend fun handleResponses(
     body: String,
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},

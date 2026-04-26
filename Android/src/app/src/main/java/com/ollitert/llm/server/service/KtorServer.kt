@@ -43,6 +43,7 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.http.HttpRequestLifecycle
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
@@ -114,6 +115,9 @@ class KtorServer(
           else httpNotFound()
           withGetLogging(call) { response }
         }
+      }
+      install(HttpRequestLifecycle) {
+        cancelCallOnClose = true
       }
       routing {
         configureGetRoutes()
@@ -434,7 +438,12 @@ class KtorServer(
         }
       }
 
-      val response = audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId)
+      val response = try {
+        audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId)
+      } catch (_: kotlinx.coroutines.CancellationException) {
+        finalizeLogEntry(logId, startMs, httpJsonError(499, "Client closed request"), "[multipart audio ${contentLength} bytes]", null)
+        throw kotlinx.coroutines.CancellationException("Client disconnected")
+      }
       val responseBody = when (response) {
         is HttpResponse.Json -> response.body
         is HttpResponse.PlainText -> response.body
@@ -564,6 +573,9 @@ class KtorServer(
       val captureResponse = { resp: String -> responseBodySnapshot = resp }
 
       handler(body, captureBody, captureResponse, logId, sseExtraHeaders)
+    } catch (_: kotlinx.coroutines.CancellationException) {
+      finalizeLogEntry(logId, startMs, httpJsonError(499, "Client closed request"), requestBodySnapshot, responseBodySnapshot)
+      throw kotlinx.coroutines.CancellationException("Client disconnected")
     } catch (t: Throwable) {
       if (t is OutOfMemoryError) {
         // Close native Engine/Conversation before nullifying — just setting instance = null

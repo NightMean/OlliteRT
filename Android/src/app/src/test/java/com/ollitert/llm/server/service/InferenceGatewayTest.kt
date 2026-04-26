@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -23,6 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 class LlmHttpInferenceGatewayTest {
 
@@ -32,7 +36,7 @@ class LlmHttpInferenceGatewayTest {
   private fun tick(): Long { clock += 10; return clock }
 
   @Test
-  fun successfulInferenceReturnsOutput() {
+  fun successfulInferenceReturnsOutput() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "hello",
       timeoutSeconds = 5,
@@ -52,7 +56,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun multiplePartialsAccumulate() {
+  fun multiplePartialsAccumulate() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "hi",
       timeoutSeconds = 5,
@@ -73,7 +77,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun errorFromInferenceIsReported() {
+  fun errorFromInferenceIsReported() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "fail",
       timeoutSeconds = 5,
@@ -91,7 +95,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun exceptionDuringInferenceIsCaught() {
+  fun exceptionDuringInferenceIsCaught() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "boom",
       timeoutSeconds = 5,
@@ -108,7 +112,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun cancelInferenceCalledOnError() {
+  fun cancelInferenceCalledOnError() = runBlocking {
     var cancelled = false
     InferenceGateway.execute(
       prompt = "x",
@@ -124,7 +128,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun emptyPartialDoesNotCountAsTtfb() {
+  fun emptyPartialDoesNotCountAsTtfb() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "x",
       timeoutSeconds = 5,
@@ -144,7 +148,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun totalMsIsTracked() {
+  fun totalMsIsTracked() = runBlocking {
     clock = 0
     val result = InferenceGateway.execute(
       prompt = "x",
@@ -163,7 +167,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun thinkingContentAccumulates() {
+  fun thinkingContentAccumulates() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "think",
       timeoutSeconds = 5,
@@ -184,7 +188,7 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
-  fun noThinkingReturnsNull() {
+  fun noThinkingReturnsNull() = runBlocking {
     val result = InferenceGateway.execute(
       prompt = "no-think",
       timeoutSeconds = 5,
@@ -299,5 +303,35 @@ class LlmHttpInferenceGatewayTest {
     )
     assertEquals(listOf("thinking..."), thoughts)
     assertEquals(listOf("answer"), tokens)
+  }
+
+  // ── Cancellation tests ──────────────────────────────────────────────────
+
+  @Test
+  fun cancellationTriggersCancelInference() = runBlocking {
+    val threadPool = Executors.newSingleThreadExecutor()
+    var cancelled = false
+    try {
+      val job = launch {
+        InferenceGateway.execute(
+          prompt = "long",
+          timeoutSeconds = 30,
+          executor = threadPool,
+          inferenceLock = lock,
+          resetConversation = {},
+          runInference = { _, _, _ ->
+            Thread.sleep(5000)
+          },
+          cancelInference = { cancelled = true },
+          elapsedMs = { tick() },
+        )
+      }
+      delay(200)
+      job.cancel()
+      job.join()
+      assertTrue("cancelInference should be called on coroutine cancellation", cancelled)
+    } finally {
+      threadPool.shutdownNow()
+    }
   }
 }

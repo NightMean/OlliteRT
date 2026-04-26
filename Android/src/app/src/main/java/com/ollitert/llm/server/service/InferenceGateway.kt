@@ -20,9 +20,11 @@ import android.util.Log
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.service.InferenceGateway.executeStreaming
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
 
 data class InferenceResult(
   val output: String?,
@@ -112,7 +114,7 @@ object InferenceGateway {
    * @param onCaughtThrowable Optional callback invoked with the full [Throwable] when an
    *   exception is caught during inference. See [executeStreaming] for details.
    */
-  fun execute(
+  suspend fun execute(
     prompt: String,
     timeoutSeconds: Long = BLOCKING_TIMEOUT_SECONDS,
     executor: Executor,
@@ -170,18 +172,28 @@ object InferenceGateway {
       }
     }
 
-    val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
-    if (!completed && error == null) {
-      error = "timeout"
+    return suspendCancellableCoroutine { cont ->
+      cont.invokeOnCancellation {
+        if (error == null) error = "client_disconnected"
+        cancelInference()
+      }
+
+      Thread {
+        val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
+        if (!completed && error == null) {
+          error = "timeout"
+        }
+        val totalMs = elapsedMs() - startMs
+        val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
+        val result = InferenceResult(
+          output = if (error != null) null else sb.toString(),
+          thinking = if (error != null) null else thinkingResult,
+          error = error,
+          totalMs = totalMs,
+          ttfbMs = firstTokenMs ?: -1,
+        )
+        if (cont.isActive) cont.resume(result)
+      }.start()
     }
-    val totalMs = elapsedMs() - startMs
-    val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
-    return InferenceResult(
-      output = if (error != null) null else sb.toString(),
-      thinking = if (error != null) null else thinkingResult,
-      error = error,
-      totalMs = totalMs,
-      ttfbMs = firstTokenMs ?: -1,
-    )
   }
 }

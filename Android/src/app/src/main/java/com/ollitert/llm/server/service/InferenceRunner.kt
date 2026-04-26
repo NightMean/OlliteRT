@@ -120,7 +120,7 @@ class InferenceRunner(
    * Called by endpoint handlers for non-streaming /generate, /v1/chat/completions,
    * /v1/completions, and /v1/responses.
    */
-  fun runLlm(
+  suspend fun runLlm(
     model: Model,
     prompt: String,
     requestId: String,
@@ -196,8 +196,18 @@ class InferenceRunner(
     if (originalConfig != null && model.instance != null) model.configValues = originalConfig
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
-    // If the user tapped Stop in the Logs screen, return a cancellation error
-    // instead of the (potentially partial) inference output.
+    if (result.error == "client_disconnected") {
+      val keepPartial = ServerPrefs.isKeepPartialResponse(context)
+      val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
+      if (logId != null) {
+        RequestLogStore.update(logId) {
+          it.copy(partialText = partial, isPending = false, isCancelled = true, latencyMs = result.totalMs)
+        }
+      }
+      logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false client_disconnected=true outputChars=${result.output?.length ?: 0}")
+      return null to "Client disconnected"
+    }
+
     if (userCancelFlag.get()) {
       val keepPartial = ServerPrefs.isKeepPartialResponse(context)
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
@@ -880,7 +890,9 @@ class InferenceRunner(
   fun warmUpModel(model: Model) {
     val startMs = SystemClock.elapsedRealtime()
     val eagerVision = ServerPrefs.isEagerVisionInit(context)
-    val (result, _) = runLlm(model, WARMUP_MESSAGE, "warmup", "warmup", timeoutSeconds = WARMUP_TIMEOUT_SECONDS, eagerVisionInit = eagerVision)
+    val (result, _) = kotlinx.coroutines.runBlocking {
+      runLlm(model, WARMUP_MESSAGE, "warmup", "warmup", timeoutSeconds = WARMUP_TIMEOUT_SECONDS, eagerVisionInit = eagerVision)
+    }
     val elapsedMs = SystemClock.elapsedRealtime() - startMs
     val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
     RequestLogStore.addEvent(

@@ -43,7 +43,7 @@ class AudioTranscriptionHandler(
   private val modelLifecycle: ModelLifecycle,
 ) {
 
-  fun handle(
+  suspend fun handle(
     fileBytes: ByteArray?,
     fields: Map<String, String>,
     contentLength: Long,
