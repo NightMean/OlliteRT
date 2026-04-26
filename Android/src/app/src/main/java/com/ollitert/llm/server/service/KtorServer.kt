@@ -172,8 +172,8 @@ class KtorServer(
               url.host
             }
             allowHost(hostWithPort, schemes = listOf(url.protocol.name))
-          } catch (_: Exception) {
-            // Fallback: treat as a plain host string
+          } catch (e: Exception) {
+            Log.w(logTag, "CORS: failed to parse origin \"$origin\", using raw host fallback: ${e.message}")
             allowHost(origin.removePrefix("http://").removePrefix("https://"))
           }
         }
