@@ -133,6 +133,8 @@ Supported audio formats: `wav`, `mp3`, `ogg`, `flac`. Audio must be mono — ste
 }
 ```
 
+`finish_reason` values: `"stop"` (natural end or stop sequence), `"length"` (output truncated by `max_tokens`), `"tool_calls"` (model invoked a tool).
+
 ### Streaming Response
 
 When `stream: true`, the response is sent as Server-Sent Events:
