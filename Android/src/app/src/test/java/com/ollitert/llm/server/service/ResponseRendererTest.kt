@@ -18,6 +18,7 @@ package com.ollitert.llm.server.service
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -210,6 +211,13 @@ class LlmHttpResponseRendererTest {
   fun chatStreamFinalChunkDefaultsToStop() {
     val chunk = ResponseRenderer.buildChatStreamFinalChunk("c1", "m", 1000L)
     assertTrue(chunk.contains("\"finish_reason\":\"stop\""))
+  }
+
+  @Test
+  fun chatStreamFinalChunkWithLengthFinishReason() {
+    val chunk = ResponseRenderer.buildChatStreamFinalChunk("c1", "m", 1000L, finishReason = FinishReason.LENGTH)
+    assertTrue(chunk.contains("\"finish_reason\":\"length\""))
+    assertFalse(chunk.contains("\"finish_reason\":\"stop\""))
   }
 
   // ── Usage chunk for streaming──────────────────────────────

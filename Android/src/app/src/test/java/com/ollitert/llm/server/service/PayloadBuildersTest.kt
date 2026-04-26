@@ -168,6 +168,13 @@ class LlmHttpPayloadBuildersTest {
   }
 
   @Test
+  fun chatResponseWithTextLengthFinishReason() {
+    val resp = PayloadBuilders.chatResponseWithText("m", "a".repeat(400), finishReason = FinishReason.LENGTH)
+    assertEquals("length", resp.choices[0].finish_reason)
+    assertEquals("chat.completion", resp.`object`)
+  }
+
+  @Test
   fun chatResponseWithTextEstimatesTokens() {
     // "Hello World!" = 12 chars → 12/4 = 3 completion tokens
     // promptLen = 100 → 100/4 = 25 prompt tokens
