@@ -174,7 +174,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
             try {
               if (accessToken != null) {
-                Log.d(TAG, "Using access token: ${accessToken.subSequence(0, 10)}...")
+                Log.d(TAG, "Using access token: configured (redacted)")
                 connection.setRequestProperty("Authorization", "Bearer $accessToken")
               }
               if (outputFileBytes > 0) {
