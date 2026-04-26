@@ -104,6 +104,20 @@ class KtorSseWriterTest {
   }
 
   @Test
+  fun runtimeExceptionAlsoSetsCancelled() = runBlocking {
+    val failingWriter = object : Writer() {
+      override fun write(cbuf: CharArray, off: Int, len: Int) = throw RuntimeException("unexpected")
+      override fun flush() {}
+      override fun close() {}
+    }
+    val writer = KtorSseWriterImpl(failingWriter)
+
+    assertFalse(writer.isCancelled)
+    writer.emit("data: test\n\n")
+    assertTrue(writer.isCancelled)
+  }
+
+  @Test
   fun initialStateIsNotCancelled() {
     val writer = KtorSseWriterImpl(StringWriter())
     assertFalse(writer.isCancelled)

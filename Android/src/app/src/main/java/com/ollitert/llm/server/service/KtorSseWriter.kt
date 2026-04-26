@@ -16,6 +16,8 @@
 
 package com.ollitert.llm.server.service
 
+import android.util.Log
+import java.io.IOException
 import java.io.Writer
 
 /**
@@ -37,12 +39,20 @@ class KtorSseWriterImpl(
     try {
       writer.write(text)
       writer.flush()
-    } catch (_: Exception) {
+    } catch (e: IOException) {
+      Log.d(TAG, "SSE write failed (client disconnect): ${e.javaClass.simpleName}")
+      isCancelled = true
+    } catch (e: Exception) {
+      Log.w(TAG, "SSE write failed (unexpected): ${e.javaClass.simpleName}: ${e.message}")
       isCancelled = true
     }
   }
 
   override suspend fun finish() {
     // No-op — Ktor closes the writer when the respondTextWriter block completes
+  }
+
+  private companion object {
+    const val TAG = "KtorSseWriter"
   }
 }
