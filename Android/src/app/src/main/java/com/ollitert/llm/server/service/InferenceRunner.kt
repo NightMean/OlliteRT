@@ -395,6 +395,7 @@ class InferenceRunner(
     override val stopSequences: List<String>?,
     private val tools: List<ToolSpec>?,
     private val json: Json,
+    private val includeUsage: Boolean,
   ) : StreamingFormat {
     private val chatId = BridgeUtils.generateChatCompletionId()
     override val sourceTag = "executeStreaming_chat"
@@ -449,9 +450,11 @@ class InferenceRunner(
         val finishReason = FinishReason.infer(completionTokens, maxTokens)
         writer.emit(ResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, finishReason))
       }
-      val timings = PayloadBuilders.buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
-      val timingsJson = if (timings != null) json.encodeToString(timings) else null
-      writer.emit(ResponseRenderer.buildChatStreamUsageChunk(chatId, modelName, now, promptTokens, completionTokens, timingsJson))
+      if (includeUsage) {
+        val timings = PayloadBuilders.buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
+        val timingsJson = if (timings != null) json.encodeToString(timings) else null
+        writer.emit(ResponseRenderer.buildChatStreamUsageChunk(chatId, modelName, now, promptTokens, completionTokens, timingsJson))
+      }
       writer.emit(ResponseRenderer.SSE_DONE)
       writer.finish()
       return parsedToolCalls
@@ -509,14 +512,14 @@ class InferenceRunner(
     images: List<ByteArray> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     logId: String? = null,
-    @Suppress("UNUSED_PARAMETER") includeUsage: Boolean = false,
+    includeUsage: Boolean = false,
     stopSequences: List<String>? = null,
     tools: List<ToolSpec>? = null,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
-    val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json)
+    val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage)
     return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot)
   }
 
