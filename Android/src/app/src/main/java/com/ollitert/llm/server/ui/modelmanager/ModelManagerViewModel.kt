@@ -36,7 +36,7 @@ import com.ollitert.llm.server.data.fetchBounded
 import com.ollitert.llm.server.data.MAX_ALLOWLIST_RESPONSE_BYTES
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
@@ -49,7 +49,7 @@ import com.ollitert.llm.server.data.repoCacheFilename
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LlmHttpModelFactory
+import com.ollitert.llm.server.service.ModelFactory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.common.humanReadableSize
@@ -168,12 +168,12 @@ constructor(
   val uiState = _uiState.asStateFlow()
 
   private val _showModelRecommendations = MutableStateFlow(
-    LlmHttpPrefs.isShowModelRecommendations(context)
+    ServerPrefs.isShowModelRecommendations(context)
   )
   val showModelRecommendations: StateFlow<Boolean> = _showModelRecommendations.asStateFlow()
 
   fun refreshShowModelRecommendations() {
-    _showModelRecommendations.value = LlmHttpPrefs.isShowModelRecommendations(context)
+    _showModelRecommendations.value = ServerPrefs.isShowModelRecommendations(context)
   }
 
   // One-shot error toast events for manual user actions (e.g. Retry on allowlist banner).
@@ -228,7 +228,7 @@ constructor(
       model.preProcess()
       // Restore persisted inference config (temperature, max tokens, etc.) so settings
       // survive app restarts. Overlays saved values on top of model defaults.
-      LlmHttpModelFactory.restoreInferenceConfig(context, model)
+      ModelFactory.restoreInferenceConfig(context, model)
     }
   }
 
@@ -408,8 +408,8 @@ constructor(
     Log.d(TAG, "adding imported llm model: $info")
 
     // Create model.
-    val model = LlmHttpModelFactory.buildImportedModel(info)
-    LlmHttpModelFactory.restoreInferenceConfig(context, model)
+    val model = ModelFactory.buildImportedModel(info)
+    ModelFactory.restoreInferenceConfig(context, model)
 
     val now = System.currentTimeMillis()
     _uiState.update { current ->
@@ -466,10 +466,10 @@ constructor(
     }
 
     // Clear inference config overrides so saved values don't conflict with new defaults
-    LlmHttpPrefs.clearInferenceConfig(context, updatedInfo.fileName)
+    ServerPrefs.clearInferenceConfig(context, updatedInfo.fileName)
 
     // Rebuild the Model object from updated proto
-    val updatedModel = LlmHttpModelFactory.buildImportedModel(updatedInfo)
+    val updatedModel = ModelFactory.buildImportedModel(updatedInfo)
 
     // Replace the model in the flat list
     _uiState.update { current ->
@@ -657,7 +657,7 @@ constructor(
           else -> ModelEmptyReason.NONE
         }
 
-        if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+        if (ServerPrefs.isVerboseDebugEnabled(context)) {
           RequestLogStore.addEvent(
             "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
             level = LogLevel.DEBUG,
@@ -868,8 +868,8 @@ constructor(
     for (importedModel in dataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
 
-      val model = LlmHttpModelFactory.buildImportedModel(importedModel)
-      LlmHttpModelFactory.restoreInferenceConfig(context, model)
+      val model = ModelFactory.buildImportedModel(importedModel)
+      ModelFactory.restoreInferenceConfig(context, model)
       importedModels.add(model)
 
       modelDownloadStatus[model.name] =

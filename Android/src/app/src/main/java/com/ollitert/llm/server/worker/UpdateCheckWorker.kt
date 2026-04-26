@@ -41,7 +41,7 @@ import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
@@ -73,11 +73,11 @@ class UpdateCheckWorker @AssistedInject constructor(
     // Manual checks (via "Check Now" button) bypass the enabled check —
     // only periodic scheduled checks should respect the toggle.
     val isManualCheck = inputData.getBoolean(KEY_MANUAL_CHECK, false)
-    if (!isManualCheck && !LlmHttpPrefs.isUpdateCheckEnabled(context)) {
+    if (!isManualCheck && !ServerPrefs.isUpdateCheckEnabled(context)) {
       return Result.success(workDataOf(KEY_RESULT to RESULT_DISABLED))
     }
 
-    val verbose = LlmHttpPrefs.isVerboseDebugEnabled(context)
+    val verbose = ServerPrefs.isVerboseDebugEnabled(context)
     if (verbose) {
       val endpoint = if (BuildConfig.UPDATE_CHANNEL == "stable") "/releases/latest" else "/releases?per_page=10"
       RequestLogStore.addEvent(
@@ -107,7 +107,7 @@ class UpdateCheckWorker @AssistedInject constructor(
       }
 
       // Reset consecutive failure counter on any successful response
-      LlmHttpPrefs.setUpdateCheckConsecutiveFailures(context, 0)
+      ServerPrefs.setUpdateCheckConsecutiveFailures(context, 0)
 
       val currentVersion = BuildConfig.VERSION_NAME
       if (!SemVer.isNewer(currentVersion, release.tagName)) {
@@ -129,7 +129,7 @@ class UpdateCheckWorker @AssistedInject constructor(
       }
 
       // Newer version found — cache it and surface it
-      LlmHttpPrefs.setCachedUpdateInfo(context, release.tagName, release.htmlUrl, release.etag)
+      ServerPrefs.setCachedUpdateInfo(context, release.tagName, release.htmlUrl, release.etag)
       ServerMetrics.setAvailableUpdate(release.tagName, release.htmlUrl)
 
       RequestLogStore.addEvent(
@@ -142,7 +142,7 @@ class UpdateCheckWorker @AssistedInject constructor(
       val versionDisplay = release.tagName.removePrefix("v")
 
       // Check if user already dismissed this exact version
-      val dismissed = LlmHttpPrefs.getLastDismissedUpdateVersion(context)
+      val dismissed = ServerPrefs.getLastDismissedUpdateVersion(context)
       if (dismissed == release.tagName) {
         Log.d(TAG, "User dismissed notification for ${release.tagName} — skipping notification")
         return Result.success(workDataOf(
@@ -207,14 +207,14 @@ class UpdateCheckWorker @AssistedInject constructor(
    */
   private fun fetchLatestStable(context: Context): ReleaseInfo? {
     val url = "${GitHubConfig.API_BASE}/releases/latest"
-    val cachedETag = LlmHttpPrefs.getCachedReleaseETag(context)
+    val cachedETag = ServerPrefs.getCachedReleaseETag(context)
     val response = fetchGitHub(url, cachedETag)
 
     return when (response) {
       is GitHubResponse.NotModified -> {
         // Use cached data — still the same release
-        val cachedVersion = LlmHttpPrefs.getCachedLatestVersion(context) ?: return null
-        val cachedUrl = LlmHttpPrefs.getCachedReleaseHtmlUrl(context) ?: return null
+        val cachedVersion = ServerPrefs.getCachedLatestVersion(context) ?: return null
+        val cachedUrl = ServerPrefs.getCachedReleaseHtmlUrl(context) ?: return null
         ReleaseInfo(cachedVersion, cachedUrl, cachedETag)
       }
       is GitHubResponse.Success -> parseRelease(response.body, response.etag)
@@ -339,8 +339,8 @@ class UpdateCheckWorker @AssistedInject constructor(
       }
       404 -> {
         // Repository not found — increment consecutive failure counter
-        val failures = LlmHttpPrefs.getUpdateCheckConsecutiveFailures(context) + 1
-        LlmHttpPrefs.setUpdateCheckConsecutiveFailures(context, failures)
+        val failures = ServerPrefs.getUpdateCheckConsecutiveFailures(context) + 1
+        ServerPrefs.setUpdateCheckConsecutiveFailures(context, failures)
         Log.w(TAG, "Update check 404 — consecutive failures: $failures/$MAX_CONSECUTIVE_FAILURES")
 
         if (verbose) {
@@ -354,7 +354,7 @@ class UpdateCheckWorker @AssistedInject constructor(
 
         // Auto-disable after too many consecutive 404s (repo migrated, URL wrong)
         if (failures >= MAX_CONSECUTIVE_FAILURES) {
-          LlmHttpPrefs.setUpdateCheckEnabled(context, false)
+          ServerPrefs.setUpdateCheckEnabled(context, false)
           cancelUpdateCheck(context)
           RequestLogStore.addEvent(
             "Update check auto-disabled — repository not found",
@@ -390,7 +390,7 @@ class UpdateCheckWorker @AssistedInject constructor(
   private fun postUpdateNotification(context: Context, release: ReleaseInfo) {
     // Check notification permission (required on Android 13+)
     if (!canPostUpdateNotification(context)) {
-      if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+      if (ServerPrefs.isVerboseDebugEnabled(context)) {
         RequestLogStore.addEvent(
           "Update check skipped — notification permission not granted",
           level = LogLevel.DEBUG,
@@ -542,7 +542,7 @@ class UpdateCheckWorker @AssistedInject constructor(
      * and when the user toggles the setting on or changes the frequency.
      */
     fun scheduleUpdateCheck(context: Context) {
-      val intervalHours = LlmHttpPrefs.getUpdateCheckIntervalHours(context).toLong()
+      val intervalHours = ServerPrefs.getUpdateCheckIntervalHours(context).toLong()
 
       val constraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -593,14 +593,14 @@ class UpdateCheckWorker @AssistedInject constructor(
      * newer than the installed version, the app was updated and the notification is stale.
      */
     fun clearStaleNotification(context: Context) {
-      val cached = LlmHttpPrefs.getCachedLatestVersion(context) ?: return
+      val cached = ServerPrefs.getCachedLatestVersion(context) ?: return
       if (!SemVer.isNewer(BuildConfig.VERSION_NAME, cached)) {
         // Cached "latest" is no longer newer than installed — update happened
         val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         mgr?.cancel(UPDATE_NOTIFICATION_ID)
-        LlmHttpPrefs.clearUpdateState(context)
+        ServerPrefs.clearUpdateState(context)
         ServerMetrics.setAvailableUpdate(null, null)
-        if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+        if (ServerPrefs.isVerboseDebugEnabled(context)) {
           RequestLogStore.addEvent(
             "Stale update notification cleared",
             level = LogLevel.DEBUG,
@@ -610,7 +610,7 @@ class UpdateCheckWorker @AssistedInject constructor(
         }
       } else {
         // Still have a pending update — restore it to ServerMetrics so API/notification surface it
-        val url = LlmHttpPrefs.getCachedReleaseHtmlUrl(context)
+        val url = ServerPrefs.getCachedReleaseHtmlUrl(context)
         ServerMetrics.setAvailableUpdate(cached, url)
       }
     }

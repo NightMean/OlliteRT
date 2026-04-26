@@ -19,7 +19,7 @@ package com.ollitert.llm.server.data.db
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.DEFAULT_IN_MEMORY_LOG_CAP
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -53,7 +53,7 @@ class RequestLogPersistence @Inject constructor(
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var pruningJob: Job? = null
-  private val isEnabled: Boolean get() = LlmHttpPrefs.isLogPersistenceEnabled(context)
+  private val isEnabled: Boolean get() = ServerPrefs.isLogPersistenceEnabled(context)
 
   /**
    * Initialize the persistence layer. Called once from [Application.onCreate].
@@ -84,7 +84,7 @@ class RequestLogPersistence @Inject constructor(
    * When persistence is OFF → 100 (original default). When ON → configured max.
    */
   fun updateMaxEntries() {
-    val max = if (isEnabled) LlmHttpPrefs.getLogMaxEntries(context) else DEFAULT_IN_MEMORY_CAP
+    val max = if (isEnabled) ServerPrefs.getLogMaxEntries(context) else DEFAULT_IN_MEMORY_CAP
     RequestLogStore.setMaxEntries(max)
   }
 
@@ -168,7 +168,7 @@ class RequestLogPersistence @Inject constructor(
   // --- Internal ---
 
   private suspend fun loadFromDb() {
-    val maxEntries = LlmHttpPrefs.getLogMaxEntries(context)
+    val maxEntries = ServerPrefs.getLogMaxEntries(context)
     val entities = dao.getRecent(maxEntries)
     if (entities.isNotEmpty()) {
       val entries = entities.map { it.toEntry() }
@@ -180,7 +180,7 @@ class RequestLogPersistence @Inject constructor(
   private suspend fun prune() {
     try {
       // Age-based pruning — 0 means disabled (keep indefinitely).
-      val retentionMinutes = LlmHttpPrefs.getLogAutoDeleteMinutes(context)
+      val retentionMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
       if (retentionMinutes > 0) {
         val cutoffMs = System.currentTimeMillis() - (retentionMinutes * 60_000L)
         dao.deleteOlderThan(cutoffMs)
@@ -188,7 +188,7 @@ class RequestLogPersistence @Inject constructor(
       }
 
       // Count-based pruning — 0 means no limit (keep all).
-      val maxCount = LlmHttpPrefs.getLogMaxEntries(context)
+      val maxCount = ServerPrefs.getLogMaxEntries(context)
       if (maxCount > 0) {
         dao.pruneToCount(maxCount)
       }
@@ -209,7 +209,7 @@ class RequestLogPersistence @Inject constructor(
     if (!isEnabled) return
     pruningJob = scope.launch {
       while (isActive) {
-        val retentionMinutes = LlmHttpPrefs.getLogAutoDeleteMinutes(context)
+        val retentionMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
         val intervalMs = if (retentionMinutes > 0) {
           (retentionMinutes * 60_000L).coerceIn(
             com.ollitert.llm.server.data.MIN_PRUNE_INTERVAL_MS,

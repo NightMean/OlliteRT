@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Singleton holding live server metrics. Written by [LlmHttpService], read by the UI layer.
+ * Singleton holding live server metrics. Written by [ServerService], read by the UI layer.
  */
 object ServerMetrics {
 
@@ -34,7 +34,7 @@ object ServerMetrics {
   private val _activeModelName = MutableStateFlow<String?>(null)
   val activeModelName: StateFlow<String?> = _activeModelName.asStateFlow()
 
-  private val _port = MutableStateFlow(LlmHttpService.DEFAULT_PORT)
+  private val _port = MutableStateFlow(ServerService.DEFAULT_PORT)
   val port: StateFlow<Int> = _port.asStateFlow()
 
   private val _bindAddress = MutableStateFlow<String?>(null)

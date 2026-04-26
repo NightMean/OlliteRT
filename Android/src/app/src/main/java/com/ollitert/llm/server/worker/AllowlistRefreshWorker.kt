@@ -35,7 +35,7 @@ import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.fetchBounded
 import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MAX_MODELS_PER_REPO
 import com.ollitert.llm.server.data.MAX_REPO_ERROR_LENGTH
 import com.ollitert.llm.server.data.UNKNOWN_ERROR_FALLBACK
@@ -157,16 +157,16 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       mgr?.cancel(modelUpdateNotificationId(name))
     }
 
-    val ignoredSet = LlmHttpPrefs.getIgnoredModelUpdates(context)
+    val ignoredSet = ServerPrefs.getIgnoredModelUpdates(context)
     for (entry in ignoredSet) {
       val entryName = entry.substringBefore(":")
       if (allUpdatableModels.none { it.name == entryName }) {
-        LlmHttpPrefs.removeIgnoredModelUpdate(context, entry)
+        ServerPrefs.removeIgnoredModelUpdate(context, entry)
       }
     }
 
     if (allUpdatableModels.isNotEmpty() && canPostModelUpdateNotification(context)) {
-      val refreshedIgnored = LlmHttpPrefs.getIgnoredModelUpdates(context)
+      val refreshedIgnored = ServerPrefs.getIgnoredModelUpdates(context)
       for (info in allUpdatableModels) {
         val dedupKey = "${info.name}:${info.latestVersion}"
         if (dedupKey in refreshedIgnored) continue

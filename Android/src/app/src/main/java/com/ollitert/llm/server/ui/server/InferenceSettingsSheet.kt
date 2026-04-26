@@ -95,7 +95,7 @@ import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.NumberSliderConfig
 import com.ollitert.llm.server.data.llmSupportThinking
@@ -119,10 +119,10 @@ fun InferenceSettingsSheet(
   val focusManager = LocalFocusManager.current
   val context = LocalContext.current
 
-  val customPromptsEnabled = remember { LlmHttpPrefs.isCustomPromptsEnabled(context) }
+  val customPromptsEnabled = remember { ServerPrefs.isCustomPromptsEnabled(context) }
 
   var systemPrompt by remember {
-    mutableStateOf(LlmHttpPrefs.getSystemPrompt(context, model.name))
+    mutableStateOf(ServerPrefs.getSystemPrompt(context, model.name))
   }
   var advancedExpanded by remember { mutableStateOf(false) }
 

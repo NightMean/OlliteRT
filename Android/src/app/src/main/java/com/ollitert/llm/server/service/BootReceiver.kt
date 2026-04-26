@@ -20,7 +20,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MAX_VALID_PORT
 import com.ollitert.llm.server.data.MIN_VALID_PORT
 
@@ -35,22 +35,22 @@ class BootReceiver : BroadcastReceiver() {
     // Wrap everything in try-catch — an uncaught exception here crashes on every boot
     // with no recovery if SharedPreferences are corrupted.
     try {
-      if (!LlmHttpPrefs.isAutoStartOnBoot(context)) return
+      if (!ServerPrefs.isAutoStartOnBoot(context)) return
 
-      val modelName = LlmHttpPrefs.getDefaultModelName(context)
+      val modelName = ServerPrefs.getDefaultModelName(context)
       if (modelName.isNullOrBlank()) {
         Log.w(TAG, "Auto-start on boot enabled but no default model configured — skipping")
         return
       }
 
-      val port = LlmHttpPrefs.getPort(context)
+      val port = ServerPrefs.getPort(context)
       if (port !in MIN_VALID_PORT..MAX_VALID_PORT) {
         Log.w(TAG, "Invalid port $port from preferences — skipping auto-start")
         return
       }
 
       Log.i(TAG, "Auto-starting server on boot: model=$modelName, port=$port")
-      LlmHttpService.start(context, port, modelName, source = LlmHttpService.SOURCE_BOOT)
+      ServerService.start(context, port, modelName, source = ServerService.SOURCE_BOOT)
     } catch (e: Exception) {
       Log.e(TAG, "Auto-start on boot failed: ${e.message}", e)
     }

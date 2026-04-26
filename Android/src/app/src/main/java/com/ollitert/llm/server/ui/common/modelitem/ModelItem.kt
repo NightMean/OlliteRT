@@ -49,11 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LlmHttpService
+import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.TooltipIconButton
@@ -239,8 +239,8 @@ fun ModelItem(
       } else null,
       onApply = { newConfigValues, systemPrompt ->
         // Persist system prompt for this model
-        val oldSystemPrompt = LlmHttpPrefs.getSystemPrompt(context, model.name)
-        LlmHttpPrefs.setSystemPrompt(context, model.name, systemPrompt)
+        val oldSystemPrompt = ServerPrefs.getSystemPrompt(context, model.name)
+        ServerPrefs.setSystemPrompt(context, model.name, systemPrompt)
         val promptsChanged = systemPrompt != oldSystemPrompt
 
         // Detect changed configs and whether reinitialization is needed.
@@ -272,7 +272,7 @@ fun ModelItem(
         model.prevConfigValues = model.configValues
         model.configValues = newConfigValues.toMap()
         // Persist inference config so it survives app restarts
-        LlmHttpPrefs.setInferenceConfig(context, model.name, newConfigValues)
+        ServerPrefs.setInferenceConfig(context, model.name, newConfigValues)
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
         // Log config changes and trigger model reload if needed.
@@ -335,17 +335,17 @@ fun ModelItem(
             body = eventBody.toString(),
           )
           if (needReinitialization) {
-            val port = LlmHttpPrefs.getPort(context)
+            val port = ServerPrefs.getPort(context)
             if (isLoading) {
-              LlmHttpService.queueReloadAfterLoad(port, model.name, newConfigValues)
+              ServerService.queueReloadAfterLoad(port, model.name, newConfigValues)
               Toast.makeText(context, settingsSavedReloadPendingText, Toast.LENGTH_SHORT).show()
             } else {
-              LlmHttpService.reload(context, port, model.name, configValues = newConfigValues)
+              ServerService.reload(context, port, model.name, configValues = newConfigValues)
               Toast.makeText(context, settingsSavedReloadingText, Toast.LENGTH_SHORT).show()
             }
           } else {
             // Push config changes to the running service model without reloading
-            LlmHttpService.updateConfigValues(newConfigValues)
+            ServerService.updateConfigValues(newConfigValues)
             Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
           }
         } else if (changes.isNotEmpty()) {

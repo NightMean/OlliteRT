@@ -23,7 +23,7 @@ import android.util.Log
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
@@ -65,24 +65,24 @@ import kotlinx.serialization.json.Json
 /**
  * Ktor CIO embedded HTTP server.
  *
- * Routes requests to [LlmHttpEndpointHandlers] for inference endpoints and
+ * Routes requests to [EndpointHandlers] for inference endpoints and
  * handles server info, health, metrics, model listing, and favicon directly.
  * CORS is configured via the Ktor CORS plugin; bearer auth uses constant-time
  * comparison.
  *
- * Separated from [LlmHttpService] to isolate HTTP concerns (routing, auth,
+ * Separated from [ServerService] to isolate HTTP concerns (routing, auth,
  * CORS, request/response formatting) from Android Service lifecycle concerns.
  */
 class KtorServer(
   private val port: Int,
   private val serviceContext: Context,
-  private val endpointHandlers: LlmHttpEndpointHandlers,
-  private val modelLifecycle: LlmHttpModelLifecycle,
+  private val endpointHandlers: EndpointHandlers,
+  private val modelLifecycle: ModelLifecycle,
   private val json: Json,
   private val nextRequestId: () -> String,
   private val getRequestCount: () -> Long,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
-  private val audioTranscriptionHandler: LlmHttpAudioTranscriptionHandler,
+  private val audioTranscriptionHandler: AudioTranscriptionHandler,
   private val inferenceLock: Any,
 ) {
 
@@ -109,7 +109,7 @@ class KtorServer(
       install(StatusPages) {
         status(HttpStatusCode.NotFound) { call, _ ->
           val uri = call.request.uri
-          val unsupportedMsg = LlmHttpRouteResolver.getUnsupportedEndpointMessage(uri)
+          val unsupportedMsg = RouteResolver.getUnsupportedEndpointMessage(uri)
           val response = if (unsupportedMsg != null) httpJsonError(404, unsupportedMsg)
           else httpNotFound()
           withGetLogging(call) { response }
@@ -135,7 +135,7 @@ class KtorServer(
    * If the setting is empty, CORS is disabled (no plugin installed).
    */
   private fun Application.configureCors() {
-    val allowedOrigins = LlmHttpPrefs.getCorsAllowedOrigins(serviceContext).trim()
+    val allowedOrigins = ServerPrefs.getCorsAllowedOrigins(serviceContext).trim()
     if (allowedOrigins.isEmpty()) return // CORS disabled
 
     install(CORS) {
@@ -181,10 +181,10 @@ class KtorServer(
    * response if unauthorized.
    */
   private suspend fun requireAuth(call: ApplicationCall): Boolean {
-    val expected = LlmHttpPrefs.getBearerToken(serviceContext)
+    val expected = ServerPrefs.getBearerToken(serviceContext)
     if (expected.isBlank()) return true // Auth disabled
     val header = call.request.headers["Authorization"] ?: ""
-    if (LlmHttpBridgeUtils.isBearerAuthorized(expected, header)) return true
+    if (BridgeUtils.isBearerAuthorized(expected, header)) return true
     call.respondHttpResponse(httpUnauthorized("unauthorized"))
     return false
   }
@@ -246,7 +246,7 @@ class KtorServer(
 
     get("/") {
       withGetLogging(call) {
-        val body = LlmHttpPayloadBuilders.serverInfo(
+        val body = PayloadBuilders.serverInfo(
           defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
         )
         httpOkJson(body)
@@ -255,7 +255,7 @@ class KtorServer(
 
     get("/v1") {
       withGetLogging(call) {
-        val body = LlmHttpPayloadBuilders.serverInfo(
+        val body = PayloadBuilders.serverInfo(
           defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
         )
         httpOkJson(body)
@@ -264,7 +264,7 @@ class KtorServer(
 
     get("/api/version") {
       withGetLogging(call) {
-        val body = LlmHttpPayloadBuilders.serverInfo(
+        val body = PayloadBuilders.serverInfo(
           defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
         )
         httpOkJson(body)
@@ -273,15 +273,15 @@ class KtorServer(
 
     get("/metrics") {
       withGetLogging(call) {
-        val body = LlmHttpPrometheusRenderer.render()
-        HttpResponse.PlainText(200, LlmHttpPrometheusRenderer.CONTENT_TYPE, body)
+        val body = PrometheusRenderer.render()
+        HttpResponse.PlainText(200, PrometheusRenderer.CONTENT_TYPE, body)
       }
     }
 
     get("/v1/models") {
       if (!requireAuth(call)) return@get
       withGetLogging(call) {
-        val body = LlmHttpPayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+        val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
         httpOkJson(body)
       }
     }
@@ -289,7 +289,7 @@ class KtorServer(
     get("/debug/models") {
       if (!requireAuth(call)) return@get
       withGetLogging(call) {
-        val body = LlmHttpPayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+        val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
         httpOkJson(body)
       }
     }
@@ -297,7 +297,7 @@ class KtorServer(
     get("/v1/models/{id...}") {
       if (!requireAuth(call)) return@get
       withGetLogging(call) {
-        val body = LlmHttpPayloadBuilders.modelDetail(
+        val body = PayloadBuilders.modelDetail(
           defaultModel, call.request.uri, json, keepAliveUnloadedModelName,
         )
         if (body != null) httpOkJson(body)
@@ -318,7 +318,7 @@ class KtorServer(
   // ── POST routes ────────────────────────────────────────────────────────────
 
   private fun Routing.configurePostRoutes() {
-    // ── Inference routes — delegated to LlmHttpEndpointHandlers ──
+    // ── Inference routes — delegated to EndpointHandlers ──
     // Handlers return HttpResponse directly (including HttpResponse.Sse for streaming).
 
     post("/generate") {
@@ -393,7 +393,7 @@ class KtorServer(
           method = "POST",
           path = "/v1/audio/transcriptions",
           modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
-          clientIp = call.clientIp(LlmHttpPrefs.isResolveClientHostnames(serviceContext)),
+          clientIp = call.clientIp(ServerPrefs.isResolveClientHostnames(serviceContext)),
           isPending = true,
         ),
       )
@@ -420,11 +420,11 @@ class KtorServer(
       }
 
       val model = when (val sel = modelLifecycle.selectModel(null)) {
-        is LlmHttpModelLifecycle.ModelSelection.Ok -> sel.model
-        is LlmHttpModelLifecycle.ModelSelection.Error -> {
+        is ModelLifecycle.ModelSelection.Ok -> sel.model
+        is ModelLifecycle.ModelSelection.Error -> {
           val response = HttpResponse.Json(
             statusCode = sel.statusCode,
-            body = LlmHttpResponseRenderer.renderJsonError(sel.message),
+            body = ResponseRenderer.renderJsonError(sel.message),
             extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
           )
           finalizeLogEntry(logId, startMs, response, null, response.body)
@@ -465,7 +465,7 @@ class KtorServer(
         method = call.request.local.method.value,
         path = call.request.uri,
         modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
-        clientIp = call.clientIp(LlmHttpPrefs.isResolveClientHostnames(serviceContext)),
+        clientIp = call.clientIp(ServerPrefs.isResolveClientHostnames(serviceContext)),
         isPending = true,
       ),
     )
@@ -510,7 +510,7 @@ class KtorServer(
     val startMs = SystemClock.elapsedRealtime()
     val method = call.request.local.method.value
     val path = call.request.uri
-    val clientIp = call.clientIp(LlmHttpPrefs.isResolveClientHostnames(serviceContext))
+    val clientIp = call.clientIp(ServerPrefs.isResolveClientHostnames(serviceContext))
 
     // Add a pending log entry immediately so it appears in the Logs tab
     val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
@@ -552,9 +552,9 @@ class KtorServer(
       }
 
       // Capture body for logging (with optional base64 compaction for images)
-      val compactImages = LlmHttpPrefs.isCompactImageData(serviceContext)
+      val compactImages = ServerPrefs.isCompactImageData(serviceContext)
       val captureBody = { rawBody: String ->
-        val stored = if (compactImages) LlmHttpBridgeUtils.compactBase64DataUris(rawBody) else rawBody
+        val stored = if (compactImages) BridgeUtils.compactBase64DataUris(rawBody) else rawBody
         val originalSize = if (compactImages && stored.length != rawBody.length) rawBody.length else 0
         requestBodySnapshot = stored
         RequestLogStore.update(logId) {
@@ -634,7 +634,7 @@ class KtorServer(
       else (responseBodySnapshot ?: it.responseBody)
       // Extract actual token counts from LiteRT error messages (e.g. "6579 >= 4000")
       val actualTokens = finalResponseBody?.let { body ->
-        LlmHttpInferenceRunner.extractActualTokenCounts(body)
+        InferenceRunner.extractActualTokenCounts(body)
       }
       // For non-streaming requests, read per-request performance metrics from ServerMetrics.
       // Streaming requests set their own metrics in the done callback.
@@ -671,8 +671,8 @@ class KtorServer(
    * service actually stops.
    */
   private fun handleServerStop(): HttpResponse {
-    val stopIntent = Intent(serviceContext, LlmHttpService::class.java).apply {
-      action = LlmHttpService.ACTION_STOP
+    val stopIntent = Intent(serviceContext, ServerService::class.java).apply {
+      action = ServerService.ACTION_STOP
     }
     return try {
       serviceContext.startService(stopIntent)
@@ -691,7 +691,7 @@ class KtorServer(
     val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
       ?: return httpBadRequest("No model loaded")
     val reloadPort = ServerMetrics.port.value
-    LlmHttpService.reload(serviceContext, reloadPort, modelName)
+    ServerService.reload(serviceContext, reloadPort, modelName)
     return httpOkJson("""{"success":true,"message":"Model reloading","model":"$modelName"}""")
   }
 
@@ -711,7 +711,7 @@ class KtorServer(
     }
     // Read current state from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues
-      ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName)
+      ?: ServerPrefs.getInferenceConfig(serviceContext, modelName)
     val currentState = (currentConfig?.get(ConfigKeys.ENABLE_THINKING.label) as? Boolean) ?: false
     // Parse { "enabled": true/false } — default to toggling current state
     val requestedState = if (body.isNotBlank()) {
@@ -729,7 +729,7 @@ class KtorServer(
     if (model != null) {
       synchronized(inferenceLock) { model.configValues = updatedConfig }
     }
-    LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updatedConfig)
+    ServerPrefs.setInferenceConfig(serviceContext, modelName, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
     // Log using the same "Settings updated" format as the Settings UI
     val oldLabel = if (currentState) "enabled" else "disabled"
@@ -759,7 +759,7 @@ class KtorServer(
       ?: return httpBadRequest("No model loaded")
     // Read config from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues
-      ?: LlmHttpPrefs.getInferenceConfig(serviceContext, modelName) ?: emptyMap()
+      ?: ServerPrefs.getInferenceConfig(serviceContext, modelName) ?: emptyMap()
     if (body.isBlank()) {
       // GET-like: return current config
       val current = org.json.JSONObject().apply {
@@ -771,14 +771,14 @@ class KtorServer(
         put("model", modelName)
         put("model_loaded", !isIdle)
         // Behavior toggles read from SharedPreferences
-        put("auto_truncate_history", LlmHttpPrefs.isAutoTruncateHistory(serviceContext))
-        put("auto_trim_prompts", LlmHttpPrefs.isAutoTrimPrompts(serviceContext))
-        put("compact_tool_schemas", LlmHttpPrefs.isCompactToolSchemas(serviceContext))
-        put("warmup_enabled", LlmHttpPrefs.isWarmupEnabled(serviceContext))
-        put("keep_alive_enabled", LlmHttpPrefs.isKeepAliveEnabled(serviceContext))
-        put("keep_alive_minutes", LlmHttpPrefs.getKeepAliveMinutes(serviceContext))
-        put("custom_prompts_enabled", LlmHttpPrefs.isCustomPromptsEnabled(serviceContext))
-        put("system_prompt", LlmHttpPrefs.getSystemPrompt(serviceContext, modelName))
+        put("auto_truncate_history", ServerPrefs.isAutoTruncateHistory(serviceContext))
+        put("auto_trim_prompts", ServerPrefs.isAutoTrimPrompts(serviceContext))
+        put("compact_tool_schemas", ServerPrefs.isCompactToolSchemas(serviceContext))
+        put("warmup_enabled", ServerPrefs.isWarmupEnabled(serviceContext))
+        put("keep_alive_enabled", ServerPrefs.isKeepAliveEnabled(serviceContext))
+        put("keep_alive_minutes", ServerPrefs.getKeepAliveMinutes(serviceContext))
+        put("custom_prompts_enabled", ServerPrefs.isCustomPromptsEnabled(serviceContext))
+        put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelName))
       }
       return httpOkJson(current.toString())
     }
@@ -821,56 +821,56 @@ class KtorServer(
       }
       // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
       if (obj.has("auto_truncate_history")) {
-        val old = LlmHttpPrefs.isAutoTruncateHistory(serviceContext)
+        val old = ServerPrefs.isAutoTruncateHistory(serviceContext)
         val v = obj.getBoolean("auto_truncate_history")
-        LlmHttpPrefs.setAutoTruncateHistory(serviceContext, v)
+        ServerPrefs.setAutoTruncateHistory(serviceContext, v)
         changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("auto_trim_prompts")) {
-        val old = LlmHttpPrefs.isAutoTrimPrompts(serviceContext)
+        val old = ServerPrefs.isAutoTrimPrompts(serviceContext)
         val v = obj.getBoolean("auto_trim_prompts")
-        LlmHttpPrefs.setAutoTrimPrompts(serviceContext, v)
+        ServerPrefs.setAutoTrimPrompts(serviceContext, v)
         changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("compact_tool_schemas")) {
-        val old = LlmHttpPrefs.isCompactToolSchemas(serviceContext)
+        val old = ServerPrefs.isCompactToolSchemas(serviceContext)
         val v = obj.getBoolean("compact_tool_schemas")
-        LlmHttpPrefs.setCompactToolSchemas(serviceContext, v)
+        ServerPrefs.setCompactToolSchemas(serviceContext, v)
         changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("warmup_enabled")) {
-        val old = LlmHttpPrefs.isWarmupEnabled(serviceContext)
+        val old = ServerPrefs.isWarmupEnabled(serviceContext)
         val v = obj.getBoolean("warmup_enabled")
-        LlmHttpPrefs.setWarmupEnabled(serviceContext, v)
+        ServerPrefs.setWarmupEnabled(serviceContext, v)
         changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("keep_alive_enabled")) {
-        val old = LlmHttpPrefs.isKeepAliveEnabled(serviceContext)
+        val old = ServerPrefs.isKeepAliveEnabled(serviceContext)
         val v = obj.getBoolean("keep_alive_enabled")
-        LlmHttpPrefs.setKeepAliveEnabled(serviceContext, v)
+        ServerPrefs.setKeepAliveEnabled(serviceContext, v)
         if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
         changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("keep_alive_minutes")) {
-        val old = LlmHttpPrefs.getKeepAliveMinutes(serviceContext)
+        val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
         val v = obj.getInt("keep_alive_minutes")
         if (v < 1 || v > 7200) {
           return httpBadRequest("keep_alive_minutes out of range")
         }
-        LlmHttpPrefs.setKeepAliveMinutes(serviceContext, v)
-        if (LlmHttpPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+        ServerPrefs.setKeepAliveMinutes(serviceContext, v)
+        if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
         changes.add("Keep Alive Minutes: $old → $v")
       }
       if (obj.has("custom_prompts_enabled")) {
-        val old = LlmHttpPrefs.isCustomPromptsEnabled(serviceContext)
+        val old = ServerPrefs.isCustomPromptsEnabled(serviceContext)
         val v = obj.getBoolean("custom_prompts_enabled")
-        LlmHttpPrefs.setCustomPromptsEnabled(serviceContext, v)
+        ServerPrefs.setCustomPromptsEnabled(serviceContext, v)
         changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("system_prompt")) {
-        val old = LlmHttpPrefs.getSystemPrompt(serviceContext, modelName)
+        val old = ServerPrefs.getSystemPrompt(serviceContext, modelName)
         val v = obj.getString("system_prompt")
-        LlmHttpPrefs.setSystemPrompt(serviceContext, modelName, v)
+        ServerPrefs.setSystemPrompt(serviceContext, modelName, v)
         val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
         val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
         changes.add("System Prompt: $oldDisplay → $newDisplay")
@@ -882,7 +882,7 @@ class KtorServer(
         if (model != null) {
           synchronized(inferenceLock) { model.configValues = updated.toMap() }
         }
-        LlmHttpPrefs.setInferenceConfig(serviceContext, modelName, updated)
+        ServerPrefs.setInferenceConfig(serviceContext, modelName, updated)
         // Log using the same format as the Settings UI
         RequestLogStore.addEvent(
           "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
@@ -899,14 +899,14 @@ class KtorServer(
           put("top_k", (updated[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
           put("top_p", (updated[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
           put("thinking_enabled", updated[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
-          put("auto_truncate_history", LlmHttpPrefs.isAutoTruncateHistory(serviceContext))
-          put("auto_trim_prompts", LlmHttpPrefs.isAutoTrimPrompts(serviceContext))
-          put("compact_tool_schemas", LlmHttpPrefs.isCompactToolSchemas(serviceContext))
-          put("warmup_enabled", LlmHttpPrefs.isWarmupEnabled(serviceContext))
-          put("keep_alive_enabled", LlmHttpPrefs.isKeepAliveEnabled(serviceContext))
-          put("keep_alive_minutes", LlmHttpPrefs.getKeepAliveMinutes(serviceContext))
-          put("custom_prompts_enabled", LlmHttpPrefs.isCustomPromptsEnabled(serviceContext))
-          put("system_prompt", LlmHttpPrefs.getSystemPrompt(serviceContext, modelName))
+          put("auto_truncate_history", ServerPrefs.isAutoTruncateHistory(serviceContext))
+          put("auto_trim_prompts", ServerPrefs.isAutoTrimPrompts(serviceContext))
+          put("compact_tool_schemas", ServerPrefs.isCompactToolSchemas(serviceContext))
+          put("warmup_enabled", ServerPrefs.isWarmupEnabled(serviceContext))
+          put("keep_alive_enabled", ServerPrefs.isKeepAliveEnabled(serviceContext))
+          put("keep_alive_minutes", ServerPrefs.getKeepAliveMinutes(serviceContext))
+          put("custom_prompts_enabled", ServerPrefs.isCustomPromptsEnabled(serviceContext))
+          put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelName))
         }
         httpOkJson(current.toString())
       }
@@ -921,9 +921,9 @@ class KtorServer(
     val includeMetrics =
       call.request.queryParameters["metrics"]?.equals("true", ignoreCase = true) == true
     val response = httpOkJson(
-      LlmHttpPayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics),
+      PayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics),
     )
-    if (LlmHttpPrefs.isHideHealthLogs(serviceContext)) {
+    if (ServerPrefs.isHideHealthLogs(serviceContext)) {
       call.respondHttpResponse(response)
     } else {
       withGetLogging(call) { response }

@@ -49,7 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.service.LlmHttpBridgeUtils
+import com.ollitert.llm.server.service.BridgeUtils
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.server.SettingsViewModel
@@ -113,7 +113,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         onCheckedChange = { enabled ->
           vm.bearerEnabledEntry.update(enabled)
           if (enabled && vm.bearerTokenEntry.current.isBlank()) {
-            vm.bearerTokenEntry.update(LlmHttpBridgeUtils.generateBearerToken())
+            vm.bearerTokenEntry.update(BridgeUtils.generateBearerToken())
           }
         },
         searchQuery = vm.searchQuery,
@@ -155,7 +155,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
             icon = Icons.Outlined.Refresh,
             tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
             onClick = {
-              vm.bearerTokenEntry.update(LlmHttpBridgeUtils.generateBearerToken())
+              vm.bearerTokenEntry.update(BridgeUtils.generateBearerToken())
               Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
             },
           )

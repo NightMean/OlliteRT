@@ -27,12 +27,12 @@ import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LlmHttpService
+import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.server.settings.CardId
@@ -85,7 +85,7 @@ class SettingsViewModel @Inject constructor(
   // Entries are created from the read lambda on each non-Custom SettingDef.
 
   // Bearer has derived state (enabled = token non-blank) — not a SettingDef
-  val bearerEnabledEntry = SettingEntry(LlmHttpPrefs.getBearerToken(context).isNotBlank())
+  val bearerEnabledEntry = SettingEntry(ServerPrefs.getBearerToken(context).isNotBlank())
 
   private val entryByKey: Map<String, SettingEntry<*>> = buildMap {
     for (def in allSettingDefs) {
@@ -100,7 +100,7 @@ class SettingsViewModel @Inject constructor(
       }
     }
     // Bearer token is a Custom def but has a manually-managed entry for UI state
-    put("bearer_token", SettingEntry(LlmHttpPrefs.getBearerToken(context)))
+    put("bearer_token", SettingEntry(ServerPrefs.getBearerToken(context)))
   }
 
   @Suppress("UNCHECKED_CAST")
@@ -279,10 +279,10 @@ class SettingsViewModel @Inject constructor(
     portEntry.update(port)
 
     // ── Persist to SharedPreferences ──
-    val wasLogPersistenceEnabled = LlmHttpPrefs.isLogPersistenceEnabled(context)
-    val oldAutoDeleteMinutes = LlmHttpPrefs.getLogAutoDeleteMinutes(context)
+    val wasLogPersistenceEnabled = ServerPrefs.isLogPersistenceEnabled(context)
+    val oldAutoDeleteMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
     // Bearer token uses effective value (blank when toggle is off)
-    LlmHttpPrefs.setBearerToken(context, effectiveBearerToken)
+    ServerPrefs.setBearerToken(context, effectiveBearerToken)
     // All non-Custom settings: persist via the definition's write lambda
     for (def in allSettingDefs) {
       if (def.key == "bearer_token") continue // handled above
@@ -292,7 +292,7 @@ class SettingsViewModel @Inject constructor(
 
     // ── Side effects ──
     if ((keepAliveEnabledEntry.isChanged || keepAliveMinutesEntry.isChanged) && isServerActive) {
-      LlmHttpService.resetKeepAliveTimer(context)
+      ServerService.resetKeepAliveTimer(context)
     }
     if (updateCheckEnabledEntry.isChanged || updateCheckIntervalHoursEntry.isChanged) {
       if (updateCheckEnabledEntry.current) UpdateCheckWorker.scheduleUpdateCheck(context)
@@ -305,7 +305,7 @@ class SettingsViewModel @Inject constructor(
     // Write a full settings snapshot to logcat when verbose debug is turned on,
     // so exported debug logs contain the active configuration for diagnosis.
     if (verboseDebugEnabledEntry.current && !verboseDebugEnabledEntry.saved) {
-      LlmHttpPrefs.dumpToLogcat(context)
+      ServerPrefs.dumpToLogcat(context)
     }
 
     // ── Sync persistence layer ──
@@ -313,9 +313,9 @@ class SettingsViewModel @Inject constructor(
       persistence.persistCurrentEntries()
     }
     persistence.updateMaxEntries()
-    val pruningConfigChanged = LlmHttpPrefs.isLogPersistenceEnabled(context) != wasLogPersistenceEnabled
-        || (LlmHttpPrefs.isLogPersistenceEnabled(context)
-            && LlmHttpPrefs.getLogAutoDeleteMinutes(context) != oldAutoDeleteMinutes)
+    val pruningConfigChanged = ServerPrefs.isLogPersistenceEnabled(context) != wasLogPersistenceEnabled
+        || (ServerPrefs.isLogPersistenceEnabled(context)
+            && ServerPrefs.getLogAutoDeleteMinutes(context) != oldAutoDeleteMinutes)
     if (pruningConfigChanged) {
       persistence.schedulePruning()
     }
@@ -449,7 +449,7 @@ class SettingsViewModel @Inject constructor(
   /** Reset all settings to factory defaults using SettingDef metadata. */
   @Suppress("UNCHECKED_CAST")
   fun resetToDefaults() {
-    LlmHttpPrefs.resetToDefaults(context)
+    ServerPrefs.resetToDefaults(context)
 
     // Reset each entry to its definition's resetDefault (not fresh-install default)
     for (def in allSettingDefs) {

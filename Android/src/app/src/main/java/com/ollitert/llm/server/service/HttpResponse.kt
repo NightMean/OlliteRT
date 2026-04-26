@@ -43,12 +43,12 @@ sealed class HttpResponse {
 fun httpOkJson(body: String) = HttpResponse.Json(200, body)
 
 fun httpJsonError(statusCode: Int, error: String, suggestion: String? = null, kind: ErrorKind? = null) =
-  HttpResponse.Json(statusCode, LlmHttpResponseRenderer.renderJsonError(error, suggestion, kind))
+  HttpResponse.Json(statusCode, ResponseRenderer.renderJsonError(error, suggestion, kind))
 
 fun httpBadRequest(msg: String) = httpJsonError(400, msg)
 fun httpNotFound(error: String = "not_found") = httpJsonError(404, error)
 fun httpUnauthorized(error: String) = HttpResponse.Json(
-  401, LlmHttpResponseRenderer.renderJsonError(error),
+  401, ResponseRenderer.renderJsonError(error),
   extraHeaders = mapOf("WWW-Authenticate" to "Bearer"),
 )
 fun httpMethodNotAllowed() = httpJsonError(405, "method_not_allowed")

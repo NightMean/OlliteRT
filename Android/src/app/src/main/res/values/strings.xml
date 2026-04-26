@@ -859,7 +859,7 @@
   <string name="download_notif_title_named">Downloading \"%1$s\"</string>
   <string name="download_notif_progress">Downloading in progress: %1$d%%</string>
 
-  <!-- LlmHttpService: error messages -->
+  <!-- ServerService: error messages -->
   <string name="error_autostart_boot_prefix">Auto-start on boot failed: </string>
   <string name="error_autostart_launch_prefix">Auto-start on launch failed: </string>
   <string name="error_model_not_found">Model \'%1$s\' not found. Check that the model is still downloaded or update the default model in Settings.</string>
@@ -924,7 +924,7 @@
   <string name="error_model_file_corrupted">Model file appears corrupted or truncated (%1$d bytes): %2$s</string>
   <string name="error_storage_insufficient">Insufficient storage to load model (%1$sMB free, need at least %2$sMB). Free up space by deleting unused models or files, then try again.</string>
 
-  <!-- LlmHttpErrorSuggestions: recovery suggestions -->
+  <!-- ErrorSuggestions: recovery suggestions -->
   <string name="suggestion_context_overflow">Try enabling prompt compaction (Truncate History, Compact Tool Schemas, or Trim Prompt) in OlliteRT Settings, or send shorter prompts.</string>
   <string name="suggestion_timeout">Try sending a shorter prompt or restarting the server.</string>
   <string name="suggestion_model_not_found">Check the Models screen for available downloaded models.</string>
@@ -937,7 +937,7 @@
   <!-- CopyUrlReceiver: clipboard label -->
   <string name="clipboard_label_endpoint">OlliteRT Endpoint</string>
 
-  <!-- LlmHttpInferenceRunner: error message -->
+  <!-- InferenceRunner: error message -->
   <string name="error_model_init_failed">Model initialization failed: %1$s</string>
 
 </resources>

@@ -20,8 +20,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
-import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.service.LlmHttpService
+import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.ServerMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -77,23 +77,23 @@ class ServerViewModel @Inject constructor(
   /** Debounce guard to prevent duplicate start/stop/reload intents from rapid taps. */
   private var actionInFlight = false
 
-  fun startServer(port: Int = LlmHttpPrefs.getPort(context), modelName: String? = null, source: String? = null) {
+  fun startServer(port: Int = ServerPrefs.getPort(context), modelName: String? = null, source: String? = null) {
     if (actionInFlight) return
     setActionInFlight()
-    LlmHttpService.start(context, port, modelName, source = source)
+    ServerService.start(context, port, modelName, source = source)
   }
 
   fun stopServer() {
     if (actionInFlight) return
     setActionInFlight()
-    LlmHttpService.stop(context)
+    ServerService.stop(context)
   }
 
-  fun reloadServer(port: Int = LlmHttpPrefs.getPort(context)) {
+  fun reloadServer(port: Int = ServerPrefs.getPort(context)) {
     if (actionInFlight) return
     setActionInFlight()
     val currentModel = activeModelName.value
-    LlmHttpService.reload(context, port, currentModel)
+    ServerService.reload(context, port, currentModel)
   }
 
   /**
@@ -101,10 +101,10 @@ class ServerViewModel @Inject constructor(
    * intent with the new model name, which cleans up the old model and starts the new one.
    * This avoids the stop + start race condition where the debounce guard drops the start.
    */
-  fun switchModel(modelName: String, port: Int = LlmHttpPrefs.getPort(context)) {
+  fun switchModel(modelName: String, port: Int = ServerPrefs.getPort(context)) {
     if (actionInFlight) return
     setActionInFlight()
-    LlmHttpService.reload(context, port, modelName)
+    ServerService.reload(context, port, modelName)
   }
 
   private fun setActionInFlight() {

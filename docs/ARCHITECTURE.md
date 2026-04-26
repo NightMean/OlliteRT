@@ -30,7 +30,7 @@ This document describes OlliteRT's internal architecture for contributors and an
 │  └────────────────┬─────────────────────┘            │
 │                   │                                  │
 │  ┌────────────────┴───────────────────────┐          │
-│  │        LlmHttpService (Foreground)     │ ← Server │
+│  │        ServerService (Foreground)     │ ← Server │
 │  │  ┌─────────────┐  ┌─────────────────┐  │          │
 │  │  │  Ktor CIO   │  │  LiteRT Engine  │  │          │
 │  │  │  HTTP Server│  │  (GPU/CPU)      │  │          │
@@ -82,32 +82,32 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 
 | File | Responsibility |
 |:-----|:---------------|
-| `LlmHttpService.kt` | Service lifecycle — start, stop, model loading, intent handling |
+| `ServerService.kt` | Service lifecycle — start, stop, model loading, intent handling |
 | `KtorServer.kt` | Ktor CIO HTTP server — routing, CORS plugin, auth plugin, response dispatch |
 | `KtorRequestAdapter.kt` | Adapts Ktor `ApplicationCall` to the internal request model |
 | `KtorSseWriter.kt` | SSE streaming writer — wraps Ktor's `Writer` from `respondTextWriter` |
 | `SseWriter.kt` | SSE writer interface — abstracts streaming output for testability |
 | `HttpResponse.kt` | Sealed class for response types (JSON, Binary, PlainText, SSE) |
-| `LlmHttpRouteResolver.kt` | URL → handler mapping for all endpoints |
-| `LlmHttpEndpointHandlers.kt` | Inference API endpoints (`/v1/chat/completions`, `/v1/completions`, `/v1/responses`) |
-| `LlmHttpInferenceRunner.kt` | Inference execution — streaming, non-streaming, tool call detection |
-| `LlmHttpInferenceGateway.kt` | Request validation and inference orchestration |
-| `LlmHttpPayloadBuilders.kt` | JSON response construction (health, models, server info) |
-| `LlmHttpResponseRenderer.kt` | Renders LLM responses to JSON with capabilities metadata |
-| `LlmHttpApiModels.kt` | Kotlin data classes for OpenAI API request/response format |
-| `LlmHttpAudioTranscriptionHandler.kt` | Audio transcription endpoint (`/v1/audio/transcriptions`) |
-| `LlmHttpAudioPreprocessor.kt` | Audio format detection and stereo-to-mono downmix |
-| `LlmHttpToolCallParser.kt` | Post-inference [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection — 5 single-call patterns (`tool_call` wrapper, `<tool_call>` XML, native Gemma `<\|tool_call>`, `function` wrapper, bare `name`+`arguments` JSON) and 3 multi-call patterns (multiple XML blocks, multiple Gemma blocks, JSON array) |
-| `LlmHttpRequestAdapter.kt` | Prompt building, tool schema injection, image/audio extraction, tool_choice resolution |
-| `LlmHttpPromptCompactor.kt` | Context window overflow handling |
-| `LlmHttpPrometheusRenderer.kt` | Prometheus `/metrics` exposition format |
-| `LlmHttpModelLifecycle.kt` | Model load/unload/reload, keep-alive idle timeout |
-| `LlmHttpModelFactory.kt` | Builds `Model` instances from allowlist and imported sources |
-| `LlmHttpAllowlistLoader.kt` | Loads and caches the allowed model list |
-| `LlmHttpNotificationHelper.kt` | Foreground notification building |
-| `LlmHttpBridgeUtils.kt` | Utility functions for ID generation, model normalization, authorization, SSE escaping, and base64 compaction |
-| `LlmHttpErrorSuggestions.kt` | Maps error types to user-facing recovery suggestions |
-| `LlmHttpLogger.kt` | File-based request/response logging |
+| `RouteResolver.kt` | URL → handler mapping for all endpoints |
+| `EndpointHandlers.kt` | Inference API endpoints (`/v1/chat/completions`, `/v1/completions`, `/v1/responses`) |
+| `InferenceRunner.kt` | Inference execution — streaming, non-streaming, tool call detection |
+| `InferenceGateway.kt` | Request validation and inference orchestration |
+| `PayloadBuilders.kt` | JSON response construction (health, models, server info) |
+| `ResponseRenderer.kt` | Renders LLM responses to JSON with capabilities metadata |
+| `ApiModels.kt` | Kotlin data classes for OpenAI API request/response format |
+| `AudioTranscriptionHandler.kt` | Audio transcription endpoint (`/v1/audio/transcriptions`) |
+| `AudioPreprocessor.kt` | Audio format detection and stereo-to-mono downmix |
+| `ToolCallParser.kt` | Post-inference [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection — 5 single-call patterns (`tool_call` wrapper, `<tool_call>` XML, native Gemma `<\|tool_call>`, `function` wrapper, bare `name`+`arguments` JSON) and 3 multi-call patterns (multiple XML blocks, multiple Gemma blocks, JSON array) |
+| `PromptBuilder.kt` | Prompt building, tool schema injection, image/audio extraction, tool_choice resolution |
+| `PromptCompactor.kt` | Context window overflow handling |
+| `PrometheusRenderer.kt` | Prometheus `/metrics` exposition format |
+| `ModelLifecycle.kt` | Model load/unload/reload, keep-alive idle timeout |
+| `ModelFactory.kt` | Builds `Model` instances from allowlist and imported sources |
+| `AllowlistLoader.kt` | Loads and caches the allowed model list |
+| `NotificationHelper.kt` | Foreground notification building |
+| `BridgeUtils.kt` | Utility functions for ID generation, model normalization, authorization, SSE escaping, and base64 compaction |
+| `ErrorSuggestions.kt` | Maps error types to user-facing recovery suggestions |
+| `FileLogger.kt` | File-based request/response logging |
 | `TokenEstimation.kt` | Estimates token count from character length |
 | `ServerMetrics.kt` | Singleton metrics accumulator (counters, gauges, timing) |
 | `RequestLogStore.kt` | In-memory log store for the Logs screen |
@@ -137,7 +137,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `ModelStorageUtils.kt` | Temp file cleanup and storage requirement checks |
 | `RepositoryNameFallback.kt` | Derives human-readable names for model sources when metadata is unavailable |
 | `BoundedHttpFetcher.kt` | Size-limited HTTP fetcher for model source JSON (10 MB cap) |
-| `LlmHttpPrefs.kt` | SharedPreferences accessor for server config |
+| `ServerPrefs.kt` | SharedPreferences accessor for server config |
 | `DataStoreRepository.kt` | Interface for persisting app state to Proto DataStore |
 | `DownloadRepository.kt` | Manages model downloads with progress tracking |
 | `SettingsSerializer.kt` | Proto DataStore serializer for user settings |

@@ -26,7 +26,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
@@ -155,7 +155,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     // Schedule periodic update checks if enabled.
     // Wrapped in try-catch so WorkManager failures don't crash the app on startup.
     try {
-      if (LlmHttpPrefs.isUpdateCheckEnabled(this)) {
+      if (ServerPrefs.isUpdateCheckEnabled(this)) {
         UpdateCheckWorker.scheduleUpdateCheck(this)
       }
     } catch (e: Exception) {

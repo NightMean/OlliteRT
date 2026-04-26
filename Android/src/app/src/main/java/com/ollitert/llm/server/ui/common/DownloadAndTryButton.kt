@@ -279,7 +279,7 @@ fun DownloadAndTryButton(
           Log.d(TAG, "Model '${model.name}' needs auth.")
 
           // First, try with the HuggingFace token from Settings.
-          val storedHfToken = com.ollitert.llm.server.data.LlmHttpPrefs.getHfToken(context)
+          val storedHfToken = com.ollitert.llm.server.data.ServerPrefs.getHfToken(context)
           if (storedHfToken.isNotBlank()) {
             Log.d(TAG, "Trying stored HF token from Settings...")
             val hfResponse = modelManagerViewModel.getModelUrlResponse(

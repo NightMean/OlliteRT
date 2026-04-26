@@ -20,7 +20,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
@@ -34,9 +34,9 @@ class UpdateDismissReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
     val version = intent.getStringExtra(EXTRA_DISMISSED_VERSION) ?: return
-    LlmHttpPrefs.setLastDismissedUpdateVersion(context, version)
+    ServerPrefs.setLastDismissedUpdateVersion(context, version)
     Log.d("UpdateDismiss", "User dismissed update notification for $version")
-    if (LlmHttpPrefs.isVerboseDebugEnabled(context)) {
+    if (ServerPrefs.isVerboseDebugEnabled(context)) {
       RequestLogStore.addEvent(
         "Notification dismissed for $version",
         level = LogLevel.DEBUG,

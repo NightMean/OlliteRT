@@ -124,7 +124,7 @@ internal fun FooterDot() {
 }
 
 /**
- * Parses compactionDetails string (comma-separated strategy tags from [LlmHttpPromptCompactor])
+ * Parses compactionDetails string (comma-separated strategy tags from [PromptCompactor])
  * into short badge labels with colors. Strategy tag format:
  *   "tools:compacted" → "Compacted: Tools"
  *   "tools:removed"   → "Compacted: Tools removed"

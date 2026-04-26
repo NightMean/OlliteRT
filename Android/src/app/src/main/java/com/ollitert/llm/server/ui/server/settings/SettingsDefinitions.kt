@@ -32,7 +32,7 @@ import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.DEFAULT_PORT
 import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MAX_VALID_PORT
 import com.ollitert.llm.server.data.MIN_VALID_PORT
 
@@ -46,8 +46,8 @@ val KEEP_SCREEN_AWAKE = SettingDef.Toggle(
   default = true,
   resetDefault = false,
   prefsKey = "keep_screen_on",
-  read = { LlmHttpPrefs.isKeepScreenOn(it) },
-  write = { ctx, v -> LlmHttpPrefs.setKeepScreenOn(ctx, v) },
+  read = { ServerPrefs.isKeepScreenOn(it) },
+  write = { ctx, v -> ServerPrefs.setKeepScreenOn(ctx, v) },
 )
 
 val AUTO_EXPAND_LOGS = SettingDef.Toggle(
@@ -57,8 +57,8 @@ val AUTO_EXPAND_LOGS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "auto_expand_logs",
-  read = { LlmHttpPrefs.isAutoExpandLogs(it) },
-  write = { ctx, v -> LlmHttpPrefs.setAutoExpandLogs(ctx, v) },
+  read = { ServerPrefs.isAutoExpandLogs(it) },
+  write = { ctx, v -> ServerPrefs.setAutoExpandLogs(ctx, v) },
 )
 
 val STREAM_RESPONSE_PREVIEW = SettingDef.Toggle(
@@ -68,8 +68,8 @@ val STREAM_RESPONSE_PREVIEW = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "stream_logs_preview",
-  read = { LlmHttpPrefs.isStreamLogsPreview(it) },
-  write = { ctx, v -> LlmHttpPrefs.setStreamLogsPreview(ctx, v) },
+  read = { ServerPrefs.isStreamLogsPreview(it) },
+  write = { ctx, v -> ServerPrefs.setStreamLogsPreview(ctx, v) },
 )
 
 val COMPACT_IMAGE_DATA = SettingDef.Toggle(
@@ -79,8 +79,8 @@ val COMPACT_IMAGE_DATA = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "compact_image_data",
-  read = { LlmHttpPrefs.isCompactImageData(it) },
-  write = { ctx, v -> LlmHttpPrefs.setCompactImageData(ctx, v) },
+  read = { ServerPrefs.isCompactImageData(it) },
+  write = { ctx, v -> ServerPrefs.setCompactImageData(ctx, v) },
 )
 
 val RESOLVE_CLIENT_HOSTNAMES = SettingDef.Toggle(
@@ -90,8 +90,8 @@ val RESOLVE_CLIENT_HOSTNAMES = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "resolve_client_hostnames",
-  read = { LlmHttpPrefs.isResolveClientHostnames(it) },
-  write = { ctx, v -> LlmHttpPrefs.setResolveClientHostnames(ctx, v) },
+  read = { ServerPrefs.isResolveClientHostnames(it) },
+  write = { ctx, v -> ServerPrefs.setResolveClientHostnames(ctx, v) },
 )
 
 val HIDE_HEALTH_LOGS = SettingDef.Toggle(
@@ -101,8 +101,8 @@ val HIDE_HEALTH_LOGS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "hide_health_logs",
-  read = { LlmHttpPrefs.isHideHealthLogs(it) },
-  write = { ctx, v -> LlmHttpPrefs.setHideHealthLogs(ctx, v) },
+  read = { ServerPrefs.isHideHealthLogs(it) },
+  write = { ctx, v -> ServerPrefs.setHideHealthLogs(ctx, v) },
 )
 
 val CLEAR_LOGS_ON_STOP = SettingDef.Toggle(
@@ -112,8 +112,8 @@ val CLEAR_LOGS_ON_STOP = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "clear_logs_on_stop",
-  read = { LlmHttpPrefs.isClearLogsOnStop(it) },
-  write = { ctx, v -> LlmHttpPrefs.setClearLogsOnStop(ctx, v) },
+  read = { ServerPrefs.isClearLogsOnStop(it) },
+  write = { ctx, v -> ServerPrefs.setClearLogsOnStop(ctx, v) },
 )
 
 val CONFIRM_CLEAR_LOGS = SettingDef.Toggle(
@@ -123,8 +123,8 @@ val CONFIRM_CLEAR_LOGS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "confirm_clear_logs",
-  read = { LlmHttpPrefs.isConfirmClearLogs(it) },
-  write = { ctx, v -> LlmHttpPrefs.setConfirmClearLogs(ctx, v) },
+  read = { ServerPrefs.isConfirmClearLogs(it) },
+  write = { ctx, v -> ServerPrefs.setConfirmClearLogs(ctx, v) },
 )
 
 val KEEP_PARTIAL_RESPONSE = SettingDef.Toggle(
@@ -134,8 +134,8 @@ val KEEP_PARTIAL_RESPONSE = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "keep_partial_response",
-  read = { LlmHttpPrefs.isKeepPartialResponse(it) },
-  write = { ctx, v -> LlmHttpPrefs.setKeepPartialResponse(ctx, v) },
+  read = { ServerPrefs.isKeepPartialResponse(it) },
+  write = { ctx, v -> ServerPrefs.setKeepPartialResponse(ctx, v) },
 )
 
 // ─── HF Token Card ────────────────────────────────────────────────────
@@ -148,8 +148,8 @@ val HF_TOKEN = SettingDef.TextInput(
   default = "",
   prefsKey = "hf_token",
   isPassword = true,
-  read = { LlmHttpPrefs.getHfToken(it) },
-  write = { ctx, v -> LlmHttpPrefs.setHfToken(ctx, v) },
+  read = { ServerPrefs.getHfToken(it) },
+  write = { ctx, v -> ServerPrefs.setHfToken(ctx, v) },
 )
 
 // ─── Server Configuration Card ────────────────────────────────────
@@ -163,8 +163,8 @@ val HOST_PORT = SettingDef.NumericInput(
   prefsKey = "port",
   min = MIN_VALID_PORT,
   max = MAX_VALID_PORT,
-  read = { LlmHttpPrefs.getPort(it) },
-  write = { ctx, v -> LlmHttpPrefs.save(ctx, LlmHttpPrefs.isEnabled(ctx), v) },
+  read = { ServerPrefs.getPort(it) },
+  write = { ctx, v -> ServerPrefs.save(ctx, ServerPrefs.isEnabled(ctx), v) },
 )
 
 val BEARER_TOKEN = SettingDef.Custom(
@@ -187,8 +187,8 @@ val CORS_ORIGINS = SettingDef.TextInput(
       "Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://"
     else null
   },
-  read = { LlmHttpPrefs.getCorsAllowedOrigins(it) },
-  write = { ctx, v -> LlmHttpPrefs.setCorsAllowedOrigins(ctx, v) },
+  read = { ServerPrefs.getCorsAllowedOrigins(it) },
+  write = { ctx, v -> ServerPrefs.setCorsAllowedOrigins(ctx, v) },
 )
 
 // ─── Auto-Launch & Behaviour Card ─────────────────────────────────
@@ -201,8 +201,8 @@ val DEFAULT_MODEL = SettingDef.Dropdown(
   default = null,
   resetDefault = "",
   prefsKey = "default_model_name",
-  read = { LlmHttpPrefs.getDefaultModelName(it) },
-  write = { ctx, v -> LlmHttpPrefs.setDefaultModelName(ctx, v) },
+  read = { ServerPrefs.getDefaultModelName(it) },
+  write = { ctx, v -> ServerPrefs.setDefaultModelName(ctx, v) },
 )
 
 val START_ON_BOOT = SettingDef.Toggle(
@@ -212,8 +212,8 @@ val START_ON_BOOT = SettingDef.Toggle(
   card = CardId.AUTO_LAUNCH,
   default = false,
   prefsKey = "auto_start_on_boot",
-  read = { LlmHttpPrefs.isAutoStartOnBoot(it) },
-  write = { ctx, v -> LlmHttpPrefs.setAutoStartOnBoot(ctx, v) },
+  read = { ServerPrefs.isAutoStartOnBoot(it) },
+  write = { ctx, v -> ServerPrefs.setAutoStartOnBoot(ctx, v) },
 )
 
 val KEEP_ALIVE = SettingDef.Toggle(
@@ -223,8 +223,8 @@ val KEEP_ALIVE = SettingDef.Toggle(
   card = CardId.AUTO_LAUNCH,
   default = false,
   prefsKey = "keep_alive_enabled",
-  read = { LlmHttpPrefs.isKeepAliveEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setKeepAliveEnabled(ctx, v) },
+  read = { ServerPrefs.isKeepAliveEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setKeepAliveEnabled(ctx, v) },
 )
 
 val KEEP_ALIVE_TIMEOUT = SettingDef.NumericWithUnit(
@@ -251,8 +251,8 @@ val KEEP_ALIVE_TIMEOUT = SettingDef.NumericWithUnit(
   min = 1,
   max = 7200,
   baseUnitLabel = "minutes",
-  read = { LlmHttpPrefs.getKeepAliveMinutes(it).toLong() },
-  write = { ctx, v -> LlmHttpPrefs.setKeepAliveMinutes(ctx, v.toInt()) },
+  read = { ServerPrefs.getKeepAliveMinutes(it).toLong() },
+  write = { ctx, v -> ServerPrefs.setKeepAliveMinutes(ctx, v.toInt()) },
 )
 
 val DONTKILLMYAPP = SettingDef.Custom(
@@ -271,8 +271,8 @@ val AUTO_UPDATE_CHECK = SettingDef.Toggle(
   card = CardId.UPDATES,
   default = true,
   prefsKey = "update_check_enabled",
-  read = { LlmHttpPrefs.isUpdateCheckEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setUpdateCheckEnabled(ctx, v) },
+  read = { ServerPrefs.isUpdateCheckEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setUpdateCheckEnabled(ctx, v) },
 )
 
 val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
@@ -299,8 +299,8 @@ val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
   min = 1,
   max = 720,
   baseUnitLabel = "hours",
-  read = { LlmHttpPrefs.getUpdateCheckIntervalHours(it).toLong() },
-  write = { ctx, v -> LlmHttpPrefs.setUpdateCheckIntervalHours(ctx, v.toInt()) },
+  read = { ServerPrefs.getUpdateCheckIntervalHours(it).toLong() },
+  write = { ctx, v -> ServerPrefs.setUpdateCheckIntervalHours(ctx, v.toInt()) },
 )
 
 val CHECK_FOR_UPDATES = SettingDef.Custom(
@@ -319,8 +319,8 @@ val SHOW_REQUEST_TYPES = SettingDef.Toggle(
   card = CardId.METRICS,
   default = false,
   prefsKey = "show_request_types",
-  read = { LlmHttpPrefs.isShowRequestTypes(it) },
-  write = { ctx, v -> LlmHttpPrefs.setShowRequestTypes(ctx, v) },
+  read = { ServerPrefs.isShowRequestTypes(it) },
+  write = { ctx, v -> ServerPrefs.setShowRequestTypes(ctx, v) },
 )
 
 val SHOW_ADVANCED_METRICS = SettingDef.Toggle(
@@ -330,8 +330,8 @@ val SHOW_ADVANCED_METRICS = SettingDef.Toggle(
   card = CardId.METRICS,
   default = false,
   prefsKey = "show_advanced_metrics",
-  read = { LlmHttpPrefs.isShowAdvancedMetrics(it) },
-  write = { ctx, v -> LlmHttpPrefs.setShowAdvancedMetrics(ctx, v) },
+  read = { ServerPrefs.isShowAdvancedMetrics(it) },
+  write = { ctx, v -> ServerPrefs.setShowAdvancedMetrics(ctx, v) },
 )
 
 // ─── Log Persistence Card ─────────────────────────────────────────
@@ -343,8 +343,8 @@ val LOG_PERSISTENCE_ENABLED = SettingDef.Toggle(
   card = CardId.LOG_PERSISTENCE,
   default = false,
   prefsKey = "log_persistence_enabled",
-  read = { LlmHttpPrefs.isLogPersistenceEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setLogPersistenceEnabled(ctx, v) },
+  read = { ServerPrefs.isLogPersistenceEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setLogPersistenceEnabled(ctx, v) },
 )
 
 val LOG_MAX_ENTRIES = SettingDef.NumericPlain(
@@ -356,8 +356,8 @@ val LOG_MAX_ENTRIES = SettingDef.NumericPlain(
   prefsKey = "log_max_entries",
   min = 0,
   max = 99999,
-  read = { LlmHttpPrefs.getLogMaxEntries(it) },
-  write = { ctx, v -> LlmHttpPrefs.setLogMaxEntries(ctx, v) },
+  read = { ServerPrefs.getLogMaxEntries(it) },
+  write = { ctx, v -> ServerPrefs.setLogMaxEntries(ctx, v) },
 )
 
 val LOG_AUTO_DELETE = SettingDef.NumericWithUnit(
@@ -387,8 +387,8 @@ val LOG_AUTO_DELETE = SettingDef.NumericWithUnit(
   min = 0,
   max = 525600,
   baseUnitLabel = "minutes",
-  read = { LlmHttpPrefs.getLogAutoDeleteMinutes(it) },
-  write = { ctx, v -> LlmHttpPrefs.setLogAutoDeleteMinutes(ctx, v) },
+  read = { ServerPrefs.getLogAutoDeleteMinutes(it) },
+  write = { ctx, v -> ServerPrefs.setLogAutoDeleteMinutes(ctx, v) },
 )
 
 val CLEAR_ALL_LOGS = SettingDef.Custom(
@@ -414,8 +414,8 @@ val HA_STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
   card = CardId.HOME_ASSISTANT,
   default = false,
   prefsKey = "ha_stt_transcription_prompt",
-  read = { LlmHttpPrefs.isSttTranscriptionPromptEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setSttTranscriptionPromptEnabled(ctx, v) },
+  read = { ServerPrefs.isSttTranscriptionPromptEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setSttTranscriptionPromptEnabled(ctx, v) },
 )
 
 val HA_STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
@@ -425,9 +425,9 @@ val HA_STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
   card = CardId.HOME_ASSISTANT,
   default = DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT,
   prefsKey = "ha_stt_transcription_prompt_text",
-  read = { LlmHttpPrefs.getSttTranscriptionPromptText(it).ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
+  read = { ServerPrefs.getSttTranscriptionPromptText(it).ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
   write = { ctx, v ->
-    LlmHttpPrefs.setSttTranscriptionPromptText(
+    ServerPrefs.setSttTranscriptionPromptText(
       ctx, v.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT },
     )
   },
@@ -443,8 +443,8 @@ val TRUNCATE_HISTORY = SettingDef.Toggle(
   default = false,
   resetDefault = true,
   prefsKey = "auto_truncate_history",
-  read = { LlmHttpPrefs.isAutoTruncateHistory(it) },
-  write = { ctx, v -> LlmHttpPrefs.setAutoTruncateHistory(ctx, v) },
+  read = { ServerPrefs.isAutoTruncateHistory(it) },
+  write = { ctx, v -> ServerPrefs.setAutoTruncateHistory(ctx, v) },
 )
 
 val COMPACT_TOOL_SCHEMAS = SettingDef.Toggle(
@@ -455,8 +455,8 @@ val COMPACT_TOOL_SCHEMAS = SettingDef.Toggle(
   default = false,
   resetDefault = true,
   prefsKey = "compact_tool_schemas",
-  read = { LlmHttpPrefs.isCompactToolSchemas(it) },
-  write = { ctx, v -> LlmHttpPrefs.setCompactToolSchemas(ctx, v) },
+  read = { ServerPrefs.isCompactToolSchemas(it) },
+  write = { ctx, v -> ServerPrefs.setCompactToolSchemas(ctx, v) },
 )
 
 val TRIM_PROMPT = SettingDef.Toggle(
@@ -466,8 +466,8 @@ val TRIM_PROMPT = SettingDef.Toggle(
   card = CardId.CONTEXT_MANAGEMENT,
   default = false,
   prefsKey = "auto_trim_prompts",
-  read = { LlmHttpPrefs.isAutoTrimPrompts(it) },
-  write = { ctx, v -> LlmHttpPrefs.setAutoTrimPrompts(ctx, v) },
+  read = { ServerPrefs.isAutoTrimPrompts(it) },
+  write = { ctx, v -> ServerPrefs.setAutoTrimPrompts(ctx, v) },
 )
 
 // ─── Advanced Card ─────────────────────────────────────────────────────────
@@ -479,8 +479,8 @@ val WARMUP_MESSAGE = SettingDef.Toggle(
   card = CardId.ADVANCED,
   default = true,
   prefsKey = "warmup_enabled",
-  read = { LlmHttpPrefs.isWarmupEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setWarmupEnabled(ctx, v) },
+  read = { ServerPrefs.isWarmupEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setWarmupEnabled(ctx, v) },
 )
 
 val PRE_INIT_VISION = SettingDef.Toggle(
@@ -491,8 +491,8 @@ val PRE_INIT_VISION = SettingDef.Toggle(
   default = false,
   prefsKey = "eager_vision_init",
   requiresRestart = true,
-  read = { LlmHttpPrefs.isEagerVisionInit(it) },
-  write = { ctx, v -> LlmHttpPrefs.setEagerVisionInit(ctx, v) },
+  read = { ServerPrefs.isEagerVisionInit(it) },
+  write = { ctx, v -> ServerPrefs.setEagerVisionInit(ctx, v) },
 )
 
 val CUSTOM_PROMPTS = SettingDef.Toggle(
@@ -502,8 +502,8 @@ val CUSTOM_PROMPTS = SettingDef.Toggle(
   card = CardId.ADVANCED,
   default = false,
   prefsKey = "custom_prompts_enabled",
-  read = { LlmHttpPrefs.isCustomPromptsEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setCustomPromptsEnabled(ctx, v) },
+  read = { ServerPrefs.isCustomPromptsEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setCustomPromptsEnabled(ctx, v) },
 )
 
 val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
@@ -513,8 +513,8 @@ val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
   card = CardId.ADVANCED,
   default = false,
   prefsKey = "ignore_client_sampler_params",
-  read = { LlmHttpPrefs.isIgnoreClientSamplerParams(it) },
-  write = { ctx, v -> LlmHttpPrefs.setIgnoreClientSamplerParams(ctx, v) },
+  read = { ServerPrefs.isIgnoreClientSamplerParams(it) },
+  write = { ctx, v -> ServerPrefs.setIgnoreClientSamplerParams(ctx, v) },
 )
 
 val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
@@ -524,8 +524,8 @@ val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "show_model_recommendations",
-  read = { LlmHttpPrefs.isShowModelRecommendations(it) },
-  write = { ctx, v -> LlmHttpPrefs.setShowModelRecommendations(ctx, v) },
+  read = { ServerPrefs.isShowModelRecommendations(it) },
+  write = { ctx, v -> ServerPrefs.setShowModelRecommendations(ctx, v) },
 )
 
 // ─── Developer Card ───────────────────────────────────────────────
@@ -537,8 +537,8 @@ val VERBOSE_DEBUG = SettingDef.Toggle(
   card = CardId.DEVELOPER,
   default = false,
   prefsKey = "verbose_debug_enabled",
-  read = { LlmHttpPrefs.isVerboseDebugEnabled(it) },
-  write = { ctx, v -> LlmHttpPrefs.setVerboseDebugEnabled(ctx, v) },
+  read = { ServerPrefs.isVerboseDebugEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setVerboseDebugEnabled(ctx, v) },
 )
 
 val EXPORT_LOGCAT = SettingDef.Custom(

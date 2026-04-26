@@ -50,7 +50,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.ServerViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTTheme
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
     }
     // Keep-screen-on is handled dynamically via Compose (KeepScreenOn effect in OlliteRTApp).
     // Read the initial pref and set the flag so it's active before Compose renders.
-    if (LlmHttpPrefs.isKeepScreenOn(this)) {
+    if (ServerPrefs.isKeepScreenOn(this)) {
       window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     } else {
       window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

@@ -76,7 +76,7 @@ import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LlmHttpErrorSuggestions
+import com.ollitert.llm.server.service.ErrorSuggestions
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.ui.server.EventColor
@@ -623,8 +623,8 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
     // Recovery suggestion for error-level events — shown below the error body
     if (isError) {
       val suggestion = remember(message) {
-        val kind = LlmHttpErrorSuggestions.classifyFromString(message)
-        LlmHttpErrorSuggestions.suggest(kind, context)
+        val kind = ErrorSuggestions.classifyFromString(message)
+        ErrorSuggestions.suggest(kind, context)
       }
       if (suggestion != null) {
         Spacer(modifier = Modifier.height(4.dp))

@@ -89,7 +89,7 @@
 
         <!-- OlliteRT HTTP API service -->
         <service
-            android:name="com.ollitert.llm.server.service.LlmHttpService"
+            android:name="com.ollitert.llm.server.service.ServerService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 

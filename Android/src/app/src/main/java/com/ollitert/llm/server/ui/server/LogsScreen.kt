@@ -105,7 +105,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
@@ -253,7 +253,7 @@ fun LogsScreen(
 ) {
   val entries by RequestLogStore.entries.collectAsStateWithLifecycle()
   val context = LocalContext.current
-  val autoExpand = remember { LlmHttpPrefs.isAutoExpandLogs(context) }
+  val autoExpand = remember { ServerPrefs.isAutoExpandLogs(context) }
   var showClearConfirmDialog by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
 
@@ -387,7 +387,7 @@ fun LogsScreen(
             icon = Icons.Outlined.DeleteSweep,
             tooltip = stringResource(R.string.logs_tooltip_clear_all),
             onClick = {
-              if (LlmHttpPrefs.isConfirmClearLogs(context)) {
+              if (ServerPrefs.isConfirmClearLogs(context)) {
                 showClearConfirmDialog = true
               } else {
                 RequestLogStore.clear()

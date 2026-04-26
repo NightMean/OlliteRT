@@ -31,7 +31,7 @@ import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
 import com.ollitert.llm.server.data.DefaultDownloadRepository
 import com.ollitert.llm.server.data.DownloadRepository
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.SettingsSerializer
 import com.ollitert.llm.server.data.UserDataSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
@@ -76,7 +76,7 @@ internal object AppModule {
       serializer = settingsSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
         Log.e("OlliteRT.DataStore", "settings.pb corrupted — resetting to defaults")
-        try { LlmHttpPrefs.addCorruptedDataStore(context, "settings") }
+        try { ServerPrefs.addCorruptedDataStore(context, "settings") }
         catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
         Settings.getDefaultInstance()
       },
@@ -94,7 +94,7 @@ internal object AppModule {
       serializer = userDataSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
         Log.e("OlliteRT.DataStore", "user_data.pb corrupted — resetting to defaults")
-        try { LlmHttpPrefs.addCorruptedDataStore(context, "user_data") }
+        try { ServerPrefs.addCorruptedDataStore(context, "user_data") }
         catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
         UserData.getDefaultInstance()
       },
@@ -112,7 +112,7 @@ internal object AppModule {
       serializer = benchmarkResultsSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
         Log.e("OlliteRT.DataStore", "benchmark_results.pb corrupted — resetting to defaults")
-        try { LlmHttpPrefs.addCorruptedDataStore(context, "benchmark_results") }
+        try { ServerPrefs.addCorruptedDataStore(context, "benchmark_results") }
         catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
         BenchmarkResults.getDefaultInstance()
       },

@@ -46,7 +46,7 @@ import com.ollitert.llm.server.data.DEFAULT_VISION_ACCELERATOR
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.bytesToMb
-import com.ollitert.llm.server.service.LlmHttpRequestAdapter
+import com.ollitert.llm.server.service.PromptBuilder
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import kotlinx.coroutines.CoroutineScope
@@ -353,12 +353,12 @@ object ServerLlmModelHelper : LlmModelHelper {
     val conversation = instance.conversation
 
     val contents = mutableListOf<Content>()
-    if (images.isNotEmpty() && input.contains(LlmHttpRequestAdapter.IMAGE_PLACEHOLDER)) {
+    if (images.isNotEmpty() && input.contains(PromptBuilder.IMAGE_PLACEHOLDER)) {
       // Multi-image interleaving: the prompt contains placeholder tokens at the exact
       // positions where images appeared in the conversation. Split on placeholders and
       // interleave Content.Text / Content.ImageBytes so each image is associated with
       // its correct conversation turn.
-      val segments = input.split(LlmHttpRequestAdapter.IMAGE_PLACEHOLDER)
+      val segments = input.split(PromptBuilder.IMAGE_PLACEHOLDER)
       var imageIndex = 0
       for ((i, segment) in segments.withIndex()) {
         if (segment.trim().isNotEmpty()) {

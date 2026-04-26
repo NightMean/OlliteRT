@@ -46,8 +46,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.LlmHttpPrefs
-import com.ollitert.llm.server.service.LlmHttpService
+import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar
 import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
@@ -80,9 +80,9 @@ fun OlliteRTApp(
   val context = LocalContext.current
   LaunchedEffect(Unit) {
     if (startDestination == OlliteRTRoutes.MODELS) {
-      val defaultModel = LlmHttpPrefs.getDefaultModelName(context)
+      val defaultModel = ServerPrefs.getDefaultModelName(context)
       if (!defaultModel.isNullOrBlank() && serverViewModel.status.value == ServerStatus.STOPPED) {
-        serverViewModel.startServer(modelName = defaultModel, source = LlmHttpService.SOURCE_LAUNCH)
+        serverViewModel.startServer(modelName = defaultModel, source = ServerService.SOURCE_LAUNCH)
       }
     }
   }
@@ -182,7 +182,7 @@ fun OlliteRTApp(
           Row {
             TextButton(onClick = {
               val latestVersion = model.latestModelFile?.commitHash ?: model.version
-              LlmHttpPrefs.addIgnoredModelUpdate(
+              ServerPrefs.addIgnoredModelUpdate(
                 context,
                 "${model.name}:$latestVersion",
               )

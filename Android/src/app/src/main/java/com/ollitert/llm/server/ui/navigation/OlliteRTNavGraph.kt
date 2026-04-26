@@ -52,7 +52,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollitert.llm.server.ui.common.DonateDialog
 import com.ollitert.llm.server.ui.common.EngagementPromptDialog
@@ -136,8 +136,8 @@ fun OlliteRTNavHost(
   LaunchedEffect(engagementServerStatus) {
     if (engagementServerStatus == ServerStatus.RUNNING && manualStartPending) {
       manualStartPending = false
-      if (LlmHttpPrefs.shouldShowEngagementPrompt(context)) {
-        LlmHttpPrefs.incrementEngagementPromptShowCount(context)
+      if (ServerPrefs.shouldShowEngagementPrompt(context)) {
+        ServerPrefs.incrementEngagementPromptShowCount(context)
         showEngagementPrompt = true
       }
     } else if (engagementServerStatus == ServerStatus.ERROR || engagementServerStatus == ServerStatus.STOPPED) {
@@ -154,13 +154,13 @@ fun OlliteRTNavHost(
       },
       onStarOnGitHub = {
         showEngagementPrompt = false
-        LlmHttpPrefs.setEngagementPromptPermanentlyDismissed(context)
+        ServerPrefs.setEngagementPromptPermanentlyDismissed(context)
         uriHandler.openUri(GitHubConfig.REPO_URL)
       },
       onDismiss = { permanentlyDismiss ->
         showEngagementPrompt = false
         if (permanentlyDismiss) {
-          LlmHttpPrefs.setEngagementPromptPermanentlyDismissed(context)
+          ServerPrefs.setEngagementPromptPermanentlyDismissed(context)
         }
       },
     )
@@ -206,7 +206,7 @@ fun OlliteRTNavHost(
         onModelSelected = { model ->
           // Track manual server starts for the engagement prompt (counter lives in prefs,
           // observer lives at NavHost level so it fires regardless of which screen is active)
-          LlmHttpPrefs.incrementManualStartCount(modelsContext)
+          ServerPrefs.incrementManualStartCount(modelsContext)
           manualStartPending = true
           serverViewModel.startServer(modelName = model.name)
         },
@@ -219,7 +219,7 @@ fun OlliteRTNavHost(
         onStopServer = { serverViewModel.stopServer() },
         onSwitchModel = { modelName ->
           // Track model switches the same way as fresh starts for the engagement prompt
-          LlmHttpPrefs.incrementManualStartCount(modelsContext)
+          ServerPrefs.incrementManualStartCount(modelsContext)
           manualStartPending = true
           serverViewModel.switchModel(modelName)
         },

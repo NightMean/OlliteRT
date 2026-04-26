@@ -77,7 +77,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.data.LlmHttpPrefs
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
@@ -156,11 +156,11 @@ fun StatusScreen(
 
   val context = LocalContext.current
 
-  var authOn by remember { mutableStateOf(LlmHttpPrefs.getBearerToken(context).isNotBlank()) }
-  var corsOrigins by remember { mutableStateOf(LlmHttpPrefs.getCorsAllowedOrigins(context)) }
+  var authOn by remember { mutableStateOf(ServerPrefs.getBearerToken(context).isNotBlank()) }
+  var corsOrigins by remember { mutableStateOf(ServerPrefs.getCorsAllowedOrigins(context)) }
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-    authOn = LlmHttpPrefs.getBearerToken(context).isNotBlank()
-    corsOrigins = LlmHttpPrefs.getCorsAllowedOrigins(context)
+    authOn = ServerPrefs.getBearerToken(context).isNotBlank()
+    corsOrigins = ServerPrefs.getCorsAllowedOrigins(context)
   }
 
   var showReloadDialog by remember { mutableStateOf(false) }
@@ -293,8 +293,8 @@ fun StatusScreen(
             // Show recovery suggestion below the error if one is available
             if (!lastError.isNullOrBlank()) {
               val suggestion = remember(lastError) {
-                val kind = com.ollitert.llm.server.service.LlmHttpErrorSuggestions.classifyFromString(lastError ?: "")
-                com.ollitert.llm.server.service.LlmHttpErrorSuggestions.suggest(kind, context)
+                val kind = com.ollitert.llm.server.service.ErrorSuggestions.classifyFromString(lastError ?: "")
+                com.ollitert.llm.server.service.ErrorSuggestions.suggest(kind, context)
               }
               if (suggestion != null) {
                 Text(
@@ -548,7 +548,7 @@ fun StatusScreen(
     }
 
     // Request modality breakdown — controlled by its own Settings toggle
-    val showRequestTypes = remember { LlmHttpPrefs.isShowRequestTypes(context) }
+    val showRequestTypes = remember { ServerPrefs.isShowRequestTypes(context) }
     if (showRequestTypes) {
       Text(
         text = stringResource(R.string.status_section_request_types),
@@ -580,7 +580,7 @@ fun StatusScreen(
     }
 
     // ── Advanced metrics (behind Settings toggle) ──
-    val showAdvancedMetrics = remember { LlmHttpPrefs.isShowAdvancedMetrics(context) }
+    val showAdvancedMetrics = remember { ServerPrefs.isShowAdvancedMetrics(context) }
     if (showAdvancedMetrics) {
       Text(
         text = stringResource(R.string.status_section_advanced),

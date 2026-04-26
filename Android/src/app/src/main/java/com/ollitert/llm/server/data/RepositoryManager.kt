@@ -55,7 +55,7 @@ class RepositoryManager @Inject constructor(
       .sortedByDescending { it.isBuiltIn }
 
     if (repoEntries.isEmpty()) {
-      val legacyVersion = LlmHttpPrefs.getAllowlistContentVersion(context)
+      val legacyVersion = ServerPrefs.getAllowlistContentVersion(context)
       try {
         seedOfficialRepo(legacyContentVersion = legacyVersion)
       } catch (e: Exception) {
