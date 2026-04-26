@@ -480,6 +480,80 @@ class InferenceRunner(
     }
   }
 
+  // ── Streaming format: /v1/completions ──────────────────────────────────
+
+  private class CompletionsFormat(
+    private val modelName: String,
+    private val now: Long,
+    override val stopSequences: List<String>?,
+    private val json: Json,
+    private val includeUsage: Boolean,
+  ) : StreamingFormat {
+    private val cmplId = BridgeUtils.generateCompletionId()
+    override val sourceTag = "executeStreaming_completions"
+    override val bufferAllTokens = false
+
+    override suspend fun emitHeader(writer: SseWriter) {
+    }
+    override suspend fun emitThinkingDelta(writer: SseWriter, text: String) {
+      writer.emit(ResponseRenderer.buildCompletionStreamChunk(cmplId, modelName, now, text))
+    }
+    override suspend fun emitContentDelta(writer: SseWriter, text: String) {
+      writer.emit(ResponseRenderer.buildCompletionStreamChunk(cmplId, modelName, now, text))
+    }
+    override suspend fun emitThinkingClose(writer: SseWriter) {
+      writer.emit(ResponseRenderer.buildCompletionStreamChunk(cmplId, modelName, now, "</think>"))
+    }
+    override suspend fun emitCancellation(writer: SseWriter, headerWritten: Boolean) {
+      writer.emit(ResponseRenderer.buildCompletionStreamFinalChunk(cmplId, modelName, now, FinishReason.STOP))
+      writer.emit(ResponseRenderer.SSE_DONE)
+      writer.finish()
+    }
+    override fun estimateInputTokens(prompt: String): Long = estimateTokensLongByLength(prompt.length)
+    override fun estimateInputTokensInt(prompt: String): Int = estimateTokensByLength(prompt.length)
+    override suspend fun emitCompletion(
+      writer: SseWriter,
+      fullText: String,
+      fullThinking: String,
+      promptTokens: Int,
+      completionTokens: Int,
+      ttfbMs: Long,
+      totalLatencyMs: Long,
+      maxTokens: Int?,
+    ): List<ToolCall> {
+      val finishReason = FinishReason.infer(completionTokens, maxTokens)
+      writer.emit(ResponseRenderer.buildCompletionStreamFinalChunk(cmplId, modelName, now, finishReason))
+      if (includeUsage) {
+        val timings = PayloadBuilders.buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
+        val timingsJson = if (timings != null) json.encodeToString(timings) else null
+        writer.emit(ResponseRenderer.buildCompletionStreamUsageChunk(cmplId, modelName, now, promptTokens, completionTokens, timingsJson))
+      }
+      writer.emit(ResponseRenderer.SSE_DONE)
+      writer.finish()
+      return emptyList()
+    }
+    override fun buildLogResponseJson(
+      combinedText: String,
+      promptLen: Int,
+      promptTokens: Int,
+      completionTokens: Int,
+      ttfbMs: Long,
+      totalLatencyMs: Long,
+      parsedToolCalls: List<ToolCall>,
+    ): String {
+      val timings = PayloadBuilders.buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
+      return json.encodeToString(CompletionResponse(
+        id = cmplId,
+        created = now,
+        model = modelName,
+        choices = listOf(CompletionChoice(text = combinedText, index = 0, finish_reason = FinishReason.infer(completionTokens, null))),
+        usage = Usage(promptTokens, completionTokens),
+        timings = timings,
+      ))
+    }
+    override fun buildLogEventSuffix(parsedToolCalls: List<ToolCall>): String = ""
+  }
+
   // ── Streaming inference: /v1/responses ───────────────────────────────────
 
   fun streamLlm(
@@ -520,6 +594,25 @@ class InferenceRunner(
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage)
     return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot)
+  }
+
+  // ── Streaming inference: /v1/completions ───────────────────────────────
+
+  fun streamCompletions(
+    model: Model,
+    prompt: String,
+    requestId: String,
+    endpoint: String,
+    timeoutSeconds: Long = CHAT_COMPLETIONS_TIMEOUT_SECONDS,
+    logId: String? = null,
+    includeUsage: Boolean = false,
+    stopSequences: List<String>? = null,
+    configSnapshot: Map<String, Any>? = null,
+    json: Json,
+  ): HttpResponse {
+    val now = BridgeUtils.epochSeconds()
+    val format = CompletionsFormat(model.name, now, stopSequences, json, includeUsage)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, emptyList(), emptyList(), logId, configSnapshot)
   }
 
   // ── Unified streaming implementation ────────────────────────────────────
