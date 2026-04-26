@@ -25,6 +25,7 @@
 - [Can I use OlliteRT with Home Assistant?](#can-i-use-ollitert-with-home-assistant)
 - [How do I monitor OlliteRT from Home Assistant?](#how-do-i-monitor-ollitert-from-home-assistant)
 - [How do I add or create a custom model source?](#how-do-i-add-or-create-a-custom-model-source)
+- [What do the log card footer badges mean?](#what-do-the-log-card-footer-badges-mean)
 - [How do I update a downloaded model?](#how-do-i-update-a-downloaded-model)
 
 ---
@@ -245,6 +246,27 @@ Use the built-in REST API to monitor and control the server. See [HOME_ASSISTANT
 **To create your own model source:** Host a JSON file following the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md) — for example, in a GitHub repository. The JSON defines model names, download URLs, capabilities, and metadata. Once hosted, add the raw URL as a model source in OlliteRT.
 
 See the [Model Guide → Model Sources](MODELS.md#model-sources) for more details. You can also do a one-time import from a local JSON file or URL without adding it as a tracked source — see [Importing Your Own Models](MODELS.md#importing-your-own-models).
+
+---
+
+### What do the log card footer badges mean?
+
+Each log card on the Logs screen has a footer row showing request metadata at a glance:
+
+| Badge | Meaning |
+|:------|:--------|
+| **200 OK** / **400 Bad Request** / etc. | HTTP status code and reason. Color-coded: green for success, red for errors. Context overflow shows as "Context Exceeded" instead of "400 Bad Request". |
+| **123ms** | Total request latency from receipt to response. |
+| **SSE** | The response was streamed via Server-Sent Events (streaming mode). |
+| **Thinking** | The model used reasoning/thinking mode for this request. |
+| **Cancelled** | The client disconnected before the response completed. |
+| **~258 / 1024 ctx** | Estimated input tokens vs. model context window. Color-coded: white ≤50%, yellow 50–80%, red >80%. The `~` prefix means the count is estimated; exact counts (when available) omit it. |
+| **model-name · 14:32:07** | The model that handled the request and the timestamp, always shown at the end. |
+
+When prompt compaction was applied, strategy badges (**Compacted**, **Truncated**, **Trimmed**) appear above the response section rather than in the footer.
+
+> [!TIP]
+> The footer row is **horizontally scrollable** — swipe left to reveal badges that don't fit on screen, especially on smaller devices or with larger font sizes.
 
 ---
 
