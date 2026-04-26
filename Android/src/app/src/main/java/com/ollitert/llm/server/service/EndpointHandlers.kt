@@ -321,7 +321,7 @@ class EndpointHandlers(
         id = BridgeUtils.generateCompletionId(),
         created = BridgeUtils.epochSeconds(),
         model = model.name,
-        choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = "stop")),
+        choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = FinishReason.STOP)),
         usage = Usage(0, 0),
       ))
       captureResponse(responseJson)

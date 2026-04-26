@@ -279,11 +279,11 @@ object PayloadBuilders {
 
   fun emptyChatResponse(modelName: String) = ChatResponse(
     id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), "stop")),
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), FinishReason.STOP)),
     usage = Usage(0, 0),
   )
 
-  fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = "stop", timings: InferenceTimings? = null): ChatResponse {
+  fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = FinishReason.STOP, timings: InferenceTimings? = null): ChatResponse {
     val promptTokens = estimateTokensByLength(promptLen)
     val completionTokens = estimateTokens(text)
     return ChatResponse(
@@ -299,7 +299,7 @@ object PayloadBuilders {
     val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
     return ChatResponse(
       id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
-      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), "tool_calls")),
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), FinishReason.TOOL_CALLS)),
       usage = Usage(promptTokens, completionTokens),
       timings = timings,
     )

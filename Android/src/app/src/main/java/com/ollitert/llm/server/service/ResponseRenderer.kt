@@ -108,7 +108,7 @@ object ResponseRenderer {
     "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = token, finishReason = null)}\n\n"
 
   /** Final chunk with finish_reason (does NOT include [DONE] — emit SSE_DONE separately). */
-  fun buildChatStreamFinalChunk(chatId: String, modelId: String, now: Long, finishReason: String = "stop"): String =
+  fun buildChatStreamFinalChunk(chatId: String, modelId: String, now: Long, finishReason: String = FinishReason.STOP): String =
     "data: ${buildChatChunkJson(chatId, modelId, now, deltaRole = null, deltaContent = null, finishReason = finishReason)}\n\n"
 
   /**

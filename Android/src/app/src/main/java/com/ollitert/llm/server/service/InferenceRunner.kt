@@ -417,7 +417,7 @@ class InferenceRunner(
       if (!headerWritten) {
         writer.emit(ResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
       }
-      writer.emit(ResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
+      writer.emit(ResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, FinishReason.STOP))
       writer.emit(ResponseRenderer.SSE_DONE)
       writer.finish()
     }
