@@ -107,7 +107,6 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `NotificationHelper.kt` | Foreground notification building |
 | `BridgeUtils.kt` | Utility functions for ID generation, model normalization, authorization, SSE escaping, and base64 compaction |
 | `ErrorSuggestions.kt` | Maps error types to user-facing recovery suggestions |
-| `FileLogger.kt` | File-based request/response logging |
 | `TokenEstimation.kt` | Estimates token count from character length |
 | `ServerMetrics.kt` | Singleton metrics accumulator (counters, gauges, timing) |
 | `RequestLogStore.kt` | In-memory log store for the Logs screen |

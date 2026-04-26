@@ -22,7 +22,6 @@ import android.util.Log
 private const val PREFS_NAME = "llm_http_prefs"
 private const val KEY_ENABLED = "enabled"
 private const val KEY_PORT = "port"
-private const val KEY_PAYLOAD_LOGGING_ENABLED = "payload_logging_enabled"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
 private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
@@ -46,7 +45,6 @@ private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
 private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
-private const val DEFAULT_PAYLOAD_LOGGING_ENABLED = false
 
 // --- Developer / Debug ---
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
@@ -136,10 +134,6 @@ object ServerPrefs {
 
   fun getPort(context: Context): Int =
     prefs(context).getInt(KEY_PORT, DEFAULT_PORT)
-
-  fun isPayloadLoggingEnabled(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_PAYLOAD_LOGGING_ENABLED, DEFAULT_PAYLOAD_LOGGING_ENABLED)
 
   fun getHfToken(context: Context): String =
     prefs(context).getString(KEY_HF_TOKEN, "")

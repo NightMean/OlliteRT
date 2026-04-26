@@ -58,7 +58,6 @@ class EndpointHandlers(
   private val inferenceRunner: InferenceRunner,
   private val modelLifecycle: ModelLifecycle,
   private val logEvent: (String) -> Unit,
-  private val logPayload: (label: String, body: String, requestId: String) -> Unit,
   private val nextRequestId: () -> String,
 ) {
 
@@ -72,7 +71,6 @@ class EndpointHandlers(
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
-    logPayload("POST /generate raw", body, requestId)
     val req = try { json.decodeFromString<GenReq>(body) }
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(null)) {
@@ -102,7 +100,6 @@ class EndpointHandlers(
       val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxGen) }
     }
-    logPayload("POST /generate prompt", prompt, requestId)
     logEvent("request_start id=$requestId endpoint=/generate bodyLength=${body.length} promptChars=${prompt.length} model=default")
     ServerMetrics.onInferenceStarted()
     val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId)
@@ -130,7 +127,6 @@ class EndpointHandlers(
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
-    logPayload("POST /v1/chat/completions raw", body, requestId)
     val req = try { json.decodeFromString<ChatRequest>(body) }
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val toolChoiceStr = PromptBuilder.resolveToolChoice(req.tool_choice)
@@ -191,7 +187,6 @@ class EndpointHandlers(
       val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxChat) }
     }
-    logPayload("POST /v1/chat/completions prompt", prompt, requestId)
     // Extract images for multimodal models (before blank-prompt check so image-only requests work).
     val images = if (model.llmSupportImage) modelLifecycle.decodeImageDataUris(req.messages) else emptyList()
     // Extract audio clips for models that support audio input. Models that don't support audio
@@ -284,7 +279,6 @@ class EndpointHandlers(
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
-    logPayload("POST /v1/completions raw", body, requestId)
     val req = try { json.decodeFromString<CompletionRequest>(body) }
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
@@ -388,7 +382,6 @@ class EndpointHandlers(
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
-    logPayload("POST /v1/responses raw", body, requestId)
     val req = try { json.decodeFromString<ResponsesRequest>(body) }
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val toolChoiceStr = PromptBuilder.resolveToolChoice(req.tool_choice)
@@ -428,7 +421,6 @@ class EndpointHandlers(
       val inputEst = estimateTokensLong(prompt)
       RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxResp) }
     }
-    logPayload("POST /v1/responses prompt", prompt, requestId)
     logEvent("request_start id=$requestId endpoint=/v1/responses bodyLength=${body.length} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
     if (prompt.isBlank()) {

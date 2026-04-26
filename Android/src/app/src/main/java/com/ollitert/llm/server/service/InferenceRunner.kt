@@ -60,7 +60,6 @@ class InferenceRunner(
   private val executor: ExecutorService,
   private val inferenceLock: Any,
   private val logEvent: (String) -> Unit,
-  private val logPayload: (label: String, body: String, requestId: String) -> Unit,
   private val emitDebugStackTrace: (Throwable, source: String, modelName: String?) -> Unit,
   private val buildSystemInstruction: (modelName: String) -> Contents?,
 ) {

@@ -107,18 +107,12 @@ class ServerService : Service() {
    */
   private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
 
-  private lateinit var logger: FileLogger
   private lateinit var allowlistLoader: AllowlistLoader
 
   override fun onCreate() {
     super.onCreate()
     activeInstance = this
     try {
-      logger = FileLogger(
-        logDir = { getExternalFilesDir(null)?.let { File(it, "ollitert") } },
-        isEnabled = { ServerPrefs.isPayloadLoggingEnabled(this) },
-        isVerboseDebug = { ServerPrefs.isVerboseDebugEnabled(this) },
-      )
       // Access DataStoreRepository via Hilt EntryPoint so imported models can be resolved
       // when starting the server. The DataStore singleton is managed by Hilt; creating a
       // second instance would corrupt the protobuf file.
@@ -402,7 +396,6 @@ class ServerService : Service() {
       executor = executor,
       inferenceLock = inferenceLock,
       logEvent = { msg -> logEvent(msg) },
-      logPayload = { label, body, id -> logPayload(label, body, id) },
       emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
       buildSystemInstruction = { name -> buildSystemInstruction(name) },
     )
@@ -413,7 +406,6 @@ class ServerService : Service() {
       inferenceRunner = runner,
       modelLifecycle = modelLifecycle,
       logEvent = { msg -> logEvent(msg) },
-      logPayload = { label, body, id -> logPayload(label, body, id) },
       nextRequestId = { nextRequestId() },
     )
     val audioTranscriptionHandler = AudioTranscriptionHandler(
@@ -750,7 +742,6 @@ class ServerService : Service() {
     wifiLock = null
     if (wakeLock?.isHeld == true) wakeLock?.release()
     wakeLock = null
-    logger.shutdown()
     try {
       val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
         applicationContext, OlliteRTApplication.PersistenceEntryPoint::class.java
@@ -796,11 +787,6 @@ class ServerService : Service() {
 
   private fun logEvent(message: String) {
     Log.i(logTag, "LLM_HTTP $message")
-    logger.logEvent(message)
-  }
-
-  private fun logPayload(label: String, body: String, requestId: String) {
-    logger.logPayload(label, body, requestId)
   }
 
   /**

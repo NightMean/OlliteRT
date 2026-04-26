@@ -85,16 +85,6 @@ const val KEEP_ALIVE_RECHECK_MS = 30_000L
 // and XNNPack weight caches that can be hundreds of MB.
 const val MIN_STORAGE_FOR_MODEL_INIT_BYTES = 500L * 1024 * 1024
 
-// File logger settings.
-// Max characters logged per payload before truncation (bypassed in verbose debug mode).
-const val MAX_PAYLOAD_LOG_CHARS = 2000
-// Log file rotation threshold — rotates to .log.1 when exceeded.
-const val LOG_FILE_MAX_BYTES = 512 * 1024L
-// Consecutive write failures before FileLogger stops attempting writes.
-const val FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD = 5
-// After circuit opens, attempt a probe write every N calls to detect recovery.
-const val FILE_LOGGER_PROBE_INTERVAL = 50
-
 // Debounce interval (ms) for updating the Logs screen preview during streaming inference.
 const val LOG_STREAMING_PREVIEW_DEBOUNCE_MS = 300L
 
