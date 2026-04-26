@@ -61,3 +61,12 @@
 
 # Keep BuildConfig fields accessible at runtime
 -keep class com.ollitert.llm.server.BuildConfig { *; }
+
+# --- Release Log Stripping ---
+# Remove debug and verbose log calls from release builds.
+# R8 treats these as no-ops and eliminates the call sites entirely,
+# including string concatenation for the message argument.
+-assumenosideeffects class android.util.Log {
+    public static int d(...);
+    public static int v(...);
+}
