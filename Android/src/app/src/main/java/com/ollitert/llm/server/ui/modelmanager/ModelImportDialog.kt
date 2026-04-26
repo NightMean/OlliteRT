@@ -670,7 +670,7 @@ private fun importModel(
     try {
       val inputStream = context.contentResolver.openInputStream(uri)
       if (inputStream == null) {
-        try { tmpFile.delete() } catch (_: Exception) {}
+        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.absolutePath}")
         onError(context.getString(R.string.error_import_failed))
         return@launch
       }
@@ -694,7 +694,7 @@ private fun importModel(
     } catch (e: Exception) {
       e.printStackTrace()
       // Clean up partial .tmp file on failure
-      try { tmpFile.delete() } catch (_: Exception) {}
+      if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.absolutePath}")
       onError(e.message ?: context.getString(R.string.error_import_failed))
       return@launch
     }
@@ -702,15 +702,15 @@ private fun importModel(
     // Delete existing file first — renameTo won't overwrite on most Android filesystems,
     // and a previous import of the same model name may have left a file here.
     if (finalFile.exists()) {
-      finalFile.delete()
+      if (!finalFile.delete()) Log.w(TAG, "Failed to delete existing file before rename: ${finalFile.absolutePath}")
     }
     if (!tmpFile.renameTo(finalFile)) {
       // renameTo can fail on some filesystems — fall back to copy + delete
       try {
         tmpFile.copyTo(finalFile, overwrite = true)
-        tmpFile.delete()
+        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file after copy: ${tmpFile.absolutePath}")
       } catch (e: Exception) {
-        try { tmpFile.delete() } catch (_: Exception) {}
+        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.absolutePath}")
         onError(context.getString(R.string.error_import_finalize_failed, e.message ?: ""))
         return@launch
       }
