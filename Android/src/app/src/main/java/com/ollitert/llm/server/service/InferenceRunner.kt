@@ -45,11 +45,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Handles model re-initialization for vision/audio, token counting, timeout,
  * tool call detection, stop sequences, and performance metrics recording.
  *
- * Separated from ServerService/NanoServer to isolate inference execution
+ * Separated from ServerService/KtorServer to isolate inference execution
  * from HTTP routing, service lifecycle, and notification concerns.
  *
  * Dependencies:
- * - [executor] / [inferenceLock]: serialized single-thread inference from NanoServer
+ * - [executor] / [inferenceLock]: serialized single-thread inference from KtorServer
  * - [context]: for reading SharedPreferences (ServerPrefs)
  * - Callbacks for logging and system instruction — avoids coupling to the Service class
  * - Singletons: [ServerMetrics], [RequestLogStore], [ServerLlmModelHelper], [InferenceGateway],
