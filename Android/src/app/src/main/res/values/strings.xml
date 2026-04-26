@@ -280,6 +280,8 @@
   <string name="settings_cors_placeholder" translatable="false">*</string>
   <string name="settings_cors_clear" translatable="false">Clear origins</string>
   <string name="settings_cors_desc" translatable="false">Origins allowed to make cross-origin requests. Use * to allow all, comma-separated URLs for specific origins (e.g. http://localhost:3000, https://my-app.com), or leave blank to disable CORS.</string>
+  <string name="settings_notif_request_count" translatable="false">Show Request Count in Notification</string>
+  <string name="settings_notif_request_count_desc" translatable="false">Update the foreground notification after each request to show the total request count.</string>
 
   <!-- Settings: Auto-Launch &amp; Behavior card -->
   <string name="settings_card_auto_launch" translatable="false">Auto-Launch &amp; Behavior</string>

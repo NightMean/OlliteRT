@@ -191,6 +191,17 @@ val CORS_ORIGINS = SettingDef.TextInput(
   write = { ctx, v -> ServerPrefs.setCorsAllowedOrigins(ctx, v) },
 )
 
+val NOTIF_REQUEST_COUNT = SettingDef.Toggle(
+  key = "notif_request_count",
+  labelRes = R.string.settings_notif_request_count,
+  descriptionRes = R.string.settings_notif_request_count_desc,
+  card = CardId.METRICS,
+  default = false,
+  prefsKey = "notif_show_request_count",
+  read = { ServerPrefs.isNotifShowRequestCount(it) },
+  write = { ctx, v -> ServerPrefs.setNotifShowRequestCount(ctx, v) },
+)
+
 // ─── Auto-Launch & Behaviour Card ─────────────────────────────────
 
 val DEFAULT_MODEL = SettingDef.Dropdown(
@@ -582,7 +593,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Context Management
   TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT,
   // Metrics
-  SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS,
+  SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS, NOTIF_REQUEST_COUNT,
   // Log Persistence
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
@@ -649,7 +660,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.METRICS,
     titleRes = R.string.settings_card_metrics,
     icon = CardIcon.Vector(Icons.Outlined.BarChart),
-    settings = listOf(SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS),
+    settings = listOf(SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS, NOTIF_REQUEST_COUNT),
   ),
   CardDef(
     id = CardId.LOG_PERSISTENCE,

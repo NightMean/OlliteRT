@@ -130,12 +130,11 @@ object NotificationHelper {
     val count = ServerMetrics.requestCount.value
     val reqLabel = if (count == 1L) context.getString(R.string.notif_server_body_requests_one)
       else context.getString(R.string.notif_server_body_requests_many, count)
-    // Append subtle "update available" line if a newer version was found by the background checker
     val updateLine = if (cachedUpdateVersion != null) "\n${context.getString(R.string.notif_server_body_update, cachedUpdateVersion.removePrefix("v"))}" else ""
     update(
       context = context,
       title = context.getString(R.string.notif_server_running_title),
-      text = "${context.getString(R.string.notif_server_body_model, modelName)}\n$reqLabel\n${context.getString(R.string.notif_server_body_url, endpointUrl)}$updateLine",
+      text = "$reqLabel\n${context.getString(R.string.notif_server_body_model, modelName)}\n${context.getString(R.string.notif_server_body_url, endpointUrl)}$updateLine",
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,

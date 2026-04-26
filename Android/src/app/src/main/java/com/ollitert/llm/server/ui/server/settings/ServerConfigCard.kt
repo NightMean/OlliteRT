@@ -217,5 +217,6 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
+
   }
 }

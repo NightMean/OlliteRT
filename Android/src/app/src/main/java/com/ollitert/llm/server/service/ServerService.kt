@@ -587,10 +587,19 @@ class ServerService : Service() {
         notifEndpointUrl = endpointUrl
         notifModelName = model.name
         // Update notification to show running state with full actions
+        val initialText = buildString {
+          if (ServerPrefs.isNotifShowRequestCount(this@ServerService)) {
+            append(getString(R.string.notif_server_body_requests_many, 0))
+            append("\n")
+          }
+          append(getString(R.string.notif_server_body_model, model.name))
+          append("\n")
+          append(getString(R.string.notif_server_body_url, endpointUrl))
+        }
         NotificationHelper.update(
           context = this@ServerService,
           title = getString(R.string.notif_server_running_title),
-          text = "${getString(R.string.notif_server_body_model, model.name)}\n${getString(R.string.notif_server_body_url, endpointUrl)}",
+          text = initialText,
           contentIntent = contentIntent,
           stopIntent = stopIntent,
           copyIntent = copyIntent,

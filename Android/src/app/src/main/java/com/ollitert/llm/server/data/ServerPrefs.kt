@@ -236,6 +236,13 @@ object ServerPrefs {
     prefs(context)
       .getBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
 
+  fun setNotifShowRequestCount(context: Context, enabled: Boolean) {
+    prefs(context)
+      .edit()
+      .putBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, enabled)
+      .apply()
+  }
+
   fun isWarmupEnabled(context: Context): Boolean =
     prefs(context)
       .getBoolean(KEY_WARMUP_ENABLED, true)
