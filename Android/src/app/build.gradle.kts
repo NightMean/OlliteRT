@@ -217,7 +217,6 @@ dependencies {
   implementation(libs.ktor.server.content.negotiation)
   implementation(libs.ktor.serialization.kotlinx.json)
   implementation(libs.ktor.server.cors)
-  implementation(libs.ktor.server.auth)
   implementation(libs.ktor.server.status.pages)
   implementation(libs.litertlm)
   implementation(libs.commonmark)
