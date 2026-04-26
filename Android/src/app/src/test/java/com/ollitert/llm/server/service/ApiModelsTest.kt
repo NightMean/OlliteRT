@@ -425,4 +425,50 @@ class LlmHttpApiModelsTest {
     assertEquals("https://example.com/img.png", parts[1].image_url?.url)
     assertTrue(parts.all { it.input_audio == null })
   }
+
+  // ── ChatContent null serialization (API-4 / API-5) ──────────────────
+
+  @Test
+  fun chatMessageEmptyContentSerializesAsNull() {
+    val msg = ChatMessage(role = "assistant", content = ChatContent(""))
+    val serialized = json.encodeToString(msg)
+    assertTrue("Empty content should serialize as null, got: $serialized", serialized.contains("\"content\":null"))
+  }
+
+  @Test
+  fun chatMessageToolCallsContentSerializesAsNull() {
+    val msg = ChatMessage(
+      role = "assistant",
+      content = ChatContent(""),
+      tool_calls = listOf(ToolCall(id = "call_1", function = ToolCallFunction(name = "get_weather", arguments = "{}"))),
+    )
+    val serialized = json.encodeToString(msg)
+    assertTrue("Tool call content should serialize as null, got: $serialized", serialized.contains("\"content\":null"))
+  }
+
+  @Test
+  fun chatMessageNonEmptyContentSerializesAsString() {
+    val msg = ChatMessage(role = "assistant", content = ChatContent("hello"))
+    val serialized = json.encodeToString(msg)
+    assertTrue("Non-empty content should serialize as string, got: $serialized", serialized.contains("\"content\":\"hello\""))
+  }
+
+  @Test
+  fun chatResponseToolCallsHasNullContent() {
+    val resp = ChatResponse(
+      id = "test", created = 1000, model = "m",
+      choices = listOf(ChatChoice(
+        index = 0,
+        message = ChatMessage(
+          role = "assistant",
+          content = ChatContent(""),
+          tool_calls = listOf(ToolCall(id = "call_1", function = ToolCallFunction(name = "fn", arguments = "{}"))),
+        ),
+        finish_reason = "tool_calls",
+      )),
+      usage = Usage(5, 10),
+    )
+    val serialized = json.encodeToString(resp)
+    assertTrue("Tool call response content should be null, got: $serialized", serialized.contains("\"content\":null"))
+  }
 }
