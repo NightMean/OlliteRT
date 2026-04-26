@@ -98,7 +98,8 @@ class KtorServer(
   private val faviconBytes: ByteArray? by lazy {
     try {
       serviceContext.assets.open("favicon.png").use { it.readBytes() }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+      Log.d(logTag, "Failed to load favicon.png from assets", e)
       null
     }
   }
