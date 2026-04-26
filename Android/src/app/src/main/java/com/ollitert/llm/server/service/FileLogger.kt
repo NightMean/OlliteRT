@@ -16,12 +16,15 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD
+import com.ollitert.llm.server.data.FILE_LOGGER_PROBE_INTERVAL
 import com.ollitert.llm.server.data.LOG_FILE_MAX_BYTES
 import com.ollitert.llm.server.data.MAX_PAYLOAD_LOG_CHARS
 import java.io.File
 import java.io.FileWriter
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * File-based logger for the HTTP bridge. Writes timestamped lines to llm_http.log,
@@ -40,6 +43,10 @@ class FileLogger(
   private val logFileMaxBytes = LOG_FILE_MAX_BYTES
 
   private val executor = Executors.newSingleThreadExecutor()
+  private val consecutiveFailures = AtomicInteger(0)
+  private val totalCallsSinceCircuitOpened = AtomicInteger(0)
+  @Volatile var isCircuitOpen = false
+    private set
 
   fun logEvent(message: String) {
     if (!isEnabled()) return
@@ -64,6 +71,10 @@ class FileLogger(
 
   private fun append(line: String) {
     val dir = logDir() ?: return
+    if (isCircuitOpen) {
+      val calls = totalCallsSinceCircuitOpened.incrementAndGet()
+      if (calls % FILE_LOGGER_PROBE_INTERVAL != 0) return
+    }
     val logFile = File(dir, "llm_http.log")
     val stampedLine = "${System.currentTimeMillis()} $line\n"
     executor.execute {
@@ -75,8 +86,27 @@ class FileLogger(
           logFile.renameTo(rotated)
         }
         FileWriter(logFile, true).use { it.append(stampedLine) }
+        if (consecutiveFailures.getAndSet(0) > 0) {
+          isCircuitOpen = false
+          totalCallsSinceCircuitOpened.set(0)
+          android.util.Log.i("FileLogger", "Disk write recovered, circuit closed")
+        }
       } catch (e: Exception) {
-        android.util.Log.w("FileLogger", "Failed to write log", e)
+        val failures = consecutiveFailures.incrementAndGet()
+        if (failures == FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD) {
+          isCircuitOpen = true
+          android.util.Log.e(
+            "FileLogger",
+            "Circuit opened after $failures consecutive write failures — disk full?",
+            e,
+          )
+        } else if (!isCircuitOpen) {
+          android.util.Log.w(
+            "FileLogger",
+            "Failed to write log ($failures/$FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD)",
+            e,
+          )
+        }
       }
     }
   }

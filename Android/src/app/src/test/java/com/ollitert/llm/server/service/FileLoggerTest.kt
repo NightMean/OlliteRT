@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD
 import com.ollitert.llm.server.data.LOG_FILE_MAX_BYTES
 import com.ollitert.llm.server.data.MAX_PAYLOAD_LOG_CHARS
 import org.junit.Assert.assertFalse
@@ -161,5 +162,73 @@ class LlmHttpLoggerTest {
     val logger = FileLogger(logDir = { null }, isEnabled = { false })
     logger.shutdown()
     logger.shutdown() // second call must not throw
+  }
+
+  @Test
+  fun circuitOpensAfterConsecutiveFailures() {
+    // Use a regular file as the "directory" — mkdirs() and FileWriter both fail
+    val base = createTempDirectory("logger-test").toFile()
+    try {
+      val blocker = File(base, "blocker")
+      blocker.writeText("occupied")
+      val brokenDir = File(blocker, "subdir")
+
+      val logger = FileLogger(logDir = { brokenDir }, isEnabled = { true })
+
+      repeat(FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD + 5) {
+        logger.logEvent("fail_$it")
+      }
+      logger.shutdown()
+
+      assertTrue("circuit should be open after repeated failures", logger.isCircuitOpen)
+    } finally {
+      base.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun circuitResetsOnSuccessfulWrite() {
+    val base = createTempDirectory("logger-test").toFile()
+    try {
+      val blocker = File(base, "blocker")
+      blocker.writeText("occupied")
+      val brokenDir = File(blocker, "subdir")
+
+      val logger = FileLogger(logDir = { brokenDir }, isEnabled = { true })
+
+      repeat(FILE_LOGGER_CIRCUIT_BREAKER_THRESHOLD + 1) {
+        logger.logEvent("fail_$it")
+      }
+      logger.shutdown()
+      assertTrue("circuit should be open", logger.isCircuitOpen)
+
+      // New logger pointing at a valid directory proves writes work after disk frees up
+      val goodDir = File(base, "recovered")
+      goodDir.mkdirs()
+      val logger2 = FileLogger(logDir = { goodDir }, isEnabled = { true })
+      logger2.logEvent("recovery_event")
+      logger2.shutdown()
+
+      val logFile = File(goodDir, "llm_http.log")
+      assertTrue("log file should exist after recovery", logFile.exists())
+      assertTrue("recovery event should be logged", logFile.readText().contains("recovery_event"))
+    } finally {
+      base.deleteRecursively()
+    }
+  }
+
+  @Test
+  fun circuitDoesNotOpenOnIntermittentFailure() {
+    val dir = createTempDirectory("logger-test").toFile()
+    try {
+      val logger = FileLogger(logDir = { dir }, isEnabled = { true })
+
+      logger.logEvent("success_1")
+      logger.shutdown()
+
+      assertFalse("circuit should not be open after successful write", logger.isCircuitOpen)
+    } finally {
+      dir.deleteRecursively()
+    }
   }
 }
