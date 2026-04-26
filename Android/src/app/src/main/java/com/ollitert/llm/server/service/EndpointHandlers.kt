@@ -265,8 +265,10 @@ class EndpointHandlers(
       }
 
       val completionTokens = estimateTokens(text)
+      val effectiveMax = (configSnapshotBlocking ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
+      val finishReason = FinishReason.infer(completionTokens, effectiveMax?.toInt())
       val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
-      val responseJson = json.encodeToString(PayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, timings = timings))
+      val responseJson = json.encodeToString(PayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, finishReason = finishReason, timings = timings))
       captureResponse(responseJson)
       httpOkJson(responseJson)
     }
