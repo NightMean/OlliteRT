@@ -323,15 +323,8 @@ class EndpointHandlers(
     logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${body.length} promptChars=${prompt.length} model=${model.name}")
 
     if (prompt.isBlank()) {
-      val responseJson = json.encodeToString(CompletionResponse(
-        id = BridgeUtils.generateCompletionId(),
-        created = BridgeUtils.epochSeconds(),
-        model = model.name,
-        choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = FinishReason.STOP)),
-        usage = Usage(0, 0),
-      ))
-      captureResponse(responseJson)
-      return httpOkJson(responseJson)
+      logEvent("request_empty id=$requestId endpoint=/v1/completions")
+      return emptyCompletionResponse(model.name, stream = req.stream == true)
     }
 
     // OpenAI spec allows `"stop": "text"` (single string) or `"stop": ["a","b"]` (array).
@@ -351,37 +344,47 @@ class EndpointHandlers(
       val ignored = describeClientSamplerParams(req.temperature, req.top_p, topK = null, req.max_tokens)
       if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
     }
-    val configSnapshotBlocking = buildPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens)
-    ServerMetrics.onInferenceStarted()
-    val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking)
-    ServerMetrics.onInferenceCompleted()
-    if (rawText == null) {
-      val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-      ServerMetrics.incrementErrorCount(kind.category)
-      val suggestion = ErrorSuggestions.suggest(kind, context)
-      if (logId != null) {
-        val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-        RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
-      }
-      return httpInternalError(errorMsg, suggestion, kind)
-    }
 
-    val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
-    val promptTokens = estimateTokens(prompt)
-    val completionTokens = estimateTokens(text)
-    val effectiveMaxCompl = (configSnapshotBlocking ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
-    val finishReasonCompl = FinishReason.infer(completionTokens, effectiveMaxCompl?.toInt())
-    val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
-    val responseJson = json.encodeToString(CompletionResponse(
-      id = BridgeUtils.generateCompletionId(),
-      created = BridgeUtils.epochSeconds(),
-      model = model.name,
-      choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = finishReasonCompl)),
-      usage = Usage(promptTokens, completionTokens),
-      timings = timings,
-    ))
-    captureResponse(responseJson)
-    return httpOkJson(responseJson)
+    val includeUsage = req.stream_options?.include_usage == true
+    val stopSeqs = stopSequences?.ifEmpty { null }
+
+    return if (req.stream == true) {
+      val configSnapshot = buildPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens)
+      ServerMetrics.onInferenceStarted()
+      inferenceRunner.streamCompletions(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, configSnapshot = configSnapshot, json = json)
+    } else {
+      val configSnapshotBlocking = buildPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens)
+      ServerMetrics.onInferenceStarted()
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking)
+      ServerMetrics.onInferenceCompleted()
+      if (rawText == null) {
+        val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+        ServerMetrics.incrementErrorCount(kind.category)
+        val suggestion = ErrorSuggestions.suggest(kind, context)
+        if (logId != null) {
+          val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
+          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
+        }
+        return httpInternalError(errorMsg, suggestion, kind)
+      }
+
+      val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
+      val promptTokens = estimateTokens(prompt)
+      val completionTokens = estimateTokens(text)
+      val effectiveMaxCompl = (configSnapshotBlocking ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
+      val finishReasonCompl = FinishReason.infer(completionTokens, effectiveMaxCompl?.toInt())
+      val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
+      val responseJson = json.encodeToString(CompletionResponse(
+        id = BridgeUtils.generateCompletionId(),
+        created = BridgeUtils.epochSeconds(),
+        model = model.name,
+        choices = listOf(CompletionChoice(text = text, index = 0, finish_reason = finishReasonCompl)),
+        usage = Usage(promptTokens, completionTokens),
+        timings = timings,
+      ))
+      captureResponse(responseJson)
+      httpOkJson(responseJson)
+    }
   }
 
   // ── /v1/responses ────────────────────────────────────────────────────────
@@ -522,6 +525,28 @@ class EndpointHandlers(
       }
     } else {
       httpOkJson(json.encodeToString(body))
+    }
+  }
+
+  /** Empty response for /v1/completions — returns SSE or JSON depending on stream flag. */
+  private fun emptyCompletionResponse(modelId: String, stream: Boolean): HttpResponse {
+    return if (stream) {
+      val cmplId = BridgeUtils.generateCompletionId()
+      val now = System.currentTimeMillis() / 1000
+      val payload = ResponseRenderer.buildCompletionStreamFinalChunk(cmplId, modelId, now) +
+        ResponseRenderer.SSE_DONE
+      HttpResponse.Sse { writer ->
+        writer.emit(payload)
+        writer.finish()
+      }
+    } else {
+      httpOkJson(json.encodeToString(CompletionResponse(
+        id = BridgeUtils.generateCompletionId(),
+        created = BridgeUtils.epochSeconds(),
+        model = modelId,
+        choices = listOf(CompletionChoice(text = "", index = 0, finish_reason = FinishReason.STOP)),
+        usage = Usage(0, 0),
+      )))
     }
   }
 
