@@ -105,7 +105,7 @@ fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, A
 fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
   Column(modifier = Modifier.fillMaxWidth()) {
     // Field label.
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     // Content label.
     val label = values[config.key.label] as? String ?: ""
     Text(label, style = MaterialTheme.typography.bodyMedium)
@@ -122,7 +122,7 @@ fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String,
   }
 
   Column(modifier = Modifier.fillMaxWidth()) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     Spacer(modifier = Modifier.height(4.dp))
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -190,7 +190,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     // Field label.
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
 
     // Controls row.
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -293,7 +293,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
 fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<String, Any>) {
   val switchValue = values[config.key.label] as? Boolean ?: false
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
   }
 }
@@ -314,7 +314,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
   }
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     if (config.description != null) {
       Text(
         config.description,
