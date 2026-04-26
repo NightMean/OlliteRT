@@ -34,6 +34,18 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
+  fun rendersJsonErrorIncludesParamField() {
+    val result = ResponseRenderer.renderJsonError("something broke")
+    assertTrue(result.contains("\"param\":null"))
+  }
+
+  @Test
+  fun rendersJsonErrorIncludesParamFieldWithKind() {
+    val result = ResponseRenderer.renderJsonError("overflow", kind = ErrorKind.CONTEXT_OVERFLOW)
+    assertTrue(result.contains("\"param\":null"))
+  }
+
+  @Test
   fun rendersJsonErrorWithSuggestion() {
     val result = ResponseRenderer.renderJsonError("context overflow", suggestion = "Try shorter input")
     assertTrue(result.contains("\"suggestion\":\"Try shorter input\""))

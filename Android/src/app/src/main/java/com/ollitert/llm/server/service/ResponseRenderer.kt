@@ -45,7 +45,7 @@ object ResponseRenderer {
     val suggestionField = if (suggestion != null) {
       ""","suggestion":"${BridgeUtils.escapeSseText(suggestion)}""""
     } else ""
-    return """{"error":{"message":"$escaped","type":"$type","code":$codeJson$suggestionField}}"""
+    return """{"error":{"message":"$escaped","type":"$type","param":null,"code":$codeJson$suggestionField}}"""
   }
 
   fun emitSseEvent(event: String, payload: String): String = "event: $event\n" + "data: $payload\n\n"
