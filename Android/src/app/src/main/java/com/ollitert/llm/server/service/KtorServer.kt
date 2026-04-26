@@ -230,9 +230,14 @@ class KtorServer(
       }
 
       is HttpResponse.Sse -> {
+        // Streaming uses its own disconnect detection (SseWriter.isCancelled) which
+        // gracefully stops inference, emits [DONE], and updates the log entry.
+        // Shield from cancelCallOnClose so coroutine cancellation doesn't bypass that cleanup.
         respondTextWriter(contentType = ContentType.Text.EventStream) {
-          val writer = KtorSseWriterImpl(this)
-          resp.writer(writer)
+          kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            val writer = KtorSseWriterImpl(this@respondTextWriter)
+            resp.writer(writer)
+          }
         }
       }
     }
@@ -441,7 +446,9 @@ class KtorServer(
       val response = try {
         audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId)
       } catch (_: kotlinx.coroutines.CancellationException) {
-        finalizeLogEntry(logId, startMs, httpJsonError(499, "Client closed request"), "[multipart audio ${contentLength} bytes]", null)
+        RequestLogStore.update(logId) {
+          it.copy(requestBody = "[multipart audio ${contentLength} bytes]", isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - startMs)
+        }
         throw kotlinx.coroutines.CancellationException("Client disconnected")
       }
       val responseBody = when (response) {
@@ -574,7 +581,9 @@ class KtorServer(
 
       handler(body, captureBody, captureResponse, logId, sseExtraHeaders)
     } catch (_: kotlinx.coroutines.CancellationException) {
-      finalizeLogEntry(logId, startMs, httpJsonError(499, "Client closed request"), requestBodySnapshot, responseBodySnapshot)
+      RequestLogStore.update(logId) {
+        it.copy(requestBody = requestBodySnapshot ?: it.requestBody, isPending = false, isCancelled = true, latencyMs = SystemClock.elapsedRealtime() - startMs)
+      }
       throw kotlinx.coroutines.CancellationException("Client disconnected")
     } catch (t: Throwable) {
       if (t is OutOfMemoryError) {
