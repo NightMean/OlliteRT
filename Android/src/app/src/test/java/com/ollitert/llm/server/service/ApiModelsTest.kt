@@ -471,4 +471,30 @@ class LlmHttpApiModelsTest {
     val serialized = json.encodeToString(resp)
     assertTrue("Tool call response content should be null, got: $serialized", serialized.contains("\"content\":null"))
   }
+
+  @Test
+  fun chatMessageDeserializesNullContentAsEmpty() {
+    val input = """{"role":"assistant","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"fn","arguments":"{}"}}]}"""
+    val msg = json.decodeFromString<ChatMessage>(input)
+    assertEquals("assistant", msg.role)
+    assertEquals("", msg.content.text)
+    assertTrue(msg.content.parts.isEmpty())
+    assertNotNull(msg.tool_calls)
+  }
+
+  @Test
+  fun chatMessageSerializeDeserializeRoundTrip() {
+    val original = ChatMessage(
+      role = "assistant",
+      content = ChatContent(""),
+      tool_calls = listOf(ToolCall(id = "call_1", function = ToolCallFunction(name = "fn", arguments = "{}"))),
+    )
+    val serialized = json.encodeToString(original)
+    assertTrue("Should contain null content", serialized.contains("\"content\":null"))
+    val deserialized = json.decodeFromString<ChatMessage>(serialized)
+    assertEquals("assistant", deserialized.role)
+    assertEquals("", deserialized.content.text)
+    assertNotNull(deserialized.tool_calls)
+    assertEquals(1, deserialized.tool_calls!!.size)
+  }
 }

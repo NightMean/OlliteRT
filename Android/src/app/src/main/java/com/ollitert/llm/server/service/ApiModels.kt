@@ -205,6 +205,7 @@ object ChatContentSerializer : KSerializer<ChatContent> {
   override fun deserialize(decoder: Decoder): ChatContent {
     val jsonDecoder = decoder as JsonDecoder
     return when (val element = jsonDecoder.decodeJsonElement()) {
+      is JsonNull -> ChatContent(text = "")
       is JsonPrimitive -> ChatContent(text = element.content)
       is JsonArray -> {
         val parts = element.jsonArray.map { partElement ->
