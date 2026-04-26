@@ -77,3 +77,5 @@ Android/src/app/dev/
 
 # Working directories
 .tmp/
+# Worktrees
+.worktrees/
