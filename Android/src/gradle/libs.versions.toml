@@ -17,9 +17,7 @@ protobuf = "0.10.0"
 protobufJavaLite = "4.34.1"
 #noinspection GradleDependency — 0.10.1 released on GitHub but not yet published to Google Maven
 litertlm = "0.10.0"
-#noinspection GradleDependency — no stable release exists; project is stalled. Consider migrating to com.mikepenz:multiplatform-markdown-renderer-m3
-commonmark = "1.0.0-alpha02"
-richtext = "1.0.0-alpha02"
+markdownRenderer = "0.40.2"
 netOpenidAppauth = "0.11.1"
 splashscreen = "1.2.0"
 hilt = "2.59.2"
@@ -52,8 +50,7 @@ material-icon-extended = { group = "androidx.compose.material", name = "material
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntime" }
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
 litertlm = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
-commonmark = { group = "com.halilibo.compose-richtext", name = "richtext-commonmark", version.ref = "commonmark" }
-richtext = { group = "com.halilibo.compose-richtext", name = "richtext-ui-material3", version.ref = "richtext" }
+markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3-android", version.ref = "markdownRenderer" }
 openid-appauth = { group = "net.openid", name = "appauth", version.ref = "netOpenidAppauth" }
 androidx-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobufJavaLite" }
