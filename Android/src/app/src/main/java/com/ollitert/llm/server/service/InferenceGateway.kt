@@ -178,7 +178,7 @@ object InferenceGateway {
         cancelInference()
       }
 
-      Thread {
+      Thread({
         val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
         if (!completed && error == null) {
           error = "timeout"
@@ -193,7 +193,7 @@ object InferenceGateway {
           ttfbMs = firstTokenMs ?: -1,
         )
         if (cont.isActive) cont.resume(result)
-      }.start()
+      }, "OlliteRT-InferenceAwait").start()
     }
   }
 }

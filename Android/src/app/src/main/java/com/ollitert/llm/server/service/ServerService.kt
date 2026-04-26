@@ -442,7 +442,7 @@ class ServerService : Service() {
 
     synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
 
-    Thread {
+    Thread({
       loadThread = Thread.currentThread()
       try {
         // Guard against native SIGABRT: LiteRT's Engine.initialize() calls
@@ -632,7 +632,7 @@ class ServerService : Service() {
       } finally {
         loadThread = null
       }
-    }.start()
+    }, "OlliteRT-ModelLoad").start()
 
     return START_STICKY
   }
@@ -701,7 +701,7 @@ class ServerService : Service() {
     if (modelsToCleanUp.isNotEmpty()) {
       val latch = java.util.concurrent.CountDownLatch(1)
       cleanupLatch.set(latch)
-      Thread {
+      Thread({
         try {
           for (model in modelsToCleanUp) {
             try {
@@ -719,7 +719,7 @@ class ServerService : Service() {
           // race where the new instance misses the latch entirely.
           latch.countDown()
         }
-      }.start()
+      }, "OlliteRT-ModelCleanup").start()
     }
 
     notifContentIntent = null
