@@ -280,6 +280,7 @@ class InferenceRunner(
       completionTokens: Int,
       ttfbMs: Long,
       totalLatencyMs: Long,
+      maxTokens: Int?,
     ): List<ToolCall>
     fun buildLogResponseJson(
       combinedText: String,
@@ -339,6 +340,7 @@ class InferenceRunner(
       completionTokens: Int,
       ttfbMs: Long,
       totalLatencyMs: Long,
+      maxTokens: Int?,
     ): List<ToolCall> {
       val parsedToolCalls = if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
 
@@ -429,6 +431,7 @@ class InferenceRunner(
       completionTokens: Int,
       ttfbMs: Long,
       totalLatencyMs: Long,
+      maxTokens: Int?,
     ): List<ToolCall> {
       val parsedToolCalls = if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
       if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
@@ -443,7 +446,8 @@ class InferenceRunner(
             writer.emit(ResponseRenderer.buildChatStreamDeltaChunk(chatId, modelName, now, fullText))
           }
         }
-        writer.emit(ResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, "stop"))
+        val finishReason = FinishReason.infer(completionTokens, maxTokens)
+        writer.emit(ResponseRenderer.buildChatStreamFinalChunk(chatId, modelName, now, finishReason))
       }
       val timings = PayloadBuilders.buildTimingsFromValues(promptTokens, completionTokens, ttfbMs, totalLatencyMs)
       val timingsJson = if (timings != null) json.encodeToString(timings) else null
@@ -762,7 +766,8 @@ class InferenceRunner(
                       format.emitThinkingClose(writer)
                     }
 
-                    val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs)
+                    val effectiveMaxTokens = (configSnapshot ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
+                    val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens?.toInt())
 
                     if (logId != null) {
                       val combinedText = buildCombinedText(fullText, fullThinking)
