@@ -231,6 +231,7 @@ fun ModelItem(
     val settingsSavedReloadPendingText = stringResource(R.string.toast_settings_saved_reload_pending)
     val settingsSavedReloadingText = stringResource(R.string.toast_settings_saved_reloading)
     val settingsSavedText = stringResource(R.string.toast_settings_saved)
+    val configDisplayLabels = model.configs.associate { it.key.label to stringResource(it.key.labelResId) }
     InferenceSettingsSheet(
       model = model,
       onDismiss = { showInferenceSettings = false },
@@ -257,7 +258,7 @@ fun ModelItem(
             com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
           }
           if (oldValue != newValue) {
-            changes.add("${config.key.label}: $oldValue → $newValue")
+            changes.add("${configDisplayLabels[config.key.label] ?: config.key.label}: $oldValue → $newValue")
             if (config.needReinitialization) {
               needReinitialization = true
             }
