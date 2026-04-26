@@ -63,7 +63,10 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -362,7 +365,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           val errorMessage = if (isDiskFull) {
             applicationContext.getString(R.string.download_error_disk_full)
           } else {
-            e.message
+            applicationContext.getString(when (e) {
+              is SocketTimeoutException -> R.string.download_error_timeout
+              is UnknownHostException -> R.string.download_error_no_internet
+              is SocketException -> R.string.download_error_connection_lost
+              else -> R.string.download_error_network
+            })
           }
 
           Result.failure(

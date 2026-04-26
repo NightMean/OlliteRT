@@ -855,6 +855,10 @@
   <string name="notif_channel_download_worker_name">Model Downloading</string>
   <string name="notif_channel_download_worker_desc">Notifications for model downloading</string>
   <string name="download_error_disk_full">Not enough storage space to complete the download. Partial files have been cleaned up.</string>
+  <string name="download_error_timeout">Download timed out. Check your internet connection and try again.</string>
+  <string name="download_error_no_internet">No internet connection. Check your network settings and try again.</string>
+  <string name="download_error_connection_lost">Network connection was lost during download. Try again when your connection is stable.</string>
+  <string name="download_error_network">Download failed due to a network error. Check your connection and try again.</string>
   <string name="download_notif_title_generic">Downloading model</string>
   <string name="download_notif_title_named">Downloading \"%1$s\"</string>
   <string name="download_notif_progress">Downloading in progress: %1$d%%</string>
