@@ -323,7 +323,7 @@ object StopDeserializer : KSerializer<List<String>> {
   val tool_choice: JsonElement? = null,    // String ("auto"/"none"/"required") or Object {"type":"function","function":{"name":"..."}}
   val parallel_tool_calls: Boolean? = null, // Accepted, ignored (sequential inference only)
   val user: String? = null,                // Accepted, ignored
-  val n: Int? = null,                      // Accepted, ignored (always 1)
+  val n: Int? = null,                      // Rejected if > 1 (parallel completions unsupported)
   val logprobs: Boolean? = null,           // Accepted, ignored
   val top_logprobs: Int? = null,           // Accepted, ignored
 )
@@ -371,8 +371,8 @@ object StopDeserializer : KSerializer<List<String>> {
   val presence_penalty: Double? = null,
   val logit_bias: JsonElement? = null,
   val logprobs: Int? = null,
-  val best_of: Int? = null,
-  val n: Int? = null,
+  val best_of: Int? = null,                // Rejected if > 1 (unsupported)
+  val n: Int? = null,                      // Rejected if > 1 (parallel completions unsupported)
 )
 
 @Serializable data class CompletionChoice(

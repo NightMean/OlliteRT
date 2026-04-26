@@ -129,6 +129,10 @@ class EndpointHandlers(
     captureBody(body)
     val req = try { json.decodeFromString<ChatRequest>(body) }
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
+    validateNParam(req.n)?.let { (param, msg) ->
+      logEvent("request_rejected id=$requestId endpoint=/v1/chat/completions param=$param value=${req.n}")
+      return httpBadRequest(msg)
+    }
     val toolChoiceStr = PromptBuilder.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required")
       return httpBadRequest("tool_choice required but tools empty")
@@ -281,6 +285,14 @@ class EndpointHandlers(
     captureBody(body)
     val req = try { json.decodeFromString<CompletionRequest>(body) }
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
+    validateNParam(req.n)?.let { (param, msg) ->
+      logEvent("request_rejected id=$requestId endpoint=/v1/completions param=$param value=${req.n}")
+      return httpBadRequest(msg)
+    }
+    validateBestOfParam(req.best_of)?.let { (param, msg) ->
+      logEvent("request_rejected id=$requestId endpoint=/v1/completions param=$param value=${req.best_of}")
+      return httpBadRequest(msg)
+    }
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is ModelLifecycle.ModelSelection.Ok -> sel.model
       is ModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
@@ -519,6 +531,18 @@ class EndpointHandlers(
    * Builds a human-readable summary of client-supplied sampler params that will be ignored.
    * Returns null if the client didn't send any overrides.
    */
+}
+
+/** Returns (paramName, errorMessage) if n > 1, null if valid. */
+internal fun validateNParam(n: Int?): Pair<String, String>? {
+  if (n != null && n > 1) return "n" to "This server does not support parallel completions (n > 1). Omit the parameter or set n=1."
+  return null
+}
+
+/** Returns (paramName, errorMessage) if best_of > 1, null if valid. */
+internal fun validateBestOfParam(bestOf: Int?): Pair<String, String>? {
+  if (bestOf != null && bestOf > 1) return "best_of" to "This server does not support best_of > 1. Omit the parameter or set best_of=1."
+  return null
 }
 
 internal fun describeClientSamplerParams(
