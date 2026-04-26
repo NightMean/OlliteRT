@@ -35,7 +35,7 @@ import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.cleanUpMediapipeTaskErrorMessage
+import com.ollitert.llm.server.common.cleanUpLiteRtErrorMessage
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.DEFAULT_MAX_TOKEN
@@ -194,7 +194,7 @@ object ServerLlmModelHelper : LlmModelHelper {
         Log.w(TAG, "Engine.close() failed during error cleanup (may already be closed by another thread)", e)
       }
       System.gc()
-      onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
+      onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
     }
     onDone("")
@@ -376,7 +376,7 @@ object ServerLlmModelHelper : LlmModelHelper {
         imageIndex++
       }
     } else {
-      // Single-image or non-chat path: images before text (matches reference app behavior)
+      // Single-image or non-chat path: images before text (LiteRT expects image content first)
       for (image in images) {
         contents.add(Content.ImageBytes(image))
       }

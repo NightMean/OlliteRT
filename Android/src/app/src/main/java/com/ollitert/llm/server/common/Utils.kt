@@ -26,7 +26,7 @@ import com.ollitert.llm.server.R
 import kotlin.math.ln
 import kotlin.math.pow
 
-fun cleanUpMediapipeTaskErrorMessage(message: String): String {
+fun cleanUpLiteRtErrorMessage(message: String): String {
   val index = message.indexOf("=== Source Location Trace")
   if (index >= 0) {
     return message.substring(0, index)

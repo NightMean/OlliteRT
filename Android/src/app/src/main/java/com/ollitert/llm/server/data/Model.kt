@@ -101,8 +101,7 @@ data class Model(
    *
    * The minimum device memory in GB to run the model.
    *
-   * If set, a warning dialog will be shown when user trying to download the model or enter the
-   * model screen.
+   * If set, a warning dialog will be shown when the user tries to download the model.
    */
   val minDeviceMemoryInGb: Int? = null,
 
@@ -194,9 +193,7 @@ data class Model(
    */
   val localModelFilePathOverride: String = "",
 
-  // The following fields are only used for built-in tasks. Can ignore if you are creating your own
-  // custom tasks.
-  //
+  // Model packaging and capability metadata.
 
   /** Indicates whether the model is a zip file. */
   val isZip: Boolean = false,

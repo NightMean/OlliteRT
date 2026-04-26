@@ -25,35 +25,35 @@ import org.junit.Test
  */
 class UtilsTest {
 
-  // ── cleanUpMediapipeTaskErrorMessage() ────────────────────────────────────
+  // ── cleanUpLiteRtErrorMessage() ────────────────────────────────────
 
   @Test
-  fun cleanUpMediapipeTaskErrorMessageTrimsTrace() {
+  fun cleanUpLiteRtErrorMessageTrimsTrace() {
     val msg = "Model failed to load=== Source Location Trace: file.cc:123\nmore stack data"
-    assertEquals("Model failed to load", cleanUpMediapipeTaskErrorMessage(msg))
+    assertEquals("Model failed to load", cleanUpLiteRtErrorMessage(msg))
   }
 
   @Test
-  fun cleanUpMediapipeTaskErrorMessageNoTraceReturnsUnchanged() {
+  fun cleanUpLiteRtErrorMessageNoTraceReturnsUnchanged() {
     val msg = "Some normal error message"
-    assertEquals(msg, cleanUpMediapipeTaskErrorMessage(msg))
+    assertEquals(msg, cleanUpLiteRtErrorMessage(msg))
   }
 
   @Test
-  fun cleanUpMediapipeTaskErrorMessageEmptyString() {
-    assertEquals("", cleanUpMediapipeTaskErrorMessage(""))
+  fun cleanUpLiteRtErrorMessageEmptyString() {
+    assertEquals("", cleanUpLiteRtErrorMessage(""))
   }
 
   @Test
-  fun cleanUpMediapipeTaskErrorMessageTraceAtStart() {
+  fun cleanUpLiteRtErrorMessageTraceAtStart() {
     val msg = "=== Source Location Trace: everything after"
-    assertEquals("", cleanUpMediapipeTaskErrorMessage(msg))
+    assertEquals("", cleanUpLiteRtErrorMessage(msg))
   }
 
   @Test
-  fun cleanUpMediapipeTaskErrorMessagePreservesTextBeforeTrace() {
+  fun cleanUpLiteRtErrorMessagePreservesTextBeforeTrace() {
     val msg = "Error: context overflow (6579 >= 4000)=== Source Location Trace: ..."
-    assertEquals("Error: context overflow (6579 >= 4000)", cleanUpMediapipeTaskErrorMessage(msg))
+    assertEquals("Error: context overflow (6579 >= 4000)", cleanUpLiteRtErrorMessage(msg))
   }
 
 }
