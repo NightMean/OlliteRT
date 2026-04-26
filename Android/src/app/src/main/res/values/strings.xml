@@ -812,6 +812,28 @@
   <string name="cd_collapse">Collapse</string>
   <string name="cd_expand">Expand</string>
 
+  <!-- ConfigKey: display labels for config editor rows -->
+  <string name="config_label_max_tokens" translatable="false">Max tokens</string>
+  <string name="config_label_topk" translatable="false">TopK</string>
+  <string name="config_label_topp" translatable="false">TopP</string>
+  <string name="config_label_temperature" translatable="false">Temperature</string>
+  <string name="config_label_default_max_tokens" translatable="false">Default max tokens</string>
+  <string name="config_label_default_topk" translatable="false">Default TopK</string>
+  <string name="config_label_default_topp" translatable="false">Default TopP</string>
+  <string name="config_label_default_temperature" translatable="false">Default temperature</string>
+  <string name="config_label_support_image" translatable="false">Support image</string>
+  <string name="config_label_support_audio" translatable="false">Support audio</string>
+  <string name="config_label_support_thinking" translatable="false">Support thinking</string>
+  <string name="config_label_enable_thinking" translatable="false">Enable thinking</string>
+  <string name="config_label_accelerator" translatable="false">Accelerator</string>
+  <string name="config_label_vision_accelerator" translatable="false">Vision accelerator</string>
+  <string name="config_label_compatible_accelerators" translatable="false">Compatible accelerators</string>
+  <string name="config_label_name" translatable="false">Name</string>
+  <string name="config_label_model_type" translatable="false">Model type</string>
+  <string name="config_label_prefill_tokens" translatable="false">Prefill tokens</string>
+  <string name="config_label_decode_tokens" translatable="false">Decode tokens</string>
+  <string name="config_label_number_of_runs" translatable="false">Number of runs</string>
+
   <!-- BenchmarkResultsViewer: stat labels (technical) -->
   <string name="benchmark_stat_model" translatable="false">Model</string>
   <string name="benchmark_stat_accelerator" translatable="false">Accelerator</string>
