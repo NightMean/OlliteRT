@@ -406,6 +406,54 @@ class LlmHttpResponseRendererTest {
     assertTrue(result.contains("\"total_tokens\":15"))
   }
 
+  // ── Completions streaming builders ──────────────────────────────────────
+
+  @Test
+  fun completionStreamChunkContainsTextAndObjectType() {
+    val result = ResponseRenderer.buildCompletionStreamChunk("cmpl-abc", "test-model", 1000L, "Hello")
+    assertTrue(result.startsWith("data: "))
+    assertTrue(result.contains("\"object\":\"text_completion\""))
+    assertTrue(result.contains("\"text\":\"Hello\""))
+    assertTrue(result.contains("\"finish_reason\":null"))
+    assertTrue(result.endsWith("\n\n"))
+  }
+
+  @Test
+  fun completionStreamChunkEscapesSpecialCharacters() {
+    val result = ResponseRenderer.buildCompletionStreamChunk("cmpl-abc", "test-model", 1000L, "line1\nline2\"quote")
+    assertTrue(result.contains("\"text\":\"line1\\nline2\\\"quote\""))
+  }
+
+  @Test
+  fun completionStreamFinalChunkHasFinishReason() {
+    val result = ResponseRenderer.buildCompletionStreamFinalChunk("cmpl-abc", "test-model", 1000L, "stop")
+    assertTrue(result.contains("\"text\":\"\""))
+    assertTrue(result.contains("\"finish_reason\":\"stop\""))
+    assertTrue(result.contains("\"object\":\"text_completion\""))
+  }
+
+  @Test
+  fun completionStreamFinalChunkSupportsLengthReason() {
+    val result = ResponseRenderer.buildCompletionStreamFinalChunk("cmpl-abc", "test-model", 1000L, "length")
+    assertTrue(result.contains("\"finish_reason\":\"length\""))
+  }
+
+  @Test
+  fun completionStreamUsageChunkHasEmptyChoicesAndUsage() {
+    val result = ResponseRenderer.buildCompletionStreamUsageChunk("cmpl-abc", "test-model", 1000L, 10, 5, null)
+    assertTrue(result.contains("\"choices\":[]"))
+    assertTrue(result.contains("\"prompt_tokens\":10"))
+    assertTrue(result.contains("\"completion_tokens\":5"))
+    assertTrue(result.contains("\"total_tokens\":15"))
+    assertFalse(result.contains("\"timings\""))
+  }
+
+  @Test
+  fun completionStreamUsageChunkIncludesTimingsWhenProvided() {
+    val result = ResponseRenderer.buildCompletionStreamUsageChunk("cmpl-abc", "test-model", 1000L, 10, 5, """{"predicted_per_second":12.5}""")
+    assertTrue(result.contains("\"timings\":{\"predicted_per_second\":12.5}"))
+  }
+
   // ── buildChatStreamToolCallChunks with empty list ────────────────────────
 
   @Test

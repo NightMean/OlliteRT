@@ -126,6 +126,35 @@ object ResponseRenderer {
     return """data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[],"usage":{"prompt_tokens":$promptTokens,"completion_tokens":$completionTokens,"total_tokens":$total}$timingsSuffix}""" + "\n\n"
   }
 
+  // ── OpenAI Completions SSE builders (text_completion format) ────────────
+
+  fun buildCompletionStreamChunk(cmplId: String, modelId: String, now: Long, token: String): String =
+    "data: ${buildCompletionChunkJson(cmplId, modelId, now, BridgeUtils.escapeSseText(token), null)}\n\n"
+
+  fun buildCompletionStreamFinalChunk(cmplId: String, modelId: String, now: Long, finishReason: String = FinishReason.STOP): String =
+    "data: ${buildCompletionChunkJson(cmplId, modelId, now, "", finishReason)}\n\n"
+
+  fun buildCompletionStreamUsageChunk(
+    cmplId: String, modelId: String, now: Long,
+    promptTokens: Int, completionTokens: Int,
+    timingsJson: String? = null,
+  ): String {
+    val total = promptTokens + completionTokens
+    val timingsSuffix = if (timingsJson != null) ""","timings":$timingsJson""" else ""
+    return """data: {"id":"$cmplId","object":"text_completion","created":$now,"model":"$modelId","choices":[],"usage":{"prompt_tokens":$promptTokens,"completion_tokens":$completionTokens,"total_tokens":$total}$timingsSuffix}""" + "\n\n"
+  }
+
+  private fun buildCompletionChunkJson(
+    cmplId: String,
+    modelId: String,
+    now: Long,
+    text: String,
+    finishReason: String?,
+  ): String {
+    val fr = if (finishReason != null) "\"$finishReason\"" else "null"
+    return """{"id":"$cmplId","object":"text_completion","created":$now,"model":"$modelId","choices":[{"text":"$text","index":0,"finish_reason":$fr}]}"""
+  }
+
   private fun buildChatChunkJson(
     chatId: String,
     modelId: String,
