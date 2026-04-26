@@ -63,13 +63,8 @@
         </activity>
 
         <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
-            android:exported="false"
-            android:theme="@style/Theme.OlliteRT.OssLicenses" />
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
-            android:exported="false"
-            android:theme="@style/Theme.OlliteRT.OssLicenses" />
+            android:name="com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

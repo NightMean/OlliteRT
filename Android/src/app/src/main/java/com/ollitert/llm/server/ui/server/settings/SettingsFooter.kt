@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.server.settings
 
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -51,6 +52,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
@@ -174,17 +176,36 @@ internal fun ColumnScope.SettingsFooter(vm: SettingsViewModel, context: Context)
     }
   }
 
-  Text(
-    text = stringResource(R.string.settings_privacy_policy),
-    style = MaterialTheme.typography.bodySmall,
-    color = OlliteRTPrimary,
-    textDecoration = TextDecoration.Underline,
-    modifier = Modifier
-      .align(Alignment.CenterHorizontally)
-      .clip(RoundedCornerShape(4.dp))
-      .clickable { uriHandler.openUri(GitHubConfig.PRIVACY_POLICY_URL) }
-      .padding(horizontal = 8.dp, vertical = 2.dp),
-  )
+  FlowRow(
+    modifier = Modifier.align(Alignment.CenterHorizontally),
+    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+  ) {
+    Text(
+      text = stringResource(R.string.settings_licenses),
+      style = MaterialTheme.typography.bodySmall,
+      color = OlliteRTPrimary,
+      textDecoration = TextDecoration.Underline,
+      modifier = Modifier
+        .clip(RoundedCornerShape(4.dp))
+        .clickable {
+          context.startActivity(
+            Intent(context, OssLicensesMenuActivity::class.java)
+              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          )
+        }
+        .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+    Text(
+      text = stringResource(R.string.settings_privacy_policy),
+      style = MaterialTheme.typography.bodySmall,
+      color = OlliteRTPrimary,
+      textDecoration = TextDecoration.Underline,
+      modifier = Modifier
+        .clip(RoundedCornerShape(4.dp))
+        .clickable { uriHandler.openUri(GitHubConfig.PRIVACY_POLICY_URL) }
+        .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+  }
   Text(
     text = stringResource(R.string.settings_version_footer, BuildConfig.VERSION_NAME, BuildConfig.GIT_HASH),
     style = MaterialTheme.typography.bodySmall,
