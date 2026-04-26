@@ -364,7 +364,7 @@ class KtorServer(
 
     // ── Server control endpoints ──
     // IMPORTANT: When adding new /v1/server/* endpoints, also update the HA YAML
-    // template in SettingsScreen.kt (haConfig buildString block) with the new rest_command.
+    // template in HomeAssistantCard.kt (haConfig buildString block) with the new rest_command.
 
     post("/v1/server/stop") {
       if (!requireAuth(call)) return@post

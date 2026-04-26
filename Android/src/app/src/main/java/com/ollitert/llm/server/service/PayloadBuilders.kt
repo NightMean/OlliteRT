@@ -108,7 +108,7 @@ object PayloadBuilders {
    * so a single poll returns status + all performance metrics.
    */
   // IMPORTANT: When adding or changing fields here, also update the HA YAML template
-  // in SettingsScreen.kt (haConfig buildString block) so the generated configuration stays in sync.
+  // in HomeAssistantCard.kt (haConfig buildString block) so the generated configuration stays in sync.
   fun health(
     activeModel: Model?,
     idleUnloadedModelName: String?,

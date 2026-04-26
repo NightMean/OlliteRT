@@ -1,4 +1,4 @@
-// Bundle config for the Google AI Edge Gallery app.
+// Bundle config for the OlliteRT app.
 // See: https://developer.android.com/studio/build/building-cmdline#bundleconfig
 {
   "optimizations": {

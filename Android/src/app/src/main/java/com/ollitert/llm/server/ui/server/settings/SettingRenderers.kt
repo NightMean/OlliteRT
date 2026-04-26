@@ -79,7 +79,7 @@ fun SettingDivider(verticalPadding: Int = 16) {
 
 /**
  * Standard toggle setting row: label + description on the left, Switch on the right.
- * Replaces ~20 identical Row > Column + Switch blocks across SettingsScreen.
+ * Replaces ~20 identical Row > Column + Switch blocks across the settings card files.
  */
 @Composable
 fun ToggleSettingRow(
