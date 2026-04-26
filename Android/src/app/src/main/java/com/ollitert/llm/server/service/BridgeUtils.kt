@@ -38,8 +38,25 @@ object BridgeUtils {
     return java.security.MessageDigest.isEqual(expected, actual)
   }
 
-  fun escapeSseText(value: String): String =
-    value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+  fun escapeSseText(value: String): String = buildString(value.length) {
+    for (ch in value) {
+      when (ch) {
+        '\\' -> append("\\\\")
+        '"' -> append("\\\"")
+        '\n' -> append("\\n")
+        '\r' -> append("\\r")
+        '\t' -> append("\\t")
+        '\b' -> append("\\b")
+        '' -> append("\\f")
+        else -> if (ch.code in 0x00..0x1F) {
+          append("\\u")
+          append(ch.code.toString(16).padStart(4, '0'))
+        } else {
+          append(ch)
+        }
+      }
+    }
+  }
 
   // ── ID generation ──────────────────────────────────────────────────────
   // OpenAI-compatible IDs use specific prefixes per object type.
