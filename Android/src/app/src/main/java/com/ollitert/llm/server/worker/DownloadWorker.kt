@@ -33,7 +33,9 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.DOWNLOAD_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
+import com.ollitert.llm.server.data.DOWNLOAD_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
 import com.ollitert.llm.server.data.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.KEY_MODEL_COMMIT_HASH
@@ -165,6 +167,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             val outputFileBytes = outputTmpFile.length()
 
             val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
+            connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
             try {
               if (accessToken != null) {
                 Log.d(TAG, "Using access token: ${accessToken.subSequence(0, 10)}...")

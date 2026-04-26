@@ -107,6 +107,11 @@ const val MAX_VALID_PORT = 65535
 const val HTTP_CONNECT_TIMEOUT_MS = 5_000
 const val HTTP_READ_TIMEOUT_MS = 10_000
 
+// Download timeouts — longer than metadata-fetch timeouts because model downloads
+// are multi-GB and can legitimately pause during network congestion.
+const val DOWNLOAD_CONNECT_TIMEOUT_MS = 30_000
+const val DOWNLOAD_READ_TIMEOUT_MS = 60_000
+
 // CORS preflight response cache duration (24 hours).
 const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400"
 
