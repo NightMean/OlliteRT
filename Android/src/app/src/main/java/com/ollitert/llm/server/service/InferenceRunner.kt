@@ -873,7 +873,7 @@ class InferenceRunner(
             }
           }
           logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
-          try { format.emitCancellation(writer, headerWritten) } catch (_: Exception) {}
+          try { format.emitCancellation(writer, headerWritten) } catch (e: Exception) { Log.w("OlliteRT", "emitCancellation failed during cleanup", e) }
         }
       } catch (_: kotlinx.coroutines.CancellationException) {
         // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
