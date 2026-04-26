@@ -97,6 +97,26 @@ class AudioTranscriptionHandler(
       val prompt = fields["prompt"]?.takeIf { it.isNotBlank() }
       val temperatureStr = fields["temperature"]?.takeIf { it.isNotBlank() }
       val responseFormat = fields["response_format"]?.takeIf { it.isNotBlank() } ?: "json"
+
+      // srt/vtt require word-level timestamps — LiteRT returns raw text without timing data
+      if (responseFormat in TranscriptionFormatter.UNSUPPORTED_FORMATS) {
+        return openAiError(
+          400,
+          "response_format '$responseFormat' requires word-level timing which the LiteRT runtime does not provide. Use json, text, or verbose_json.",
+          "invalid_request_error",
+          "unsupported_response_format",
+        )
+      }
+
+      if (responseFormat !in TranscriptionFormatter.VALID_FORMATS) {
+        return openAiError(
+          400,
+          "Invalid response_format '$responseFormat'. Supported: json, text, verbose_json.",
+          "invalid_request_error",
+          "invalid_response_format",
+        )
+      }
+
       val requestedModel = fields["model"]
 
       if (requestedModel != null) {
@@ -263,19 +283,19 @@ class AudioTranscriptionHandler(
         )
       }
 
-      // Build response
-      val responseBody = if (responseFormat == "text") {
-        text
-      } else {
-        """{"text":${escapeJsonString(text)}}"""
+      val inferenceSeconds = inferenceMs / 1000.0
+
+      val responseBody = when (responseFormat) {
+        "text" -> TranscriptionFormatter.toText(text)
+        "verbose_json" -> TranscriptionFormatter.toVerboseJson(text, language, inferenceSeconds)
+        else -> TranscriptionFormatter.toJson(text)
       }
 
       captureResponse(responseBody)
 
-      return if (responseFormat == "text") {
-        HttpResponse.PlainText(200, "text/plain; charset=utf-8", responseBody)
-      } else {
-        httpOkJson(responseBody)
+      return when (responseFormat) {
+        "text" -> HttpResponse.PlainText(200, "text/plain; charset=utf-8", responseBody)
+        else -> httpOkJson(responseBody)
       }
     } finally {
       tempFile.delete()

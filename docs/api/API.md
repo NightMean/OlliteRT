@@ -185,21 +185,45 @@ Requires a model with audio capability (e.g. Gemma 4, Gemma 3n).
 | `language` | string | No | Language hint (e.g. `en`, `de`, `ja`) |
 | `prompt` | string | No | Context hint to guide transcription |
 | `temperature` | number | No | Sampling temperature override |
-| `response_format` | string | No | `json` (default) or `text` |
+| `response_format` | string | No | `json` (default), `text`, or `verbose_json` |
 
 Supported audio formats: **WAV**, **MP3**, **OGG** (Vorbis), **FLAC**. Stereo WAV (16-bit PCM) is automatically downmixed to mono; other formats should be mono before sending.
 
-### Response (`response_format: "json"`)
+### Response Formats
+
+**`json`** (default) — `Content-Type: application/json`
 
 ```json
 {"text": "The transcribed text from the audio file."}
 ```
 
-### Response (`response_format: "text"`)
+**`text`** — `Content-Type: text/plain`
 
 ```
 The transcribed text from the audio file.
 ```
+
+**`verbose_json`** — `Content-Type: application/json`
+
+```json
+{
+  "task": "transcribe",
+  "language": "en",
+  "duration": 3.456,
+  "text": "The transcribed text from the audio file.",
+  "segments": [{
+    "id": 0,
+    "seek": 0,
+    "start": 0.0,
+    "end": 3.456,
+    "text": "The transcribed text from the audio file."
+  }]
+}
+```
+
+> `duration` reflects LLM inference time, not audio length. The model returns raw text without word-level timing, so the output contains a single segment spanning the full duration.
+
+> **Note:** `srt` and `vtt` formats are not supported — the LiteRT runtime does not provide word-level timing data required for subtitle generation. Requesting these formats returns HTTP 400.
 
 ### Example (curl)
 
