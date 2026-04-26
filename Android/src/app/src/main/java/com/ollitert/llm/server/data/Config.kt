@@ -17,6 +17,8 @@
 
 package com.ollitert.llm.server.data
 
+import androidx.annotation.StringRes
+import com.ollitert.llm.server.R
 import kotlin.math.abs
 
 /** The data types of configuration values. */
@@ -27,30 +29,29 @@ enum class ValueType {
   BOOLEAN,
 }
 
-// TODO: Extract ConfigKey labels to string resources for localization.
-data class ConfigKey(val id: String, val label: String)
+data class ConfigKey(val id: String, val label: String, @StringRes val labelResId: Int)
 
 object ConfigKeys {
-  val MAX_TOKENS = ConfigKey("max_tokens", "Max tokens")
-  val TOPK = ConfigKey("topk", "TopK")
-  val TOPP = ConfigKey("topp", "TopP")
-  val TEMPERATURE = ConfigKey("temperature", "Temperature")
-  val DEFAULT_MAX_TOKENS = ConfigKey("default_max_tokens", "Default max tokens")
-  val DEFAULT_TOPK = ConfigKey("default_topk", "Default TopK")
-  val DEFAULT_TOPP = ConfigKey("default_topp", "Default TopP")
-  val DEFAULT_TEMPERATURE = ConfigKey("default_temperature", "Default temperature")
-  val SUPPORT_IMAGE = ConfigKey("support_image", "Support image")
-  val SUPPORT_AUDIO = ConfigKey("support_audio", "Support audio")
-  val SUPPORT_THINKING = ConfigKey("support_thinking", "Support thinking")
-  val ENABLE_THINKING = ConfigKey("enable_thinking", "Enable thinking")
-  val ACCELERATOR = ConfigKey("accelerator", "Accelerator")
-  val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "Vision accelerator")
-  val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators")
-  val NAME = ConfigKey("name", "Name")
-  val MODEL_TYPE = ConfigKey("model_type", "Model type")
-  val PREFILL_TOKENS = ConfigKey("prefill_tokens", "Prefill tokens")
-  val DECODE_TOKENS = ConfigKey("decode_tokens", "Decode tokens")
-  val NUMBER_OF_RUNS = ConfigKey("number_of_runs", "Number of runs")
+  val MAX_TOKENS = ConfigKey("max_tokens", "Max tokens", R.string.config_label_max_tokens)
+  val TOPK = ConfigKey("topk", "TopK", R.string.config_label_topk)
+  val TOPP = ConfigKey("topp", "TopP", R.string.config_label_topp)
+  val TEMPERATURE = ConfigKey("temperature", "Temperature", R.string.config_label_temperature)
+  val DEFAULT_MAX_TOKENS = ConfigKey("default_max_tokens", "Default max tokens", R.string.config_label_default_max_tokens)
+  val DEFAULT_TOPK = ConfigKey("default_topk", "Default TopK", R.string.config_label_default_topk)
+  val DEFAULT_TOPP = ConfigKey("default_topp", "Default TopP", R.string.config_label_default_topp)
+  val DEFAULT_TEMPERATURE = ConfigKey("default_temperature", "Default temperature", R.string.config_label_default_temperature)
+  val SUPPORT_IMAGE = ConfigKey("support_image", "Support image", R.string.config_label_support_image)
+  val SUPPORT_AUDIO = ConfigKey("support_audio", "Support audio", R.string.config_label_support_audio)
+  val SUPPORT_THINKING = ConfigKey("support_thinking", "Support thinking", R.string.config_label_support_thinking)
+  val ENABLE_THINKING = ConfigKey("enable_thinking", "Enable thinking", R.string.config_label_enable_thinking)
+  val ACCELERATOR = ConfigKey("accelerator", "Accelerator", R.string.config_label_accelerator)
+  val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "Vision accelerator", R.string.config_label_vision_accelerator)
+  val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators", R.string.config_label_compatible_accelerators)
+  val NAME = ConfigKey("name", "Name", R.string.config_label_name)
+  val MODEL_TYPE = ConfigKey("model_type", "Model type", R.string.config_label_model_type)
+  val PREFILL_TOKENS = ConfigKey("prefill_tokens", "Prefill tokens", R.string.config_label_prefill_tokens)
+  val DECODE_TOKENS = ConfigKey("decode_tokens", "Decode tokens", R.string.config_label_decode_tokens)
+  val NUMBER_OF_RUNS = ConfigKey("number_of_runs", "Number of runs", R.string.config_label_number_of_runs)
 }
 
 /**
