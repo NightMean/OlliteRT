@@ -53,4 +53,4 @@ fun httpUnauthorized(error: String) = HttpResponse.Json(
 )
 fun httpMethodNotAllowed() = httpJsonError(405, "method_not_allowed")
 fun httpPayloadTooLarge(error: String) = httpJsonError(413, error)
-fun httpInternalError(error: String) = httpJsonError(500, error)
+fun httpInternalError(error: String, suggestion: String? = null, kind: ErrorKind? = null) = httpJsonError(500, error, suggestion, kind)

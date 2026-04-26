@@ -107,7 +107,7 @@ class EndpointHandlers(
     if (text == null) {
       val (enrichedError, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
       ServerMetrics.incrementErrorCount(kind.category)
-      return httpBadRequest(enrichedError)
+      return httpInternalError(enrichedError)
     }
     val promptTokens = estimateTokens(prompt)
     val completionTokens = estimateTokens(text)
@@ -235,12 +235,12 @@ class EndpointHandlers(
       if (rawText == null) {
         val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
         ServerMetrics.incrementErrorCount(kind.category)
+        val suggestion = ErrorSuggestions.suggest(kind, context)
         if (logId != null) {
-          val suggestion = ErrorSuggestions.suggest(kind, context)
           val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
-        return httpBadRequest(errorMsg)
+        return httpInternalError(errorMsg, suggestion, kind)
       }
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
 
@@ -346,12 +346,12 @@ class EndpointHandlers(
     if (rawText == null) {
       val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
       ServerMetrics.incrementErrorCount(kind.category)
+      val suggestion = ErrorSuggestions.suggest(kind, context)
       if (logId != null) {
-        val suggestion = ErrorSuggestions.suggest(kind, context)
         val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
         RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
       }
-      return httpBadRequest(errorMsg)
+      return httpInternalError(errorMsg, suggestion, kind)
     }
 
     val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSequences?.ifEmpty { null })
@@ -456,12 +456,12 @@ class EndpointHandlers(
       if (text == null) {
         val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
         ServerMetrics.incrementErrorCount(kind.category)
+        val suggestion = ErrorSuggestions.suggest(kind, context)
         if (logId != null) {
-          val suggestion = ErrorSuggestions.suggest(kind, context)
           val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
         }
-        return httpBadRequest(errorMsg)
+        return httpInternalError(errorMsg, suggestion, kind)
       }
 
       // Check if the model output contains tool call(s)
