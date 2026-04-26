@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -371,28 +372,27 @@ class RequestLogStoreTest {
     assertEquals("removeOlderThan should not fire onEntriesCleared", 0, cb.clearCount)
   }
 
-  // ── setMaxEntries(0) — no limit mode ─────────────────────────────────────
+  // ── setMaxEntries(0) — hard ceiling mode ─────────────────────────────────
 
   @Test
-  fun setMaxEntriesZeroMeansNoLimit() {
+  fun setMaxEntriesZeroUsesHardCeiling() {
     RequestLogStore.setMaxEntries(0)
     repeat(200) { RequestLogStore.add(entry("e$it")) }
-    assertEquals("0 = no limit, all 200 entries should survive", 200, RequestLogStore.entries.value.size)
+    assertEquals("entries below hard ceiling should all survive", 200, RequestLogStore.entries.value.size)
   }
 
   @Test
-  fun setMaxEntriesZeroDoesNotTrimExisting() {
+  fun setMaxEntriesZeroDoesNotTrimExistingBelowCeiling() {
     repeat(10) { RequestLogStore.add(entry("e$it")) }
     RequestLogStore.setMaxEntries(0)
-    assertEquals("setting 0 should not trim existing entries", 10, RequestLogStore.entries.value.size)
+    assertEquals("existing entries below hard ceiling should survive", 10, RequestLogStore.entries.value.size)
   }
 
   @Test
-  fun addRespectsNoLimitWhenMaxIsZero() {
+  fun addRespectsHardCeilingWhenMaxIsZero() {
     RequestLogStore.setMaxEntries(0)
     repeat(5) { RequestLogStore.add(entry("e$it")) }
     assertEquals(5, RequestLogStore.entries.value.size)
-    // Add more — nothing should be evicted
     repeat(5) { RequestLogStore.add(entry("f$it")) }
     assertEquals(10, RequestLogStore.entries.value.size)
   }
@@ -435,5 +435,53 @@ class RequestLogStoreTest {
     // No registerCancellation — cancelRequest should be a no-op (nothing to cancel)
     RequestLogStore.cancelRequest("y")
     assertFalse("cancelledByUser should NOT be set when no callback was registered", RequestLogStore.entries.value[0].cancelledByUser)
+  }
+
+  // ── Hard ceiling when maxEntries == 0 ────────────────────────────────
+
+  @Test
+  fun effectiveMaxEntriesReturnsHardCeilingWhenMaxIsZero() {
+    RequestLogStore.setMaxEntries(0)
+    assertEquals(
+      "effective cap should equal HARD_MAX_IN_MEMORY_ENTRIES",
+      HARD_MAX_IN_MEMORY_ENTRIES,
+      RequestLogStore.effectiveMaxEntries,
+    )
+  }
+
+  @Test
+  fun effectiveMaxEntriesReturnsUserValueWhenNonZero() {
+    RequestLogStore.setMaxEntries(500)
+    assertEquals(500, RequestLogStore.effectiveMaxEntries)
+  }
+
+  // ── Memory pressure trimming ─────────────────────────────────────────
+
+  @Test
+  fun trimToPercentageReducesEntryCount() {
+    RequestLogStore.setMaxEntries(100)
+    repeat(100) { RequestLogStore.add(entry("e$it")) }
+    assertEquals(100, RequestLogStore.entries.value.size)
+
+    RequestLogStore.trimToPercentage(50)
+
+    assertEquals("should trim to 50% of current size", 50, RequestLogStore.entries.value.size)
+    assertEquals("newest entry should survive", "e99", RequestLogStore.entries.value.first().id)
+  }
+
+  @Test
+  fun trimToPercentageClampsToMinimumOfOne() {
+    RequestLogStore.setMaxEntries(100)
+    repeat(100) { RequestLogStore.add(entry("e$it")) }
+
+    RequestLogStore.trimToPercentage(0)
+
+    assertEquals("should keep at least 1 entry", 1, RequestLogStore.entries.value.size)
+  }
+
+  @Test
+  fun trimToPercentageOnEmptyListIsNoOp() {
+    RequestLogStore.trimToPercentage(50)
+    assertTrue(RequestLogStore.entries.value.isEmpty())
   }
 }

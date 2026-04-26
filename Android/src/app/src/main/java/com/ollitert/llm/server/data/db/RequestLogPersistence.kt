@@ -19,6 +19,7 @@ package com.ollitert.llm.server.data.db
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.DEFAULT_IN_MEMORY_LOG_CAP
+import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
@@ -169,7 +170,8 @@ class RequestLogPersistence @Inject constructor(
 
   private suspend fun loadFromDb() {
     val maxEntries = ServerPrefs.getLogMaxEntries(context)
-    val entities = dao.getRecent(maxEntries)
+    val dbLimit = if (maxEntries == 0) HARD_MAX_IN_MEMORY_ENTRIES else maxEntries
+    val entities = dao.getRecent(dbLimit)
     if (entities.isNotEmpty()) {
       val entries = entities.map { it.toEntry() }
       RequestLogStore.loadEntries(entries)

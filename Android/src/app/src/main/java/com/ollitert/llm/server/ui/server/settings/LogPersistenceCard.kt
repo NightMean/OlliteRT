@@ -67,8 +67,10 @@ internal fun LogPersistenceCard(vm: SettingsViewModel) {
       onValueChange = { text ->
         maxEntriesText = text
         text.toIntOrNull()?.let { vm.logMaxEntriesEntry.update(it) }
+        vm.clearError(LOG_MAX_ENTRIES.key)
       },
       searchQuery = vm.searchQuery,
+      isError = vm.hasError(LOG_MAX_ENTRIES.key),
       enabled = vm.isSettingEnabled(LOG_MAX_ENTRIES.key),
       modifier = Modifier.alpha(childAlpha),
     )

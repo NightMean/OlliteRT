@@ -150,6 +150,7 @@ const val DOWNLOAD_UNZIP_BUFFER_SIZE = 65536
 
 // Log persistence pruning intervals.
 const val DEFAULT_IN_MEMORY_LOG_CAP = 100
+const val HARD_MAX_IN_MEMORY_ENTRIES = 10_000
 const val MIN_PRUNE_INTERVAL_MS = 60_000L          // 1 minute
 const val MAX_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
 

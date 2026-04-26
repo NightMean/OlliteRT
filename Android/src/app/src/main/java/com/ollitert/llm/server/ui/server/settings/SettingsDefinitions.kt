@@ -355,7 +355,7 @@ val LOG_MAX_ENTRIES = SettingDef.NumericPlain(
   default = 500,
   prefsKey = "log_max_entries",
   min = 0,
-  max = 99999,
+  max = 10000,
   read = { ServerPrefs.getLogMaxEntries(it) },
   write = { ctx, v -> ServerPrefs.setLogMaxEntries(ctx, v) },
 )

@@ -138,9 +138,9 @@ class ValidatorsTest {
   }
 
   @Test
-  fun `LOG_MAX_ENTRIES range is 0 to 99999`() {
+  fun `LOG_MAX_ENTRIES range is 0 to 10000`() {
     assertEquals(0, LOG_MAX_ENTRIES.min)
-    assertEquals(99999, LOG_MAX_ENTRIES.max)
+    assertEquals(10000, LOG_MAX_ENTRIES.max)
   }
 
   @Test

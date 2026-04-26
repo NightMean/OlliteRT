@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
 import com.ollitert.llm.server.service.RequestLogStore.DEFAULT_MAX_ENTRIES
 import com.ollitert.llm.server.service.RequestLogStore._entries
 import com.ollitert.llm.server.service.RequestLogStore.cancelRequest
@@ -107,6 +108,14 @@ object RequestLogStore {
   @Volatile var maxEntries: Int = DEFAULT_MAX_ENTRIES
     private set
 
+  /**
+   * Actual in-memory cap accounting for [HARD_MAX_IN_MEMORY_ENTRIES] ceiling.
+   * When [maxEntries] is 0 ("no limit"), defaults to the hard ceiling.
+   * Non-zero values are used as-is (the UI caps input at [HARD_MAX_IN_MEMORY_ENTRIES]).
+   */
+  val effectiveMaxEntries: Int
+    get() = if (maxEntries == 0) HARD_MAX_IN_MEMORY_ENTRIES else maxEntries
+
   private val idCounter = AtomicLong(0)
 
   /** Callback for the persistence layer to observe add/update/clear events. */
@@ -139,11 +148,9 @@ object RequestLogStore {
    */
   fun setMaxEntries(max: Int) {
     maxEntries = max
-    // 0 means no limit — skip trimming
-    if (max > 0) {
-      _entries.update { current ->
-        if (current.size > max) current.take(max) else current
-      }
+    val cap = effectiveMaxEntries
+    _entries.update { current ->
+      if (current.size > cap) current.take(cap) else current
     }
   }
 
@@ -175,8 +182,8 @@ object RequestLogStore {
       buildList {
         add(entry) // newest first
         addAll(current)
-        // maxEntries == 0 means no limit (keep all entries)
-        if (maxEntries > 0 && size > maxEntries) removeAt(lastIndex)
+        val cap = effectiveMaxEntries
+        if (size > cap) removeAt(lastIndex)
       }
     }
     persistenceCallback?.onEntryAdded(entry)
@@ -276,6 +283,18 @@ object RequestLogStore {
    */
   fun removeOlderThan(cutoffMs: Long) {
     _entries.update { current -> current.filter { it.timestamp >= cutoffMs } }
+  }
+
+  /**
+   * Shed entries under memory pressure. Keeps the newest [percentage]% of entries.
+   * Called from [ServerService.onTrimMemory] when the system is critically low on memory.
+   */
+  fun trimToPercentage(percentage: Int) {
+    _entries.update { current ->
+      if (current.isEmpty()) return@update current
+      val keep = (current.size * percentage / 100).coerceAtLeast(1)
+      current.take(keep)
+    }
   }
 
   /**

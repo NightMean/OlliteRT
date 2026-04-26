@@ -324,7 +324,7 @@
   <string name="settings_persist_logs" translatable="false">Persist Logs to Database</string>
   <string name="settings_persist_logs_desc" translatable="false">Save activity logs to a local database so they survive app restarts. Disabled by default.</string>
   <string name="settings_max_log_entries_label" translatable="false">Maximum Log Entries</string>
-  <string name="settings_max_log_entries_desc" translatable="false">Maximum entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit.</string>
+  <string name="settings_max_log_entries_desc" translatable="false">Maximum entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit (capped at 10,000 in memory).</string>
   <string name="settings_auto_delete_label" translatable="false">Auto-Delete After</string>
   <string name="settings_auto_delete_desc" translatable="false">Persisted logs older than this are automatically removed from the database. Does not affect the current session\'s in-memory logs.\nSet to 0 to disable.</string>
   <string name="settings_clear_all_logs_button" translatable="false">Clear All Logs</string>

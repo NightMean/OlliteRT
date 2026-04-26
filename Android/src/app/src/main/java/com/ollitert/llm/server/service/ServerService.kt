@@ -652,6 +652,8 @@ class ServerService : Service() {
         level = LogLevel.WARNING,
       )
       System.gc()
+      // Shed 50% of in-memory log entries to free JVM heap before OOM killer strikes.
+      RequestLogStore.trimToPercentage(50)
     }
   }
 
