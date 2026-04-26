@@ -108,6 +108,9 @@ class KtorServer(
       configureCors()
       install(ContentNegotiation) { json(json) }
       install(StatusPages) {
+        status(HttpStatusCode.MethodNotAllowed) { call, _ ->
+          withGetLogging(call) { httpMethodNotAllowed() }
+        }
         status(HttpStatusCode.NotFound) { call, _ ->
           val uri = call.request.uri
           val unsupportedMsg = RouteResolver.getUnsupportedEndpointMessage(uri)
