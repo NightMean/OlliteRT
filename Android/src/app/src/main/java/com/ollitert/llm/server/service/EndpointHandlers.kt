@@ -204,7 +204,6 @@ class EndpointHandlers(
 
     val stopSeqs = req.stop.ifEmpty { null }
     return if (req.stream == true) {
-      ServerMetrics.onInferenceStarted()
       inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = sampler.configSnapshot, json = json, prefs = prefs)
     } else {
       ServerMetrics.onInferenceStarted()
@@ -300,7 +299,6 @@ class EndpointHandlers(
     val stopSeqs = stopSequences?.ifEmpty { null }
 
     return if (req.stream == true) {
-      ServerMetrics.onInferenceStarted()
       inferenceRunner.streamCompletions(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, configSnapshot = sampler.configSnapshot, json = json, prefs = prefs)
     } else {
       ServerMetrics.onInferenceStarted()
@@ -383,7 +381,6 @@ class EndpointHandlers(
     val sampler = resolveSamplerOverrides(model, prefs, req.temperature, req.top_p, req.top_k, req.max_output_tokens, logId)
 
     return if (req.stream == true) {
-      ServerMetrics.onInferenceStarted()
       inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler.configSnapshot, json = json, tools = if (hasTools) tools else null, prefs = prefs)
     } else {
       ServerMetrics.onInferenceStarted()

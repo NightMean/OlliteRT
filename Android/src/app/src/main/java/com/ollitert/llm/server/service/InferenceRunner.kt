@@ -881,6 +881,7 @@ class InferenceRunner(
         )
       }
     }
+    ServerMetrics.onInferenceStarted()
 
     val enableThinking = model.isThinkingEnabled
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
