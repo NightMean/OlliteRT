@@ -202,13 +202,22 @@ object ServerPrefs {
   private val RESOLVE_CLIENT_HOSTNAMES = BoolPref(KEY_RESOLVE_CLIENT_HOSTNAMES, DEFAULT_RESOLVE_CLIENT_HOSTNAMES)
   private val HIDE_HEALTH_LOGS = BoolPref(KEY_HIDE_HEALTH_LOGS, DEFAULT_HIDE_HEALTH_LOGS)
   private val UPDATE_CHECK_ENABLED = BoolPref(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
+  // Numeric prefs
+  private val PORT = IntPref(KEY_PORT, DEFAULT_PORT)
+  private val KEEP_ALIVE_MINUTES = IntPref(KEY_KEEP_ALIVE_MINUTES, DEFAULT_KEEP_ALIVE_MINUTES)
+  private val LOG_MAX_ENTRIES = IntPref(KEY_LOG_MAX_ENTRIES, DEFAULT_LOG_MAX_ENTRIES)
+  private val LOG_AUTO_DELETE_MINUTES = LongPref(KEY_LOG_AUTO_DELETE_MINUTES, DEFAULT_LOG_AUTO_DELETE_MINUTES.toLong())
+  private val UPDATE_CHECK_INTERVAL_HOURS = IntPref(KEY_UPDATE_CHECK_INTERVAL_HOURS, DEFAULT_UPDATE_CHECK_INTERVAL_HOURS)
+  private val UPDATE_CHECK_CONSECUTIVE_FAILURES = IntPref(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, 0)
+  private val MANUAL_START_COUNT = IntPref(KEY_MANUAL_START_COUNT, 0)
+  private val ENGAGEMENT_PROMPT_SHOW_COUNT = IntPref(KEY_ENGAGEMENT_PROMPT_SHOW_COUNT, 0)
+  private val ALLOWLIST_CONTENT_VERSION = IntPref(KEY_ALLOWLIST_CONTENT_VERSION, 0)
 
   // ── Public accessors ──────────────────────────────────────────────────
 
   fun isEnabled(context: Context): Boolean = get(context, ENABLED)
 
-  fun getPort(context: Context): Int =
-    prefs(context).getInt(KEY_PORT, DEFAULT_PORT)
+  fun getPort(context: Context): Int = get(context, PORT)
 
   fun getHfToken(context: Context): String =
     prefs(context).getString(KEY_HF_TOKEN, "")
@@ -402,39 +411,19 @@ object ServerPrefs {
   fun isKeepAliveEnabled(context: Context): Boolean = get(context, KEEP_ALIVE_ENABLED)
   fun setKeepAliveEnabled(context: Context, enabled: Boolean) = set(context, KEEP_ALIVE_ENABLED, enabled)
 
-  fun getKeepAliveMinutes(context: Context): Int =
-    prefs(context).getInt(KEY_KEEP_ALIVE_MINUTES, DEFAULT_KEEP_ALIVE_MINUTES)
-
-  fun setKeepAliveMinutes(context: Context, minutes: Int) {
-    prefs(context).edit().putInt(KEY_KEEP_ALIVE_MINUTES, minutes).apply()
-  }
+  fun getKeepAliveMinutes(context: Context): Int = get(context, KEEP_ALIVE_MINUTES)
+  fun setKeepAliveMinutes(context: Context, minutes: Int) = set(context, KEEP_ALIVE_MINUTES, minutes)
 
   // --- Log Persistence ---
 
   fun isLogPersistenceEnabled(context: Context): Boolean = get(context, LOG_PERSISTENCE_ENABLED)
   fun setLogPersistenceEnabled(context: Context, enabled: Boolean) = set(context, LOG_PERSISTENCE_ENABLED, enabled)
 
-  fun getLogMaxEntries(context: Context): Int =
-    prefs(context)
-      .getInt(KEY_LOG_MAX_ENTRIES, DEFAULT_LOG_MAX_ENTRIES)
+  fun getLogMaxEntries(context: Context): Int = get(context, LOG_MAX_ENTRIES)
+  fun setLogMaxEntries(context: Context, maxEntries: Int) = set(context, LOG_MAX_ENTRIES, maxEntries)
 
-  fun setLogMaxEntries(context: Context, maxEntries: Int) {
-    prefs(context)
-      .edit()
-      .putInt(KEY_LOG_MAX_ENTRIES, maxEntries)
-      .apply()
-  }
-
-  fun getLogAutoDeleteMinutes(context: Context): Long =
-    prefs(context)
-      .getLong(KEY_LOG_AUTO_DELETE_MINUTES, DEFAULT_LOG_AUTO_DELETE_MINUTES.toLong())
-
-  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) {
-    prefs(context)
-      .edit()
-      .putLong(KEY_LOG_AUTO_DELETE_MINUTES, minutes)
-      .apply()
-  }
+  fun getLogAutoDeleteMinutes(context: Context): Long = get(context, LOG_AUTO_DELETE_MINUTES)
+  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) = set(context, LOG_AUTO_DELETE_MINUTES, minutes)
 
   // --- Compact Image Data ---
 
@@ -452,12 +441,8 @@ object ServerPrefs {
   fun isUpdateCheckEnabled(context: Context): Boolean = get(context, UPDATE_CHECK_ENABLED)
   fun setUpdateCheckEnabled(context: Context, enabled: Boolean) = set(context, UPDATE_CHECK_ENABLED, enabled)
 
-  fun getUpdateCheckIntervalHours(context: Context): Int =
-    prefs(context).getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, DEFAULT_UPDATE_CHECK_INTERVAL_HOURS)
-
-  fun setUpdateCheckIntervalHours(context: Context, hours: Int) {
-    prefs(context).edit().putInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, hours).apply()
-  }
+  fun getUpdateCheckIntervalHours(context: Context): Int = get(context, UPDATE_CHECK_INTERVAL_HOURS)
+  fun setUpdateCheckIntervalHours(context: Context, hours: Int) = set(context, UPDATE_CHECK_INTERVAL_HOURS, hours)
 
   fun getLastDismissedUpdateVersion(context: Context): String? =
     prefs(context).getString(KEY_LAST_DISMISSED_UPDATE_VERSION, null)
@@ -486,24 +471,19 @@ object ServerPrefs {
     }.apply()
   }
 
-  fun getUpdateCheckConsecutiveFailures(context: Context): Int =
-    prefs(context).getInt(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, 0)
-
-  fun setUpdateCheckConsecutiveFailures(context: Context, count: Int) {
-    prefs(context).edit().putInt(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, count).apply()
-  }
+  fun getUpdateCheckConsecutiveFailures(context: Context): Int = get(context, UPDATE_CHECK_CONSECUTIVE_FAILURES)
+  fun setUpdateCheckConsecutiveFailures(context: Context, count: Int) = set(context, UPDATE_CHECK_CONSECUTIVE_FAILURES, count)
 
   // ---------------------------------------------------------------------------
   // Engagement Prompt
   // ---------------------------------------------------------------------------
 
   /** Number of times the user has manually pressed "Start Server" (excludes auto-start on boot). */
-  fun getManualStartCount(context: Context): Int =
-    prefs(context).getInt(KEY_MANUAL_START_COUNT, 0)
+  fun getManualStartCount(context: Context): Int = get(context, MANUAL_START_COUNT)
 
   fun incrementManualStartCount(context: Context): Int {
-    val newCount = getManualStartCount(context) + 1
-    prefs(context).edit().putInt(KEY_MANUAL_START_COUNT, newCount).apply()
+    val newCount = get(context, MANUAL_START_COUNT) + 1
+    set(context, MANUAL_START_COUNT, newCount)
     return newCount
   }
 
@@ -516,12 +496,11 @@ object ServerPrefs {
   }
 
   /** How many times the engagement prompt has been shown (max 2 lifetime). */
-  fun getEngagementPromptShowCount(context: Context): Int =
-    prefs(context).getInt(KEY_ENGAGEMENT_PROMPT_SHOW_COUNT, 0)
+  fun getEngagementPromptShowCount(context: Context): Int = get(context, ENGAGEMENT_PROMPT_SHOW_COUNT)
 
   fun incrementEngagementPromptShowCount(context: Context): Int {
-    val newCount = getEngagementPromptShowCount(context) + 1
-    prefs(context).edit().putInt(KEY_ENGAGEMENT_PROMPT_SHOW_COUNT, newCount).apply()
+    val newCount = get(context, ENGAGEMENT_PROMPT_SHOW_COUNT) + 1
+    set(context, ENGAGEMENT_PROMPT_SHOW_COUNT, newCount)
     return newCount
   }
 
@@ -578,12 +557,8 @@ object ServerPrefs {
 
   // --- Model Update Detection ---
 
-  fun getAllowlistContentVersion(context: Context): Int =
-    prefs(context).getInt(KEY_ALLOWLIST_CONTENT_VERSION, 0)
-
-  fun setAllowlistContentVersion(context: Context, version: Int) {
-    prefs(context).edit().putInt(KEY_ALLOWLIST_CONTENT_VERSION, version).apply()
-  }
+  fun getAllowlistContentVersion(context: Context): Int = get(context, ALLOWLIST_CONTENT_VERSION)
+  fun setAllowlistContentVersion(context: Context, version: Int) = set(context, ALLOWLIST_CONTENT_VERSION, version)
 
   fun getIgnoredModelUpdates(context: Context): Set<String> =
     prefs(context).getStringSet(KEY_IGNORED_MODEL_UPDATES, emptySet()) ?: emptySet()
