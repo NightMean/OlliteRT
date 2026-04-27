@@ -18,6 +18,15 @@ package com.ollitert.llm.server.data
 
 import android.content.Context
 import android.util.Log
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 
 private const val PREFS_NAME = "llm_http_prefs"
 private const val KEY_ENABLED = "enabled"
@@ -319,21 +328,9 @@ object ServerPrefs {
    * Stored as a JSON string so it survives app restarts. Values are keyed by ConfigKey label.
    */
   fun setInferenceConfig(context: Context, modelName: String, configValues: Map<String, Any>) {
-    val json = org.json.JSONObject()
-    for ((key, value) in configValues) {
-      when (value) {
-        is Boolean -> json.put(key, value)
-        is Int -> json.put(key, value)
-        is Long -> json.put(key, value)
-        is Float -> json.put(key, value.toDouble())
-        is Double -> json.put(key, value)
-        is String -> json.put(key, value)
-        else -> json.put(key, value.toString())
-      }
-    }
     prefs(context)
       .edit()
-      .putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, json.toString())
+      .putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, encodeInferenceConfig(configValues))
       .apply()
   }
 
@@ -344,19 +341,7 @@ object ServerPrefs {
   fun getInferenceConfig(context: Context, modelName: String): Map<String, Any>? {
     val jsonStr = prefs(context)
       .getString(KEY_PREFIX_INFERENCE_CONFIG + modelName, null) ?: return null
-    return try {
-      val json = org.json.JSONObject(jsonStr)
-      val result = mutableMapOf<String, Any>()
-      for (key in json.keys()) {
-        val value = json.get(key)
-        // JSONObject returns Integer for small ints, Long for large — normalize
-        result[key] = value
-      }
-      result
-    } catch (e: Exception) {
-      android.util.Log.w(TAG, "Failed to parse inference config JSON", e)
-      null
-    }
+    return decodeInferenceConfig(jsonStr)
   }
 
   /** Removes any saved inference config overrides for a model, reverting it to defaults. */
@@ -705,3 +690,41 @@ data class RequestPrefsSnapshot(
   val sttTranscriptionPromptEnabled: Boolean = false,
   val sttTranscriptionPromptText: String = "",
 )
+
+internal fun encodeInferenceConfig(configValues: Map<String, Any>): String = buildJsonObject {
+  for ((key, value) in configValues) {
+    when (value) {
+      is Boolean -> put(key, JsonPrimitive(value))
+      is Int -> put(key, JsonPrimitive(value))
+      is Long -> put(key, JsonPrimitive(value))
+      is Float -> put(key, JsonPrimitive(value.toDouble()))
+      is Double -> put(key, JsonPrimitive(value))
+      is String -> put(key, JsonPrimitive(value))
+      else -> put(key, JsonPrimitive(value.toString()))
+    }
+  }
+}.toString()
+
+internal fun decodeInferenceConfig(jsonStr: String?): Map<String, Any>? {
+  if (jsonStr == null) return null
+  return try {
+    val json = Json.parseToJsonElement(jsonStr).jsonObject
+    val result = mutableMapOf<String, Any>()
+    for ((key, element) in json) {
+      val prim = element.jsonPrimitive
+      result[key] = when {
+        prim.isString -> prim.content
+        prim.booleanOrNull != null -> prim.boolean
+        prim.content.contains('.') || prim.content.contains('e', ignoreCase = true) ->
+          prim.double
+        else -> {
+          val longVal = prim.long
+          if (longVal in Int.MIN_VALUE..Int.MAX_VALUE) longVal.toInt() else longVal
+        }
+      }
+    }
+    result
+  } catch (_: Exception) {
+    null
+  }
+}
