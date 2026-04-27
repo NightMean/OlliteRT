@@ -555,6 +555,61 @@ class InferenceRunner(
     override fun buildLogEventSuffix(parsedToolCalls: List<ToolCall>): String = ""
   }
 
+  // ── Streaming state management ──────────────────────────────────────────
+
+  private inner class StreamState(
+    val model: Model,
+    val requestId: String,
+    val endpoint: String,
+    val logId: String?,
+    val streamStartMs: Long,
+    val keepPartial: Boolean,
+  ) {
+    val fullText = StringBuilder()
+    val fullThinking = StringBuilder()
+    var headerWritten = false
+    var thinkingTagOpened = false
+    var lastLogUpdateMs = 0L
+    var firstTokenMs = 0L
+    var inferenceCompleted = false
+    var stopSequenceTriggered = false
+
+    fun markCompleted() {
+      if (!inferenceCompleted) {
+        inferenceCompleted = true
+        ServerMetrics.onInferenceCompleted()
+      }
+    }
+
+    fun buildCancelledPartial(): String? {
+      if (!keepPartial || (fullText.isEmpty() && fullThinking.isEmpty())) return null
+      return buildString {
+        if (fullThinking.isNotEmpty()) {
+          append("<think>"); append(fullThinking); append("</think>")
+        }
+        append(fullText)
+      }
+    }
+
+    fun logCancellation() {
+      if (logId != null) {
+        RequestLogStore.unregisterCancellation(logId)
+        RequestLogStore.update(logId) {
+          it.copy(
+            partialText = buildCancelledPartial(),
+            isPending = false,
+            isCancelled = true,
+            statusCode = 499,
+            latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+          )
+        }
+      }
+      logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
+    }
+
+    fun elapsedMs(): Long = SystemClock.elapsedRealtime() - streamStartMs
+  }
+
   // ── Streaming inference: /v1/responses ───────────────────────────────────
 
   fun streamLlm(
