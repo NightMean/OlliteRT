@@ -213,6 +213,7 @@ class LlmHttpInferenceGatewayTest {
     cancelInference: () -> Unit = {},
     onToken: (String, Boolean, String?) -> Unit,
     onError: (String) -> Unit = { fail("unexpected error: $it") },
+    onInferenceFinished: () -> Unit = {},
   ) {
     InferenceGateway.executeStreaming(
       prompt = "p",
@@ -224,6 +225,7 @@ class LlmHttpInferenceGatewayTest {
       cancelInference = cancelInference,
       onToken = onToken,
       onError = onError,
+      onInferenceFinished = onInferenceFinished,
     )
   }
 
@@ -389,5 +391,68 @@ class LlmHttpInferenceGatewayTest {
     } finally {
       threadPool.shutdownNow()
     }
+  }
+
+  // ── onInferenceFinished tests ───────────────────────────────────────────
+
+  @Test
+  fun streamingOnInferenceFinishedCalledInsideLock() {
+    var finishedCalled = false
+    var lockHeldDuringFinished = false
+    streaming(
+      runInference = { _, onPartial, _ ->
+        onPartial("tok", false, null)
+        onPartial("", true, null)
+      },
+      onToken = { _, _, _ -> },
+      onInferenceFinished = {
+        finishedCalled = true
+        lockHeldDuringFinished = Thread.holdsLock(lock)
+      },
+    )
+    assertTrue("onInferenceFinished must be called", finishedCalled)
+    assertTrue("onInferenceFinished must run inside inferenceLock", lockHeldDuringFinished)
+  }
+
+  @Test
+  fun streamingOnInferenceFinishedCalledOnError() {
+    var finishedCalled = false
+    streaming(
+      runInference = { _, _, onError -> onError("boom") },
+      onToken = { _, _, _ -> },
+      onError = { },
+      onInferenceFinished = { finishedCalled = true },
+    )
+    assertTrue("onInferenceFinished must be called on error path", finishedCalled)
+  }
+
+  @Test
+  fun streamingOnInferenceFinishedCalledOnException() {
+    var finishedCalled = false
+    streaming(
+      runInference = { _, _, _ -> throw RuntimeException("crash") },
+      onToken = { _, _, _ -> },
+      onError = { },
+      onInferenceFinished = { finishedCalled = true },
+    )
+    assertTrue("onInferenceFinished must be called on exception path", finishedCalled)
+  }
+
+  @Test
+  fun streamingOnInferenceFinishedCalledOnTimeout() {
+    var finishedCalled = false
+    InferenceGateway.executeStreaming(
+      prompt = "p",
+      timeoutSeconds = 1,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, _, _ -> },
+      cancelInference = {},
+      onToken = { _, _, _ -> },
+      onError = { },
+      onInferenceFinished = { finishedCalled = true },
+    )
+    assertTrue("onInferenceFinished must be called on timeout", finishedCalled)
   }
 }

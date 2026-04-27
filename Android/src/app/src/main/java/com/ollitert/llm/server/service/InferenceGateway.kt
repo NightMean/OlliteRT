@@ -67,6 +67,7 @@ object InferenceGateway {
     cancelInference: () -> Unit,
     onToken: (partial: String, done: Boolean, thought: String?) -> Unit,
     onError: (error: String) -> Unit,
+    onInferenceFinished: () -> Unit = {},
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
   ) {
     executor.execute {
@@ -105,6 +106,10 @@ object InferenceGateway {
             try { cancelInference() } catch (t2: Throwable) {
               Log.w(TAG, "cancelInference() failed during exception recovery", t2)
             }
+          }
+        } finally {
+          try { onInferenceFinished() } catch (t: Throwable) {
+            Log.w(TAG, "onInferenceFinished() failed", t)
           }
         }
       }
