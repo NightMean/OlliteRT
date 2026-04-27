@@ -152,7 +152,7 @@ object ResponseRenderer {
     finishReason: String?,
   ): String {
     val fr = if (finishReason != null) "\"$finishReason\"" else "null"
-    return """{"id":"$cmplId","object":"text_completion","created":$now,"model":"$modelId","choices":[{"text":"$text","index":0,"finish_reason":$fr}]}"""
+    return """{"id":"$cmplId","object":"text_completion","created":$now,"model":"$modelId","choices":[{"text":"$text","index":0,"logprobs":null,"finish_reason":$fr}]}"""
   }
 
   private fun buildChatChunkJson(

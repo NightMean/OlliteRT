@@ -484,6 +484,18 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
+  fun completionStreamChunkHasLogprobsNull() {
+    val chunk = ResponseRenderer.buildCompletionStreamChunk("cmpl-1", "m", 1000L, "hello")
+    assertTrue("Completion chunk choice should have logprobs:null", chunk.contains("\"logprobs\":null"))
+  }
+
+  @Test
+  fun completionStreamFinalChunkHasLogprobsNull() {
+    val chunk = ResponseRenderer.buildCompletionStreamFinalChunk("cmpl-1", "m", 1000L)
+    assertTrue("Completion final chunk choice should have logprobs:null", chunk.contains("\"logprobs\":null"))
+  }
+
+  @Test
   fun chatStreamToolCallChunksEmptyListReturnsOnlyFinalChunk() {
     val result = ResponseRenderer.buildChatStreamToolCallChunks(
       "chat-1", "model-1", 100L, emptyList(),
