@@ -76,11 +76,7 @@ class EndpointHandlers(
       catch (e: SerializationException) { return httpBadRequest("Invalid JSON: ${e.message}") }
     val model = when (val sel = modelLifecycle.selectModel(null)) {
       is ModelLifecycle.ModelSelection.Ok -> sel.model
-      is ModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
-        statusCode = sel.statusCode,
-        body = ResponseRenderer.renderJsonError(sel.message),
-        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      )
+      is ModelLifecycle.ModelSelection.Error -> return sel.toHttpResponse()
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
@@ -141,11 +137,7 @@ class EndpointHandlers(
     val requestedId = BridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is ModelLifecycle.ModelSelection.Ok -> sel.model
-      is ModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
-        statusCode = sel.statusCode,
-        body = ResponseRenderer.renderJsonError(sel.message),
-        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      )
+      is ModelLifecycle.ModelSelection.Error -> return sel.toHttpResponse()
     }
     // Build prompt with progressive compaction if context window is exceeded.
     // Three independent toggles for progressive prompt compaction:
@@ -298,11 +290,7 @@ class EndpointHandlers(
     }
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is ModelLifecycle.ModelSelection.Ok -> sel.model
-      is ModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
-        statusCode = sel.statusCode,
-        body = ResponseRenderer.renderJsonError(sel.message),
-        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      )
+      is ModelLifecycle.ModelSelection.Error -> return sel.toHttpResponse()
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
@@ -409,11 +397,7 @@ class EndpointHandlers(
     val requestedId = BridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is ModelLifecycle.ModelSelection.Ok -> sel.model
-      is ModelLifecycle.ModelSelection.Error -> return HttpResponse.Json(
-        statusCode = sel.statusCode,
-        body = ResponseRenderer.renderJsonError(sel.message),
-        extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-      )
+      is ModelLifecycle.ModelSelection.Error -> return sel.toHttpResponse()
     }
     // Build prompt with progressive compaction if context window is exceeded
     val truncateHistoryResp = prefs.autoTruncateHistory

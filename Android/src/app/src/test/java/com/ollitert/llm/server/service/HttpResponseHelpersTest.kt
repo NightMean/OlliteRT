@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.ModelLifecycle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -167,5 +168,34 @@ class HttpResponseHelpersTest {
   fun sseResponseHoldsWriter() {
     val resp = HttpResponse.Sse { }
     assertEquals(HttpResponse.Sse::class, resp::class)
+  }
+
+  // ── ModelSelection.Error.toHttpResponse ──────────────────────────────────
+
+  @Test
+  fun modelSelectionErrorToHttpResponse() {
+    val error = ModelLifecycle.ModelSelection.Error(503, "No model loaded")
+    val resp = error.toHttpResponse()
+    assertEquals(503, resp.statusCode)
+    assertTrue(resp.body.contains("No model loaded"))
+    assertTrue(resp.body.contains("\"error\""))
+    assertTrue(resp.extraHeaders.isEmpty())
+  }
+
+  @Test
+  fun modelSelectionErrorWithRetryAfter() {
+    val error = ModelLifecycle.ModelSelection.Error(503, "Model reloading", retryAfterSeconds = 30)
+    val resp = error.toHttpResponse()
+    assertEquals(503, resp.statusCode)
+    assertTrue(resp.body.contains("Model reloading"))
+    assertEquals("30", resp.extraHeaders["Retry-After"])
+  }
+
+  @Test
+  fun modelSelectionErrorWithoutRetryAfterOmitsHeader() {
+    val error = ModelLifecycle.ModelSelection.Error(400, "Wrong model", retryAfterSeconds = null)
+    val resp = error.toHttpResponse()
+    assertEquals(400, resp.statusCode)
+    assertFalse(resp.extraHeaders.containsKey("Retry-After"))
   }
 }

@@ -441,11 +441,7 @@ class KtorServer(
       val model = when (val sel = modelLifecycle.selectModel(null)) {
         is ModelLifecycle.ModelSelection.Ok -> sel.model
         is ModelLifecycle.ModelSelection.Error -> {
-          val response = HttpResponse.Json(
-            statusCode = sel.statusCode,
-            body = ResponseRenderer.renderJsonError(sel.message),
-            extraHeaders = buildMap { sel.retryAfterSeconds?.let { put("Retry-After", it.toString()) } },
-          )
+          val response = sel.toHttpResponse()
           finalizeLogEntry(logId, startMs, response, null, response.body)
           call.response.headers.append("x-request-id", logId)
           call.respondHttpResponse(response)
