@@ -114,6 +114,22 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
+  fun exceptionWithNullMessageReportsUnknownError() = runBlocking {
+    val result = InferenceGateway.execute(
+      prompt = "null-msg",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = { throw object : RuntimeException(null as String?) {} },
+      runInference = { _, _, _ -> },
+      cancelInference = {},
+      elapsedMs = { tick() },
+    )
+    assertNull(result.output)
+    assertEquals("unknown_error", result.error)
+  }
+
+  @Test
   fun cancelInferenceCalledOnError() = runBlocking {
     var cancelled = false
     InferenceGateway.execute(

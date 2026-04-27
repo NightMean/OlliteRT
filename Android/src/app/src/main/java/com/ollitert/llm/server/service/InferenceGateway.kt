@@ -173,7 +173,7 @@ object InferenceGateway {
         } catch (t: Throwable) {
           if (t is OutOfMemoryError) System.gc()
           onCaughtThrowable?.invoke(t)
-          error.compareAndSet(null, t.message)
+          error.compareAndSet(null, t.message ?: "unknown_error")
           inferenceLatch.countDown()
         } finally {
           try { onInferenceFinished() } catch (t: Throwable) {
