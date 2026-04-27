@@ -90,7 +90,7 @@ fun BenchmarkValueSeriesViewer(title: String, valueSeries: ValueSeries, onDismis
             if (tappedValue == null) {
               stringResource(R.string.tap_to_see_value)
             } else {
-              "Value: ${String.format(Locale.US, "%.2f", tappedValue)}"
+              stringResource(R.string.benchmark_sparkline_value, String.format(Locale.US, "%.2f", tappedValue))
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

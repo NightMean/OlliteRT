@@ -16,8 +16,11 @@
 
 package com.ollitert.llm.server.ui.server.settings
 
+import android.content.Context
 import com.ollitert.llm.server.data.MAX_VALID_PORT
 import com.ollitert.llm.server.data.MIN_VALID_PORT
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -100,9 +103,10 @@ class ValidatorsTest {
 
   @Test
   fun `CORS_ORIGINS validate lambda rejects invalid input`() {
+    val ctx = mockk<Context> { every { getString(any()) } returns "error" }
     val validate = CORS_ORIGINS.validate!!
-    assertTrue("Valid wildcard should return null", validate("*") == null)
-    assertTrue("Invalid input should return error", validate("no-protocol") != null)
+    assertTrue("Valid wildcard should return null", validate("*", ctx) == null)
+    assertTrue("Invalid input should return error", validate("no-protocol", ctx) != null)
   }
 
   @Test

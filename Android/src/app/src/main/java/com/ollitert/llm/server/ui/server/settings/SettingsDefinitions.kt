@@ -182,9 +182,9 @@ val CORS_ORIGINS = SettingDef.TextInput(
   default = "*",
   resetDefault = "",
   prefsKey = "cors_allowed_origins",
-  validate = { input ->
+  validate = { input, ctx ->
     if (!isValidCorsOrigins(input))
-      "Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://"
+      ctx.getString(R.string.validation_cors_invalid)
     else null
   },
   read = { ServerPrefs.getCorsAllowedOrigins(it) },

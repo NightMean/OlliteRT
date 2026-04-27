@@ -534,7 +534,7 @@ class SettingsViewModel @Inject constructor(
         } else null
       }
       is SettingDef.TextInput -> {
-        def.validate?.invoke((entry as SettingEntry<String>).current)
+        def.validate?.invoke((entry as SettingEntry<String>).current, context)
       }
       else -> null
     }

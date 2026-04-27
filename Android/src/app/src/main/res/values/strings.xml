@@ -698,6 +698,7 @@
   <string name="getting_started_step2_desc" translatable="false">Select your model and tap start</string>
   <string name="getting_started_step3_title" translatable="false">Connect your client</string>
   <string name="getting_started_step3_desc" translatable="false">Point any OpenAI-compatible app to your phone’s local network IP address</string>
+  <string name="getting_started_step_cd" translatable="false">Step %1$d: %2$s. %3$s</string>
 
   <!-- Models screen: Search & filters -->
   <string name="models_clear_search" translatable="false">Clear search</string>
@@ -860,6 +861,13 @@
   <string name="benchmark_unit_sec" translatable="false">sec</string>
   <string name="benchmark_unit_ms" translatable="false">ms</string>
 
+  <!-- BenchmarkValueSeriesViewer: sparkline tap label -->
+  <string name="benchmark_sparkline_value" translatable="false">Value: %1$s</string>
+
+  <!-- BenchmarkViewModel: error messages -->
+  <string name="benchmark_error_engine_init" translatable="false">The model engine could not be initialized. This usually means the selected accelerator (GPU/NPU) is not supported on this device.\n\nTry switching to CPU in the benchmark settings.</string>
+  <string name="benchmark_error_oom" translatable="false">The device ran out of memory while loading the model. Try closing other apps or using a smaller model.</string>
+
   <!-- BenchmarkViewModel: aggregation labels -->
   <!-- ModelImportDialog: edit dialog -->
   <string name="dialog_edit_model_defaults_title">Edit Model Defaults</string>
@@ -872,7 +880,7 @@
   <string name="validation_port_range">Port must be between %1$d and %2$d</string>
   <string name="validation_numeric_range">%1$s must be between %2$d and %3$d</string>
   <string name="validation_numeric_range_with_unit">%1$s must be between %2$d and %3$d %4$s</string>
-
+  <string name="validation_cors_invalid">Invalid CORS origins — use *, blank, or comma-separated URLs with http(s)://</string>
 
 
   <!-- DownloadRepository: notification channel -->
@@ -915,6 +923,18 @@
   <string name="error_all_repos_offline">All model sources are unreachable</string>
   <string name="error_showing_cached_list">Showing cached model list — couldn\'t check for updates</string>
   <string name="error_some_repos_unavailable">%1$d of %2$d model sources are unreachable</string>
+
+  <!-- RepositoryViewModel: add-repository validation errors -->
+  <string name="repo_error_invalid_url">Invalid URL</string>
+  <string name="repo_error_unsupported_protocol">Only HTTP and HTTPS URLs are supported</string>
+  <string name="repo_error_already_added">This repository is already added</string>
+  <string name="repo_error_access_denied">Access denied — private repositories are not supported</string>
+  <string name="repo_error_not_found">No file found at this URL</string>
+  <string name="repo_error_http">Server returned an error (HTTP %1$d)</string>
+  <string name="repo_error_invalid_model_list">Could not load a valid model list from this URL</string>
+  <string name="repo_error_empty_model_list">This URL does not contain a valid model list</string>
+  <string name="repo_error_newer_version">This repository requires a newer version of OlliteRT</string>
+  <string name="repo_error_save_failed">Failed to save repository data to disk</string>
 
   <!-- RepositoryListScreen -->
   <string name="repo_add">Add model source</string>

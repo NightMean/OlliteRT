@@ -97,7 +97,7 @@ sealed class SettingDef(
     val resetDefault: String = default,
     val prefsKey: String,
     val isPassword: Boolean = false,
-    val validate: ((String) -> String?)? = null,
+    val validate: ((String, Context) -> String?)? = null,
     val read: (Context) -> String,
     val write: (Context, String) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)

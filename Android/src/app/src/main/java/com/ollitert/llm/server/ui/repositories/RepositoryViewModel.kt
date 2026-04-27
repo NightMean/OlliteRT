@@ -20,6 +20,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.FetchResult
 import com.ollitert.llm.server.data.fetchBoundedResult
@@ -217,22 +218,22 @@ class RepositoryViewModel @Inject constructor(
     val normalizedUrl = url.trim().trimEnd('/')
 
     val parsed = try { URL(normalizedUrl) } catch (_: Exception) {
-      return AddRepoResult.Error("Invalid URL")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_invalid_url))
     }
     if (parsed.protocol != "https" && parsed.protocol != "http") {
-      return AddRepoResult.Error("Only HTTP and HTTPS URLs are supported")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_unsupported_protocol))
     }
 
     if (existingRepos.any { it.url.trimEnd('/') == normalizedUrl }) {
-      return AddRepoResult.Error("This repository is already added")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_already_added))
     }
 
     val body = when (val result = fetchBoundedResult(normalizedUrl, "OlliteRT-AddRepo")) {
       is FetchResult.Success -> result.body
       is FetchResult.HttpError -> return AddRepoResult.Error(when (result.code) {
-        401, 403 -> "Access denied — private repositories are not supported"
-        404 -> "No file found at this URL"
-        else -> "Server returned an error (HTTP ${result.code})"
+        401, 403 -> context.getString(R.string.repo_error_access_denied)
+        404 -> context.getString(R.string.repo_error_not_found)
+        else -> context.getString(R.string.repo_error_http, result.code)
       })
       is FetchResult.NetworkError -> return AddRepoResult.Error(result.message)
     }
@@ -241,21 +242,21 @@ class RepositoryViewModel @Inject constructor(
     try {
       allowlist = ModelAllowlistJson.decode(body)
     } catch (e: Exception) {
-      return AddRepoResult.Error("Could not load a valid model list from this URL")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_invalid_model_list))
     }
 
     if (allowlist.models.isEmpty()) {
-      return AddRepoResult.Error("This URL does not contain a valid model list")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_empty_model_list))
     }
 
     if (allowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
-      return AddRepoResult.Error("This repository requires a newer version of OlliteRT")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_newer_version))
     }
 
     val repoId = UUID.randomUUID().toString()
     allowlistLoader.saveToDisk(body, repoCacheFilename(repoId))
     if (allowlistLoader.readFromDiskCache(repoCacheFilename(repoId)) == null) {
-      return AddRepoResult.Error("Failed to save repository data to disk")
+      return AddRepoResult.Error(context.getString(R.string.repo_error_save_failed))
     }
 
     val repoName = allowlist.sourceName.ifEmpty { deriveRepositoryName(normalizedUrl) }

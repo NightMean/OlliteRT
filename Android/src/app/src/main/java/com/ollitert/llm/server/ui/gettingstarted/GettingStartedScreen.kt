@@ -335,10 +335,11 @@ private fun SetupSteps() {
 
 @Composable
 private fun SetupStep(number: Int, title: String, description: String) {
+  val stepCd = stringResource(R.string.getting_started_step_cd, number, title, description)
   Row(
     verticalAlignment = Alignment.Top,
     modifier = Modifier.clearAndSetSemantics {
-      contentDescription = "Step $number: $title. $description"
+      contentDescription = stepCd
     },
   ) {
     // Number in a larger square box with lighter background
