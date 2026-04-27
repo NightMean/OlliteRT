@@ -27,6 +27,7 @@ import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import java.util.concurrent.atomic.AtomicLong
 import io.ktor.http.ContentType
@@ -799,7 +800,7 @@ class KtorServer(
       // GET-like: return current config
       val current = org.json.JSONObject().apply {
         put("temperature", (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
-        put("max_tokens", (currentConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+        put("max_tokens", currentConfig.maxTokensInt() ?: 0)
         put("top_k", (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
         put("top_p", (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
         put("thinking_enabled", currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
@@ -828,7 +829,7 @@ class KtorServer(
         changes.add("Temperature: ${old ?: "unset"} → $v")
       }
       if (obj.has("max_tokens")) {
-        val old = (currentConfig[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+        val old = currentConfig.maxTokensInt()
         val v = obj.getInt("max_tokens")
         updated[ConfigKeys.MAX_TOKENS.label] = v
         changes.add("Max Tokens: ${old ?: "unset"} → $v")
@@ -930,7 +931,7 @@ class KtorServer(
           put("model", modelName)
           put("model_loaded", !isIdle)
           put("temperature", (updated[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
-          put("max_tokens", (updated[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: 0)
+          put("max_tokens", updated.maxTokensInt() ?: 0)
           put("top_k", (updated[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
           put("top_p", (updated[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
           put("thinking_enabled", updated[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
