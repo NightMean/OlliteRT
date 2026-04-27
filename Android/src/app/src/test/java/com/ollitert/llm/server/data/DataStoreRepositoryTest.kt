@@ -16,93 +16,102 @@
 
 package com.ollitert.llm.server.data
 
-// Serializers now in same package (data) — no explicit import needed
 import androidx.datastore.core.DataStoreFactory
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.ImportedModel
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeFalse
+import org.junit.Before
 import org.junit.Test
+import java.io.File
 import java.io.FileOutputStream
-import java.nio.file.Path
 import kotlin.io.path.createTempDirectory
 
 class DataStoreRepositoryTest {
 
-  /** DataStore atomic rename fails on Windows — skip multi-write tests there. */
-  private fun assumeNotWindows() {
-    assumeFalse(
-      "DataStore File.renameTo() fails on Windows (NTFS file locking)",
-      System.getProperty("os.name")?.lowercase()?.contains("win") == true,
+  private lateinit var repository: DefaultDataStoreRepository
+  private lateinit var tempDir: File
+  private lateinit var testScope: TestScope
+
+  @Before
+  fun setUp() {
+    testScope = TestScope()
+    tempDir = createTempDirectory(prefix = "datastore-repo-test").toFile()
+
+    repository = DefaultDataStoreRepository(
+      dataStore = DataStoreFactory.create(
+        serializer = SettingsSerializer,
+        scope = testScope.backgroundScope,
+      ) { File(tempDir, "settings.pb") },
+      userDataDataStore = DataStoreFactory.create(
+        serializer = UserDataSerializer,
+        scope = testScope.backgroundScope,
+      ) { File(tempDir, "user-data.pb") },
+      benchmarkResultsDataStore = DataStoreFactory.create(
+        serializer = BenchmarkResultsSerializer,
+        scope = testScope.backgroundScope,
+      ) { File(tempDir, "benchmark-results.pb") },
     )
   }
 
-  @Test
-  fun importedModelsAndTokenWritesRemainReadableFromSnapshots() {
-    assumeNotWindows()
-    runBlocking {
-      val tempDir = createTempDirectory(prefix = "datastore-repo-test")
-      try {
-        val repository = createRepository(tempDir.toString())
-        val importedModel =
-          ImportedModel.newBuilder().setFileName("demo.litertlm").setFileSize(42L).build()
-
-        repository.saveImportedModels(listOf(importedModel))
-        repository.saveAccessTokenData(
-          accessToken = "access",
-          refreshToken = "refresh",
-          expiresAt = 1234L,
-        )
-
-        assertEquals(listOf(importedModel), repository.readImportedModels())
-        assertEquals("access", repository.readAccessTokenData()?.accessToken)
-
-        repository.clearAccessTokenData()
-
-        assertTrue(repository.readAccessTokenData()?.accessToken.orEmpty().isEmpty())
-      } finally {
-        tempDir.toFile().deleteRecursively()
-      }
-    }
+  @After
+  fun tearDown() {
+    testScope.cancel()
+    tempDir.deleteRecursively()
   }
 
   @Test
-  fun benchmarkWritesAndDeletesUpdateSnapshotList() {
-    assumeNotWindows()
-    runBlocking {
-      val tempDir = createTempDirectory(prefix = "datastore-repo-test")
-      try {
-        val repository = createRepository(tempDir.toString())
-        val firstResult = BenchmarkResult.newBuilder().build()
-        val secondResult = BenchmarkResult.newBuilder().build()
+  fun importedModelsAndTokenWritesRemainReadableFromSnapshots() = testScope.runTest {
+    val importedModel =
+      ImportedModel.newBuilder().setFileName("demo.litertlm").setFileSize(42L).build()
 
-        repository.addBenchmarkResult(firstResult)
-        repository.addBenchmarkResult(secondResult)
+    repository.saveImportedModels(listOf(importedModel))
+    repository.saveAccessTokenData(
+      accessToken = "access",
+      refreshToken = "refresh",
+      expiresAt = 1234L,
+    )
 
-        assertEquals(listOf(secondResult, firstResult), repository.getAllBenchmarkResults())
+    assertEquals(listOf(importedModel), repository.readImportedModels())
+    assertEquals("access", repository.readAccessTokenData()?.accessToken)
 
-        repository.deleteBenchmarkResult(index = 0)
+    repository.clearAccessTokenData()
 
-        assertEquals(listOf(firstResult), repository.getAllBenchmarkResults())
+    assertTrue(repository.readAccessTokenData()?.accessToken.orEmpty().isEmpty())
+  }
 
-        repository.setBenchmarkResults(listOf(secondResult))
+  @Test
+  fun benchmarkWritesAndDeletesUpdateSnapshotList() = testScope.runTest {
+    val firstResult = BenchmarkResult.newBuilder().build()
+    val secondResult = BenchmarkResult.newBuilder().build()
 
-        assertEquals(listOf(secondResult), repository.getAllBenchmarkResults())
-      } finally {
-        tempDir.toFile().deleteRecursively()
-      }
-    }
+    repository.addBenchmarkResult(firstResult)
+    repository.addBenchmarkResult(secondResult)
+
+    assertEquals(listOf(secondResult, firstResult), repository.getAllBenchmarkResults())
+
+    repository.deleteBenchmarkResult(index = 0)
+
+    assertEquals(listOf(firstResult), repository.getAllBenchmarkResults())
+
+    repository.setBenchmarkResults(listOf(secondResult))
+
+    assertEquals(listOf(secondResult), repository.getAllBenchmarkResults())
   }
 
   @Test
   fun readsPersistedSettingsBeforeCollectorWarmsSnapshots() = runBlocking {
-    val tempDir = createTempDirectory(prefix = "datastore-repo-test")
+    // This test creates pre-seeded proto files and reads them with a fresh DataStore,
+    // verifying that snapshot reads work before any Flow collector warms the cache.
+    val freshDir = createTempDirectory(prefix = "datastore-repo-pre-seed").toFile()
     try {
-      val basePath = Path.of(tempDir.toString())
-      FileOutputStream(basePath.resolve("settings.pb").toFile()).use { output ->
+      FileOutputStream(File(freshDir, "settings.pb")).use { output ->
         SettingsSerializer.writeTo(
           SettingsSerializer.defaultValue
             .toBuilder()
@@ -111,7 +120,7 @@ class DataStoreRepositoryTest {
           output,
         )
       }
-      FileOutputStream(basePath.resolve("user-data.pb").toFile()).use { output ->
+      FileOutputStream(File(freshDir, "user-data.pb")).use { output ->
         UserDataSerializer.writeTo(
           UserDataSerializer.defaultValue
             .toBuilder()
@@ -124,7 +133,7 @@ class DataStoreRepositoryTest {
           output,
         )
       }
-      FileOutputStream(basePath.resolve("benchmark-results.pb").toFile()).use { output ->
+      FileOutputStream(File(freshDir, "benchmark-results.pb")).use { output ->
         BenchmarkResultsSerializer.writeTo(
           BenchmarkResultsSerializer.defaultValue
             .toBuilder()
@@ -134,44 +143,38 @@ class DataStoreRepositoryTest {
         )
       }
 
-      val repository = createRepository(tempDir.toString())
+      val freshScope = TestScope()
+      val freshRepo = DefaultDataStoreRepository(
+        dataStore = DataStoreFactory.create(
+          serializer = SettingsSerializer,
+          scope = freshScope.backgroundScope,
+        ) { File(freshDir, "settings.pb") },
+        userDataDataStore = DataStoreFactory.create(
+          serializer = UserDataSerializer,
+          scope = freshScope.backgroundScope,
+        ) { File(freshDir, "user-data.pb") },
+        benchmarkResultsDataStore = DataStoreFactory.create(
+          serializer = BenchmarkResultsSerializer,
+          scope = freshScope.backgroundScope,
+        ) { File(freshDir, "benchmark-results.pb") },
+      )
 
-      assertTrue(repository.isOnboardingCompleted()) // reuses isTosAccepted
-      assertEquals("stored", repository.readAccessTokenData()?.accessToken)
-      assertEquals(1, repository.getAllBenchmarkResults().size)
+      freshScope.runTest {
+        assertTrue(freshRepo.isOnboardingCompleted())
+        assertEquals("stored", freshRepo.readAccessTokenData()?.accessToken)
+        assertEquals(1, freshRepo.getAllBenchmarkResults().size)
+      }
+
+      freshScope.cancel()
     } finally {
-      tempDir.toFile().deleteRecursively()
+      freshDir.deleteRecursively()
     }
   }
 
   @Test
-  fun onboardingCompletedPersists() = runBlocking {
-    val tempDir = createTempDirectory(prefix = "datastore-repo-test")
-    try {
-      val repository = createRepository(tempDir.toString())
-
-      assertFalse(repository.isOnboardingCompleted())
-      repository.setOnboardingCompleted()
-      assertTrue(repository.isOnboardingCompleted())
-    } finally {
-      tempDir.toFile().deleteRecursively()
-    }
-  }
-
-  private fun createRepository(tempDir: String): DefaultDataStoreRepository {
-    val basePath = Path.of(tempDir)
-    val settingsPath = basePath.resolve("settings.pb")
-    val userDataPath = basePath.resolve("user-data.pb")
-    val benchmarkResultsPath = basePath.resolve("benchmark-results.pb")
-
-    return DefaultDataStoreRepository(
-      dataStore = DataStoreFactory.create(serializer = SettingsSerializer) { settingsPath.toFile() },
-      userDataDataStore =
-        DataStoreFactory.create(serializer = UserDataSerializer) { userDataPath.toFile() },
-      benchmarkResultsDataStore =
-        DataStoreFactory.create(serializer = BenchmarkResultsSerializer) {
-          benchmarkResultsPath.toFile()
-        },
-    )
+  fun onboardingCompletedPersists() = testScope.runTest {
+    assertFalse(repository.isOnboardingCompleted())
+    repository.setOnboardingCompleted()
+    assertTrue(repository.isOnboardingCompleted())
   }
 }
