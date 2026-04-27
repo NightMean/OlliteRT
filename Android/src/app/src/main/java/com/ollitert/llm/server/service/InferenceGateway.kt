@@ -20,11 +20,11 @@ import android.util.Log
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.service.InferenceGateway.executeStreaming
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
 
 data class InferenceResult(
   val output: String?,
@@ -172,28 +172,25 @@ object InferenceGateway {
       }
     }
 
-    return suspendCancellableCoroutine { cont ->
-      cont.invokeOnCancellation {
-        if (error == null) error = "client_disconnected"
-        cancelInference()
-      }
-
-      Thread({
+    return withContext(Dispatchers.IO) {
+      try {
         val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
         if (!completed && error == null) {
           error = "timeout"
         }
-        val totalMs = elapsedMs() - startMs
-        val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
-        val result = InferenceResult(
-          output = if (error != null) null else sb.toString(),
-          thinking = if (error != null) null else thinkingResult,
-          error = error,
-          totalMs = totalMs,
-          ttfbMs = firstTokenMs ?: -1,
-        )
-        if (cont.isActive) cont.resume(result)
-      }, "OlliteRT-InferenceAwait").start()
+      } catch (_: InterruptedException) {
+        if (error == null) error = "client_disconnected"
+        cancelInference()
+      }
+      val totalMs = elapsedMs() - startMs
+      val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
+      InferenceResult(
+        output = if (error != null) null else sb.toString(),
+        thinking = if (error != null) null else thinkingResult,
+        error = error,
+        totalMs = totalMs,
+        ttfbMs = firstTokenMs ?: -1,
+      )
     }
   }
 }
