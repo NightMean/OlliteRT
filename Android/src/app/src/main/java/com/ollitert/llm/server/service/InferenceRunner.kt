@@ -35,6 +35,8 @@ import com.ollitert.llm.server.data.WARMUP_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.maxTokensInt
+import com.ollitert.llm.server.data.maxTokensLong
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.Json
@@ -228,7 +230,7 @@ class InferenceRunner(
       // Rough token estimate: ~4 chars per token
       val inputTokens = estimateTokensLong(prompt)
       val outputTokens = estimateTokensLongByLength(outputLen)
-      val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
+      val maxCtx = model.configValues.maxTokensLong() ?: 0L
       ServerMetrics.addTokens(outputTokens)
       ServerMetrics.recordLatency(result.totalMs)
       ServerMetrics.recordTtfb(result.ttfbMs)
@@ -850,7 +852,7 @@ class InferenceRunner(
                     val outputTokens = estimateTokensLongByLength(outputLen)
                     val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
                     val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
-                    val maxCtx = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong() ?: 0L
+                    val maxCtx = model.configValues.maxTokensLong() ?: 0L
                     ServerMetrics.addTokens(outputTokens)
                     ServerMetrics.recordLatency(totalLatencyMs)
                     ServerMetrics.recordTtfb(ttfbMs)
@@ -868,8 +870,8 @@ class InferenceRunner(
                       format.emitThinkingClose(writer)
                     }
 
-                    val effectiveMaxTokens = (configSnapshot ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
-                    val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens?.toInt())
+                    val effectiveMaxTokens = (configSnapshot ?: model.configValues).maxTokensInt()
+                    val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens)
 
                     if (logId != null) {
                       val combinedText = buildCombinedText(fullText, fullThinking)
