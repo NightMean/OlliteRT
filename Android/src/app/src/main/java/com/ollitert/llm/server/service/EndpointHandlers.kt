@@ -230,16 +230,7 @@ class EndpointHandlers(
       ServerMetrics.onInferenceStarted()
       val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
-      if (rawText == null) {
-        val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-        ServerMetrics.incrementErrorCount(kind.category)
-        val suggestion = ErrorSuggestions.suggest(kind, context)
-        if (logId != null) {
-          val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
-        }
-        return httpInternalError(errorMsg, suggestion, kind)
-      }
+      if (rawText == null) return handleBlockingInferenceError(llmError, logId)
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
 
       val promptTokens = estimateTokens(prompt)
@@ -348,16 +339,7 @@ class EndpointHandlers(
       ServerMetrics.onInferenceStarted()
       val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
-      if (rawText == null) {
-        val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-        ServerMetrics.incrementErrorCount(kind.category)
-        val suggestion = ErrorSuggestions.suggest(kind, context)
-        if (logId != null) {
-          val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
-        }
-        return httpInternalError(errorMsg, suggestion, kind)
-      }
+      if (rawText == null) return handleBlockingInferenceError(llmError, logId)
 
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
       val promptTokens = estimateTokens(prompt)
@@ -456,16 +438,7 @@ class EndpointHandlers(
       ServerMetrics.onInferenceStarted()
       val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
-      if (text == null) {
-        val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-        ServerMetrics.incrementErrorCount(kind.category)
-        val suggestion = ErrorSuggestions.suggest(kind, context)
-        if (logId != null) {
-          val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
-        }
-        return httpInternalError(errorMsg, suggestion, kind)
-      }
+      if (text == null) return handleBlockingInferenceError(llmError, logId)
 
       // Check if the model output contains tool call(s)
       if (hasTools) {
@@ -481,6 +454,26 @@ class EndpointHandlers(
       captureResponse(responseJson)
       httpOkJson(responseJson)
     }
+  }
+
+  // ── Shared error handling ────────────────────────────────────────────────
+
+  /**
+   * Shared error handling for non-streaming inference failures.
+   * Enriches the raw LLM error, records metrics, updates the request log, and returns an HTTP 500.
+   */
+  private fun handleBlockingInferenceError(
+    llmError: String?,
+    logId: String?,
+  ): HttpResponse {
+    val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+    ServerMetrics.incrementErrorCount(kind.category)
+    val suggestion = ErrorSuggestions.suggest(kind, context)
+    if (logId != null) {
+      val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
+      RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
+    }
+    return httpInternalError(errorMsg, suggestion, kind)
   }
 
   // ── SSE response helpers ─────────────────────────────────────────────────
