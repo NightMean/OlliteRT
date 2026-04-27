@@ -83,12 +83,8 @@ class EndpointHandlers(
     val trimPromptsGen = prefs.autoTrimPrompts
     val maxContextGen = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultGen = PromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
-    if (compactionResultGen.compacted) {
-      val details = compactionResultGen.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/generate strategies=[$details]")
-      if (logId != null) {
-        RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultGen.prompt) }
-      }
+    logCompactionResult(compactionResultGen, requestId, "/generate", logId, maxContext = null, logEvent) { details, compactedPrompt ->
+      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
     val prompt = compactionResultGen.prompt
     // Store context utilization data in the log entry for per-request display
@@ -169,12 +165,8 @@ class EndpointHandlers(
       interleaveImagePlaceholders = hasImageParts,
     )
 
-    if (compactionResult.compacted) {
-      val details = compactionResult.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/v1/chat/completions strategies=[$details] estimatedTokens=${estimateTokens(compactionResult.prompt)} maxContext=$maxContext")
-      if (logId != null) {
-        RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResult.prompt) }
-      }
+    logCompactionResult(compactionResult, requestId, "/v1/chat/completions", logId, maxContext, logEvent) { details, compactedPrompt ->
+      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
 
     // Apply response_format JSON mode prompt injection
@@ -288,12 +280,8 @@ class EndpointHandlers(
     val trimPromptsCompl = prefs.autoTrimPrompts
     val maxContextCompl = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultCompl = PromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
-    if (compactionResultCompl.compacted) {
-      val details = compactionResultCompl.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/v1/completions strategies=[$details] estimatedTokens=${estimateTokens(compactionResultCompl.prompt)} maxContext=$maxContextCompl")
-      if (logId != null) {
-        RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultCompl.prompt) }
-      }
+    logCompactionResult(compactionResultCompl, requestId, "/v1/completions", logId, maxContextCompl, logEvent) { details, compactedPrompt ->
+      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
     val prompt = compactionResultCompl.prompt
     // Store context utilization data in the log entry for per-request display
@@ -392,12 +380,8 @@ class EndpointHandlers(
       truncateHistory = truncateHistoryResp,
       trimPrompts = trimPromptsResp,
     )
-    if (compactionResultResp.compacted) {
-      val details = compactionResultResp.strategies.joinToString(", ")
-      logEvent("prompt_compacted id=$requestId endpoint=/v1/responses strategies=[$details] estimatedTokens=${estimateTokens(compactionResultResp.prompt)} maxContext=$maxContextResp")
-      if (logId != null) {
-        RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactionResultResp.prompt) }
-      }
+    logCompactionResult(compactionResultResp, requestId, "/v1/responses", logId, maxContextResp, logEvent) { details, compactedPrompt ->
+      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
     val prompt = compactionResultResp.prompt
     // Store context utilization data in the log entry for per-request display
