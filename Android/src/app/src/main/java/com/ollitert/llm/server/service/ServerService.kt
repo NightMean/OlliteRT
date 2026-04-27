@@ -61,7 +61,6 @@ class ServerService : Service() {
   private var inferenceExecutor: java.util.concurrent.ExecutorService? = null
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
   private var currentPort: Int = DEFAULT_PORT
-  private val logTag = "ServerService"
   private val requestCounter = AtomicLong(0)
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
@@ -122,14 +121,14 @@ class ServerService : Service() {
         )
         entryPoint.dataStoreRepository()
       } catch (e: Exception) {
-        Log.w(logTag, "Failed to access DataStoreRepository — imported models won't be loadable", e)
+        Log.w(TAG, "Failed to access DataStoreRepository — imported models won't be loadable", e)
         null
       }
       allowlistLoader = AllowlistLoader(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
-          try { assets.open(MODEL_ALLOWLIST_FILENAME).reader().readText() } catch (e: Exception) { Log.w(logTag, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
+          try { assets.open(MODEL_ALLOWLIST_FILENAME).reader().readText() } catch (e: Exception) { Log.w(TAG, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
         },
         enabledCacheFilenames = {
           try {
@@ -139,7 +138,7 @@ class ServerService : Service() {
               ?.toSet()
           } catch (e: Exception) { null }
         },
-        onError = { source, ex -> Log.w(logTag, "Allowlist parse error ($source)", ex) },
+        onError = { source, ex -> Log.w(TAG, "Allowlist parse error ($source)", ex) },
       )
       modelLifecycle = ModelLifecycle(
         context = this,
@@ -160,7 +159,7 @@ class ServerService : Service() {
       NotificationHelper.createChannel(this)
       checkCorruptedDataStores()
     } catch (e: Exception) {
-      Log.e(logTag, "Service initialization failed — stopping immediately", e)
+      Log.e(TAG, "Service initialization failed — stopping immediately", e)
       stopSelf()
     }
   }
@@ -169,7 +168,7 @@ class ServerService : Service() {
     // Guard: if onCreate() failed partway through, the service is in a zombie state.
     // Stop immediately to prevent UninitializedPropertyAccessException crashes.
     if (!::modelLifecycle.isInitialized) {
-      Log.e(logTag, "Service not initialized — stopping")
+      Log.e(TAG, "Service not initialized — stopping")
       stopSelf()
       return START_NOT_STICKY
     }
@@ -192,7 +191,7 @@ class ServerService : Service() {
     // ForegroundServiceStartNotAllowedException when the app is in the background.
     // Just stop immediately to avoid a crash loop.
     if (intent == null || (intent.action == null && intent.getStringExtra(EXTRA_MODEL_NAME) == null)) {
-      Log.i(logTag, "No intent or model specified — stopping to avoid crash loop")
+      Log.i(TAG, "No intent or model specified — stopping to avoid crash loop")
       stopSelf()
       return START_NOT_STICKY
     }
@@ -238,7 +237,7 @@ class ServerService : Service() {
       cancelKeepAliveTimer()
       keepAliveUnloadedModelName = null
       val previousModelName = defaultModel?.name
-      Log.i(logTag, "Reload requested — cleaning up current model before restart")
+      Log.i(TAG, "Reload requested — cleaning up current model before restart")
       // Bump generation FIRST so any in-flight load thread sees the stale generation
       // and cleans up its own Engine when it finishes (see loadGeneration guard below).
       loadGeneration.incrementAndGet()
@@ -263,7 +262,7 @@ class ServerService : Service() {
         try {
           ServerLlmModelHelper.cleanUp(model) {}
         } catch (e: Exception) {
-          Log.w(logTag, "Error cleaning up model during reload: ${e.message}")
+          Log.w(TAG, "Error cleaning up model during reload: ${e.message}")
         }
         model.instance = null
       }
@@ -295,7 +294,7 @@ class ServerService : Service() {
     // Don't auto-load the last model to avoid crash loops (e.g. from OOM).
     // Auto-start on boot is handled separately by BootReceiver which passes EXTRA_MODEL_NAME.
     if (requestedModelName == null) {
-      Log.i(logTag, "No model specified in intent — not auto-loading to avoid potential crash loop")
+      Log.i(TAG, "No model specified in intent — not auto-loading to avoid potential crash loop")
       stopSelf()
       return START_NOT_STICKY
     }
@@ -312,7 +311,7 @@ class ServerService : Service() {
         else -> ""
       }
       val msg = sourcePrefix + getString(R.string.error_model_not_found, resolvedModelName)
-      Log.e(logTag, "Model '$resolvedModelName' not found — cannot start server (source=$startSource)")
+      Log.e(TAG, "Model '$resolvedModelName' not found — cannot start server (source=$startSource)")
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
@@ -324,7 +323,7 @@ class ServerService : Service() {
     // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
     pendingConfigOverrides.getAndSet(null)?.let { overrides ->
       model.configValues = overrides.toMap()
-      Log.i(logTag, "Applied ${overrides.size} config overrides from reload caller")
+      Log.i(TAG, "Applied ${overrides.size} config overrides from reload caller")
     }
     // Verify model files actually exist on disk.
     val modelPath = model.getPath(context = this)
@@ -335,7 +334,7 @@ class ServerService : Service() {
         else -> ""
       }
       val msg = sourcePrefix + getString(R.string.error_model_file_missing)
-      Log.e(logTag, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
+      Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
@@ -431,7 +430,7 @@ class ServerService : Service() {
       val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
         getString(R.string.error_port_in_use, port) else (e.message?.take(120) ?: getString(R.string.error_unknown))
       val msg = getString(R.string.error_server_failed_to_start, reason)
-      Log.e(logTag, msg, e)
+      Log.e(TAG, msg, e)
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.SERVER)
@@ -467,16 +466,16 @@ class ServerService : Service() {
         // Engine/Conversation.close() on native LiteRT resources, causing the load to hang.
         cleanupLatch.get()?.let { latch ->
           if (latch.count > 0) {
-            Log.i(logTag, "Waiting for previous model cleanup to finish...")
+            Log.i(TAG, "Waiting for previous model cleanup to finish...")
             val cleanedUp = latch.await(CLEANUP_AWAIT_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
             if (cleanedUp) {
-              Log.i(logTag, "Previous cleanup finished, proceeding with model load")
+              Log.i(TAG, "Previous cleanup finished, proceeding with model load")
             } else {
               // Native cleanup is still running — Thread.interrupt() can't break JNI calls,
               // and refusing to load would leave the server permanently stuck. Proceed and
               // accept the small risk of a native resource race (SIGSEGV). In practice this
               // only happens with severely buggy GPU drivers that deadlock in Engine.close().
-              Log.w(logTag, "Previous cleanup did not finish within ${CLEANUP_AWAIT_TIMEOUT_SECONDS}s, proceeding anyway — native resource race possible")
+              Log.w(TAG, "Previous cleanup did not finish within ${CLEANUP_AWAIT_TIMEOUT_SECONDS}s, proceeding anyway — native resource race possible")
             }
           }
         }
@@ -511,7 +510,7 @@ class ServerService : Service() {
         }
         // If another model load was initiated while we were warming up, discard this result
         if (loadGeneration.get() != thisGeneration) {
-          Log.w(logTag, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
+          Log.w(TAG, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
           ServerLlmModelHelper.safeCleanup(model)
           return@Thread
         }
@@ -547,12 +546,12 @@ class ServerService : Service() {
         val queued = pendingReloadAfterLoad.getAndSet(null)
         if (queued != null) {
           if (queued.modelName == model.name) {
-            Log.i(logTag, "Executing queued reload for ${queued.modelName}")
+            Log.i(TAG, "Executing queued reload for ${queued.modelName}")
             RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName, category = EventCategory.SETTINGS)
             reload(this@ServerService, queued.port, queued.modelName, queued.configValues)
             return@Thread
           } else {
-            Log.w(logTag, "Discarding stale queued reload for ${queued.modelName} — loaded model is ${model.name}")
+            Log.w(TAG, "Discarding stale queued reload for ${queued.modelName} — loaded model is ${model.name}")
           }
         }
         val sysPrompt = if (ServerPrefs.isCustomPromptsEnabled(this@ServerService))
@@ -598,7 +597,7 @@ class ServerService : Service() {
       } catch (t: Throwable) {
         // Only report error if this is still the current load
         if (loadGeneration.get() != thisGeneration) {
-          Log.w(logTag, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
+          Log.w(TAG, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
           // Clean up any partially-created Engine (e.g. Engine initialized but Conversation
           // creation failed). Without this, the orphaned Engine's native memory is leaked.
           ServerLlmModelHelper.safeCleanup(model)
@@ -608,11 +607,11 @@ class ServerService : Service() {
         // Just nullifying the instance pointer leaks GB-scale native memory until GC
         // finalizes the Java wrapper — which may never happen if heap pressure is low.
         if (t is OutOfMemoryError) {
-          try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(logTag, "cleanUp() failed during OOM recovery", e) }
+          try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(TAG, "cleanUp() failed during OOM recovery", e) }
           defaultModel?.instance = null
           System.gc()
         }
-        Log.e(logTag, "Failed to load model ${model.name}", t)
+        Log.e(TAG, "Failed to load model ${model.name}", t)
         emitDebugStackTrace(t, "model_load", model.name)
         pendingReloadAfterLoad.set(null)  // Clear queued reload — don't apply stale config to a future model
         val msg = t.message?.take(120) ?: getString(R.string.error_model_init_unknown)
@@ -673,7 +672,7 @@ class ServerService : Service() {
     server?.stop()
     inferenceExecutor?.shutdownNow()
     try { inferenceExecutor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (e: InterruptedException) {
-      Log.w(logTag, "Interrupted waiting for inference executor shutdown", e)
+      Log.w(TAG, "Interrupted waiting for inference executor shutdown", e)
     }
     inferenceExecutor = null
     val modelName = defaultModel?.name
@@ -706,7 +705,7 @@ class ServerService : Service() {
             try {
               ServerLlmModelHelper.cleanUp(model) {}
             } catch (e: Exception) {
-              Log.w(logTag, "Error cleaning up model during destroy: ${e.message}")
+              Log.w(TAG, "Error cleaning up model during destroy: ${e.message}")
             }
             model.instance = null
           }
@@ -747,7 +746,7 @@ class ServerService : Service() {
       )
       entryPoint.requestLogPersistence().shutdown()
     } catch (e: Exception) {
-      Log.w(logTag, "Failed to shut down RequestLogPersistence", e)
+      Log.w(TAG, "Failed to shut down RequestLogPersistence", e)
     }
     super.onDestroy()
   }
@@ -785,7 +784,7 @@ class ServerService : Service() {
   }
 
   private fun logEvent(message: String) {
-    Log.i(logTag, "LLM_HTTP $message")
+    Log.i(TAG, "LLM_HTTP $message")
   }
 
   /**
@@ -821,7 +820,7 @@ class ServerService : Service() {
     if (corrupted.isEmpty()) return
 
     val names = corrupted.sorted().joinToString(", ")
-    Log.w(logTag, "DataStore corruption recovered on previous run: $names")
+    Log.w(TAG, "DataStore corruption recovered on previous run: $names")
     RequestLogStore.addEvent(
       getString(R.string.log_corruption_recovered, names),
       level = LogLevel.WARNING,
@@ -858,7 +857,7 @@ class ServerService : Service() {
         .build()
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
           checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        Log.w(logTag, "POST_NOTIFICATIONS not granted — corruption notification suppressed")
+        Log.w(TAG, "POST_NOTIFICATIONS not granted — corruption notification suppressed")
       } else {
         mgr.notify(NOTIFICATION_ID_CORRUPTION, notification)
       }
@@ -868,7 +867,7 @@ class ServerService : Service() {
   }
 
   companion object {
-    private const val TAG = "ServerService"
+    private const val TAG = "OlliteRT.Service"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
     /** Optional: identifies what triggered the start (e.g. "boot", "launch") for better error messages. */

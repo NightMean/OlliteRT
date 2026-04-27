@@ -39,7 +39,7 @@ import kotlinx.serialization.json.JsonPrimitive
  */
 object PayloadBuilders {
 
-  private const val LOG_TAG = "PayloadBuilders"
+  private const val TAG = "OlliteRT.Payload"
 
   // ── Info & Health ──────────────────────────────────────────────────────────
 
@@ -208,14 +208,14 @@ object PayloadBuilders {
       // which model will serve their next request (after auto-reload).
       val idleName = idleUnloadedModelName
       if (idleName != null) {
-        Log.i(LOG_TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
+        Log.i(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
         val item = LlmHttpModelItem(id = idleName)
         return json.encodeToString(LlmHttpModelList(data = listOf(item)))
       }
-      Log.i(LOG_TAG, "Models list: no model loaded")
+      Log.i(TAG, "Models list: no model loaded")
       return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
-    Log.i(LOG_TAG, "Models list: active model=${model.name}")
+    Log.i(TAG, "Models list: active model=${model.name}")
     val item = LlmHttpModelItem(
       id = model.name,
       capabilities = LlmHttpModelCapabilities(

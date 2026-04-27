@@ -26,7 +26,7 @@ import com.ollitert.llm.server.data.llmSupportAudio
 import java.io.File
 
 private const val MAX_FILE_SIZE_BYTES = 25_000_000L
-private const val LOG_TAG = "AudioTranscription"
+private const val TAG = "OlliteRT.AudioSTT"
 
 /**
  * Handles POST /v1/audio/transcriptions — OpenAI Whisper-compatible endpoint.
@@ -91,7 +91,7 @@ class AudioTranscriptionHandler(
       val requestedModel = fields["model"]
 
       if (requestedModel != null) {
-        Log.d(LOG_TAG, "Client requested model='$requestedModel', using active model='${model.name}'")
+        Log.d(TAG, "Client requested model='$requestedModel', using active model='${model.name}'")
       }
 
       // Log the request body summary for the Logs tab

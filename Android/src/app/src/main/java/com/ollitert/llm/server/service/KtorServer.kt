@@ -76,6 +76,8 @@ import kotlinx.serialization.json.Json
  * Separated from [ServerService] to isolate HTTP concerns (routing, auth,
  * CORS, request/response formatting) from Android Service lifecycle concerns.
  */
+private const val TAG = "OlliteRT.Server"
+
 class KtorServer(
   private val port: Int,
   private val serviceContext: Context,
@@ -88,7 +90,6 @@ class KtorServer(
   private val inferenceLock: Any,
 ) {
 
-  private val logTag = "KtorServer"
   private val logIdCounter = AtomicLong(0)
 
   private fun nextLogId() = "log-${System.currentTimeMillis()}-${logIdCounter.incrementAndGet()}"
@@ -103,7 +104,7 @@ class KtorServer(
     try {
       serviceContext.assets.open("favicon.png").use { it.readBytes() }
     } catch (e: Exception) {
-      Log.d(logTag, "Failed to load favicon.png from assets", e)
+      Log.d(TAG, "Failed to load favicon.png from assets", e)
       null
     }
   }
@@ -177,7 +178,7 @@ class KtorServer(
             }
             allowHost(hostWithPort, schemes = listOf(url.protocol.name))
           } catch (e: Exception) {
-            Log.w(logTag, "CORS: failed to parse origin \"$origin\", using raw host fallback: ${e.message}")
+            Log.w(TAG, "CORS: failed to parse origin \"$origin\", using raw host fallback: ${e.message}")
             allowHost(origin.removePrefix("http://").removePrefix("https://"))
           }
         }
@@ -566,7 +567,7 @@ class KtorServer(
         withContext(Dispatchers.IO) { call.receiveText() }
       } catch (_: OutOfMemoryError) {
         System.gc()
-        Log.w(logTag, "receiveText() OOM — returning HTTP 413 to client")
+        Log.w(TAG, "receiveText() OOM — returning HTTP 413 to client")
         ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
         val oomResponse = httpPayloadTooLarge(
           "Request body too large — server ran out of memory parsing the request",
@@ -712,7 +713,7 @@ class KtorServer(
       serviceContext.startService(stopIntent)
       httpOkJson("""{"success":true,"message":"Server stopping"}""")
     } catch (e: Exception) {
-      Log.e(logTag, "Failed to send stop intent", e)
+      Log.e(TAG, "Failed to send stop intent", e)
       httpInternalError("Failed to stop server: ${e.message}")
     }
   }

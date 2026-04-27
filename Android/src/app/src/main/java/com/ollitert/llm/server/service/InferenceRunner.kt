@@ -65,8 +65,6 @@ class InferenceRunner(
   private val buildSystemInstruction: (modelName: String) -> Contents?,
 ) {
 
-  private val logTag = "InferenceRunner"
-
   /**
    * Re-initialize the model if needed (null instance or missing vision support).
    * Must be called inside synchronized(inferenceLock). Returns an error message on failure, or null on success.
@@ -85,7 +83,7 @@ class InferenceRunner(
     if (!needsReinit) return null
 
     if (model.instance != null) {
-      Log.i(logTag, "Re-initializing model for vision/audio support")
+      Log.i(TAG, "Re-initializing model for vision/audio support")
       ServerLlmModelHelper.safeCleanup(model)
     }
     val overriddenConfig = model.configValues
@@ -839,7 +837,7 @@ class InferenceRunner(
                           append(fullText)
                         }
                       } catch (e: Exception) {
-                        Log.e("OlliteRT", "Error building thinking preview: ${e.message}", e)
+                        Log.e(TAG, "Error building thinking preview: ${e.message}", e)
                         fullText.toString()
                       }
                       RequestLogStore.updatePartialText(logId, previewText)
@@ -908,7 +906,7 @@ class InferenceRunner(
                     val errorJson = ResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
                     RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
                   }
-                  try { writer.finish() } catch (e2: Exception) { Log.w("OlliteRT", "writer.finish() failed during cleanup", e2) }
+                  try { writer.finish() } catch (e2: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e2) }
                   channel.close()
                 }
               }
@@ -944,7 +942,7 @@ class InferenceRunner(
                   writer.emit("data: ${ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)}\n\n")
                   writer.emit(ResponseRenderer.SSE_DONE)
                   writer.finish()
-                } catch (e: Exception) { Log.w("OlliteRT", "writer.finish() failed during cleanup", e) }
+                } catch (e: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e) }
                 channel.close()
               }
             }
@@ -971,7 +969,7 @@ class InferenceRunner(
             }
           }
           logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
-          try { format.emitCancellation(writer, headerWritten) } catch (e: Exception) { Log.w("OlliteRT", "emitCancellation failed during cleanup", e) }
+          try { format.emitCancellation(writer, headerWritten) } catch (e: Exception) { Log.w(TAG, "emitCancellation failed during cleanup", e) }
         }
       } catch (_: kotlinx.coroutines.CancellationException) {
         // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
@@ -1049,6 +1047,7 @@ class InferenceRunner(
   }
 
   companion object {
+    private const val TAG = "OlliteRT.Inference"
 
     private fun buildCombinedText(fullText: CharSequence, fullThinking: CharSequence): String =
       if (fullThinking.isNotEmpty()) "<think>${fullThinking}</think>${fullText}" else fullText.toString()

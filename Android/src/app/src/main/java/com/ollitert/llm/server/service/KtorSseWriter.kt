@@ -53,6 +53,6 @@ class KtorSseWriterImpl(
   }
 
   private companion object {
-    const val TAG = "KtorSseWriter"
+    private const val TAG = "OlliteRT.SSE"
   }
 }

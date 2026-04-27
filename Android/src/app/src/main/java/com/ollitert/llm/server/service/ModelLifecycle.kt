@@ -52,7 +52,7 @@ class ModelLifecycle(
 ) {
 
   companion object {
-    private const val LOG_TAG = "ModelLifecycle"
+    private const val TAG = "OlliteRT.Lifecycle"
   }
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -114,12 +114,12 @@ class ModelLifecycle(
     val info: UnloadInfo = synchronized(keepAliveLock) {
       if (ServerMetrics.isInferring.value) {
         keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_RECHECK_MS)
-        Log.i(LOG_TAG, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
+        Log.i(TAG, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
         return
       }
       val model = defaultModel ?: return
       val mins = ServerPrefs.getKeepAliveMinutes(context)
-      Log.i(LOG_TAG, "Keep-alive: unloading model ${model.name} after ${mins}m idle")
+      Log.i(TAG, "Keep-alive: unloading model ${model.name} after ${mins}m idle")
       keepAliveUnloadedModelName = model.name
       keepAliveUnloadedModelPrefsKey = model.prefsKey
       // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
@@ -176,7 +176,7 @@ class ModelLifecycle(
       val modelName = keepAliveUnloadedModelName ?: return null
       isReloading = true
       try {
-        Log.i(LOG_TAG, "Keep-alive: reloading model $modelName (waking from idle)")
+        Log.i(TAG, "Keep-alive: reloading model $modelName (waking from idle)")
         RequestLogStore.addEvent(
           "Auto-reloading model: $modelName (keep_alive wake-up)",
           modelName = modelName,
@@ -186,7 +186,7 @@ class ModelLifecycle(
 
         // pickModelByName already restores persisted inference config via restoreInferenceConfig
         val model = pickModelByName(modelName) ?: run {
-          Log.e(LOG_TAG, "Keep-alive: model '$modelName' not found during reload")
+          Log.e(TAG, "Keep-alive: model '$modelName' not found during reload")
           return null
         }
 
@@ -204,7 +204,7 @@ class ModelLifecycle(
           systemInstruction = buildSystemInstruction(model.prefsKey),
         )
         if (initErr.isNotEmpty()) {
-          Log.e(LOG_TAG, "Keep-alive: model reload failed: $initErr")
+          Log.e(TAG, "Keep-alive: model reload failed: $initErr")
           RequestLogStore.addEvent(
             "Keep-alive reload failed: $initErr",
             level = LogLevel.ERROR,
@@ -261,11 +261,11 @@ class ModelLifecycle(
       val importedMatch = try {
         readImportedModels().firstOrNull { it.fileName.equals(name, ignoreCase = true) }
       } catch (e: Exception) {
-        Log.w(LOG_TAG, "Failed to read imported models from DataStore", e)
+        Log.w(TAG, "Failed to read imported models from DataStore", e)
         null
       }
       if (importedMatch != null) {
-        Log.i(LOG_TAG, "Model '$name' found in imported models registry")
+        Log.i(TAG, "Model '$name' found in imported models registry")
         ModelFactory.buildImportedModel(importedMatch)
       } else {
         null
@@ -356,7 +356,7 @@ class ModelLifecycle(
         val base64Data = if (uri.contains(",")) uri.substringAfter(",") else uri
         Base64.decode(base64Data, Base64.DEFAULT)
       } catch (e: Exception) {
-        Log.w(LOG_TAG, "Failed to decode image data URI", e)
+        Log.w(TAG, "Failed to decode image data URI", e)
         RequestLogStore.addEvent(
           "Failed to decode image: ${e.message?.take(80) ?: context.getString(R.string.error_unknown)}",
           level = LogLevel.ERROR,
@@ -381,7 +381,7 @@ class ModelLifecycle(
         val format = AudioPreprocessor.detectFormat(bytes)
         AudioPreprocessor.ensureMono(bytes, format)
       } catch (e: Exception) {
-        Log.w(LOG_TAG, "Failed to decode audio data", e)
+        Log.w(TAG, "Failed to decode audio data", e)
         RequestLogStore.addEvent(
           "Failed to decode audio: ${e.message?.take(80) ?: context.getString(R.string.error_unknown)}",
           level = LogLevel.ERROR,
