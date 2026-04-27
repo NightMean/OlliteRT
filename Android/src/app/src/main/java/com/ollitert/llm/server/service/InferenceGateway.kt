@@ -20,7 +20,9 @@ import android.util.Log
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.service.InferenceGateway.executeStreaming
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
@@ -178,26 +180,31 @@ object InferenceGateway {
       }
     }
 
-    return withContext(Dispatchers.IO) {
-      try {
-        val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
-        if (!completed) {
-          error.compareAndSet(null, "timeout")
+    try {
+      withContext(Dispatchers.IO) {
+        runInterruptible {
+          val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
+          if (!completed) {
+            error.compareAndSet(null, "timeout")
+          }
         }
-      } catch (_: InterruptedException) {
-        error.compareAndSet(null, "client_disconnected")
-        cancelInference()
       }
-      val totalMs = elapsedMs() - startMs
-      val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
-      val finalError = error.get()
-      InferenceResult(
-        output = if (finalError != null) null else sb.toString(),
-        thinking = if (finalError != null) null else thinkingResult,
-        error = finalError,
-        totalMs = totalMs,
-        ttfbMs = firstTokenMs ?: -1,
-      )
+    } catch (_: InterruptedException) {
+      error.compareAndSet(null, "client_disconnected")
+      cancelInference()
+    } catch (_: CancellationException) {
+      error.compareAndSet(null, "client_disconnected")
+      cancelInference()
     }
+    val totalMs = elapsedMs() - startMs
+    val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
+    val finalError = error.get()
+    return InferenceResult(
+      output = if (finalError != null) null else sb.toString(),
+      thinking = if (finalError != null) null else thinkingResult,
+      error = finalError,
+      totalMs = totalMs,
+      ttfbMs = firstTokenMs ?: -1,
+    )
   }
 }

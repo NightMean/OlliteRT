@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.service
 
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -25,8 +25,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class LlmHttpInferenceGatewayTest {
 
@@ -108,7 +110,7 @@ class LlmHttpInferenceGatewayTest {
     )
     assertNull(result.output)
     assertNotNull(result.error)
-    assertTrue(result.error!!.contains("reset failed"))
+    assertTrue(result.error.orEmpty().contains("reset failed"))
   }
 
   @Test
@@ -285,7 +287,7 @@ class LlmHttpInferenceGatewayTest {
       onError = { errorMsg = it },
     )
     assertNotNull(errorMsg)
-    assertTrue(errorMsg!!.contains("crash"))
+    assertTrue(errorMsg.orEmpty().contains("crash"))
   }
 
   @Test
@@ -313,8 +315,9 @@ class LlmHttpInferenceGatewayTest {
   fun cancellationTriggersCancelInference() = runBlocking {
     val threadPool = Executors.newSingleThreadExecutor()
     var cancelled = false
+    val inferenceStarted = CountDownLatch(1)
     try {
-      val job = launch {
+      val job = launch(Dispatchers.Default) {
         InferenceGateway.execute(
           prompt = "long",
           timeoutSeconds = 30,
@@ -322,13 +325,14 @@ class LlmHttpInferenceGatewayTest {
           inferenceLock = lock,
           resetConversation = {},
           runInference = { _, _, _ ->
+            inferenceStarted.countDown()
             Thread.sleep(5000)
           },
           cancelInference = { cancelled = true },
           elapsedMs = { tick() },
         )
       }
-      delay(200)
+      assertTrue("inference should start within 5s", inferenceStarted.await(5, TimeUnit.SECONDS))
       job.cancel()
       job.join()
       assertTrue("cancelInference should be called on coroutine cancellation", cancelled)
@@ -367,8 +371,9 @@ class LlmHttpInferenceGatewayTest {
   fun cancellationSetsClientDisconnectedError() = runBlocking {
     val threadPool = Executors.newSingleThreadExecutor()
     var inferenceResult: InferenceResult? = null
+    val inferenceStarted = CountDownLatch(1)
     try {
-      val job = launch {
+      val job = launch(Dispatchers.Default) {
         inferenceResult = InferenceGateway.execute(
           prompt = "long",
           timeoutSeconds = 30,
@@ -376,18 +381,18 @@ class LlmHttpInferenceGatewayTest {
           inferenceLock = lock,
           resetConversation = {},
           runInference = { _, _, _ ->
+            inferenceStarted.countDown()
             Thread.sleep(5000)
           },
           cancelInference = {},
           elapsedMs = { tick() },
         )
       }
-      delay(200)
+      assertTrue("inference should start within 5s", inferenceStarted.await(5, TimeUnit.SECONDS))
       job.cancel()
       job.join()
-      if (inferenceResult != null) {
-        assertEquals("client_disconnected", inferenceResult!!.error)
-      }
+      assertNotNull("result should be set after cancellation", inferenceResult)
+      assertEquals("client_disconnected", inferenceResult?.error)
     } finally {
       threadPool.shutdownNow()
     }
