@@ -987,3 +987,22 @@ class KtorServer(
     }
   }
 }
+
+/**
+ * Reads all bytes from [source] up to [maxBytes]. Throws [java.io.IOException]
+ * if the source contains more than [maxBytes], preventing unbounded heap allocation
+ * from multipart uploads with missing or spoofed Content-Length headers.
+ */
+internal fun readBytesWithLimit(source: kotlinx.io.Source, maxBytes: Long): ByteArray {
+  val buffer = kotlinx.io.Buffer()
+  var totalRead = 0L
+  while (true) {
+    val chunk = source.readAtMostTo(buffer, minOf(8192L, maxBytes + 1 - totalRead))
+    if (chunk == -1L) break
+    totalRead += chunk
+    if (totalRead > maxBytes) {
+      throw java.io.IOException("File exceeds $maxBytes byte limit")
+    }
+  }
+  return buffer.readByteArray()
+}
