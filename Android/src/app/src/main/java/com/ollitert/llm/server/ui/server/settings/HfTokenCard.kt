@@ -122,6 +122,7 @@ internal fun HfTokenCard(vm: SettingsViewModel, context: Context) {
       colors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = OlliteRTPrimary,
         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        cursorColor = OlliteRTPrimary,
       ),
       modifier = Modifier.fillMaxWidth(),
     )

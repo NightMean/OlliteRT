@@ -90,6 +90,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         colors = OutlinedTextFieldDefaults.colors(
           focusedBorderColor = if (vm.hasError(HOST_PORT.key)) MaterialTheme.colorScheme.error else OlliteRTPrimary,
           unfocusedBorderColor = if (vm.hasError(HOST_PORT.key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          cursorColor = OlliteRTPrimary,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
@@ -207,6 +208,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         colors = OutlinedTextFieldDefaults.colors(
           focusedBorderColor = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error else OlliteRTPrimary,
           unfocusedBorderColor = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+          cursorColor = OlliteRTPrimary,
         ),
         modifier = Modifier.fillMaxWidth(),
       )
