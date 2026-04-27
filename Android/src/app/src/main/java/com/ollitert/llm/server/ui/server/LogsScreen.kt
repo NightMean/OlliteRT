@@ -32,6 +32,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -101,6 +102,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -854,7 +856,11 @@ private fun RowScope.SegmentItem(
       .fillMaxHeight()
       .clip(shape)
       .background(bgColor)
-      .clickable(onClick = onClick)
+      .toggleable(
+        value = selected,
+        role = Role.Switch,
+        onValueChange = { onClick() },
+      )
       .padding(horizontal = 8.dp),
     contentAlignment = Alignment.Center,
   ) {

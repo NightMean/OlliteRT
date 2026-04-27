@@ -26,6 +26,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,6 +85,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -681,7 +684,7 @@ private fun AcceleratorToggle(
     )
 
     // Labels
-    Row(modifier = Modifier.matchParentSize()) {
+    Row(modifier = Modifier.matchParentSize().selectableGroup()) {
       options.forEach { accelerator ->
         val isSelected = accelerator == selected
         Box(
@@ -691,9 +694,11 @@ private fun AcceleratorToggle(
             .clip(RoundedCornerShape(50))
             .then(
               if (singleOption) Modifier
-              else Modifier.clickable(
+              else Modifier.selectable(
+                selected = isSelected,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                role = Role.RadioButton,
               ) { onSelect(accelerator) }
             ),
           contentAlignment = Alignment.Center,
