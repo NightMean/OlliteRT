@@ -466,6 +466,24 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
+  fun chatStreamFirstChunkHasLogprobsNull() {
+    val chunk = ResponseRenderer.buildChatStreamFirstChunk("c1", "m", 1000L)
+    assertTrue("First chunk choice should have logprobs:null", chunk.contains("\"logprobs\":null"))
+  }
+
+  @Test
+  fun chatStreamDeltaChunkHasLogprobsNull() {
+    val chunk = ResponseRenderer.buildChatStreamDeltaChunk("c1", "m", 1000L, "hello")
+    assertTrue("Delta chunk choice should have logprobs:null", chunk.contains("\"logprobs\":null"))
+  }
+
+  @Test
+  fun chatStreamFinalChunkHasLogprobsNull() {
+    val chunk = ResponseRenderer.buildChatStreamFinalChunk("c1", "m", 1000L)
+    assertTrue("Final chunk choice should have logprobs:null", chunk.contains("\"logprobs\":null"))
+  }
+
+  @Test
   fun chatStreamToolCallChunksEmptyListReturnsOnlyFinalChunk() {
     val result = ResponseRenderer.buildChatStreamToolCallChunks(
       "chat-1", "model-1", 100L, emptyList(),

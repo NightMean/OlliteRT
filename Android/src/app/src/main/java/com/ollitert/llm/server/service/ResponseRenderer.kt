@@ -172,7 +172,7 @@ object ResponseRenderer {
       }
     }
     val fr = if (finishReason != null) "\"$finishReason\"" else "null"
-    return """{"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{$deltaFields},"finish_reason":$fr}]}"""
+    return """{"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{$deltaFields},"logprobs":null,"finish_reason":$fr}]}"""
   }
 
   /**
