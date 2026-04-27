@@ -392,194 +392,14 @@ class ServerService : Service() {
 
     synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
 
+    val notifState = LoadNotificationState(
+      contentIntent = contentIntent,
+      stopIntent = stopIntent,
+      copyIntent = copyIntent,
+      endpointUrl = endpointUrl,
+    )
     Thread({
-      loadThread = Thread.currentThread()
-      try {
-        // Guard against native SIGABRT: LiteRT's Engine.initialize() calls
-        // abort() (not a catchable exception) when it can't allocate memory or
-        // create temp/cache files on a nearly-full disk. Check available storage
-        // before entering native code so we fail gracefully instead of crashing
-        // the entire process. 500 MB is a conservative minimum — models create
-        // XNNPack weight caches that can be hundreds of MB.
-        try {
-          val stat = StatFs(Environment.getDataDirectory().path)
-          if (stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
-            val availMb = stat.availableBytes.bytesToMb()
-            throw RuntimeException(
-              getString(R.string.error_storage_low_model_init,
-                availMb.toString(), MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb().toString())
-            )
-          }
-        } catch (e: RuntimeException) { throw e } // re-throw our own RuntimeException
-        catch (_: Exception) { /* StatFs failed — proceed and let native code decide */ }
-
-        // Wait for the previous service instance's background cleanup to finish before
-        // initializing. Without this, the new Engine.initialize() races with the old
-        // Engine/Conversation.close() on native LiteRT resources, causing the load to hang.
-        cleanupLatch.get()?.let { latch ->
-          if (latch.count > 0) {
-            Log.i(TAG, "Waiting for previous model cleanup to finish...")
-            val cleanedUp = latch.await(CLEANUP_AWAIT_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
-            if (cleanedUp) {
-              Log.i(TAG, "Previous cleanup finished, proceeding with model load")
-            } else {
-              // Native cleanup is still running — Thread.interrupt() can't break JNI calls,
-              // and refusing to load would leave the server permanently stuck. Proceed and
-              // accept the small risk of a native resource race (SIGSEGV). In practice this
-              // only happens with severely buggy GPU drivers that deadlock in Engine.close().
-              Log.w(TAG, "Previous cleanup did not finish within ${CLEANUP_AWAIT_TIMEOUT_SECONDS}s, proceeding anyway — native resource race possible")
-            }
-          }
-        }
-
-        val loadStart = SystemClock.elapsedRealtime()
-        val eagerVision = ServerPrefs.isEagerVisionInit(this@ServerService)
-        val supportImage = model.llmSupportImage && eagerVision
-        val supportAudio = model.llmSupportAudio
-        if (ServerPrefs.isWarmupEnabled(this@ServerService)) {
-          inferenceRunner?.warmUpModel(model)
-        } else {
-          // Still initialize the model engine so it's ready for requests;
-          // only the test inference message is skipped.
-          var initErr = ""
-          ServerLlmModelHelper.initialize(
-            context = this@ServerService,
-            model = model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-            onDone = { initErr = it },
-            systemInstruction = buildSystemInstruction(model.prefsKey),
-          )
-          if (initErr.isNotEmpty()) {
-            throw RuntimeException(getString(R.string.error_model_init_failed, initErr))
-          }
-          model.initializedWithVision = supportImage
-          RequestLogStore.addEvent(
-            "Warmup skipped — Model loaded without test inference (disabled in Settings)",
-            modelName = model.name,
-            category = EventCategory.MODEL,
-          )
-        }
-        // If another model load was initiated while we were warming up, discard this result
-        if (loadGeneration.get() != thisGeneration) {
-          Log.w(TAG, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
-          ServerLlmModelHelper.safeCleanup(model)
-          return@Thread
-        }
-        ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
-        ServerMetrics.setActiveAccelerator(
-          model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.label]?.toString()
-        )
-        ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
-        ServerMetrics.onServerRunning(wifiIp)
-        // Start keep-alive idle timer if enabled — model will auto-unload after the configured
-        // idle duration to free RAM. Timer is reset after each inference request.
-        resetKeepAliveTimer()
-        RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
-        // Verbose debug: log model config dump on successful load
-        if (ServerPrefs.isVerboseDebugEnabled(this@ServerService)) {
-          val sizeMb = String.format(java.util.Locale.US, "%.1f", model.totalBytes / (1024.0 * 1024.0))
-          val debugText = buildString {
-            appendLine("Name: ${model.name}")
-            appendLine("Path: ${model.getPath(this@ServerService)}")
-            appendLine("Size: ${sizeMb}MB (${model.totalBytes} bytes)")
-            appendLine("Capabilities: vision=${model.llmSupportImage}, audio=${model.llmSupportAudio}, thinking=${model.llmSupportThinking}")
-            if (model.configValues.isNotEmpty()) {
-              appendLine("Config:")
-              model.configValues.forEach { (k, v) -> appendLine("  $k: $v") }
-            }
-          }.trimEnd()
-          RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugText)
-        }
-        // Check for queued reload (user changed reinit settings while model was loading).
-        // getAndSet(null) is atomic — prevents the UI thread's write from being lost between read and clear.
-        val queued = pendingReloadAfterLoad.getAndSet(null)
-        if (queued != null) {
-          if (queued.modelName == model.name) {
-            Log.i(TAG, "Executing queued reload for ${queued.modelName}")
-            RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName, category = EventCategory.SETTINGS)
-            reload(this@ServerService, queued.port, queued.modelName, queued.configValues)
-            return@Thread
-          } else {
-            Log.w(TAG, "Discarding stale queued reload for ${queued.modelName} — loaded model is ${model.name}")
-          }
-        }
-        val sysPrompt = if (ServerPrefs.isCustomPromptsEnabled(this@ServerService))
-          ServerPrefs.getSystemPrompt(this@ServerService, model.prefsKey) else ""
-        if (sysPrompt.isNotBlank()) {
-          RequestLogStore.addEvent(
-            "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
-            modelName = model.name,
-            category = EventCategory.PROMPT,
-            // Structured JSON body — full prompt text for the log card's expandable text box.
-            // Schema: {"type":"prompt_active","prompt_type":"system_prompt","text":"..."}
-            body = org.json.JSONObject().apply {
-              put("type", "prompt_active")
-              put("prompt_type", "system_prompt")
-              put("text", sysPrompt)
-            }.toString(),
-          )
-        }
-        // Save notification state for live updates on each request
-        notifContentIntent = contentIntent
-        notifStopIntent = stopIntent
-        notifCopyIntent = copyIntent
-        notifEndpointUrl = endpointUrl
-        notifModelName = model.name
-        // Update notification to show running state with full actions
-        val initialText = buildString {
-          if (ServerPrefs.isNotifShowRequestCount(this@ServerService)) {
-            append(resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
-            append("\n")
-          }
-          append(getString(R.string.notif_server_body_model, model.name))
-          append("\n")
-          append(getString(R.string.notif_server_body_url, endpointUrl))
-        }
-        NotificationHelper.update(
-          context = this@ServerService,
-          title = getString(R.string.notif_server_running_title),
-          text = initialText,
-          contentIntent = contentIntent,
-          stopIntent = stopIntent,
-          copyIntent = copyIntent,
-        )
-      } catch (t: Throwable) {
-        // Only report error if this is still the current load
-        if (loadGeneration.get() != thisGeneration) {
-          Log.w(TAG, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
-          // Clean up any partially-created Engine (e.g. Engine initialized but Conversation
-          // creation failed). Without this, the orphaned Engine's native memory is leaked.
-          ServerLlmModelHelper.safeCleanup(model)
-          return@Thread
-        }
-        // OOM during model load: close the native Engine/Conversation to release memory.
-        // Just nullifying the instance pointer leaks GB-scale native memory until GC
-        // finalizes the Java wrapper — which may never happen if heap pressure is low.
-        if (t is OutOfMemoryError) {
-          try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(TAG, "cleanUp() failed during OOM recovery", e) }
-          defaultModel?.instance = null
-          System.gc()
-        }
-        Log.e(TAG, "Failed to load model ${model.name}", t)
-        emitDebugStackTrace(t, "model_load", model.name)
-        pendingReloadAfterLoad.set(null)  // Clear queued reload — don't apply stale config to a future model
-        val msg = t.message?.take(120) ?: getString(R.string.error_model_init_unknown)
-        val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
-        ServerMetrics.onServerError(msg)
-        ServerMetrics.incrementErrorCount(category)
-        RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
-        // Update notification to show error state
-        NotificationHelper.update(
-          context = this@ServerService,
-          title = getString(R.string.notif_model_load_failed_title),
-          text = msg,
-          contentIntent = contentIntent,
-          stopIntent = stopIntent,
-        )
-      } finally {
-        loadThread = null
-      }
+      loadModelOnThread(model, thisGeneration, wifiIp, notifState)
     }, "OlliteRT-ModelLoad").start()
 
     return START_STICKY
@@ -639,6 +459,222 @@ class ServerService : Service() {
     // freed when the Java wrapper is finalized. Without this hint, the old Engine's
     // native memory may persist until the new model's allocation triggers OOM.
     System.gc()
+  }
+
+  /**
+   * Loads a model on a background thread: storage check, cleanup latch wait,
+   * warmup/initialize, metrics, notification update.
+   *
+   * Called from the `OlliteRT-ModelLoad` thread spawned in [onStartCommand].
+   * Must NOT be called from the main thread — contains blocking I/O and native SDK calls.
+   */
+  private fun loadModelOnThread(
+    model: Model,
+    thisGeneration: Long,
+    wifiIp: String?,
+    notifState: LoadNotificationState,
+  ) {
+    loadThread = Thread.currentThread()
+    try {
+      checkStorageBeforeLoad()
+      awaitPreviousCleanup()
+
+      val loadStart = SystemClock.elapsedRealtime()
+      initializeOrWarmUp(model)
+
+      // If another model load was initiated while we were warming up, discard this result
+      if (loadGeneration.get() != thisGeneration) {
+        Log.w(TAG, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
+        ServerLlmModelHelper.safeCleanup(model)
+        return
+      }
+      ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
+      ServerMetrics.setActiveAccelerator(
+        model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.label]?.toString()
+      )
+      ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
+      ServerMetrics.onServerRunning(wifiIp)
+      resetKeepAliveTimer()
+      RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
+      logVerboseModelConfig(model)
+      if (handleQueuedReload(model)) return
+      logActiveSystemPrompt(model)
+      updateNotificationToRunning(model, notifState)
+    } catch (t: Throwable) {
+      handleModelLoadFailure(t, model, thisGeneration, notifState)
+    } finally {
+      loadThread = null
+    }
+  }
+
+  /** Checks available storage before native model init to avoid SIGABRT from LiteRT. */
+  private fun checkStorageBeforeLoad() {
+    try {
+      val stat = StatFs(Environment.getDataDirectory().path)
+      if (stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
+        val availMb = stat.availableBytes.bytesToMb()
+        throw RuntimeException(
+          getString(R.string.error_storage_low_model_init,
+            availMb.toString(), MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb().toString())
+        )
+      }
+    } catch (e: RuntimeException) { throw e }
+    catch (_: Exception) { /* StatFs failed — proceed and let native code decide */ }
+  }
+
+  /** Waits for the previous service instance's native cleanup to finish. */
+  private fun awaitPreviousCleanup() {
+    cleanupLatch.get()?.let { latch ->
+      if (latch.count > 0) {
+        Log.i(TAG, "Waiting for previous model cleanup to finish...")
+        val cleanedUp = latch.await(CLEANUP_AWAIT_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+        if (cleanedUp) {
+          Log.i(TAG, "Previous cleanup finished, proceeding with model load")
+        } else {
+          Log.w(TAG, "Previous cleanup did not finish within ${CLEANUP_AWAIT_TIMEOUT_SECONDS}s, proceeding anyway — native resource race possible")
+        }
+      }
+    }
+  }
+
+  /** Initializes the model engine, with or without warmup depending on user settings. */
+  private fun initializeOrWarmUp(model: Model) {
+    val eagerVision = ServerPrefs.isEagerVisionInit(this)
+    val supportImage = model.llmSupportImage && eagerVision
+    val supportAudio = model.llmSupportAudio
+    if (ServerPrefs.isWarmupEnabled(this)) {
+      inferenceRunner?.warmUpModel(model)
+    } else {
+      var initErr = ""
+      ServerLlmModelHelper.initialize(
+        context = this,
+        model = model,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        onDone = { initErr = it },
+        systemInstruction = buildSystemInstruction(model.prefsKey),
+      )
+      if (initErr.isNotEmpty()) {
+        throw RuntimeException(getString(R.string.error_model_init_failed, initErr))
+      }
+      model.initializedWithVision = supportImage
+      RequestLogStore.addEvent(
+        "Warmup skipped — Model loaded without test inference (disabled in Settings)",
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+    }
+  }
+
+  /** Logs model config dump when verbose debug is enabled. */
+  private fun logVerboseModelConfig(model: Model) {
+    if (!ServerPrefs.isVerboseDebugEnabled(this)) return
+    val sizeMb = String.format(java.util.Locale.US, "%.1f", model.totalBytes / (1024.0 * 1024.0))
+    val debugText = buildString {
+      appendLine("Name: ${model.name}")
+      appendLine("Path: ${model.getPath(this@ServerService)}")
+      appendLine("Size: ${sizeMb}MB (${model.totalBytes} bytes)")
+      appendLine("Capabilities: vision=${model.llmSupportImage}, audio=${model.llmSupportAudio}, thinking=${model.llmSupportThinking}")
+      if (model.configValues.isNotEmpty()) {
+        appendLine("Config:")
+        model.configValues.forEach { (k, v) -> appendLine("  $k: $v") }
+      }
+    }.trimEnd()
+    RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugText)
+  }
+
+  /**
+   * Checks for a queued reload (user changed reinit settings while model was loading).
+   * @return true if a reload was triggered and the caller should return immediately.
+   */
+  private fun handleQueuedReload(model: Model): Boolean {
+    val queued = pendingReloadAfterLoad.getAndSet(null) ?: return false
+    if (queued.modelName == model.name) {
+      Log.i(TAG, "Executing queued reload for ${queued.modelName}")
+      RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName, category = EventCategory.SETTINGS)
+      reload(this, queued.port, queued.modelName, queued.configValues)
+      return true
+    }
+    Log.w(TAG, "Discarding stale queued reload for ${queued.modelName} — loaded model is ${model.name}")
+    return false
+  }
+
+  /** Logs the active system prompt if custom prompts are enabled. */
+  private fun logActiveSystemPrompt(model: Model) {
+    val sysPrompt = if (ServerPrefs.isCustomPromptsEnabled(this))
+      ServerPrefs.getSystemPrompt(this, model.prefsKey) else ""
+    if (sysPrompt.isNotBlank()) {
+      RequestLogStore.addEvent(
+        "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
+        modelName = model.name,
+        category = EventCategory.PROMPT,
+        body = org.json.JSONObject().apply {
+          put("type", "prompt_active")
+          put("prompt_type", "system_prompt")
+          put("text", sysPrompt)
+        }.toString(),
+      )
+    }
+  }
+
+  /** Updates notification intents and displays the running notification. */
+  private fun updateNotificationToRunning(model: Model, notifState: LoadNotificationState) {
+    notifContentIntent = notifState.contentIntent
+    notifStopIntent = notifState.stopIntent
+    notifCopyIntent = notifState.copyIntent
+    notifEndpointUrl = notifState.endpointUrl
+    notifModelName = model.name
+    val initialText = buildString {
+      if (ServerPrefs.isNotifShowRequestCount(this@ServerService)) {
+        append(resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
+        append("\n")
+      }
+      append(getString(R.string.notif_server_body_model, model.name))
+      append("\n")
+      append(getString(R.string.notif_server_body_url, notifState.endpointUrl))
+    }
+    NotificationHelper.update(
+      context = this,
+      title = getString(R.string.notif_server_running_title),
+      text = initialText,
+      contentIntent = notifState.contentIntent,
+      stopIntent = notifState.stopIntent,
+      copyIntent = notifState.copyIntent,
+    )
+  }
+
+  /** Handles model load failure: OOM cleanup, error reporting, notification update. */
+  private fun handleModelLoadFailure(
+    t: Throwable,
+    model: Model,
+    thisGeneration: Long,
+    notifState: LoadNotificationState,
+  ) {
+    if (loadGeneration.get() != thisGeneration) {
+      Log.w(TAG, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
+      ServerLlmModelHelper.safeCleanup(model)
+      return
+    }
+    if (t is OutOfMemoryError) {
+      try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(TAG, "cleanUp() failed during OOM recovery", e) }
+      defaultModel?.instance = null
+      System.gc()
+    }
+    Log.e(TAG, "Failed to load model ${model.name}", t)
+    emitDebugStackTrace(t, "model_load", model.name)
+    pendingReloadAfterLoad.set(null)
+    val msg = t.message?.take(120) ?: getString(R.string.error_model_init_unknown)
+    val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
+    ServerMetrics.onServerError(msg)
+    ServerMetrics.incrementErrorCount(category)
+    RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
+    NotificationHelper.update(
+      context = this,
+      title = getString(R.string.notif_model_load_failed_title),
+      text = msg,
+      contentIntent = notifState.contentIntent,
+      stopIntent = notifState.stopIntent,
+    )
   }
 
   @Suppress("DEPRECATION") // onTrimMemory deprecated in API 34, but onTrimMemory is still called by the framework
@@ -871,6 +907,14 @@ class ServerService : Service() {
 
     ServerPrefs.clearCorruptedDataStores(this)
   }
+
+  /** Notification intents + metadata passed to the model load thread. */
+  private class LoadNotificationState(
+    val contentIntent: PendingIntent,
+    val stopIntent: PendingIntent,
+    val copyIntent: PendingIntent,
+    val endpointUrl: String,
+  )
 
   companion object {
     private const val TAG = "OlliteRT.Service"
