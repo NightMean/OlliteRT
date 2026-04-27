@@ -108,6 +108,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -736,7 +737,8 @@ fun GlobalModelManager(
       if (hasVisibleModels && uiState.droppedByVersionFilter > 0 && !uiState.loadingModelAllowlist) {
         item(key = "version_filter_footer") {
           val count = uiState.droppedByVersionFilter
-          val modelWord = if (count == 1) "model" else "models"
+          val resources = LocalResources.current
+          val modelsText = resources.getQuantityString(R.plurals.models_count, count, count)
           Box(
             modifier = Modifier
               .fillMaxWidth()
@@ -744,7 +746,7 @@ fun GlobalModelManager(
             contentAlignment = Alignment.Center,
           ) {
             Text(
-              text = stringResource(R.string.models_hidden_by_version, count, modelWord),
+              text = stringResource(R.string.models_hidden_by_version, modelsText),
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
               textAlign = TextAlign.Center,
