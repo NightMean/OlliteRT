@@ -496,6 +496,18 @@ class LlmHttpResponseRendererTest {
   }
 
   @Test
+  fun chatStreamToolCallChunksHaveLogprobsNull() {
+    val toolCalls = listOf(
+      ToolCall(id = "call-1", function = ToolCallFunction(name = "fn", arguments = "{}")),
+    )
+    val result = ResponseRenderer.buildChatStreamToolCallChunks("c1", "m", 1000L, toolCalls)
+    val lines = result.split("\n\n").filter { it.startsWith("data: ") }
+    for (line in lines) {
+      assertTrue("Every tool-call chunk choice should have logprobs:null: $line", line.contains("\"logprobs\":null"))
+    }
+  }
+
+  @Test
   fun chatStreamToolCallChunksEmptyListReturnsOnlyFinalChunk() {
     val result = ResponseRenderer.buildChatStreamToolCallChunks(
       "chat-1", "model-1", 100L, emptyList(),

@@ -246,14 +246,14 @@ object ResponseRenderer {
 
         // Chunk: role (first call only) + tool_calls entry with name and empty arguments
         val roleField = if (index == 0) """"role":"assistant","content":null,""" else ""
-        append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{${roleField}"tool_calls":[{"index":$index,"id":"$callId","type":"function","function":{"name":"$escapedName","arguments":""}}]},"finish_reason":null}]}""")
+        append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{${roleField}"tool_calls":[{"index":$index,"id":"$callId","type":"function","function":{"name":"$escapedName","arguments":""}}]},"logprobs":null,"finish_reason":null}]}""")
         append("\n\n")
         // Chunk: arguments delta for this tool call
-        append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"tool_calls":[{"index":$index,"function":{"arguments":"$escapedArgs"}}]},"finish_reason":null}]}""")
+        append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{"tool_calls":[{"index":$index,"function":{"arguments":"$escapedArgs"}}]},"logprobs":null,"finish_reason":null}]}""")
         append("\n\n")
       }
       // Final chunk: finish_reason
-      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}""")
+      append("""data: {"id":"$chatId","object":"chat.completion.chunk","created":$now,"model":"$modelId","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}""")
       append("\n\n")
     }
   }
