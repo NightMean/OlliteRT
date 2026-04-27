@@ -520,6 +520,7 @@ class ServerMetricsTest {
     assertEquals(0L, ServerMetrics.totalPrefillMs)
     assertEquals(0L, ServerMetrics.totalDecodeMs)
     assertEquals(0L, ServerMetrics.modelLoadTimeMs.value)
+    assertEquals(0L, ServerMetrics.modelCreatedAtEpoch.value)
     assertEquals(0L, ServerMetrics.loadingStartedAtMs.value)
     assertEquals(0L, ServerMetrics.activeModelSize.value)
     assertNull(ServerMetrics.activeAccelerator.value)
@@ -532,6 +533,23 @@ class ServerMetricsTest {
     assertEquals(0L, ServerMetrics.appTotalPssBytes.value)
     assertEquals(0L, ServerMetrics.deviceAvailRamBytes.value)
     assertEquals(0L, ServerMetrics.deviceTotalRamBytes.value)
+  }
+
+  @Test
+  fun modelCreatedAtEpochSetOnServerRunning() {
+    val before = System.currentTimeMillis() / 1000
+    ServerMetrics.onServerRunning("192.168.1.1")
+    val after = System.currentTimeMillis() / 1000
+    val created = ServerMetrics.modelCreatedAtEpoch.value
+    assertTrue("modelCreatedAtEpoch should be in [before, after]", created in before..after)
+  }
+
+  @Test
+  fun modelCreatedAtEpochResetOnServerStopped() {
+    ServerMetrics.onServerRunning("192.168.1.1")
+    assertTrue(ServerMetrics.modelCreatedAtEpoch.value > 0)
+    ServerMetrics.onServerStopped()
+    assertEquals(0L, ServerMetrics.modelCreatedAtEpoch.value)
   }
 
   @Test

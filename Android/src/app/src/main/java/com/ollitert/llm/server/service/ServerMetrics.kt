@@ -143,6 +143,10 @@ object ServerMetrics {
   private val _modelLoadTimeMs = MutableStateFlow(0L)
   val modelLoadTimeMs: StateFlow<Long> = _modelLoadTimeMs.asStateFlow()
 
+  /** Epoch seconds when the model finished loading. Used as `created` in /v1/models responses. */
+  private val _modelCreatedAtEpoch = MutableStateFlow(0L)
+  val modelCreatedAtEpoch: StateFlow<Long> = _modelCreatedAtEpoch.asStateFlow()
+
   /** Epoch millis when model loading started, or 0 if not loading. */
   private val _loadingStartedAtMs = MutableStateFlow(0L)
   val loadingStartedAtMs: StateFlow<Long> = _loadingStartedAtMs.asStateFlow()
@@ -231,6 +235,7 @@ object ServerMetrics {
     _status.value = ServerStatus.RUNNING
     _bindAddress.value = bindAddress
     _startedAtMs.value = System.currentTimeMillis()
+    _modelCreatedAtEpoch.value = System.currentTimeMillis() / 1000
     _loadingStartedAtMs.value = 0L
     _lastError.value = null
     _isInferring.value = false
@@ -282,6 +287,7 @@ object ServerMetrics {
     _totalPrefillMs.set(0)
     _totalDecodeMs.set(0)
     _modelLoadTimeMs.value = 0L
+    _modelCreatedAtEpoch.value = 0L
     _loadingStartedAtMs.value = 0L
     _activeAccelerator.value = null
     _thinkingEnabled.value = false
