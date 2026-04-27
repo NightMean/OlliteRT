@@ -10,7 +10,6 @@ composeBom = "2026.04.01"
 navigation = "2.9.8"
 serializationPlugin = "2.3.20"
 serializationJson = "1.11.0"
-materialIconExtended = "1.7.8"
 workRuntime = "2.11.2"
 dataStore = "1.2.1"
 protobuf = "0.10.0"
@@ -48,7 +47,7 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-navigation = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
-material-icon-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconExtended" }
+material-icon-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntime" }
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
 litertlm = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
