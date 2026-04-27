@@ -722,15 +722,7 @@ class InferenceRunner(
 
     return HttpResponse.Sse { writer ->
       val channel = Channel<StreamEvent>(Channel.UNLIMITED)
-
-      val fullText = StringBuilder()
-      val fullThinking = StringBuilder()
-      var headerWritten = false
-      var thinkingTagOpened = false
-      var lastLogUpdateMs = 0L
-      var firstTokenMs = 0L
-      var inferenceCompleted = false
-      var stopSequenceTriggered = false
+      val state = StreamState(model, requestId, endpoint, logId, streamStartMs, keepPartial)
 
       if (logId != null) {
         RequestLogStore.registerCancellation(logId) {
@@ -795,27 +787,10 @@ class InferenceRunner(
           for (event in channel) {
             // Check for client disconnect (Ktor closed the writer)
             if (writer.isCancelled) {
-              if (logId != null) RequestLogStore.unregisterCancellation(logId)
               ServerLlmModelHelper.stopResponse(model)
-              if (!inferenceCompleted) {
-                inferenceCompleted = true
-                ServerMetrics.onInferenceCompleted()
-              }
-              if (logId != null) {
-                val cancelledPartial = if (keepPartial && (fullText.isNotEmpty() || fullThinking.isNotEmpty())) {
-                  buildString {
-                    if (fullThinking.isNotEmpty()) {
-                      append("<think>"); append(fullThinking); append("</think>")
-                    }
-                    append(fullText)
-                  }
-                } else null
-                RequestLogStore.update(logId) {
-                  it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
-                }
-              }
-              logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
-              format.emitCancellation(writer, headerWritten)
+              state.markCompleted()
+              state.logCancellation()
+              format.emitCancellation(writer, state.headerWritten)
               channel.close()
               break
             }
@@ -826,20 +801,18 @@ class InferenceRunner(
                 val done = event.done
                 val thought = event.thought
                 try {
-                  // TTFB includes thinking tokens — the model is producing output even if it's
-                  // reasoning internally. Without this, TTFB would only start on visible output.
-                  if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
-                    firstTokenMs = SystemClock.elapsedRealtime()
+                  if (state.firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
+                    state.firstTokenMs = SystemClock.elapsedRealtime()
                   }
                   if (!format.bufferAllTokens) {
-                    if (!headerWritten) {
-                      headerWritten = true
+                    if (!state.headerWritten) {
+                      state.headerWritten = true
                       format.emitHeader(writer)
                     }
                     if (!thought.isNullOrEmpty()) {
-                      fullThinking.append(thought)
-                      val thinkText = if (!thinkingTagOpened) {
-                        thinkingTagOpened = true
+                      state.fullThinking.append(thought)
+                      val thinkText = if (!state.thinkingTagOpened) {
+                        state.thinkingTagOpened = true
                         "<think>$thought"
                       } else {
                         thought
@@ -847,30 +820,27 @@ class InferenceRunner(
                       format.emitThinkingDelta(writer, thinkText)
                     }
                   } else {
-                    if (!thought.isNullOrEmpty()) fullThinking.append(thought)
+                    if (!thought.isNullOrEmpty()) state.fullThinking.append(thought)
                   }
-                  if (partial.isNotEmpty() && !stopSequenceTriggered) {
-                    fullText.append(partial)
+                  if (partial.isNotEmpty() && !state.stopSequenceTriggered) {
+                    state.fullText.append(partial)
                     if (!format.stopSequences.isNullOrEmpty()) {
-                      val currentText = fullText.toString()
+                      val currentText = state.fullText.toString()
                       var stopIdx = currentText.length
                       for (stop in format.stopSequences.orEmpty()) {
                         val idx = currentText.indexOf(stop)
                         if (idx in 0 until stopIdx) stopIdx = idx
                       }
                       if (stopIdx < currentText.length) {
-                        fullText.clear()
-                        fullText.append(currentText.substring(0, stopIdx))
-                        stopSequenceTriggered = true
+                        state.fullText.clear()
+                        state.fullText.append(currentText.substring(0, stopIdx))
+                        state.stopSequenceTriggered = true
                         ServerLlmModelHelper.stopResponse(model)
                       }
                     }
-                    // In streaming (non-buffered) mode, emit the closing </think> tag before content
-                    // when transitioning from thinking to regular output. The tag was opened when the
-                    // first thinking token arrived but never closed — we close it on the first content token.
-                    if (!format.bufferAllTokens && !stopSequenceTriggered) {
-                      val text = if (thinkingTagOpened) {
-                        thinkingTagOpened = false
+                    if (!format.bufferAllTokens && !state.stopSequenceTriggered) {
+                      val text = if (state.thinkingTagOpened) {
+                        state.thinkingTagOpened = false
                         "</think>$partial"
                       } else {
                         partial
@@ -880,54 +850,53 @@ class InferenceRunner(
                   }
                   if (streamPreview && logId != null && !done) {
                     val nowMs = SystemClock.elapsedRealtime()
-                    if (nowMs - lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
-                      lastLogUpdateMs = nowMs
+                    if (nowMs - state.lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
+                      state.lastLogUpdateMs = nowMs
                       val previewText = try {
                         buildString {
-                          if (fullThinking.isNotEmpty()) {
+                          if (state.fullThinking.isNotEmpty()) {
                             append("<think>")
-                            append(fullThinking)
-                            if (!thinkingTagOpened) append("</think>")
+                            append(state.fullThinking)
+                            if (!state.thinkingTagOpened) append("</think>")
                           }
-                          append(fullText)
+                          append(state.fullText)
                         }
                       } catch (e: Exception) {
                         Log.e(TAG, "Error building thinking preview: ${e.message}", e)
-                        fullText.toString()
+                        state.fullText.toString()
                       }
                       RequestLogStore.updatePartialText(logId, previewText)
                     }
                   }
                   if (done) {
                     if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                    val outputLen = fullText.length
+                    val outputLen = state.fullText.length
                     val inputTokens = format.estimateInputTokens(prompt)
                     val outputTokens = estimateTokensLongByLength(outputLen)
-                    val totalLatencyMs = SystemClock.elapsedRealtime() - streamStartMs
-                    val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
+                    val totalLatencyMs = state.elapsedMs()
+                    val ttfbMs = if (state.firstTokenMs > 0) state.firstTokenMs - streamStartMs else 0L
                     val maxCtx = model.configValues.maxTokensLong() ?: 0L
                     ServerMetrics.addTokens(outputTokens)
                     ServerMetrics.recordLatency(totalLatencyMs)
                     ServerMetrics.recordTtfb(ttfbMs)
-                    if (firstTokenMs > 0) {
+                    if (state.firstTokenMs > 0) {
                       ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
                     }
                     emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name, prefs)
-                    inferenceCompleted = true
-                    ServerMetrics.onInferenceCompleted()
+                    state.markCompleted()
                     val promptTokens = format.estimateInputTokensInt(prompt)
                     val completionTokens = estimateTokensByLength(outputLen)
 
-                    if (!format.bufferAllTokens && thinkingTagOpened) {
-                      thinkingTagOpened = false
+                    if (!format.bufferAllTokens && state.thinkingTagOpened) {
+                      state.thinkingTagOpened = false
                       format.emitThinkingClose(writer)
                     }
 
                     val effectiveMaxTokens = (configSnapshot ?: model.configValues).maxTokensInt()
-                    val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens)
+                    val parsedToolCalls = format.emitCompletion(writer, state.fullText.toString(), state.fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens)
 
                     if (logId != null) {
-                      val combinedText = buildCombinedText(fullText, fullThinking)
+                      val combinedText = buildCombinedText(state.fullText, state.fullThinking)
                       val responseJson = format.buildLogResponseJson(combinedText, prompt.length, promptTokens, completionTokens, ttfbMs, totalLatencyMs, parsedToolCalls)
                       val generationMs = totalLatencyMs - ttfbMs
                       val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
@@ -939,7 +908,7 @@ class InferenceRunner(
                           partialText = null,
                           isPending = false,
                           latencyMs = totalLatencyMs,
-                          isThinking = fullThinking.isNotEmpty(),
+                          isThinking = state.fullThinking.isNotEmpty(),
                           ttfbMs = ttfbMs,
                           decodeSpeed = reqDecodeSpeed,
                           prefillSpeed = reqPrefillSpeed,
@@ -952,14 +921,11 @@ class InferenceRunner(
                   }
                 } catch (e: Exception) {
                   if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                  if (!inferenceCompleted) {
-                    inferenceCompleted = true
-                    ServerMetrics.onInferenceCompleted()
-                  }
+                  state.markCompleted()
                   logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
                   if (logId != null) {
                     val errorJson = ResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
-                    RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = SystemClock.elapsedRealtime() - streamStartMs, level = LogLevel.ERROR) }
+                    RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = state.elapsedMs(), level = LogLevel.ERROR) }
                   }
                   try { writer.finish() } catch (e2: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e2) }
                   channel.close()
@@ -968,10 +934,7 @@ class InferenceRunner(
 
               is StreamEvent.Error -> {
                 if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                if (!inferenceCompleted) {
-                  inferenceCompleted = true
-                  ServerMetrics.onInferenceCompleted()
-                }
+                state.markCompleted()
                 val (enrichedError, kind) = enrichLlmError(event.error, context)
                 ServerMetrics.incrementErrorCount(kind.category)
                 logEvent("request_error id=$requestId endpoint=$endpoint error=${event.error} streaming=true")
@@ -984,7 +947,7 @@ class InferenceRunner(
                       partialText = null,
                       responseBody = errorJson,
                       isPending = false,
-                      latencyMs = SystemClock.elapsedRealtime() - streamStartMs,
+                      latencyMs = state.elapsedMs(),
                       level = LogLevel.ERROR,
                       errorKind = kind,
                       inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
@@ -1004,37 +967,19 @@ class InferenceRunner(
           }
         }
         // Channel closed externally (user tapped Cancel in Logs) — clean up.
-        // Normal completion and error paths set inferenceCompleted=true before closing
+        // Normal completion and error paths call markCompleted() before closing
         // the channel, so this block only fires for the external-cancel case.
-        if (!inferenceCompleted) {
-          if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          inferenceCompleted = true
-          ServerMetrics.onInferenceCompleted()
-          if (logId != null) {
-            val cancelledPartial = if (keepPartial && (fullText.isNotEmpty() || fullThinking.isNotEmpty())) {
-              buildString {
-                if (fullThinking.isNotEmpty()) {
-                  append("<think>"); append(fullThinking); append("</think>")
-                }
-                append(fullText)
-              }
-            } else null
-            RequestLogStore.update(logId) {
-              it.copy(partialText = cancelledPartial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - streamStartMs)
-            }
-          }
-          logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
-          try { format.emitCancellation(writer, headerWritten) } catch (e: Exception) { Log.w(TAG, "emitCancellation failed during cleanup", e) }
+        if (!state.inferenceCompleted) {
+          state.markCompleted()
+          state.logCancellation()
+          try { format.emitCancellation(writer, state.headerWritten) } catch (e: Exception) { Log.w(TAG, "emitCancellation failed during cleanup", e) }
         }
       } catch (_: kotlinx.coroutines.CancellationException) {
         // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
+        state.markCompleted()
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        if (!inferenceCompleted) {
-          inferenceCompleted = true
-          ServerMetrics.onInferenceCompleted()
-        }
         ServerLlmModelHelper.stopResponse(model)
-        logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${fullText.length}")
+        logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${state.fullText.length}")
       }
     }
   }
