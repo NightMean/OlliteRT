@@ -257,6 +257,10 @@ data class Model(
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
 
+  /** Stable key for per-model SharedPreferences entries (system prompt, inference config). */
+  val prefsKey: String
+    get() = if (imported) name else downloadFileName
+
   fun preProcess() {
     val configValues: MutableMap<String, Any> = mutableMapOf()
     for (config in this.configs) {
