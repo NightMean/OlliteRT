@@ -37,13 +37,12 @@ class ServerMetricsTest {
 
   @Before
   fun setUp() {
-    ServerMetrics.onServerStopped()
+    ServerMetrics.resetForTesting()
   }
 
   @After
   fun tearDown() {
-    ServerMetrics.setAvailableUpdate(null, null)
-    ServerMetrics.onServerStopped()
+    ServerMetrics.resetForTesting()
   }
 
   // ── incrementRequestCount() ──────────────────────────────────────────────

@@ -450,4 +450,16 @@ object ServerMetrics {
     _deviceAvailRamBytes.value = deviceAvailRamBytes
     _deviceTotalRamBytes.value = deviceTotalRamBytes
   }
+
+  /**
+   * Reset ALL mutable state for test isolation.
+   * Calls [onServerStopped] (which resets server-session state) then also resets
+   * app-level state that [onServerStopped] intentionally preserves.
+   */
+  fun resetForTesting() {
+    onServerStopped()
+    _availableUpdateVersion.value = null
+    _availableUpdateUrl.value = null
+    _port.value = ServerService.DEFAULT_PORT
+  }
 }

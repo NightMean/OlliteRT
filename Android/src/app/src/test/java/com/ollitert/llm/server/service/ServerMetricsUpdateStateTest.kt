@@ -31,13 +31,12 @@ class ServerMetricsUpdateStateTest {
 
   @Before
   fun setUp() {
-    ServerMetrics.setAvailableUpdate(null, null)
+    ServerMetrics.resetForTesting()
   }
 
   @After
   fun tearDown() {
-    ServerMetrics.setAvailableUpdate(null, null)
-    ServerMetrics.onServerStopped()
+    ServerMetrics.resetForTesting()
   }
 
   @Test
