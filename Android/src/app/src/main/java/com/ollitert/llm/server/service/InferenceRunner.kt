@@ -742,6 +742,42 @@ class InferenceRunner(
         channel.close()
       }
     }
+
+    suspend fun handleError(
+      error: String,
+      writer: SseWriter,
+      channel: Channel<StreamEvent>,
+    ) {
+      if (logId != null) RequestLogStore.unregisterCancellation(logId)
+      markCompleted()
+      val (enrichedError, kind) = enrichLlmError(error, context)
+      ServerMetrics.incrementErrorCount(kind.category)
+      logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
+      val suggestion = ErrorSuggestions.suggest(kind, context)
+      if (logId != null) {
+        val errorJson = ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)
+        val actualTokens = extractActualTokenCounts(error)
+        RequestLogStore.update(logId) {
+          it.copy(
+            partialText = null,
+            responseBody = errorJson,
+            isPending = false,
+            latencyMs = elapsedMs(),
+            level = LogLevel.ERROR,
+            errorKind = kind,
+            inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
+            maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
+            isExactTokenCount = actualTokens != null || it.isExactTokenCount,
+          )
+        }
+      }
+      try {
+        writer.emit("data: ${ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)}\n\n")
+        writer.emit(ResponseRenderer.SSE_DONE)
+        writer.finish()
+      } catch (e: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e) }
+      channel.close()
+    }
   }
 
   // ── Streaming inference: /v1/responses ───────────────────────────────────
@@ -947,35 +983,7 @@ class InferenceRunner(
               }
 
               is StreamEvent.Error -> {
-                if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                state.markCompleted()
-                val (enrichedError, kind) = enrichLlmError(event.error, context)
-                ServerMetrics.incrementErrorCount(kind.category)
-                logEvent("request_error id=$requestId endpoint=$endpoint error=${event.error} streaming=true")
-                val suggestion = ErrorSuggestions.suggest(kind, context)
-                if (logId != null) {
-                  val errorJson = ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)
-                  val actualTokens = extractActualTokenCounts(event.error)
-                  RequestLogStore.update(logId) {
-                    it.copy(
-                      partialText = null,
-                      responseBody = errorJson,
-                      isPending = false,
-                      latencyMs = state.elapsedMs(),
-                      level = LogLevel.ERROR,
-                      errorKind = kind,
-                      inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,
-                      maxContextTokens = actualTokens?.second ?: it.maxContextTokens,
-                      isExactTokenCount = actualTokens != null || it.isExactTokenCount,
-                    )
-                  }
-                }
-                try {
-                  writer.emit("data: ${ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)}\n\n")
-                  writer.emit(ResponseRenderer.SSE_DONE)
-                  writer.finish()
-                } catch (e: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e) }
-                channel.close()
+                state.handleError(event.error, writer, channel)
               }
             }
           }
