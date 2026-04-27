@@ -439,16 +439,25 @@ class KtorServer(
         return@post
       }
 
-      val multipart = call.receiveMultipart()
+      val multipart = call.receiveMultipart(formFieldLimit = MAX_FILE_SIZE_BYTES)
       var fileBytes: ByteArray? = null
       val fields = mutableMapOf<String, String>()
-      multipart.forEachPart { part ->
-        when (part) {
-          is PartData.FileItem -> fileBytes = part.provider().readRemaining().readByteArray()
-          is PartData.FormItem -> fields[part.name ?: ""] = part.value
-          else -> {}
+      try {
+        multipart.forEachPart { part ->
+          when (part) {
+            is PartData.FileItem -> fileBytes = part.provider().readRemaining().readByteArray()
+            is PartData.FormItem -> fields[part.name ?: ""] = part.value
+            else -> {}
+          }
+          part.dispose()
         }
-        part.dispose()
+      } catch (e: java.io.IOException) {
+        Log.w(TAG, "Audio upload exceeded ${MAX_FILE_SIZE_BYTES / 1_000_000}MB limit: ${e.message}")
+        val response = httpPayloadTooLarge("File too large. Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
+        finalizeLogEntry(logId, startMs, response, "[multipart audio — rejected: too large]", response.body)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(response)
+        return@post
       }
 
       val model = when (val sel = modelLifecycle.selectModel(null)) {
