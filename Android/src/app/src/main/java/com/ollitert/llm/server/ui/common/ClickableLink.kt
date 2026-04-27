@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -88,7 +90,9 @@ fun ClickableLink(
       text = annotatedText,
       textAlign = textAlign,
       style = MaterialTheme.typography.bodyMedium,
-      modifier = Modifier.padding(start = 6.dp),
+      modifier = Modifier
+        .padding(start = 6.dp)
+        .clearAndSetSemantics { contentDescription = linkText },
     )
   }
 }

@@ -62,6 +62,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -863,6 +865,7 @@ internal fun ExpandablePromptBox(
       .fillMaxWidth()
       .clip(RoundedCornerShape(10.dp))
       .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+      .clearAndSetSemantics { contentDescription = text }
       .then(if (isLong) Modifier.clickable { expanded = !expanded } else Modifier)
       .padding(10.dp),
   ) {

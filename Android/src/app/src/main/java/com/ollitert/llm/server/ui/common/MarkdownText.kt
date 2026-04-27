@@ -17,16 +17,21 @@
 
 package com.ollitert.llm.server.ui.common
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.ollitert.llm.server.ui.theme.customColors
+
+private val markdownSyntaxRegex = Regex("""[*_`~\[\]#>]|!\[""")
 
 /** Composable function to display Markdown-formatted text. */
 @Composable
@@ -41,14 +46,18 @@ fun MarkdownText(
     if (smallFontSize) MaterialTheme.typography.bodyMedium
     else MaterialTheme.typography.bodyLarge
 
-  Markdown(
-    content = text,
-    modifier = modifier,
-    colors = markdownColor(text = textColor),
-    typography = markdownTypography(
-      paragraph = textStyle,
-      text = textStyle,
-      textLink = TextLinkStyles(style = SpanStyle(color = linkColor)),
-    ),
-  )
+  // TalkBack reads styled spans as color metadata — provide plain text instead.
+  val plainText = text.replace(markdownSyntaxRegex, "").trim()
+  Box(modifier = Modifier.clearAndSetSemantics { contentDescription = plainText }) {
+    Markdown(
+      content = text,
+      modifier = modifier,
+      colors = markdownColor(text = textColor),
+      typography = markdownTypography(
+        paragraph = textStyle,
+        text = textStyle,
+        textLink = TextLinkStyles(style = SpanStyle(color = linkColor)),
+      ),
+    )
+  }
 }
