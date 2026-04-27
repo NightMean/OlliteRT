@@ -46,6 +46,12 @@ import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.ServerService.Companion.queueReloadAfterLoad
 import com.ollitert.llm.server.service.ServerService.Companion.reload
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -69,7 +75,8 @@ class ServerService : Service() {
   /** Shared lock for serializing inference and config writes — passed to InferenceRunner and Server.
    *  Must always be acquired AFTER keepAliveLock (in ModelLifecycle), never before it. */
   private val inferenceLock = Any()
-  @Volatile private var loadThread: Thread? = null
+  private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+  private var loadJob: Job? = null
 
   // Notification state — saved after warmup so we can refresh the notification with live request count.
   // @Volatile: written from background load thread, read from main thread for notification refresh.
@@ -398,9 +405,10 @@ class ServerService : Service() {
       copyIntent = copyIntent,
       endpointUrl = endpointUrl,
     )
-    Thread({
+    loadJob?.cancel()
+    loadJob = serviceScope.launch {
       loadModelOnThread(model, thisGeneration, wifiIp, notifState)
-    }, "OlliteRT-ModelLoad").start()
+    }
 
     return START_STICKY
   }
@@ -465,7 +473,7 @@ class ServerService : Service() {
    * Loads a model on a background thread: storage check, cleanup latch wait,
    * warmup/initialize, metrics, notification update.
    *
-   * Called from the `OlliteRT-ModelLoad` thread spawned in [onStartCommand].
+   * Called from [serviceScope] (Dispatchers.IO) in [onStartCommand].
    * Must NOT be called from the main thread — contains blocking I/O and native SDK calls.
    */
   private fun loadModelOnThread(
@@ -474,7 +482,6 @@ class ServerService : Service() {
     wifiIp: String?,
     notifState: LoadNotificationState,
   ) {
-    loadThread = Thread.currentThread()
     try {
       checkStorageBeforeLoad()
       awaitPreviousCleanup()
@@ -502,8 +509,6 @@ class ServerService : Service() {
       updateNotificationToRunning(model, notifState)
     } catch (t: Throwable) {
       handleModelLoadFailure(t, model, thisGeneration, notifState)
-    } finally {
-      loadThread = null
     }
   }
 
@@ -709,8 +714,8 @@ class ServerService : Service() {
     keepAliveUnloadedModelName = null
     // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
     loadGeneration.incrementAndGet()
-    loadThread?.interrupt()
-    loadThread = null
+    loadJob?.cancel()
+    loadJob = null
     server?.stop()
     // Cancel any in-flight inference so the native JNI call returns quickly.
     // Without this, shutdownNow() only calls Thread.interrupt() which has no
@@ -801,6 +806,7 @@ class ServerService : Service() {
     } catch (e: Exception) {
       Log.w(TAG, "Failed to shut down RequestLogPersistence", e)
     }
+    serviceScope.cancel()
     super.onDestroy()
   }
 
