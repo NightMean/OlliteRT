@@ -17,15 +17,23 @@
 
 package com.ollitert.llm.server.service
 
+import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.configTemperature
+import com.ollitert.llm.server.data.configThinkingEnabled
+import com.ollitert.llm.server.data.configTopK
+import com.ollitert.llm.server.data.configTopP
 import com.ollitert.llm.server.data.isThinkingEnabled
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.maxTokensInt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -163,6 +171,37 @@ object PayloadBuilders {
       }
     }
     return JsonObject(info).toString()
+  }
+
+  // ── /v1/server/config ──────────────────────────────────────────────────────
+
+  fun serverConfig(
+    inferenceConfig: Map<String, Any>,
+    modelName: String,
+    isModelLoaded: Boolean,
+    modelPrefsKey: String,
+    context: Context,
+    success: Boolean? = null,
+  ): String {
+    val json = buildJsonObject {
+      if (success != null) put("success", JsonPrimitive(success))
+      put("model", JsonPrimitive(modelName))
+      put("model_loaded", JsonPrimitive(isModelLoaded))
+      put("temperature", JsonPrimitive(inferenceConfig.configTemperature()?.toDouble() ?: 0.0))
+      put("max_tokens", JsonPrimitive(inferenceConfig.maxTokensInt() ?: 0))
+      put("top_k", JsonPrimitive(inferenceConfig.configTopK() ?: 0))
+      put("top_p", JsonPrimitive(inferenceConfig.configTopP()?.toDouble() ?: 0.0))
+      put("thinking_enabled", JsonPrimitive(inferenceConfig.configThinkingEnabled() ?: false))
+      put("auto_truncate_history", JsonPrimitive(ServerPrefs.isAutoTruncateHistory(context)))
+      put("auto_trim_prompts", JsonPrimitive(ServerPrefs.isAutoTrimPrompts(context)))
+      put("compact_tool_schemas", JsonPrimitive(ServerPrefs.isCompactToolSchemas(context)))
+      put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
+      put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
+      put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))
+      put("custom_prompts_enabled", JsonPrimitive(ServerPrefs.isCustomPromptsEnabled(context)))
+      put("system_prompt", JsonPrimitive(ServerPrefs.getSystemPrompt(context, modelPrefsKey)))
+    }
+    return json.toString()
   }
 
   // ── /v1/models ────────────────────────────────────────────────────────────

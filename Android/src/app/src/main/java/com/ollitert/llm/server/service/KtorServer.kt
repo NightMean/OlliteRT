@@ -824,24 +824,9 @@ class KtorServer(
       } else {
         ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
       }
-      val current = buildJsonObject {
-        put("temperature", currentConfig.configTemperature()?.toDouble() ?: 0.0)
-        put("max_tokens", currentConfig.maxTokensInt() ?: 0)
-        put("top_k", currentConfig.configTopK() ?: 0)
-        put("top_p", currentConfig.configTopP()?.toDouble() ?: 0.0)
-        put("thinking_enabled", currentConfig.configThinkingEnabled() ?: false)
-        put("model", modelName)
-        put("model_loaded", !isIdle)
-        put("auto_truncate_history", ServerPrefs.isAutoTruncateHistory(serviceContext))
-        put("auto_trim_prompts", ServerPrefs.isAutoTrimPrompts(serviceContext))
-        put("compact_tool_schemas", ServerPrefs.isCompactToolSchemas(serviceContext))
-        put("warmup_enabled", ServerPrefs.isWarmupEnabled(serviceContext))
-        put("keep_alive_enabled", ServerPrefs.isKeepAliveEnabled(serviceContext))
-        put("keep_alive_minutes", ServerPrefs.getKeepAliveMinutes(serviceContext))
-        put("custom_prompts_enabled", ServerPrefs.isCustomPromptsEnabled(serviceContext))
-        put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey))
-      }
-      return httpOkJson(current.toString())
+      return httpOkJson(
+        PayloadBuilders.serverConfig(currentConfig, modelName, !isIdle, modelPrefsKey, serviceContext),
+      )
     }
     // ── Parse JSON body outside lock (no configValues access) ──
     val obj = try {
@@ -934,25 +919,9 @@ class KtorServer(
           category = EventCategory.SETTINGS,
           body = changes.joinToString("\n"),
         )
-        val current = buildJsonObject {
-          put("success", true)
-          put("model", modelName)
-          put("model_loaded", !isIdle)
-          put("temperature", updated.configTemperature()?.toDouble() ?: 0.0)
-          put("max_tokens", updated.maxTokensInt() ?: 0)
-          put("top_k", updated.configTopK() ?: 0)
-          put("top_p", updated.configTopP()?.toDouble() ?: 0.0)
-          put("thinking_enabled", updated.configThinkingEnabled() ?: false)
-          put("auto_truncate_history", ServerPrefs.isAutoTruncateHistory(serviceContext))
-          put("auto_trim_prompts", ServerPrefs.isAutoTrimPrompts(serviceContext))
-          put("compact_tool_schemas", ServerPrefs.isCompactToolSchemas(serviceContext))
-          put("warmup_enabled", ServerPrefs.isWarmupEnabled(serviceContext))
-          put("keep_alive_enabled", ServerPrefs.isKeepAliveEnabled(serviceContext))
-          put("keep_alive_minutes", ServerPrefs.getKeepAliveMinutes(serviceContext))
-          put("custom_prompts_enabled", ServerPrefs.isCustomPromptsEnabled(serviceContext))
-          put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey))
-        }
-        httpOkJson(current.toString())
+        httpOkJson(
+          PayloadBuilders.serverConfig(updated, modelName, !isIdle, modelPrefsKey, serviceContext, success = true),
+        )
       }
     } catch (e: ConfigFieldException) {
       httpBadRequest(e.message ?: "Invalid config field '${e.fieldName}'")
