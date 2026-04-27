@@ -16,36 +16,88 @@
 
 package com.ollitert.llm.server.ui.server.logs
 
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LogJsonHighlighterTest {
 
-  // ── tryParseJson ──────────────────────────────────────────────────────────
-  // tryParseJson and prettyPrintJson use org.json.JSONObject/JSONArray which
-  // require Android runtime. Only the plain-text fallback paths are testable
-  // in JVM unit tests; JSON-parsing paths need instrumented tests.
+  // ── tryParseJson (plain-text fallback) ───────────────────────────────────
 
   @Test
   fun returnsOriginalForPlainText() {
     val input = "just some text"
     val result = tryParseJson(input)
-    assertEquals(input, result)
+    assertTrue(result is JsonPrimitive)
+    assertEquals(input, (result as JsonPrimitive).content)
   }
 
   @Test
   fun returnsOriginalForEmptyString() {
     val result = tryParseJson("")
-    assertEquals("", result)
+    assertTrue(result is JsonPrimitive)
   }
 
-  // ── prettyPrintJson (non-JSON paths) ──────────────────────────────────────
+  // ── tryParseJson (JSON paths) ────────────────────────────────────────────
+
+  @Test
+  fun parsesJsonObject() {
+    val result = tryParseJson("""{"key":"value"}""")
+    assertTrue(result is JsonObject)
+    assertEquals("value", (result as JsonObject)["key"]?.jsonPrimitive?.content)
+  }
+
+  @Test
+  fun parsesJsonArray() {
+    val result = tryParseJson("""[1,2,3]""")
+    assertTrue(result is JsonArray)
+  }
+
+  @Test
+  fun returnsOriginalForInvalidJson() {
+    val result = tryParseJson("{broken")
+    assertTrue(result is JsonPrimitive)
+    assertEquals("{broken", (result as JsonPrimitive).content)
+  }
+
+  @Test
+  fun handlesWhitespaceAroundJsonObject() {
+    val result = tryParseJson("  {\"a\":1}  ")
+    assertTrue(result is JsonObject)
+  }
+
+  // ── prettyPrintJson ──────────────────────────────────────────────────────
 
   @Test
   fun prettyPrintReturnsOriginalForNonJson() {
     val input = "not json"
     assertEquals(input, prettyPrintJson(input))
+  }
+
+  @Test
+  fun prettyPrintsJsonObject() {
+    val result = prettyPrintJson("""{"a":1,"b":"c"}""")
+    assertTrue(result.contains("\n"))
+    assertTrue(result.contains("\"a\""))
+  }
+
+  @Test
+  fun prettyPrintsJsonArray() {
+    val result = prettyPrintJson("""[1,2,3]""")
+    assertTrue(result.contains("\n"))
+  }
+
+  @Test
+  fun prettyPrintDoesNotEscapeForwardSlashes() {
+    val result = prettyPrintJson("""{"url":"https://example.com/path"}""")
+    assertFalse(result.contains("\\/"))
+    assertTrue(result.contains("https://example.com/path"))
   }
 
   // ── jsonTokenRegex ────────────────────────────────────────────────────────

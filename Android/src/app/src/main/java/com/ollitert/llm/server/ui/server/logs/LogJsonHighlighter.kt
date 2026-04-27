@@ -27,18 +27,17 @@ import com.ollitert.llm.server.ui.theme.OlliteRTJsonKey
 import com.ollitert.llm.server.ui.theme.OlliteRTJsonNumber
 import com.ollitert.llm.server.ui.theme.OlliteRTJsonString
 import com.ollitert.llm.server.ui.theme.OlliteRTSubtleGrey
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 
-/** Attempt to parse text as JSON (object or array). Returns the original string on failure. */
-internal fun tryParseJson(text: String): Any {
+/** Attempt to parse text as JSON. Returns a JsonPrimitive of the original string on failure. */
+internal fun tryParseJson(text: String): JsonElement {
   val trimmed = text.trim()
   return try {
-    if (trimmed.startsWith("{")) JSONObject(trimmed)
-    else if (trimmed.startsWith("[")) JSONArray(trimmed)
-    else text
+    Json.parseToJsonElement(trimmed)
   } catch (_: Exception) {
-    text
+    JsonPrimitive(text)
   }
 }
 
@@ -86,16 +85,12 @@ internal fun highlightJson(text: String): AnnotatedString = buildAnnotatedString
   }
 }
 
+private val prettyJson = Json { prettyPrint = true; prettyPrintIndent = "  " }
+
 /** Try to pretty-print JSON; return the original string if it's not valid JSON. */
 internal fun prettyPrintJson(raw: String): String = try {
-  val trimmed = raw.trimStart()
-  if (trimmed.startsWith("{")) {
-    JSONObject(trimmed).toString(2).replace("\\/", "/")
-  } else if (trimmed.startsWith("[")) {
-    JSONArray(trimmed).toString(2).replace("\\/", "/")
-  } else {
-    raw
-  }
+  val element = Json.parseToJsonElement(raw.trimStart())
+  prettyJson.encodeToString(JsonElement.serializer(), element)
 } catch (_: Exception) {
   raw
 }
