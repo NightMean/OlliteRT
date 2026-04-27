@@ -145,7 +145,7 @@ class ServerService : Service() {
               ?.filter { it.enabled }
               ?.map { it.cacheFilename }
               ?.toSet()
-          } catch (e: Exception) { null }
+          } catch (e: Exception) { Log.w(TAG, "Failed to read enabled repository filenames from DataStore", e); null }
         },
         onError = { source, ex -> Log.w(TAG, "Allowlist parse error ($source)", ex) },
       )
