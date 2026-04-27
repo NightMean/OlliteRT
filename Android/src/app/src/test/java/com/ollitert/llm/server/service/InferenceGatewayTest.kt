@@ -336,6 +336,32 @@ class LlmHttpInferenceGatewayTest {
   }
 
   @Test
+  fun concurrentErrorAndTimeoutFirstErrorWins() = runBlocking {
+    val threadPool = Executors.newSingleThreadExecutor()
+    try {
+      val result = InferenceGateway.execute(
+        prompt = "race",
+        timeoutSeconds = 1,
+        executor = threadPool,
+        inferenceLock = lock,
+        resetConversation = {},
+        runInference = { _, _, onError ->
+          onError("inference_failed")
+          // Don't signal done — let the latch timeout
+          Thread.sleep(3000)
+        },
+        cancelInference = {},
+        elapsedMs = { tick() },
+      )
+      // The onError callback fires first with "inference_failed", then the
+      // lifecycleLatch times out. The first error must win.
+      assertEquals("inference_failed", result.error)
+    } finally {
+      threadPool.shutdownNow()
+    }
+  }
+
+  @Test
   fun cancellationSetsClientDisconnectedError() = runBlocking {
     val threadPool = Executors.newSingleThreadExecutor()
     var inferenceResult: InferenceResult? = null
