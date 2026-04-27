@@ -71,11 +71,11 @@ class AudioTranscriptionHandler(
 
     val tempFile = File(context.cacheDir, "audio_upload_${System.currentTimeMillis()}.tmp")
     try {
-      tempFile.writeBytes(fileBytes)
-    } catch (e: java.io.IOException) {
-      return httpInternalError("Failed to write audio to temp file: ${e.message}")
-    }
-    try {
+      try {
+        tempFile.writeBytes(fileBytes)
+      } catch (e: java.io.IOException) {
+        return httpInternalError("Failed to write audio to temp file: ${e.message}")
+      }
       val language = fields["language"]?.takeIf { it.isNotBlank() }
       val prompt = fields["prompt"]?.takeIf { it.isNotBlank() }
       val temperatureStr = fields["temperature"]?.takeIf { it.isNotBlank() }
