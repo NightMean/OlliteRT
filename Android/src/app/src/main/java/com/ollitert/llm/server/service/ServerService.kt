@@ -439,6 +439,17 @@ class ServerService : Service() {
       category = EventCategory.MODEL,
     )
     server?.stop()
+
+    // Cancel any in-flight inference so the native JNI call returns quickly,
+    // then drain the executor before closing native resources.
+    defaultModel?.let { ServerLlmModelHelper.stopResponse(it) }
+    val executor = inferenceExecutor
+    executor?.shutdownNow()
+    try {
+      executor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
+    } catch (_: InterruptedException) {}
+    inferenceExecutor = null
+
     defaultModel?.let { model ->
       RequestLogStore.addEvent(
         "Unloading model: ${model.name}",
