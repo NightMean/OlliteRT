@@ -55,7 +55,7 @@ private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_para
 // --- Home Assistant Integration (UI convenience — shows copy-config button in Settings) ---
 private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
 private const val KEY_HA_STT_TRANSCRIPTION_PROMPT = "ha_stt_transcription_prompt"
-private const val DEFAULT_HA_STT_TRANSCRIPTION_PROMPT = true
+private const val DEFAULT_HA_STT_TRANSCRIPTION_PROMPT = false
 private const val KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT = "ha_stt_transcription_prompt_text"
 internal const val DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT =
   "Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else."
