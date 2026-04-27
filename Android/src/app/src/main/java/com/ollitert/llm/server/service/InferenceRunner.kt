@@ -1002,6 +1002,7 @@ class InferenceRunner(
         state.markCompleted()
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
         ServerLlmModelHelper.stopResponse(model)
+        channel.close()
         logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${state.fullText.length}")
       }
     }
