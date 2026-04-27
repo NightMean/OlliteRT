@@ -523,7 +523,7 @@ class KtorServer(
     } catch (t: Throwable) {
       ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
       emitDebugStackTrace(t, "ktor_get_catch_all", null)
-      httpInternalError(t.message ?: "internal_error")
+      httpInternalError("internal_error")
     }
 
     val responseBodySnapshot = when (response) {
@@ -629,7 +629,7 @@ class KtorServer(
       ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
       emitDebugStackTrace(t, "ktor_serve_catch_all", null)
       responseBodySnapshot = t.message
-      httpInternalError(t.message ?: "internal_error")
+      httpInternalError("internal_error")
     }
 
     finalizeLogEntry(logId, startMs, response, requestBodySnapshot, responseBodySnapshot)
@@ -736,7 +736,7 @@ class KtorServer(
       httpOkJson("""{"success":true,"message":"Server stopping"}""")
     } catch (e: Exception) {
       Log.e(TAG, "Failed to send stop intent", e)
-      httpInternalError("Failed to stop server: ${e.message}")
+      httpInternalError("Failed to stop server")
     }
   }
 

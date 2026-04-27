@@ -74,7 +74,8 @@ class AudioTranscriptionHandler(
       try {
         tempFile.writeBytes(fileBytes)
       } catch (e: java.io.IOException) {
-        return httpInternalError("Failed to write audio to temp file: ${e.message}")
+        Log.e(TAG, "Failed to write audio to temp file", e)
+        return httpInternalError("Failed to write audio to temp file")
       }
       val language = fields["language"]?.takeIf { it.isNotBlank() }
       val prompt = fields["prompt"]?.takeIf { it.isNotBlank() }
