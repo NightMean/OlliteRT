@@ -842,36 +842,39 @@ class KtorServer(
       }
       return httpOkJson(current.toString())
     }
+    val obj = try {
+      Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
     return try {
-      val obj = Json.parseToJsonElement(body).jsonObject
       val updated = currentConfig.toMutableMap()
       val changes = mutableListOf<String>()
-      if (obj.containsKey("temperature")) {
+      parseConfigDouble(obj, "temperature")?.let { raw ->
         val old = currentConfig.configTemperature()
-        val v = clampTemperature(obj.getValue("temperature").jsonPrimitive.double)
+        val v = clampTemperature(raw)
         updated[ConfigKeys.TEMPERATURE.label] = v
         changes.add("Temperature: ${old ?: "unset"} → $v")
       }
-      if (obj.containsKey("max_tokens")) {
+      parseConfigInt(obj, "max_tokens")?.let { raw ->
         val old = currentConfig.maxTokensInt()
-        val v = clampMaxTokens(obj.getValue("max_tokens").jsonPrimitive.int)
+        val v = clampMaxTokens(raw)
         updated[ConfigKeys.MAX_TOKENS.label] = v
         changes.add("Max Tokens: ${old ?: "unset"} → $v")
       }
-      if (obj.containsKey("top_k")) {
+      parseConfigInt(obj, "top_k")?.let { raw ->
         val old = currentConfig.configTopK()
-        val v = clampTopK(obj.getValue("top_k").jsonPrimitive.int)
+        val v = clampTopK(raw)
         updated[ConfigKeys.TOPK.label] = v
         changes.add("Top-K: ${old ?: "unset"} → $v")
       }
-      if (obj.containsKey("top_p")) {
+      parseConfigDouble(obj, "top_p")?.let { raw ->
         val old = currentConfig.configTopP()
-        val v = clampTopP(obj.getValue("top_p").jsonPrimitive.double)
+        val v = clampTopP(raw)
         updated[ConfigKeys.TOPP.label] = v
         changes.add("Top-P: ${old ?: "unset"} → $v")
       }
-      if (obj.containsKey("thinking_enabled")) {
-        val v = obj.getValue("thinking_enabled").jsonPrimitive.boolean
+      parseConfigBool(obj, "thinking_enabled")?.let { v ->
         if (model == null || model.llmSupportThinking) {
           val old = currentConfig.configThinkingEnabled() ?: false
           updated[ConfigKeys.ENABLE_THINKING.label] = v
@@ -880,56 +883,48 @@ class KtorServer(
         }
       }
       // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
-      if (obj.containsKey("auto_truncate_history")) {
+      parseConfigBool(obj, "auto_truncate_history")?.let { v ->
         val old = ServerPrefs.isAutoTruncateHistory(serviceContext)
-        val v = obj.getValue("auto_truncate_history").jsonPrimitive.boolean
         ServerPrefs.setAutoTruncateHistory(serviceContext, v)
         changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.containsKey("auto_trim_prompts")) {
+      parseConfigBool(obj, "auto_trim_prompts")?.let { v ->
         val old = ServerPrefs.isAutoTrimPrompts(serviceContext)
-        val v = obj.getValue("auto_trim_prompts").jsonPrimitive.boolean
         ServerPrefs.setAutoTrimPrompts(serviceContext, v)
         changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.containsKey("compact_tool_schemas")) {
+      parseConfigBool(obj, "compact_tool_schemas")?.let { v ->
         val old = ServerPrefs.isCompactToolSchemas(serviceContext)
-        val v = obj.getValue("compact_tool_schemas").jsonPrimitive.boolean
         ServerPrefs.setCompactToolSchemas(serviceContext, v)
         changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.containsKey("warmup_enabled")) {
+      parseConfigBool(obj, "warmup_enabled")?.let { v ->
         val old = ServerPrefs.isWarmupEnabled(serviceContext)
-        val v = obj.getValue("warmup_enabled").jsonPrimitive.boolean
         ServerPrefs.setWarmupEnabled(serviceContext, v)
         changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.containsKey("keep_alive_enabled")) {
+      parseConfigBool(obj, "keep_alive_enabled")?.let { v ->
         val old = ServerPrefs.isKeepAliveEnabled(serviceContext)
-        val v = obj.getValue("keep_alive_enabled").jsonPrimitive.boolean
         ServerPrefs.setKeepAliveEnabled(serviceContext, v)
         if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
         changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.containsKey("keep_alive_minutes")) {
-        val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
-        val v = obj.getValue("keep_alive_minutes").jsonPrimitive.int
+      parseConfigInt(obj, "keep_alive_minutes")?.let { v ->
         if (v < 1 || v > 7200) {
-          return httpBadRequest("keep_alive_minutes out of range")
+          return httpBadRequest("keep_alive_minutes out of range (1–7200)")
         }
+        val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
         ServerPrefs.setKeepAliveMinutes(serviceContext, v)
         if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
         changes.add("Keep Alive Minutes: $old → $v")
       }
-      if (obj.containsKey("custom_prompts_enabled")) {
+      parseConfigBool(obj, "custom_prompts_enabled")?.let { v ->
         val old = ServerPrefs.isCustomPromptsEnabled(serviceContext)
-        val v = obj.getValue("custom_prompts_enabled").jsonPrimitive.boolean
         ServerPrefs.setCustomPromptsEnabled(serviceContext, v)
         changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.containsKey("system_prompt")) {
+      parseConfigString(obj, "system_prompt")?.let { v ->
         val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
-        val v = obj.getValue("system_prompt").jsonPrimitive.content
         ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
         val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
         val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
@@ -970,8 +965,10 @@ class KtorServer(
         }
         httpOkJson(current.toString())
       }
-    } catch (_: Exception) {
-      httpBadRequest("Invalid JSON body")
+    } catch (e: ConfigFieldException) {
+      httpBadRequest(e.message ?: "Invalid config field '${e.fieldName}'")
+    } catch (e: Exception) {
+      httpBadRequest("Invalid request body: ${e.message?.take(200) ?: "unknown error"}")
     }
   }
 
