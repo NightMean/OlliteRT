@@ -28,6 +28,7 @@ room = "2.8.4"
 ksp = "2.3.7"
 coroutinesTest = "1.10.2"
 androidxTestCore = "1.7.0"
+androidxTestRunner = "1.7.0"
 coil = "3.4.0"
 ktor = "3.4.3"
 
@@ -63,6 +64,7 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }

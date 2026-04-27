@@ -29,7 +29,7 @@ enum class ValueType {
   BOOLEAN,
 }
 
-data class ConfigKey(val id: String, val label: String, @StringRes val labelResId: Int)
+data class ConfigKey(val id: String, val label: String, @param:StringRes val labelResId: Int)
 
 object ConfigKeys {
   val MAX_TOKENS = ConfigKey("max_tokens", "Max tokens", R.string.config_label_max_tokens)

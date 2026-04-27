@@ -147,9 +147,11 @@ android {
   // Only arm64-v8a is supported — LiteRT LM's x86_64 native library crashes
   // with SIGILL on Android emulators, and 32-bit architectures have no native
   // libraries at all.
+  // CI instrumented tests disable splits via -PDISABLE_ABI_SPLITS=true so the
+  // universal APK installs on x86_64 emulators (tests don't load native libs).
   splits {
     abi {
-      isEnable = true
+      isEnable = !project.hasProperty("DISABLE_ABI_SPLITS")
       reset()
       include("arm64-v8a")
       isUniversalApk = false
@@ -239,6 +241,7 @@ dependencies {
   ksp(libs.androidx.room.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
+  androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.kotlinx.coroutines.test)
   androidTestImplementation(libs.androidx.test.core)
   androidTestImplementation(libs.androidx.room.testing)
