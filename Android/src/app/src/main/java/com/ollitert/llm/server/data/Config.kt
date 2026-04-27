@@ -54,6 +54,14 @@ object ConfigKeys {
   val NUMBER_OF_RUNS = ConfigKey("number_of_runs", "Number of runs", R.string.config_label_number_of_runs)
 }
 
+/** Read [ConfigKeys.MAX_TOKENS] from a config values map as [Int], or null if absent/non-numeric. */
+fun Map<String, Any>.maxTokensInt(): Int? =
+  (this[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+
+/** Read [ConfigKeys.MAX_TOKENS] from a config values map as [Long], or null if absent/non-numeric. */
+fun Map<String, Any>.maxTokensLong(): Long? =
+  (this[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong()
+
 /**
  * Base class for configuration settings.
  *
