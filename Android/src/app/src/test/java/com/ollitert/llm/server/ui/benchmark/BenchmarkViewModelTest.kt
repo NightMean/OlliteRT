@@ -118,7 +118,7 @@ class BenchmarkViewModelTest {
     val state = vm.uiState.value
     assertEquals(1, state.results.size)
     assertEquals(id, state.results[0].id)
-    assertEquals("new-model", state.results[0].benchmarkResult.llmResult.baiscInfo.modelName)
+    assertEquals("new-model", state.results[0].benchmarkResult.llmResult.basicInfo.modelName)
   }
 
   @Test
@@ -129,7 +129,7 @@ class BenchmarkViewModelTest {
     vm.addBenchmarkResult(makeResult("first"))
     vm.addBenchmarkResult(makeResult("second"))
 
-    val names = vm.uiState.value.results.map { it.benchmarkResult.llmResult.baiscInfo.modelName }
+    val names = vm.uiState.value.results.map { it.benchmarkResult.llmResult.basicInfo.modelName }
     assertEquals(listOf("second", "first"), names)
   }
 
@@ -329,7 +329,7 @@ class BenchmarkViewModelTest {
     BenchmarkResult.newBuilder()
       .setLlmResult(
         LlmBenchmarkResult.newBuilder()
-          .setBaiscInfo(
+          .setBasicInfo(
             LlmBenchmarkBasicInfo.newBuilder()
               .setModelName(modelName)
               .setStartMs(1000)

@@ -164,7 +164,7 @@ fun BenchmarkScreen(
     filteredResults.clear()
     filteredResults.addAll(
       uiState.results.filter {
-        it.benchmarkResult.llmResult?.baiscInfo?.modelName == selectedModelName
+        it.benchmarkResult.llmResult?.basicInfo?.modelName == selectedModelName
       }
     )
   }

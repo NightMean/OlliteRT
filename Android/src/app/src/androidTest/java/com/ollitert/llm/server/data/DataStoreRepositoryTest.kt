@@ -213,8 +213,8 @@ class DataStoreRepositoryTest {
 
     val all = repo.getAllBenchmarkResults()
     assertEquals(2, all.size)
-    assertEquals("model-b", all[0].llmResult.baiscInfo.modelName)
-    assertEquals("model-a", all[1].llmResult.baiscInfo.modelName)
+    assertEquals("model-b", all[0].llmResult.basicInfo.modelName)
+    assertEquals("model-a", all[1].llmResult.basicInfo.modelName)
   }
 
   @Test
@@ -227,8 +227,8 @@ class DataStoreRepositoryTest {
 
     val remaining = repo.getAllBenchmarkResults()
     assertEquals(2, remaining.size)
-    assertEquals("c", remaining[0].llmResult.baiscInfo.modelName)
-    assertEquals("a", remaining[1].llmResult.baiscInfo.modelName)
+    assertEquals("c", remaining[0].llmResult.basicInfo.modelName)
+    assertEquals("a", remaining[1].llmResult.basicInfo.modelName)
   }
 
   @Test
@@ -238,7 +238,7 @@ class DataStoreRepositoryTest {
 
     val all = repo.getAllBenchmarkResults()
     assertEquals(1, all.size)
-    assertEquals("new", all[0].llmResult.baiscInfo.modelName)
+    assertEquals("new", all[0].llmResult.basicInfo.modelName)
   }
 
   // --- Benchmark Comparison Help ---
@@ -260,7 +260,7 @@ class DataStoreRepositoryTest {
     BenchmarkResult.newBuilder()
       .setLlmResult(
         LlmBenchmarkResult.newBuilder()
-          .setBaiscInfo(
+          .setBasicInfo(
             LlmBenchmarkBasicInfo.newBuilder()
               .setModelName(modelName)
               .setStartMs(1000)

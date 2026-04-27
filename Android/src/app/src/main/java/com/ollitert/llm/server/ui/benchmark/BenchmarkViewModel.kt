@@ -214,7 +214,7 @@ constructor(
       val result =
         BenchmarkResult.newBuilder()
           .setLlmResult(
-            LlmBenchmarkResult.newBuilder().setBaiscInfo(basicInfo).setStats(stats).build()
+            LlmBenchmarkResult.newBuilder().setBasicInfo(basicInfo).setStats(stats).build()
           )
           .build()
       val newId = addBenchmarkResult(result = result)

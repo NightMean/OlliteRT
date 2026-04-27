@@ -133,7 +133,7 @@ fun BenchmarkResultsViewer(
     filterableModelNames.clear()
     filterableModelNames.add(strAll)
     filterableModelNames.addAll(
-      uiState.results.mapNotNull { it.benchmarkResult.llmResult?.baiscInfo?.modelName }.distinct()
+      uiState.results.mapNotNull { it.benchmarkResult.llmResult?.basicInfo?.modelName }.distinct()
     )
   }
 
@@ -143,7 +143,7 @@ fun BenchmarkResultsViewer(
     filteredResults.addAll(
       uiState.results.filter {
         selectedModelName == strAll ||
-          it.benchmarkResult.llmResult?.baiscInfo?.modelName == selectedModelName
+          it.benchmarkResult.llmResult?.basicInfo?.modelName == selectedModelName
       }
     )
   }
@@ -340,12 +340,12 @@ fun BenchmarkResultsViewer(
                       cardModifier = cardModifier.animateItem()
                     }
                     result.benchmarkResult.llmResult?.let { llmResult ->
-                      val modelName = llmResult.baiscInfo.modelName
+                      val modelName = llmResult.basicInfo.modelName
                       Accordions(
-                        title = "$modelName · ${llmResult.baiscInfo.accelerator}",
+                        title = "$modelName · ${llmResult.basicInfo.accelerator}",
                         subtitle =
                           SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-                            .format(Date(llmResult.baiscInfo.startMs)),
+                            .format(Date(llmResult.basicInfo.startMs)),
                         boldTitle = true,
                         expanded = result.expanded,
                         onExpandedChange = { viewModel.setExpanded(id = result.id, expanded = it) },
@@ -398,24 +398,24 @@ fun BenchmarkResultsViewer(
                               verticalArrangement = Arrangement.spacedBy(8.dp),
                               modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 4.dp),
                             ) {
-                              StatRow(label = stringResource(R.string.benchmark_stat_model), value = llmResult.baiscInfo.modelName)
+                              StatRow(label = stringResource(R.string.benchmark_stat_model), value = llmResult.basicInfo.modelName)
                               StatRow(
                                 label = stringResource(R.string.benchmark_stat_accelerator),
-                                value = llmResult.baiscInfo.accelerator,
+                                value = llmResult.basicInfo.accelerator,
                               )
                               StatRow(
                                 label = stringResource(R.string.benchmark_stat_prefill_tokens),
-                                value = "${llmResult.baiscInfo.prefillTokens}",
+                                value = "${llmResult.basicInfo.prefillTokens}",
                               )
                               StatRow(
                                 label = stringResource(R.string.benchmark_stat_decode_tokens),
-                                value = "${llmResult.baiscInfo.decodeTokens}",
+                                value = "${llmResult.basicInfo.decodeTokens}",
                               )
                               StatRow(
                                 label = stringResource(R.string.benchmark_stat_number_of_runs),
-                                value = "${llmResult.baiscInfo.numberOfRuns}",
+                                value = "${llmResult.basicInfo.numberOfRuns}",
                               )
-                              StatRow(label = stringResource(R.string.benchmark_stat_app_version), value = llmResult.baiscInfo.appVersion)
+                              StatRow(label = stringResource(R.string.benchmark_stat_app_version), value = llmResult.basicInfo.appVersion)
                             }
                           }
 
@@ -425,8 +425,8 @@ fun BenchmarkResultsViewer(
                             title =
                               "${stringResource(R.string.results)} (${resources.getQuantityString(
                                 R.plurals.runs ,
-                                llmResult.baiscInfo.numberOfRuns,
-                                llmResult.baiscInfo.numberOfRuns,
+                                llmResult.basicInfo.numberOfRuns,
+                                llmResult.basicInfo.numberOfRuns,
                               )})",
                             bgColor = MaterialTheme.colorScheme.surfaceContainerLow,
                             expanded = result.statsExpanded,
@@ -436,7 +436,7 @@ fun BenchmarkResultsViewer(
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)),
                             titleRowAction = {
                               if (
-                                (result.benchmarkResult.llmResult?.baiscInfo?.numberOfRuns ?: 0) > 1
+                                (result.benchmarkResult.llmResult?.basicInfo?.numberOfRuns ?: 0) > 1
                               ) {
                                 var showAggregationDropdown by remember { mutableStateOf(false) }
                                 // Aggregation method.
@@ -946,7 +946,7 @@ private fun ValueSeriesRow(
 }
 
 private fun getBenchmarkResultCsv(llmResult: LlmBenchmarkResult, aggregation: Aggregation): String {
-  val basicInfo = llmResult.baiscInfo
+  val basicInfo = llmResult.basicInfo
   val stats = llmResult.stats
 
   val header =

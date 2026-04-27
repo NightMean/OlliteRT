@@ -34,7 +34,7 @@ message BenchmarkResult {
 
 message LlmBenchmarkResult {
   // Field 1 was never assigned — inherited upstream gap
-  LlmBenchmarkBasicInfo baisc_info = 2;
+  LlmBenchmarkBasicInfo basic_info = 2;
   LlmBenchmarkStats stats = 3;
 }
 
