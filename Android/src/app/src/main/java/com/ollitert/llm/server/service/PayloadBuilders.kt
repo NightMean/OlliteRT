@@ -179,6 +179,7 @@ object PayloadBuilders {
       if (!activeModel.name.equals(modelId, ignoreCase = true)) return null
       val item = LlmHttpModelItem(
         id = activeModel.name,
+        created = ServerMetrics.modelCreatedAtEpoch.value,
         capabilities = LlmHttpModelCapabilities(
           image = activeModel.llmSupportImage,
           audio = activeModel.llmSupportAudio,
@@ -192,7 +193,7 @@ object PayloadBuilders {
     // (capabilities require the Model object which isn't available when unloaded)
     val idleName = idleUnloadedModelName ?: return null
     if (!idleName.equals(modelId, ignoreCase = true)) return null
-    val item = LlmHttpModelItem(id = idleName)
+    val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
     return json.encodeToString(LlmHttpModelItem.serializer(), item)
   }
 
@@ -209,7 +210,7 @@ object PayloadBuilders {
       val idleName = idleUnloadedModelName
       if (idleName != null) {
         Log.i(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
-        val item = LlmHttpModelItem(id = idleName)
+        val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
         return json.encodeToString(LlmHttpModelList(data = listOf(item)))
       }
       Log.i(TAG, "Models list: no model loaded")
@@ -218,6 +219,7 @@ object PayloadBuilders {
     Log.i(TAG, "Models list: active model=${model.name}")
     val item = LlmHttpModelItem(
       id = model.name,
+      created = ServerMetrics.modelCreatedAtEpoch.value,
       capabilities = LlmHttpModelCapabilities(
         image = model.llmSupportImage,
         audio = model.llmSupportAudio,

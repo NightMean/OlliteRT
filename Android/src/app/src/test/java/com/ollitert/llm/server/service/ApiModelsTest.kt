@@ -110,6 +110,23 @@ class LlmHttpApiModelsTest {
     assertTrue(serialized.contains("\"update_available\":false"))
   }
 
+  // ── LlmHttpModelItem: explicit created timestamp ──────────────────────
+
+  @Test
+  fun modelItemExplicitCreatedOverridesDefault() {
+    val fixedTime = 1700000000L
+    val item = LlmHttpModelItem(id = "test-model", created = fixedTime)
+    assertEquals(fixedTime, item.created)
+  }
+
+  @Test
+  fun modelItemExplicitCreatedSerializes() {
+    val fixedTime = 1700000000L
+    val item = LlmHttpModelItem(id = "test-model", created = fixedTime)
+    val serialized = json.encodeToString(item)
+    assertTrue(serialized.contains("\"created\":1700000000"))
+  }
+
   // ── ChatRequest: stream_options──────────────────────────────────────
 
   @Test
