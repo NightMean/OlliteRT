@@ -224,7 +224,18 @@ constructor(
 
 
   fun processModels() {
-    for (model in uiState.value.models) {
+    val models = uiState.value.models
+
+    // TODO: Remove after 1.0.0 — migrates 0.9.0-beta per-model prefs from model.name to
+    // model.downloadFileName keys. Must run before restoreInferenceConfig.
+    val nameToPrefsKey = models
+      .filter { !it.imported && it.name != it.downloadFileName }
+      .associate { it.name to it.downloadFileName }
+    if (nameToPrefsKey.isNotEmpty()) {
+      ServerPrefs.migratePerModelKeys(context, nameToPrefsKey)
+    }
+
+    for (model in models) {
       model.preProcess()
       // Restore persisted inference config (temperature, max tokens, etc.) so settings
       // survive app restarts. Overlays saved values on top of model defaults.

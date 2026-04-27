@@ -209,6 +209,42 @@ class LlmHttpPrefsTest {
     assertNull(ServerPrefs.getDefaultModelName(context))
   }
 
+  // --- Per-Model Prefs Key Migration ---
+
+  @Test
+  fun migratePerModelKeysMovesDataToNewKeys() {
+    ServerPrefs.setSystemPrompt(context, "Gemma-4-E2B-it", "You are helpful.")
+    ServerPrefs.setInferenceConfig(context, "Gemma-4-E2B-it", mapOf("Temperature" to 0.7))
+
+    ServerPrefs.migratePerModelKeys(context, mapOf("Gemma-4-E2B-it" to "gemma-4-E2B-it.litertlm"))
+
+    assertEquals("You are helpful.", ServerPrefs.getSystemPrompt(context, "gemma-4-E2B-it.litertlm"))
+    assertEquals(0.7, (ServerPrefs.getInferenceConfig(context, "gemma-4-E2B-it.litertlm")!!["Temperature"] as Number).toDouble(), 0.001)
+    assertEquals("", ServerPrefs.getSystemPrompt(context, "Gemma-4-E2B-it"))
+    assertNull(ServerPrefs.getInferenceConfig(context, "Gemma-4-E2B-it"))
+  }
+
+  @Test
+  fun migratePerModelKeysSkipsWhenNewKeyAlreadyExists() {
+    ServerPrefs.setSystemPrompt(context, "gemma-4-E2B-it.litertlm", "Keep this one.")
+    ServerPrefs.setSystemPrompt(context, "Gemma-4-E2B-it", "Don't overwrite.")
+
+    ServerPrefs.migratePerModelKeys(context, mapOf("Gemma-4-E2B-it" to "gemma-4-E2B-it.litertlm"))
+
+    assertEquals("Keep this one.", ServerPrefs.getSystemPrompt(context, "gemma-4-E2B-it.litertlm"))
+  }
+
+  @Test
+  fun migratePerModelKeysRunsOnlyOnce() {
+    ServerPrefs.setSystemPrompt(context, "ModelA", "prompt1")
+    ServerPrefs.migratePerModelKeys(context, mapOf("ModelA" to "model-a.litertlm"))
+    assertEquals("prompt1", ServerPrefs.getSystemPrompt(context, "model-a.litertlm"))
+
+    ServerPrefs.setSystemPrompt(context, "ModelA", "prompt2")
+    ServerPrefs.migratePerModelKeys(context, mapOf("ModelA" to "model-a.litertlm"))
+    assertEquals("prompt2", ServerPrefs.getSystemPrompt(context, "ModelA"))
+  }
+
   // --- CORS ---
 
   @Test

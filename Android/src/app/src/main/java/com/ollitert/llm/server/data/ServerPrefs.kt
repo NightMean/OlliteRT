@@ -45,6 +45,8 @@ private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
 private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
+// TODO: Remove after 1.0.0 — migration from 0.9.0-beta keys (model.name → model.prefsKey).
+private const val KEY_PREFS_KEY_MIGRATION_DONE = "prefs_key_migration_v1"
 
 // --- Developer / Debug ---
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
@@ -709,6 +711,45 @@ object ServerPrefs {
   fun resetToDefaults(context: Context) {
     prefs(context).edit().clear().apply()
     cachedPrefs = null
+  }
+
+  // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0-beta.1 to move
+  // per-model prefs from old keys (model.name) to stable keys (model.downloadFileName).
+  fun migratePerModelKeys(context: Context, modelNameToDownloadFileName: Map<String, String>) {
+    val p = prefs(context)
+    if (p.getBoolean(KEY_PREFS_KEY_MIGRATION_DONE, false)) return
+
+    val editor = p.edit()
+    var migrated = 0
+
+    for ((oldName, newKey) in modelNameToDownloadFileName) {
+      if (oldName == newKey) continue
+
+      val oldPromptKey = KEY_PREFIX_SYSTEM_PROMPT + oldName
+      val newPromptKey = KEY_PREFIX_SYSTEM_PROMPT + newKey
+      val prompt = p.getString(oldPromptKey, null)
+      if (prompt != null && !p.contains(newPromptKey)) {
+        editor.putString(newPromptKey, prompt)
+        editor.remove(oldPromptKey)
+        migrated++
+      }
+
+      val oldConfigKey = KEY_PREFIX_INFERENCE_CONFIG + oldName
+      val newConfigKey = KEY_PREFIX_INFERENCE_CONFIG + newKey
+      val config = p.getString(oldConfigKey, null)
+      if (config != null && !p.contains(newConfigKey)) {
+        editor.putString(newConfigKey, config)
+        editor.remove(oldConfigKey)
+        migrated++
+      }
+    }
+
+    editor.putBoolean(KEY_PREFS_KEY_MIGRATION_DONE, true)
+    editor.apply()
+
+    if (migrated > 0) {
+      Log.i("OlliteRT.Prefs", "Migrated $migrated per-model prefs key(s) to stable format")
+    }
   }
 
   private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN)
