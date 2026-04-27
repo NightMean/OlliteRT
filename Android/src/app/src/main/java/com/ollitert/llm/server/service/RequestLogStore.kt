@@ -317,8 +317,9 @@ object RequestLogStore {
   /**
    * Add an internal event (model load, error, etc.) visible in the Logs tab.
    *
-   * @param body optional structured JSON stored in [RequestLogEntry.requestBody].
-   *   All event bodies MUST be valid JSON with a `"type"` discriminator field.
+   * @param body optional text stored in [RequestLogEntry.requestBody].
+   *   May be structured JSON (with a `"type"` discriminator for typed schemas below)
+   *   or plain text (config dumps, change summaries, stack traces).
    *   Exported under `"data"` in the log JSON output.
    *
    *   Schemas by type:

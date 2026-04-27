@@ -592,7 +592,7 @@ internal fun clampMaxTokens(value: Int): Int =
  * Logs compaction details and updates the request log entry when prompt compaction was applied.
  *
  * @param maxContext When non-null, appends estimatedTokens and maxContext to the log line.
- *   The /generate endpoint passes null because raw prompts have no token estimation context.
+ *   The /generate endpoint passes null because it logs context utilization separately.
  * @param updateLog Callback receiving (details, compactedPrompt); invoked only when logId is non-null.
  */
 internal fun logCompactionResult(

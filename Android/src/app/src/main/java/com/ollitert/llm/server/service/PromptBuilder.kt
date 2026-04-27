@@ -112,6 +112,8 @@ object PromptBuilder {
    * @param tools Tool definitions to inject.
    * @param toolChoice Resolved tool_choice string ("auto", "none", "required", or a function name).
    * @param chatTemplate Optional per-model chat template.
+   * @param compact When true, emits one-line-per-tool summaries instead of full JSON schemas.
+   * @param interleaveImagePlaceholders When true, inserts image placeholder tokens between messages.
    */
   fun buildToolAwarePrompt(
     msgs: List<ChatMessage>,

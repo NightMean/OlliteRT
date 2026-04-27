@@ -56,6 +56,7 @@ object PromptCompactor {
    * @param truncateHistory Whether "Truncate Conversation History" is enabled.
    * @param compactToolSchemas Whether "Compact Tool Schemas" is enabled.
    * @param trimPrompts Whether "Trim Prompt" is enabled.
+   * @param interleaveImagePlaceholders When true, inserts image placeholder tokens between messages.
    */
   fun compactChatPrompt(
     messages: List<ChatMessage>,
