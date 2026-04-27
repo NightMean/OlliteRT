@@ -18,6 +18,8 @@ package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.ServerStatus
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -574,5 +576,42 @@ class ServerMetricsTest {
     ServerMetrics.onServerError()
     assertEquals(ServerStatus.ERROR, ServerMetrics.status.value)
     assertNull(ServerMetrics.lastError.value)
+  }
+
+  // ── Registry completeness guard ─────────────────────────────────────────
+
+  @Test
+  fun allSessionFieldsAreRegisteredForReset() {
+    val allFlowFields = ServerMetrics::class.java.declaredFields.filter { field ->
+      field.isAccessible = true
+      field.get(ServerMetrics) is MutableStateFlow<*>
+    }
+    // 3 app-level flows intentionally not registered: port, availableUpdateVersion, availableUpdateUrl
+    val appLevelFlowCount = 3
+    val registeredFlowCount = ServerMetrics::class.java.getDeclaredField("sessionFlowResets").let {
+      it.isAccessible = true
+      @Suppress("UNCHECKED_CAST")
+      (it.get(ServerMetrics) as List<*>).size
+    }
+    assertEquals(
+      "MutableStateFlow fields not registered in sessionFlowResets (forgot sessionFlow()?)",
+      allFlowFields.size - appLevelFlowCount,
+      registeredFlowCount,
+    )
+
+    val allAtomicFields = ServerMetrics::class.java.declaredFields.filter { field ->
+      field.isAccessible = true
+      field.get(ServerMetrics) is AtomicLong
+    }
+    val registeredAtomicCount = ServerMetrics::class.java.getDeclaredField("sessionAtomicResets").let {
+      it.isAccessible = true
+      @Suppress("UNCHECKED_CAST")
+      (it.get(ServerMetrics) as List<*>).size
+    }
+    assertEquals(
+      "AtomicLong fields not registered in sessionAtomicResets (forgot sessionAtomic()?)",
+      allAtomicFields.size,
+      registeredAtomicCount,
+    )
   }
 }
