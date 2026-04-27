@@ -401,43 +401,43 @@ constructor(
     _uiState.update { _uiState.value.copy(results = newResults) }
   }
 
-  private fun calculateValueSeries(values: List<Double>): ValueSeries {
-    if (values.isEmpty()) {
-      return ValueSeries.getDefaultInstance()
-    }
+}
 
-    val sortedValues = values.sorted()
-    val size = sortedValues.size
-
-    val min = sortedValues.first()
-    val max = sortedValues.last()
-    val avg = values.average()
-
-    // Helper function to get the value at a specific percentile (0.0 to 1.0)
-    fun getPercentile(p: Double): Double {
-      if (size == 1) return sortedValues[0]
-      val index = p * (size - 1)
-      val lower = floor(index).toInt()
-      val upper = ceil(index).toInt()
-      if (lower == upper) {
-        return sortedValues[lower]
-      }
-      val weight = index - lower
-      return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight
-    }
-
-    val median = getPercentile(0.5)
-    val pct25 = getPercentile(0.25)
-    val pct75 = getPercentile(0.75)
-
-    return ValueSeries.newBuilder()
-      .addAllValue(values)
-      .setMin(min)
-      .setMax(max)
-      .setAvg(avg)
-      .setMedium(median) // Proto field is named 'medium'
-      .setPct25(pct25)
-      .setPct75(pct75)
-      .build()
+internal fun calculateValueSeries(values: List<Double>): ValueSeries {
+  if (values.isEmpty()) {
+    return ValueSeries.getDefaultInstance()
   }
+
+  val sortedValues = values.sorted()
+  val size = sortedValues.size
+
+  val min = sortedValues.first()
+  val max = sortedValues.last()
+  val avg = values.average()
+
+  fun getPercentile(p: Double): Double {
+    if (size == 1) return sortedValues[0]
+    val index = p * (size - 1)
+    val lower = floor(index).toInt()
+    val upper = ceil(index).toInt()
+    if (lower == upper) {
+      return sortedValues[lower]
+    }
+    val weight = index - lower
+    return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight
+  }
+
+  val median = getPercentile(0.5)
+  val pct25 = getPercentile(0.25)
+  val pct75 = getPercentile(0.75)
+
+  return ValueSeries.newBuilder()
+    .addAllValue(values)
+    .setMin(min)
+    .setMax(max)
+    .setAvg(avg)
+    .setMedium(median)
+    .setPct25(pct25)
+    .setPct75(pct75)
+    .build()
 }
