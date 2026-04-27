@@ -83,7 +83,9 @@ internal fun LogPersistenceCard(vm: SettingsViewModel) {
       savedBaseValue = vm.logAutoDeleteMinutesEntry.saved,
       onBaseValueChange = { vm.logAutoDeleteMinutesEntry.update(it) },
       searchQuery = vm.searchQuery,
+      isError = vm.hasError(LOG_AUTO_DELETE.key),
       enabled = vm.isSettingEnabled(LOG_AUTO_DELETE.key),
+      onErrorClear = { vm.clearError(LOG_AUTO_DELETE.key) },
       modifier = Modifier.alpha(childAlpha),
     )
 
