@@ -726,4 +726,39 @@ object ServerPrefs {
     }
     Log.i(tag, "================================")
   }
+
+  // ── Per-request snapshot ──────────────────────────────────────────────────
+
+  fun captureRequestSnapshot(context: Context): RequestPrefsSnapshot =
+    RequestPrefsSnapshot(
+      autoTruncateHistory = isAutoTruncateHistory(context),
+      autoTrimPrompts = isAutoTrimPrompts(context),
+      compactToolSchemas = isCompactToolSchemas(context),
+      ignoreClientSamplerParams = isIgnoreClientSamplerParams(context),
+      eagerVisionInit = isEagerVisionInit(context),
+      streamLogsPreview = isStreamLogsPreview(context),
+      keepPartialResponse = isKeepPartialResponse(context),
+      compactImageData = isCompactImageData(context),
+      resolveClientHostnames = isResolveClientHostnames(context),
+      hideHealthLogs = isHideHealthLogs(context),
+      verboseDebug = isVerboseDebugEnabled(context),
+      sttTranscriptionPromptEnabled = isSttTranscriptionPromptEnabled(context),
+      sttTranscriptionPromptText = getSttTranscriptionPromptText(context),
+    )
 }
+
+data class RequestPrefsSnapshot(
+  val autoTruncateHistory: Boolean = false,
+  val autoTrimPrompts: Boolean = false,
+  val compactToolSchemas: Boolean = false,
+  val ignoreClientSamplerParams: Boolean = false,
+  val eagerVisionInit: Boolean = false,
+  val streamLogsPreview: Boolean = false,
+  val keepPartialResponse: Boolean = false,
+  val compactImageData: Boolean = false,
+  val resolveClientHostnames: Boolean = false,
+  val hideHealthLogs: Boolean = false,
+  val verboseDebug: Boolean = false,
+  val sttTranscriptionPromptEnabled: Boolean = false,
+  val sttTranscriptionPromptText: String = "",
+)
