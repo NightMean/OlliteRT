@@ -725,6 +725,11 @@ class InferenceRunner(
         onError = { error ->
           channel.trySend(StreamEvent.Error(error))
         },
+        onInferenceFinished = {
+          if (originalConfig != null && model.instance != null) {
+            model.configValues = originalConfig
+          }
+        },
         onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },
       )
 
@@ -738,7 +743,6 @@ class InferenceRunner(
             // Check for client disconnect (Ktor closed the writer)
             if (writer.isCancelled) {
               if (logId != null) RequestLogStore.unregisterCancellation(logId)
-              if (originalConfig != null && model.instance != null) model.configValues = originalConfig
               ServerLlmModelHelper.stopResponse(model)
               if (!inferenceCompleted) {
                 inferenceCompleted = true
@@ -843,7 +847,6 @@ class InferenceRunner(
                   }
                   if (done) {
                     if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                    if (originalConfig != null && model.instance != null) model.configValues = originalConfig
                     val outputLen = fullText.length
                     val inputTokens = format.estimateInputTokens(prompt)
                     val outputTokens = estimateTokensLongByLength(outputLen)
@@ -896,7 +899,6 @@ class InferenceRunner(
                   }
                 } catch (e: Exception) {
                   if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                  if (originalConfig != null && model.instance != null) model.configValues = originalConfig
                   if (!inferenceCompleted) {
                     inferenceCompleted = true
                     ServerMetrics.onInferenceCompleted()
@@ -913,7 +915,6 @@ class InferenceRunner(
 
               is StreamEvent.Error -> {
                 if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                if (originalConfig != null && model.instance != null) model.configValues = originalConfig
                 if (!inferenceCompleted) {
                   inferenceCompleted = true
                   ServerMetrics.onInferenceCompleted()
@@ -954,7 +955,6 @@ class InferenceRunner(
         // the channel, so this block only fires for the external-cancel case.
         if (!inferenceCompleted) {
           if (logId != null) RequestLogStore.unregisterCancellation(logId)
-          if (originalConfig != null && model.instance != null) model.configValues = originalConfig
           inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()
           if (logId != null) {
@@ -976,7 +976,6 @@ class InferenceRunner(
       } catch (_: kotlinx.coroutines.CancellationException) {
         // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        if (originalConfig != null && model.instance != null) model.configValues = originalConfig
         if (!inferenceCompleted) {
           inferenceCompleted = true
           ServerMetrics.onInferenceCompleted()
