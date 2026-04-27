@@ -69,6 +69,14 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * Ktor CIO embedded HTTP server.
@@ -754,8 +762,8 @@ class KtorServer(
     // Parse { "enabled": true/false } — default to toggling current state
     val requestedState = if (body.isNotBlank()) {
       try {
-        val obj = org.json.JSONObject(body)
-        obj.optBoolean("enabled", !currentState)
+        val obj = Json.parseToJsonElement(body).jsonObject
+        obj["enabled"]?.jsonPrimitive?.booleanOrNull ?: !currentState
       } catch (_: Exception) {
         !currentState
       }
@@ -778,7 +786,7 @@ class KtorServer(
       category = EventCategory.SETTINGS,
       body = "Thinking: $oldLabel → $newLabel",
     )
-    val result = org.json.JSONObject().apply {
+    val result = buildJsonObject {
       put("success", true)
       put("thinking_enabled", requestedState)
       put("model", modelName)
@@ -802,7 +810,7 @@ class KtorServer(
       ?: ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
     if (body.isBlank()) {
       // GET-like: return current config
-      val current = org.json.JSONObject().apply {
+      val current = buildJsonObject {
         put("temperature", currentConfig.configTemperature()?.toDouble() ?: 0.0)
         put("max_tokens", currentConfig.maxTokensInt() ?: 0)
         put("top_k", currentConfig.configTopK() ?: 0)
@@ -810,7 +818,6 @@ class KtorServer(
         put("thinking_enabled", currentConfig.configThinkingEnabled() ?: false)
         put("model", modelName)
         put("model_loaded", !isIdle)
-        // Behavior toggles read from SharedPreferences
         put("auto_truncate_history", ServerPrefs.isAutoTruncateHistory(serviceContext))
         put("auto_trim_prompts", ServerPrefs.isAutoTrimPrompts(serviceContext))
         put("compact_tool_schemas", ServerPrefs.isCompactToolSchemas(serviceContext))
@@ -823,35 +830,35 @@ class KtorServer(
       return httpOkJson(current.toString())
     }
     return try {
-      val obj = org.json.JSONObject(body)
+      val obj = Json.parseToJsonElement(body).jsonObject
       val updated = currentConfig.toMutableMap()
       val changes = mutableListOf<String>()
-      if (obj.has("temperature")) {
+      if (obj.containsKey("temperature")) {
         val old = currentConfig.configTemperature()
-        val v = obj.getDouble("temperature").toFloat()
+        val v = obj["temperature"]!!.jsonPrimitive.double.toFloat()
         updated[ConfigKeys.TEMPERATURE.label] = v
         changes.add("Temperature: ${old ?: "unset"} → $v")
       }
-      if (obj.has("max_tokens")) {
+      if (obj.containsKey("max_tokens")) {
         val old = currentConfig.maxTokensInt()
-        val v = obj.getInt("max_tokens")
+        val v = obj["max_tokens"]!!.jsonPrimitive.int
         updated[ConfigKeys.MAX_TOKENS.label] = v
         changes.add("Max Tokens: ${old ?: "unset"} → $v")
       }
-      if (obj.has("top_k")) {
+      if (obj.containsKey("top_k")) {
         val old = currentConfig.configTopK()
-        val v = obj.getInt("top_k")
+        val v = obj["top_k"]!!.jsonPrimitive.int
         updated[ConfigKeys.TOPK.label] = v
         changes.add("Top-K: ${old ?: "unset"} → $v")
       }
-      if (obj.has("top_p")) {
+      if (obj.containsKey("top_p")) {
         val old = currentConfig.configTopP()
-        val v = obj.getDouble("top_p").toFloat()
+        val v = obj["top_p"]!!.jsonPrimitive.double.toFloat()
         updated[ConfigKeys.TOPP.label] = v
         changes.add("Top-P: ${old ?: "unset"} → $v")
       }
-      if (obj.has("thinking_enabled")) {
-        val v = obj.getBoolean("thinking_enabled")
+      if (obj.containsKey("thinking_enabled")) {
+        val v = obj["thinking_enabled"]!!.jsonPrimitive.boolean
         if (model == null || model.llmSupportThinking) {
           val old = currentConfig.configThinkingEnabled() ?: false
           updated[ConfigKeys.ENABLE_THINKING.label] = v
@@ -860,40 +867,40 @@ class KtorServer(
         }
       }
       // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
-      if (obj.has("auto_truncate_history")) {
+      if (obj.containsKey("auto_truncate_history")) {
         val old = ServerPrefs.isAutoTruncateHistory(serviceContext)
-        val v = obj.getBoolean("auto_truncate_history")
+        val v = obj["auto_truncate_history"]!!.jsonPrimitive.boolean
         ServerPrefs.setAutoTruncateHistory(serviceContext, v)
         changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.has("auto_trim_prompts")) {
+      if (obj.containsKey("auto_trim_prompts")) {
         val old = ServerPrefs.isAutoTrimPrompts(serviceContext)
-        val v = obj.getBoolean("auto_trim_prompts")
+        val v = obj["auto_trim_prompts"]!!.jsonPrimitive.boolean
         ServerPrefs.setAutoTrimPrompts(serviceContext, v)
         changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.has("compact_tool_schemas")) {
+      if (obj.containsKey("compact_tool_schemas")) {
         val old = ServerPrefs.isCompactToolSchemas(serviceContext)
-        val v = obj.getBoolean("compact_tool_schemas")
+        val v = obj["compact_tool_schemas"]!!.jsonPrimitive.boolean
         ServerPrefs.setCompactToolSchemas(serviceContext, v)
         changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.has("warmup_enabled")) {
+      if (obj.containsKey("warmup_enabled")) {
         val old = ServerPrefs.isWarmupEnabled(serviceContext)
-        val v = obj.getBoolean("warmup_enabled")
+        val v = obj["warmup_enabled"]!!.jsonPrimitive.boolean
         ServerPrefs.setWarmupEnabled(serviceContext, v)
         changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.has("keep_alive_enabled")) {
+      if (obj.containsKey("keep_alive_enabled")) {
         val old = ServerPrefs.isKeepAliveEnabled(serviceContext)
-        val v = obj.getBoolean("keep_alive_enabled")
+        val v = obj["keep_alive_enabled"]!!.jsonPrimitive.boolean
         ServerPrefs.setKeepAliveEnabled(serviceContext, v)
         if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
         changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.has("keep_alive_minutes")) {
+      if (obj.containsKey("keep_alive_minutes")) {
         val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
-        val v = obj.getInt("keep_alive_minutes")
+        val v = obj["keep_alive_minutes"]!!.jsonPrimitive.int
         if (v < 1 || v > 7200) {
           return httpBadRequest("keep_alive_minutes out of range")
         }
@@ -901,15 +908,15 @@ class KtorServer(
         if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
         changes.add("Keep Alive Minutes: $old → $v")
       }
-      if (obj.has("custom_prompts_enabled")) {
+      if (obj.containsKey("custom_prompts_enabled")) {
         val old = ServerPrefs.isCustomPromptsEnabled(serviceContext)
-        val v = obj.getBoolean("custom_prompts_enabled")
+        val v = obj["custom_prompts_enabled"]!!.jsonPrimitive.boolean
         ServerPrefs.setCustomPromptsEnabled(serviceContext, v)
         changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
-      if (obj.has("system_prompt")) {
+      if (obj.containsKey("system_prompt")) {
         val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
-        val v = obj.getString("system_prompt")
+        val v = obj["system_prompt"]!!.jsonPrimitive.content
         ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
         val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
         val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
@@ -930,7 +937,7 @@ class KtorServer(
           category = EventCategory.SETTINGS,
           body = changes.joinToString("\n"),
         )
-        val current = org.json.JSONObject().apply {
+        val current = buildJsonObject {
           put("success", true)
           put("model", modelName)
           put("model_loaded", !isIdle)
@@ -950,7 +957,7 @@ class KtorServer(
         }
         httpOkJson(current.toString())
       }
-    } catch (e: org.json.JSONException) {
+    } catch (_: Exception) {
       httpBadRequest("Invalid JSON body")
     }
   }
