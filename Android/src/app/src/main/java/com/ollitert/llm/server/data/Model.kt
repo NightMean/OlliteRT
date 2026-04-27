@@ -328,6 +328,10 @@ val Model.llmSupportAudio: Boolean get() = ModelCapability.AUDIO in capabilities
 val Model.llmSupportThinking: Boolean get() = ModelCapability.THINKING in capabilities
 val Model.llmSupportsNpu: Boolean get() = ModelCapability.NPU in capabilities
 
+/** Max context tokens from the model's live [configValues], or null if not configured. */
+val Model.maxContextTokens: Int?
+  get() = configValues.maxTokensInt()
+
 enum class ModelDownloadStatusType {
   NOT_DOWNLOADED,
   PARTIALLY_DOWNLOADED,
