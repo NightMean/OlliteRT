@@ -420,7 +420,6 @@ class ServerService : Service() {
       modelLifecycle = modelLifecycle,
       json = json,
       nextRequestId = { nextRequestId() },
-      getRequestCount = { requestCounter.get() },
       emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
       audioTranscriptionHandler = audioTranscriptionHandler,
       inferenceLock = inferenceLock,

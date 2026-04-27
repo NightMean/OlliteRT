@@ -28,6 +28,7 @@ import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
+import java.util.concurrent.atomic.AtomicLong
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -82,13 +83,15 @@ class KtorServer(
   private val modelLifecycle: ModelLifecycle,
   private val json: Json,
   private val nextRequestId: () -> String,
-  private val getRequestCount: () -> Long,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   private val audioTranscriptionHandler: AudioTranscriptionHandler,
   private val inferenceLock: Any,
 ) {
 
   private val logTag = "KtorServer"
+  private val logIdCounter = AtomicLong(0)
+
+  private fun nextLogId() = "log-${System.currentTimeMillis()}-${logIdCounter.incrementAndGet()}"
 
   private var engine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
 
@@ -401,7 +404,7 @@ class KtorServer(
       if (!requireAuth(call)) return@post
       val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
       val startMs = SystemClock.elapsedRealtime()
-      val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
+      val logId = nextLogId()
       RequestLogStore.add(
         RequestLogEntry(
           id = logId,
@@ -480,7 +483,7 @@ class KtorServer(
     handler: suspend () -> HttpResponse,
   ) {
     val startMs = SystemClock.elapsedRealtime()
-    val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
+    val logId = nextLogId()
     RequestLogStore.add(
       RequestLogEntry(
         id = logId,
@@ -537,7 +540,7 @@ class KtorServer(
     val clientIp = call.clientIp(prefs.resolveClientHostnames)
 
     // Add a pending log entry immediately so it appears in the Logs tab
-    val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
+    val logId = nextLogId()
     RequestLogStore.add(
       RequestLogEntry(
         id = logId,
