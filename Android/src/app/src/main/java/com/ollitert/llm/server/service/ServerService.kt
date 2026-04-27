@@ -580,7 +580,7 @@ class ServerService : Service() {
         // Update notification to show running state with full actions
         val initialText = buildString {
           if (ServerPrefs.isNotifShowRequestCount(this@ServerService)) {
-            append(getString(R.string.notif_server_body_requests_many, 0))
+            append(resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
             append("\n")
           }
           append(getString(R.string.notif_server_body_model, model.name))

@@ -198,8 +198,10 @@
   <string name="notif_action_copy_url">Copy URL</string>
   <string name="notif_server_running_title">OlliteRT Server Running</string>
   <string name="notif_server_body_model">Model: %1$s</string>
-  <string name="notif_server_body_requests_one">Requests: 1 request</string>
-  <string name="notif_server_body_requests_many">Requests: %1$d requests</string>
+  <plurals name="notif_server_body_requests">
+    <item quantity="one">Requests: %1$d request</item>
+    <item quantity="other">Requests: %1$d requests</item>
+  </plurals>
   <string name="notif_server_body_url">API URL: %1$s</string>
   <string name="notif_server_body_update">Update available: %1$s</string>
   <string name="notif_starting_title">OlliteRT</string>
@@ -499,8 +501,10 @@
   <string name="logs_no_match_body" translatable="false">No logs match the current filters.</string>
 
   <!-- LogsScreen: New activity indicator -->
-  <string name="logs_new_activity_single" translatable="false">New activity</string>
-  <string name="logs_new_activity_count" translatable="false">%1$d new entries</string>
+  <plurals name="logs_new_activity" translatable="false">
+    <item quantity="one">New activity</item>
+    <item quantity="other">%1$d new entries</item>
+  </plurals>
 
   <!-- LogsScreen: Stop generation -->
   <string name="logs_tooltip_stop_generation" translatable="false">Stop generation</string>

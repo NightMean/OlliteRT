@@ -128,8 +128,7 @@ object NotificationHelper {
     cachedUpdateVersion: String?,
   ) {
     val count = ServerMetrics.requestCount.value
-    val reqLabel = if (count == 1L) context.getString(R.string.notif_server_body_requests_one)
-      else context.getString(R.string.notif_server_body_requests_many, count)
+    val reqLabel = context.resources.getQuantityString(R.plurals.notif_server_body_requests, count.toInt(), count)
     val updateLine = if (cachedUpdateVersion != null) "\n${context.getString(R.string.notif_server_body_update, cachedUpdateVersion.removePrefix("v"))}" else ""
     update(
       context = context,

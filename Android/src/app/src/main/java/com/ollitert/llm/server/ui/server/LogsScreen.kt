@@ -96,6 +96,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -777,7 +778,7 @@ fun LogsScreen(
               modifier = Modifier.size(18.dp),
             )
             Text(
-              text = if (unseenCount == 1) stringResource(R.string.logs_new_activity_single) else stringResource(R.string.logs_new_activity_count, unseenCount),
+              text = pluralStringResource(R.plurals.logs_new_activity, unseenCount, unseenCount),
               style = MaterialTheme.typography.labelMedium,
               color = Color.Black,
               fontWeight = FontWeight.SemiBold,
