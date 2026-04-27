@@ -63,7 +63,6 @@ class ServerService : Service() {
   private var inferenceRunner: InferenceRunner? = null
   private var inferenceExecutor: java.util.concurrent.ExecutorService? = null
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-  private var currentPort: Int = DEFAULT_PORT
   private val requestCounter = AtomicLong(0)
   /** Incremented each time a new model load is initiated; stale warmup threads check this to bail out. */
   private val loadGeneration = AtomicLong(0)
@@ -242,7 +241,6 @@ class ServerService : Service() {
 
     val port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT)
     val requestedModelName = intent.getStringExtra(EXTRA_MODEL_NAME)
-    currentPort = port
 
     // If no explicit model was requested, this is likely a system restart after a crash.
     // Don't auto-load the last model to avoid crash loops (e.g. from OOM).
