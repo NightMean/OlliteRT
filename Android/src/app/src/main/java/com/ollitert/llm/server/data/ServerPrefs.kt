@@ -135,6 +135,38 @@ object ServerPrefs {
   private fun prefs(context: Context): android.content.SharedPreferences =
     cachedPrefs ?: context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).also { cachedPrefs = it }
 
+  // ── Typed pref accessors ──────────────────────────────────────────────
+  private sealed class Pref<T>(val key: String, val default: T) {
+    abstract fun read(prefs: android.content.SharedPreferences): T
+    abstract fun write(editor: android.content.SharedPreferences.Editor, value: T): android.content.SharedPreferences.Editor
+  }
+
+  private class BoolPref(key: String, default: Boolean) : Pref<Boolean>(key, default) {
+    override fun read(prefs: android.content.SharedPreferences) = prefs.getBoolean(key, default)
+    override fun write(editor: android.content.SharedPreferences.Editor, value: Boolean) = editor.putBoolean(key, value)
+  }
+
+  private class IntPref(key: String, default: Int) : Pref<Int>(key, default) {
+    override fun read(prefs: android.content.SharedPreferences) = prefs.getInt(key, default)
+    override fun write(editor: android.content.SharedPreferences.Editor, value: Int) = editor.putInt(key, value)
+  }
+
+  private class LongPref(key: String, default: Long) : Pref<Long>(key, default) {
+    override fun read(prefs: android.content.SharedPreferences) = prefs.getLong(key, default)
+    override fun write(editor: android.content.SharedPreferences.Editor, value: Long) = editor.putLong(key, value)
+  }
+
+  private class StringPref(key: String, default: String) : Pref<String>(key, default) {
+    override fun read(prefs: android.content.SharedPreferences) = prefs.getString(key, default) ?: default
+    override fun write(editor: android.content.SharedPreferences.Editor, value: String) = editor.putString(key, value)
+  }
+
+  private fun <T> get(context: Context, pref: Pref<T>): T = pref.read(prefs(context))
+
+  private fun <T> set(context: Context, pref: Pref<T>, value: T) {
+    pref.write(prefs(context).edit(), value).apply()
+  }
+
   fun isEnabled(context: Context): Boolean =
     prefs(context).getBoolean(KEY_ENABLED, false)
 

@@ -257,4 +257,30 @@ class LlmHttpPrefsTest {
     ServerPrefs.setCorsAllowedOrigins(context, "http://homeassistant.local:8123")
     assertEquals("http://homeassistant.local:8123", ServerPrefs.getCorsAllowedOrigins(context))
   }
+
+  // --- Pref Delegate Round-Trips ---
+
+  @Test
+  fun boolPrefDelegateRoundTrips() {
+    assertTrue(ServerPrefs.isKeepScreenOn(context))
+    ServerPrefs.setKeepScreenOn(context, false)
+    assertFalse(ServerPrefs.isKeepScreenOn(context))
+    ServerPrefs.setKeepScreenOn(context, true)
+    assertTrue(ServerPrefs.isKeepScreenOn(context))
+  }
+
+  @Test
+  fun intPrefDelegateRoundTrips() {
+    assertEquals(5, ServerPrefs.getKeepAliveMinutes(context))
+    ServerPrefs.setKeepAliveMinutes(context, 60)
+    assertEquals(60, ServerPrefs.getKeepAliveMinutes(context))
+  }
+
+  @Test
+  fun longPrefDelegateRoundTrips() {
+    val defaultMinutes = 7L * 24 * 60
+    assertEquals(defaultMinutes, ServerPrefs.getLogAutoDeleteMinutes(context))
+    ServerPrefs.setLogAutoDeleteMinutes(context, 1440L)
+    assertEquals(1440L, ServerPrefs.getLogAutoDeleteMinutes(context))
+  }
 }
