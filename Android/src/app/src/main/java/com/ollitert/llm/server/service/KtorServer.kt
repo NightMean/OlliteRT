@@ -431,8 +431,8 @@ class KtorServer(
       )
 
       val contentLength = call.request.headers["Content-Length"]?.toLongOrNull() ?: 0L
-      if (contentLength > 25_000_000L) {
-        val response = httpJsonError(400, "File too large (${contentLength / 1_000_000}MB). Maximum: 25MB.")
+      if (contentLength > MAX_FILE_SIZE_BYTES) {
+        val response = httpJsonError(400, "File too large (${contentLength / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
         finalizeLogEntry(logId, startMs, response, null, response.body)
         call.response.headers.append("x-request-id", logId)
         call.respondHttpResponse(response)

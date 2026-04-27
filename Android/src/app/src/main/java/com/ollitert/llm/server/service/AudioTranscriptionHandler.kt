@@ -27,7 +27,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
 
-private const val MAX_FILE_SIZE_BYTES = 25_000_000L
+internal const val MAX_FILE_SIZE_BYTES = 25_000_000L
 private const val TAG = "OlliteRT.AudioSTT"
 
 /**
