@@ -33,7 +33,8 @@ fun fetchBounded(
   url: String,
   userAgent: String,
   redirectCount: Int = 0,
-): String? = when (val result = fetchBoundedResult(url, userAgent, redirectCount)) {
+  openConnection: (String) -> HttpURLConnection = ::defaultOpenConnection,
+): String? = when (val result = fetchBoundedResult(url, userAgent, redirectCount, openConnection)) {
   is FetchResult.Success -> result.body
   else -> null
 }
@@ -42,13 +43,14 @@ fun fetchBoundedResult(
   url: String,
   userAgent: String,
   redirectCount: Int = 0,
+  openConnection: (String) -> HttpURLConnection = ::defaultOpenConnection,
 ): FetchResult {
   if (redirectCount > MAX_REDIRECTS) {
     Log.w(TAG, "Too many redirects for $url")
     return FetchResult.NetworkError("Too many redirects")
   }
   val connection = try {
-    URL(url).openConnection() as HttpURLConnection
+    openConnection(url)
   } catch (e: Exception) {
     Log.w(TAG, "Invalid URL: $url", e)
     return FetchResult.NetworkError("Invalid URL")
@@ -73,7 +75,7 @@ fun fetchBoundedResult(
       }
       if (location.startsWith("https://") || location.startsWith("http://")) {
         connection.disconnect()
-        return fetchBoundedResult(location, userAgent, redirectCount + 1)
+        return fetchBoundedResult(location, userAgent, redirectCount + 1, openConnection)
       }
       Log.w(TAG, "Rejecting redirect to unsupported protocol: $location")
       return FetchResult.NetworkError("Redirect to unsupported protocol")
@@ -107,3 +109,6 @@ fun fetchBoundedResult(
     connection.disconnect()
   }
 }
+
+private fun defaultOpenConnection(url: String): HttpURLConnection =
+  URL(url).openConnection() as HttpURLConnection
