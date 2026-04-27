@@ -53,24 +53,29 @@ import kotlinx.coroutines.CoroutineScope
 import java.io.File
 import java.util.concurrent.CancellationException
 
+typealias ResultListener =
+  (partialResult: String, done: Boolean, partialThinkingResult: String?) -> Unit
+
+typealias CleanUpListener = () -> Unit
+
 private const val TAG = "OlliteRT.ModelHelper"
 
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
 
-object ServerLlmModelHelper : LlmModelHelper {
+object ServerLlmModelHelper {
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = java.util.concurrent.ConcurrentHashMap()
 
   @OptIn(ExperimentalApi::class)
-  override fun initialize(
+  fun initialize(
     context: Context,
     model: Model,
     supportImage: Boolean,
     supportAudio: Boolean,
     onDone: (String) -> Unit,
-    systemInstruction: Contents?,
-    tools: List<ToolProvider>,
-    enableConversationConstrainedDecoding: Boolean,
-    coroutineScope: CoroutineScope?,
+    systemInstruction: Contents? = null,
+    tools: List<ToolProvider> = listOf(),
+    enableConversationConstrainedDecoding: Boolean = false,
+    coroutineScope: CoroutineScope? = null,
   ) {
     val maxTokens =
       model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
@@ -201,13 +206,13 @@ object ServerLlmModelHelper : LlmModelHelper {
   }
 
   @OptIn(ExperimentalApi::class)
-  override fun resetConversation(
+  fun resetConversation(
     model: Model,
-    supportImage: Boolean,
-    supportAudio: Boolean,
-    systemInstruction: Contents?,
-    tools: List<ToolProvider>,
-    enableConversationConstrainedDecoding: Boolean,
+    supportImage: Boolean = false,
+    supportAudio: Boolean = false,
+    systemInstruction: Contents? = null,
+    tools: List<ToolProvider> = listOf(),
+    enableConversationConstrainedDecoding: Boolean = false,
   ) {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
@@ -290,7 +295,7 @@ object ServerLlmModelHelper : LlmModelHelper {
     System.gc()
   }
 
-  override fun cleanUp(model: Model, onDone: () -> Unit) {
+  fun cleanUp(model: Model, onDone: () -> Unit) {
     // Safe cast: model.instance is @Volatile and can be set to null by another thread
     // between the null check and the cast. Use as? to avoid NullPointerException.
     val instance = model.instance as? LlmModelInstance ?: return
@@ -317,7 +322,7 @@ object ServerLlmModelHelper : LlmModelHelper {
     Log.d(TAG, "Clean up done.")
   }
 
-  override fun stopResponse(model: Model) {
+  fun stopResponse(model: Model) {
     val instance = model.instance as? LlmModelInstance ?: return
     // The Conversation may already be closed if the server is stopping while inference is
     // in progress (e.g. user taps Stop Server mid-generation). The SDK throws
@@ -329,16 +334,16 @@ object ServerLlmModelHelper : LlmModelHelper {
     }
   }
 
-  override fun runInference(
+  fun runInference(
     model: Model,
     input: String,
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
-    onError: (message: String) -> Unit,
-    images: List<ByteArray>,
-    audioClips: List<ByteArray>,
-    coroutineScope: CoroutineScope?,
-    extraContext: Map<String, String>?,
+    onError: (message: String) -> Unit = {},
+    images: List<ByteArray> = listOf(),
+    audioClips: List<ByteArray> = listOf(),
+    coroutineScope: CoroutineScope? = null,
+    extraContext: Map<String, String>? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
