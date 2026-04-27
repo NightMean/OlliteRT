@@ -24,7 +24,7 @@ import android.os.StatFs
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -63,6 +63,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -383,9 +384,11 @@ private fun OlliteRTNavItem(
       .defaultMinSize(minHeight = 56.dp)
       .padding(horizontal = 4.dp)
       .clip(RoundedCornerShape(16.dp))
-      .clickable(
+      .selectable(
+        selected = selected,
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
+        role = Role.Tab,
         onClick = onClick,
       ),
     contentAlignment = Alignment.Center,
@@ -405,15 +408,14 @@ private fun OlliteRTNavItem(
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center,
     ) {
-      val label = stringResource(tab.labelResId)
       Icon(
         imageVector = tab.icon,
-        contentDescription = label,
+        contentDescription = null,
         tint = animatedTextColor,
         modifier = Modifier.size(22.dp),
       )
       Text(
-        text = label,
+        text = stringResource(tab.labelResId),
         style = MaterialTheme.typography.labelSmall,
         color = animatedTextColor,
         modifier = Modifier.padding(top = 2.dp),
