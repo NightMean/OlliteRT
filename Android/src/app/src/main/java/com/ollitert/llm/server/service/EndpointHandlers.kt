@@ -575,6 +575,18 @@ internal fun buildPerRequestConfig(
   return overridden.toMap()
 }
 
+internal fun clampTemperature(value: Double): Float =
+  value.toFloat().coerceIn(MIN_TEMPERATURE, MAX_TEMPERATURE)
+
+internal fun clampTopP(value: Double): Float =
+  value.toFloat().coerceIn(MIN_TOPP, MAX_TOPP)
+
+internal fun clampTopK(value: Int): Int =
+  value.coerceIn(MIN_TOPK, MAX_TOPK)
+
+internal fun clampMaxTokens(value: Int): Int =
+  value.coerceIn(MIN_MAX_TOKENS, MAX_MAX_TOKENS)
+
 /**
  * Logs compaction details and updates the request log entry when prompt compaction was applied.
  *
