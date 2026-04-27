@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 data class InferenceResult(
   val output: String?,
@@ -129,7 +130,7 @@ object InferenceGateway {
     val thinkingSb = StringBuilder()
     val inferenceLatch = CountDownLatch(1)
     val lifecycleLatch = CountDownLatch(1)
-    var error: String? = null
+    val error = AtomicReference<String?>(null)
     val startMs = elapsedMs()
     var firstTokenMs: Long? = null
 
@@ -151,20 +152,20 @@ object InferenceGateway {
               }
               if (done) inferenceLatch.countDown()
             },
-            { e -> error = e; inferenceLatch.countDown() },
+            { e -> error.compareAndSet(null, e); inferenceLatch.countDown() },
           )
           val completed = inferenceLatch.await(timeoutSeconds, TimeUnit.SECONDS)
-          if (!completed && error == null) {
-            error = "timeout"
+          if (!completed && error.get() == null) {
+            error.compareAndSet(null, "timeout")
             cancelInference()
             resetConversation()
-          } else if (error != null) {
+          } else if (error.get() != null) {
             cancelInference()
           }
         } catch (t: Throwable) {
           if (t is OutOfMemoryError) System.gc()
           onCaughtThrowable?.invoke(t)
-          error = t.message
+          error.compareAndSet(null, t.message)
           inferenceLatch.countDown()
         } finally {
           lifecycleLatch.countDown()
@@ -175,19 +176,20 @@ object InferenceGateway {
     return withContext(Dispatchers.IO) {
       try {
         val completed = lifecycleLatch.await(timeoutSeconds + 5, TimeUnit.SECONDS)
-        if (!completed && error == null) {
-          error = "timeout"
+        if (!completed) {
+          error.compareAndSet(null, "timeout")
         }
       } catch (_: InterruptedException) {
-        if (error == null) error = "client_disconnected"
+        error.compareAndSet(null, "client_disconnected")
         cancelInference()
       }
       val totalMs = elapsedMs() - startMs
       val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
+      val finalError = error.get()
       InferenceResult(
-        output = if (error != null) null else sb.toString(),
-        thinking = if (error != null) null else thinkingResult,
-        error = error,
+        output = if (finalError != null) null else sb.toString(),
+        thinking = if (finalError != null) null else thinkingResult,
+        error = finalError,
         totalMs = totalMs,
         ttfbMs = firstTokenMs ?: -1,
       )
