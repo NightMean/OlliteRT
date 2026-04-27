@@ -27,6 +27,10 @@ import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.configTemperature
+import com.ollitert.llm.server.data.configThinkingEnabled
+import com.ollitert.llm.server.data.configTopK
+import com.ollitert.llm.server.data.configTopP
 import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import java.util.concurrent.atomic.AtomicLong
@@ -746,7 +750,7 @@ class KtorServer(
     // Read current state from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues
       ?: ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)
-    val currentState = (currentConfig?.get(ConfigKeys.ENABLE_THINKING.label) as? Boolean) ?: false
+    val currentState = currentConfig?.configThinkingEnabled() ?: false
     // Parse { "enabled": true/false } — default to toggling current state
     val requestedState = if (body.isNotBlank()) {
       try {
@@ -799,11 +803,11 @@ class KtorServer(
     if (body.isBlank()) {
       // GET-like: return current config
       val current = org.json.JSONObject().apply {
-        put("temperature", (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+        put("temperature", currentConfig.configTemperature()?.toDouble() ?: 0.0)
         put("max_tokens", currentConfig.maxTokensInt() ?: 0)
-        put("top_k", (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
-        put("top_p", (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
-        put("thinking_enabled", currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+        put("top_k", currentConfig.configTopK() ?: 0)
+        put("top_p", currentConfig.configTopP()?.toDouble() ?: 0.0)
+        put("thinking_enabled", currentConfig.configThinkingEnabled() ?: false)
         put("model", modelName)
         put("model_loaded", !isIdle)
         // Behavior toggles read from SharedPreferences
@@ -823,7 +827,7 @@ class KtorServer(
       val updated = currentConfig.toMutableMap()
       val changes = mutableListOf<String>()
       if (obj.has("temperature")) {
-        val old = (currentConfig[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat()
+        val old = currentConfig.configTemperature()
         val v = obj.getDouble("temperature").toFloat()
         updated[ConfigKeys.TEMPERATURE.label] = v
         changes.add("Temperature: ${old ?: "unset"} → $v")
@@ -835,13 +839,13 @@ class KtorServer(
         changes.add("Max Tokens: ${old ?: "unset"} → $v")
       }
       if (obj.has("top_k")) {
-        val old = (currentConfig[ConfigKeys.TOPK.label] as? Number)?.toInt()
+        val old = currentConfig.configTopK()
         val v = obj.getInt("top_k")
         updated[ConfigKeys.TOPK.label] = v
         changes.add("Top-K: ${old ?: "unset"} → $v")
       }
       if (obj.has("top_p")) {
-        val old = (currentConfig[ConfigKeys.TOPP.label] as? Number)?.toFloat()
+        val old = currentConfig.configTopP()
         val v = obj.getDouble("top_p").toFloat()
         updated[ConfigKeys.TOPP.label] = v
         changes.add("Top-P: ${old ?: "unset"} → $v")
@@ -849,7 +853,7 @@ class KtorServer(
       if (obj.has("thinking_enabled")) {
         val v = obj.getBoolean("thinking_enabled")
         if (model == null || model.llmSupportThinking) {
-          val old = currentConfig[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false
+          val old = currentConfig.configThinkingEnabled() ?: false
           updated[ConfigKeys.ENABLE_THINKING.label] = v
           ServerMetrics.setThinkingEnabled(v)
           changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
@@ -930,11 +934,11 @@ class KtorServer(
           put("success", true)
           put("model", modelName)
           put("model_loaded", !isIdle)
-          put("temperature", (updated[ConfigKeys.TEMPERATURE.label] as? Number)?.toDouble() ?: 0.0)
+          put("temperature", updated.configTemperature()?.toDouble() ?: 0.0)
           put("max_tokens", updated.maxTokensInt() ?: 0)
-          put("top_k", (updated[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: 0)
-          put("top_p", (updated[ConfigKeys.TOPP.label] as? Number)?.toDouble() ?: 0.0)
-          put("thinking_enabled", updated[ConfigKeys.ENABLE_THINKING.label] as? Boolean ?: false)
+          put("top_k", updated.configTopK() ?: 0)
+          put("top_p", updated.configTopP()?.toDouble() ?: 0.0)
+          put("thinking_enabled", updated.configThinkingEnabled() ?: false)
           put("auto_truncate_history", ServerPrefs.isAutoTruncateHistory(serviceContext))
           put("auto_trim_prompts", ServerPrefs.isAutoTrimPrompts(serviceContext))
           put("compact_tool_schemas", ServerPrefs.isCompactToolSchemas(serviceContext))

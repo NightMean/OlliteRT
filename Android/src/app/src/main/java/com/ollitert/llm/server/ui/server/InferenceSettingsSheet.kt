@@ -98,6 +98,7 @@ import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.configThinkingEnabled
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.NumberSliderConfig
@@ -143,7 +144,7 @@ fun InferenceSettingsSheet(
   }
   var enableThinking by remember {
     mutableStateOf(
-      (configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
+      configValues.configThinkingEnabled() ?: false
     )
   }
   // NPU/TPU availability is driven entirely by the model allowlist — there is no runtime API in
@@ -195,7 +196,7 @@ fun InferenceSettingsSheet(
           maxTokens = defaults[ConfigKeys.MAX_TOKENS.label].toIntSafe() ?: 1024
           topK = defaults[ConfigKeys.TOPK.label].toIntSafe() ?: 40
           topP = defaults[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f
-          enableThinking = (defaults[ConfigKeys.ENABLE_THINKING.label] as? Boolean) ?: false
+          enableThinking = defaults.configThinkingEnabled() ?: false
           val defaultAcc = defaults[ConfigKeys.ACCELERATOR.label]?.toString() ?: ""
           selectedAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
             ?: availableAccelerators.first()

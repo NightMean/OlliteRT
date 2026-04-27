@@ -62,6 +62,22 @@ fun Map<String, Any>.maxTokensInt(): Int? =
 fun Map<String, Any>.maxTokensLong(): Long? =
   (this[ConfigKeys.MAX_TOKENS.label] as? Number)?.toLong()
 
+/** Read [ConfigKeys.TEMPERATURE] as [Float], or null if absent/non-numeric. */
+fun Map<String, Any>.configTemperature(): Float? =
+  (this[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat()
+
+/** Read [ConfigKeys.TOPK] as [Int], or null if absent/non-numeric. */
+fun Map<String, Any>.configTopK(): Int? =
+  (this[ConfigKeys.TOPK.label] as? Number)?.toInt()
+
+/** Read [ConfigKeys.TOPP] as [Float], or null if absent/non-numeric. */
+fun Map<String, Any>.configTopP(): Float? =
+  (this[ConfigKeys.TOPP.label] as? Number)?.toFloat()
+
+/** Read [ConfigKeys.ENABLE_THINKING] as [Boolean], or null if absent/non-boolean. */
+fun Map<String, Any>.configThinkingEnabled(): Boolean? =
+  this[ConfigKeys.ENABLE_THINKING.label] as? Boolean
+
 /**
  * Base class for configuration settings.
  *

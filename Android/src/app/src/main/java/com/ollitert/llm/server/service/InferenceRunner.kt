@@ -24,7 +24,6 @@ import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
-import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LOG_STREAMING_PREVIEW_DEBOUNCE_MS
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
@@ -35,6 +34,7 @@ import com.ollitert.llm.server.data.WARMUP_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.configThinkingEnabled
 import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.data.maxTokensLong
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
@@ -148,7 +148,7 @@ class InferenceRunner(
       }
     }
     val enableThinking = model.llmSupportThinking &&
-      (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+      model.configValues.configThinkingEnabled() != false
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
     // Register a cancellation callback so the user can stop this request from the Logs screen.
@@ -659,7 +659,7 @@ class InferenceRunner(
     }
 
     val enableThinking = model.llmSupportThinking &&
-      (model.configValues[ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
+      model.configValues.configThinkingEnabled() != false
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
     // Read prefs eagerly (before the Ktor coroutine runs) — SharedPreferences reads

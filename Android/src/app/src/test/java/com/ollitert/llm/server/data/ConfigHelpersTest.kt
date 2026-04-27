@@ -72,4 +72,74 @@ class ConfigHelpersTest {
   fun maxTokensLongMissingKeyReturnsNull() {
     assertNull(emptyMap<String, Any>().maxTokensLong())
   }
+
+  // ── configTemperature ───────────────────────────────────────────────────
+
+  @Test
+  fun configTemperatureFromFloat() {
+    val map = mapOf(ConfigKeys.TEMPERATURE.label to 0.7f)
+    assertEquals(0.7f, map.configTemperature())
+  }
+
+  @Test
+  fun configTemperatureFromDouble() {
+    val map = mapOf(ConfigKeys.TEMPERATURE.label to 0.7)
+    assertEquals(0.7f, map.configTemperature() ?: Float.NaN, 0.001f)
+  }
+
+  @Test
+  fun configTemperatureMissingReturnsNull() {
+    assertNull(emptyMap<String, Any>().configTemperature())
+  }
+
+  // ── configTopK ──────────────────────────────────────────────────────────
+
+  @Test
+  fun configTopKFromInt() {
+    val map = mapOf(ConfigKeys.TOPK.label to 40)
+    assertEquals(40, map.configTopK())
+  }
+
+  @Test
+  fun configTopKMissingReturnsNull() {
+    assertNull(emptyMap<String, Any>().configTopK())
+  }
+
+  // ── configTopP ──────────────────────────────────────────────────────────
+
+  @Test
+  fun configTopPFromFloat() {
+    val map = mapOf(ConfigKeys.TOPP.label to 0.95f)
+    assertEquals(0.95f, map.configTopP())
+  }
+
+  @Test
+  fun configTopPMissingReturnsNull() {
+    assertNull(emptyMap<String, Any>().configTopP())
+  }
+
+  // ── configThinkingEnabled ───────────────────────────────────────────────
+
+  @Test
+  fun configThinkingEnabledTrue() {
+    val map = mapOf(ConfigKeys.ENABLE_THINKING.label to true)
+    assertEquals(true, map.configThinkingEnabled())
+  }
+
+  @Test
+  fun configThinkingEnabledFalse() {
+    val map = mapOf(ConfigKeys.ENABLE_THINKING.label to false)
+    assertEquals(false, map.configThinkingEnabled())
+  }
+
+  @Test
+  fun configThinkingEnabledMissingReturnsNull() {
+    assertNull(emptyMap<String, Any>().configThinkingEnabled())
+  }
+
+  @Test
+  fun configThinkingEnabledNonBooleanReturnsNull() {
+    val map = mapOf(ConfigKeys.ENABLE_THINKING.label to "yes")
+    assertNull(map.configThinkingEnabled())
+  }
 }
