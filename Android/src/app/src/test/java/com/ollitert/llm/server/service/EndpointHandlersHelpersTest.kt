@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -52,5 +53,111 @@ class EndpointHandlersHelpersTest {
   @Test
   fun describeMaxTokensOnly() {
     assertEquals("max_tokens=512", describeClientSamplerParams(null, null, null, 512))
+  }
+
+  // ── logCompactionResult ──────────────────────────────────────────────────
+
+  @Test
+  fun logCompactionResult_notCompacted_doesNothing() {
+    val logged = mutableListOf<String>()
+    var storeUpdated = false
+    logCompactionResult(
+      result = PromptCompactor.CompactionResult(prompt = "hello", compacted = false, strategies = emptyList()),
+      requestId = "r1",
+      endpoint = "/generate",
+      logId = "log1",
+      maxContext = null,
+      logEvent = { logged.add(it) },
+      updateLog = { _, _ -> storeUpdated = true },
+    )
+    assertTrue(logged.isEmpty())
+    assertFalse(storeUpdated)
+  }
+
+  @Test
+  fun logCompactionResult_compactedWithMaxContext_logsTokenEstimate() {
+    val logged = mutableListOf<String>()
+    logCompactionResult(
+      result = PromptCompactor.CompactionResult(prompt = "hello world", compacted = true, strategies = listOf("truncated:-2 msgs")),
+      requestId = "r2",
+      endpoint = "/v1/chat/completions",
+      logId = null,
+      maxContext = 2048,
+      logEvent = { logged.add(it) },
+      updateLog = { _, _ -> },
+    )
+    assertEquals(1, logged.size)
+    assertTrue(logged[0].contains("prompt_compacted"))
+    assertTrue(logged[0].contains("endpoint=/v1/chat/completions"))
+    assertTrue(logged[0].contains("strategies=[truncated:-2 msgs]"))
+    assertTrue(logged[0].contains("estimatedTokens="))
+    assertTrue(logged[0].contains("maxContext=2048"))
+  }
+
+  @Test
+  fun logCompactionResult_compactedWithoutMaxContext_omitsTokenFields() {
+    val logged = mutableListOf<String>()
+    logCompactionResult(
+      result = PromptCompactor.CompactionResult(prompt = "hi", compacted = true, strategies = listOf("trimmed")),
+      requestId = "r3",
+      endpoint = "/generate",
+      logId = null,
+      maxContext = null,
+      logEvent = { logged.add(it) },
+      updateLog = { _, _ -> },
+    )
+    assertEquals(1, logged.size)
+    assertTrue(logged[0].contains("prompt_compacted"))
+    assertTrue(logged[0].contains("endpoint=/generate"))
+    assertTrue(logged[0].contains("strategies=[trimmed]"))
+    assertFalse(logged[0].contains("estimatedTokens="))
+    assertFalse(logged[0].contains("maxContext="))
+  }
+
+  @Test
+  fun logCompactionResult_compactedWithLogId_callsUpdateLogWithDetails() {
+    var capturedDetails = ""
+    var capturedPrompt = ""
+    logCompactionResult(
+      result = PromptCompactor.CompactionResult(prompt = "data", compacted = true, strategies = listOf("a", "b")),
+      requestId = "r4",
+      endpoint = "/v1/completions",
+      logId = "log99",
+      maxContext = 1024,
+      logEvent = {},
+      updateLog = { details, prompt -> capturedDetails = details; capturedPrompt = prompt },
+    )
+    assertEquals("a, b", capturedDetails)
+    assertEquals("data", capturedPrompt)
+  }
+
+  @Test
+  fun logCompactionResult_compactedWithoutLogId_skipsUpdateLog() {
+    var updateCalled = false
+    logCompactionResult(
+      result = PromptCompactor.CompactionResult(prompt = "data", compacted = true, strategies = listOf("a")),
+      requestId = "r5",
+      endpoint = "/v1/responses",
+      logId = null,
+      maxContext = null,
+      logEvent = {},
+      updateLog = { _, _ -> updateCalled = true },
+    )
+    assertFalse(updateCalled)
+  }
+
+  @Test
+  fun logCompactionResult_multipleStrategies_joinedWithComma() {
+    val logged = mutableListOf<String>()
+    logCompactionResult(
+      result = PromptCompactor.CompactionResult(prompt = "x", compacted = true, strategies = listOf("truncated:-3 msgs", "tools:compacted", "trimmed")),
+      requestId = "r6",
+      endpoint = "/v1/chat/completions",
+      logId = null,
+      maxContext = 4096,
+      logEvent = { logged.add(it) },
+      updateLog = { _, _ -> },
+    )
+    assertTrue(logged[0].contains("strategies=[truncated:-3 msgs, tools:compacted, trimmed]"))
   }
 }
