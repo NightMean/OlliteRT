@@ -57,6 +57,6 @@ class BootReceiver : BroadcastReceiver() {
   }
 
   companion object {
-    private const val TAG = "OlliteRTBoot"
+    private const val TAG = "OlliteRT.Boot"
   }
 }

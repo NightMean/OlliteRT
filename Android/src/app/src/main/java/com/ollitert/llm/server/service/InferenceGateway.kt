@@ -41,7 +41,7 @@ typealias InferenceFn = (
   onError: (message: String) -> Unit,
 ) -> Unit
 
-private const val TAG = "InferenceGateway"
+private const val TAG = "OlliteRT.Gateway"
 
 object InferenceGateway {
 

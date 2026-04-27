@@ -44,6 +44,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+private const val TAG = "OlliteRT.DataStore"
+
 @Module
 @InstallIn(SingletonComponent::class)
 internal object AppModule {
@@ -75,9 +77,9 @@ internal object AppModule {
     return DataStoreFactory.create(
       serializer = settingsSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
-        Log.e("OlliteRT.DataStore", "settings.pb corrupted — resetting to defaults")
+        Log.e(TAG, "settings.pb corrupted — resetting to defaults")
         try { ServerPrefs.addCorruptedDataStore(context, "settings") }
-        catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
+        catch (e: Exception) { Log.e(TAG, "Failed to flag corruption", e) }
         Settings.getDefaultInstance()
       },
       produceFile = { context.dataStoreFile("settings.pb") },
@@ -93,9 +95,9 @@ internal object AppModule {
     return DataStoreFactory.create(
       serializer = userDataSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
-        Log.e("OlliteRT.DataStore", "user_data.pb corrupted — resetting to defaults")
+        Log.e(TAG, "user_data.pb corrupted — resetting to defaults")
         try { ServerPrefs.addCorruptedDataStore(context, "user_data") }
-        catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
+        catch (e: Exception) { Log.e(TAG, "Failed to flag corruption", e) }
         UserData.getDefaultInstance()
       },
       produceFile = { context.dataStoreFile("user_data.pb") },
@@ -111,9 +113,9 @@ internal object AppModule {
     return DataStoreFactory.create(
       serializer = benchmarkResultsSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
-        Log.e("OlliteRT.DataStore", "benchmark_results.pb corrupted — resetting to defaults")
+        Log.e(TAG, "benchmark_results.pb corrupted — resetting to defaults")
         try { ServerPrefs.addCorruptedDataStore(context, "benchmark_results") }
-        catch (e: Exception) { Log.e("OlliteRT.DataStore", "Failed to flag corruption", e) }
+        catch (e: Exception) { Log.e(TAG, "Failed to flag corruption", e) }
         BenchmarkResults.getDefaultInstance()
       },
       produceFile = { context.dataStoreFile("benchmark_results.pb") },

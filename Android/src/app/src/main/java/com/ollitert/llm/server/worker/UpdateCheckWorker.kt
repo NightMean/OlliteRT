@@ -434,7 +434,7 @@ class UpdateCheckWorker @AssistedInject constructor(
   }
 
   companion object {
-    private const val TAG = "UpdateCheck"
+    private const val TAG = "OlliteRT.UpdateChk"
     private const val WORK_NAME = "ollitert_update_check"
     const val UPDATE_CHANNEL_ID = "ollitert-app-update"
     const val UPDATE_NOTIFICATION_ID = 43

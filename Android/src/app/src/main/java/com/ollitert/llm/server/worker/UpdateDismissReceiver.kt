@@ -30,12 +30,14 @@ import com.ollitert.llm.server.service.RequestLogStore
  * Prevents re-posting the same notification on the next WorkManager cycle.
  * Registered as a deleteIntent on the update notification.
  */
+private const val TAG = "OlliteRT.UpdateDismiss"
+
 class UpdateDismissReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
     val version = intent.getStringExtra(EXTRA_DISMISSED_VERSION) ?: return
     ServerPrefs.setLastDismissedUpdateVersion(context, version)
-    Log.d("UpdateDismiss", "User dismissed update notification for $version")
+    Log.d(TAG, "User dismissed update notification for $version")
     if (ServerPrefs.isVerboseDebugEnabled(context)) {
       RequestLogStore.addEvent(
         "Notification dismissed for $version",

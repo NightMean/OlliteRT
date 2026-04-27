@@ -37,6 +37,7 @@ import com.ollitert.llm.server.R
  */
 object NotificationHelper {
 
+  private const val TAG = "OlliteRT.Notify"
   const val CHANNEL_ID = "ollitert-server"
   const val NOTIFICATION_ID = 42
 
@@ -44,7 +45,7 @@ object NotificationHelper {
   fun createChannel(context: Context) {
     val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
     if (mgr == null) {
-      android.util.Log.e("LlmHttpNotification", "NotificationManager unavailable — cannot create channel")
+      android.util.Log.e(TAG, "NotificationManager unavailable — cannot create channel")
       return
     }
     val ch = NotificationChannel(
@@ -104,7 +105,7 @@ object NotificationHelper {
     val notification = build(context, title, text, contentIntent, stopIntent, copyIntent, showProgress)
     val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
     if (mgr == null) {
-      android.util.Log.e("LlmHttpNotification", "NotificationManager unavailable — cannot update notification")
+      android.util.Log.e(TAG, "NotificationManager unavailable — cannot update notification")
       return
     }
     mgr.notify(NOTIFICATION_ID, notification)

@@ -70,7 +70,7 @@ import java.net.UnknownHostException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
-private const val TAG = "OlliteRTDownloadWorker"
+private const val TAG = "OlliteRT.Download"
 
 data class UrlAndFileName(val url: String, val fileName: String)
 

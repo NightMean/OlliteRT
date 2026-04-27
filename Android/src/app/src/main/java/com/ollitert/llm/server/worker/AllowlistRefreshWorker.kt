@@ -221,7 +221,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
   )
 
   companion object {
-    private const val TAG = "AllowlistRefresh"
+    private const val TAG = "OlliteRT.AllowRefresh"
     private const val WORK_NAME = "allowlist_refresh_work"
     const val MODEL_UPDATE_CHANNEL_ID = "ollitert-model-update"
     const val EXTRA_MODEL_UPDATE_NAME = "model_update_name"

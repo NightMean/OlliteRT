@@ -45,6 +45,8 @@ import okio.Buffer
 import okio.ForwardingSource
 import okio.buffer
 
+private const val TAG = "OlliteRT.App"
+
 @HiltAndroidApp
 class OlliteRTApplication : Application(), Configuration.Provider, SingletonImageLoader.Factory {
 
@@ -127,7 +129,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
       val entryPoint = EntryPointAccessors.fromApplication(this, PersistenceEntryPoint::class.java)
       entryPoint.requestLogPersistence().initialize()
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to initialize log persistence — logs will be in-memory only", e)
+      Log.e(TAG, "Failed to initialize log persistence — logs will be in-memory only", e)
     }
 
     // Clean up stale .tmp files from interrupted model imports to reclaim storage.
@@ -136,7 +138,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     try {
       cleanupStaleImportTmpFiles(getExternalFilesDir(null))
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to clean up stale import temp files", e)
+      Log.e(TAG, "Failed to clean up stale import temp files", e)
     }
 
     // Migrate ha_stt_* prefs keys to stt_* (setting is not HA-specific).
@@ -144,7 +146,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     try {
       ServerPrefs.migrateSttKeys(this)
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to migrate STT prefs keys", e)
+      Log.e(TAG, "Failed to migrate STT prefs keys", e)
     }
 
     // Create notification channels (safe to call on every start — no-ops if they exist).
@@ -154,7 +156,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
       UpdateCheckWorker.createNotificationChannel(this)
       AllowlistRefreshWorker.createNotificationChannel(this)
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to create notification channels — notifications may not work", e)
+      Log.e(TAG, "Failed to create notification channels — notifications may not work", e)
     }
 
     // Clear stale update notification if the app was auto-updated since the last check.
@@ -163,7 +165,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     try {
       UpdateCheckWorker.clearStaleNotification(this)
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to clear stale update notification", e)
+      Log.e(TAG, "Failed to clear stale update notification", e)
     }
 
     // Schedule periodic update checks if enabled.
@@ -173,14 +175,14 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
         UpdateCheckWorker.scheduleUpdateCheck(this)
       }
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to schedule update check", e)
+      Log.e(TAG, "Failed to schedule update check", e)
     }
 
     // Schedule periodic allowlist refresh for model update detection.
     try {
       AllowlistRefreshWorker.scheduleAllowlistRefresh(this)
     } catch (e: Exception) {
-      Log.e("OlliteRTApp", "Failed to schedule allowlist refresh", e)
+      Log.e(TAG, "Failed to schedule allowlist refresh", e)
     }
   }
 }

@@ -53,7 +53,7 @@ import kotlinx.coroutines.CoroutineScope
 import java.io.File
 import java.util.concurrent.CancellationException
 
-private const val TAG = "ServerLlmModelHelper"
+private const val TAG = "OlliteRT.ModelHelper"
 
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
 
