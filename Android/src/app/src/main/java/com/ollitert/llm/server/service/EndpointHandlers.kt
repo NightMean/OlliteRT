@@ -33,6 +33,8 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
+import com.ollitert.llm.server.data.maxContextTokens
+import com.ollitert.llm.server.data.maxTokensInt
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -81,7 +83,7 @@ class EndpointHandlers(
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
     val trimPromptsGen = prefs.autoTrimPrompts
-    val maxContextGen = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+    val maxContextGen = model.maxContextTokens
     val compactionResultGen = PromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
     logCompactionResult(compactionResultGen, requestId, "/generate", logId, maxContext = null, logEvent) { details, compactedPrompt ->
       RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
@@ -144,7 +146,7 @@ class EndpointHandlers(
     val truncateHistory = prefs.autoTruncateHistory
     val compactToolSchemas = prefs.compactToolSchemas
     val trimPrompts = prefs.autoTrimPrompts
-    val maxContext = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+    val maxContext = model.maxContextTokens
 
     // Insert image placeholder tokens in the prompt when the model supports vision and the
     // request contains image_url parts. This allows the inference layer to interleave
@@ -225,8 +227,8 @@ class EndpointHandlers(
       }
 
       val completionTokens = estimateTokens(text)
-      val effectiveMax = (sampler.configSnapshot ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
-      val finishReason = FinishReason.infer(completionTokens, effectiveMax?.toInt())
+      val effectiveMax = (sampler.configSnapshot ?: model.configValues).maxTokensInt()
+      val finishReason = FinishReason.infer(completionTokens, effectiveMax)
       val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(PayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, finishReason = finishReason, timings = timings))
       captureResponse(responseJson)
@@ -262,7 +264,7 @@ class EndpointHandlers(
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
     val trimPromptsCompl = prefs.autoTrimPrompts
-    val maxContextCompl = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+    val maxContextCompl = model.maxContextTokens
     val compactionResultCompl = PromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
     logCompactionResult(compactionResultCompl, requestId, "/v1/completions", logId, maxContextCompl, logEvent) { details, compactedPrompt ->
       RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
@@ -306,8 +308,8 @@ class EndpointHandlers(
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
       val promptTokens = estimateTokens(prompt)
       val completionTokens = estimateTokens(text)
-      val effectiveMaxCompl = (sampler.configSnapshot ?: model.configValues)[ConfigKeys.MAX_TOKENS.label] as? Number
-      val finishReasonCompl = FinishReason.infer(completionTokens, effectiveMaxCompl?.toInt())
+      val effectiveMaxCompl = (sampler.configSnapshot ?: model.configValues).maxTokensInt()
+      val finishReasonCompl = FinishReason.infer(completionTokens, effectiveMaxCompl)
       val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(CompletionResponse(
         id = BridgeUtils.generateCompletionId(),
@@ -346,7 +348,7 @@ class EndpointHandlers(
     // Build prompt with progressive compaction if context window is exceeded
     val truncateHistoryResp = prefs.autoTruncateHistory
     val trimPromptsResp = prefs.autoTrimPrompts
-    val maxContextResp = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+    val maxContextResp = model.maxContextTokens
     val compactionResultResp = PromptCompactor.compactConversationPrompt(
       messages = req.messages ?: req.input,
       chatTemplate = null,
@@ -567,7 +569,7 @@ internal fun buildPerRequestConfig(
   }
   maxTokens?.let {
     val clamped = it.coerceIn(MIN_MAX_TOKENS, MAX_MAX_TOKENS)
-    val engineMax = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
+    val engineMax = model.maxContextTokens
     overridden[ConfigKeys.MAX_TOKENS.label] = if (engineMax != null) clamped.coerceAtMost(engineMax) else clamped
   }
   return overridden.toMap()
