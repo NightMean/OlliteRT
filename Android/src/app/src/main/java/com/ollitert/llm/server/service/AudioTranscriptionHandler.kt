@@ -148,14 +148,9 @@ class AudioTranscriptionHandler(
         }
       }
 
-      // Parse temperature, respecting the "Ignore Client Sampler Parameters" toggle
-      val ignoreClientSampler = prefs.ignoreClientSamplerParams
-      val temperature = if (ignoreClientSampler) null else temperatureStr?.toDoubleOrNull()
-      if (ignoreClientSampler && temperatureStr != null && logId != null) {
-        val ignored = describeClientSamplerParams(temperatureStr.toDoubleOrNull(), topP = null, topK = null, maxTokens = null)
-        if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
-      }
-      val configSnapshot = buildPerRequestConfig(model, temperature)
+      val temperature = temperatureStr?.toDoubleOrNull()
+      val sampler = resolveSamplerOverrides(model, prefs, temperature, topP = null, topK = null, maxTokens = null, logId)
+      val configSnapshot = sampler.configSnapshot
 
       // Run inference
       val inferenceStart = SystemClock.elapsedRealtime()
