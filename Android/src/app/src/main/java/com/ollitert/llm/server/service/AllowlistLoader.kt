@@ -41,10 +41,10 @@ class AllowlistLoader(
   private val onError: (source: String, exception: Exception) -> Unit = { _, _ -> },
 ) {
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
-  private var cached: ModelAllowlist? = null
-  var lastSource: String = "unknown"
+  @Volatile private var cached: ModelAllowlist? = null
+  @Volatile var lastSource: String = "unknown"
     private set
-  var lastContentVersion: Int = 0
+  @Volatile var lastContentVersion: Int = 0
     private set
 
   /** Returns the current list of allowed models, falling back to cache on error. */
