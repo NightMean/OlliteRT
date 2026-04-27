@@ -54,9 +54,11 @@ private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_para
 
 // --- Home Assistant Integration (UI convenience — shows copy-config button in Settings) ---
 private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
-private const val KEY_HA_STT_TRANSCRIPTION_PROMPT = "ha_stt_transcription_prompt"
-private const val DEFAULT_HA_STT_TRANSCRIPTION_PROMPT = false
-private const val KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT = "ha_stt_transcription_prompt_text"
+private const val KEY_STT_TRANSCRIPTION_PROMPT = "stt_transcription_prompt"
+private const val DEFAULT_STT_TRANSCRIPTION_PROMPT = false
+private const val KEY_STT_TRANSCRIPTION_PROMPT_TEXT = "stt_transcription_prompt_text"
+// TODO: Remove after 1.0.0 — migration from 0.9.0 keys (ha_stt_* → stt_*).
+private const val KEY_STT_KEY_MIGRATION_DONE = "stt_key_migration_v1"
 internal const val DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT =
   "Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else."
 
@@ -458,18 +460,18 @@ object ServerPrefs {
   }
 
   fun isSttTranscriptionPromptEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_HA_STT_TRANSCRIPTION_PROMPT, DEFAULT_HA_STT_TRANSCRIPTION_PROMPT)
+    prefs(context).getBoolean(KEY_STT_TRANSCRIPTION_PROMPT, DEFAULT_STT_TRANSCRIPTION_PROMPT)
 
   fun setSttTranscriptionPromptEnabled(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_HA_STT_TRANSCRIPTION_PROMPT, enabled).apply()
+    prefs(context).edit().putBoolean(KEY_STT_TRANSCRIPTION_PROMPT, enabled).apply()
   }
 
   fun getSttTranscriptionPromptText(context: Context): String =
-    prefs(context).getString(KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT)
+    prefs(context).getString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT)
       ?: DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
 
   fun setSttTranscriptionPromptText(context: Context, text: String) {
-    prefs(context).edit().putString(KEY_HA_STT_TRANSCRIPTION_PROMPT_TEXT, text).apply()
+    prefs(context).edit().putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, text).apply()
   }
 
   // --- Keep Alive ---
@@ -749,6 +751,37 @@ object ServerPrefs {
 
     if (migrated > 0) {
       Log.i("OlliteRT.Prefs", "Migrated $migrated per-model prefs key(s) to stable format")
+    }
+  }
+
+  // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0 to rename
+  // ha_stt_transcription_prompt → stt_transcription_prompt (setting is not HA-specific).
+  fun migrateSttKeys(context: Context) {
+    val p = prefs(context)
+    if (p.getBoolean(KEY_STT_KEY_MIGRATION_DONE, false)) return
+
+    val editor = p.edit()
+    var migrated = 0
+
+    val oldToggle = "ha_stt_transcription_prompt"
+    if (p.contains(oldToggle) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT)) {
+      editor.putBoolean(KEY_STT_TRANSCRIPTION_PROMPT, p.getBoolean(oldToggle, DEFAULT_STT_TRANSCRIPTION_PROMPT))
+      editor.remove(oldToggle)
+      migrated++
+    }
+
+    val oldText = "ha_stt_transcription_prompt_text"
+    if (p.contains(oldText) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT_TEXT)) {
+      editor.putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, p.getString(oldText, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT))
+      editor.remove(oldText)
+      migrated++
+    }
+
+    editor.putBoolean(KEY_STT_KEY_MIGRATION_DONE, true)
+    editor.apply()
+
+    if (migrated > 0) {
+      Log.i("OlliteRT.Prefs", "Migrated $migrated STT prefs key(s) from ha_stt_* to stt_*")
     }
   }
 

@@ -139,6 +139,14 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
       Log.e("OlliteRTApp", "Failed to clean up stale import temp files", e)
     }
 
+    // Migrate ha_stt_* prefs keys to stt_* (setting is not HA-specific).
+    // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0.
+    try {
+      ServerPrefs.migrateSttKeys(this)
+    } catch (e: Exception) {
+      Log.e("OlliteRTApp", "Failed to migrate STT prefs keys", e)
+    }
+
     // Create notification channels (safe to call on every start — no-ops if they exist).
     // Wrapped in try-catch: corrupted NotificationManager can throw, and this was the only
     // pair of calls in onCreate() not already protected.

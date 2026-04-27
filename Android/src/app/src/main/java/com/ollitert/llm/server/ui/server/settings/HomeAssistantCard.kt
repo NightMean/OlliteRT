@@ -79,8 +79,8 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
     SettingDivider()
 
     ToggleSettingRow(
-      label = stringResource(R.string.settings_ha_stt_transcription_prompt),
-      description = stringResource(R.string.settings_ha_stt_transcription_prompt_desc),
+      label = stringResource(R.string.settings_stt_transcription_prompt),
+      description = stringResource(R.string.settings_stt_transcription_prompt_desc),
       checked = vm.sttTranscriptionPromptEntry.current,
       onCheckedChange = { vm.sttTranscriptionPromptEntry.update(it) },
       searchQuery = vm.searchQuery,
@@ -153,7 +153,7 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = stringResource(R.string.settings_ha_stt_transcription_prompt_text_desc),
+              text = stringResource(R.string.settings_stt_transcription_prompt_text_desc),
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

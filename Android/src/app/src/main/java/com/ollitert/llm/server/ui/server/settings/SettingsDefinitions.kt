@@ -418,24 +418,24 @@ val HA_INTEGRATION = SettingDef.Custom(
   card = CardId.HOME_ASSISTANT,
 )
 
-val HA_STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
+val STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
   key = "stt_transcription_prompt",
-  labelRes = R.string.settings_ha_stt_transcription_prompt,
-  descriptionRes = R.string.settings_ha_stt_transcription_prompt_desc,
+  labelRes = R.string.settings_stt_transcription_prompt,
+  descriptionRes = R.string.settings_stt_transcription_prompt_desc,
   card = CardId.HOME_ASSISTANT,
   default = false,
-  prefsKey = "ha_stt_transcription_prompt",
+  prefsKey = "stt_transcription_prompt",
   read = { ServerPrefs.isSttTranscriptionPromptEnabled(it) },
   write = { ctx, v -> ServerPrefs.setSttTranscriptionPromptEnabled(ctx, v) },
 )
 
-val HA_STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
+val STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
   key = "stt_transcription_prompt_text",
-  labelRes = R.string.settings_ha_stt_transcription_prompt_text,
-  descriptionRes = R.string.settings_ha_stt_transcription_prompt_text_desc,
+  labelRes = R.string.settings_stt_transcription_prompt_text,
+  descriptionRes = R.string.settings_stt_transcription_prompt_text_desc,
   card = CardId.HOME_ASSISTANT,
   default = DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT,
-  prefsKey = "ha_stt_transcription_prompt_text",
+  prefsKey = "stt_transcription_prompt_text",
   read = { ServerPrefs.getSttTranscriptionPromptText(it).ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
   write = { ctx, v ->
     ServerPrefs.setSttTranscriptionPromptText(
@@ -597,7 +597,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Log Persistence
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
-  HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT,
+  HA_INTEGRATION, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
   // Advanced
@@ -672,7 +672,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.HOME_ASSISTANT,
     titleRes = R.string.settings_card_home_assistant,
     icon = CardIcon.Resource(R.drawable.ic_home_assistant),
-    settings = listOf(HA_INTEGRATION, HA_STT_TRANSCRIPTION_PROMPT, HA_STT_TRANSCRIPTION_PROMPT_TEXT),
+    settings = listOf(HA_INTEGRATION, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT),
   ),
   CardDef(
     id = CardId.UPDATES,

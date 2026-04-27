@@ -20,7 +20,7 @@ import android.content.Context
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DEFAULT_PORT
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.ui.server.settings.HA_STT_TRANSCRIPTION_PROMPT
+import com.ollitert.llm.server.ui.server.settings.STT_TRANSCRIPTION_PROMPT
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
@@ -331,7 +331,7 @@ class SettingsViewModelTest {
 
   @Test
   fun haSTTTranscriptionPromptDefaultIsFalse() {
-    assertFalse(HA_STT_TRANSCRIPTION_PROMPT.default)
+    assertFalse(STT_TRANSCRIPTION_PROMPT.default)
   }
 
   // --- Clear Logs ---
