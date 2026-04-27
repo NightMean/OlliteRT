@@ -712,10 +712,14 @@ class ServerService : Service() {
     loadThread?.interrupt()
     loadThread = null
     server?.stop()
-    inferenceExecutor?.shutdownNow()
-    try { inferenceExecutor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (e: InterruptedException) {
-      Log.w(TAG, "Interrupted waiting for inference executor shutdown", e)
-    }
+    // Cancel any in-flight inference so the native JNI call returns quickly.
+    // Without this, shutdownNow() only calls Thread.interrupt() which has no
+    // effect on blocking native code — the 5s await can expire with the thread
+    // still inside LiteRT SDK.
+    defaultModel?.let { ServerLlmModelHelper.stopResponse(it) }
+    val executor = inferenceExecutor
+    executor?.shutdownNow()
+    try { executor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (_: InterruptedException) {}
     inferenceExecutor = null
     val modelName = defaultModel?.name
 
@@ -743,6 +747,13 @@ class ServerService : Service() {
       cleanupLatch.set(latch)
       Thread({
         try {
+          // Wait for the inference executor thread to fully exit before closing
+          // native resources. The initial 5s await in onDestroy may have expired
+          // if a native JNI call was still in progress. stopResponse() above
+          // should have made it return, but give it another 10s as a safety net.
+          if (executor?.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS) == false) {
+            Log.w(TAG, "Inference executor did not terminate within 15s total — proceeding with native cleanup (potential use-after-free)")
+          }
           for (model in modelsToCleanUp) {
             try {
               ServerLlmModelHelper.cleanUp(model) {}
