@@ -258,56 +258,12 @@ class ServerService : Service() {
       return START_NOT_STICKY
     }
 
-    val resolvedModelName = requestedModelName
     val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
-    val model = pickModelByName(resolvedModelName)
-    if (model == null) {
-      // Include the trigger source in the error message so users understand what happened
-      // (e.g. "Auto-start failed" vs just "Model not found").
-      val sourcePrefix = when (startSource) {
-        SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
-        SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
-        else -> ""
-      }
-      val msg = sourcePrefix + getString(R.string.error_model_not_found, resolvedModelName)
-      Log.e(TAG, "Model '$resolvedModelName' not found — cannot start server (source=$startSource)")
-      ServerMetrics.onServerError(msg)
-      ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
-      pendingConfigOverrides.set(null)
-      stopSelf()
-      return START_NOT_STICKY
-    }
-    // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
-    // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
-    pendingConfigOverrides.getAndSet(null)?.let { overrides ->
-      model.configValues = overrides.toMap()
-      Log.i(TAG, "Applied ${overrides.size} config overrides from reload caller")
-    }
-    // Verify model files actually exist on disk.
-    val modelPath = model.getPath(context = this)
-    if (!java.io.File(modelPath).exists()) {
-      val sourcePrefix = when (startSource) {
-        SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
-        SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
-        else -> ""
-      }
-      val msg = sourcePrefix + getString(R.string.error_model_file_missing)
-      Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
-      ServerMetrics.onServerError(msg)
-      ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
-      stopSelf()
-      return START_NOT_STICKY
-    }
-    // Cancel any in-flight warmup by bumping the generation counter
-    val thisGeneration = loadGeneration.incrementAndGet()
 
-    modelCache[model.name] = model
-
-    ServerMetrics.onServerStarting(port, model.name)
-    ServerMetrics.setActiveModelSize(model.totalBytes)
-    RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
+    // ── Ktor server setup (no model dependency) ─────────────────────────────
+    // Set up the HTTP server before model resolution so DataStore reads
+    // (runBlocking inside AllowlistLoader/ModelLifecycle lambdas) don't
+    // block the main thread and risk ANR.
 
     val wifiIp = getWifiIpAddress(this)
     val displayAddress = wifiIp ?: "localhost"
@@ -336,10 +292,11 @@ class ServerService : Service() {
       PendingIntent.FLAG_IMMUTABLE,
     )
 
-    // Replace the placeholder notification with the full loading notification
+    // Replace the placeholder notification with the full loading notification.
+    // Uses requestedModelName (not resolved model) since resolution hasn't happened yet.
     NotificationHelper.update(
       context = this,
-      title = getString(R.string.notif_loading_model_title, model.name),
+      title = getString(R.string.notif_loading_model_title, requestedModelName),
       text = getString(R.string.notif_loading_model_body),
       contentIntent = contentIntent,
       showProgress = true,
@@ -392,12 +349,10 @@ class ServerService : Service() {
       Log.e(TAG, msg, e)
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.SERVER)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
       stopSelf()
       return START_NOT_STICKY
     }
-
-    synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
 
     val notifState = LoadNotificationState(
       contentIntent = contentIntent,
@@ -405,8 +360,61 @@ class ServerService : Service() {
       copyIntent = copyIntent,
       endpointUrl = endpointUrl,
     )
+
+    // ── Model resolution + initialization (off main thread) ─────────────────
+    // pickModelByName triggers runBlocking DataStore reads inside
+    // AllowlistLoader.enabledCacheFilenames and ModelLifecycle.readImportedModels.
+    // Running on Dispatchers.IO avoids ANR risk on the main thread.
+    val thisGeneration = loadGeneration.incrementAndGet()
     loadJob?.cancel()
     loadJob = serviceScope.launch {
+      val model = pickModelByName(requestedModelName)
+      if (model == null) {
+        val sourcePrefix = when (startSource) {
+          SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
+          SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
+          else -> ""
+        }
+        val msg = sourcePrefix + getString(R.string.error_model_not_found, requestedModelName)
+        Log.e(TAG, "Model '$requestedModelName' not found — cannot start server (source=$startSource)")
+        ServerMetrics.onServerError(msg)
+        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+        RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.MODEL)
+        pendingConfigOverrides.set(null)
+        stopSelf()
+        return@launch
+      }
+      // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
+      // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
+      pendingConfigOverrides.getAndSet(null)?.let { overrides ->
+        model.configValues = overrides.toMap()
+        Log.i(TAG, "Applied ${overrides.size} config overrides from reload caller")
+      }
+      // Verify model files actually exist on disk.
+      val modelPath = model.getPath(context = this@ServerService)
+      if (!java.io.File(modelPath).exists()) {
+        val sourcePrefix = when (startSource) {
+          SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
+          SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
+          else -> ""
+        }
+        val msg = sourcePrefix + getString(R.string.error_model_file_missing)
+        Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
+        ServerMetrics.onServerError(msg)
+        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+        RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
+        stopSelf()
+        return@launch
+      }
+
+      modelCache[model.name] = model
+
+      ServerMetrics.onServerStarting(port, model.name)
+      ServerMetrics.setActiveModelSize(model.totalBytes)
+      RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
+
+      synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
+
       loadModelOnThread(model, thisGeneration, wifiIp, notifState)
     }
 
