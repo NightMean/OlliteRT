@@ -167,8 +167,45 @@ object ServerPrefs {
     pref.write(prefs(context).edit(), value).apply()
   }
 
-  fun isEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_ENABLED, false)
+  // ── Pref declarations ─────────────────────────────────────────────────
+  // Boolean prefs — General
+  private val ENABLED = BoolPref(KEY_ENABLED, false)
+  private val AUTO_START_ON_BOOT = BoolPref(KEY_AUTO_START_ON_BOOT, false)
+  private val KEEP_SCREEN_ON = BoolPref(KEY_KEEP_SCREEN_ON, true)
+  private val AUTO_EXPAND_LOGS = BoolPref(KEY_AUTO_EXPAND_LOGS, false)
+  private val STREAM_LOGS_PREVIEW = BoolPref(KEY_STREAM_LOGS_PREVIEW, true)
+  private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
+  private val NOTIF_SHOW_REQUEST_COUNT = BoolPref(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
+  private val WARMUP_ENABLED = BoolPref(KEY_WARMUP_ENABLED, true)
+  private val EAGER_VISION_INIT = BoolPref(KEY_EAGER_VISION_INIT, false)
+  private val CUSTOM_PROMPTS_ENABLED = BoolPref(KEY_CUSTOM_PROMPTS_ENABLED, false)
+  private val COMPACT_TOOL_SCHEMAS = BoolPref(KEY_COMPACT_TOOL_SCHEMAS, false)
+  private val AUTO_TRUNCATE_HISTORY = BoolPref(KEY_AUTO_TRUNCATE_HISTORY, false)
+  private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
+  private val CLEAR_LOGS_ON_STOP = BoolPref(KEY_CLEAR_LOGS_ON_STOP, false)
+  private val CONFIRM_CLEAR_LOGS = BoolPref(KEY_CONFIRM_CLEAR_LOGS, true)
+  private val SHOW_REQUEST_TYPES = BoolPref(KEY_SHOW_REQUEST_TYPES, false)
+  private val SHOW_ADVANCED_METRICS = BoolPref(KEY_SHOW_ADVANCED_METRICS, false)
+  // Boolean prefs — Developer / Debug
+  private val VERBOSE_DEBUG_ENABLED = BoolPref(KEY_VERBOSE_DEBUG_ENABLED, false)
+  private val IGNORE_CLIENT_SAMPLER_PARAMS = BoolPref(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, false)
+  private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
+  // Boolean prefs — Home Assistant
+  private val HA_INTEGRATION_ENABLED = BoolPref(KEY_HA_INTEGRATION_ENABLED, false)
+  private val STT_TRANSCRIPTION_PROMPT = BoolPref(KEY_STT_TRANSCRIPTION_PROMPT, DEFAULT_STT_TRANSCRIPTION_PROMPT)
+  // Boolean prefs — Keep Alive
+  private val KEEP_ALIVE_ENABLED = BoolPref(KEY_KEEP_ALIVE_ENABLED, DEFAULT_KEEP_ALIVE_ENABLED)
+  // Boolean prefs — Log Persistence
+  private val LOG_PERSISTENCE_ENABLED = BoolPref(KEY_LOG_PERSISTENCE_ENABLED, DEFAULT_LOG_PERSISTENCE_ENABLED)
+  // Boolean prefs — Misc
+  private val COMPACT_IMAGE_DATA = BoolPref(KEY_COMPACT_IMAGE_DATA, DEFAULT_COMPACT_IMAGE_DATA)
+  private val RESOLVE_CLIENT_HOSTNAMES = BoolPref(KEY_RESOLVE_CLIENT_HOSTNAMES, DEFAULT_RESOLVE_CLIENT_HOSTNAMES)
+  private val HIDE_HEALTH_LOGS = BoolPref(KEY_HIDE_HEALTH_LOGS, DEFAULT_HIDE_HEALTH_LOGS)
+  private val UPDATE_CHECK_ENABLED = BoolPref(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
+
+  // ── Public accessors ──────────────────────────────────────────────────
+
+  fun isEnabled(context: Context): Boolean = get(context, ENABLED)
 
   fun getPort(context: Context): Int =
     prefs(context).getInt(KEY_PORT, DEFAULT_PORT)
@@ -209,181 +246,53 @@ object ServerPrefs {
       .apply()
   }
 
-  fun isAutoStartOnBoot(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_AUTO_START_ON_BOOT, false)
+  fun isAutoStartOnBoot(context: Context): Boolean = get(context, AUTO_START_ON_BOOT)
+  fun setAutoStartOnBoot(context: Context, enabled: Boolean) = set(context, AUTO_START_ON_BOOT, enabled)
 
-  fun setAutoStartOnBoot(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_AUTO_START_ON_BOOT, enabled)
-      .apply()
-  }
+  fun isKeepScreenOn(context: Context): Boolean = get(context, KEEP_SCREEN_ON)
+  fun setKeepScreenOn(context: Context, enabled: Boolean) = set(context, KEEP_SCREEN_ON, enabled)
 
-  fun isKeepScreenOn(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_KEEP_SCREEN_ON, true)
+  fun isAutoExpandLogs(context: Context): Boolean = get(context, AUTO_EXPAND_LOGS)
+  fun setAutoExpandLogs(context: Context, enabled: Boolean) = set(context, AUTO_EXPAND_LOGS, enabled)
 
-  fun setKeepScreenOn(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_KEEP_SCREEN_ON, enabled)
-      .apply()
-  }
+  fun isStreamLogsPreview(context: Context): Boolean = get(context, STREAM_LOGS_PREVIEW)
+  fun setStreamLogsPreview(context: Context, enabled: Boolean) = set(context, STREAM_LOGS_PREVIEW, enabled)
 
-  fun isAutoExpandLogs(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_AUTO_EXPAND_LOGS, false)
+  fun isKeepPartialResponse(context: Context): Boolean = get(context, KEEP_PARTIAL_RESPONSE)
+  fun setKeepPartialResponse(context: Context, enabled: Boolean) = set(context, KEEP_PARTIAL_RESPONSE, enabled)
 
-  fun setAutoExpandLogs(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_AUTO_EXPAND_LOGS, enabled)
-      .apply()
-  }
+  fun isNotifShowRequestCount(context: Context): Boolean = get(context, NOTIF_SHOW_REQUEST_COUNT)
+  fun setNotifShowRequestCount(context: Context, enabled: Boolean) = set(context, NOTIF_SHOW_REQUEST_COUNT, enabled)
 
-  fun isStreamLogsPreview(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_STREAM_LOGS_PREVIEW, true)
+  fun isWarmupEnabled(context: Context): Boolean = get(context, WARMUP_ENABLED)
+  fun setWarmupEnabled(context: Context, enabled: Boolean) = set(context, WARMUP_ENABLED, enabled)
 
-  fun setStreamLogsPreview(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_STREAM_LOGS_PREVIEW, enabled)
-      .apply()
-  }
+  fun isEagerVisionInit(context: Context): Boolean = get(context, EAGER_VISION_INIT)
+  fun setEagerVisionInit(context: Context, enabled: Boolean) = set(context, EAGER_VISION_INIT, enabled)
 
-  fun isKeepPartialResponse(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_KEEP_PARTIAL_RESPONSE, false)
+  fun isCustomPromptsEnabled(context: Context): Boolean = get(context, CUSTOM_PROMPTS_ENABLED)
+  fun setCustomPromptsEnabled(context: Context, enabled: Boolean) = set(context, CUSTOM_PROMPTS_ENABLED, enabled)
 
-  fun setKeepPartialResponse(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_KEEP_PARTIAL_RESPONSE, enabled)
-      .apply()
-  }
+  fun isCompactToolSchemas(context: Context): Boolean = get(context, COMPACT_TOOL_SCHEMAS)
+  fun setCompactToolSchemas(context: Context, enabled: Boolean) = set(context, COMPACT_TOOL_SCHEMAS, enabled)
 
-  fun isNotifShowRequestCount(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
+  fun isAutoTruncateHistory(context: Context): Boolean = get(context, AUTO_TRUNCATE_HISTORY)
+  fun setAutoTruncateHistory(context: Context, enabled: Boolean) = set(context, AUTO_TRUNCATE_HISTORY, enabled)
 
-  fun setNotifShowRequestCount(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_NOTIF_SHOW_REQUEST_COUNT, enabled)
-      .apply()
-  }
+  fun isAutoTrimPrompts(context: Context): Boolean = get(context, AUTO_TRIM_PROMPTS)
+  fun setAutoTrimPrompts(context: Context, enabled: Boolean) = set(context, AUTO_TRIM_PROMPTS, enabled)
 
-  fun isWarmupEnabled(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_WARMUP_ENABLED, true)
+  fun isClearLogsOnStop(context: Context): Boolean = get(context, CLEAR_LOGS_ON_STOP)
+  fun setClearLogsOnStop(context: Context, enabled: Boolean) = set(context, CLEAR_LOGS_ON_STOP, enabled)
 
-  fun setWarmupEnabled(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_WARMUP_ENABLED, enabled)
-      .apply()
-  }
+  fun isConfirmClearLogs(context: Context): Boolean = get(context, CONFIRM_CLEAR_LOGS)
+  fun setConfirmClearLogs(context: Context, enabled: Boolean) = set(context, CONFIRM_CLEAR_LOGS, enabled)
 
-  fun isEagerVisionInit(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_EAGER_VISION_INIT, false)
+  fun isShowRequestTypes(context: Context): Boolean = get(context, SHOW_REQUEST_TYPES)
+  fun setShowRequestTypes(context: Context, enabled: Boolean) = set(context, SHOW_REQUEST_TYPES, enabled)
 
-  fun setEagerVisionInit(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_EAGER_VISION_INIT, enabled)
-      .apply()
-  }
-
-  fun isCustomPromptsEnabled(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_CUSTOM_PROMPTS_ENABLED, false)
-
-  fun setCustomPromptsEnabled(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_CUSTOM_PROMPTS_ENABLED, enabled)
-      .apply()
-  }
-
-  fun isCompactToolSchemas(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_COMPACT_TOOL_SCHEMAS, false)
-
-  fun setCompactToolSchemas(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_COMPACT_TOOL_SCHEMAS, enabled)
-      .apply()
-  }
-
-  fun isAutoTruncateHistory(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_AUTO_TRUNCATE_HISTORY, false)
-
-  fun setAutoTruncateHistory(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_AUTO_TRUNCATE_HISTORY, enabled)
-      .apply()
-  }
-
-  fun isAutoTrimPrompts(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_AUTO_TRIM_PROMPTS, false)
-
-  fun setAutoTrimPrompts(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_AUTO_TRIM_PROMPTS, enabled)
-      .apply()
-  }
-
-  fun isClearLogsOnStop(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_CLEAR_LOGS_ON_STOP, false)
-
-  fun setClearLogsOnStop(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_CLEAR_LOGS_ON_STOP, enabled)
-      .apply()
-  }
-
-  fun isConfirmClearLogs(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_CONFIRM_CLEAR_LOGS, true)
-
-  fun setConfirmClearLogs(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_CONFIRM_CLEAR_LOGS, enabled)
-      .apply()
-  }
-
-  fun isShowRequestTypes(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_SHOW_REQUEST_TYPES, false)
-
-  fun setShowRequestTypes(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_SHOW_REQUEST_TYPES, enabled)
-      .apply()
-  }
-
-  fun isShowAdvancedMetrics(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_SHOW_ADVANCED_METRICS, false)
-
-  fun setShowAdvancedMetrics(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_SHOW_ADVANCED_METRICS, enabled)
-      .apply()
-  }
+  fun isShowAdvancedMetrics(context: Context): Boolean = get(context, SHOW_ADVANCED_METRICS)
+  fun setShowAdvancedMetrics(context: Context, enabled: Boolean) = set(context, SHOW_ADVANCED_METRICS, enabled)
 
   fun getSystemPrompt(context: Context, modelName: String): String =
     prefs(context)
@@ -463,42 +372,22 @@ object ServerPrefs {
 
   // --- Developer / Debug ---
 
-  fun isVerboseDebugEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_VERBOSE_DEBUG_ENABLED, false)
+  fun isVerboseDebugEnabled(context: Context): Boolean = get(context, VERBOSE_DEBUG_ENABLED)
+  fun setVerboseDebugEnabled(context: Context, enabled: Boolean) = set(context, VERBOSE_DEBUG_ENABLED, enabled)
 
-  fun setVerboseDebugEnabled(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_VERBOSE_DEBUG_ENABLED, enabled).apply()
-  }
+  fun isIgnoreClientSamplerParams(context: Context): Boolean = get(context, IGNORE_CLIENT_SAMPLER_PARAMS)
+  fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) = set(context, IGNORE_CLIENT_SAMPLER_PARAMS, enabled)
 
-  fun isIgnoreClientSamplerParams(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, false)
-
-  fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, enabled).apply()
-  }
-
-  fun isShowModelRecommendations(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
-
-  fun setShowModelRecommendations(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_SHOW_MODEL_RECOMMENDATIONS, enabled).apply()
-  }
+  fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
+  fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)
 
   // --- Home Assistant Integration ---
 
-  fun isHaIntegrationEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_HA_INTEGRATION_ENABLED, false)
+  fun isHaIntegrationEnabled(context: Context): Boolean = get(context, HA_INTEGRATION_ENABLED)
+  fun setHaIntegrationEnabled(context: Context, enabled: Boolean) = set(context, HA_INTEGRATION_ENABLED, enabled)
 
-  fun setHaIntegrationEnabled(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_HA_INTEGRATION_ENABLED, enabled).apply()
-  }
-
-  fun isSttTranscriptionPromptEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_STT_TRANSCRIPTION_PROMPT, DEFAULT_STT_TRANSCRIPTION_PROMPT)
-
-  fun setSttTranscriptionPromptEnabled(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_STT_TRANSCRIPTION_PROMPT, enabled).apply()
-  }
+  fun isSttTranscriptionPromptEnabled(context: Context): Boolean = get(context, STT_TRANSCRIPTION_PROMPT)
+  fun setSttTranscriptionPromptEnabled(context: Context, enabled: Boolean) = set(context, STT_TRANSCRIPTION_PROMPT, enabled)
 
   fun getSttTranscriptionPromptText(context: Context): String =
     prefs(context).getString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT)
@@ -510,12 +399,8 @@ object ServerPrefs {
 
   // --- Keep Alive ---
 
-  fun isKeepAliveEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_KEEP_ALIVE_ENABLED, DEFAULT_KEEP_ALIVE_ENABLED)
-
-  fun setKeepAliveEnabled(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_KEEP_ALIVE_ENABLED, enabled).apply()
-  }
+  fun isKeepAliveEnabled(context: Context): Boolean = get(context, KEEP_ALIVE_ENABLED)
+  fun setKeepAliveEnabled(context: Context, enabled: Boolean) = set(context, KEEP_ALIVE_ENABLED, enabled)
 
   fun getKeepAliveMinutes(context: Context): Int =
     prefs(context).getInt(KEY_KEEP_ALIVE_MINUTES, DEFAULT_KEEP_ALIVE_MINUTES)
@@ -526,16 +411,8 @@ object ServerPrefs {
 
   // --- Log Persistence ---
 
-  fun isLogPersistenceEnabled(context: Context): Boolean =
-    prefs(context)
-      .getBoolean(KEY_LOG_PERSISTENCE_ENABLED, DEFAULT_LOG_PERSISTENCE_ENABLED)
-
-  fun setLogPersistenceEnabled(context: Context, enabled: Boolean) {
-    prefs(context)
-      .edit()
-      .putBoolean(KEY_LOG_PERSISTENCE_ENABLED, enabled)
-      .apply()
-  }
+  fun isLogPersistenceEnabled(context: Context): Boolean = get(context, LOG_PERSISTENCE_ENABLED)
+  fun setLogPersistenceEnabled(context: Context, enabled: Boolean) = set(context, LOG_PERSISTENCE_ENABLED, enabled)
 
   fun getLogMaxEntries(context: Context): Int =
     prefs(context)
@@ -561,35 +438,19 @@ object ServerPrefs {
 
   // --- Compact Image Data ---
 
-  fun isCompactImageData(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_COMPACT_IMAGE_DATA, DEFAULT_COMPACT_IMAGE_DATA)
+  fun isCompactImageData(context: Context): Boolean = get(context, COMPACT_IMAGE_DATA)
+  fun setCompactImageData(context: Context, enabled: Boolean) = set(context, COMPACT_IMAGE_DATA, enabled)
 
-  fun setCompactImageData(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_COMPACT_IMAGE_DATA, enabled).apply()
-  }
+  fun isResolveClientHostnames(context: Context): Boolean = get(context, RESOLVE_CLIENT_HOSTNAMES)
+  fun setResolveClientHostnames(context: Context, enabled: Boolean) = set(context, RESOLVE_CLIENT_HOSTNAMES, enabled)
 
-  fun isResolveClientHostnames(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_RESOLVE_CLIENT_HOSTNAMES, DEFAULT_RESOLVE_CLIENT_HOSTNAMES)
-
-  fun setResolveClientHostnames(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_RESOLVE_CLIENT_HOSTNAMES, enabled).apply()
-  }
-
-  fun isHideHealthLogs(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_HIDE_HEALTH_LOGS, DEFAULT_HIDE_HEALTH_LOGS)
-
-  fun setHideHealthLogs(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_HIDE_HEALTH_LOGS, enabled).apply()
-  }
+  fun isHideHealthLogs(context: Context): Boolean = get(context, HIDE_HEALTH_LOGS)
+  fun setHideHealthLogs(context: Context, enabled: Boolean) = set(context, HIDE_HEALTH_LOGS, enabled)
 
   // --- Update Check ---
 
-  fun isUpdateCheckEnabled(context: Context): Boolean =
-    prefs(context).getBoolean(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
-
-  fun setUpdateCheckEnabled(context: Context, enabled: Boolean) {
-    prefs(context).edit().putBoolean(KEY_UPDATE_CHECK_ENABLED, enabled).apply()
-  }
+  fun isUpdateCheckEnabled(context: Context): Boolean = get(context, UPDATE_CHECK_ENABLED)
+  fun setUpdateCheckEnabled(context: Context, enabled: Boolean) = set(context, UPDATE_CHECK_ENABLED, enabled)
 
   fun getUpdateCheckIntervalHours(context: Context): Int =
     prefs(context).getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, DEFAULT_UPDATE_CHECK_INTERVAL_HOURS)
