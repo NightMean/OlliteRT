@@ -55,6 +55,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -272,16 +274,19 @@ private fun HeroTitle() {
   val heroFontSize = (screenHeightDp * 0.055f).coerceIn(36f, 48f).sp
   val heroLineHeight = (screenHeightDp * 0.065f).coerceIn(44f, 56f).sp
 
+  val line1 = stringResource(R.string.getting_started_hero_line1)
+  val highlight = stringResource(R.string.getting_started_hero_highlight)
+  val line3 = stringResource(R.string.getting_started_hero_line3)
   Text(
     text = buildAnnotatedString {
       withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) {
-        append(stringResource(R.string.getting_started_hero_line1))
+        append(line1)
       }
       withStyle(SpanStyle(brush = gradientBrush, fontWeight = FontWeight.Bold)) {
-        append(stringResource(R.string.getting_started_hero_highlight))
+        append(highlight)
       }
       withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) {
-        append(stringResource(R.string.getting_started_hero_line3))
+        append(line3)
       }
     },
     style = MaterialTheme.typography.displayLarge.copy(
@@ -292,6 +297,9 @@ private fun HeroTitle() {
       letterSpacing = (-1).sp,
     ),
     textAlign = TextAlign.Center,
+    modifier = Modifier.clearAndSetSemantics {
+      contentDescription = "$line1$highlight$line3".replace("\n", " ").trim()
+    },
   )
 }
 
@@ -329,6 +337,9 @@ private fun SetupSteps() {
 private fun SetupStep(number: Int, title: String, description: String) {
   Row(
     verticalAlignment = Alignment.Top,
+    modifier = Modifier.clearAndSetSemantics {
+      contentDescription = "Step $number: $title. $description"
+    },
   ) {
     // Number in a larger square box with lighter background
     Box(
