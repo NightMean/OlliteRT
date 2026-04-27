@@ -25,7 +25,7 @@ import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.isPixel10
 
-private const val TAG = "OlliteRTModelAllowlist"
+private const val TAG = "OlliteRT.Allowlist"
 
 @Serializable
 data class DefaultConfig(

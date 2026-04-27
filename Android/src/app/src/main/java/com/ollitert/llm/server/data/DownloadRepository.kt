@@ -42,7 +42,7 @@ import com.ollitert.llm.server.worker.DownloadWorker
 import java.util.UUID
 import java.util.concurrent.Executors
 
-private const val TAG = "OlliteRTDownloadRepository"
+private const val TAG = "OlliteRT.DownloadRepo"
 private const val MODEL_NAME_TAG = "modelName"
 
 interface DownloadRepository {
@@ -190,7 +190,7 @@ class DefaultDownloadRepository(
 
           WorkInfo.State.SUCCEEDED -> {
             try {
-              Log.d("repo", "worker %s success".format(workerId.toString()))
+              Log.d(TAG, "worker %s success".format(workerId.toString()))
               onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
               sendNotification(
                 title = context.getString(R.string.notification_title_success),

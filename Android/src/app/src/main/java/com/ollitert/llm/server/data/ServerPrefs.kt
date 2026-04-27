@@ -119,6 +119,8 @@ private const val KEY_IGNORED_MODEL_UPDATES = "ignored_model_updates"
 // --- DataStore Corruption Recovery ---
 private const val KEY_CORRUPTED_DATASTORES = "corrupted_datastores"
 
+private const val TAG = "OlliteRT.Prefs"
+
 object ServerPrefs {
 
   /**
@@ -402,7 +404,7 @@ object ServerPrefs {
       }
       result
     } catch (e: Exception) {
-      android.util.Log.w("ServerPrefs", "Failed to parse inference config JSON", e)
+      android.util.Log.w(TAG, "Failed to parse inference config JSON", e)
       null
     }
   }
@@ -750,7 +752,7 @@ object ServerPrefs {
     editor.apply()
 
     if (migrated > 0) {
-      Log.i("OlliteRT.Prefs", "Migrated $migrated per-model prefs key(s) to stable format")
+      Log.i(TAG, "Migrated $migrated per-model prefs key(s) to stable format")
     }
   }
 
@@ -781,24 +783,23 @@ object ServerPrefs {
     editor.apply()
 
     if (migrated > 0) {
-      Log.i("OlliteRT.Prefs", "Migrated $migrated STT prefs key(s) from ha_stt_* to stt_*")
+      Log.i(TAG, "Migrated $migrated STT prefs key(s) from ha_stt_* to stt_*")
     }
   }
 
   private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN)
 
   fun dumpToLogcat(context: Context) {
-    val tag = "OlliteRT.Settings"
-    Log.i(tag, "=== Active Settings Snapshot ===")
+    Log.i(TAG, "=== Active Settings Snapshot ===")
     for ((key, value) in prefs(context).all.toSortedMap()) {
       val display = if (key in SENSITIVE_KEYS) {
         if (value.toString().isBlank()) "not set" else "configured (redacted)"
       } else {
         value.toString()
       }
-      Log.i(tag, "$key = $display")
+      Log.i(TAG, "$key = $display")
     }
-    Log.i(tag, "================================")
+    Log.i(TAG, "================================")
   }
 
   // ── Per-request snapshot ──────────────────────────────────────────────────

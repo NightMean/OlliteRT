@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG = "RepositoryManager"
+private const val TAG = "OlliteRT.RepoManager"
 
 data class RefreshResult(
   val failedRepoIds: Set<String>,

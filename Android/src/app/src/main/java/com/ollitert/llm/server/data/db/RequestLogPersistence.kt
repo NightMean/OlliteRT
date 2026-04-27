@@ -234,7 +234,7 @@ class RequestLogPersistence @Inject constructor(
   }
 
   companion object {
-    private const val TAG = "LogPersistence"
+    private const val TAG = "OlliteRT.LogPersist"
     private const val DEFAULT_IN_MEMORY_CAP = DEFAULT_IN_MEMORY_LOG_CAP
   }
 }

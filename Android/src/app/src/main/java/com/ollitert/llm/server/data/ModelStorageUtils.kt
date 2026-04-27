@@ -20,7 +20,7 @@ package com.ollitert.llm.server.data
 import android.util.Log
 import java.io.File
 
-private const val TAG = "ModelStorageUtils"
+private const val TAG = "OlliteRT.Storage"
 
 /**
  * Deletes stale .tmp files left by interrupted or crashed model imports to reclaim storage.

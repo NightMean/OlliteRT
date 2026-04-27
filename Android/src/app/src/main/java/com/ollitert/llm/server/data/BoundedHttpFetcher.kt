@@ -21,7 +21,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-private const val TAG = "BoundedHttpFetcher"
+private const val TAG = "OlliteRT.HttpFetcher"
 
 sealed class FetchResult {
   data class Success(val body: String) : FetchResult()
