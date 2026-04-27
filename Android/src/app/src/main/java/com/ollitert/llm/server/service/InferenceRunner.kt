@@ -974,9 +974,10 @@ class InferenceRunner(
                 } catch (e: Exception) {
                   if (logId != null) RequestLogStore.unregisterCancellation(logId)
                   state.markCompleted()
-                  logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed msg=${e.message} streaming=true")
+                  Log.w(TAG, "Stream write failed for request $requestId", e)
+                  logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed streaming=true")
                   if (logId != null) {
-                    val errorJson = ResponseRenderer.renderJsonError("stream_write_failed: ${e.message}")
+                    val errorJson = ResponseRenderer.renderJsonError("stream_write_failed")
                     RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = state.elapsedMs(), level = LogLevel.ERROR) }
                   }
                   try { writer.finish() } catch (e2: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e2) }
