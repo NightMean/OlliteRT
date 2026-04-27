@@ -334,4 +334,34 @@ class LlmHttpInferenceGatewayTest {
       threadPool.shutdownNow()
     }
   }
+
+  @Test
+  fun cancellationSetsClientDisconnectedError() = runBlocking {
+    val threadPool = Executors.newSingleThreadExecutor()
+    var inferenceResult: InferenceResult? = null
+    try {
+      val job = launch {
+        inferenceResult = InferenceGateway.execute(
+          prompt = "long",
+          timeoutSeconds = 30,
+          executor = threadPool,
+          inferenceLock = lock,
+          resetConversation = {},
+          runInference = { _, _, _ ->
+            Thread.sleep(5000)
+          },
+          cancelInference = {},
+          elapsedMs = { tick() },
+        )
+      }
+      delay(200)
+      job.cancel()
+      job.join()
+      if (inferenceResult != null) {
+        assertEquals("client_disconnected", inferenceResult!!.error)
+      }
+    } finally {
+      threadPool.shutdownNow()
+    }
+  }
 }
