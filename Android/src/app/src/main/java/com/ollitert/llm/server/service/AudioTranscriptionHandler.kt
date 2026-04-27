@@ -23,6 +23,8 @@ import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportAudio
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.File
 
 private const val MAX_FILE_SIZE_BYTES = 25_000_000L
@@ -193,7 +195,7 @@ class AudioTranscriptionHandler(
       } else {
         "Audio transcription: ${model.name} ($formatLabel, $sizeLabel, ${durationSec}s$forcedTag)"
       }
-      val eventBody = org.json.JSONObject().apply {
+      val eventBody = buildJsonObject {
         put("type", "audio_transcription")
         if (hintText.isNotEmpty()) put("instruction", hintText)
         put("transcription", text)

@@ -55,6 +55,9 @@ import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
@@ -288,37 +291,35 @@ fun ModelItem(
           // Schema: {"type":"inference_settings","changes":[{"param":"TopK","old":"14","new":"15"},...],
           //          "prompt_diffs":{"system_prompt":{"old":"...","new":"..."},...},
           //          "status":"reloading model"}
-          val eventBody = org.json.JSONObject().apply {
+          val eventBody = buildJsonObject {
             put("type", "inference_settings")
-            // Structured changes array for each parameter
-            val changesArray = org.json.JSONArray()
-            for (config in model.configs) {
-              val key = config.key.label
-              val oldValue = model.prevConfigValues[key]?.let {
-                com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+            put("changes", buildJsonArray {
+              for (config in model.configs) {
+                val key = config.key.label
+                val oldValue = model.prevConfigValues[key]?.let {
+                  com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+                }
+                val newValue = newConfigValues[key]?.let {
+                  com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+                }
+                if (oldValue != newValue) {
+                  add(buildJsonObject {
+                    put("param", config.key.label)
+                    put("old", oldValue?.toString() ?: "")
+                    put("new", newValue?.toString() ?: "")
+                  })
+                }
               }
-              val newValue = newConfigValues[key]?.let {
-                com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
-              }
-              if (oldValue != newValue) {
-                changesArray.put(org.json.JSONObject().apply {
-                  put("param", config.key.label)
-                  put("old", oldValue?.toString() ?: "")
-                  put("new", newValue?.toString() ?: "")
+            })
+            val promptDiffs = buildJsonObject {
+              if (systemPrompt != oldSystemPrompt) {
+                put("system_prompt", buildJsonObject {
+                  put("old", oldSystemPrompt)
+                  put("new", systemPrompt)
                 })
               }
             }
-            put("changes", changesArray)
-            // Prompt diffs (full text before/after)
-            val promptDiffsObj = org.json.JSONObject()
-            if (systemPrompt != oldSystemPrompt) {
-              promptDiffsObj.put("system_prompt", org.json.JSONObject().apply {
-                put("old", oldSystemPrompt)
-                put("new", systemPrompt)
-              })
-            }
-            if (promptDiffsObj.length() > 0) put("prompt_diffs", promptDiffsObj)
-            // Status suffix (reload state)
+            if (promptDiffs.isNotEmpty()) put("prompt_diffs", promptDiffs)
             val status = when {
               needReinitialization && isLoading -> "reload queued after loading"
               needReinitialization -> "reloading model"

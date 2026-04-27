@@ -47,6 +47,8 @@ import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.ServerService.Companion.queueReloadAfterLoad
 import com.ollitert.llm.server.service.ServerService.Companion.reload
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -608,7 +610,7 @@ class ServerService : Service() {
         "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
         modelName = model.name,
         category = EventCategory.PROMPT,
-        body = org.json.JSONObject().apply {
+        body = buildJsonObject {
           put("type", "prompt_active")
           put("prompt_type", "system_prompt")
           put("text", sysPrompt)
