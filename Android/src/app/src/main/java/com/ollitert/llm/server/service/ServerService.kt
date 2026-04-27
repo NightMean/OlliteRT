@@ -88,7 +88,7 @@ class ServerService : Service() {
   private inline val modelCache get() = modelLifecycle.modelCache
   private inline var keepAliveUnloadedModelName: String?
     get() = modelLifecycle.keepAliveUnloadedModelName
-    set(value) { modelLifecycle.setKeepAliveUnloadedModelName(value) }
+    set(value) { modelLifecycle.setKeepAliveUnloadedModel(value, null) }
 
   /**
    * Partial wake lock held for the entire server lifetime to keep the CPU awake while serving.

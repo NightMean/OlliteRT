@@ -67,7 +67,14 @@ class ModelLifecycle(
   @Volatile var keepAliveUnloadedModelName: String? = null
     private set
 
-  fun setKeepAliveUnloadedModelName(name: String?) { keepAliveUnloadedModelName = name }
+  /** Stable prefs key for the idle-unloaded model (used by REST config endpoints). */
+  @Volatile var keepAliveUnloadedModelPrefsKey: String? = null
+    private set
+
+  fun setKeepAliveUnloadedModel(name: String?, prefsKey: String?) {
+    keepAliveUnloadedModelName = name
+    keepAliveUnloadedModelPrefsKey = prefsKey
+  }
 
   // True while a keep-alive reload is in progress. Concurrent requests check this to
   // return 503 immediately instead of queuing on keepAliveLock for 10-60+ seconds.
@@ -114,6 +121,7 @@ class ModelLifecycle(
       val mins = ServerPrefs.getKeepAliveMinutes(context)
       Log.i(LOG_TAG, "Keep-alive: unloading model ${model.name} after ${mins}m idle")
       keepAliveUnloadedModelName = model.name
+      keepAliveUnloadedModelPrefsKey = model.prefsKey
       // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
       // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
       defaultModel = null
@@ -209,6 +217,7 @@ class ModelLifecycle(
         defaultModel = model
         modelCache[model.name] = model
         keepAliveUnloadedModelName = null
+        keepAliveUnloadedModelPrefsKey = null
         val loadMs = SystemClock.elapsedRealtime() - loadStart
         ServerMetrics.recordModelLoadTime(loadMs)
         RequestLogStore.addEvent(
