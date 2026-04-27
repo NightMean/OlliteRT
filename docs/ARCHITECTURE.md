@@ -117,8 +117,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 
 | File | Responsibility |
 |:-----|:---------------|
-| `LlmModelHelper.kt` | Interface and type aliases for inference callbacks and cleanup handlers |
-| `ServerLlmModelHelper.kt` | Bridge to LiteRT LM SDK — model initialization, inference, cleanup, conversation management |
+| `ServerLlmModelHelper.kt` | Bridge to LiteRT LM SDK — model initialization, inference, cleanup, conversation management. Type aliases for inference callbacks |
 
 ### Data Layer (`data/`)
 
