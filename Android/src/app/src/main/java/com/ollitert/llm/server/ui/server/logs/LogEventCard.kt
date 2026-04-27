@@ -77,6 +77,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.ErrorSuggestions
 import com.ollitert.llm.server.service.LogLevel
@@ -894,8 +896,10 @@ internal fun ExpandablePromptBox(
   }
 }
 
+private val prettyJson = Json { prettyPrint = true; prettyPrintIndent = "  " }
+
 internal fun copyEventToClipboard(context: Context, entry: RequestLogEntry) {
-  val json = entryToJson(entry).toString(2).replace("\\/", "/")
+  val json = prettyJson.encodeToString(JsonElement.serializer(), entryToJson(entry))
   copyToClipboard(context, "OlliteRT Event", json, formatSuffix = "JSON")
 }
 

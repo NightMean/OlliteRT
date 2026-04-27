@@ -25,86 +25,87 @@ import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.service.RequestLogEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Convert a single log entry to a JSONObject for structured export. */
-internal fun entryToJson(entry: RequestLogEntry): JSONObject {
-  val obj = JSONObject()
-  obj.put("id", entry.id)
-  obj.put("timestamp", formatTimestamp(entry.timestamp))
-  obj.put("timestamp_ms", entry.timestamp)
-  obj.put("type", if (entry.method == "EVENT") "event" else "request")
+/** Convert a single log entry to a JsonElement for structured export. */
+internal fun entryToJson(entry: RequestLogEntry): JsonElement = buildJsonObject {
+  put("id", entry.id)
+  put("timestamp", formatTimestamp(entry.timestamp))
+  put("timestamp_ms", entry.timestamp)
+  put("type", if (entry.method == "EVENT") "event" else "request")
 
   if (entry.method == "EVENT") {
-    obj.put("message", entry.path)
-    obj.put("category", entry.eventCategory.name.lowercase())
-    obj.put("level", entry.level.name.lowercase())
-    // Include structured event body (inference settings, prompt active, etc.)
+    put("message", entry.path)
+    put("category", entry.eventCategory.name.lowercase())
+    put("level", entry.level.name.lowercase())
     if (!entry.requestBody.isNullOrBlank()) {
-      obj.put("data", tryParseJson(entry.requestBody))
+      put("data", tryParseJson(entry.requestBody))
     }
   } else {
-    obj.put("method", entry.method)
-    obj.put("path", entry.path)
-    obj.put("status_code", entry.statusCode)
-    obj.put("latency_ms", entry.latencyMs)
-    obj.put("tokens", entry.tokens)
-    obj.put("streaming", entry.isStreaming)
-    if (entry.isThinking) obj.put("thinking", true)
+    put("method", entry.method)
+    put("path", entry.path)
+    put("status_code", entry.statusCode)
+    put("latency_ms", entry.latencyMs)
+    put("tokens", entry.tokens)
+    put("streaming", entry.isStreaming)
+    if (entry.isThinking) put("thinking", true)
     if (entry.isCompacted) {
-      obj.put("compacted", true)
-      if (!entry.compactionDetails.isNullOrBlank()) obj.put("compaction_details", entry.compactionDetails)
+      put("compacted", true)
+      if (!entry.compactionDetails.isNullOrBlank()) put("compaction_details", entry.compactionDetails)
     }
     if (entry.isCancelled) {
-      obj.put("cancelled", true)
-      if (entry.cancelledByUser) obj.put("cancelled_by_user", true)
+      put("cancelled", true)
+      if (entry.cancelledByUser) put("cancelled_by_user", true)
     }
     if (entry.inputTokenEstimate > 0) {
-      obj.put("input_token_estimate", entry.inputTokenEstimate)
-      obj.put("is_exact_token_count", entry.isExactTokenCount)
+      put("input_token_estimate", entry.inputTokenEstimate)
+      put("is_exact_token_count", entry.isExactTokenCount)
     }
-    if (entry.maxContextTokens > 0) obj.put("max_context_tokens", entry.maxContextTokens)
-    if (entry.ignoredClientParams != null) obj.put("ignored_client_params", entry.ignoredClientParams)
-    if (entry.ttfbMs > 0) obj.put("ttfb_ms", entry.ttfbMs)
-    if (entry.decodeSpeed > 0) obj.put("decode_speed_tps", entry.decodeSpeed)
-    if (entry.prefillSpeed > 0) obj.put("prefill_speed_tps", entry.prefillSpeed)
-    if (entry.itlMs > 0) obj.put("itl_ms", entry.itlMs)
-    if (entry.clientIp != null) obj.put("client_ip", entry.clientIp)
+    if (entry.maxContextTokens > 0) put("max_context_tokens", entry.maxContextTokens)
+    if (entry.ignoredClientParams != null) put("ignored_client_params", entry.ignoredClientParams)
+    if (entry.ttfbMs > 0) put("ttfb_ms", entry.ttfbMs)
+    if (entry.decodeSpeed > 0) put("decode_speed_tps", entry.decodeSpeed)
+    if (entry.prefillSpeed > 0) put("prefill_speed_tps", entry.prefillSpeed)
+    if (entry.itlMs > 0) put("itl_ms", entry.itlMs)
+    if (entry.clientIp != null) put("client_ip", entry.clientIp)
 
-    // Parse request/response bodies as JSON if possible, otherwise keep as string
     if (!entry.requestBody.isNullOrBlank()) {
-      obj.put("request_body", tryParseJson(entry.requestBody))
+      put("request_body", tryParseJson(entry.requestBody))
     }
     if (!entry.compactedPrompt.isNullOrBlank()) {
-      obj.put("compacted_prompt", entry.compactedPrompt)
+      put("compacted_prompt", entry.compactedPrompt)
     }
     if (!entry.responseBody.isNullOrBlank()) {
-      obj.put("response_body", tryParseJson(entry.responseBody))
+      put("response_body", tryParseJson(entry.responseBody))
     }
   }
 
-  if (entry.modelName != null) obj.put("model", entry.modelName)
-  return obj
+  if (entry.modelName != null) put("model", entry.modelName)
 }
+
+private val prettyJson = Json { prettyPrint = true; prettyPrintIndent = "  " }
 
 /** Build the full JSON export as a formatted string. */
 internal fun buildLogsJson(entries: List<RequestLogEntry>): String {
-  val root = JSONObject()
-  root.put("exported_at", formatTimestamp(System.currentTimeMillis()))
-  root.put("app", "OlliteRT")
-  root.put("entry_count", entries.size)
-  val array = JSONArray()
-  for (entry in entries) {
-    array.put(entryToJson(entry))
+  val root = buildJsonObject {
+    put("exported_at", formatTimestamp(System.currentTimeMillis()))
+    put("app", "OlliteRT")
+    put("entry_count", entries.size)
+    put("entries", buildJsonArray {
+      for (entry in entries) {
+        add(entryToJson(entry))
+      }
+    })
   }
-  root.put("entries", array)
-  // Android's org.json escapes "/" as "\/" — valid JSON but noisy for human readers.
-  return root.toString(2).replace("\\/", "/")
+  return prettyJson.encodeToString(JsonElement.serializer(), root)
 }
 
 /** Build JSON on a background thread to avoid UI jank with large log sets (2500+ entries). */
@@ -155,7 +156,7 @@ internal suspend fun exportLogsAsJson(context: Context, entries: List<RequestLog
 }
 
 internal fun copyEntryToClipboard(context: Context, entry: RequestLogEntry) {
-  val json = entryToJson(entry).toString(2).replace("\\/", "/")
+  val json = prettyJson.encodeToString(JsonElement.serializer(), entryToJson(entry))
   copyToClipboard(context, "OlliteRT Log Entry", json, formatSuffix = "JSON")
 }
 
