@@ -41,6 +41,7 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.bytesToMb
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
+import com.ollitert.llm.server.data.isThinkingEnabled
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.ServerService.Companion.queueReloadAfterLoad
@@ -518,9 +519,7 @@ class ServerService : Service() {
         ServerMetrics.setActiveAccelerator(
           model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.label]?.toString()
         )
-        ServerMetrics.setThinkingEnabled(
-          model.llmSupportThinking && (model.configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
-        )
+        ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
         ServerMetrics.onServerRunning(wifiIp)
         // Start keep-alive idle timer if enabled — model will auto-unload after the configured
         // idle duration to free RAM. Timer is reset after each inference request.
@@ -983,9 +982,7 @@ class ServerService : Service() {
         instance.defaultModel?.let { model ->
           model.configValues = configValues.toMap()
           // Update thinking state in metrics so the Status screen pill reflects the change
-          ServerMetrics.setThinkingEnabled(
-            model.llmSupportThinking && (configValues[com.ollitert.llm.server.data.ConfigKeys.ENABLE_THINKING.label] as? Boolean) != false
-          )
+          ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
         }
       }
     }
