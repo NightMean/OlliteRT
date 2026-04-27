@@ -20,7 +20,7 @@ package com.ollitert.llm.server.service
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.configThinkingEnabled
+import com.ollitert.llm.server.data.isThinkingEnabled
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
@@ -182,7 +182,7 @@ object PayloadBuilders {
         capabilities = LlmHttpModelCapabilities(
           image = activeModel.llmSupportImage,
           audio = activeModel.llmSupportAudio,
-          thinking = activeModel.llmSupportThinking && activeModel.configValues.configThinkingEnabled() != false,
+          thinking = activeModel.isThinkingEnabled,
         ),
         update_available = activeModel.updatable,
       )
@@ -221,7 +221,7 @@ object PayloadBuilders {
       capabilities = LlmHttpModelCapabilities(
         image = model.llmSupportImage,
         audio = model.llmSupportAudio,
-        thinking = model.llmSupportThinking && model.configValues.configThinkingEnabled() != false,
+        thinking = model.isThinkingEnabled,
       ),
       update_available = model.updatable,
     )
