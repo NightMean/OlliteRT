@@ -42,9 +42,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.R
 
 @Composable
 fun Accordions(
@@ -59,6 +63,9 @@ fun Accordions(
   hideTitleRowActionOnCollapse: Boolean = false,
   content: @Composable () -> Unit,
 ) {
+  val expandedDescription = stringResource(R.string.cd_collapse)
+  val collapsedDescription = stringResource(R.string.cd_expand)
+
   Column(modifier = modifier.background(bgColor).padding(8.dp)) {
     // Title.
     Row(
@@ -67,11 +74,15 @@ fun Accordions(
       modifier =
         Modifier.clip(RoundedCornerShape(8.dp))
           .clickable { onExpandedChange(!expanded) }
-          .fillMaxWidth(),
+          .fillMaxWidth()
+          .semantics {
+            stateDescription =
+              if (expanded) expandedDescription else collapsedDescription
+          },
     ) {
       Icon(
         if (expanded) Icons.Rounded.ArrowDropDown else Icons.AutoMirrored.Rounded.ArrowRight,
-        contentDescription = null,
+        contentDescription = if (expanded) expandedDescription else collapsedDescription,
       )
       Column(modifier = Modifier.weight(1f)) {
         Text(
