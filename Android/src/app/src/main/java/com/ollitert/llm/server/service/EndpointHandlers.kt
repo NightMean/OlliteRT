@@ -86,7 +86,8 @@ class EndpointHandlers(
     val maxContextGen = model.maxContextTokens
     val compactionResultGen = PromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
     logCompactionResult(compactionResultGen, requestId, "/generate", logId, maxContext = null, logEvent) { details, compactedPrompt ->
-      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
+      val id = logId ?: return@logCompactionResult
+      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
     val prompt = compactionResultGen.prompt
     // Store context utilization data in the log entry for per-request display
@@ -168,7 +169,8 @@ class EndpointHandlers(
     )
 
     logCompactionResult(compactionResult, requestId, "/v1/chat/completions", logId, maxContext, logEvent) { details, compactedPrompt ->
-      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
+      val id = logId ?: return@logCompactionResult
+      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
 
     // Apply response_format JSON mode prompt injection
@@ -267,7 +269,8 @@ class EndpointHandlers(
     val maxContextCompl = model.maxContextTokens
     val compactionResultCompl = PromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
     logCompactionResult(compactionResultCompl, requestId, "/v1/completions", logId, maxContextCompl, logEvent) { details, compactedPrompt ->
-      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
+      val id = logId ?: return@logCompactionResult
+      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
     val prompt = compactionResultCompl.prompt
     // Store context utilization data in the log entry for per-request display
@@ -357,7 +360,8 @@ class EndpointHandlers(
       trimPrompts = trimPromptsResp,
     )
     logCompactionResult(compactionResultResp, requestId, "/v1/responses", logId, maxContextResp, logEvent) { details, compactedPrompt ->
-      RequestLogStore.update(logId!!) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
+      val id = logId ?: return@logCompactionResult
+      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
     }
     val prompt = compactionResultResp.prompt
     // Store context utilization data in the log entry for per-request display

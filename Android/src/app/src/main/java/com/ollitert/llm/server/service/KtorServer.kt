@@ -835,30 +835,30 @@ class KtorServer(
       val changes = mutableListOf<String>()
       if (obj.containsKey("temperature")) {
         val old = currentConfig.configTemperature()
-        val v = obj["temperature"]!!.jsonPrimitive.double.toFloat()
+        val v = clampTemperature(obj.getValue("temperature").jsonPrimitive.double)
         updated[ConfigKeys.TEMPERATURE.label] = v
         changes.add("Temperature: ${old ?: "unset"} → $v")
       }
       if (obj.containsKey("max_tokens")) {
         val old = currentConfig.maxTokensInt()
-        val v = obj["max_tokens"]!!.jsonPrimitive.int
+        val v = clampMaxTokens(obj.getValue("max_tokens").jsonPrimitive.int)
         updated[ConfigKeys.MAX_TOKENS.label] = v
         changes.add("Max Tokens: ${old ?: "unset"} → $v")
       }
       if (obj.containsKey("top_k")) {
         val old = currentConfig.configTopK()
-        val v = obj["top_k"]!!.jsonPrimitive.int
+        val v = clampTopK(obj.getValue("top_k").jsonPrimitive.int)
         updated[ConfigKeys.TOPK.label] = v
         changes.add("Top-K: ${old ?: "unset"} → $v")
       }
       if (obj.containsKey("top_p")) {
         val old = currentConfig.configTopP()
-        val v = obj["top_p"]!!.jsonPrimitive.double.toFloat()
+        val v = clampTopP(obj.getValue("top_p").jsonPrimitive.double)
         updated[ConfigKeys.TOPP.label] = v
         changes.add("Top-P: ${old ?: "unset"} → $v")
       }
       if (obj.containsKey("thinking_enabled")) {
-        val v = obj["thinking_enabled"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("thinking_enabled").jsonPrimitive.boolean
         if (model == null || model.llmSupportThinking) {
           val old = currentConfig.configThinkingEnabled() ?: false
           updated[ConfigKeys.ENABLE_THINKING.label] = v
@@ -869,38 +869,38 @@ class KtorServer(
       // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
       if (obj.containsKey("auto_truncate_history")) {
         val old = ServerPrefs.isAutoTruncateHistory(serviceContext)
-        val v = obj["auto_truncate_history"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("auto_truncate_history").jsonPrimitive.boolean
         ServerPrefs.setAutoTruncateHistory(serviceContext, v)
         changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.containsKey("auto_trim_prompts")) {
         val old = ServerPrefs.isAutoTrimPrompts(serviceContext)
-        val v = obj["auto_trim_prompts"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("auto_trim_prompts").jsonPrimitive.boolean
         ServerPrefs.setAutoTrimPrompts(serviceContext, v)
         changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.containsKey("compact_tool_schemas")) {
         val old = ServerPrefs.isCompactToolSchemas(serviceContext)
-        val v = obj["compact_tool_schemas"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("compact_tool_schemas").jsonPrimitive.boolean
         ServerPrefs.setCompactToolSchemas(serviceContext, v)
         changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.containsKey("warmup_enabled")) {
         val old = ServerPrefs.isWarmupEnabled(serviceContext)
-        val v = obj["warmup_enabled"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("warmup_enabled").jsonPrimitive.boolean
         ServerPrefs.setWarmupEnabled(serviceContext, v)
         changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.containsKey("keep_alive_enabled")) {
         val old = ServerPrefs.isKeepAliveEnabled(serviceContext)
-        val v = obj["keep_alive_enabled"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("keep_alive_enabled").jsonPrimitive.boolean
         ServerPrefs.setKeepAliveEnabled(serviceContext, v)
         if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
         changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.containsKey("keep_alive_minutes")) {
         val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
-        val v = obj["keep_alive_minutes"]!!.jsonPrimitive.int
+        val v = obj.getValue("keep_alive_minutes").jsonPrimitive.int
         if (v < 1 || v > 7200) {
           return httpBadRequest("keep_alive_minutes out of range")
         }
@@ -910,13 +910,13 @@ class KtorServer(
       }
       if (obj.containsKey("custom_prompts_enabled")) {
         val old = ServerPrefs.isCustomPromptsEnabled(serviceContext)
-        val v = obj["custom_prompts_enabled"]!!.jsonPrimitive.boolean
+        val v = obj.getValue("custom_prompts_enabled").jsonPrimitive.boolean
         ServerPrefs.setCustomPromptsEnabled(serviceContext, v)
         changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.containsKey("system_prompt")) {
         val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
-        val v = obj["system_prompt"]!!.jsonPrimitive.content
+        val v = obj.getValue("system_prompt").jsonPrimitive.content
         ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
         val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
         val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
