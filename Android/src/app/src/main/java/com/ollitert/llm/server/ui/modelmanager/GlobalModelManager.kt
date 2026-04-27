@@ -98,6 +98,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
@@ -183,6 +184,16 @@ fun GlobalModelManager(
     }
     lifecycleOwner.lifecycle.addObserver(observer)
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+  }
+
+  // Pull-to-refresh: separate from initial load so the indicator only appears on swipe,
+  // with a minimum visible duration so the spinner doesn't flash and vanish.
+  var isManualRefreshing by remember { mutableStateOf(false) }
+  LaunchedEffect(uiState.loadingModelAllowlist, isManualRefreshing) {
+    if (isManualRefreshing && !uiState.loadingModelAllowlist) {
+      delay(500)
+      isManualRefreshing = false
+    }
   }
 
   // Permission state — re-evaluated on every resume so the banner disappears
@@ -304,8 +315,11 @@ fun GlobalModelManager(
   }
 
   PullToRefreshBox(
-    isRefreshing = uiState.loadingModelAllowlist,
-    onRefresh = { viewModel.loadModelAllowlist(isManualRetry = true) },
+    isRefreshing = isManualRefreshing,
+    onRefresh = {
+      isManualRefreshing = true
+      viewModel.loadModelAllowlist(isManualRetry = true)
+    },
     modifier = modifier
       .fillMaxSize()
       .pointerInput(Unit) {
