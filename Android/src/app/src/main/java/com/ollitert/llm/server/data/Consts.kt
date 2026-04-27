@@ -107,7 +107,7 @@ const val DOWNLOAD_CONNECT_TIMEOUT_MS = 30_000
 const val DOWNLOAD_READ_TIMEOUT_MS = 60_000
 
 // CORS preflight response cache duration (24 hours).
-const val CORS_PREFLIGHT_MAX_AGE_SECONDS = "86400"
+const val CORS_PREFLIGHT_MAX_AGE_SECONDS = 86400L
 
 // Model allowlist asset/disk-cache filenames.
 // Master lives at /model_allowlists/v1/model_allowlist.json (repo root) — Gradle copies it

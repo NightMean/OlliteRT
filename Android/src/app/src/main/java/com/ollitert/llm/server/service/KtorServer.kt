@@ -174,7 +174,7 @@ class KtorServer(
       allowHeader("User-Agent")
       allowHeader("Accept")
       allowHeader("X-Requested-With")
-      maxAgeInSeconds = CORS_PREFLIGHT_MAX_AGE_SECONDS.toLongOrNull() ?: 86400L
+      maxAgeInSeconds = CORS_PREFLIGHT_MAX_AGE_SECONDS
 
       if (allowedOrigins == "*") {
         anyHost()
