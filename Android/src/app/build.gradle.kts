@@ -71,7 +71,7 @@ android {
     // Git commit hash for traceability in Settings footer and future bug reports
     buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
 
-    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    testInstrumentationRunner = "com.ollitert.llm.server.HiltTestRunner"
   }
 
   // Release signing config: reads from keystore.properties (local dev) or
