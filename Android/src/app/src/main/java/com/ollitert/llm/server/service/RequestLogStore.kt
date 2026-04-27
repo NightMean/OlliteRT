@@ -364,4 +364,17 @@ object RequestLogStore {
       )
     )
   }
+
+  /**
+   * Reset ALL mutable state for test isolation.
+   * Clears entries, callbacks, cancellations, counters, and restores defaults.
+   */
+  fun resetForTesting() {
+    _entries.value = emptyList()
+    _pendingPartialText.value = "" to null
+    pendingCancellations.clear()
+    persistenceCallback = null
+    maxEntries = DEFAULT_MAX_ENTRIES
+    idCounter.set(0)
+  }
 }

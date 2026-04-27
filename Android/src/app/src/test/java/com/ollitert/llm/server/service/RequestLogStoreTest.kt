@@ -50,17 +50,12 @@ class RequestLogStoreTest {
 
   @Before
   fun setUp() {
-    // Reset singleton state before each test
-    RequestLogStore.clear()
-    RequestLogStore.setPersistenceCallback(null)
-    RequestLogStore.setMaxEntries(100)
+    RequestLogStore.resetForTesting()
   }
 
   @After
   fun tearDown() {
-    RequestLogStore.clear()
-    RequestLogStore.setPersistenceCallback(null)
-    RequestLogStore.setMaxEntries(100)
+    RequestLogStore.resetForTesting()
   }
 
   // --- Basic add/update/clear ---
