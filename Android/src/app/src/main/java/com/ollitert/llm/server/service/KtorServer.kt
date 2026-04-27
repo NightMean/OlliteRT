@@ -768,25 +768,24 @@ class KtorServer(
     if (model != null && !model.llmSupportThinking) {
       return httpBadRequest("Model does not support thinking")
     }
-    // Read current state from model if loaded, otherwise from persisted prefs
-    val currentConfig = model?.configValues
-      ?: ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)
-    val currentState = currentConfig?.configThinkingEnabled() ?: false
-    // Parse { "enabled": true/false } — default to toggling current state
-    val requestedState = if (body.isNotBlank()) {
-      try {
-        val obj = Json.parseToJsonElement(body).jsonObject
-        obj["enabled"]?.jsonPrimitive?.booleanOrNull ?: !currentState
-      } catch (_: Exception) {
-        !currentState
+    // Read-modify-write configValues atomically under inferenceLock when model is loaded,
+    // preventing concurrent inference config restore from silently overwriting changes.
+    val currentState: Boolean
+    val requestedState: Boolean
+    val updatedConfig: Map<String, Any>
+    if (model != null) {
+      synchronized(inferenceLock) {
+        val config = model.configValues
+        currentState = config.configThinkingEnabled() ?: false
+        requestedState = parseThinkingRequestedState(body, currentState)
+        updatedConfig = config + (ConfigKeys.ENABLE_THINKING.label to requestedState)
+        model.configValues = updatedConfig
       }
     } else {
-      !currentState // No body = toggle
-    }
-    // Update in-memory config if model is loaded, always persist to prefs
-    val updatedConfig = (currentConfig ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.label to requestedState)
-    if (model != null) {
-      synchronized(inferenceLock) { model.configValues = updatedConfig }
+      val config = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)
+      currentState = config?.configThinkingEnabled() ?: false
+      requestedState = parseThinkingRequestedState(body, currentState)
+      updatedConfig = (config ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.label to requestedState)
     }
     ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
@@ -818,11 +817,13 @@ class KtorServer(
       ?: return httpBadRequest("No model loaded")
     val modelPrefsKey = model?.prefsKey ?: modelLifecycle.keepAliveUnloadedModelPrefsKey
       ?: return httpBadRequest("No model loaded")
-    // Read config from model if loaded, otherwise from persisted prefs
-    val currentConfig = model?.configValues
-      ?: ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
     if (body.isBlank()) {
-      // GET-like: return current config
+      // GET-like: return current config. Read under lock when model is loaded.
+      val currentConfig = if (model != null) {
+        synchronized(inferenceLock) { model.configValues }
+      } else {
+        ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
+      }
       val current = buildJsonObject {
         put("temperature", currentConfig.configTemperature()?.toDouble() ?: 0.0)
         put("max_tokens", currentConfig.maxTokensInt() ?: 0)
@@ -842,47 +843,40 @@ class KtorServer(
       }
       return httpOkJson(current.toString())
     }
+    // ── Parse JSON body outside lock (no configValues access) ──
     val obj = try {
       Json.parseToJsonElement(body).jsonObject
     } catch (e: Exception) {
       return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
     }
     return try {
-      val updated = currentConfig.toMutableMap()
-      val changes = mutableListOf<String>()
-      parseConfigDouble(obj, "temperature")?.let { raw ->
-        val old = currentConfig.configTemperature()
-        val v = clampTemperature(raw)
-        updated[ConfigKeys.TEMPERATURE.label] = v
-        changes.add("Temperature: ${old ?: "unset"} → $v")
-      }
-      parseConfigInt(obj, "max_tokens")?.let { raw ->
-        val old = currentConfig.maxTokensInt()
-        val v = clampMaxTokens(raw)
-        updated[ConfigKeys.MAX_TOKENS.label] = v
-        changes.add("Max Tokens: ${old ?: "unset"} → $v")
-      }
-      parseConfigInt(obj, "top_k")?.let { raw ->
-        val old = currentConfig.configTopK()
-        val v = clampTopK(raw)
-        updated[ConfigKeys.TOPK.label] = v
-        changes.add("Top-K: ${old ?: "unset"} → $v")
-      }
-      parseConfigDouble(obj, "top_p")?.let { raw ->
-        val old = currentConfig.configTopP()
-        val v = clampTopP(raw)
-        updated[ConfigKeys.TOPP.label] = v
-        changes.add("Top-P: ${old ?: "unset"} → $v")
-      }
-      parseConfigBool(obj, "thinking_enabled")?.let { v ->
-        if (model == null || model.llmSupportThinking) {
-          val old = currentConfig.configThinkingEnabled() ?: false
-          updated[ConfigKeys.ENABLE_THINKING.label] = v
-          ServerMetrics.setThinkingEnabled(v)
-          changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      val reqTemperature = parseConfigDouble(obj, "temperature")
+      val reqMaxTokens = parseConfigInt(obj, "max_tokens")
+      val reqTopK = parseConfigInt(obj, "top_k")
+      val reqTopP = parseConfigDouble(obj, "top_p")
+      val reqThinking = parseConfigBool(obj, "thinking_enabled")
+      // ── Read-modify-write configValues atomically under inferenceLock ──
+      val updated: Map<String, Any>
+      val configChanges: MutableList<String>
+      if (model != null) {
+        synchronized(inferenceLock) {
+          val result = mergeInferenceConfig(
+            model.configValues, model, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking,
+          )
+          updated = result.first
+          configChanges = result.second
+          if (configChanges.isNotEmpty()) model.configValues = updated
         }
+      } else {
+        val base = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
+        val result = mergeInferenceConfig(
+          base, null, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking,
+        )
+        updated = result.first
+        configChanges = result.second
       }
-      // ── Behavior toggles (persisted directly to SharedPreferences, not model configValues) ──
+      // ── Behavior toggles (SharedPrefs-only, not in configValues — no lock needed) ──
+      val changes = configChanges.toMutableList()
       parseConfigBool(obj, "auto_truncate_history")?.let { v ->
         val old = ServerPrefs.isAutoTruncateHistory(serviceContext)
         ServerPrefs.setAutoTruncateHistory(serviceContext, v)
@@ -933,12 +927,7 @@ class KtorServer(
       if (changes.isEmpty()) {
         httpBadRequest("No recognized config fields")
       } else {
-        // Update in-memory config if model is loaded, always persist to prefs
-        if (model != null) {
-          synchronized(inferenceLock) { model.configValues = updated.toMap() }
-        }
         ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updated)
-        // Log using the same format as the Settings UI
         RequestLogStore.addEvent(
           "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
           modelName = modelName,
@@ -970,6 +959,64 @@ class KtorServer(
     } catch (e: Exception) {
       httpBadRequest("Invalid request body: ${e.message?.take(200) ?: "unknown error"}")
     }
+  }
+
+  private fun mergeInferenceConfig(
+    currentConfig: Map<String, Any>,
+    model: Model?,
+    reqTemperature: Double?,
+    reqMaxTokens: Int?,
+    reqTopK: Int?,
+    reqTopP: Double?,
+    reqThinking: Boolean?,
+  ): Pair<Map<String, Any>, MutableList<String>> {
+    val updated = currentConfig.toMutableMap()
+    val changes = mutableListOf<String>()
+    reqTemperature?.let { raw ->
+      val old = currentConfig.configTemperature()
+      val v = clampTemperature(raw)
+      updated[ConfigKeys.TEMPERATURE.label] = v
+      changes.add("Temperature: ${old ?: "unset"} → $v")
+    }
+    reqMaxTokens?.let { raw ->
+      val old = currentConfig.maxTokensInt()
+      val v = clampMaxTokens(raw)
+      updated[ConfigKeys.MAX_TOKENS.label] = v
+      changes.add("Max Tokens: ${old ?: "unset"} → $v")
+    }
+    reqTopK?.let { raw ->
+      val old = currentConfig.configTopK()
+      val v = clampTopK(raw)
+      updated[ConfigKeys.TOPK.label] = v
+      changes.add("Top-K: ${old ?: "unset"} → $v")
+    }
+    reqTopP?.let { raw ->
+      val old = currentConfig.configTopP()
+      val v = clampTopP(raw)
+      updated[ConfigKeys.TOPP.label] = v
+      changes.add("Top-P: ${old ?: "unset"} → $v")
+    }
+    reqThinking?.let { v ->
+      if (model == null || model.llmSupportThinking) {
+        val old = currentConfig.configThinkingEnabled() ?: false
+        updated[ConfigKeys.ENABLE_THINKING.label] = v
+        ServerMetrics.setThinkingEnabled(v)
+        changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+    }
+    return updated.toMap() to changes
+  }
+
+  private fun parseThinkingRequestedState(body: String, currentState: Boolean): Boolean {
+    if (body.isNotBlank()) {
+      try {
+        val obj = Json.parseToJsonElement(body).jsonObject
+        return obj["enabled"]?.jsonPrimitive?.booleanOrNull ?: !currentState
+      } catch (_: Exception) {
+        return !currentState
+      }
+    }
+    return !currentState
   }
 
   // ── Shared route handlers ─────────────────────────────────────────────────
