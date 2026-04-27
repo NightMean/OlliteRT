@@ -18,6 +18,7 @@ package com.ollitert.llm.server.ui.server.logs
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -226,8 +227,6 @@ class LogEventParsersTest {
   }
 
   // ── parseEventType: PromptActive ──────────────────────────────────────────
-  // Tests that pass eventBody JSON are skipped in JVM tests (org.json.JSONObject
-  // requires Android runtime). The no-body path is safe to test.
 
   @Test
   fun systemPromptActiveNoBody() {
@@ -438,9 +437,6 @@ class LogEventParsersTest {
   }
 
   // ── parseInferenceSettingsMessage ──────────────────────────────────────────
-  // JSON-parsing tests are skipped in JVM tests (org.json.JSONObject requires
-  // Android runtime). Guard-clause paths that return early without touching
-  // JSONObject are safe to test here.
 
   @Test
   fun inferenceSettingsWrongPrefix() {
@@ -458,5 +454,70 @@ class LogEventParsersTest {
   fun inferenceSettingsBlankBody() {
     val result = parseInferenceSettingsMessage("Inference settings changed: TopK", "")
     assertNull(result)
+  }
+
+  @Test
+  fun inferenceSettingsFromJsonBody() {
+    val body = """
+      {
+        "type": "inference_settings",
+        "changes": [
+          {"param": "TopK", "old": "14", "new": "15"},
+          {"param": "Temperature", "old": "0.8", "new": "0.9"}
+        ],
+        "status": "reloading model"
+      }
+    """.trimIndent()
+    val result = parseInferenceSettingsMessage("Inference settings changed: TopK: 14 → 15, Temperature: 0.8 → 0.9", body)
+    assertNotNull(result)
+    assertEquals(2, result!!.changes.size)
+    assertEquals("TopK", result.changes[0].paramName)
+    assertEquals("14", result.changes[0].oldValue)
+    assertEquals("15", result.changes[0].newValue)
+    assertEquals("reloading model", result.statusSuffix)
+  }
+
+  @Test
+  fun inferenceSettingsWithPromptDiffs() {
+    val body = """
+      {
+        "type": "inference_settings",
+        "changes": [{"param": "TopK", "old": "10", "new": "20"}],
+        "prompt_diffs": {
+          "system_prompt": {"old": "Be helpful", "new": "Be concise"}
+        }
+      }
+    """.trimIndent()
+    val result = parseInferenceSettingsMessage("Inference settings changed: TopK: 10 → 20", body)
+    assertNotNull(result)
+    assertEquals(1, result!!.promptDiffs.size)
+    assertEquals("system_prompt", result.promptDiffs[0].paramName)
+    assertEquals("Be helpful", result.promptDiffs[0].oldText)
+    assertEquals("Be concise", result.promptDiffs[0].newText)
+  }
+
+  @Test
+  fun inferenceSettingsWithInvalidJsonReturnsNull() {
+    val result = parseInferenceSettingsMessage("Inference settings changed: TopK", "{broken")
+    assertNull(result)
+  }
+
+  // ── parseEventType: PromptActive with JSON body ──────────────────────────
+
+  @Test
+  fun promptActiveWithJsonBody() {
+    val body = """{"type":"prompt_active","prompt_type":"system_prompt","text":"Be helpful."}"""
+    val result = parseEventType("System prompt active: \"Be helpful.\"", body)
+    assertTrue(result is ParsedEventType.PromptActive)
+    val prompt = result as ParsedEventType.PromptActive
+    assertEquals("System prompt", prompt.promptType)
+    assertEquals("Be helpful.", prompt.promptText)
+  }
+
+  @Test
+  fun promptActiveWithInvalidBodyFallsBack() {
+    val result = parseEventType("System prompt active: \"test\"", "{bad json")
+    assertTrue(result is ParsedEventType.PromptActive)
+    assertEquals("", (result as ParsedEventType.PromptActive).promptText)
   }
 }

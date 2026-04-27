@@ -30,10 +30,11 @@ import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTValueArrowBlue
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.json.JSONObject
 
 // ── Event message parsing ────────────────────────────────────────────────────
 
@@ -144,31 +145,33 @@ internal fun parseInferenceSettingsMessage(message: String, eventBody: String? =
   if (eventBody.isNullOrBlank()) return null
 
   return try {
-    val json = JSONObject(eventBody)
+    val json = Json.parseToJsonElement(eventBody).jsonObject
     val changes = mutableListOf<InferenceSettingsChange>()
     val promptDiffs = mutableListOf<PromptDiff>()
 
-    // Parse changes array
-    val changesArr = json.optJSONArray("changes")
+    val changesArr = json["changes"]?.jsonArray
     if (changesArr != null) {
-      for (i in 0 until changesArr.length()) {
-        val c = changesArr.getJSONObject(i)
+      for (element in changesArr) {
+        val c = element.jsonObject
         changes.add(InferenceSettingsChange(
-          paramName = c.getString("param"),
-          oldValue = c.optString("old", ""),
-          newValue = c.optString("new", ""),
+          paramName = c["param"]?.jsonPrimitive?.content ?: continue,
+          oldValue = c["old"]?.jsonPrimitive?.content ?: "",
+          newValue = c["new"]?.jsonPrimitive?.content ?: "",
         ))
       }
     }
-    // Parse prompt diffs
-    val diffs = json.optJSONObject("prompt_diffs")
+    val diffs = json["prompt_diffs"]?.jsonObject
     if (diffs != null) {
-      for (key in diffs.keys()) {
-        val diff = diffs.getJSONObject(key)
-        promptDiffs.add(PromptDiff(key, diff.optString("old", ""), diff.optString("new", "")))
+      for ((key, element) in diffs) {
+        val diff = element.jsonObject
+        promptDiffs.add(PromptDiff(
+          key,
+          diff["old"]?.jsonPrimitive?.content ?: "",
+          diff["new"]?.jsonPrimitive?.content ?: "",
+        ))
       }
     }
-    val statusSuffix = json.optString("status", "").ifBlank { null }
+    val statusSuffix = json["status"]?.jsonPrimitive?.content?.ifBlank { null }
     if (changes.isNotEmpty() || promptDiffs.isNotEmpty()) {
       ParsedInferenceEvent(changes, statusSuffix, promptDiffs)
     } else null
@@ -204,7 +207,9 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
   if (message.startsWith("System prompt active: ") || message.startsWith("Chat template active: ")) {
     val isSystem = message.startsWith("System prompt")
     val text = if (!eventBody.isNullOrBlank()) {
-      try { JSONObject(eventBody).optString("text", "") } catch (_: Exception) { "" }
+      try {
+        Json.parseToJsonElement(eventBody).jsonObject["text"]?.jsonPrimitive?.content ?: ""
+      } catch (_: Exception) { "" }
     } else ""
     return ParsedEventType.PromptActive(
       promptType = if (isSystem) "System prompt" else "Chat template",
@@ -345,7 +350,7 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
     var transcription: String? = null
     if (eventBody != null) {
       try {
-        val json = kotlinx.serialization.json.Json.parseToJsonElement(eventBody).jsonObject
+        val json = Json.parseToJsonElement(eventBody).jsonObject
         instruction = json["instruction"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
         transcription = json["transcription"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
       } catch (_: Exception) {
