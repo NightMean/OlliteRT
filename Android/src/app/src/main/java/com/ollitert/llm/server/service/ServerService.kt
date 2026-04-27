@@ -235,56 +235,7 @@ class ServerService : Service() {
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
     // of "Server stopped", because the server will immediately start again.
     if (intent.action == ACTION_RELOAD) {
-      cancelKeepAliveTimer()
-      keepAliveUnloadedModelName = null
-      val previousModelName = defaultModel?.name
-      Log.i(TAG, "Reload requested — cleaning up current model before restart")
-      // Bump generation FIRST so any in-flight load thread sees the stale generation
-      // and cleans up its own Engine when it finishes (see loadGeneration guard below).
-      loadGeneration.incrementAndGet()
-      RequestLogStore.addEvent(
-        "Model restart requested",
-        modelName = previousModelName,
-        category = EventCategory.MODEL,
-      )
-      server?.stop()
-      defaultModel?.let { model ->
-        RequestLogStore.addEvent(
-          "Unloading model: ${model.name}",
-          modelName = model.name,
-          category = EventCategory.MODEL,
-        )
-        // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
-        // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
-        // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
-        synchronized(modelLifecycle.keepAliveLock) {
-          defaultModel = null
-        }
-        try {
-          ServerLlmModelHelper.cleanUp(model) {}
-        } catch (e: Exception) {
-          Log.w(TAG, "Error cleaning up model during reload: ${e.message}")
-        }
-        model.instance = null
-      }
-      // Close any secondary models' native Engines before dropping references.
-      // Without this, modelCache.clear() orphans Engine instances with GB-scale native memory.
-      for ((_, cachedModel) in modelCache) {
-        if (cachedModel.instance != null) {
-          ServerLlmModelHelper.safeCleanup(cachedModel)
-        }
-      }
-      modelCache.clear()
-      // Cancel any in-flight requests so pending log cards resolve before the reload.
-      RequestLogStore.cancelAllPending()
-      // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
-      ServerMetrics.onServerStopped()
-      // Hint GC to reclaim native memory from the closed Engine/Conversation.
-      // LiteRT Engine allocates large native buffers (hundreds of MB) that are only
-      // freed when the Java wrapper is finalized. Without this hint, the old Engine's
-      // native memory may persist until the new model's allocation triggers OOM.
-      System.gc()
-      // Fall through to normal start logic below (which emits "Loading model: X")
+      handleReloadCleanup()
     }
 
     val port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT)
@@ -632,6 +583,62 @@ class ServerService : Service() {
     }, "OlliteRT-ModelLoad").start()
 
     return START_STICKY
+  }
+
+  /**
+   * Cleans up the current model and server state before a reload.
+   * Called from [onStartCommand] when [ACTION_RELOAD] is received.
+   */
+  private fun handleReloadCleanup() {
+    cancelKeepAliveTimer()
+    keepAliveUnloadedModelName = null
+    val previousModelName = defaultModel?.name
+    Log.i(TAG, "Reload requested — cleaning up current model before restart")
+    // Bump generation FIRST so any in-flight load thread sees the stale generation
+    // and cleans up its own Engine when it finishes (see loadGeneration guard below).
+    loadGeneration.incrementAndGet()
+    RequestLogStore.addEvent(
+      "Model restart requested",
+      modelName = previousModelName,
+      category = EventCategory.MODEL,
+    )
+    server?.stop()
+    defaultModel?.let { model ->
+      RequestLogStore.addEvent(
+        "Unloading model: ${model.name}",
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
+      // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
+      // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
+      synchronized(modelLifecycle.keepAliveLock) {
+        defaultModel = null
+      }
+      try {
+        ServerLlmModelHelper.cleanUp(model) {}
+      } catch (e: Exception) {
+        Log.w(TAG, "Error cleaning up model during reload: ${e.message}")
+      }
+      model.instance = null
+    }
+    // Close any secondary models' native Engines before dropping references.
+    // Without this, modelCache.clear() orphans Engine instances with GB-scale native memory.
+    for ((_, cachedModel) in modelCache) {
+      if (cachedModel.instance != null) {
+        ServerLlmModelHelper.safeCleanup(cachedModel)
+      }
+    }
+    modelCache.clear()
+    // Cancel any in-flight requests so pending log cards resolve before the reload.
+    RequestLogStore.cancelAllPending()
+    // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
+    ServerMetrics.onServerStopped()
+    // Hint GC to reclaim native memory from the closed Engine/Conversation.
+    // LiteRT Engine allocates large native buffers (hundreds of MB) that are only
+    // freed when the Java wrapper is finalized. Without this hint, the old Engine's
+    // native memory may persist until the new model's allocation triggers OOM.
+    System.gc()
   }
 
   @Suppress("DEPRECATION") // onTrimMemory deprecated in API 34, but onTrimMemory is still called by the framework
