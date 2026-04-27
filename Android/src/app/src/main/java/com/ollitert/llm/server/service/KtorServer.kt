@@ -430,9 +430,10 @@ class KtorServer(
         ),
       )
 
-      val contentLength = call.request.headers["Content-Length"]?.toLongOrNull() ?: 0L
-      if (contentLength > MAX_FILE_SIZE_BYTES) {
-        val response = httpJsonError(400, "File too large (${contentLength / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
+      val contentLengthHeader = call.request.headers["Content-Length"]?.toLongOrNull()
+
+      if (contentLengthHeader != null && contentLengthHeader > MAX_FILE_SIZE_BYTES) {
+        val response = httpPayloadTooLarge("File too large (${contentLengthHeader / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
         finalizeLogEntry(logId, startMs, response, null, response.body)
         call.response.headers.append("x-request-id", logId)
         call.respondHttpResponse(response)
@@ -445,7 +446,7 @@ class KtorServer(
       try {
         multipart.forEachPart { part ->
           when (part) {
-            is PartData.FileItem -> fileBytes = part.provider().readRemaining().readByteArray()
+            is PartData.FileItem -> fileBytes = readBytesWithLimit(part.provider().readRemaining(), MAX_FILE_SIZE_BYTES)
             is PartData.FormItem -> fields[part.name ?: ""] = part.value
             else -> {}
           }
@@ -460,6 +461,8 @@ class KtorServer(
         return@post
       }
 
+      val actualSize = fileBytes?.size?.toLong() ?: contentLengthHeader ?: 0L
+
       val model = when (val sel = modelLifecycle.selectModel(null)) {
         is ModelLifecycle.ModelSelection.Ok -> sel.model
         is ModelLifecycle.ModelSelection.Error -> {
@@ -472,10 +475,10 @@ class KtorServer(
       }
 
       val response = try {
-        audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId, prefs = prefs)
+        audioTranscriptionHandler.handle(fileBytes, fields, actualSize, model, logId = logId, prefs = prefs)
       } catch (_: kotlinx.coroutines.CancellationException) {
         RequestLogStore.update(logId) {
-          it.copy(requestBody = "[multipart audio ${contentLength} bytes]", isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
+          it.copy(requestBody = "[multipart audio $actualSize bytes]", isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
         }
         throw kotlinx.coroutines.CancellationException("Client disconnected")
       }
@@ -484,7 +487,7 @@ class KtorServer(
         is HttpResponse.PlainText -> response.body
         else -> null
       }
-      finalizeLogEntry(logId, startMs, response, "[multipart audio ${contentLength} bytes]", responseBody)
+      finalizeLogEntry(logId, startMs, response, "[multipart audio $actualSize bytes]", responseBody)
       call.response.headers.append("x-request-id", logId)
       call.respondHttpResponse(response)
     }
