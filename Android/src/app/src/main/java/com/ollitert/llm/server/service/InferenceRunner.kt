@@ -190,10 +190,14 @@ class InferenceRunner(
         )
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
+      onInferenceFinished = {
+        if (originalConfig != null && model.instance != null) {
+          model.configValues = originalConfig
+        }
+      },
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
     )
-    if (originalConfig != null && model.instance != null) model.configValues = originalConfig
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     if (result.error == "client_disconnected") {
