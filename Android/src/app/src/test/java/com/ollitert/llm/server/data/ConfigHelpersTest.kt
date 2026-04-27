@@ -17,7 +17,9 @@
 package com.ollitert.llm.server.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigHelpersTest {
@@ -141,5 +143,46 @@ class ConfigHelpersTest {
   fun configThinkingEnabledNonBooleanReturnsNull() {
     val map = mapOf(ConfigKeys.ENABLE_THINKING.label to "yes")
     assertNull(map.configThinkingEnabled())
+  }
+
+  // ── Model.isThinkingEnabled ─────────────────────────────────────────────
+
+  @Test
+  fun isThinkingEnabledTrueWhenCapableAndEnabled() {
+    val model = Model(
+      name = "test",
+      capabilities = setOf(ModelCapability.THINKING),
+    ).apply {
+      configValues = mapOf(ConfigKeys.ENABLE_THINKING.label to true)
+    }
+    assertTrue(model.isThinkingEnabled)
+  }
+
+  @Test
+  fun isThinkingEnabledTrueWhenCapableAndMissing() {
+    val model = Model(
+      name = "test",
+      capabilities = setOf(ModelCapability.THINKING),
+    )
+    assertTrue(model.isThinkingEnabled)
+  }
+
+  @Test
+  fun isThinkingEnabledFalseWhenCapableButDisabled() {
+    val model = Model(
+      name = "test",
+      capabilities = setOf(ModelCapability.THINKING),
+    ).apply {
+      configValues = mapOf(ConfigKeys.ENABLE_THINKING.label to false)
+    }
+    assertFalse(model.isThinkingEnabled)
+  }
+
+  @Test
+  fun isThinkingEnabledFalseWhenNotCapable() {
+    val model = Model(name = "test").apply {
+      configValues = mapOf(ConfigKeys.ENABLE_THINKING.label to true)
+    }
+    assertFalse(model.isThinkingEnabled)
   }
 }

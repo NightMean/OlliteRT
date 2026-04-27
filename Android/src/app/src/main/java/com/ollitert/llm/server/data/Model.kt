@@ -332,6 +332,10 @@ val Model.llmSupportsNpu: Boolean get() = ModelCapability.NPU in capabilities
 val Model.maxContextTokens: Int?
   get() = configValues.maxTokensInt()
 
+/** Whether thinking is both supported by the model and enabled in the current config. */
+val Model.isThinkingEnabled: Boolean
+  get() = llmSupportThinking && configValues.configThinkingEnabled() != false
+
 enum class ModelDownloadStatusType {
   NOT_DOWNLOADED,
   PARTIALLY_DOWNLOADED,
