@@ -374,27 +374,14 @@ class EndpointHandlers(
     val tools = req.tools.orEmpty()
     val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
 
-    // Apply per-request sampler overrides (ignored when "Ignore Client Sampler" is on)
-    val ignoreClientSamplerR = prefs.ignoreClientSamplerParams
-    val rTemp = if (ignoreClientSamplerR) null else req.temperature
-    val rTopP = if (ignoreClientSamplerR) null else req.top_p
-    val rTopK = if (ignoreClientSamplerR) null else req.top_k
-    val rMaxTokens = if (ignoreClientSamplerR) null else req.max_output_tokens
-    if (ignoreClientSamplerR && logId != null) {
-      val ignored = describeClientSamplerParams(req.temperature, req.top_p, req.top_k, req.max_output_tokens)
-      if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
-    }
-    // For streaming: config is applied inside the executor thread (via configSnapshot) to avoid
-    // a race where the calling thread restores config before the executor reads it.
-    // For non-streaming: config is also applied via configSnapshot on the executor thread.
+    val sampler = resolveSamplerOverrides(model, prefs, req.temperature, req.top_p, req.top_k, req.max_output_tokens, logId)
+
     return if (req.stream == true) {
-      val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, tools = if (hasTools) tools else null, prefs = prefs)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler.configSnapshot, json = json, tools = if (hasTools) tools else null, prefs = prefs)
     } else {
-      val configSnapshotBlocking = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
+      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler.configSnapshot, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (text == null) return handleBlockingInferenceError(llmError, logId)
 
