@@ -48,8 +48,11 @@ import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.TimeUnit
@@ -230,10 +233,7 @@ class UpdateCheckWorker @AssistedInject constructor(
     val response = fetchGitHub(url, etag = null) // Don't cache list endpoint
     return when (response) {
       is GitHubResponse.NotModified -> null
-      is GitHubResponse.Success -> {
-        val releases = JSONArray(response.body)
-        findBestRelease(releases, BETA_TAG_PATTERN)
-      }
+      is GitHubResponse.Success -> findBestRelease(response.body, BETA_TAG_PATTERN)
       is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
     }
   }
@@ -246,10 +246,7 @@ class UpdateCheckWorker @AssistedInject constructor(
     val response = fetchGitHub(url, etag = null)
     return when (response) {
       is GitHubResponse.NotModified -> null
-      is GitHubResponse.Success -> {
-        val releases = JSONArray(response.body)
-        findBestRelease(releases, DEV_TAG_PATTERN)
-      }
+      is GitHubResponse.Success -> findBestRelease(response.body, DEV_TAG_PATTERN)
       is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
     }
   }
@@ -258,12 +255,13 @@ class UpdateCheckWorker @AssistedInject constructor(
    * Find the newest release matching the given tag pattern, skipping drafts.
    * Releases are returned by GitHub in reverse chronological order.
    */
-  private fun findBestRelease(releases: JSONArray, tagPattern: Regex): ReleaseInfo? {
-    for (i in 0 until releases.length()) {
-      val release = releases.getJSONObject(i)
-      if (release.optBoolean("draft", false)) continue
-      val tag = release.optString("tag_name", "")
-      val url = release.optString("html_url", "")
+  private fun findBestRelease(releasesJson: String, tagPattern: Regex): ReleaseInfo? {
+    val releases = Json.parseToJsonElement(releasesJson).jsonArray
+    for (element in releases) {
+      val release = element.jsonObject
+      if (release["draft"]?.jsonPrimitive?.booleanOrNull == true) continue
+      val tag = release["tag_name"]?.jsonPrimitive?.content ?: ""
+      val url = release["html_url"]?.jsonPrimitive?.content ?: ""
       if (tag.isNotBlank() && url.isNotBlank() && tagPattern.matches(tag)) {
         return ReleaseInfo(
           tagName = tag,
@@ -276,9 +274,9 @@ class UpdateCheckWorker @AssistedInject constructor(
   }
 
   private fun parseRelease(json: String, etag: String?): ReleaseInfo? {
-    val obj = JSONObject(json)
-    val tag = obj.optString("tag_name", "")
-    val url = obj.optString("html_url", "")
+    val obj = Json.parseToJsonElement(json).jsonObject
+    val tag = obj["tag_name"]?.jsonPrimitive?.content ?: ""
+    val url = obj["html_url"]?.jsonPrimitive?.content ?: ""
     if (tag.isBlank() || url.isBlank()) return null
     return ReleaseInfo(tag, url, etag)
   }
