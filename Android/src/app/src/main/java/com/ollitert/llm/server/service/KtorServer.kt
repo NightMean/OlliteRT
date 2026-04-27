@@ -737,6 +737,8 @@ class KtorServer(
     val isIdle = ServerMetrics.isIdleUnloaded.value
     val modelName = model?.name ?: keepAliveUnloadedModelName
       ?: return httpBadRequest("No model loaded")
+    val modelPrefsKey = model?.prefsKey ?: modelLifecycle.keepAliveUnloadedModelPrefsKey
+      ?: return httpBadRequest("No model loaded")
     // When model is loaded, check thinking support. When idle-unloaded, skip the check —
     // we can't inspect model capabilities without the Model object, but the saved config
     // will be applied when the model reloads.
@@ -745,7 +747,7 @@ class KtorServer(
     }
     // Read current state from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues
-      ?: ServerPrefs.getInferenceConfig(serviceContext, modelName)
+      ?: ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)
     val currentState = (currentConfig?.get(ConfigKeys.ENABLE_THINKING.label) as? Boolean) ?: false
     // Parse { "enabled": true/false } — default to toggling current state
     val requestedState = if (body.isNotBlank()) {
@@ -763,7 +765,7 @@ class KtorServer(
     if (model != null) {
       synchronized(inferenceLock) { model.configValues = updatedConfig }
     }
-    ServerPrefs.setInferenceConfig(serviceContext, modelName, updatedConfig)
+    ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
     // Log using the same "Settings updated" format as the Settings UI
     val oldLabel = if (currentState) "enabled" else "disabled"
@@ -791,9 +793,11 @@ class KtorServer(
     val isIdle = ServerMetrics.isIdleUnloaded.value
     val modelName = model?.name ?: keepAliveUnloadedModelName
       ?: return httpBadRequest("No model loaded")
+    val modelPrefsKey = model?.prefsKey ?: modelLifecycle.keepAliveUnloadedModelPrefsKey
+      ?: return httpBadRequest("No model loaded")
     // Read config from model if loaded, otherwise from persisted prefs
     val currentConfig = model?.configValues
-      ?: ServerPrefs.getInferenceConfig(serviceContext, modelName) ?: emptyMap()
+      ?: ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
     if (body.isBlank()) {
       // GET-like: return current config
       val current = org.json.JSONObject().apply {
@@ -812,7 +816,7 @@ class KtorServer(
         put("keep_alive_enabled", ServerPrefs.isKeepAliveEnabled(serviceContext))
         put("keep_alive_minutes", ServerPrefs.getKeepAliveMinutes(serviceContext))
         put("custom_prompts_enabled", ServerPrefs.isCustomPromptsEnabled(serviceContext))
-        put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelName))
+        put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey))
       }
       return httpOkJson(current.toString())
     }
@@ -902,9 +906,9 @@ class KtorServer(
         changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       if (obj.has("system_prompt")) {
-        val old = ServerPrefs.getSystemPrompt(serviceContext, modelName)
+        val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
         val v = obj.getString("system_prompt")
-        ServerPrefs.setSystemPrompt(serviceContext, modelName, v)
+        ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
         val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
         val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
         changes.add("System Prompt: $oldDisplay → $newDisplay")
@@ -916,7 +920,7 @@ class KtorServer(
         if (model != null) {
           synchronized(inferenceLock) { model.configValues = updated.toMap() }
         }
-        ServerPrefs.setInferenceConfig(serviceContext, modelName, updated)
+        ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updated)
         // Log using the same format as the Settings UI
         RequestLogStore.addEvent(
           "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
@@ -940,7 +944,7 @@ class KtorServer(
           put("keep_alive_enabled", ServerPrefs.isKeepAliveEnabled(serviceContext))
           put("keep_alive_minutes", ServerPrefs.getKeepAliveMinutes(serviceContext))
           put("custom_prompts_enabled", ServerPrefs.isCustomPromptsEnabled(serviceContext))
-          put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelName))
+          put("system_prompt", ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey))
         }
         httpOkJson(current.toString())
       }

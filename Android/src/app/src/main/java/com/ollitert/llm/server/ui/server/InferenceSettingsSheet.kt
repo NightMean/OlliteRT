@@ -125,7 +125,7 @@ fun InferenceSettingsSheet(
   val customPromptsEnabled = remember { ServerPrefs.isCustomPromptsEnabled(context) }
 
   var systemPrompt by remember {
-    mutableStateOf(ServerPrefs.getSystemPrompt(context, model.name))
+    mutableStateOf(ServerPrefs.getSystemPrompt(context, model.prefsKey))
   }
   var advancedExpanded by remember { mutableStateOf(false) }
 

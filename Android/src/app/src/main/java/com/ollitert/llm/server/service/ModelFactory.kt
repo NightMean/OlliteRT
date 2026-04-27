@@ -115,7 +115,7 @@ object ModelFactory {
    * survive app/service restarts.
    */
   fun restoreInferenceConfig(context: Context, model: Model) {
-    val savedConfig = ServerPrefs.getInferenceConfig(context, model.name) ?: return
+    val savedConfig = ServerPrefs.getInferenceConfig(context, model.prefsKey) ?: return
     val restored = model.configValues.toMutableMap()
     for ((key, savedValue) in savedConfig) {
       if (key in restored) {

@@ -89,7 +89,7 @@ class InferenceRunner(
       ServerLlmModelHelper.safeCleanup(model)
     }
     val overriddenConfig = model.configValues
-    val savedConfig = ServerPrefs.getInferenceConfig(context, model.name)
+    val savedConfig = ServerPrefs.getInferenceConfig(context, model.prefsKey)
     if (savedConfig != null) {
       model.configValues = savedConfig.toMap()
     }
@@ -100,7 +100,7 @@ class InferenceRunner(
       supportImage = supportImage,
       supportAudio = supportAudio,
       onDone = { err = it },
-      systemInstruction = buildSystemInstruction(model.name),
+      systemInstruction = buildSystemInstruction(model.prefsKey),
     )
     model.configValues = overriddenConfig
     if (err.isNotEmpty()) {
@@ -176,7 +176,7 @@ class InferenceRunner(
           originalConfig = model.configValues
           model.configValues = configSnapshot
         }
-        ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
+        ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.prefsKey))
       },
       runInference = { input, onPartial, onError ->
         ServerLlmModelHelper.runInference(
@@ -704,7 +704,7 @@ class InferenceRunner(
             originalConfig = model.configValues
             model.configValues = configSnapshot
           }
-          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.name))
+          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.prefsKey))
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(

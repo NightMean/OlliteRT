@@ -240,8 +240,8 @@ fun ModelItem(
       } else null,
       onApply = { newConfigValues, systemPrompt ->
         // Persist system prompt for this model
-        val oldSystemPrompt = ServerPrefs.getSystemPrompt(context, model.name)
-        ServerPrefs.setSystemPrompt(context, model.name, systemPrompt)
+        val oldSystemPrompt = ServerPrefs.getSystemPrompt(context, model.prefsKey)
+        ServerPrefs.setSystemPrompt(context, model.prefsKey, systemPrompt)
         val promptsChanged = systemPrompt != oldSystemPrompt
 
         // Detect changed configs and whether reinitialization is needed.
@@ -273,7 +273,7 @@ fun ModelItem(
         model.prevConfigValues = model.configValues
         model.configValues = newConfigValues.toMap()
         // Persist inference config so it survives app restarts
-        ServerPrefs.setInferenceConfig(context, model.name, newConfigValues)
+        ServerPrefs.setInferenceConfig(context, model.prefsKey, newConfigValues)
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
         // Log config changes and trigger model reload if needed.

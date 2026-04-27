@@ -497,7 +497,7 @@ class ServerService : Service() {
             supportImage = supportImage,
             supportAudio = supportAudio,
             onDone = { initErr = it },
-            systemInstruction = buildSystemInstruction(model.name),
+            systemInstruction = buildSystemInstruction(model.prefsKey),
           )
           if (initErr.isNotEmpty()) {
             throw RuntimeException(getString(R.string.error_model_init_failed, initErr))
@@ -556,7 +556,7 @@ class ServerService : Service() {
           }
         }
         val sysPrompt = if (ServerPrefs.isCustomPromptsEnabled(this@ServerService))
-          ServerPrefs.getSystemPrompt(this@ServerService, model.name) else ""
+          ServerPrefs.getSystemPrompt(this@ServerService, model.prefsKey) else ""
         if (sysPrompt.isNotBlank()) {
           RequestLogStore.addEvent(
             "System prompt active: \"${sysPrompt.take(120)}\"${if (sysPrompt.length > 120) "…" else ""}",
@@ -758,7 +758,7 @@ class ServerService : Service() {
   private fun pickModelByName(name: String) = modelLifecycle.pickModelByName(name)
   private fun cancelKeepAliveTimer() = modelLifecycle.cancelKeepAliveTimer()
   private fun resetKeepAliveTimer() = modelLifecycle.resetKeepAliveTimer()
-  private fun buildSystemInstruction(modelName: String) = modelLifecycle.buildSystemInstruction(modelName)
+  private fun buildSystemInstruction(modelPrefsKey: String) = modelLifecycle.buildSystemInstruction(modelPrefsKey)
 
   private fun nextRequestId(): String {
     ServerMetrics.incrementRequestCount()

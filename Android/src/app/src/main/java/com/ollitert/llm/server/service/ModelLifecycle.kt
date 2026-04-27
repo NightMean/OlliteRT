@@ -201,7 +201,7 @@ class ModelLifecycle(
           supportImage = supportImage,
           supportAudio = supportAudio,
           onDone = { initErr = it },
-          systemInstruction = buildSystemInstruction(model.name),
+          systemInstruction = buildSystemInstruction(model.prefsKey),
         )
         if (initErr.isNotEmpty()) {
           Log.e(LOG_TAG, "Keep-alive: model reload failed: $initErr")
@@ -336,9 +336,9 @@ class ModelLifecycle(
   // ── Utilities ──────────────────────────────────────────────────────────────
 
   /** Builds the LiteRT systemInstruction from the per-model system prompt stored in prefs. */
-  fun buildSystemInstruction(modelName: String): Contents? {
+  fun buildSystemInstruction(modelPrefsKey: String): Contents? {
     if (!ServerPrefs.isCustomPromptsEnabled(context)) return null
-    val prompt = ServerPrefs.getSystemPrompt(context, modelName)
+    val prompt = ServerPrefs.getSystemPrompt(context, modelPrefsKey)
     if (prompt.isBlank()) return null
     return Contents.of(listOf(Content.Text(prompt)))
   }
