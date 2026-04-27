@@ -875,10 +875,7 @@ class InferenceRunner(
           val errorJson = ResponseRenderer.renderJsonError("model_init_failed: $initErr")
           RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
         }
-        return HttpResponse.Json(
-          statusCode = 500,
-          body = ResponseRenderer.renderJsonError("model_init_failed"),
-        )
+        return httpInternalError("model_init_failed")
       }
     }
     ServerMetrics.onInferenceStarted()
