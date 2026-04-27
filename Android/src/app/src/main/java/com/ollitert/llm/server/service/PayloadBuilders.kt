@@ -281,7 +281,7 @@ object PayloadBuilders {
 
   fun emptyChatResponse(modelName: String) = ChatResponse(
     id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
-    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), FinishReason.STOP)),
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), finish_reason = FinishReason.STOP)),
     usage = Usage(0, 0),
   )
 
@@ -290,7 +290,7 @@ object PayloadBuilders {
     val completionTokens = estimateTokens(text)
     return ChatResponse(
       id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
-      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finishReason)),
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finish_reason = finishReason)),
       usage = Usage(promptTokens, completionTokens),
       timings = timings,
     )
@@ -301,7 +301,7 @@ object PayloadBuilders {
     val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
     return ChatResponse(
       id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
-      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), FinishReason.TOOL_CALLS)),
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), finish_reason = FinishReason.TOOL_CALLS)),
       usage = Usage(promptTokens, completionTokens),
       timings = timings,
     )

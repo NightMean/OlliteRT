@@ -456,6 +456,15 @@ class LlmHttpResponseRendererTest {
 
   // ── buildChatStreamToolCallChunks with empty list ────────────────────────
 
+  // ── API-05/API-08: logprobs field in choices ────────────────────────────────
+
+  @Test
+  fun chatChoiceSerializesLogprobsNull() {
+    val choice = ChatChoice(index = 0, message = ChatMessage("assistant", ChatContent("hi")), finish_reason = "stop")
+    val serialized = json.encodeToString(ChatChoice.serializer(), choice)
+    assertTrue("ChatChoice should serialize logprobs:null", serialized.contains("\"logprobs\":null"))
+  }
+
   @Test
   fun chatStreamToolCallChunksEmptyListReturnsOnlyFinalChunk() {
     val result = ResponseRenderer.buildChatStreamToolCallChunks(

@@ -331,6 +331,7 @@ object StopDeserializer : KSerializer<List<String>> {
 @Serializable data class ChatChoice(
   val index: Int,
   val message: ChatMessage,
+  val logprobs: JsonElement? = null,
   val finish_reason: String,
 )
 
