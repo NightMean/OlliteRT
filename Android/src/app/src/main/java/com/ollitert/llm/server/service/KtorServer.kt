@@ -71,6 +71,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
@@ -988,6 +989,48 @@ class KtorServer(
     } else {
       withGetLogging(call) { response }
     }
+  }
+}
+
+internal class ConfigFieldException(
+  val fieldName: String,
+  expectedType: String,
+  cause: Throwable? = null,
+) : IllegalArgumentException("Invalid value for '$fieldName': expected $expectedType", cause)
+
+internal fun parseConfigDouble(obj: JsonObject, field: String): Double? {
+  if (!obj.containsKey(field)) return null
+  return try {
+    obj.getValue(field).jsonPrimitive.double
+  } catch (e: Exception) {
+    throw ConfigFieldException(field, "number", e)
+  }
+}
+
+internal fun parseConfigInt(obj: JsonObject, field: String): Int? {
+  if (!obj.containsKey(field)) return null
+  return try {
+    obj.getValue(field).jsonPrimitive.int
+  } catch (e: Exception) {
+    throw ConfigFieldException(field, "integer", e)
+  }
+}
+
+internal fun parseConfigBool(obj: JsonObject, field: String): Boolean? {
+  if (!obj.containsKey(field)) return null
+  return try {
+    obj.getValue(field).jsonPrimitive.boolean
+  } catch (e: Exception) {
+    throw ConfigFieldException(field, "boolean", e)
+  }
+}
+
+internal fun parseConfigString(obj: JsonObject, field: String): String? {
+  if (!obj.containsKey(field)) return null
+  return try {
+    obj.getValue(field).jsonPrimitive.content
+  } catch (e: Exception) {
+    throw ConfigFieldException(field, "string", e)
   }
 }
 
