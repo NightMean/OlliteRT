@@ -600,3 +600,28 @@ internal fun buildPerRequestConfig(
   }
   return overridden.toMap()
 }
+
+/**
+ * Logs compaction details and updates the request log entry when prompt compaction was applied.
+ *
+ * @param maxContext When non-null, appends estimatedTokens and maxContext to the log line.
+ *   The /generate endpoint passes null because raw prompts have no token estimation context.
+ * @param updateLog Callback receiving (details, compactedPrompt); invoked only when logId is non-null.
+ */
+internal fun logCompactionResult(
+  result: PromptCompactor.CompactionResult,
+  requestId: String,
+  endpoint: String,
+  logId: String?,
+  maxContext: Int?,
+  logEvent: (String) -> Unit,
+  updateLog: (details: String, compactedPrompt: String) -> Unit = { _, _ -> },
+) {
+  if (!result.compacted) return
+  val details = result.strategies.joinToString(", ")
+  val tokenSuffix = if (maxContext != null) {
+    " estimatedTokens=${estimateTokens(result.prompt)} maxContext=$maxContext"
+  } else ""
+  logEvent("prompt_compacted id=$requestId endpoint=$endpoint strategies=[$details]$tokenSuffix")
+  if (logId != null) updateLog(details, result.prompt)
+}
