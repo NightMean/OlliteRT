@@ -538,6 +538,33 @@ internal fun validateBestOfParam(bestOf: Int?): Pair<String, String>? {
   return null
 }
 
+internal data class SamplerOverrideResult(
+  val configSnapshot: Map<String, Any>?,
+)
+
+internal fun resolveSamplerOverrides(
+  model: Model,
+  prefs: RequestPrefsSnapshot,
+  temperature: Double?,
+  topP: Double?,
+  topK: Int?,
+  maxTokens: Int?,
+  logId: String?,
+): SamplerOverrideResult {
+  val ignore = prefs.ignoreClientSamplerParams
+  val effectiveTemp = if (ignore) null else temperature
+  val effectiveTopP = if (ignore) null else topP
+  val effectiveTopK = if (ignore) null else topK
+  val effectiveMaxTokens = if (ignore) null else maxTokens
+  if (ignore && logId != null) {
+    val ignored = describeClientSamplerParams(temperature, topP, topK, maxTokens)
+    if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
+  }
+  return SamplerOverrideResult(
+    configSnapshot = buildPerRequestConfig(model, effectiveTemp, effectiveTopP, effectiveTopK, effectiveMaxTokens),
+  )
+}
+
 internal fun describeClientSamplerParams(
   temperature: Double?,
   topP: Double?,

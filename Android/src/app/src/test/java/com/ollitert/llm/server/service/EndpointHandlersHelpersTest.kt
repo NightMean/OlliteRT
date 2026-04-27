@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -23,6 +26,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EndpointHandlersHelpersTest {
+
+  private fun model(): Model = Model(name = "test")
 
   // ── describeClientSamplerParams ─────────────────────────────────────────
 
@@ -159,5 +164,51 @@ class EndpointHandlersHelpersTest {
       updateLog = { _, _ -> },
     )
     assertTrue(logged[0].contains("strategies=[truncated:-3 msgs, tools:compacted, trimmed]"))
+  }
+
+  // ── resolveSamplerOverrides ───────────────────────────────────────────
+
+  @Test
+  fun resolveSampler_ignoreDisabled_passesClientValues() {
+    val prefs = RequestPrefsSnapshot(ignoreClientSamplerParams = false)
+    val result = resolveSamplerOverrides(
+      model = model(), prefs = prefs,
+      temperature = 0.7, topP = 0.9, topK = 40, maxTokens = 512, logId = null,
+    )
+    val config = result.configSnapshot!!
+    assertEquals(0.7f, config[ConfigKeys.TEMPERATURE.label])
+    assertEquals(0.9f, config[ConfigKeys.TOPP.label])
+    assertEquals(40, config[ConfigKeys.TOPK.label])
+  }
+
+  @Test
+  fun resolveSampler_ignoreEnabled_returnsNullConfig() {
+    val prefs = RequestPrefsSnapshot(ignoreClientSamplerParams = true)
+    val result = resolveSamplerOverrides(
+      model = model(), prefs = prefs,
+      temperature = 0.7, topP = 0.9, topK = 40, maxTokens = 512, logId = null,
+    )
+    assertNull(result.configSnapshot)
+  }
+
+  @Test
+  fun resolveSampler_allNullClientParams_returnsNullConfig() {
+    val prefs = RequestPrefsSnapshot(ignoreClientSamplerParams = false)
+    val result = resolveSamplerOverrides(
+      model = model(), prefs = prefs,
+      temperature = null, topP = null, topK = null, maxTokens = null, logId = null,
+    )
+    assertNull(result.configSnapshot)
+  }
+
+  @Test
+  fun resolveSampler_partialParams_onlyOverridesProvided() {
+    val prefs = RequestPrefsSnapshot(ignoreClientSamplerParams = false)
+    val result = resolveSamplerOverrides(
+      model = model(), prefs = prefs,
+      temperature = 0.5, topP = null, topK = null, maxTokens = null, logId = null,
+    )
+    val config = result.configSnapshot!!
+    assertEquals(0.5f, config[ConfigKeys.TEMPERATURE.label])
   }
 }
