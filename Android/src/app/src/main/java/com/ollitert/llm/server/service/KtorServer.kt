@@ -114,6 +114,22 @@ class KtorServer(
   private val defaultModel: Model? get() = modelLifecycle.defaultModel
   private val keepAliveUnloadedModelName: String? get() = modelLifecycle.keepAliveUnloadedModelName
 
+  private val behaviorToggles = listOf(
+    BooleanToggle("auto_truncate_history", "Auto Truncate History",
+      ServerPrefs::isAutoTruncateHistory, ServerPrefs::setAutoTruncateHistory),
+    BooleanToggle("auto_trim_prompts", "Auto Trim Prompts",
+      ServerPrefs::isAutoTrimPrompts, ServerPrefs::setAutoTrimPrompts),
+    BooleanToggle("compact_tool_schemas", "Compact Tool Schemas",
+      ServerPrefs::isCompactToolSchemas, ServerPrefs::setCompactToolSchemas),
+    BooleanToggle("warmup_enabled", "Warmup",
+      ServerPrefs::isWarmupEnabled, ServerPrefs::setWarmupEnabled),
+    BooleanToggle("keep_alive_enabled", "Keep Alive",
+      ServerPrefs::isKeepAliveEnabled, ServerPrefs::setKeepAliveEnabled,
+      onChanged = { v -> if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer() }),
+    BooleanToggle("custom_prompts_enabled", "Custom Prompts",
+      ServerPrefs::isCustomPromptsEnabled, ServerPrefs::setCustomPromptsEnabled),
+  )
+
   private val faviconBytes: ByteArray? by lazy {
     try {
       serviceContext.assets.open("favicon.png").use { it.readBytes() }
@@ -862,31 +878,13 @@ class KtorServer(
       }
       // ── Behavior toggles (SharedPrefs-only, not in configValues — no lock needed) ──
       val changes = configChanges.toMutableList()
-      parseConfigBool(obj, "auto_truncate_history")?.let { v ->
-        val old = ServerPrefs.isAutoTruncateHistory(serviceContext)
-        ServerPrefs.setAutoTruncateHistory(serviceContext, v)
-        changes.add("Auto Truncate History: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
-      }
-      parseConfigBool(obj, "auto_trim_prompts")?.let { v ->
-        val old = ServerPrefs.isAutoTrimPrompts(serviceContext)
-        ServerPrefs.setAutoTrimPrompts(serviceContext, v)
-        changes.add("Auto Trim Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
-      }
-      parseConfigBool(obj, "compact_tool_schemas")?.let { v ->
-        val old = ServerPrefs.isCompactToolSchemas(serviceContext)
-        ServerPrefs.setCompactToolSchemas(serviceContext, v)
-        changes.add("Compact Tool Schemas: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
-      }
-      parseConfigBool(obj, "warmup_enabled")?.let { v ->
-        val old = ServerPrefs.isWarmupEnabled(serviceContext)
-        ServerPrefs.setWarmupEnabled(serviceContext, v)
-        changes.add("Warmup: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
-      }
-      parseConfigBool(obj, "keep_alive_enabled")?.let { v ->
-        val old = ServerPrefs.isKeepAliveEnabled(serviceContext)
-        ServerPrefs.setKeepAliveEnabled(serviceContext, v)
-        if (v) modelLifecycle.resetKeepAliveTimer() else modelLifecycle.cancelKeepAliveTimer()
-        changes.add("Keep Alive: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      for (toggle in behaviorToggles) {
+        parseConfigBool(obj, toggle.jsonKey)?.let { v ->
+          val old = toggle.read(serviceContext)
+          toggle.write(serviceContext, v)
+          toggle.onChanged?.invoke(v)
+          changes.add("${toggle.displayName}: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+        }
       }
       parseConfigInt(obj, "keep_alive_minutes")?.let { v ->
         if (v < 1 || v > 7200) {
@@ -896,11 +894,6 @@ class KtorServer(
         ServerPrefs.setKeepAliveMinutes(serviceContext, v)
         if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
         changes.add("Keep Alive Minutes: $old → $v")
-      }
-      parseConfigBool(obj, "custom_prompts_enabled")?.let { v ->
-        val old = ServerPrefs.isCustomPromptsEnabled(serviceContext)
-        ServerPrefs.setCustomPromptsEnabled(serviceContext, v)
-        changes.add("Custom Prompts: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
       parseConfigString(obj, "system_prompt")?.let { v ->
         val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
@@ -1004,6 +997,19 @@ class KtorServer(
     }
   }
 }
+
+private sealed interface BehaviorSetting {
+  val jsonKey: String
+  val displayName: String
+}
+
+private class BooleanToggle(
+  override val jsonKey: String,
+  override val displayName: String,
+  val read: (Context) -> Boolean,
+  val write: (Context, Boolean) -> Unit,
+  val onChanged: ((Boolean) -> Unit)? = null,
+) : BehaviorSetting
 
 internal class ConfigFieldException(
   val fieldName: String,
