@@ -34,7 +34,7 @@ import com.ollitert.llm.server.data.WARMUP_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
-import com.ollitert.llm.server.data.configThinkingEnabled
+import com.ollitert.llm.server.data.isThinkingEnabled
 import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.data.maxTokensLong
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
@@ -147,8 +147,7 @@ class InferenceRunner(
         return null to context.getString(R.string.error_model_init_failed, initErr)
       }
     }
-    val enableThinking = model.llmSupportThinking &&
-      model.configValues.configThinkingEnabled() != false
+    val enableThinking = model.isThinkingEnabled
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
     // Register a cancellation callback so the user can stop this request from the Logs screen.
@@ -658,8 +657,7 @@ class InferenceRunner(
       }
     }
 
-    val enableThinking = model.llmSupportThinking &&
-      model.configValues.configThinkingEnabled() != false
+    val enableThinking = model.isThinkingEnabled
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
     // Read prefs eagerly (before the Ktor coroutine runs) — SharedPreferences reads
