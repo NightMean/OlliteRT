@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Locale
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.service.LogLevel
@@ -412,13 +413,13 @@ internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit)
           MetricsRow(stringResource(R.string.logs_metrics_ttfb), stringResource(R.string.logs_metrics_value_ms, entry.ttfbMs))
         }
         if (entry.decodeSpeed > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_decode_speed), "%.1f t/s".format(entry.decodeSpeed))
+          MetricsRow(stringResource(R.string.logs_metrics_decode_speed), String.format(Locale.US, "%.1f t/s", entry.decodeSpeed))
         }
         if (entry.prefillSpeed > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_prefill_speed), "%.1f t/s".format(entry.prefillSpeed))
+          MetricsRow(stringResource(R.string.logs_metrics_prefill_speed), String.format(Locale.US, "%.1f t/s", entry.prefillSpeed))
         }
         if (entry.itlMs > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_itl), "%.1fms".format(entry.itlMs))
+          MetricsRow(stringResource(R.string.logs_metrics_itl), String.format(Locale.US, "%.1fms", entry.itlMs))
         }
         if (entry.latencyMs > 0) {
           MetricsRow(stringResource(R.string.logs_metrics_total_latency), stringResource(R.string.logs_metrics_value_ms, entry.latencyMs))
@@ -439,7 +440,7 @@ internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit)
           }
           MetricsRow(
             label = stringResource(R.string.logs_metrics_context_util),
-            value = "%.1f%%".format(utilPct),
+            value = String.format(Locale.US, "%.1f%%", utilPct),
             valueColor = utilColor,
             detail = stringResource(R.string.logs_metrics_ctx_detail, entry.inputTokenEstimate, entry.maxContextTokens),
           )

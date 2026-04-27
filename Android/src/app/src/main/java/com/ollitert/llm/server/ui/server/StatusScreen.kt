@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.util.Locale
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.copyToClipboard
@@ -172,7 +173,7 @@ fun StatusScreen(
   // Global average throughput: tokens/sec over entire uptime (includes idle time).
   // Wrapped in remember to avoid Formatter allocation on every recomposition.
   val avgThroughput = remember(tokensGenerated, uptimeSeconds) {
-    if (uptimeSeconds > 0) "%.1f".format(tokensGenerated.toDouble() / uptimeSeconds) else "0.0"
+    if (uptimeSeconds > 0) String.format(Locale.US, "%.1f", tokensGenerated.toDouble() / uptimeSeconds) else "0.0"
   }
 
   // Centered container with max width for tablets — prevents cards from stretching to 1000dp+
@@ -506,12 +507,12 @@ fun StatusScreen(
       val noData = stringResource(R.string.status_value_no_data)
       MetricCard(
         label = stringResource(R.string.status_metric_decode_speed),
-        value = remember(lastDecodeSpeed, noData) { if (lastDecodeSpeed > 0) "%.1f t/s".format(lastDecodeSpeed) else noData },
+        value = remember(lastDecodeSpeed, noData) { if (lastDecodeSpeed > 0) String.format(Locale.US, "%.1f t/s", lastDecodeSpeed) else noData},
         modifier = Modifier.weight(1f),
       )
       MetricCard(
         label = stringResource(R.string.status_metric_peak_decode),
-        value = remember(peakDecodeSpeed, noData) { if (peakDecodeSpeed > 0) "%.1f t/s".format(peakDecodeSpeed) else noData },
+        value = remember(peakDecodeSpeed, noData) { if (peakDecodeSpeed > 0) String.format(Locale.US, "%.1f t/s", peakDecodeSpeed) else noData},
         modifier = Modifier.weight(1f),
       )
     }
@@ -538,7 +539,7 @@ fun StatusScreen(
     ) {
       val noDataText = stringResource(R.string.status_value_no_data)
       val successRate = remember(requestCount, errorCount, noDataText) {
-        if (requestCount > 0) "%.0f%%".format(((requestCount - errorCount).toDouble() / requestCount) * 100) else noDataText
+        if (requestCount > 0) String.format(Locale.US, "%.0f%%", ((requestCount - errorCount).toDouble() / requestCount) * 100) else noDataText
       }
       MetricCard(
         label = stringResource(R.string.status_metric_success_rate),
@@ -596,7 +597,7 @@ fun StatusScreen(
       ) {
         MetricCard(
           label = stringResource(R.string.status_metric_prefill_speed),
-          value = remember(lastPrefillSpeed, advNoData) { if (lastPrefillSpeed > 0) "%.1f t/s".format(lastPrefillSpeed) else advNoData },
+          value = remember(lastPrefillSpeed, advNoData) { if (lastPrefillSpeed > 0) String.format(Locale.US, "%.1f t/s", lastPrefillSpeed) else advNoData},
           modifier = Modifier.weight(1f),
         )
         MetricCard(
@@ -612,7 +613,7 @@ fun StatusScreen(
       ) {
         MetricCard(
           label = stringResource(R.string.status_metric_inter_token_latency),
-          value = remember(lastItlMs, advNoData) { if (lastItlMs > 0) "%.1fms".format(lastItlMs) else advNoData },
+          value = remember(lastItlMs, advNoData) { if (lastItlMs > 0) String.format(Locale.US, "%.1fms", lastItlMs) else advNoData},
           modifier = Modifier.weight(1f),
         )
         MetricCard(
@@ -727,8 +728,8 @@ private fun MetricCard(
 private fun formatLoadTime(ms: Long): String {
   return when {
     ms < 1000 -> "${ms}ms"
-    ms < 60_000 -> "%.1fs".format(ms / 1000.0)
-    else -> "%dm %ds".format(ms / 60_000, (ms % 60_000) / 1000)
+    ms < 60_000 -> String.format(Locale.US, "%.1fs", ms / 1000.0)
+    else -> String.format(Locale.US, "%dm %ds", ms / 60_000, (ms % 60_000) / 1000)
   }
 }
 
@@ -736,5 +737,5 @@ private fun formatUptime(totalSeconds: Long): String {
   val hours = totalSeconds / 3600
   val minutes = (totalSeconds % 3600) / 60
   val seconds = totalSeconds % 60
-  return "%02d:%02d:%02d".format(hours, minutes, seconds)
+  return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 }
