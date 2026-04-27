@@ -332,6 +332,22 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
           }
           Result.success()
+        } catch (e: SecurityException) {
+          Log.e(TAG, "Zip path traversal blocked: ${e.message}", e)
+
+          for (tmpFile in createdTmpFiles) {
+            if (tmpFile.exists()) {
+              tmpFile.delete()
+              Log.i(TAG, "Deleted partial download after zip security error: ${tmpFile.name}")
+            }
+          }
+
+          Result.failure(
+            Data.Builder().putString(
+              KEY_MODEL_DOWNLOAD_ERROR_MESSAGE,
+              applicationContext.getString(R.string.download_error_zip_corrupted)
+            ).build()
+          )
         } catch (e: IOException) {
           Log.e(TAG, e.message, e)
 
