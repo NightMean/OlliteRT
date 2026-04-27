@@ -130,6 +130,7 @@ object InferenceGateway {
     resetConversation: () -> Unit,
     runInference: InferenceFn,
     cancelInference: () -> Unit,
+    onInferenceFinished: () -> Unit = {},
     elapsedMs: () -> Long,
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
   ): InferenceResult {
@@ -175,6 +176,9 @@ object InferenceGateway {
           error.compareAndSet(null, t.message)
           inferenceLatch.countDown()
         } finally {
+          try { onInferenceFinished() } catch (t: Throwable) {
+            Log.w(TAG, "onInferenceFinished() failed", t)
+          }
           lifecycleLatch.countDown()
         }
       }

@@ -208,6 +208,67 @@ class LlmHttpInferenceGatewayTest {
     assertNull(result.thinking)
   }
 
+  // ── execute() onInferenceFinished tests ──────────────────────────────────
+
+  @Test
+  fun blockingOnInferenceFinishedCalledInsideLock() = runBlocking {
+    var finishedCalled = false
+    var lockHeldDuringFinished = false
+    InferenceGateway.execute(
+      prompt = "x",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, onPartial, _ ->
+        onPartial("tok", false, null)
+        onPartial("", true, null)
+      },
+      cancelInference = {},
+      onInferenceFinished = {
+        finishedCalled = true
+        lockHeldDuringFinished = Thread.holdsLock(lock)
+      },
+      elapsedMs = { tick() },
+    )
+    assertTrue("onInferenceFinished must be called", finishedCalled)
+    assertTrue("onInferenceFinished must run inside inferenceLock", lockHeldDuringFinished)
+  }
+
+  @Test
+  fun blockingOnInferenceFinishedCalledOnError() = runBlocking {
+    var finishedCalled = false
+    InferenceGateway.execute(
+      prompt = "x",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, _, onError -> onError("boom") },
+      cancelInference = {},
+      onInferenceFinished = { finishedCalled = true },
+      elapsedMs = { tick() },
+    )
+    assertTrue("onInferenceFinished must be called on error path", finishedCalled)
+  }
+
+  @Test
+  fun blockingOnInferenceFinishedCalledOnException() = runBlocking {
+    var finishedCalled = false
+    InferenceGateway.execute(
+      prompt = "x",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = { throw RuntimeException("crash") },
+      runInference = { _, _, _ -> },
+      cancelInference = {},
+      onInferenceFinished = { finishedCalled = true },
+      elapsedMs = { tick() },
+    )
+    assertTrue("onInferenceFinished must be called on exception path", finishedCalled)
+  }
+
   // ── executeStreaming tests ────────────────────────────────────────────────
 
   private fun streaming(
