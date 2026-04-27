@@ -52,7 +52,7 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.bytesToGb
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
-private const val TAG = "OlliteRTMemoryWarning"
+private const val TAG = "OlliteRT.MemWarn"
 private const val PREFS_NAME = "memory_warning_prefs"
 private const val KEY_PREFIX = "suppress_"
 

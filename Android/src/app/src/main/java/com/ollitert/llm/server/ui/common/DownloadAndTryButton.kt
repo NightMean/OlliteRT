@@ -97,7 +97,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 
-private const val TAG = "OlliteRTDownloadAndTryButton"
+private const val TAG = "OlliteRT.DownloadBtn"
 
 private enum class HfTokenDialogReason { MISSING, INVALID }
 /**
@@ -735,7 +735,7 @@ internal fun isStorageLow(sizeInBytes: Long): Boolean {
     val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
     availableBytes < sizeInBytes + SYSTEM_RESERVED_MEMORY_IN_BYTES
   } catch (e: Exception) {
-    android.util.Log.w("DownloadAndTryButton", "Failed to check storage availability", e)
+    android.util.Log.w(TAG, "Failed to check storage availability", e)
     false
   }
 }

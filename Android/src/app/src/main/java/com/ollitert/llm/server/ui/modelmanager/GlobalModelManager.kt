@@ -143,7 +143,7 @@ import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val TAG = "OlliteRTGlobalMM"
+private const val TAG = "OlliteRT.ModelMgr"
 
 /** Filter mode for the models list. */
 enum class ModelFilter {

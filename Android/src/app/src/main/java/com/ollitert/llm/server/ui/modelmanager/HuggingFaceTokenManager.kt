@@ -25,7 +25,7 @@ import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 
-private const val TAG = "HFTokenManager"
+private const val TAG = "OlliteRT.HFToken"
 
 /**
  * Manages HuggingFace OAuth token lifecycle: status checks, authorization

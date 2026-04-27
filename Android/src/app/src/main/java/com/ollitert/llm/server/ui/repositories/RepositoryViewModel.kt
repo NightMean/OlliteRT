@@ -43,7 +43,7 @@ import java.net.URL
 import java.util.UUID
 import javax.inject.Inject
 
-private const val TAG = "RepositoryViewModel"
+private const val TAG = "OlliteRT.RepoVM"
 
 data class RepoDetailModel(
   val name: String,

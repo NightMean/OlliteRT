@@ -25,7 +25,7 @@ import com.ollitert.llm.server.data.ModelAllowlist
 import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
 
-private const val TAG = "AllowlistLoader"
+private const val TAG = "OlliteRT.AllowLoad"
 
 /**
  * Loads the model allowlist from disk cache or bundled assets.

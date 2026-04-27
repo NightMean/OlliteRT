@@ -70,6 +70,7 @@ import com.ollitert.llm.server.ui.repositories.RepositoryViewModel
 import com.ollitert.llm.server.ui.server.SettingsScreen
 import com.ollitert.llm.server.ui.server.StatusScreen
 
+private const val TAG = "OlliteRT.Nav"
 private const val TRANSITION_DURATION_MS = 350
 
 private fun enterTween(): FiniteAnimationSpec<IntOffset> =
@@ -401,7 +402,7 @@ fun OlliteRTNavHost(
   val data = intent?.data
   if (data != null) {
     intent.data = null
-    Log.d("OlliteRTNavGraph", "deep link: $data")
+    Log.d(TAG, "deep link: $data")
     if (data.toString() == "com.ollitert.llm.server://global_model_manager") {
       navController.navigate(OlliteRTRoutes.MODELS) { launchSingleTop = true }
     }

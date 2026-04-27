@@ -47,7 +47,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.random.Random
 
-private const val TAG = "OlliteRTBenchmarkVM"
+private const val TAG = "OlliteRT.BenchmarkVM"
 
 enum class Aggregation(val label: String) {
   AVG(label = "avg"),

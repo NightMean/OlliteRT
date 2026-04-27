@@ -72,7 +72,7 @@ import java.net.URL
 import java.util.UUID
 import javax.inject.Inject
 
-private const val TAG = "OlliteRTModelManagerVM"
+private const val TAG = "OlliteRT.ModelVM"
 private const val TEST_MODEL_ALLOW_LIST = ""
 
 data class ModelInitializationStatus(

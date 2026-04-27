@@ -27,7 +27,7 @@ import com.ollitert.llm.server.data.TMP_FILE_EXT
 import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
 import java.io.File
 
-private const val TAG = "ModelFileManager"
+private const val TAG = "OlliteRT.FileMgr"
 
 /**
  * Manages model file operations: existence checks, downloads status,

@@ -109,7 +109,7 @@ import java.io.IOException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
-private const val TAG = "OlliteRTModelImportDialog"
+private const val TAG = "OlliteRT.Import"
 
 // NPU requires SoC-specific model files and vendor native libraries (Qualcomm QAIRT / MediaTek
 // NeuroPilot). No models currently ship with NPU support. Re-enable Accelerator.NPU here when
