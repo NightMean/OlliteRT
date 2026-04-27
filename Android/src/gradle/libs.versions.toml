@@ -76,8 +76,8 @@ ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-conte
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-server-cors = { group = "io.ktor", name = "ktor-server-cors", version.ref = "ktor" }
 ktor-server-status-pages = { group = "io.ktor", name = "ktor-server-status-pages", version.ref = "ktor" }
-hilt-work = { group = "androidx.hilt", name = "hilt-work", version = "1.3.0" }
-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version = "1.3.0" }
+hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltNavigation" }
+hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltNavigation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
