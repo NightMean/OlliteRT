@@ -209,14 +209,14 @@ object PayloadBuilders {
       // which model will serve their next request (after auto-reload).
       val idleName = idleUnloadedModelName
       if (idleName != null) {
-        Log.i(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
+        Log.d(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
         val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
         return json.encodeToString(LlmHttpModelList(data = listOf(item)))
       }
-      Log.i(TAG, "Models list: no model loaded")
+      Log.d(TAG, "Models list: no model loaded")
       return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
-    Log.i(TAG, "Models list: active model=${model.name}")
+    Log.d(TAG, "Models list: active model=${model.name}")
     val item = LlmHttpModelItem(
       id = model.name,
       created = ServerMetrics.modelCreatedAtEpoch.value,
