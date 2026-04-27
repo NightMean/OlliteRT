@@ -20,7 +20,7 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportAudio
 import java.io.File
@@ -51,6 +51,7 @@ class AudioTranscriptionHandler(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    prefs: RequestPrefsSnapshot = RequestPrefsSnapshot(),
   ): HttpResponse {
     val startMs = SystemClock.elapsedRealtime()
 
@@ -131,10 +132,10 @@ class AudioTranscriptionHandler(
       }
       val preprocessMs = SystemClock.elapsedRealtime() - preprocessStart
 
-      val useTranscriptionPrompt = ServerPrefs.isSttTranscriptionPromptEnabled(context)
+      val useTranscriptionPrompt = prefs.sttTranscriptionPromptEnabled
       val hintText = buildString {
         if (useTranscriptionPrompt) {
-          val customPrompt = ServerPrefs.getSttTranscriptionPromptText(context)
+          val customPrompt = prefs.sttTranscriptionPromptText
           append(customPrompt.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT })
         }
         if (language != null) {
@@ -148,7 +149,7 @@ class AudioTranscriptionHandler(
       }
 
       // Parse temperature, respecting the "Ignore Client Sampler Parameters" toggle
-      val ignoreClientSampler = ServerPrefs.isIgnoreClientSamplerParams(context)
+      val ignoreClientSampler = prefs.ignoreClientSamplerParams
       val temperature = if (ignoreClientSampler) null else temperatureStr?.toDoubleOrNull()
       if (ignoreClientSampler && temperatureStr != null && logId != null) {
         val ignored = describeClientSamplerParams(temperatureStr.toDoubleOrNull(), topP = null, topK = null, maxTokens = null)
@@ -209,7 +210,7 @@ class AudioTranscriptionHandler(
         body = eventBody,
       )
 
-      if (ServerPrefs.isVerboseDebugEnabled(context)) {
+      if (prefs.verboseDebug) {
         val debugText = buildString {
           appendLine("Format: ${formatLabel.uppercase()}, ${rawSize} bytes → ${audioBytes.size} bytes")
           if (wavInfo != null) {

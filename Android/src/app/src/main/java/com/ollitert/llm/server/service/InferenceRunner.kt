@@ -26,6 +26,7 @@ import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.LOG_STREAMING_PREVIEW_DEBOUNCE_MS
+import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
@@ -130,6 +131,7 @@ class InferenceRunner(
     eagerVisionInit: Boolean = false,
     logId: String? = null,
     configSnapshot: Map<String, Any>? = null,
+    prefs: RequestPrefsSnapshot? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -196,7 +198,7 @@ class InferenceRunner(
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     if (result.error == "client_disconnected") {
-      val keepPartial = ServerPrefs.isKeepPartialResponse(context)
+      val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
       if (logId != null) {
         RequestLogStore.update(logId) {
@@ -208,7 +210,7 @@ class InferenceRunner(
     }
 
     if (userCancelFlag.get()) {
-      val keepPartial = ServerPrefs.isKeepPartialResponse(context)
+      val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
       val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
       if (logId != null) {
         RequestLogStore.update(logId) {
@@ -235,7 +237,7 @@ class InferenceRunner(
       if (result.ttfbMs > 0) {
         ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx)
       }
-      emitDebugInferenceLog(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, result.totalMs, model.name)
+      emitDebugInferenceLog(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, result.totalMs, model.name, prefs)
       logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
       // Prepend thinking content wrapped in <think> tags if present
       val output = if (!result.thinking.isNullOrEmpty()) {
@@ -568,10 +570,11 @@ class InferenceRunner(
     configSnapshot: Map<String, Any>? = null,
     json: Json,
     tools: List<ToolSpec>? = null,
+    prefs: RequestPrefsSnapshot? = null,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ResponsesApiFormat(model.name, now, json, tools)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs)
   }
 
   // ── Streaming inference: /v1/chat/completions ────────────────────────────
@@ -590,10 +593,11 @@ class InferenceRunner(
     tools: List<ToolSpec>? = null,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
+    prefs: RequestPrefsSnapshot? = null,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs)
   }
 
   // ── Streaming inference: /v1/completions ───────────────────────────────
@@ -609,10 +613,11 @@ class InferenceRunner(
     stopSequences: List<String>? = null,
     configSnapshot: Map<String, Any>? = null,
     json: Json,
+    prefs: RequestPrefsSnapshot? = null,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = CompletionsFormat(model.name, now, stopSequences, json, includeUsage)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, emptyList(), emptyList(), logId, configSnapshot)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, emptyList(), emptyList(), logId, configSnapshot, prefs)
   }
 
   // ── Unified streaming implementation ────────────────────────────────────
@@ -628,6 +633,7 @@ class InferenceRunner(
     audioClips: List<ByteArray>,
     logId: String?,
     configSnapshot: Map<String, Any>?,
+    prefs: RequestPrefsSnapshot? = null,
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -635,7 +641,7 @@ class InferenceRunner(
 
     // Pre-validation must happen BEFORE returning HttpResponse.Sse — the caller needs
     // a JSON error response, not a streaming response that immediately errors.
-    val eagerVision = ServerPrefs.isEagerVisionInit(context)
+    val eagerVision = prefs?.eagerVisionInit ?: ServerPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
     synchronized(inferenceLock) {
@@ -658,8 +664,8 @@ class InferenceRunner(
 
     // Read prefs eagerly (before the Ktor coroutine runs) — SharedPreferences reads
     // should happen on the calling thread, not inside the SSE writer lambda.
-    val streamPreview = ServerPrefs.isStreamLogsPreview(context)
-    val keepPartial = ServerPrefs.isKeepPartialResponse(context)
+    val streamPreview = prefs?.streamLogsPreview ?: ServerPrefs.isStreamLogsPreview(context)
+    val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
 
     return HttpResponse.Sse { writer ->
       val channel = Channel<StreamEvent>(Channel.UNLIMITED)
@@ -850,7 +856,7 @@ class InferenceRunner(
                     if (firstTokenMs > 0) {
                       ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
                     }
-                    emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name)
+                    emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name, prefs)
                     inferenceCompleted = true
                     ServerMetrics.onInferenceCompleted()
                     val promptTokens = format.estimateInputTokensInt(prompt)
@@ -1015,8 +1021,9 @@ class InferenceRunner(
     generationMs: Long,
     totalMs: Long,
     modelName: String?,
+    prefs: RequestPrefsSnapshot? = null,
   ) {
-    if (!ServerPrefs.isVerboseDebugEnabled(context)) return
+    if (!(prefs?.verboseDebug ?: ServerPrefs.isVerboseDebugEnabled(context))) return
     val rt = Runtime.getRuntime()
     val heapTotalMb = rt.totalMemory() / (1024.0 * 1024.0)
     val heapFreeMb = rt.freeMemory() / (1024.0 * 1024.0)

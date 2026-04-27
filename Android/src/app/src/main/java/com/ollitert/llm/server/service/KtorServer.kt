@@ -23,6 +23,7 @@ import android.util.Log
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.llmSupportThinking
@@ -336,29 +337,29 @@ class KtorServer(
 
     post("/generate") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
-        endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId)
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+        endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/completions") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
-        endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId)
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+        endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/chat/completions") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
-        endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId)
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+        endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/responses") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _ ->
-        endpointHandlers.handleResponses(body, captureBody, captureResponse, logId)
+      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+        endpointHandlers.handleResponses(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
@@ -368,28 +369,28 @@ class KtorServer(
 
     post("/v1/server/stop") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { _, _, _, _, _ ->
+      withRequestLogging(call) { _, _, _, _, _, _ ->
         handleServerStop()
       }
     }
 
     post("/v1/server/reload") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { _, _, _, _, _ ->
+      withRequestLogging(call) { _, _, _, _, _, _ ->
         handleServerReload()
       }
     }
 
     post("/v1/server/thinking") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, _, _, _, _ ->
+      withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerThinking(body)
       }
     }
 
     post("/v1/server/config") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, _, _, _, _ ->
+      withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerConfig(body)
       }
     }
@@ -398,6 +399,7 @@ class KtorServer(
     // Can't use withRequestLogging — multipart body requires receiveMultipart() instead of receiveText().
     post("/v1/audio/transcriptions") {
       if (!requireAuth(call)) return@post
+      val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
       val startMs = SystemClock.elapsedRealtime()
       val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
       RequestLogStore.add(
@@ -406,7 +408,7 @@ class KtorServer(
           method = "POST",
           path = "/v1/audio/transcriptions",
           modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
-          clientIp = call.clientIp(ServerPrefs.isResolveClientHostnames(serviceContext)),
+          clientIp = call.clientIp(prefs.resolveClientHostnames),
           isPending = true,
         ),
       )
@@ -448,7 +450,7 @@ class KtorServer(
       }
 
       val response = try {
-        audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId)
+        audioTranscriptionHandler.handle(fileBytes, fields, contentLength, model, logId = logId, prefs = prefs)
       } catch (_: kotlinx.coroutines.CancellationException) {
         RequestLogStore.update(logId) {
           it.copy(requestBody = "[multipart audio ${contentLength} bytes]", isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
@@ -525,12 +527,14 @@ class KtorServer(
       captureResponse: (String) -> Unit,
       logId: String,
       sseExtraHeaders: Map<String, String>,
+      prefs: RequestPrefsSnapshot,
     ) -> HttpResponse,
   ) {
+    val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
     val startMs = SystemClock.elapsedRealtime()
     val method = call.request.local.method.value
     val path = call.request.uri
-    val clientIp = call.clientIp(ServerPrefs.isResolveClientHostnames(serviceContext))
+    val clientIp = call.clientIp(prefs.resolveClientHostnames)
 
     // Add a pending log entry immediately so it appears in the Logs tab
     val logId = "log-${System.currentTimeMillis()}-${getRequestCount()}"
@@ -572,7 +576,7 @@ class KtorServer(
       }
 
       // Capture body for logging (with optional base64 compaction for images)
-      val compactImages = ServerPrefs.isCompactImageData(serviceContext)
+      val compactImages = prefs.compactImageData
       val captureBody = { rawBody: String ->
         val stored = if (compactImages) BridgeUtils.compactBase64DataUris(rawBody) else rawBody
         val originalSize = if (compactImages && stored.length != rawBody.length) rawBody.length else 0
@@ -583,7 +587,7 @@ class KtorServer(
       }
       val captureResponse = { resp: String -> responseBodySnapshot = resp }
 
-      handler(body, captureBody, captureResponse, logId, sseExtraHeaders)
+      handler(body, captureBody, captureResponse, logId, sseExtraHeaders, prefs)
     } catch (_: kotlinx.coroutines.CancellationException) {
       RequestLogStore.update(logId) {
         it.copy(requestBody = requestBodySnapshot ?: it.requestBody, isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
@@ -950,7 +954,8 @@ class KtorServer(
     val response = httpOkJson(
       PayloadBuilders.health(defaultModel, keepAliveUnloadedModelName, includeMetrics),
     )
-    if (ServerPrefs.isHideHealthLogs(serviceContext)) {
+    val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
+    if (prefs.hideHealthLogs) {
       call.respondHttpResponse(response)
     } else {
       withGetLogging(call) { response }

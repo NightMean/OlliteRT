@@ -20,7 +20,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import com.ollitert.llm.server.data.CHAT_COMPLETIONS_TIMEOUT_SECONDS
 import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.MAX_MAX_TOKENS
 import com.ollitert.llm.server.data.MAX_TEMPERATURE
 import com.ollitert.llm.server.data.MAX_TOPK
@@ -68,6 +68,7 @@ class EndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    prefs: RequestPrefsSnapshot = RequestPrefsSnapshot(),
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
@@ -83,7 +84,7 @@ class EndpointHandlers(
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
-    val trimPromptsGen = ServerPrefs.isAutoTrimPrompts(context)
+    val trimPromptsGen = prefs.autoTrimPrompts
     val maxContextGen = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultGen = PromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
     if (compactionResultGen.compacted) {
@@ -102,7 +103,7 @@ class EndpointHandlers(
     }
     logEvent("request_start id=$requestId endpoint=/generate bodyLength=${body.length} promptChars=${prompt.length} model=default")
     ServerMetrics.onInferenceStarted()
-    val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId)
+    val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId, prefs = prefs)
     ServerMetrics.onInferenceCompleted()
     if (text == null) {
       val (enrichedError, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
@@ -124,6 +125,7 @@ class EndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    prefs: RequestPrefsSnapshot = RequestPrefsSnapshot(),
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
@@ -151,9 +153,9 @@ class EndpointHandlers(
     // useful for Home Assistant), "Trim Prompt" (hard-cut as last resort).
     val tools = req.tools.orEmpty()
     val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
-    val truncateHistory = ServerPrefs.isAutoTruncateHistory(context)
-    val compactToolSchemas = ServerPrefs.isCompactToolSchemas(context)
-    val trimPrompts = ServerPrefs.isAutoTrimPrompts(context)
+    val truncateHistory = prefs.autoTruncateHistory
+    val compactToolSchemas = prefs.compactToolSchemas
+    val trimPrompts = prefs.autoTrimPrompts
     val maxContext = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
 
     // Insert image placeholder tokens in the prompt when the model supports vision and the
@@ -212,7 +214,7 @@ class EndpointHandlers(
 
     // When "Ignore Client Sampler Parameters" is enabled, discard client-supplied
     // temperature/top_p/top_k/max_tokens and use the server's configured values instead.
-    val ignoreClientSampler = ServerPrefs.isIgnoreClientSamplerParams(context)
+    val ignoreClientSampler = prefs.ignoreClientSamplerParams
     val clientTemp = if (ignoreClientSampler) null else req.temperature
     val clientTopP = if (ignoreClientSampler) null else req.top_p
     val clientTopK = if (ignoreClientSampler) null else req.top_k
@@ -230,11 +232,11 @@ class EndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json)
+      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = configSnapshot, json = json, prefs = prefs)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, clientTemp, clientTopP, clientTopK, clientMaxTokens)
       ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = configSnapshotBlocking)
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) {
         val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
@@ -280,6 +282,7 @@ class EndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    prefs: RequestPrefsSnapshot = RequestPrefsSnapshot(),
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
@@ -303,7 +306,7 @@ class EndpointHandlers(
     }
     // Raw prompts have no message structure, so history truncation and tool schema compaction
     // aren't possible — only hard string trimming can reduce the prompt size.
-    val trimPromptsCompl = ServerPrefs.isAutoTrimPrompts(context)
+    val trimPromptsCompl = prefs.autoTrimPrompts
     val maxContextCompl = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultCompl = PromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
     if (compactionResultCompl.compacted) {
@@ -336,7 +339,7 @@ class EndpointHandlers(
     }
 
     // Apply per-request sampler overrides (ignored when "Ignore Client Sampler" is on)
-    val ignoreClientSamplerC = ServerPrefs.isIgnoreClientSamplerParams(context)
+    val ignoreClientSamplerC = prefs.ignoreClientSamplerParams
     val cTemp = if (ignoreClientSamplerC) null else req.temperature
     val cTopP = if (ignoreClientSamplerC) null else req.top_p
     val cMaxTokens = if (ignoreClientSamplerC) null else req.max_tokens
@@ -351,11 +354,11 @@ class EndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamCompletions(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, configSnapshot = configSnapshot, json = json)
+      inferenceRunner.streamCompletions(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, configSnapshot = configSnapshot, json = json, prefs = prefs)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, cTemp, cTopP, topK = null, cMaxTokens)
       ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking)
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) {
         val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
@@ -394,6 +397,7 @@ class EndpointHandlers(
     captureBody: (String) -> Unit = {},
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
+    prefs: RequestPrefsSnapshot = RequestPrefsSnapshot(),
   ): HttpResponse {
     val requestId = nextRequestId()
     captureBody(body)
@@ -412,8 +416,8 @@ class EndpointHandlers(
       )
     }
     // Build prompt with progressive compaction if context window is exceeded
-    val truncateHistoryResp = ServerPrefs.isAutoTruncateHistory(context)
-    val trimPromptsResp = ServerPrefs.isAutoTrimPrompts(context)
+    val truncateHistoryResp = prefs.autoTruncateHistory
+    val trimPromptsResp = prefs.autoTrimPrompts
     val maxContextResp = (model.configValues[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt()
     val compactionResultResp = PromptCompactor.compactConversationPrompt(
       messages = req.messages ?: req.input,
@@ -447,7 +451,7 @@ class EndpointHandlers(
     val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
 
     // Apply per-request sampler overrides (ignored when "Ignore Client Sampler" is on)
-    val ignoreClientSamplerR = ServerPrefs.isIgnoreClientSamplerParams(context)
+    val ignoreClientSamplerR = prefs.ignoreClientSamplerParams
     val rTemp = if (ignoreClientSamplerR) null else req.temperature
     val rTopP = if (ignoreClientSamplerR) null else req.top_p
     val rTopK = if (ignoreClientSamplerR) null else req.top_k
@@ -462,11 +466,11 @@ class EndpointHandlers(
     return if (req.stream == true) {
       val configSnapshot = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, tools = if (hasTools) tools else null)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshot, json = json, tools = if (hasTools) tools else null, prefs = prefs)
     } else {
       val configSnapshotBlocking = buildPerRequestConfig(model, rTemp, rTopP, rTopK, rMaxTokens)
       ServerMetrics.onInferenceStarted()
-      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking)
+      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = configSnapshotBlocking, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (text == null) {
         val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
