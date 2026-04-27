@@ -33,6 +33,7 @@ message BenchmarkResult {
 }
 
 message LlmBenchmarkResult {
+  // Field 1 was never assigned — inherited upstream gap
   LlmBenchmarkBasicInfo baisc_info = 2;
   LlmBenchmarkStats stats = 3;
 }
@@ -67,6 +68,7 @@ message ValueSeries {
   double max = 3;
   double avg = 4;
   double medium = 5;
+  // Field 6 was never assigned — inherited upstream gap
   double pct25 = 7;
   double pct75 = 8;
 }
