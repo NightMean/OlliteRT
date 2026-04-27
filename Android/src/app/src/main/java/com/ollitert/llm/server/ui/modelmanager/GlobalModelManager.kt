@@ -24,14 +24,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
-import android.provider.OpenableColumns
 import android.provider.Settings
-import android.util.Log
 import android.widget.Toast
-import androidx.annotation.StringRes
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -58,40 +52,31 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,7 +84,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,38 +94,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCapability
-import com.ollitert.llm.server.data.OFFICIAL_REPO_ID
-import com.ollitert.llm.server.data.UNKNOWN_REPO_LABEL
 import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.OFFICIAL_REPO_ID
 import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.proto.ImportedModel
-import com.ollitert.llm.server.ui.common.ErrorAlertDialog
+import com.ollitert.llm.server.data.UNKNOWN_REPO_LABEL
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
-import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.common.UrlInputDialog
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.common.modelitem.ModelItem
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningContainer
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private const val TAG = "OlliteRT.ModelMgr"
 
@@ -186,18 +160,7 @@ fun GlobalModelManager(
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val showRecommendations by viewModel.showModelRecommendations.collectAsStateWithLifecycle()
-  var showImportModelSheet by remember { mutableStateOf(false) }
-  var showImportUrlDialog by remember { mutableStateOf(false) }
-  var importUrlLoading by remember { mutableStateOf(false) }
-  var importUrlError by remember { mutableStateOf<String?>(null) }
-  var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
-  var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
-  val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
-  val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
-  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  var showImportDialog by remember { mutableStateOf(false) }
-  var showImportingDialog by remember { mutableStateOf(false) }
-  val scope = rememberCoroutineScope()
+  val dialogState = rememberModelManagerDialogState()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
 
@@ -207,10 +170,6 @@ fun GlobalModelManager(
       Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
   }
-
-  // Switch model confirmation state
-  var showSwitchModelDialog by remember { mutableStateOf(false) }
-  var pendingSwitchModel by remember { mutableStateOf<Model?>(null) }
 
   // Re-check permissions when the user returns from system settings.
   // A simple counter bumped on ON_RESUME forces recomposition of permission-dependent UI.
@@ -249,46 +208,6 @@ fun GlobalModelManager(
   var sortAscending by remember { mutableStateOf(true) }
   var showSortDropdown by remember { mutableStateOf(false) }
   val focusManager = LocalFocusManager.current
-
-  val filePickerLauncher: ActivityResultLauncher<Intent> =
-    rememberLauncherForActivityResult(
-      contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-      if (result.resultCode == android.app.Activity.RESULT_OK) {
-        result.data?.data?.let { uri ->
-          val fileName = getFileName(context = context, uri = uri)
-          Log.d(TAG, "Selected file: $fileName")
-          if (fileName != null && !fileName.endsWith(".litertlm")) {
-            showUnsupportedFileTypeDialog = true
-          } else if (fileName != null && fileName.lowercase().contains("-web")) {
-            showUnsupportedWebModelDialog = true
-          } else {
-            selectedLocalModelFileUri.value = uri
-            showImportDialog = true
-          }
-        } ?: run { Log.d(TAG, "No file selected or URI is null.") }
-      } else {
-        Log.d(TAG, "File picking cancelled.")
-      }
-    }
-
-  val importModelListSuccessText = stringResource(R.string.import_model_list_success)
-  val modelListPickerLauncher: ActivityResultLauncher<Intent> =
-    rememberLauncherForActivityResult(
-      contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-      if (result.resultCode == android.app.Activity.RESULT_OK) {
-        result.data?.data?.let { uri ->
-          viewModel.importModelList(uri) { error ->
-            if (error != null) {
-              Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-            } else {
-              Toast.makeText(context, importModelListSuccessText, Toast.LENGTH_SHORT).show()
-            }
-          }
-        }
-      }
-    }
 
   // Derive model lists reactively from uiState — any change to the flat model list or download
   // status automatically propagates.
@@ -376,8 +295,8 @@ fun GlobalModelManager(
       val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
       if (isServerActive && isDifferentModel) {
         // Ask user to confirm switching models
-        pendingSwitchModel = model
-        showSwitchModelDialog = true
+        dialogState.pendingSwitchModel = model
+        dialogState.showSwitchModelDialog = true
       } else {
         onModelSelected(model)
       }
@@ -834,7 +753,7 @@ fun GlobalModelManager(
         state = rememberTooltipState(),
       ) {
         FloatingActionButton(
-          onClick = { showImportModelSheet = true },
+          onClick = { dialogState.showImportModelSheet = true },
           containerColor = OlliteRTPrimary,
           contentColor = MaterialTheme.colorScheme.onPrimary,
           modifier = Modifier
@@ -855,184 +774,15 @@ fun GlobalModelManager(
 
   }
 
-  // Import model bottom sheet
-  if (showImportModelSheet) {
-    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState, sheetMaxWidth = SHEET_MAX_WIDTH) {
-      Text(
-        stringResource(R.string.label_import_model),
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
-      )
-      BottomSheetActionRow(
-        icon = Icons.AutoMirrored.Outlined.NoteAdd,
-        labelRes = R.string.label_import_from_local_file,
-        contentDescriptionRes = R.string.cd_import_model_from_local_file_button,
-        onClick = {
-          scope.launch {
-            delay(200)
-            showImportModelSheet = false
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-              addCategory(Intent.CATEGORY_OPENABLE)
-              type = "*/*"
-              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-            }
-            filePickerLauncher.launch(intent)
-          }
-        },
-      )
-      BottomSheetActionRow(
-        icon = Icons.Outlined.Dns,
-        labelRes = R.string.label_import_from_model_list,
-        contentDescriptionRes = R.string.cd_import_model_list_button,
-        onClick = {
-          scope.launch {
-            delay(200)
-            showImportModelSheet = false
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-              addCategory(Intent.CATEGORY_OPENABLE)
-              type = "application/json"
-              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-            }
-            modelListPickerLauncher.launch(intent)
-          }
-        },
-      )
-      BottomSheetActionRow(
-        icon = Icons.Outlined.Link,
-        labelRes = R.string.label_import_from_url,
-        contentDescriptionRes = R.string.cd_import_model_list_url_button,
-        onClick = {
-          showImportModelSheet = false
-          showImportUrlDialog = true
-        },
-      )
-    }
-  }
-
-  // Import model list from URL dialog
-  if (showImportUrlDialog) {
-    ImportModelListUrlDialog(
-      isLoading = importUrlLoading,
-      error = importUrlError,
-      onDismiss = {
-        if (!importUrlLoading) {
-          showImportUrlDialog = false
-          importUrlError = null
-        }
-      },
-      onImport = { url ->
-        importUrlLoading = true
-        importUrlError = null
-        viewModel.importModelListFromUrl(url) { error ->
-          importUrlLoading = false
-          if (error != null) {
-            importUrlError = error
-          } else {
-            showImportUrlDialog = false
-            importUrlError = null
-            Toast.makeText(context, importModelListSuccessText, Toast.LENGTH_SHORT).show()
-          }
-        }
-      },
-    )
-  }
-
-  // Import dialog
-  if (showImportDialog) {
-    selectedLocalModelFileUri.value?.let { uri ->
-      ModelImportDialog(
-        uri = uri,
-        onDismiss = { showImportDialog = false },
-        onDone = { info ->
-          selectedImportedModelInfo.value = info
-          showImportDialog = false
-          showImportingDialog = true
-        },
-        existingImportedModelNames = importedModels.map { it.name }.toSet(),
-      )
-    }
-  }
-
-  // Importing in progress dialog
-  val modelImportedText = stringResource(R.string.toast_model_imported)
-  if (showImportingDialog) {
-    selectedLocalModelFileUri.value?.let { uri ->
-      selectedImportedModelInfo.value?.let { info ->
-        ModelImportingDialog(
-          uri = uri,
-          info = info,
-          onDismiss = { showImportingDialog = false },
-          onDone = {
-            viewModel.addImportedLlmModel(info = it)
-            showImportingDialog = false
-            scope.launch { snackbarHostState.showSnackbar(modelImportedText) }
-          },
-        )
-      }
-    }
-  }
-
-  // Alert dialog for unsupported file type
-  if (showUnsupportedFileTypeDialog) {
-    ErrorAlertDialog(
-      title = stringResource(R.string.dialog_unsupported_file_type_title),
-      text = stringResource(R.string.dialog_unsupported_file_type_body),
-      onDismiss = { showUnsupportedFileTypeDialog = false },
-    )
-  }
-
-  // Alert dialog for unsupported web model
-  if (showUnsupportedWebModelDialog) {
-    ErrorAlertDialog(
-      title = stringResource(R.string.dialog_unsupported_web_model_title),
-      text = stringResource(R.string.dialog_unsupported_web_model_body),
-      onDismiss = { showUnsupportedWebModelDialog = false },
-    )
-  }
-
-  // Confirmation dialog when switching models while server is running
-  val switchModel = pendingSwitchModel
-  if (showSwitchModelDialog && switchModel != null) {
-    AlertDialog(
-      onDismissRequest = {
-        showSwitchModelDialog = false
-        pendingSwitchModel = null
-      },
-      title = { Text(stringResource(R.string.dialog_switch_model_title)) },
-      text = {
-        Text(
-          stringResource(
-            R.string.dialog_switch_model_body,
-            activeModelName ?: stringResource(R.string.label_current_model),
-            switchModel.displayName.ifEmpty { switchModel.name },
-          )
-        )
-      },
-      confirmButton = {
-        Button(onClick = {
-          showSwitchModelDialog = false
-          pendingSwitchModel = null
-          onSwitchModel(switchModel.name)
-        }) {
-          Text(stringResource(R.string.button_switch))
-        }
-      },
-      dismissButton = {
-        Button(
-          onClick = {
-            showSwitchModelDialog = false
-            pendingSwitchModel = null
-          },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-          ),
-        ) {
-          Text(stringResource(R.string.cancel))
-        }
-      },
-    )
-  }
+  ModelManagerDialogs(
+    state = dialogState,
+    viewModel = viewModel,
+    importedModelNames = importedModels.map { it.name }.toSet(),
+    snackbarHostState = snackbarHostState,
+    serverStatus = serverStatus,
+    activeModelName = activeModelName,
+    onSwitchModel = onSwitchModel,
+  )
 }
 
 @Composable
@@ -1169,66 +919,3 @@ private fun modelMatchesCapabilityFilters(model: Model, caps: Set<CapabilityFilt
   return caps.all { it.capability in model.capabilities }
 }
 
-private fun getFileName(context: Context, uri: Uri): String? {
-  if (uri.scheme == "content") {
-    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-      if (cursor.moveToFirst()) {
-        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        if (nameIndex != -1) {
-          return cursor.getString(nameIndex)
-        }
-      }
-    }
-  } else if (uri.scheme == "file") {
-    return uri.lastPathSegment
-  }
-  return null
-}
-
-@Composable
-private fun BottomSheetActionRow(
-  icon: ImageVector,
-  @StringRes labelRes: Int,
-  @StringRes contentDescriptionRes: Int,
-  onClick: () -> Unit,
-) {
-  val cd = stringResource(contentDescriptionRes)
-  Box(
-    modifier = Modifier
-      .clickable(onClick = onClick)
-      .semantics {
-        role = Role.Button
-        contentDescription = cd
-      },
-  ) {
-    Row(
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(16.dp),
-    ) {
-      Icon(icon, contentDescription = null)
-      Text(stringResource(labelRes), modifier = Modifier.clearAndSetSemantics {})
-    }
-  }
-}
-
-@Composable
-private fun ImportModelListUrlDialog(
-  isLoading: Boolean,
-  error: String?,
-  onDismiss: () -> Unit,
-  onImport: (String) -> Unit,
-) {
-  UrlInputDialog(
-    title = stringResource(R.string.import_model_list_url_title),
-    label = stringResource(R.string.import_model_list_url_label),
-    confirmText = stringResource(R.string.button_import),
-    loadingText = stringResource(R.string.import_model_list_url_loading),
-    isLoading = isLoading,
-    error = error,
-    onDismiss = onDismiss,
-    onConfirm = onImport,
-  )
-}
