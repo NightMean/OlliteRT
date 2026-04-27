@@ -39,7 +39,7 @@ private const val TAG = "OlliteRT.FileMgr"
 class ModelFileManager(
   private val context: Context,
   private val externalFilesDir: File?,
-) : ModelFileOps {
+) {
 
   /**
    * Delete stale .tmp files left by interrupted model imports.
@@ -49,7 +49,7 @@ class ModelFileManager(
     cleanupStaleImportTmpFiles(externalFilesDir)
   }
 
-  override fun isFileInExternalFilesDir(fileName: String): Boolean {
+  fun isFileInExternalFilesDir(fileName: String): Boolean {
     if (externalFilesDir != null) {
       val file = File(externalFilesDir, fileName)
       return file.exists()
@@ -58,7 +58,7 @@ class ModelFileManager(
     }
   }
 
-  override fun deleteFileFromExternalFilesDir(fileName: String) {
+  fun deleteFileFromExternalFilesDir(fileName: String) {
     if (isFileInExternalFilesDir(fileName)) {
       val file = File(externalFilesDir, fileName)
       file.delete()
@@ -68,7 +68,7 @@ class ModelFileManager(
   /**
    * Deletes files from the model imports directory whose absolute paths start with a given prefix.
    */
-  override fun deleteFilesFromImportDir(fileName: String) {
+  fun deleteFilesFromImportDir(fileName: String) {
     val dir = context.getExternalFilesDir(null) ?: return
 
     val prefixAbsolutePath = "${dir.absolutePath}${File.separator}$fileName"
@@ -82,14 +82,14 @@ class ModelFileManager(
     }
   }
 
-  override fun deleteDirFromExternalFilesDir(dir: String) {
+  fun deleteDirFromExternalFilesDir(dir: String) {
     if (isFileInExternalFilesDir(dir)) {
       val file = File(externalFilesDir, dir)
       file.deleteRecursively()
     }
   }
 
-  override fun isModelPartiallyDownloaded(model: Model): Boolean {
+  fun isModelPartiallyDownloaded(model: Model): Boolean {
     if (model.localModelFilePathOverride.isNotEmpty()) {
       return false
     }
@@ -98,7 +98,7 @@ class ModelFileManager(
     return File(tmpFilePath).exists()
   }
 
-  override fun isModelDownloaded(model: Model): Boolean {
+  fun isModelDownloaded(model: Model): Boolean {
     model.updatable = false
 
     // Check if the current (latest) version is downloaded.
@@ -143,7 +143,7 @@ class ModelFileManager(
     return downloadedFileExists || unzippedDirectoryExists
   }
 
-  override fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
+  fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
     Log.d(TAG, "Checking model ${model.name} download status...")
 
     if (model.localFileRelativeDirPathOverride.isNotEmpty()) {

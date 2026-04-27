@@ -37,15 +37,15 @@ private const val TAG = "OlliteRT.HFToken"
 class HuggingFaceTokenManager(
   private val dataStoreRepository: DataStoreRepository,
   context: Context,
-) : TokenManager {
-  override val authService = AuthorizationService(context)
-  @Volatile override var curAccessToken: String = ""
+) {
+  val authService = AuthorizationService(context)
+  @Volatile var curAccessToken: String = ""
 
-  override fun dispose() {
+  fun dispose() {
     authService.dispose()
   }
 
-  override suspend fun getTokenStatusAndData(): TokenStatusAndData {
+  suspend fun getTokenStatusAndData(): TokenStatusAndData {
     var tokenStatus = TokenStatus.NOT_STORED
     Log.d(TAG, "Reading token data from data store...")
     val tokenData = dataStoreRepository.readAccessTokenData()
@@ -70,7 +70,7 @@ class HuggingFaceTokenManager(
     return TokenStatusAndData(status = tokenStatus, data = tokenData)
   }
 
-  override fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
+  fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
     val dataIntent = result.data
     if (dataIntent == null) {
       onTokenRequested(
@@ -148,7 +148,7 @@ class HuggingFaceTokenManager(
 
   // Called from AppAuth performTokenRequest callback (non-coroutine, background thread).
   // runBlocking is acceptable here — narrow boundary on a background thread.
-  override fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
+  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
     kotlinx.coroutines.runBlocking {
       dataStoreRepository.saveAccessTokenData(
         accessToken = accessToken,
