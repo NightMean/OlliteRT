@@ -56,6 +56,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
+import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
@@ -181,11 +182,7 @@ fun NumericWithUnitRow(
         enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.weight(1f),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (isError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-          cursorColor = OlliteRTPrimary,
-        ),
+        colors = olliteTextFieldColors(isError = isError),
       )
       Column {
         OutlinedTextField(
@@ -407,11 +404,7 @@ fun NumericInputRow(
       } else null,
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
       modifier = Modifier.fillMaxWidth(),
-      colors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = if (isError) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-        unfocusedBorderColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-        cursorColor = OlliteRTPrimary,
-      ),
+      colors = olliteTextFieldColors(isError = isError),
     )
     Spacer(modifier = Modifier.height(4.dp))
     Text(

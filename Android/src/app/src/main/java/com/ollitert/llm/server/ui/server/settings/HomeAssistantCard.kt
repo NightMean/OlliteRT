@@ -37,7 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -144,11 +144,7 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
               },
               minLines = 2,
               maxLines = 5,
-              colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = OlliteRTPrimary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                cursorColor = OlliteRTPrimary,
-              ),
+              colors = olliteTextFieldColors(),
               modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(4.dp))

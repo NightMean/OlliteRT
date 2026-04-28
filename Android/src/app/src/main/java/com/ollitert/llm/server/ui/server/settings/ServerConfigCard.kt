@@ -36,7 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -87,11 +87,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
           )
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (vm.hasError(HOST_PORT.key)) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (vm.hasError(HOST_PORT.key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-          cursorColor = OlliteRTPrimary,
-        ),
+        colors = olliteTextFieldColors(isError = vm.hasError(HOST_PORT.key)),
         modifier = Modifier.fillMaxWidth(),
       )
       Spacer(modifier = Modifier.height(4.dp))
@@ -205,11 +201,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
             }
           }
         },
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedBorderColor = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error else OlliteRTPrimary,
-          unfocusedBorderColor = if (vm.hasError(CORS_ORIGINS.key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-          cursorColor = OlliteRTPrimary,
-        ),
+        colors = olliteTextFieldColors(isError = vm.hasError(CORS_ORIGINS.key)),
         modifier = Modifier.fillMaxWidth(),
       )
       Spacer(modifier = Modifier.height(4.dp))

@@ -31,7 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -119,11 +119,7 @@ internal fun HfTokenCard(vm: SettingsViewModel, context: Context) {
           }
         }
       },
-      colors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = OlliteRTPrimary,
-        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-        cursorColor = OlliteRTPrimary,
-      ),
+      colors = olliteTextFieldColors(),
       modifier = Modifier.fillMaxWidth(),
     )
   }
