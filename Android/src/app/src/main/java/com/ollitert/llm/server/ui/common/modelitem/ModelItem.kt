@@ -233,6 +233,7 @@ fun ModelItem(
     val settingsSavedReloadPendingText = stringResource(R.string.toast_settings_saved_reload_pending)
     val settingsSavedReloadingText = stringResource(R.string.toast_settings_saved_reloading)
     val settingsSavedText = stringResource(R.string.toast_settings_saved)
+    val settingsResetText = stringResource(R.string.toast_model_settings_reset)
     val configDisplayLabels = model.configs.associate { it.key.id to stringResource(it.key.labelResId) }
     InferenceSettingsSheet(
       model = model,
@@ -240,7 +241,7 @@ fun ModelItem(
       onEditDefaults = if (model.imported) {
         { showEditDefaults = true }
       } else null,
-      onApply = { newConfigValues, systemPrompt ->
+      onApply = { newConfigValues, systemPrompt, isReset ->
         // Persist system prompt for this model
         val oldSystemPrompt = ServerPrefs.getSystemPrompt(context, model.prefsKey)
         ServerPrefs.setSystemPrompt(context, model.prefsKey, systemPrompt)
@@ -349,8 +350,9 @@ fun ModelItem(
             ServerService.updateConfigValues(newConfigValues)
             Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
           }
-        } else if (changes.isNotEmpty()) {
-          Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
+        } else {
+          val msg = if (isReset) settingsResetText else settingsSavedText
+          Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
 
         showInferenceSettings = false

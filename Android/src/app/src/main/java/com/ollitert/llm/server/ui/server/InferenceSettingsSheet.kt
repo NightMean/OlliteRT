@@ -118,7 +118,7 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 fun InferenceSettingsSheet(
   model: Model,
   onDismiss: () -> Unit,
-  onApply: (configValues: Map<String, Any>, systemPrompt: String) -> Unit,
+  onApply: (configValues: Map<String, Any>, systemPrompt: String, isReset: Boolean) -> Unit,
   /** Called when the user taps the edit-defaults pencil button (imported models only). */
   onEditDefaults: (() -> Unit)? = null,
 ) {
@@ -187,7 +187,6 @@ fun InferenceSettingsSheet(
   var showResetDialog by remember { mutableStateOf(false) }
 
   // Reset confirmation dialog
-  val modelSettingsResetText = stringResource(R.string.toast_model_settings_reset)
   if (showResetDialog) {
     AlertDialog(
       onDismissRequest = { showResetDialog = false },
@@ -196,16 +195,30 @@ fun InferenceSettingsSheet(
       confirmButton = {
         Button(onClick = {
           showResetDialog = false
-          temperature = defaults.configTemperature() ?: 1.0f
-          maxTokens = defaults.maxTokensInt() ?: 1024
-          topK = defaults.configTopK() ?: 40
-          topP = defaults.configTopP() ?: 0.95f
-          enableThinking = defaults.configThinkingEnabled() ?: false
+          val defTemp = defaults.configTemperature() ?: 1.0f
+          val defMaxTokens = defaults.maxTokensInt() ?: 1024
+          val defTopK = defaults.configTopK() ?: 40
+          val defTopP = defaults.configTopP() ?: 0.95f
+          val defThinking = defaults.configThinkingEnabled() ?: false
           val defaultAcc = defaults[ConfigKeys.ACCELERATOR.id]?.toString() ?: ""
-          selectedAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
+          val defAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
             ?: availableAccelerators.first()
+          temperature = defTemp
+          maxTokens = defMaxTokens
+          topK = defTopK
+          topP = defTopP
+          enableThinking = defThinking
+          selectedAccelerator = defAccelerator
           systemPrompt = ""
-          Toast.makeText(context, modelSettingsResetText, Toast.LENGTH_SHORT).show()
+          val newValues = mutableMapOf<String, Any>()
+          newValues.putAll(configValues)
+          newValues[ConfigKeys.TEMPERATURE.id] = defTemp
+          newValues[ConfigKeys.MAX_TOKENS.id] = defMaxTokens
+          newValues[ConfigKeys.TOPK.id] = defTopK
+          newValues[ConfigKeys.TOPP.id] = defTopP
+          newValues[ConfigKeys.ENABLE_THINKING.id] = defThinking
+          newValues[ConfigKeys.ACCELERATOR.id] = defAccelerator.label
+          onApply(newValues, "", true)
         }) {
           Text(stringResource(R.string.button_reset))
         }
@@ -494,7 +507,7 @@ fun InferenceSettingsSheet(
           newValues[ConfigKeys.TOPP.id] = clampedTopP
           newValues[ConfigKeys.ENABLE_THINKING.id] = enableThinking
           newValues[ConfigKeys.ACCELERATOR.id] = selectedAccelerator.label
-          onApply(newValues, systemPrompt)
+          onApply(newValues, systemPrompt, false)
         },
         modifier = Modifier
           .fillMaxWidth()
