@@ -203,6 +203,9 @@ object InferenceGateway {
     val totalMs = elapsedMs() - startMs
     val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
     val finalError = error.get()
+    // On error, discard all accumulated tokens — SDK errors may leave the output buffer
+    // in a corrupted/incomplete state. The streaming path (executeStreaming) preserves
+    // partial output because tokens are already delivered to the client via onToken callbacks.
     return InferenceResult(
       output = if (finalError != null) null else sb.toString(),
       thinking = if (finalError != null) null else thinkingResult,
