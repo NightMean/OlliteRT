@@ -393,7 +393,7 @@ object ServerPrefs {
   fun setKeepAliveEnabled(context: Context, enabled: Boolean) = set(context, KEEP_ALIVE_ENABLED, enabled)
 
   fun getKeepAliveMinutes(context: Context): Int = get(context, KEEP_ALIVE_MINUTES)
-  fun setKeepAliveMinutes(context: Context, minutes: Int) = set(context, KEEP_ALIVE_MINUTES, minutes)
+  fun setKeepAliveMinutes(context: Context, minutes: Int) = set(context, KEEP_ALIVE_MINUTES, minutes.coerceAtLeast(0))
 
   // --- Log Persistence ---
 
@@ -401,10 +401,10 @@ object ServerPrefs {
   fun setLogPersistenceEnabled(context: Context, enabled: Boolean) = set(context, LOG_PERSISTENCE_ENABLED, enabled)
 
   fun getLogMaxEntries(context: Context): Int = get(context, LOG_MAX_ENTRIES)
-  fun setLogMaxEntries(context: Context, maxEntries: Int) = set(context, LOG_MAX_ENTRIES, maxEntries)
+  fun setLogMaxEntries(context: Context, maxEntries: Int) = set(context, LOG_MAX_ENTRIES, maxEntries.coerceAtLeast(0))
 
   fun getLogAutoDeleteMinutes(context: Context): Long = get(context, LOG_AUTO_DELETE_MINUTES)
-  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) = set(context, LOG_AUTO_DELETE_MINUTES, minutes)
+  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) = set(context, LOG_AUTO_DELETE_MINUTES, minutes.coerceAtLeast(0L))
 
   // --- Compact Image Data ---
 
@@ -516,7 +516,7 @@ object ServerPrefs {
   fun save(context: Context, port: Int) {
     prefs(context)
       .edit()
-      .putInt(KEY_PORT, port)
+      .putInt(KEY_PORT, port.coerceIn(1, 65535))
       .apply()
   }
 
