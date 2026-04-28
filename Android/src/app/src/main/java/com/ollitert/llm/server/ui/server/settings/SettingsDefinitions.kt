@@ -164,7 +164,7 @@ val HOST_PORT = SettingDef.NumericInput(
   min = MIN_VALID_PORT,
   max = MAX_VALID_PORT,
   read = { ServerPrefs.getPort(it) },
-  write = { ctx, v -> ServerPrefs.save(ctx, ServerPrefs.isEnabled(ctx), v) },
+  write = { ctx, v -> ServerPrefs.save(ctx, v) },
 )
 
 val BEARER_TOKEN = SettingDef.Custom(

@@ -48,7 +48,7 @@ class LlmHttpPrefsTest {
   fun resetToDefaultsClearsAllSettings() {
     ServerPrefs.setBearerToken(context, "secret-token")
     ServerPrefs.setHfToken(context, "hf_abc123")
-    ServerPrefs.save(context, enabled = true, port = 9090)
+    ServerPrefs.save(context, port = 9090)
     ServerPrefs.setAutoStartOnBoot(context, true)
     ServerPrefs.setKeepScreenOn(context, false)
     ServerPrefs.setWarmupEnabled(context, false)
@@ -64,7 +64,6 @@ class LlmHttpPrefsTest {
 
     assertEquals("", ServerPrefs.getBearerToken(context))
     assertEquals("", ServerPrefs.getHfToken(context))
-    assertFalse(ServerPrefs.isEnabled(context))
     assertEquals(DEFAULT_PORT, ServerPrefs.getPort(context))
     assertFalse(ServerPrefs.isAutoStartOnBoot(context))
     assertTrue(ServerPrefs.isKeepScreenOn(context))

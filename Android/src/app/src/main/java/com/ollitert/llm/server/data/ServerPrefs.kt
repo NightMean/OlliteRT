@@ -29,7 +29,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 
 private const val PREFS_NAME = "llm_http_prefs"
-private const val KEY_ENABLED = "enabled"
 private const val KEY_PORT = "port"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
@@ -178,7 +177,6 @@ object ServerPrefs {
 
   // ── Pref declarations ─────────────────────────────────────────────────
   // Boolean prefs — General
-  private val ENABLED = BoolPref(KEY_ENABLED, false)
   private val AUTO_START_ON_BOOT = BoolPref(KEY_AUTO_START_ON_BOOT, false)
   private val KEEP_SCREEN_ON = BoolPref(KEY_KEEP_SCREEN_ON, true)
   private val AUTO_EXPAND_LOGS = BoolPref(KEY_AUTO_EXPAND_LOGS, false)
@@ -223,8 +221,6 @@ object ServerPrefs {
   private val ALLOWLIST_CONTENT_VERSION = IntPref(KEY_ALLOWLIST_CONTENT_VERSION, 0)
 
   // ── Public accessors ──────────────────────────────────────────────────
-
-  fun isEnabled(context: Context): Boolean = get(context, ENABLED)
 
   fun getPort(context: Context): Int = get(context, PORT)
 
@@ -517,10 +513,9 @@ object ServerPrefs {
       .apply()
   }
 
-  fun save(context: Context, enabled: Boolean, port: Int) {
+  fun save(context: Context, port: Int) {
     prefs(context)
       .edit()
-      .putBoolean(KEY_ENABLED, enabled)
       .putInt(KEY_PORT, port)
       .apply()
   }
