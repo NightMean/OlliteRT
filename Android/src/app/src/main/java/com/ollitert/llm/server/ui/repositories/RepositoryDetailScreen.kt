@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
+import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 
 @Composable
@@ -257,12 +258,10 @@ fun RepositoryDetailScreen(
                 overflow = TextOverflow.Ellipsis,
               )
               if (model.description.isNotEmpty()) {
-                Text(
+                MarkdownText(
                   text = model.description,
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  maxLines = 2,
-                  overflow = TextOverflow.Ellipsis,
+                  smallFontSize = true,
+                  textColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
             }
