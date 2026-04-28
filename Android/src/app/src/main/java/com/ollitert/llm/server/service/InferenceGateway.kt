@@ -97,6 +97,8 @@ object InferenceGateway {
           if (!completed && !errorOccurred) {
             onError("timeout")
             cancelInference()
+            // Safe: entire block holds inferenceLock, so no concurrent inference can start
+            // between cancelInference() and resetConversation().
             resetConversation()
           }
         } catch (t: Throwable) {
@@ -166,6 +168,8 @@ object InferenceGateway {
           if (!completed && error.get() == null) {
             error.compareAndSet(null, "timeout")
             cancelInference()
+            // Safe: entire block holds inferenceLock, so no concurrent inference can start
+            // between cancelInference() and resetConversation().
             resetConversation()
           } else if (error.get() != null) {
             cancelInference()
