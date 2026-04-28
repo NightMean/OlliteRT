@@ -17,6 +17,7 @@
 package com.ollitert.llm.server
 
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
 
@@ -42,7 +43,7 @@ class FastlaneMetadataTest {
   @Test
   fun allChangelogFilesUnder500Chars() {
     val changelogsDir = File(metadataDir, "changelogs")
-    if (!changelogsDir.exists()) return // Skip if no changelogs yet
+    assumeTrue("Changelogs directory not found — skipping", changelogsDir.exists())
 
     val violations = changelogsDir.listFiles()
       ?.filter { it.extension == "txt" }
@@ -59,7 +60,7 @@ class FastlaneMetadataTest {
   @Test
   fun shortDescriptionUnder80Chars() {
     val file = File(metadataDir, "short_description.txt")
-    if (!file.exists()) return
+    assumeTrue("short_description.txt not found — skipping", file.exists())
 
     val length = file.readText().trim().length
     assertTrue(
@@ -71,7 +72,7 @@ class FastlaneMetadataTest {
   @Test
   fun fullDescriptionUnder4000Chars() {
     val file = File(metadataDir, "full_description.txt")
-    if (!file.exists()) return
+    assumeTrue("full_description.txt not found — skipping", file.exists())
 
     val length = file.readText().length
     assertTrue(
