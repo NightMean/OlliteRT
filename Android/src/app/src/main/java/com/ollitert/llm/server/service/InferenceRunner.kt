@@ -162,14 +162,14 @@ class InferenceRunner(
     val enableThinking = model.isThinkingEnabled
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
-    // Register a cancellation callback so the user can stop this request from the Logs screen.
-    // For non-streaming requests, calling stopResponse triggers CancellationException in the
-    // LiteRT SDK which completes inference early — we then check the flag and return an error.
     val userCancelFlag = AtomicBoolean(false)
+    val inferenceActuallyStarted = AtomicBoolean(false)
+    // Register a lightweight cancel callback immediately so queued requests can be cancelled.
+    // This only sets the flag — stopResponse is deferred until the request actually starts.
     if (logId != null) {
       RequestLogStore.registerCancellation(logId) {
         userCancelFlag.set(true)
-        ServerLlmModelHelper.stopResponse(model)
+        if (inferenceActuallyStarted.get()) ServerLlmModelHelper.stopResponse(model)
       }
     }
 
@@ -183,6 +183,10 @@ class InferenceRunner(
       executor = executor,
       inferenceLock = inferenceLock,
       resetConversation = {
+        // Skip inference entirely if cancelled while queued.
+        if (userCancelFlag.get()) throw java.util.concurrent.CancellationException("cancelled_while_queued")
+        inferenceActuallyStarted.set(true)
+        ServerMetrics.onInferenceStarted()
         if (configSnapshot != null) {
           originalConfig = model.configValues
           model.configValues = configSnapshot
@@ -206,6 +210,7 @@ class InferenceRunner(
         if (originalConfig != null && model.instance != null) {
           model.configValues = originalConfig
         }
+        if (inferenceActuallyStarted.get()) ServerMetrics.onInferenceCompleted()
       },
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
@@ -571,14 +576,19 @@ class InferenceRunner(
     var thinkingTagOpened = false
     var lastLogUpdateMs = 0L
     var firstTokenMs = 0L
+    var inferenceStarted = false
     var inferenceCompleted = false
     var stopSequenceTriggered = false
 
-    fun markCompleted() {
-      if (!inferenceCompleted) {
-        inferenceCompleted = true
-        ServerMetrics.onInferenceCompleted()
+    fun markStarted() {
+      if (!inferenceStarted) {
+        inferenceStarted = true
+        ServerMetrics.onInferenceStarted()
       }
+    }
+
+    fun markCompleted() {
+      inferenceCompleted = true
     }
 
     fun buildCancelledPartial(): String? {
@@ -895,8 +905,6 @@ class InferenceRunner(
         return httpInternalError("model_init_failed")
       }
     }
-    ServerMetrics.onInferenceStarted()
-
     val enableThinking = model.isThinkingEnabled
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
@@ -930,6 +938,7 @@ class InferenceRunner(
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
+          state.markStarted()
           if (configSnapshot != null) {
             originalConfig = model.configValues
             model.configValues = configSnapshot
@@ -959,6 +968,7 @@ class InferenceRunner(
           if (originalConfig != null && model.instance != null) {
             model.configValues = originalConfig
           }
+          if (state.inferenceStarted) ServerMetrics.onInferenceCompleted()
         },
         onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },
       )

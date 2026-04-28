@@ -262,7 +262,6 @@ object ServerMetrics {
     _modelCreatedAtEpoch.value = System.currentTimeMillis() / 1000
     _loadingStartedAtMs.value = 0L
     _lastError.value = null
-    _isInferring.value = false
     _isIdleUnloaded.value = false
   }
 
