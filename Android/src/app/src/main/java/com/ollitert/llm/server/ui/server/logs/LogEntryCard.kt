@@ -324,7 +324,22 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     // Footer area: badges (compaction/overflow) are placed inline when they fit,
     // or on a separate row above when they'd overflow. Measured dynamically via
     // SubcomposeLayout so the layout scales correctly across phones and tablets.
-    if (!entry.isPending) {
+    if (entry.isPending) {
+      Spacer(modifier = Modifier.height(10.dp))
+      val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+      ) {
+        Text(
+          text = modelTimeText,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+        )
+      }
+    } else {
       val contextOverflow = entry.errorKind == ErrorKind.CONTEXT_OVERFLOW
 
       Spacer(modifier = Modifier.height(10.dp))
