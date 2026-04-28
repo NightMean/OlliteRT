@@ -98,7 +98,11 @@ import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Accelerator
 import com.ollitert.llm.server.data.ConfigKeys
+import com.ollitert.llm.server.data.configTemperature
 import com.ollitert.llm.server.data.configThinkingEnabled
+import com.ollitert.llm.server.data.configTopK
+import com.ollitert.llm.server.data.configTopP
+import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.NumberSliderConfig
@@ -131,16 +135,16 @@ fun InferenceSettingsSheet(
   var advancedExpanded by remember { mutableStateOf(false) }
 
   var temperature by remember {
-    mutableFloatStateOf(configValues[ConfigKeys.TEMPERATURE.label].toFloatSafe() ?: 1.0f)
+    mutableFloatStateOf(configValues.configTemperature() ?: 1.0f)
   }
   var maxTokens by remember {
-    mutableIntStateOf(configValues[ConfigKeys.MAX_TOKENS.label].toIntSafe() ?: 1024)
+    mutableIntStateOf(configValues.maxTokensInt() ?: 1024)
   }
   var topK by remember {
-    mutableIntStateOf(configValues[ConfigKeys.TOPK.label].toIntSafe() ?: 40)
+    mutableIntStateOf(configValues.configTopK() ?: 40)
   }
   var topP by remember {
-    mutableFloatStateOf(configValues[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f)
+    mutableFloatStateOf(configValues.configTopP() ?: 0.95f)
   }
   var enableThinking by remember {
     mutableStateOf(
@@ -192,10 +196,10 @@ fun InferenceSettingsSheet(
       confirmButton = {
         Button(onClick = {
           showResetDialog = false
-          temperature = defaults[ConfigKeys.TEMPERATURE.label].toFloatSafe() ?: 1.0f
-          maxTokens = defaults[ConfigKeys.MAX_TOKENS.label].toIntSafe() ?: 1024
-          topK = defaults[ConfigKeys.TOPK.label].toIntSafe() ?: 40
-          topP = defaults[ConfigKeys.TOPP.label].toFloatSafe() ?: 0.95f
+          temperature = defaults.configTemperature() ?: 1.0f
+          maxTokens = defaults.maxTokensInt() ?: 1024
+          topK = defaults.configTopK() ?: 40
+          topP = defaults.configTopP() ?: 0.95f
           enableThinking = defaults.configThinkingEnabled() ?: false
           val defaultAcc = defaults[ConfigKeys.ACCELERATOR.label]?.toString() ?: ""
           selectedAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
@@ -794,16 +798,3 @@ private fun PromptTextArea(
   }
 }
 
-/** Safely extract an Int from a config value that may be Number or String. */
-private fun Any?.toIntSafe(): Int? = when (this) {
-  is Number -> toInt()
-  is String -> toIntOrNull()
-  else -> null
-}
-
-/** Safely extract a Float from a config value that may be Number or String. */
-private fun Any?.toFloatSafe(): Float? = when (this) {
-  is Number -> toFloat()
-  is String -> toFloatOrNull()
-  else -> null
-}
