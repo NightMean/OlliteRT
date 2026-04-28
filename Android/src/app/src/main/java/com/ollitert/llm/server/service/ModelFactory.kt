@@ -114,7 +114,7 @@ object ModelFactory {
     val restored = model.configValues.toMutableMap()
     for ((key, savedValue) in savedConfig) {
       if (key in restored) {
-        val config = model.configs.find { it.key.label == key }
+        val config = model.configs.find { it.key.id == key }
         if (config != null) {
           restored[key] = convertValueToTargetType(savedValue, config.valueType)
         } else {

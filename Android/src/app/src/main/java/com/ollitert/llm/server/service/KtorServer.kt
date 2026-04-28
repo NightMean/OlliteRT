@@ -776,7 +776,7 @@ class KtorServer(
         currentState = config.configThinkingEnabled() ?: false
         requestedState = parseThinkingRequestedState(body, currentState)
           ?: return httpBadRequest("Invalid JSON in request body")
-        updatedConfig = config + (ConfigKeys.ENABLE_THINKING.label to requestedState)
+        updatedConfig = config + (ConfigKeys.ENABLE_THINKING.id to requestedState)
         model.configValues = updatedConfig
       }
     } else {
@@ -784,7 +784,7 @@ class KtorServer(
       currentState = config?.configThinkingEnabled() ?: false
       requestedState = parseThinkingRequestedState(body, currentState)
         ?: return httpBadRequest("Invalid JSON in request body")
-      updatedConfig = (config ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.label to requestedState)
+      updatedConfig = (config ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.id to requestedState)
     }
     ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
@@ -896,31 +896,31 @@ class KtorServer(
     reqTemperature?.let { raw ->
       val old = currentConfig.configTemperature()
       val v = clampTemperature(raw)
-      updated[ConfigKeys.TEMPERATURE.label] = v
+      updated[ConfigKeys.TEMPERATURE.id] = v
       changes.add("Temperature: ${old ?: "unset"} → $v")
     }
     reqMaxTokens?.let { raw ->
       val old = currentConfig.maxTokensInt()
       val v = clampMaxTokens(raw)
-      updated[ConfigKeys.MAX_TOKENS.label] = v
+      updated[ConfigKeys.MAX_TOKENS.id] = v
       changes.add("Max Tokens: ${old ?: "unset"} → $v")
     }
     reqTopK?.let { raw ->
       val old = currentConfig.configTopK()
       val v = clampTopK(raw)
-      updated[ConfigKeys.TOPK.label] = v
+      updated[ConfigKeys.TOPK.id] = v
       changes.add("Top-K: ${old ?: "unset"} → $v")
     }
     reqTopP?.let { raw ->
       val old = currentConfig.configTopP()
       val v = clampTopP(raw)
-      updated[ConfigKeys.TOPP.label] = v
+      updated[ConfigKeys.TOPP.id] = v
       changes.add("Top-P: ${old ?: "unset"} → $v")
     }
     reqThinking?.let { v ->
       if (model == null || model.llmSupportThinking) {
         val old = currentConfig.configThinkingEnabled() ?: false
-        updated[ConfigKeys.ENABLE_THINKING.label] = v
+        updated[ConfigKeys.ENABLE_THINKING.id] = v
         ServerMetrics.setThinkingEnabled(v)
         changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }

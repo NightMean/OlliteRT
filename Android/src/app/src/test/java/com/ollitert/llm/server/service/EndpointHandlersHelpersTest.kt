@@ -176,9 +176,9 @@ class EndpointHandlersHelpersTest {
       temperature = 0.7, topP = 0.9, topK = 40, maxTokens = 512, logId = null,
     )
     val config = result.configSnapshot!!
-    assertEquals(0.7f, config[ConfigKeys.TEMPERATURE.label])
-    assertEquals(0.9f, config[ConfigKeys.TOPP.label])
-    assertEquals(40, config[ConfigKeys.TOPK.label])
+    assertEquals(0.7f, config[ConfigKeys.TEMPERATURE.id])
+    assertEquals(0.9f, config[ConfigKeys.TOPP.id])
+    assertEquals(40, config[ConfigKeys.TOPK.id])
   }
 
   @Test
@@ -209,6 +209,6 @@ class EndpointHandlersHelpersTest {
       temperature = 0.5, topP = null, topK = null, maxTokens = null, logId = null,
     )
     val config = result.configSnapshot!!
-    assertEquals(0.5f, config[ConfigKeys.TEMPERATURE.label])
+    assertEquals(0.5f, config[ConfigKeys.TEMPERATURE.id])
   }
 }

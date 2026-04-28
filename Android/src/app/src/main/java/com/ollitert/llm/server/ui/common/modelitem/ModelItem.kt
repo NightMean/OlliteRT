@@ -234,7 +234,7 @@ fun ModelItem(
     val settingsSavedReloadPendingText = stringResource(R.string.toast_settings_saved_reload_pending)
     val settingsSavedReloadingText = stringResource(R.string.toast_settings_saved_reloading)
     val settingsSavedText = stringResource(R.string.toast_settings_saved)
-    val configDisplayLabels = model.configs.associate { it.key.label to stringResource(it.key.labelResId) }
+    val configDisplayLabels = model.configs.associate { it.key.id to stringResource(it.key.labelResId) }
     InferenceSettingsSheet(
       model = model,
       onDismiss = { showInferenceSettings = false },
@@ -253,7 +253,7 @@ fun ModelItem(
         var needReinitialization = false
         val changes = mutableListOf<String>()
         for (config in model.configs) {
-          val key = config.key.label
+          val key = config.key.id
           val oldValue = model.configValues[key]?.let {
             com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
           }
@@ -261,7 +261,7 @@ fun ModelItem(
             com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
           }
           if (oldValue != newValue) {
-            changes.add("${configDisplayLabels[config.key.label] ?: config.key.label}: $oldValue → $newValue")
+            changes.add("${configDisplayLabels[config.key.id] ?: config.key.label}: $oldValue → $newValue")
             if (config.needReinitialization) {
               needReinitialization = true
             }
@@ -295,7 +295,7 @@ fun ModelItem(
             put("type", "inference_settings")
             put("changes", buildJsonArray {
               for (config in model.configs) {
-                val key = config.key.label
+                val key = config.key.id
                 val oldValue = prevConfigValues[key]?.let {
                   com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
                 }

@@ -156,7 +156,7 @@ fun InferenceSettingsSheet(
   // allowlist entry includes "npu", we show it here; otherwise it stays hidden.
   val availableAccelerators = model.accelerators.ifEmpty { listOf(Accelerator.GPU) }
   var selectedAccelerator by remember {
-    val current = configValues[ConfigKeys.ACCELERATOR.label]?.toString() ?: ""
+    val current = configValues[ConfigKeys.ACCELERATOR.id]?.toString() ?: ""
     val matched = availableAccelerators.find { it.label.equals(current, ignoreCase = true) }
     mutableStateOf(matched ?: availableAccelerators.first())
   }
@@ -181,7 +181,7 @@ fun InferenceSettingsSheet(
 
   // Build default values map from model's config definitions
   val defaults = remember(model) {
-    model.configs.associate { it.key.label to it.defaultValue }
+    model.configs.associate { it.key.id to it.defaultValue }
   }
 
   var showResetDialog by remember { mutableStateOf(false) }
@@ -201,7 +201,7 @@ fun InferenceSettingsSheet(
           topK = defaults.configTopK() ?: 40
           topP = defaults.configTopP() ?: 0.95f
           enableThinking = defaults.configThinkingEnabled() ?: false
-          val defaultAcc = defaults[ConfigKeys.ACCELERATOR.label]?.toString() ?: ""
+          val defaultAcc = defaults[ConfigKeys.ACCELERATOR.id]?.toString() ?: ""
           selectedAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
             ?: availableAccelerators.first()
           systemPrompt = ""
@@ -488,12 +488,12 @@ fun InferenceSettingsSheet(
           topP = clampedTopP
           val newValues = mutableMapOf<String, Any>()
           newValues.putAll(configValues)
-          newValues[ConfigKeys.TEMPERATURE.label] = clampedTemp
-          newValues[ConfigKeys.MAX_TOKENS.label] = clampedMaxTokens
-          newValues[ConfigKeys.TOPK.label] = clampedTopK
-          newValues[ConfigKeys.TOPP.label] = clampedTopP
-          newValues[ConfigKeys.ENABLE_THINKING.label] = enableThinking
-          newValues[ConfigKeys.ACCELERATOR.label] = selectedAccelerator.label
+          newValues[ConfigKeys.TEMPERATURE.id] = clampedTemp
+          newValues[ConfigKeys.MAX_TOKENS.id] = clampedMaxTokens
+          newValues[ConfigKeys.TOPK.id] = clampedTopK
+          newValues[ConfigKeys.TOPP.id] = clampedTopP
+          newValues[ConfigKeys.ENABLE_THINKING.id] = enableThinking
+          newValues[ConfigKeys.ACCELERATOR.id] = selectedAccelerator.label
           onApply(newValues, systemPrompt)
         },
         modifier = Modifier

@@ -107,7 +107,7 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
     // Field label.
     Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     // Content label.
-    val label = values[config.key.label] as? String ?: ""
+    val label = values[config.key.id] as? String ?: ""
     Text(label, style = MaterialTheme.typography.bodyMedium)
   }
 }
@@ -118,7 +118,7 @@ fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String,
   var isFocused by remember { mutableStateOf(false) }
   val focusRequester = remember { FocusRequester() }
   var textValue by remember {
-    mutableStateOf(values[config.key.label] as? String ?: "")
+    mutableStateOf(values[config.key.id] as? String ?: "")
   }
 
   Column(modifier = Modifier.fillMaxWidth()) {
@@ -139,7 +139,7 @@ fun EditableTextRow(config: EditableTextConfig, values: SnapshotStateMap<String,
         singleLine = true,
         onValueChange = {
           textValue = it
-          values[config.key.label] = it
+          values[config.key.id] = it
         },
         textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
@@ -201,11 +201,11 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
       // value or out of the slider range, temporary while user is still editing the text.
       var textFieldDisplayValue by remember {
         mutableStateOf(
-          getTextFieldDisplayValue(config.valueType, values[config.key.label] as? Float ?: 0f)
+          getTextFieldDisplayValue(config.valueType, values[config.key.id] as? Float ?: 0f)
         )
       }
 
-      val sliderValue = values[config.key.label] as? Float ?: 0f
+      val sliderValue = values[config.key.id] as? Float ?: 0f
 
       Text(
         text = getTextFieldDisplayValue(config.valueType, config.sliderMin),
@@ -218,7 +218,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
         value = sliderValue,
         valueRange = config.sliderMin..config.sliderMax,
         onValueChange = {
-          values[config.key.label] = it
+          values[config.key.id] = it
           textFieldDisplayValue = getTextFieldDisplayValue(config.valueType, it)
         },
       )
@@ -235,7 +235,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
             // When leaving focus, display the internal value so that any invalid value is cleared.
             if (!isFocused) {
               textFieldDisplayValue =
-                getTextFieldDisplayValue(config.valueType, values[config.key.label] as? Float ?: 0f)
+                getTextFieldDisplayValue(config.valueType, values[config.key.id] as? Float ?: 0f)
             }
           },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -248,7 +248,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
           // Only if the new value could be converted to a float, then update the internal value,
           // bounded by the slider range. It prevents invalid values like NaN from crashing the app.
           it.toFloatOrNull()?.let { floatValue ->
-            values[config.key.label] = minOf(maxOf(floatValue, config.sliderMin), config.sliderMax)
+            values[config.key.id] = minOf(maxOf(floatValue, config.sliderMin), config.sliderMax)
           }
         },
         textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
@@ -270,7 +270,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
     }
 
     if (config.key == ConfigKeys.MAX_TOKENS) {
-      val sliderValue = values[config.key.label] as? Float ?: 0f
+      val sliderValue = values[config.key.id] as? Float ?: 0f
       if (sliderValue >= 10000f) {
         Text(
           text = stringResource(R.string.max_tokens_warning_message),
@@ -291,10 +291,10 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
  */
 @Composable
 fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<String, Any>) {
-  val switchValue = values[config.key.label] as? Boolean ?: false
+  val switchValue = values[config.key.id] as? Boolean ?: false
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(stringResource(config.key.labelResId), style = MaterialTheme.typography.titleSmall)
-    Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
+    Switch(checked = switchValue, onCheckedChange = { values[config.key.id] = it })
   }
 }
 
@@ -306,7 +306,7 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
  */
 @Composable
 fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<String, Any>) {
-  val selectedOptions: List<String> = remember { (values[config.key.label] as? String ?: "").split(",") }
+  val selectedOptions: List<String> = remember { (values[config.key.id] as? String ?: "").split(",") }
   var selectionStates: List<Boolean> by remember {
     mutableStateOf(
       List(config.options.size) { index -> selectedOptions.contains(config.options[index]) }
@@ -344,7 +344,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
             }
             selectionStates = newSelectionStates
 
-            values[config.key.label] =
+            values[config.key.id] =
               config.options
                 .filterIndexed { index, _ -> selectionStates[index] }
                 .joinToString(",")

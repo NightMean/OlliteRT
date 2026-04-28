@@ -265,7 +265,7 @@ data class Model(
     for (config in this.configs) {
       // Normalize to the target type so e.g. Float 4000.0 becomes Int 4000 for INT configs.
       // This prevents phantom "changed" detection when comparing with values from the UI.
-      configValues[config.key.label] = convertValueToTargetType(config.defaultValue, config.valueType)
+      configValues[config.key.id] = convertValueToTargetType(config.defaultValue, config.valueType)
     }
     this.configValues = configValues.toMap()
     this.totalBytes = this.sizeInBytes + this.extraDataFiles.sumOf { it.sizeInBytes }
@@ -316,7 +316,7 @@ data class Model(
 
   private fun getTypedConfigValue(key: ConfigKey, valueType: ValueType, defaultValue: Any): Any {
     return convertValueToTargetType(
-      value = configValues.getOrDefault(key.label, defaultValue),
+      value = configValues.getOrDefault(key.id, defaultValue),
       valueType = valueType,
     )
   }

@@ -519,7 +519,7 @@ class ServerService : Service() {
       }
       ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
       ServerMetrics.setActiveAccelerator(
-        model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.label]?.toString()
+        model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.id]?.toString()
       )
       ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
       ServerMetrics.onServerRunning(wifiIp)

@@ -47,19 +47,19 @@ class BuildPerRequestConfigTest {
   @Test
   fun temperatureInRangePassesThrough() {
     val result = buildPerRequestConfig(model(), temperature = 1.0)!!
-    assertEquals(1.0f, result[ConfigKeys.TEMPERATURE.label])
+    assertEquals(1.0f, result[ConfigKeys.TEMPERATURE.id])
   }
 
   @Test
   fun temperatureBelowMinClampedToMin() {
     val result = buildPerRequestConfig(model(), temperature = -5.0)!!
-    assertEquals(MIN_TEMPERATURE, result[ConfigKeys.TEMPERATURE.label])
+    assertEquals(MIN_TEMPERATURE, result[ConfigKeys.TEMPERATURE.id])
   }
 
   @Test
   fun temperatureAboveMaxClampedToMax() {
     val result = buildPerRequestConfig(model(), temperature = 999.0)!!
-    assertEquals(MAX_TEMPERATURE, result[ConfigKeys.TEMPERATURE.label])
+    assertEquals(MAX_TEMPERATURE, result[ConfigKeys.TEMPERATURE.id])
   }
 
   // ── TopP clamping ─────────────────────────────────────────────────────────
@@ -67,19 +67,19 @@ class BuildPerRequestConfigTest {
   @Test
   fun topPInRangePassesThrough() {
     val result = buildPerRequestConfig(model(), topP = 0.5)!!
-    assertEquals(0.5f, result[ConfigKeys.TOPP.label])
+    assertEquals(0.5f, result[ConfigKeys.TOPP.id])
   }
 
   @Test
   fun topPBelowMinClampedToMin() {
     val result = buildPerRequestConfig(model(), topP = -1.0)!!
-    assertEquals(MIN_TOPP, result[ConfigKeys.TOPP.label])
+    assertEquals(MIN_TOPP, result[ConfigKeys.TOPP.id])
   }
 
   @Test
   fun topPAboveMaxClampedToMax() {
     val result = buildPerRequestConfig(model(), topP = 5.0)!!
-    assertEquals(MAX_TOPP, result[ConfigKeys.TOPP.label])
+    assertEquals(MAX_TOPP, result[ConfigKeys.TOPP.id])
   }
 
   // ── TopK clamping ─────────────────────────────────────────────────────────
@@ -87,19 +87,19 @@ class BuildPerRequestConfigTest {
   @Test
   fun topKInRangePassesThrough() {
     val result = buildPerRequestConfig(model(), topK = 40)!!
-    assertEquals(40, result[ConfigKeys.TOPK.label])
+    assertEquals(40, result[ConfigKeys.TOPK.id])
   }
 
   @Test
   fun topKBelowMinClampedToMin() {
     val result = buildPerRequestConfig(model(), topK = -1)!!
-    assertEquals(MIN_TOPK, result[ConfigKeys.TOPK.label])
+    assertEquals(MIN_TOPK, result[ConfigKeys.TOPK.id])
   }
 
   @Test
   fun topKAboveMaxClampedToMax() {
     val result = buildPerRequestConfig(model(), topK = 999999)!!
-    assertEquals(MAX_TOPK, result[ConfigKeys.TOPK.label])
+    assertEquals(MAX_TOPK, result[ConfigKeys.TOPK.id])
   }
 
   // ── MaxTokens clamping ────────────────────────────────────────────────────
@@ -107,40 +107,40 @@ class BuildPerRequestConfigTest {
   @Test
   fun maxTokensInRangePassesThrough() {
     val result = buildPerRequestConfig(model(), maxTokens = 1024)!!
-    assertEquals(1024, result[ConfigKeys.MAX_TOKENS.label])
+    assertEquals(1024, result[ConfigKeys.MAX_TOKENS.id])
   }
 
   @Test
   fun maxTokensBelowMinClampedToMin() {
     val result = buildPerRequestConfig(model(), maxTokens = -1)!!
-    assertEquals(MIN_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.label])
+    assertEquals(MIN_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.id])
   }
 
   @Test
   fun maxTokensZeroClampedToMin() {
     val result = buildPerRequestConfig(model(), maxTokens = 0)!!
-    assertEquals(MIN_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.label])
+    assertEquals(MIN_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.id])
   }
 
   @Test
   fun maxTokensAboveMaxClampedToMax() {
     val result = buildPerRequestConfig(model(), maxTokens = 999999)!!
-    assertEquals(MAX_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.label])
+    assertEquals(MAX_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.id])
   }
 
   @Test
   fun maxTokensClampedToEngineMaxWhenLower() {
     val engineMax = 512
-    val m = model(mapOf(ConfigKeys.MAX_TOKENS.label to engineMax))
+    val m = model(mapOf(ConfigKeys.MAX_TOKENS.id to engineMax))
     val result = buildPerRequestConfig(m, maxTokens = 1024)!!
-    assertEquals(engineMax, result[ConfigKeys.MAX_TOKENS.label])
+    assertEquals(engineMax, result[ConfigKeys.MAX_TOKENS.id])
   }
 
   @Test
   fun maxTokensNegativeWithEngineMaxClampedToMin() {
-    val m = model(mapOf(ConfigKeys.MAX_TOKENS.label to 2048))
+    val m = model(mapOf(ConfigKeys.MAX_TOKENS.id to 2048))
     val result = buildPerRequestConfig(m, maxTokens = -5)!!
-    assertEquals(MIN_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.label])
+    assertEquals(MIN_MAX_TOKENS, result[ConfigKeys.MAX_TOKENS.id])
   }
 
   // ── Boundary values ───────────────────────────────────────────────────────
@@ -148,17 +148,17 @@ class BuildPerRequestConfigTest {
   @Test
   fun temperatureAtExactBoundariesPassesThrough() {
     val resultMin = buildPerRequestConfig(model(), temperature = MIN_TEMPERATURE.toDouble())!!
-    assertEquals(MIN_TEMPERATURE, resultMin[ConfigKeys.TEMPERATURE.label])
+    assertEquals(MIN_TEMPERATURE, resultMin[ConfigKeys.TEMPERATURE.id])
     val resultMax = buildPerRequestConfig(model(), temperature = MAX_TEMPERATURE.toDouble())!!
-    assertEquals(MAX_TEMPERATURE, resultMax[ConfigKeys.TEMPERATURE.label])
+    assertEquals(MAX_TEMPERATURE, resultMax[ConfigKeys.TEMPERATURE.id])
   }
 
   @Test
   fun topKAtExactBoundariesPassesThrough() {
     val resultMin = buildPerRequestConfig(model(), topK = MIN_TOPK)!!
-    assertEquals(MIN_TOPK, resultMin[ConfigKeys.TOPK.label])
+    assertEquals(MIN_TOPK, resultMin[ConfigKeys.TOPK.id])
     val resultMax = buildPerRequestConfig(model(), topK = MAX_TOPK)!!
-    assertEquals(MAX_TOPK, resultMax[ConfigKeys.TOPK.label])
+    assertEquals(MAX_TOPK, resultMax[ConfigKeys.TOPK.id])
   }
 
   // ── Existing config values preserved ──────────────────────────────────────
@@ -166,12 +166,12 @@ class BuildPerRequestConfigTest {
   @Test
   fun existingConfigValuesPreservedWhenOverridingOneParam() {
     val existing = mapOf(
-      ConfigKeys.TEMPERATURE.label to 0.5f,
-      ConfigKeys.TOPK.label to 30,
+      ConfigKeys.TEMPERATURE.id to 0.5f,
+      ConfigKeys.TOPK.id to 30,
     )
     val result = buildPerRequestConfig(model(existing), topP = 0.9)!!
-    assertEquals(0.5f, result[ConfigKeys.TEMPERATURE.label])
-    assertEquals(30, result[ConfigKeys.TOPK.label])
-    assertEquals(0.9f, result[ConfigKeys.TOPP.label])
+    assertEquals(0.5f, result[ConfigKeys.TEMPERATURE.id])
+    assertEquals(30, result[ConfigKeys.TOPK.id])
+    assertEquals(0.9f, result[ConfigKeys.TOPP.id])
   }
 }

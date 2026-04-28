@@ -534,13 +534,13 @@ internal fun buildPerRequestConfig(
 ): Map<String, Any>? {
   if (temperature == null && topP == null && topK == null && maxTokens == null) return null
   val overridden = model.configValues.toMutableMap()
-  temperature?.let { overridden[ConfigKeys.TEMPERATURE.label] = clampTemperature(it) }
-  topP?.let { overridden[ConfigKeys.TOPP.label] = clampTopP(it) }
-  topK?.let { overridden[ConfigKeys.TOPK.label] = clampTopK(it) }
+  temperature?.let { overridden[ConfigKeys.TEMPERATURE.id] = clampTemperature(it) }
+  topP?.let { overridden[ConfigKeys.TOPP.id] = clampTopP(it) }
+  topK?.let { overridden[ConfigKeys.TOPK.id] = clampTopK(it) }
   maxTokens?.let {
     val clamped = clampMaxTokens(it)
     val engineMax = model.maxContextTokens
-    overridden[ConfigKeys.MAX_TOKENS.label] = if (engineMax != null) clamped.coerceAtMost(engineMax) else clamped
+    overridden[ConfigKeys.MAX_TOKENS.id] = if (engineMax != null) clamped.coerceAtMost(engineMax) else clamped
   }
   return overridden.toMap()
 }

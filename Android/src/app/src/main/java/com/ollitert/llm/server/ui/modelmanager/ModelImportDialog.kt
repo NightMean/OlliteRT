@@ -120,7 +120,7 @@ private inline fun <reified T> safeConfigValue(
   valueType: ValueType,
   default: T,
 ): T {
-  val raw = values[key.label] ?: return default
+  val raw = values[key.id] ?: return default
   val converted = convertValueToTargetType(raw, valueType)
   return converted as? T ?: default
 }
@@ -217,15 +217,15 @@ fun ModelImportDialog(
   val initialValues: Map<String, Any> = remember {
     mutableMapOf<String, Any>().apply {
       for (config in importConfigs) {
-        put(config.key.label, config.defaultValue)
+        put(config.key.id, config.defaultValue)
       }
       // Only the stem is editable; the extension is appended on import.
-      put(ConfigKeys.NAME.label, fileStem)
+      put(ConfigKeys.NAME.id, fileStem)
       // Hardcoded to LLM -- when non-LLM model types are supported, make this selectable
-      put(ConfigKeys.MODEL_TYPE.label, "LLM")
+      put(ConfigKeys.MODEL_TYPE.id, "LLM")
 
       for ((key, value) in defaultValues) {
-        put(key.label, value)
+        put(key.id, value)
       }
     }
   }
@@ -288,7 +288,7 @@ fun ModelImportDialog(
               val supportThinking = safeConfigValue(values, ConfigKeys.SUPPORT_THINKING, ValueType.BOOLEAN, false)
               // Rejoin the user-edited stem with the original extension and sanitize.
               val editedStem = ensureValidFileName(
-                (values[ConfigKeys.NAME.label] as? String) ?: fileStem
+                (values[ConfigKeys.NAME.id] as? String) ?: fileStem
               )
               val editedName = editedStem + fileExtension
               val importedModel: ImportedModel =
@@ -430,18 +430,18 @@ fun EditImportedModelDialog(
   // Pre-populate from existing proto values
   val initialValues: Map<String, Any> = remember {
     mutableMapOf<String, Any>().apply {
-      for (config in editConfigs) put(config.key.label, config.defaultValue)
+      for (config in editConfigs) put(config.key.id, config.defaultValue)
       existingModel.llmConfig?.let { cfg ->
         // NumberSliderConfig stores values as Float — cast Int proto fields accordingly
-        put(ConfigKeys.DEFAULT_MAX_TOKENS.label, cfg.defaultMaxTokens.toFloat())
-        put(ConfigKeys.DEFAULT_TOPK.label, cfg.defaultTopk.toFloat())
-        put(ConfigKeys.DEFAULT_TOPP.label, cfg.defaultTopp)
-        put(ConfigKeys.DEFAULT_TEMPERATURE.label, cfg.defaultTemperature)
-        put(ConfigKeys.SUPPORT_IMAGE.label, cfg.supportImage)
-        put(ConfigKeys.SUPPORT_AUDIO.label, cfg.supportAudio)
-        put(ConfigKeys.SUPPORT_THINKING.label, cfg.supportThinking)
+        put(ConfigKeys.DEFAULT_MAX_TOKENS.id, cfg.defaultMaxTokens.toFloat())
+        put(ConfigKeys.DEFAULT_TOPK.id, cfg.defaultTopk.toFloat())
+        put(ConfigKeys.DEFAULT_TOPP.id, cfg.defaultTopp)
+        put(ConfigKeys.DEFAULT_TEMPERATURE.id, cfg.defaultTemperature)
+        put(ConfigKeys.SUPPORT_IMAGE.id, cfg.supportImage)
+        put(ConfigKeys.SUPPORT_AUDIO.id, cfg.supportAudio)
+        put(ConfigKeys.SUPPORT_THINKING.id, cfg.supportThinking)
         if (cfg.compatibleAcceleratorsList.isNotEmpty()) {
-          put(ConfigKeys.COMPATIBLE_ACCELERATORS.label, cfg.compatibleAcceleratorsList.joinToString(","))
+          put(ConfigKeys.COMPATIBLE_ACCELERATORS.id, cfg.compatibleAcceleratorsList.joinToString(","))
         }
       }
     }

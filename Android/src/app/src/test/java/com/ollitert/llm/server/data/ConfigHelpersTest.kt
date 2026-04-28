@@ -24,7 +24,7 @@ import org.junit.Test
 
 class ConfigHelpersTest {
 
-  private val key = ConfigKeys.MAX_TOKENS.label
+  private val key = ConfigKeys.MAX_TOKENS.id
 
   // ── maxTokensInt ────────────────────────────────────────────────────────
 
@@ -79,13 +79,13 @@ class ConfigHelpersTest {
 
   @Test
   fun configTemperatureFromFloat() {
-    val map = mapOf(ConfigKeys.TEMPERATURE.label to 0.7f)
+    val map = mapOf(ConfigKeys.TEMPERATURE.id to 0.7f)
     assertEquals(0.7f, map.configTemperature())
   }
 
   @Test
   fun configTemperatureFromDouble() {
-    val map = mapOf(ConfigKeys.TEMPERATURE.label to 0.7)
+    val map = mapOf(ConfigKeys.TEMPERATURE.id to 0.7)
     assertEquals(0.7f, map.configTemperature() ?: Float.NaN, 0.001f)
   }
 
@@ -98,7 +98,7 @@ class ConfigHelpersTest {
 
   @Test
   fun configTopKFromInt() {
-    val map = mapOf(ConfigKeys.TOPK.label to 40)
+    val map = mapOf(ConfigKeys.TOPK.id to 40)
     assertEquals(40, map.configTopK())
   }
 
@@ -111,7 +111,7 @@ class ConfigHelpersTest {
 
   @Test
   fun configTopPFromFloat() {
-    val map = mapOf(ConfigKeys.TOPP.label to 0.95f)
+    val map = mapOf(ConfigKeys.TOPP.id to 0.95f)
     assertEquals(0.95f, map.configTopP())
   }
 
@@ -124,13 +124,13 @@ class ConfigHelpersTest {
 
   @Test
   fun configThinkingEnabledTrue() {
-    val map = mapOf(ConfigKeys.ENABLE_THINKING.label to true)
+    val map = mapOf(ConfigKeys.ENABLE_THINKING.id to true)
     assertEquals(true, map.configThinkingEnabled())
   }
 
   @Test
   fun configThinkingEnabledFalse() {
-    val map = mapOf(ConfigKeys.ENABLE_THINKING.label to false)
+    val map = mapOf(ConfigKeys.ENABLE_THINKING.id to false)
     assertEquals(false, map.configThinkingEnabled())
   }
 
@@ -141,7 +141,7 @@ class ConfigHelpersTest {
 
   @Test
   fun configThinkingEnabledNonBooleanReturnsNull() {
-    val map = mapOf(ConfigKeys.ENABLE_THINKING.label to "yes")
+    val map = mapOf(ConfigKeys.ENABLE_THINKING.id to "yes")
     assertNull(map.configThinkingEnabled())
   }
 
@@ -153,7 +153,7 @@ class ConfigHelpersTest {
       name = "test",
       capabilities = setOf(ModelCapability.THINKING),
     ).apply {
-      configValues = mapOf(ConfigKeys.ENABLE_THINKING.label to true)
+      configValues = mapOf(ConfigKeys.ENABLE_THINKING.id to true)
     }
     assertTrue(model.isThinkingEnabled)
   }
@@ -173,7 +173,7 @@ class ConfigHelpersTest {
       name = "test",
       capabilities = setOf(ModelCapability.THINKING),
     ).apply {
-      configValues = mapOf(ConfigKeys.ENABLE_THINKING.label to false)
+      configValues = mapOf(ConfigKeys.ENABLE_THINKING.id to false)
     }
     assertFalse(model.isThinkingEnabled)
   }
@@ -181,7 +181,7 @@ class ConfigHelpersTest {
   @Test
   fun isThinkingEnabledFalseWhenNotCapable() {
     val model = Model(name = "test").apply {
-      configValues = mapOf(ConfigKeys.ENABLE_THINKING.label to true)
+      configValues = mapOf(ConfigKeys.ENABLE_THINKING.id to true)
     }
     assertFalse(model.isThinkingEnabled)
   }

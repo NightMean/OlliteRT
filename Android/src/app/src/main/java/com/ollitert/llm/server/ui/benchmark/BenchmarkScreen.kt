@@ -149,7 +149,7 @@ fun BenchmarkScreen(
     remember(configs) {
       mutableStateMapOf<String, Any>().apply {
         for (config in configs) {
-          put(config.key.label, config.defaultValue)
+          put(config.key.id, config.defaultValue)
         }
       }
     }
@@ -360,11 +360,11 @@ fun BenchmarkScreen(
 }
 
 private fun getStringConfigValue(values: Map<String, Any>, key: ConfigKey): String {
-  return convertValueToTargetType(value = values.get(key.label) ?: "", valueType = ValueType.STRING)
+  return convertValueToTargetType(value = values.get(key.id) ?: "", valueType = ValueType.STRING)
     as? String ?: ""
 }
 
 private fun getIntConfigValue(values: Map<String, Any>, key: ConfigKey): Int {
-  return convertValueToTargetType(value = values.get(key.label) ?: 0, valueType = ValueType.INT)
+  return convertValueToTargetType(value = values.get(key.id) ?: 0, valueType = ValueType.INT)
     as? Int ?: 0
 }
