@@ -83,7 +83,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | File | Responsibility |
 |:-----|:---------------|
 | `ServerService.kt` | Service lifecycle — start, stop, model loading, intent handling |
-| `KtorServer.kt` | Ktor CIO HTTP server — routing, CORS plugin, auth plugin, response dispatch |
+| `KtorServer.kt` | Ktor CIO HTTP server — routing, CORS plugin, bearer auth, response dispatch |
 | `KtorRequestAdapter.kt` | Adapts Ktor `ApplicationCall` to the internal request model |
 | `KtorSseWriter.kt` | SSE streaming writer — wraps Ktor's `Writer` from `respondTextWriter` |
 | `SseWriter.kt` | SSE writer interface — abstracts streaming output for testability |
@@ -94,8 +94,10 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `InferenceGateway.kt` | Request validation and inference orchestration |
 | `PayloadBuilders.kt` | JSON response construction (health, models, server info) |
 | `ResponseRenderer.kt` | Renders LLM responses to JSON with capabilities metadata |
+| `FinishReason.kt` | Infers finish reason (`stop`, `length`, `tool_calls`) from token counts |
 | `ApiModels.kt` | Kotlin data classes for OpenAI API request/response format |
 | `AudioTranscriptionHandler.kt` | Audio transcription endpoint (`/v1/audio/transcriptions`) |
+| `TranscriptionFormatter.kt` | Formats transcription output (json, text, verbose_json) |
 | `AudioPreprocessor.kt` | Audio format detection and stereo-to-mono downmix |
 | `ToolCallParser.kt` | Post-inference [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection — 5 single-call patterns (`tool_call` wrapper, `<tool_call>` XML, native Gemma `<\|tool_call>`, `function` wrapper, bare `name`+`arguments` JSON) and 3 multi-call patterns (multiple XML blocks, multiple Gemma blocks, JSON array) |
 | `PromptBuilder.kt` | Prompt building, tool schema injection, image/audio extraction, tool_choice resolution |
@@ -194,15 +196,15 @@ Requests are processed one at a time. The inference lock serializes all model in
 Client HTTP request
   → Ktor CIO (KtorServer)
     → CORS plugin (automatic preflight + headers)
-    → Auth plugin (bearer token validation)
+    → Bearer auth (constant-time token validation)
     → Route resolution (KtorServer routing DSL)
     → Request adaptation (KtorRequestAdapter → internal request model)
-    → Endpoint orchestration (LlmHttpEndpointHandlers)
-      → Request adaptation (LlmHttpRequestAdapter — prompt building, tool schema, image/audio)
-      → Prompt compaction (LlmHttpPromptCompactor — history truncation, context fitting)
-      → Inference (LlmHttpInferenceRunner → LlmHttpInferenceGateway → ServerLlmModelHelper → LiteRT Engine)
-      → Tool call detection (LlmHttpToolCallParser)
-      → Response building (LlmHttpPayloadBuilders)
+    → Endpoint orchestration (EndpointHandlers)
+      → Prompt building (PromptBuilder — tool schema injection, image/audio extraction)
+      → Prompt compaction (PromptCompactor — history truncation, context fitting)
+      → Inference (InferenceRunner → InferenceGateway → ServerLlmModelHelper → LiteRT Engine)
+      → Tool call detection (ToolCallParser)
+      → Response building (PayloadBuilders / ResponseRenderer)
     → HTTP response to client (JSON, SSE stream, or binary)
 ```
 ## Dependencies
@@ -210,7 +212,7 @@ Client HTTP request
 | Library | Purpose |
 |:--------|:--------|
 | **[LiteRT LM](https://github.com/google-ai-edge/LiteRT-LM)** | On-device LLM inference runtime |
-| **[Ktor CIO](https://ktor.io/)** | Coroutine-based HTTP server (CORS, auth, content negotiation, status pages plugins) |
+| **[Ktor CIO](https://ktor.io/)** | Coroutine-based HTTP server (CORS, content negotiation, status pages plugins) |
 | **[Hilt](https://dagger.dev/hilt/)** | Dependency injection |
 | **[Jetpack Compose](https://developer.android.com/compose)** | UI framework (Material 3) |
 | **[Room](https://developer.android.com/training/data-storage/room)** | SQLite database for request log persistence |
@@ -220,7 +222,6 @@ Client HTTP request
 | **[Coil](https://coil-kt.github.io/coil/)** | Async image loading (model source icons) |
 | **[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)** | JSON serialization for API models |
 | **[AppAuth](https://github.com/openid/AppAuth-Android)** | OAuth 2.0 flow for HuggingFace sign-in |
-| **[Commonmark](https://github.com/commonmark/commonmark-java)** | Markdown parsing for rich text rendering |
-| **[Compose Rich Text](https://github.com/nicehash/compose-richtext)** | Rich text rendering in Compose |
+| **[Multiplatform Markdown Renderer](https://github.com/mikepenz/multiplatform-markdown-renderer)** | Markdown rendering in Compose (Material 3) |
 | **[Splash Screen](https://developer.android.com/develop/ui/views/launch/splash-screen)** | Android 12+ splash screen API |
 | **[OSS Licenses](https://developers.google.com/android/guides/opensource)** | Open source license display |
