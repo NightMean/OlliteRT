@@ -114,7 +114,7 @@ private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_para
 
 private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
 private const val KEY_STT_TRANSCRIPTION_PROMPT = "stt_transcription_prompt"
-private const val DEFAULT_STT_TRANSCRIPTION_PROMPT = false
+private const val DEFAULT_STT_TRANSCRIPTION_PROMPT = true
 private const val KEY_STT_TRANSCRIPTION_PROMPT_TEXT = "stt_transcription_prompt_text"
 internal const val DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT =
   "Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else."
@@ -779,13 +779,13 @@ data class RequestPrefsSnapshot(
   val compactToolSchemas: Boolean = false,
   val ignoreClientSamplerParams: Boolean = false,
   val eagerVisionInit: Boolean = false,
-  val streamLogsPreview: Boolean = false,
+  val streamLogsPreview: Boolean = true,
   val keepPartialResponse: Boolean = false,
-  val compactImageData: Boolean = false,
+  val compactImageData: Boolean = true,
   val resolveClientHostnames: Boolean = false,
   val hideHealthLogs: Boolean = false,
   val verboseDebug: Boolean = false,
-  val sttTranscriptionPromptEnabled: Boolean = false,
+  val sttTranscriptionPromptEnabled: Boolean = true,
   val sttTranscriptionPromptText: String = "",
 )
 

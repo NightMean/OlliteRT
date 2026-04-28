@@ -18,25 +18,26 @@ package com.ollitert.llm.server.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RequestPrefsSnapshotTest {
 
   @Test
-  fun defaultSnapshotHasAllFieldsFalseOrEmpty() {
+  fun defaultSnapshotMatchesServerPrefsDefaults() {
     val snapshot = RequestPrefsSnapshot()
     assertFalse(snapshot.autoTruncateHistory)
     assertFalse(snapshot.autoTrimPrompts)
     assertFalse(snapshot.compactToolSchemas)
     assertFalse(snapshot.ignoreClientSamplerParams)
     assertFalse(snapshot.eagerVisionInit)
-    assertFalse(snapshot.streamLogsPreview)
+    assertTrue(snapshot.streamLogsPreview)
     assertFalse(snapshot.keepPartialResponse)
-    assertFalse(snapshot.compactImageData)
+    assertTrue(snapshot.compactImageData)
     assertFalse(snapshot.resolveClientHostnames)
     assertFalse(snapshot.hideHealthLogs)
     assertFalse(snapshot.verboseDebug)
-    assertFalse(snapshot.sttTranscriptionPromptEnabled)
+    assertTrue(snapshot.sttTranscriptionPromptEnabled)
     assertEquals("", snapshot.sttTranscriptionPromptText)
   }
 
