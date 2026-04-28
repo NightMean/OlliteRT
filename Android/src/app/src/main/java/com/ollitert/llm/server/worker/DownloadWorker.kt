@@ -209,6 +209,13 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte",
                   )
 
+                  // Validate that the server resumed from where we left off
+                  if (startByte != outputFileBytes) {
+                    Log.w(TAG, "Content-Range start ($startByte) != local file size ($outputFileBytes) — restarting from scratch")
+                    outputTmpFile.delete()
+                    throw IOException("Resume mismatch: server offset $startByte != local $outputFileBytes")
+                  }
+
                   downloadedBytes += startByte
                 } else {
                   Log.d(TAG, "Download starts from beginning.")
@@ -255,7 +262,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                   )
                   setForeground(
                     createForegroundInfo(
-                      progress = (downloadedBytes * 100 / totalBytes).toInt(),
+                      progress = if (totalBytes > 0) (downloadedBytes * 100 / totalBytes).toInt() else 0,
                       modelName = modelName,
                     )
                   )
@@ -391,6 +398,14 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
           Result.failure(
             Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage).build()
+          )
+        } catch (e: Exception) {
+          Log.e(TAG, "Unexpected error during download: ${e.message}", e)
+          Result.failure(
+            Data.Builder().putString(
+              KEY_MODEL_DOWNLOAD_ERROR_MESSAGE,
+              applicationContext.getString(R.string.download_error_network)
+            ).build()
           )
         }
       }
