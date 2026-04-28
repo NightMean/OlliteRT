@@ -17,6 +17,10 @@
 package com.ollitert.llm.server.service
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -88,6 +92,17 @@ class ResponseRendererTest {
   fun rendersJsonErrorWithoutSuggestionOmitsField() {
     val result = ResponseRenderer.renderJsonError("generic error")
     assertTrue(!result.contains("\"suggestion\""))
+  }
+
+  @Test
+  fun rendersJsonErrorStructurallyValid() {
+    val result = ResponseRenderer.renderJsonError("test error", suggestion = "try again", kind = ErrorKind.OOM)
+    val parsed = Json.parseToJsonElement(result).jsonObject
+    val error = parsed["error"]!!.jsonObject
+    assertEquals("test error", error["message"]!!.jsonPrimitive.content)
+    assertEquals("server_error", error["type"]!!.jsonPrimitive.content)
+    assertEquals(JsonNull, error["param"])
+    assertEquals("try again", error["suggestion"]!!.jsonPrimitive.content)
   }
 
   @Test

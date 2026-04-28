@@ -37,6 +37,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
+// Manual construction (no Hilt test rules) — these are pure unit tests that mock the
+// companion-object service layer. Hilt DI adds no value since the only injected dep is Context.
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerViewModelTest {
 
@@ -106,6 +108,37 @@ class ServerViewModelTest {
     verify(exactly = 1) { ServerService.reload(mockContext, 8000, "gemma-4-12b", any()) }
     verify(exactly = 0) { ServerService.stop(any()) }
     verify(exactly = 0) { ServerService.start(any(), any(), any(), source = any()) }
+  }
+
+  // --- Failure Paths ---
+
+  @Test
+  fun startServerWhenServiceReturnsFalseStillDebounces() = runTest(testDispatcher) {
+    every { ServerService.start(any(), any(), any(), source = any()) } returns false
+    vm.startServer(port = 8000)
+    vm.startServer(port = 8000)
+    advanceUntilIdle()
+    verify(exactly = 1) { ServerService.start(any(), any(), any(), source = any()) }
+  }
+
+  @Test
+  fun startServerWhenServiceReturnsFalseDebounceExpiresNormally() = runTest(testDispatcher) {
+    every { ServerService.start(any(), any(), any(), source = any()) } returns false
+    vm.startServer(port = 8000)
+    advanceTimeBy(ACTION_IN_FLIGHT_DEBOUNCE_MS + 1)
+    every { ServerService.start(any(), any(), any(), source = any()) } returns true
+    vm.startServer(port = 8000)
+    advanceUntilIdle()
+    verify(exactly = 2) { ServerService.start(any(), any(), any(), source = any()) }
+  }
+
+  @Test
+  fun reloadServerWhenServiceReturnsFalseStillDebounces() = runTest(testDispatcher) {
+    every { ServerService.reload(any(), any(), any(), any()) } returns false
+    vm.reloadServer(port = 8080)
+    vm.reloadServer(port = 8080)
+    advanceUntilIdle()
+    verify(exactly = 1) { ServerService.reload(any(), any(), any(), any()) }
   }
 
   // --- Debounce Guard ---

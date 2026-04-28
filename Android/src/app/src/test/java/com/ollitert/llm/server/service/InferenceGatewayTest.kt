@@ -520,6 +520,7 @@ class InferenceGatewayTest {
     assertTrue("onInferenceFinished must be called on exception path", finishedCalled)
   }
 
+  // Uses 1s real-time wait — CountDownLatch.await() can't use virtual time (Java blocking primitive).
   @Test
   fun streamingOnInferenceFinishedCalledOnTimeout() {
     var finishedCalled = false

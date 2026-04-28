@@ -44,6 +44,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+// Manual construction (no Hilt test rules) — ServerPrefs/RequestLogStore are mocked objects,
+// and the ViewModel's only Android dep is Context. Hilt DI adds no value for these unit tests.
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
@@ -100,6 +102,7 @@ class SettingsViewModelTest {
     every { ServerService.resetKeepAliveTimer(any()) } returns Unit
 
     every { ServerPrefs.setBearerToken(any(), any()) } returns Unit
+    every { ServerPrefs.setKeepScreenOn(any(), any()) } returns Unit
     every { ServerPrefs.resetToDefaults(any()) } returns Unit
     every { ServerPrefs.dumpToLogcat(any()) } returns Unit
 
@@ -165,6 +168,27 @@ class SettingsViewModelTest {
   fun bearerTokenDisabledMeansEffectiveEmpty() {
     vm.bearerEnabledEntry.update(false)
     vm.bearerTokenEntry.update("secret")
+    assertFalse(vm.hasUnsavedChanges)
+  }
+
+  @Test
+  fun bearerEnabledWithBlankTokenPersistsBlankToken() {
+    vm.bearerEnabledEntry.update(true)
+    vm.bearerTokenEntry.update("   ")
+    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
+    vm.save(ServerStatus.STOPPED)
+    // When enabled with blank token, effectiveBearerToken is the blank string itself,
+    // which the server treats as "auth disabled" (isBlank() check in requireAuth).
+    verify(exactly = 1) { ServerPrefs.setBearerToken(mockContext, "   ") }
+  }
+
+  @Test
+  fun bearerEnabledWithEmptyTokenShowsNoUnsavedChanges() {
+    // Starting state: bearer disabled (token was empty), so bearerEnabledEntry.saved = false
+    // Enabling the toggle with an empty token shouldn't count as a meaningful change
+    // because effectiveBearerToken = "" (same as saved)
+    vm.bearerEnabledEntry.update(true)
+    vm.bearerTokenEntry.update("")
     assertFalse(vm.hasUnsavedChanges)
   }
 
@@ -274,6 +298,23 @@ class SettingsViewModelTest {
     every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     vm.save(ServerStatus.STOPPED)
     verify(exactly = 1) { mockPersistence.updateMaxEntries() }
+  }
+
+  @Test
+  fun savePersistsToggleValueToSharedPreferences() {
+    vm.keepScreenOnEntry.update(false)
+    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
+    vm.save(ServerStatus.STOPPED)
+    verify(exactly = 1) { ServerPrefs.setKeepScreenOn(mockContext, false) }
+  }
+
+  @Test
+  fun savePersistsBearerTokenToSharedPreferences() {
+    vm.bearerEnabledEntry.update(true)
+    vm.bearerTokenEntry.update("my-secret")
+    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
+    vm.save(ServerStatus.STOPPED)
+    verify(exactly = 1) { ServerPrefs.setBearerToken(mockContext, "my-secret") }
   }
 
   // --- trySave Trim Warning ---
