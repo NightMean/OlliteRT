@@ -72,9 +72,9 @@ class InferenceRunner(
    * Re-initialize the model if needed (null instance or missing vision support).
    * Must be called inside synchronized(inferenceLock). Returns an error message on failure, or null on success.
    *
-   * Protects against per-request config overrides poisoning EngineConfig.maxNumTokens:
-   * saves the overridden configValues, restores the persisted base config for initialize(),
-   * then puts the override back so resetConversation() picks up per-request sampler values.
+   * Passes the persisted base config directly to initialize() via configOverrides,
+   * avoiding the previous pattern of temporarily swapping model.configValues which
+   * was visible to unsynchronized readers on Ktor threads.
    */
   private fun reinitIfNeeded(
     model: Model,
@@ -89,11 +89,7 @@ class InferenceRunner(
       Log.i(TAG, "Re-initializing model for vision/audio support")
       ServerLlmModelHelper.safeCleanup(model)
     }
-    val overriddenConfig = model.configValues
-    val savedConfig = ServerPrefs.getInferenceConfig(context, model.prefsKey)
-    if (savedConfig != null) {
-      model.configValues = savedConfig.toMap()
-    }
+    val initConfig = ServerPrefs.getInferenceConfig(context, model.prefsKey)
     var err = ""
     ServerLlmModelHelper.initialize(
       context = context,
@@ -102,8 +98,8 @@ class InferenceRunner(
       supportAudio = supportAudio,
       onDone = { err = it },
       systemInstruction = buildSystemInstruction(model.prefsKey),
+      configOverrides = initConfig,
     )
-    model.configValues = overriddenConfig
     if (err.isNotEmpty()) {
       model.instance = null
       return err

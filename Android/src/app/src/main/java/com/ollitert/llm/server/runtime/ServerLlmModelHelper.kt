@@ -76,17 +76,26 @@ object ServerLlmModelHelper {
     tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     coroutineScope: CoroutineScope? = null,
+    configOverrides: Map<String, Any>? = null,
   ) {
-    val maxTokens =
-      model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
-    val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
-    val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
-    val temperature =
-      model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
-    val accelerator =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    val visionAccelerator =
-      model.getStringConfigValue(
+    val maxTokens = configOverrides?.let {
+      (it[ConfigKeys.MAX_TOKENS.label] as? Number)?.toInt() ?: DEFAULT_MAX_TOKEN
+    } ?: model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
+    val topK = configOverrides?.let {
+      (it[ConfigKeys.TOPK.label] as? Number)?.toInt() ?: DEFAULT_TOPK
+    } ?: model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
+    val topP = configOverrides?.let {
+      (it[ConfigKeys.TOPP.label] as? Number)?.toFloat() ?: DEFAULT_TOPP
+    } ?: model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
+    val temperature = configOverrides?.let {
+      (it[ConfigKeys.TEMPERATURE.label] as? Number)?.toFloat() ?: DEFAULT_TEMPERATURE
+    } ?: model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
+    val accelerator = configOverrides?.let {
+      (it[ConfigKeys.ACCELERATOR.label] as? String) ?: Accelerator.GPU.label
+    } ?: model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+    val visionAccelerator = configOverrides?.let {
+      (it[ConfigKeys.VISION_ACCELERATOR.label] as? String) ?: DEFAULT_VISION_ACCELERATOR.label
+    } ?: model.getStringConfigValue(
         key = ConfigKeys.VISION_ACCELERATOR,
         defaultValue = DEFAULT_VISION_ACCELERATOR.label,
       )
