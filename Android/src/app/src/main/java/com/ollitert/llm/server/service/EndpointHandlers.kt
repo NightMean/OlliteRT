@@ -493,10 +493,10 @@ internal fun resolveSamplerOverrides(
   logId: String?,
 ): SamplerOverrideResult {
   val ignore = prefs.ignoreClientSamplerParams
-  val effectiveTemp = if (ignore) null else temperature
-  val effectiveTopP = if (ignore) null else topP
-  val effectiveTopK = if (ignore) null else topK
-  val effectiveMaxTokens = if (ignore) null else maxTokens
+  val effectiveTemp = temperature.takeUnless { ignore }
+  val effectiveTopP = topP.takeUnless { ignore }
+  val effectiveTopK = topK.takeUnless { ignore }
+  val effectiveMaxTokens = maxTokens.takeUnless { ignore }
   if (ignore && logId != null) {
     val ignored = describeClientSamplerParams(temperature, topP, topK, maxTokens)
     if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }

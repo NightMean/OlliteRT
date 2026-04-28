@@ -256,21 +256,19 @@ class UpdateCheckWorker @AssistedInject constructor(
    * Releases are returned by GitHub in reverse chronological order.
    */
   private fun findBestRelease(releasesJson: String, tagPattern: Regex): ReleaseInfo? {
-    val releases = Json.parseToJsonElement(releasesJson).jsonArray
-    for (element in releases) {
-      val release = element.jsonObject
-      if (release["draft"]?.jsonPrimitive?.booleanOrNull == true) continue
-      val tag = release["tag_name"]?.jsonPrimitive?.content ?: ""
-      val url = release["html_url"]?.jsonPrimitive?.content ?: ""
-      if (tag.isNotBlank() && url.isNotBlank() && tagPattern.matches(tag)) {
-        return ReleaseInfo(
-          tagName = tag,
-          htmlUrl = url,
+    return Json.parseToJsonElement(releasesJson).jsonArray
+      .map { it.jsonObject }
+      .firstOrNull { release ->
+        release["draft"]?.jsonPrimitive?.booleanOrNull != true &&
+          (release["tag_name"]?.jsonPrimitive?.content ?: "").let { it.isNotBlank() && tagPattern.matches(it) } &&
+          (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
+      }?.let { release ->
+        ReleaseInfo(
+          tagName = release["tag_name"]!!.jsonPrimitive.content,
+          htmlUrl = release["html_url"]!!.jsonPrimitive.content,
           etag = null,
         )
       }
-    }
-    return null
   }
 
   private fun parseRelease(json: String, etag: String?): ReleaseInfo? {

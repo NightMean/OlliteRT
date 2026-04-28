@@ -51,12 +51,7 @@ object ModelFactory {
    */
   fun buildImportedModel(info: ImportedModel): Model {
     val accelerators = info.llmConfig.compatibleAcceleratorsList.mapNotNull { label ->
-      when (label.trim()) {
-        Accelerator.GPU.label -> Accelerator.GPU
-        Accelerator.CPU.label -> Accelerator.CPU
-        Accelerator.NPU.label -> Accelerator.NPU
-        else -> null
-      }
+      Accelerator.entries.firstOrNull { it.label == label.trim() }
     }.toMutableList()
 
     // Use the user-configured max tokens as both the default and the context window upper bound,
@@ -147,11 +142,10 @@ object ModelFactory {
     }
   }
 
-  private fun withImportOverride(base: Model, importedFile: File): Model {
-    return if (importedFile.exists()) {
+  private fun withImportOverride(base: Model, importedFile: File): Model =
+    if (importedFile.exists()) {
       base.copy(localModelFilePathOverride = importedFile.absolutePath)
     } else {
       base
     }
-  }
 }

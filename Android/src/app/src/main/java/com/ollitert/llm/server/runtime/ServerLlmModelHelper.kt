@@ -312,10 +312,7 @@ object ServerLlmModelHelper {
       Log.e(TAG, "Failed to close the engine: ${e.message}")
     }
 
-    val onCleanUp = cleanUpListeners.remove(model.name)
-    if (onCleanUp != null) {
-      onCleanUp()
-    }
+    cleanUpListeners.remove(model.name)?.invoke()
     model.instance = null
 
     onDone()
@@ -351,9 +348,7 @@ object ServerLlmModelHelper {
       return
     }
 
-    if (!cleanUpListeners.containsKey(model.name)) {
-      cleanUpListeners[model.name] = cleanUpListener
-    }
+    cleanUpListeners.putIfAbsent(model.name, cleanUpListener)
 
     val conversation = instance.conversation
 
