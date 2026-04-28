@@ -36,8 +36,10 @@ class UnsupportedParamValidationTest {
   }
 
   @Test
-  fun `n equal to 0 is valid`() {
-    assertNull(validateNParam(0))
+  fun `n equal to 0 returns error`() {
+    val error = validateNParam(0)!!
+    assertEquals("n", error.first)
+    assertTrue(error.second.contains("must be >= 1"))
   }
 
   @Test
