@@ -423,7 +423,7 @@ object ServerPrefs {
   fun setUpdateCheckEnabled(context: Context, enabled: Boolean) = set(context, UPDATE_CHECK_ENABLED, enabled)
 
   fun getUpdateCheckIntervalHours(context: Context): Int = get(context, UPDATE_CHECK_INTERVAL_HOURS)
-  fun setUpdateCheckIntervalHours(context: Context, hours: Int) = set(context, UPDATE_CHECK_INTERVAL_HOURS, hours)
+  fun setUpdateCheckIntervalHours(context: Context, hours: Int) = set(context, UPDATE_CHECK_INTERVAL_HOURS, hours.coerceIn(1, 720))
 
   fun getLastDismissedUpdateVersion(context: Context): String? =
     prefs(context).getString(KEY_LAST_DISMISSED_UPDATE_VERSION, null)
@@ -636,11 +636,15 @@ object ServerPrefs {
   }
 
   private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN)
+  private val SENSITIVE_PREFIXES = listOf(KEY_PREFIX_SYSTEM_PROMPT, KEY_PREFIX_INFERENCE_CONFIG)
+
+  private fun isSensitiveKey(key: String): Boolean =
+    key in SENSITIVE_KEYS || SENSITIVE_PREFIXES.any { key.startsWith(it) }
 
   fun dumpToLogcat(context: Context) {
     Log.i(TAG, "=== Active Settings Snapshot ===")
     for ((key, value) in prefs(context).all.toSortedMap()) {
-      val display = if (key in SENSITIVE_KEYS) {
+      val display = if (isSensitiveKey(key)) {
         if (value.toString().isBlank()) "not set" else "configured (redacted)"
       } else {
         value.toString()
