@@ -32,7 +32,12 @@ import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Manages the LLM model keep-alive lifecycle: idle timeout, auto-unload, auto-reload,
@@ -63,17 +68,23 @@ class ModelLifecycle(
   /** Cache of Model objects built from the allowlist, keyed by name. */
   val modelCache: MutableMap<String, Model> = java.util.concurrent.ConcurrentHashMap()
 
+  /**
+   * Atomically paired name + prefs key of the model that was unloaded due to idle timeout.
+   * Using AtomicReference ensures resolveModelContext() never sees an inconsistent pair
+   * (e.g. new name with old prefsKey) without requiring a lock on the read path.
+   */
+  private val keepAliveUnloadedRef = AtomicReference<Pair<String?, String?>>(null to null)
+
   /** Name of the model that was unloaded due to idle timeout, for auto-reload. */
-  @Volatile var keepAliveUnloadedModelName: String? = null
-    private set
+  val keepAliveUnloadedModelName: String?
+    get() = keepAliveUnloadedRef.get().first
 
   /** Stable prefs key for the idle-unloaded model (used by REST config endpoints). */
-  @Volatile var keepAliveUnloadedModelPrefsKey: String? = null
-    private set
+  val keepAliveUnloadedModelPrefsKey: String?
+    get() = keepAliveUnloadedRef.get().second
 
   fun setKeepAliveUnloadedModel(name: String?, prefsKey: String?) {
-    keepAliveUnloadedModelName = name
-    keepAliveUnloadedModelPrefsKey = prefsKey
+    keepAliveUnloadedRef.set(name to prefsKey)
   }
 
   // True while a keep-alive reload is in progress. Concurrent requests check this to
@@ -102,40 +113,48 @@ class ModelLifecycle(
    */
   val keepAliveLock = Any()
 
+  /** Lifecycle-aware scope for background work (idle unload, cleanup). Cancelled on destroy. */
+  private val lifecycleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
   private val keepAliveRunnable = Runnable { onKeepAliveTimeout() }
 
-  /** Called when the keep-alive idle timer fires. */
+  /**
+   * Called when the keep-alive idle timer fires on the main thread.
+   * Posts the actual work (lock acquisition + native cleanup) to IO dispatcher to avoid
+   * blocking the main thread if the lock is held by a reload (10-60s → ANR risk).
+   */
   private fun onKeepAliveTimeout() {
-    // Capture the model and null the reference inside the lock (fast — no blocking I/O).
-    // This prevents selectModel() from returning a model that we're about to destroy.
-    // The actual native cleanup (Engine.close) runs OUTSIDE the lock to avoid blocking
-    // request threads for seconds while multi-GB native memory is freed.
-    data class UnloadInfo(val model: Model, val minutes: Int)
-    val info: UnloadInfo = synchronized(keepAliveLock) {
-      if (ServerMetrics.isInferring.value) {
-        keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_RECHECK_MS)
-        Log.i(TAG, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
-        return
+    lifecycleScope.launch {
+      // Capture the model and null the reference inside the lock (fast — no blocking I/O).
+      // This prevents selectModel() from returning a model that we're about to destroy.
+      // The actual native cleanup (Engine.close) runs OUTSIDE the lock to avoid blocking
+      // request threads for seconds while multi-GB native memory is freed.
+      data class UnloadInfo(val model: Model, val minutes: Int)
+      val info: UnloadInfo = synchronized(keepAliveLock) {
+        if (ServerMetrics.isInferring.value) {
+          keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_RECHECK_MS)
+          Log.i(TAG, "Keep-alive: model is inferring, will recheck in ${KEEP_ALIVE_RECHECK_MS / 1000}s")
+          return@launch
+        }
+        val model = defaultModel ?: return@launch
+        val mins = ServerPrefs.getKeepAliveMinutes(context)
+        Log.i(TAG, "Keep-alive: unloading model ${model.name} after ${mins}m idle")
+        keepAliveUnloadedRef.set(model.name to model.prefsKey)
+        // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
+        // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
+        defaultModel = null
+        ServerMetrics.onModelIdleUnloaded()
+        UnloadInfo(model, mins)
       }
-      val model = defaultModel ?: return
-      val mins = ServerPrefs.getKeepAliveMinutes(context)
-      Log.i(TAG, "Keep-alive: unloading model ${model.name} after ${mins}m idle")
-      keepAliveUnloadedModelName = model.name
-      keepAliveUnloadedModelPrefsKey = model.prefsKey
-      // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
-      // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
-      defaultModel = null
-      ServerMetrics.onModelIdleUnloaded()
-      UnloadInfo(model, mins)
+      // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
+      // selectModel() will see defaultModel==null and isIdleUnloaded==true, triggering a reload.
+      ServerLlmModelHelper.safeCleanup(info.model)
+      RequestLogStore.addEvent(
+        "Model unloaded: ${info.model.name} (after ${info.minutes}m idle, keep_alive)",
+        modelName = keepAliveUnloadedModelName,
+        category = EventCategory.MODEL,
+      )
     }
-    // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
-    // selectModel() will see defaultModel==null and isIdleUnloaded==true, triggering a reload.
-    ServerLlmModelHelper.safeCleanup(info.model)
-    RequestLogStore.addEvent(
-      "Model unloaded: ${info.model.name} (after ${info.minutes}m idle, keep_alive)",
-      modelName = keepAliveUnloadedModelName,
-      category = EventCategory.MODEL,
-    )
   }
 
   /** Cancel any pending keep-alive unload timer. */
@@ -187,6 +206,10 @@ class ModelLifecycle(
         // pickModelByName already restores persisted inference config via restoreInferenceConfig
         val model = pickModelByName(modelName) ?: run {
           Log.e(TAG, "Keep-alive: model '$modelName' not found during reload")
+          // Clear unloaded state to prevent infinite retry on every subsequent request
+          // (e.g. model file was deleted while idle-unloaded)
+          keepAliveUnloadedRef.set(null to null)
+          ServerMetrics.onModelReloadedFromIdle()
           return null
         }
 
@@ -211,13 +234,15 @@ class ModelLifecycle(
             modelName = modelName,
             category = EventCategory.MODEL,
           )
+          // Clear unloaded state to prevent infinite retry on every subsequent request
+          keepAliveUnloadedRef.set(null to null)
+          ServerMetrics.onModelReloadedFromIdle()
           return null
         }
         model.initializedWithVision = supportImage
         defaultModel = model
         modelCache[model.name] = model
-        keepAliveUnloadedModelName = null
-        keepAliveUnloadedModelPrefsKey = null
+        keepAliveUnloadedRef.set(null to null)
         val loadMs = SystemClock.elapsedRealtime() - loadStart
         ServerMetrics.recordModelLoadTime(loadMs)
         RequestLogStore.addEvent(
