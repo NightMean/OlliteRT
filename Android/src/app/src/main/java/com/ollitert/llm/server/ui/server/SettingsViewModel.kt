@@ -356,7 +356,12 @@ class SettingsViewModel @Inject constructor(
     }
   }
 
-  /** Collects all settings changes into one grouped log entry. */
+  /**
+   * Collects all settings changes into one grouped log entry.
+   *
+   * Log event text is intentionally English-only — these are diagnostic messages for the Logs tab,
+   * not user-facing UI strings. They must be stable and grep-able across locales.
+   */
   private fun logSettingsChanges(newPort: Int) {
     val changes = mutableListOf<String>()
 
