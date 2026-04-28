@@ -304,7 +304,7 @@ class UpdateCheckWorker @AssistedInject constructor(
       return when {
         code == 304 -> GitHubResponse.NotModified
         code in 200..299 -> {
-          val body = connection.inputStream.bufferedReader().readText()
+          val body = connection.inputStream.bufferedReader().use { it.readText() }
           val responseEtag = connection.getHeaderField("ETag")
           GitHubResponse.Success(body, responseEtag)
         }
