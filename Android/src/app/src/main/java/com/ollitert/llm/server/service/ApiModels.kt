@@ -99,6 +99,7 @@ data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHtt
 
 @Serializable data class ResponsesRequest(
   val model: String? = null,
+  @Serializable(with = InputListSerializer::class)
   val input: List<InputMsg>? = null,
   val messages: List<InputMsg>? = null,
   val stream: Boolean? = null,
@@ -112,6 +113,7 @@ data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHtt
 
 @Serializable data class InputMsg(
   val role: String,
+  @Serializable(with = InputContentListSerializer::class)
   val content: List<InputContent>,
 )
 
@@ -120,13 +122,23 @@ data class LlmHttpModelList(val `object`: String = "list", val data: List<LlmHtt
   val text: String,
 )
 
+/**
+ * Token usage for Responses API — uses `input_tokens`/`output_tokens` per spec,
+ * unlike Chat Completions API which uses `prompt_tokens`/`completion_tokens`.
+ */
+@Serializable data class ResponsesUsage(
+  val input_tokens: Int,
+  val output_tokens: Int,
+  val total_tokens: Int = input_tokens + output_tokens,
+)
+
 @Serializable data class ResponsesResponse(
   val id: String,
   val `object`: String = "response",
-  val created: Long,
+  @SerialName("created_at") val created: Long,
   val model: String,
   val output: List<RespOutputItem>,
-  val usage: Usage,
+  val usage: ResponsesUsage,
   val status: String = "completed",
 )
 
@@ -193,6 +205,68 @@ data class ChatContent(
   val text: String,
   val parts: List<ContentPart> = emptyList(),
 )
+
+/**
+ * Custom serializer for the Responses API `input` field which can be a plain string
+ * or an array of [InputMsg] objects. When a string is received, it is wrapped as a
+ * single user message: `[InputMsg(role = "user", content = [InputContent(type = "text", text = ...)])]`.
+ */
+object InputListSerializer : KSerializer<List<InputMsg>?> {
+  override val descriptor: SerialDescriptor = buildClassSerialDescriptor("InputList")
+
+  override fun deserialize(decoder: Decoder): List<InputMsg>? {
+    val jsonDecoder = decoder as JsonDecoder
+    return when (val element = jsonDecoder.decodeJsonElement()) {
+      is JsonNull -> null
+      is JsonPrimitive -> listOf(
+        InputMsg(role = "user", content = listOf(InputContent(type = "text", text = element.content)))
+      )
+      is JsonArray -> jsonDecoder.json.decodeFromJsonElement(
+        kotlinx.serialization.builtins.ListSerializer(InputMsg.serializer()), element
+      )
+      else -> null
+    }
+  }
+
+  override fun serialize(encoder: Encoder, value: List<InputMsg>?) {
+    val jsonEncoder = encoder as JsonEncoder
+    if (value == null) {
+      jsonEncoder.encodeJsonElement(JsonNull)
+    } else {
+      jsonEncoder.encodeSerializableValue(
+        kotlinx.serialization.builtins.ListSerializer(InputMsg.serializer()), value
+      )
+    }
+  }
+}
+
+/**
+ * Custom serializer for [InputMsg.content] which can be a plain string or an array
+ * of [InputContent] objects. When a string is received, it is wrapped as
+ * `[InputContent(type = "text", text = ...)]`.
+ */
+object InputContentListSerializer : KSerializer<List<InputContent>> {
+  override val descriptor: SerialDescriptor = buildClassSerialDescriptor("InputContentList")
+
+  override fun deserialize(decoder: Decoder): List<InputContent> {
+    val jsonDecoder = decoder as JsonDecoder
+    return when (val element = jsonDecoder.decodeJsonElement()) {
+      is JsonNull -> emptyList()
+      is JsonPrimitive -> listOf(InputContent(type = "text", text = element.content))
+      is JsonArray -> jsonDecoder.json.decodeFromJsonElement(
+        kotlinx.serialization.builtins.ListSerializer(InputContent.serializer()), element
+      )
+      else -> emptyList()
+    }
+  }
+
+  override fun serialize(encoder: Encoder, value: List<InputContent>) {
+    val jsonEncoder = encoder as JsonEncoder
+    jsonEncoder.encodeSerializableValue(
+      kotlinx.serialization.builtins.ListSerializer(InputContent.serializer()), value
+    )
+  }
+}
 
 /**
  * Custom serializer for ChatContent that handles both:

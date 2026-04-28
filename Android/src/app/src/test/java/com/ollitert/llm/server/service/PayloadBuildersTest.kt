@@ -290,14 +290,14 @@ class LlmHttpPayloadBuildersTest {
   fun responsesResponseWithTextEstimatesTokens() {
     // "Hello World!" = 12 chars → 3 tokens; promptLen=80 → 20 tokens
     val resp = PayloadBuilders.responsesResponseWithText("m", "Hello World!", promptLen = 80)
-    assertEquals(20, resp.usage.prompt_tokens)
-    assertEquals(3, resp.usage.completion_tokens)
+    assertEquals(20, resp.usage.input_tokens)
+    assertEquals(3, resp.usage.output_tokens)
   }
 
   @Test
   fun responsesResponseWithTextEmptyTextZeroTokens() {
     val resp = PayloadBuilders.responsesResponseWithText("m", "")
-    assertEquals(0, resp.usage.completion_tokens)
+    assertEquals(0, resp.usage.output_tokens)
   }
 
   // ── responsesResponseWithToolCalls() ──────────────────────────────────────
@@ -336,7 +336,7 @@ class LlmHttpPayloadBuildersTest {
       ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}")),
     )
     val resp = PayloadBuilders.responsesResponseWithToolCalls("m", toolCalls)
-    assertEquals(1, resp.usage.completion_tokens)
+    assertEquals(1, resp.usage.output_tokens)
   }
 
   @Test
@@ -345,7 +345,7 @@ class LlmHttpPayloadBuildersTest {
       ToolCall(id = "c1", function = ToolCallFunction(name = "fn", arguments = "{}")),
     )
     val resp = PayloadBuilders.responsesResponseWithToolCalls("m", toolCalls, promptLen = 40)
-    assertEquals(10, resp.usage.prompt_tokens)
+    assertEquals(10, resp.usage.input_tokens)
   }
 
   @Test

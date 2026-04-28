@@ -334,9 +334,9 @@ object PayloadBuilders {
   fun responsesResponseWithText(modelName: String, text: String, promptLen: Int = 0) = ResponsesResponse(
     id = BridgeUtils.generateResponseId(), created = BridgeUtils.epochSeconds(), model = modelName,
     output = listOf(RespMessage(content = listOf(RespContent(text = text)))),
-    usage = Usage(
-      prompt_tokens = estimateTokensByLength(promptLen),
-      completion_tokens = estimateTokens(text),
+    usage = ResponsesUsage(
+      input_tokens = estimateTokensByLength(promptLen),
+      output_tokens = estimateTokens(text),
     ),
   )
 
@@ -345,9 +345,9 @@ object PayloadBuilders {
     output = toolCalls.map { tc ->
       RespFunctionCall(call_id = tc.id, name = tc.function.name, arguments = tc.function.arguments)
     },
-    usage = Usage(
-      prompt_tokens = estimateTokensByLength(promptLen),
-      completion_tokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments }),
+    usage = ResponsesUsage(
+      input_tokens = estimateTokensByLength(promptLen),
+      output_tokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments }),
     ),
   )
 }
