@@ -670,7 +670,7 @@ private fun importModel(
     try {
       val inputStream = context.contentResolver.openInputStream(uri)
       if (inputStream == null) {
-        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.absolutePath}")
+        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.name}")
         onError(context.getString(R.string.error_import_failed))
         return@launch
       }
@@ -692,9 +692,9 @@ private fun importModel(
           }
         } }
     } catch (e: Exception) {
-      e.printStackTrace()
+      Log.e(TAG, "Import failed during file copy", e)
       // Clean up partial .tmp file on failure
-      if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.absolutePath}")
+      if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.name}")
       onError(e.message ?: context.getString(R.string.error_import_failed))
       return@launch
     }
@@ -702,15 +702,15 @@ private fun importModel(
     // Delete existing file first — renameTo won't overwrite on most Android filesystems,
     // and a previous import of the same model name may have left a file here.
     if (finalFile.exists()) {
-      if (!finalFile.delete()) Log.w(TAG, "Failed to delete existing file before rename: ${finalFile.absolutePath}")
+      if (!finalFile.delete()) Log.w(TAG, "Failed to delete existing file before rename: ${finalFile.name}")
     }
     if (!tmpFile.renameTo(finalFile)) {
       // renameTo can fail on some filesystems — fall back to copy + delete
       try {
         tmpFile.copyTo(finalFile, overwrite = true)
-        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file after copy: ${tmpFile.absolutePath}")
+        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file after copy: ${tmpFile.name}")
       } catch (e: Exception) {
-        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.absolutePath}")
+        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.name}")
         onError(context.getString(R.string.error_import_finalize_failed, e.message ?: ""))
         return@launch
       }
@@ -739,7 +739,7 @@ private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<L
         }
       }
   } catch (e: Exception) {
-    e.printStackTrace()
+    Log.e(TAG, "Failed to query file size/name from URI", e)
     return Pair(0L, "")
   }
 
