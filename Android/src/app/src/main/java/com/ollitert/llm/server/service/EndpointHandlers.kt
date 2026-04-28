@@ -96,11 +96,7 @@ class EndpointHandlers(
     ServerMetrics.onInferenceStarted()
     val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId, prefs = prefs)
     ServerMetrics.onInferenceCompleted()
-    if (text == null) {
-      val (enrichedError, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-      ServerMetrics.incrementErrorCount(kind.category)
-      return httpInternalError(enrichedError)
-    }
+    if (text == null) return handleBlockingInferenceError(llmError, logId)
     val promptTokens = estimateTokens(prompt)
     val completionTokens = estimateTokens(text)
     val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
@@ -468,14 +464,11 @@ class EndpointHandlers(
 
   // ── Per-request config helpers ───────────────────────────────────────────
 
-  /**
-   * Builds a human-readable summary of client-supplied sampler params that will be ignored.
-   * Returns null if the client didn't send any overrides.
-   */
 }
 
-/** Returns (paramName, errorMessage) if n > 1, null if valid. */
+/** Returns (paramName, errorMessage) if n is invalid, null if valid. */
 internal fun validateNParam(n: Int?): Pair<String, String>? {
+  if (n != null && n < 1) return "n" to "Invalid value for n: must be >= 1."
   if (n != null && n > 1) return "n" to "This server does not support parallel completions (n > 1). Omit the parameter or set n=1."
   return null
 }
