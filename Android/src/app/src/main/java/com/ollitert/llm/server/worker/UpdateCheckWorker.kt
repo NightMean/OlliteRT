@@ -263,11 +263,9 @@ class UpdateCheckWorker @AssistedInject constructor(
           (release["tag_name"]?.jsonPrimitive?.content ?: "").let { it.isNotBlank() && tagPattern.matches(it) } &&
           (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
       }?.let { release ->
-        ReleaseInfo(
-          tagName = release["tag_name"]!!.jsonPrimitive.content,
-          htmlUrl = release["html_url"]!!.jsonPrimitive.content,
-          etag = null,
-        )
+        val tag = release["tag_name"]?.jsonPrimitive?.content ?: return@let null
+        val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
+        ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
       }
   }
 
