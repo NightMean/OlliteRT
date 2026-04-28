@@ -609,6 +609,80 @@ class InferenceRunner(
 
     fun elapsedMs(): Long = SystemClock.elapsedRealtime() - streamStartMs
 
+    private fun checkStopSequence(stopSequences: List<String>?) {
+      if (stopSequences.isNullOrEmpty() || stopSequenceTriggered) return
+      val currentText = fullText.toString()
+      var earliest = currentText.length
+      for (stop in stopSequences) {
+        val idx = currentText.indexOf(stop)
+        if (idx in 0 until earliest) earliest = idx
+      }
+      if (earliest < currentText.length) {
+        fullText.clear()
+        fullText.append(currentText.substring(0, earliest))
+        stopSequenceTriggered = true
+        ServerLlmModelHelper.stopResponse(model)
+      }
+    }
+
+    private suspend fun emitThinkingContent(
+      thought: String?,
+      format: StreamingFormat,
+      writer: SseWriter,
+    ) {
+      if (thought.isNullOrEmpty()) return
+      fullThinking.append(thought)
+      if (!format.bufferAllTokens) {
+        val thinkText = if (!thinkingTagOpened) {
+          thinkingTagOpened = true
+          "<think>$thought"
+        } else {
+          thought
+        }
+        format.emitThinkingDelta(writer, thinkText)
+      }
+    }
+
+    private suspend fun emitContentToken(
+      partial: String,
+      format: StreamingFormat,
+      writer: SseWriter,
+    ) {
+      if (partial.isEmpty() || stopSequenceTriggered) return
+      fullText.append(partial)
+      checkStopSequence(format.stopSequences)
+      if (!format.bufferAllTokens && !stopSequenceTriggered) {
+        val text = if (thinkingTagOpened) {
+          thinkingTagOpened = false
+          "</think>$partial"
+        } else {
+          partial
+        }
+        format.emitContentDelta(writer, text)
+      }
+    }
+
+    private fun updateStreamPreview(streamPreview: Boolean) {
+      if (!streamPreview || logId == null) return
+      val nowMs = SystemClock.elapsedRealtime()
+      if (nowMs - lastLogUpdateMs < LOG_STREAMING_PREVIEW_DEBOUNCE_MS) return
+      lastLogUpdateMs = nowMs
+      val previewText = try {
+        buildString {
+          if (fullThinking.isNotEmpty()) {
+            append("<think>")
+            append(fullThinking)
+            if (!thinkingTagOpened) append("</think>")
+          }
+          append(fullText)
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Error building thinking preview: ${e.message}", e)
+        fullText.toString()
+      }
+      RequestLogStore.updatePartialText(logId, previewText)
+    }
+
     suspend fun handleToken(
       event: StreamEvent.Token,
       format: StreamingFormat,
@@ -619,128 +693,71 @@ class InferenceRunner(
       streamPreview: Boolean,
       channel: Channel<StreamEvent>,
     ) {
-      val partial = event.partial
-      val done = event.done
-      val thought = event.thought
-
-      if (firstTokenMs == 0L && (partial.isNotEmpty() || !thought.isNullOrEmpty())) {
+      if (firstTokenMs == 0L && (event.partial.isNotEmpty() || !event.thought.isNullOrEmpty())) {
         firstTokenMs = SystemClock.elapsedRealtime()
       }
-      if (!format.bufferAllTokens) {
-        if (!headerWritten) {
-          headerWritten = true
-          format.emitHeader(writer)
-        }
-        if (!thought.isNullOrEmpty()) {
-          fullThinking.append(thought)
-          val thinkText = if (!thinkingTagOpened) {
-            thinkingTagOpened = true
-            "<think>$thought"
-          } else {
-            thought
-          }
-          format.emitThinkingDelta(writer, thinkText)
-        }
-      } else {
-        if (!thought.isNullOrEmpty()) fullThinking.append(thought)
+      if (!format.bufferAllTokens && !headerWritten) {
+        headerWritten = true
+        format.emitHeader(writer)
       }
-      if (partial.isNotEmpty() && !stopSequenceTriggered) {
-        fullText.append(partial)
-        if (!format.stopSequences.isNullOrEmpty()) {
-          val currentText = fullText.toString()
-          var stopIdx = currentText.length
-          for (stop in format.stopSequences.orEmpty()) {
-            val idx = currentText.indexOf(stop)
-            if (idx in 0 until stopIdx) stopIdx = idx
-          }
-          if (stopIdx < currentText.length) {
-            fullText.clear()
-            fullText.append(currentText.substring(0, stopIdx))
-            stopSequenceTriggered = true
-            ServerLlmModelHelper.stopResponse(model)
-          }
-        }
-        if (!format.bufferAllTokens && !stopSequenceTriggered) {
-          val text = if (thinkingTagOpened) {
-            thinkingTagOpened = false
-            "</think>$partial"
-          } else {
-            partial
-          }
-          format.emitContentDelta(writer, text)
-        }
-      }
-      if (streamPreview && logId != null && !done) {
-        val nowMs = SystemClock.elapsedRealtime()
-        if (nowMs - lastLogUpdateMs >= LOG_STREAMING_PREVIEW_DEBOUNCE_MS) {
-          lastLogUpdateMs = nowMs
-          val previewText = try {
-            buildString {
-              if (fullThinking.isNotEmpty()) {
-                append("<think>")
-                append(fullThinking)
-                if (!thinkingTagOpened) append("</think>")
-              }
-              append(fullText)
-            }
-          } catch (e: Exception) {
-            Log.e(TAG, "Error building thinking preview: ${e.message}", e)
-            fullText.toString()
-          }
-          RequestLogStore.updatePartialText(logId, previewText)
-        }
-      }
-      if (done) {
-        if (logId != null) RequestLogStore.unregisterCancellation(logId)
-        val outputLen = fullText.length
-        val inputTokens = format.estimateInputTokens(prompt)
-        val outputTokens = estimateTokensLongByLength(outputLen)
-        val totalLatencyMs = elapsedMs()
-        val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
-        val maxCtx = model.configValues.maxTokensLong() ?: 0L
-        ServerMetrics.addTokens(outputTokens)
-        ServerMetrics.recordLatency(totalLatencyMs)
-        ServerMetrics.recordTtfb(ttfbMs)
-        if (firstTokenMs > 0) {
-          ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
-        }
-        emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name, prefs)
-        markCompleted()
-        val promptTokens = format.estimateInputTokensInt(prompt)
-        val completionTokens = estimateTokensByLength(outputLen)
+      emitThinkingContent(event.thought, format, writer)
+      emitContentToken(event.partial, format, writer)
 
-        if (!format.bufferAllTokens && thinkingTagOpened) {
-          thinkingTagOpened = false
-          format.emitThinkingClose(writer)
-        }
-
-        val effectiveMaxTokens = (configSnapshot ?: model.configValues).maxTokensInt()
-        val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens)
-
-        if (logId != null) {
-          val combinedText = buildCombinedText(fullText, fullThinking)
-          val responseJson = format.buildLogResponseJson(combinedText, prompt.length, promptTokens, completionTokens, ttfbMs, totalLatencyMs, parsedToolCalls)
-          val generationMs = totalLatencyMs - ttfbMs
-          val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
-          val reqPrefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
-          val reqItlMs = if (outputTokens > 1 && generationMs > 0) generationMs.toDouble() / (outputTokens - 1) else 0.0
-          RequestLogStore.update(logId) {
-            it.copy(
-              responseBody = responseJson,
-              partialText = null,
-              isPending = false,
-              latencyMs = totalLatencyMs,
-              isThinking = fullThinking.isNotEmpty(),
-              ttfbMs = ttfbMs,
-              decodeSpeed = reqDecodeSpeed,
-              prefillSpeed = reqPrefillSpeed,
-              itlMs = reqItlMs,
-            )
-          }
-        }
-        logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${format.buildLogEventSuffix(parsedToolCalls)}")
-        channel.close()
+      if (!event.done) {
+        updateStreamPreview(streamPreview)
+        return
       }
+
+      // ── Completion path ──
+      if (logId != null) RequestLogStore.unregisterCancellation(logId)
+      val outputLen = fullText.length
+      val inputTokens = format.estimateInputTokens(prompt)
+      val outputTokens = estimateTokensLongByLength(outputLen)
+      val totalLatencyMs = elapsedMs()
+      val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
+      val maxCtx = model.configValues.maxTokensLong() ?: 0L
+      ServerMetrics.addTokens(outputTokens)
+      ServerMetrics.recordLatency(totalLatencyMs)
+      ServerMetrics.recordTtfb(ttfbMs)
+      if (firstTokenMs > 0) {
+        ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
+      }
+      emitDebugInferenceLog(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, totalLatencyMs, model.name, prefs)
+      markCompleted()
+      val promptTokens = format.estimateInputTokensInt(prompt)
+      val completionTokens = estimateTokensByLength(outputLen)
+
+      if (!format.bufferAllTokens && thinkingTagOpened) {
+        thinkingTagOpened = false
+        format.emitThinkingClose(writer)
+      }
+
+      val effectiveMaxTokens = (configSnapshot ?: model.configValues).maxTokensInt()
+      val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens)
+
+      if (logId != null) {
+        val combinedText = buildCombinedText(fullText, fullThinking)
+        val responseJson = format.buildLogResponseJson(combinedText, prompt.length, promptTokens, completionTokens, ttfbMs, totalLatencyMs, parsedToolCalls)
+        val generationMs = totalLatencyMs - ttfbMs
+        val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
+        val reqPrefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
+        val reqItlMs = if (outputTokens > 1 && generationMs > 0) generationMs.toDouble() / (outputTokens - 1) else 0.0
+        RequestLogStore.update(logId) {
+          it.copy(
+            responseBody = responseJson,
+            partialText = null,
+            isPending = false,
+            latencyMs = totalLatencyMs,
+            isThinking = fullThinking.isNotEmpty(),
+            ttfbMs = ttfbMs,
+            decodeSpeed = reqDecodeSpeed,
+            prefillSpeed = reqPrefillSpeed,
+            itlMs = reqItlMs,
+          )
+        }
+      }
+      logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${format.buildLogEventSuffix(parsedToolCalls)}")
+      channel.close()
     }
 
     suspend fun handleError(
