@@ -59,8 +59,6 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import com.ollitert.llm.server.ui.common.MarkdownText
-import com.ollitert.llm.server.ui.common.highlightSearchMatches
-import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
@@ -126,22 +124,15 @@ fun ModelItem(
         modifier = Modifier.fillMaxWidth(),
       )
 
+      // Description — searchable but not highlighted (MarkdownText uses a third-party
+      // rich text renderer whose AST can't easily accept search highlight spans).
       if (!model.imported && model.info.isNotEmpty()) {
-        if (searchQuery.isNotBlank()) {
-          Text(
-            text = highlightSearchMatches(model.info, searchQuery, OlliteRTPrimary),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-          )
-        } else {
-          MarkdownText(
-            model.info,
-            smallFontSize = true,
-            textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-          )
-        }
+        MarkdownText(
+          model.info,
+          smallFontSize = true,
+          textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(top = 4.dp),
+        )
       }
 
       // Download / action panel (hidden for incompatible models)
