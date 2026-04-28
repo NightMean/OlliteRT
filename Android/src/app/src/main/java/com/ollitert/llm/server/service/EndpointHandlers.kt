@@ -85,10 +85,7 @@ class EndpointHandlers(
     val trimPromptsGen = prefs.autoTrimPrompts
     val maxContextGen = model.maxContextTokens
     val compactionResultGen = PromptCompactor.compactRawPrompt(req.prompt, maxContextGen, trimPromptsGen)
-    logCompactionResult(compactionResultGen, requestId, "/generate", logId, maxContext = null, logEvent) { details, compactedPrompt ->
-      val id = logId ?: return@logCompactionResult
-      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
-    }
+    logCompactionResult(compactionResultGen, requestId, "/generate", logId, maxContext = null, logEvent, compactionLogUpdater(logId))
     val prompt = compactionResultGen.prompt
     // Store context utilization data in the log entry for per-request display
     recordContextUtilization(logId, prompt, maxContextGen)
@@ -160,10 +157,7 @@ class EndpointHandlers(
       interleaveImagePlaceholders = hasImageParts,
     )
 
-    logCompactionResult(compactionResult, requestId, "/v1/chat/completions", logId, maxContext, logEvent) { details, compactedPrompt ->
-      val id = logId ?: return@logCompactionResult
-      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
-    }
+    logCompactionResult(compactionResult, requestId, "/v1/chat/completions", logId, maxContext, logEvent, compactionLogUpdater(logId))
 
     // Apply response_format JSON mode prompt injection
     var prompt = InferenceRunner.applyResponseFormat(compactionResult.prompt, req.response_format)
@@ -255,10 +249,7 @@ class EndpointHandlers(
     val trimPromptsCompl = prefs.autoTrimPrompts
     val maxContextCompl = model.maxContextTokens
     val compactionResultCompl = PromptCompactor.compactRawPrompt(req.prompt, maxContextCompl, trimPromptsCompl)
-    logCompactionResult(compactionResultCompl, requestId, "/v1/completions", logId, maxContextCompl, logEvent) { details, compactedPrompt ->
-      val id = logId ?: return@logCompactionResult
-      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
-    }
+    logCompactionResult(compactionResultCompl, requestId, "/v1/completions", logId, maxContextCompl, logEvent, compactionLogUpdater(logId))
     val prompt = compactionResultCompl.prompt
     // Store context utilization data in the log entry for per-request display
     recordContextUtilization(logId, prompt, maxContextCompl)
@@ -341,10 +332,7 @@ class EndpointHandlers(
       truncateHistory = truncateHistoryResp,
       trimPrompts = trimPromptsResp,
     )
-    logCompactionResult(compactionResultResp, requestId, "/v1/responses", logId, maxContextResp, logEvent) { details, compactedPrompt ->
-      val id = logId ?: return@logCompactionResult
-      RequestLogStore.update(id) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
-    }
+    logCompactionResult(compactionResultResp, requestId, "/v1/responses", logId, maxContextResp, logEvent, compactionLogUpdater(logId))
     val prompt = compactionResultResp.prompt
     // Store context utilization data in the log entry for per-request display
     recordContextUtilization(logId, prompt, maxContextResp)
@@ -451,6 +439,11 @@ class EndpointHandlers(
 
   // ── Per-request config helpers ───────────────────────────────────────────
 
+  private fun compactionLogUpdater(logId: String?): (String, String) -> Unit = { details, compactedPrompt ->
+    if (logId != null) {
+      RequestLogStore.update(logId) { it.copy(isCompacted = true, compactionDetails = details, compactedPrompt = compactedPrompt) }
+    }
+  }
 }
 
 /** Returns (paramName, errorMessage) if n is invalid, null if valid. */
