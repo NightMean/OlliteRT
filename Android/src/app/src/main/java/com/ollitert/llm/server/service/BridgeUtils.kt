@@ -71,27 +71,14 @@ object BridgeUtils {
   fun epochSeconds(): Long = System.currentTimeMillis() / 1000
 
   // ── Compact Image Data ──────────────────────────────────────────────────
-  // Replaces inline base64 data URIs (e.g. from multimodal image requests) with a
-  // human-readable size placeholder. A 4K image encodes to ~5-10 MB of base64 text,
-  // which causes UI freezes when Compose tries to measure/render it in the Logs tab.
-  // The placeholder preserves the MIME type prefix and shows the original data size.
 
-  /**
-   * Matches `data:<mime>;base64,<payload>` where the base64 payload is at least 1 KB
-   * (1365 base64 chars ≈ 1024 bytes). Shorter payloads (thumbnails, icons) are left as-is
-   * since they don't cause rendering issues.
-   *
-   * The character class includes `\` to handle JSON-escaped slashes (`\/`) — some JSON
-   * serializers escape `/` as `\/` per RFC 8259 §7, so base64 payloads in JSON strings
-   * may contain `\/` instead of `/`. The backslash chars are excluded from the byte size
-   * calculation since they're JSON escaping, not actual base64 data.
-   */
-  private val BASE64_DATA_URI_REGEX = Regex(
-    """data:([^;]+);base64,([A-Za-z0-9+/=\\]{$BASE64_COMPACT_THRESHOLD_CHARS,})"""
-  )
+  private const val MARKER = ";base64,"
 
   /**
    * Replaces long base64 data URIs with a placeholder showing the MIME type and decoded size.
+   *
+   * Uses manual string scanning instead of regex because Android's java.util.regex engine
+   * stack-overflows on quantifiers matching 100K+ characters (typical for image payloads).
    *
    * Example:
    * ```
@@ -99,20 +86,70 @@ object BridgeUtils {
    * → "data:image/png;base64,▌ PLACEHOLDER — 3.2 MB image data ▌"
    * ```
    */
-  fun compactBase64DataUris(body: String): String =
-    BASE64_DATA_URI_REGEX.replace(body) { match ->
-      val mimeType = match.groupValues[1]       // e.g. "image/png" or "image\/png"
-      val base64Payload = match.groupValues[2]
-      // Base64 encodes 3 bytes per 4 characters (padding '=' chars don't add data).
-      // Exclude backslash chars from count — they're JSON escape characters, not base64 data.
-      val base64Chars = base64Payload.count { it != '=' && it != '\\' }
+  fun compactBase64DataUris(body: String): String {
+    if (!body.contains(MARKER)) return body
+
+    val sb = StringBuilder(body.length / 4)
+    var cursor = 0
+
+    while (cursor < body.length) {
+      val markerIdx = body.indexOf(MARKER, cursor)
+      if (markerIdx < 0) {
+        sb.append(body, cursor, body.length)
+        break
+      }
+
+      // Walk backward from marker to find "data:" prefix and extract MIME type
+      val dataIdx = body.lastIndexOf("data:", markerIdx)
+      if (dataIdx < 0 || dataIdx < cursor) {
+        // No valid data: prefix — copy up to and including marker, continue
+        sb.append(body, cursor, markerIdx + MARKER.length)
+        cursor = markerIdx + MARKER.length
+        continue
+      }
+
+      // Extract MIME type between "data:" and ";base64,"
+      val mimeType = body.substring(dataIdx + 5, markerIdx)
+      if (mimeType.contains('"') || mimeType.length > 50) {
+        // Invalid MIME (crossed a JSON boundary) — skip
+        sb.append(body, cursor, markerIdx + MARKER.length)
+        cursor = markerIdx + MARKER.length
+        continue
+      }
+
+      // Scan forward to find end of base64 payload
+      val payloadStart = markerIdx + MARKER.length
+      var payloadEnd = payloadStart
+      while (payloadEnd < body.length) {
+        val ch = body[payloadEnd]
+        if (ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch == '+' || ch == '/' || ch == '=' || ch == '\\') {
+          payloadEnd++
+        } else {
+          break
+        }
+      }
+
+      val payloadLen = payloadEnd - payloadStart
+      if (payloadLen < BASE64_COMPACT_THRESHOLD_CHARS) {
+        // Below threshold — copy as-is
+        sb.append(body, cursor, payloadEnd)
+        cursor = payloadEnd
+        continue
+      }
+
+      // Replace with placeholder
+      val base64Chars = body.substring(payloadStart, payloadEnd).count { it != '=' && it != '\\' }
       val decodedBytes = (base64Chars * 3L) / 4L
       val sizeLabel = decodedBytes.humanReadableSize()
-      // Extract the media category from the MIME type (e.g. "image" from "image/png").
-      // Strip JSON-escaped slashes for clean display.
       val cleanMime = mimeType.replace("\\/", "/")
       val category = cleanMime.substringBefore('/')
-      "data:$cleanMime;base64,▌ PLACEHOLDER — $sizeLabel $category data ▌"
+
+      sb.append(body, cursor, dataIdx)
+      sb.append("data:$cleanMime;base64,▌ PLACEHOLDER — $sizeLabel $category data ▌")
+      cursor = payloadEnd
     }
+
+    return sb.toString()
+  }
 
 }
