@@ -69,9 +69,11 @@ class BenchmarkViewModelTest {
   }
 
   private fun createVm() {
-    vm = BenchmarkViewModel(appContext = mockk<Context>(relaxed = true), dataStoreRepository = fakeRepo)
-    // Init block launches on Dispatchers.IO — wait for it to settle
-    Thread.sleep(200)
+    vm = BenchmarkViewModel(
+      appContext = mockk<Context>(relaxed = true),
+      dataStoreRepository = fakeRepo,
+      ioDispatcher = testDispatcher,
+    )
   }
 
   private fun createVmWithResults(vararg modelNames: String) {
@@ -86,8 +88,6 @@ class BenchmarkViewModelTest {
     fakeRepo.storedResults.addAll(listOf(makeResult("a"), makeResult("b")))
     createVm()
     advanceUntilIdle()
-    // Init runs on Dispatchers.IO; give it time to complete
-    Thread.sleep(200)
 
     val state = vm.uiState.value
     assertEquals(2, state.results.size)

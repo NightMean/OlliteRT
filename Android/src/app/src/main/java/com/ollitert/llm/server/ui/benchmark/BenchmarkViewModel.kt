@@ -29,6 +29,7 @@ import com.ollitert.llm.server.common.cleanUpLiteRtErrorMessage
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.di.IoDispatcher
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
@@ -37,6 +38,7 @@ import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.service.ServerMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -85,12 +87,13 @@ class BenchmarkViewModel
 constructor(
   @param:ApplicationContext private val appContext: Context,
   val dataStoreRepository: DataStoreRepository,
+  @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
   val uiState = _uiState.asStateFlow()
 
   init {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val storedResults = dataStoreRepository.getAllBenchmarkResults()
       Log.d(TAG, "Loaded ${storedResults.size} benchmark results")
       setBenchmarkResults(results = storedResults)
@@ -272,7 +275,7 @@ constructor(
     )
     _uiState.update { _uiState.value.copy(results = newResults) }
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       try {
         dataStoreRepository.addBenchmarkResult(result)
         Log.d(TAG, "Benchmark result persisted to DataStore")
@@ -311,7 +314,7 @@ constructor(
         _uiState.update { _uiState.value.copy(baselineResult = null) }
       }
 
-      viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.deleteBenchmarkResult(index = index) }
+      viewModelScope.launch(ioDispatcher) { dataStoreRepository.deleteBenchmarkResult(index = index) }
     } else {
       Log.w(TAG, "Benchmark result with id $id not found.")
     }
