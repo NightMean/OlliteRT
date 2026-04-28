@@ -982,11 +982,14 @@ class InferenceRunner(
         }
       } catch (_: kotlinx.coroutines.CancellationException) {
         // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
-        state.markCompleted()
         if (logId != null) RequestLogStore.unregisterCancellation(logId)
         ServerLlmModelHelper.stopResponse(model)
         channel.close()
         logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=true outputChars=${state.fullText.length}")
+      } finally {
+        // Safety net: guarantee isInferring flag is cleared even if an unexpected
+        // exception bypasses normal completion/cancellation paths.
+        state.markCompleted()
       }
     }
   }
