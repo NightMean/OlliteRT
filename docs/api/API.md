@@ -401,12 +401,12 @@ Returns server identity, version, status, update availability, and the full list
   "version": "1.2.0",
   "build": 42,
   "git_hash": "abc1234",
-  "status": "ok",
+  "status": "running",
   "model": "Gemma-4-E2B-it",
   "uptime_seconds": 3600,
   "update_available": false,
-  "allowlist_content_version": "2026.04.20",
-  "allowlist_source": "Official",
+  "allowlist_content_version": 3,
+  "allowlist_source": "asset",
   "model_update_available": false,
   "compatibility": "openai",
   "endpoints": ["/v1/models", "/v1/completions", "/v1/chat/completions", "..."]
@@ -419,14 +419,14 @@ Returns server identity, version, status, update availability, and the full list
 | `version` | string | App version (e.g. `"1.2.0"`) |
 | `build` | integer | Version code |
 | `git_hash` | string | Build git commit hash |
-| `status` | string | `ok`, `idle`, `loading`, `stopped` |
+| `status` | string | `running`, `idle` (keep-alive unloaded), `loading`, `stopped`, `error` |
 | `model` | string | Currently loaded model name (omitted if none) |
 | `uptime_seconds` | integer | Seconds since RUNNING state (omitted if not running) |
 | `update_available` | boolean | `true` if a newer OlliteRT version exists |
 | `latest_version` | string | Newest available version (only present when `update_available` is `true`) |
 | `release_url` | string | GitHub release URL (only present when `update_available` is `true`) |
-| `allowlist_content_version` | string | Version of the model allowlist currently cached |
-| `allowlist_source` | string | Name of the active model source repository |
+| `allowlist_content_version` | integer | Version number of the model allowlist currently cached |
+| `allowlist_source` | string | Source of the active allowlist: `"asset"`, `"external:<path>"`, `"empty"`, or `"error"` |
 | `model_update_available` | boolean | `true` if the currently loaded model has a newer version in the allowlist |
 | `compatibility` | string | Always `"openai"` |
 | `endpoints` | array | List of supported endpoint paths |
