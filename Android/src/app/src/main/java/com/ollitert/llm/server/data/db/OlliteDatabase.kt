@@ -30,7 +30,7 @@ import androidx.room.RoomDatabase
 @Database(
   entities = [RequestLogEntity::class],
   version = 1,
-  exportSchema = false,
+  exportSchema = true,
 )
 abstract class OlliteDatabase : RoomDatabase() {
   abstract fun requestLogDao(): RequestLogDao
