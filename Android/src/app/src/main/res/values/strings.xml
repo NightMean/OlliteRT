@@ -517,6 +517,7 @@
   <string name="logs_entry_compacted_prompt_label" translatable="false">Compacted Prompt · %1$s</string>
   <string name="logs_entry_response_label" translatable="false">Response · %1$s</string>
   <string name="logs_entry_response" translatable="false">Response</string>
+  <string name="logs_entry_pending_in_queue" translatable="false">Pending in queue…</string>
   <string name="logs_entry_request" translatable="false">Request</string>
 
   <!-- LogEntryCard: Cancelled state -->

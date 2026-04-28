@@ -56,6 +56,7 @@ data class RequestLogEntry(
   val clientIp: String? = null,
   val level: LogLevel = LogLevel.INFO,
   val isPending: Boolean = false,
+  val isGenerating: Boolean = false,
   val isThinking: Boolean = false,
   val isCompacted: Boolean = false,
   val compactionDetails: String? = null,

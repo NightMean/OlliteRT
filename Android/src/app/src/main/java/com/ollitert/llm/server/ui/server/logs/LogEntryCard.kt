@@ -262,6 +262,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       PendingResponseSection(
         entryId = entry.id,
         partialText = entry.partialText,
+        isGenerating = entry.isGenerating,
       )
     } else if (entry.isCancelled) {
       Spacer(modifier = Modifier.height(10.dp))

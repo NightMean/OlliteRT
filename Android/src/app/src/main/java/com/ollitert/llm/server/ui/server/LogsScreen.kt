@@ -62,6 +62,7 @@ import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -892,7 +893,7 @@ private fun RowScope.SegmentItem(
  * smoothly even while long streaming text is being laid out.
  */
 @Composable
-internal fun PendingResponseSection(entryId: String, partialText: String?) {
+internal fun PendingResponseSection(entryId: String, partialText: String?, isGenerating: Boolean) {
   // Collect the lightweight partial-text flow directly here so only this composable
   // recomposes on streaming updates (~300ms), not the entire LazyColumn.
   // Falls back to the entry's partialText from the list for the initial render.
@@ -908,25 +909,29 @@ internal fun PendingResponseSection(entryId: String, partialText: String?) {
   ) {
     // Text content — end padding prevents overlap with the stop button
     Column(modifier = Modifier.fillMaxWidth().padding(end = 34.dp)) {
-      // Show partial text if tokens have started arriving.
-      // Strip <think>...</think> tags so they don't appear as raw text to the user.
-      val displayText = remember(liveText) {
-        liveText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+      if (isGenerating) {
+        // Show partial text if tokens have started arriving.
+        // Strip <think>...</think> tags so they don't appear as raw text to the user.
+        val displayText = remember(liveText) {
+          liveText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+        }
+        if (!displayText.isNullOrEmpty()) {
+          Text(
+            text = displayText,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = 11.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(10.dp))
+        }
+        // Isolated into its own composable so the dots animation isn't invalidated
+        // by partialText layout changes above.
+        GeneratingStatusRow(entryId = entryId)
+      } else {
+        QueuedStatusRow()
       }
-      if (!displayText.isNullOrEmpty()) {
-        Text(
-          text = displayText,
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = SpaceGroteskFontFamily,
-            fontSize = 11.sp,
-          ),
-          color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-      }
-      // Isolated into its own composable so the dots animation isn't invalidated
-      // by partialText layout changes above.
-      GeneratingStatusRow(entryId = entryId)
     }
     // Stop button — pinned to the top-right corner of the response container.
     // Wrapped in a Box with align so the TooltipBox inherits the correct position.
@@ -981,6 +986,31 @@ internal fun GeneratingStatusRow(entryId: String) {
       fontWeight = FontWeight.SemiBold,
     )
     BouncingDots()
+  }
+}
+
+@Composable
+internal fun QueuedStatusRow() {
+  Row(
+    modifier = Modifier.defaultMinSize(minHeight = 28.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(
+      imageVector = Icons.Outlined.HourglassEmpty,
+      contentDescription = null,
+      modifier = Modifier.size(14.dp),
+      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text(
+      text = stringResource(R.string.logs_entry_pending_in_queue),
+      style = MaterialTheme.typography.bodySmall.copy(
+        fontFamily = SpaceGroteskFontFamily,
+        fontSize = 11.sp,
+      ),
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      fontWeight = FontWeight.SemiBold,
+    )
   }
 }
 

@@ -185,6 +185,7 @@ class InferenceRunner(
         if (initErr != null) throw RuntimeException("model_init_failed: $initErr")
         inferenceActuallyStarted.set(true)
         ServerMetrics.onInferenceStarted()
+        if (logId != null) RequestLogStore.update(logId) { it.copy(isGenerating = true) }
         if (configSnapshot != null) {
           originalConfig = model.configValues
           model.configValues = configSnapshot
@@ -937,6 +938,7 @@ class InferenceRunner(
           val initErr = reinitIfNeeded(model, supportImage, supportAudio)
           if (initErr != null) throw RuntimeException("model_init_failed: $initErr")
           state.markStarted()
+          if (logId != null) RequestLogStore.update(logId) { it.copy(isGenerating = true) }
           if (configSnapshot != null) {
             originalConfig = model.configValues
             model.configValues = configSnapshot
