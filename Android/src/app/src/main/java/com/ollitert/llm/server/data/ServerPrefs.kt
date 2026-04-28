@@ -29,55 +29,54 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 
 private const val PREFS_NAME = "llm_http_prefs"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § Server Config — port, CORS, bearer token
+// ═══════════════════════════════════════════════════════════════════════════
+
 private const val KEY_PORT = "port"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
+private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
+private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § Model Config — default model, inference config, system prompts, recommendations
+// ═══════════════════════════════════════════════════════════════════════════
+
 private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
-private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
-private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
-private const val KEY_AUTO_EXPAND_LOGS = "auto_expand_logs"
-private const val KEY_NOTIF_SHOW_REQUEST_COUNT = "notif_show_request_count"
+private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
+private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
+private const val KEY_SHOW_MODEL_RECOMMENDATIONS = "show_model_recommendations"
 private const val KEY_WARMUP_ENABLED = "warmup_enabled"
-private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
-private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
 private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
 private const val KEY_COMPACT_TOOL_SCHEMAS = "compact_tool_schemas"
 private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
 private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
-private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
-private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
+private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § UI Preferences — keep screen on, log display, stream preview, metrics
+// ═══════════════════════════════════════════════════════════════════════════
+
+private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+private const val KEY_AUTO_EXPAND_LOGS = "auto_expand_logs"
+private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
+private const val KEY_NOTIF_SHOW_REQUEST_COUNT = "notif_show_request_count"
 private const val KEY_SHOW_REQUEST_TYPES = "show_request_types"
 private const val KEY_SHOW_ADVANCED_METRICS = "show_advanced_metrics"
-private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
-private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
-private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
-private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
-// TODO: Remove after 1.0.0 — migration from 0.9.0-beta keys (model.name → model.prefsKey).
-private const val KEY_PREFS_KEY_MIGRATION_DONE = "prefs_key_migration_v1"
+private const val KEY_COMPACT_IMAGE_DATA = "compact_image_data"
+private const val DEFAULT_COMPACT_IMAGE_DATA = true
+private const val KEY_RESOLVE_CLIENT_HOSTNAMES = "resolve_client_hostnames"
+private const val DEFAULT_RESOLVE_CLIENT_HOSTNAMES = false
+private const val KEY_HIDE_HEALTH_LOGS = "hide_health_logs"
+private const val DEFAULT_HIDE_HEALTH_LOGS = false
 
-// --- Developer / Debug ---
-private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
-private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
+// ═══════════════════════════════════════════════════════════════════════════
+// § Log Persistence — enabled, max entries, auto delete
+// ═══════════════════════════════════════════════════════════════════════════
 
-// --- Home Assistant Integration (UI convenience — shows copy-config button in Settings) ---
-private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
-private const val KEY_STT_TRANSCRIPTION_PROMPT = "stt_transcription_prompt"
-private const val DEFAULT_STT_TRANSCRIPTION_PROMPT = false
-private const val KEY_STT_TRANSCRIPTION_PROMPT_TEXT = "stt_transcription_prompt_text"
-// TODO: Remove after 1.0.0 — migration from 0.9.0 keys (ha_stt_* → stt_*).
-private const val KEY_STT_KEY_MIGRATION_DONE = "stt_key_migration_v1"
-internal const val DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT =
-  "Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else."
-
-
-// --- Keep Alive (auto-unload model after idle timeout to free RAM) ---
-private const val KEY_KEEP_ALIVE_ENABLED = "keep_alive_enabled"
-private const val KEY_KEEP_ALIVE_MINUTES = "keep_alive_minutes"
-private const val DEFAULT_KEEP_ALIVE_ENABLED = false
-private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
-
-// --- Log Persistence ---
 private const val KEY_LOG_PERSISTENCE_ENABLED = "log_persistence_enabled"
 private const val KEY_LOG_MAX_ENTRIES = "log_max_entries"
 private const val KEY_LOG_AUTO_DELETE_MINUTES = "log_auto_delete_minutes"
@@ -85,31 +84,45 @@ private const val DEFAULT_LOG_PERSISTENCE_ENABLED = false
 private const val DEFAULT_LOG_MAX_ENTRIES = 500
 private const val DEFAULT_LOG_AUTO_DELETE_MINUTES = 7 * 24 * 60 // 7 days
 
-// --- Compact Image Data (replace base64 image payloads with size placeholders in logs) ---
-private const val KEY_COMPACT_IMAGE_DATA = "compact_image_data"
-private const val DEFAULT_COMPACT_IMAGE_DATA = true
+// ═══════════════════════════════════════════════════════════════════════════
+// § Keep Alive — auto-unload model after idle timeout to free RAM
+// ═══════════════════════════════════════════════════════════════════════════
 
-// --- Resolve Client Hostnames (show hostname instead of IP in Logs) ---
-private const val KEY_RESOLVE_CLIENT_HOSTNAMES = "resolve_client_hostnames"
-private const val DEFAULT_RESOLVE_CLIENT_HOSTNAMES = false
+private const val KEY_KEEP_ALIVE_ENABLED = "keep_alive_enabled"
+private const val KEY_KEEP_ALIVE_MINUTES = "keep_alive_minutes"
+private const val DEFAULT_KEEP_ALIVE_ENABLED = false
+private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
 
-// --- Hide Health Logs (suppress /health endpoint entries from the Logs tab) ---
-private const val KEY_HIDE_HEALTH_LOGS = "hide_health_logs"
-private const val DEFAULT_HIDE_HEALTH_LOGS = false
+// ═══════════════════════════════════════════════════════════════════════════
+// § Boot & Lifecycle — auto start on boot, clear logs on stop
+// ═══════════════════════════════════════════════════════════════════════════
 
-// --- Engagement Prompt (donation/support prompt shown after N manual server starts) ---
-private const val KEY_MANUAL_START_COUNT = "manual_start_count"
-private const val KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED = "engagement_prompt_permanently_dismissed"
-private const val KEY_ENGAGEMENT_PROMPT_SHOW_COUNT = "engagement_prompt_show_count"
-/** Maximum number of times the engagement prompt is shown before being auto-suppressed. */
-private const val ENGAGEMENT_PROMPT_MAX_SHOWS = 2
-/** Manual start count threshold for showing the engagement prompt the first time. */
-private const val ENGAGEMENT_PROMPT_FIRST_THRESHOLD = 3
-/** Manual start count threshold for showing the engagement prompt the second time. */
-private const val ENGAGEMENT_PROMPT_SECOND_THRESHOLD = 13
+private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
+private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
+private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 
-// --- Update Check ---
-private const val KEY_SHOW_MODEL_RECOMMENDATIONS = "show_model_recommendations"
+// ═══════════════════════════════════════════════════════════════════════════
+// § Developer / Debug — verbose debug, ignore client sampler params
+// ═══════════════════════════════════════════════════════════════════════════
+
+private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
+private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § Home Assistant / STT — HA integration, STT transcription prompt
+// ═══════════════════════════════════════════════════════════════════════════
+
+private const val KEY_HA_INTEGRATION_ENABLED = "ha_integration_enabled"
+private const val KEY_STT_TRANSCRIPTION_PROMPT = "stt_transcription_prompt"
+private const val DEFAULT_STT_TRANSCRIPTION_PROMPT = false
+private const val KEY_STT_TRANSCRIPTION_PROMPT_TEXT = "stt_transcription_prompt_text"
+internal const val DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT =
+  "Transcribe the audio exactly as spoken. Output only the transcribed text, nothing else."
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § Update Check — enabled, interval, cached state, consecutive failures
+// ═══════════════════════════════════════════════════════════════════════════
+
 private const val KEY_UPDATE_CHECK_ENABLED = "update_check_enabled"
 private const val KEY_UPDATE_CHECK_INTERVAL_HOURS = "update_check_interval_hours"
 private const val KEY_LAST_DISMISSED_UPDATE_VERSION = "last_dismissed_update_version"
@@ -120,12 +133,41 @@ private const val KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES = "update_check_consecut
 private const val DEFAULT_UPDATE_CHECK_ENABLED = true
 private const val DEFAULT_UPDATE_CHECK_INTERVAL_HOURS = 24
 
-// --- Model Update Detection ---
+// ═══════════════════════════════════════════════════════════════════════════
+// § Engagement Prompt — manual start count, show count, dismissed
+// ═══════════════════════════════════════════════════════════════════════════
+
+private const val KEY_MANUAL_START_COUNT = "manual_start_count"
+private const val KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED = "engagement_prompt_permanently_dismissed"
+private const val KEY_ENGAGEMENT_PROMPT_SHOW_COUNT = "engagement_prompt_show_count"
+/** Maximum number of times the engagement prompt is shown before being auto-suppressed. */
+private const val ENGAGEMENT_PROMPT_MAX_SHOWS = 2
+/** Manual start count threshold for showing the engagement prompt the first time. */
+private const val ENGAGEMENT_PROMPT_FIRST_THRESHOLD = 3
+/** Manual start count threshold for showing the engagement prompt the second time. */
+private const val ENGAGEMENT_PROMPT_SECOND_THRESHOLD = 13
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § Model Update Detection — allowlist version, ignored updates
+// ═══════════════════════════════════════════════════════════════════════════
+
 private const val KEY_ALLOWLIST_CONTENT_VERSION = "allowlist_content_version"
 private const val KEY_IGNORED_MODEL_UPDATES = "ignored_model_updates"
 
-// --- DataStore Corruption Recovery ---
+// ═══════════════════════════════════════════════════════════════════════════
+// § DataStore Corruption Recovery
+// ═══════════════════════════════════════════════════════════════════════════
+
 private const val KEY_CORRUPTED_DATASTORES = "corrupted_datastores"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// § Migrations — prefs key migration, STT key migration
+// ═══════════════════════════════════════════════════════════════════════════
+
+// TODO: Remove after 1.0.0 — migration from 0.9.0-beta keys (model.name → model.prefsKey).
+private const val KEY_PREFS_KEY_MIGRATION_DONE = "prefs_key_migration_v1"
+// TODO: Remove after 1.0.0 — migration from 0.9.0 keys (ha_stt_* → stt_*).
+private const val KEY_STT_KEY_MIGRATION_DONE = "stt_key_migration_v1"
 
 private const val TAG = "OlliteRT.Prefs"
 
@@ -175,63 +217,76 @@ object ServerPrefs {
     pref.write(prefs(context).edit(), value).apply()
   }
 
-  // ── Pref declarations ─────────────────────────────────────────────────
-  // Boolean prefs — General
-  private val AUTO_START_ON_BOOT = BoolPref(KEY_AUTO_START_ON_BOOT, false)
-  private val KEEP_SCREEN_ON = BoolPref(KEY_KEEP_SCREEN_ON, true)
-  private val AUTO_EXPAND_LOGS = BoolPref(KEY_AUTO_EXPAND_LOGS, false)
-  private val STREAM_LOGS_PREVIEW = BoolPref(KEY_STREAM_LOGS_PREVIEW, true)
-  private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
-  private val NOTIF_SHOW_REQUEST_COUNT = BoolPref(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
+  // ── Pref declarations (grouped by concern) ─────────────────────────────
+
+  // Server Config
+  private val PORT = IntPref(KEY_PORT, DEFAULT_PORT)
+
+  // Model Config
   private val WARMUP_ENABLED = BoolPref(KEY_WARMUP_ENABLED, true)
   private val EAGER_VISION_INIT = BoolPref(KEY_EAGER_VISION_INIT, false)
   private val CUSTOM_PROMPTS_ENABLED = BoolPref(KEY_CUSTOM_PROMPTS_ENABLED, false)
   private val COMPACT_TOOL_SCHEMAS = BoolPref(KEY_COMPACT_TOOL_SCHEMAS, false)
   private val AUTO_TRUNCATE_HISTORY = BoolPref(KEY_AUTO_TRUNCATE_HISTORY, false)
   private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
-  private val CLEAR_LOGS_ON_STOP = BoolPref(KEY_CLEAR_LOGS_ON_STOP, false)
-  private val CONFIRM_CLEAR_LOGS = BoolPref(KEY_CONFIRM_CLEAR_LOGS, true)
+  private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
+  private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
+
+  // UI Preferences
+  private val KEEP_SCREEN_ON = BoolPref(KEY_KEEP_SCREEN_ON, true)
+  private val AUTO_EXPAND_LOGS = BoolPref(KEY_AUTO_EXPAND_LOGS, false)
+  private val STREAM_LOGS_PREVIEW = BoolPref(KEY_STREAM_LOGS_PREVIEW, true)
+  private val NOTIF_SHOW_REQUEST_COUNT = BoolPref(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
   private val SHOW_REQUEST_TYPES = BoolPref(KEY_SHOW_REQUEST_TYPES, false)
   private val SHOW_ADVANCED_METRICS = BoolPref(KEY_SHOW_ADVANCED_METRICS, false)
-  // Boolean prefs — Developer / Debug
-  private val VERBOSE_DEBUG_ENABLED = BoolPref(KEY_VERBOSE_DEBUG_ENABLED, false)
-  private val IGNORE_CLIENT_SAMPLER_PARAMS = BoolPref(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, false)
-  private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
-  // Boolean prefs — Home Assistant
-  private val HA_INTEGRATION_ENABLED = BoolPref(KEY_HA_INTEGRATION_ENABLED, false)
-  private val STT_TRANSCRIPTION_PROMPT = BoolPref(KEY_STT_TRANSCRIPTION_PROMPT, DEFAULT_STT_TRANSCRIPTION_PROMPT)
-  // Boolean prefs — Keep Alive
-  private val KEEP_ALIVE_ENABLED = BoolPref(KEY_KEEP_ALIVE_ENABLED, DEFAULT_KEEP_ALIVE_ENABLED)
-  // Boolean prefs — Log Persistence
-  private val LOG_PERSISTENCE_ENABLED = BoolPref(KEY_LOG_PERSISTENCE_ENABLED, DEFAULT_LOG_PERSISTENCE_ENABLED)
-  // Boolean prefs — Misc
   private val COMPACT_IMAGE_DATA = BoolPref(KEY_COMPACT_IMAGE_DATA, DEFAULT_COMPACT_IMAGE_DATA)
   private val RESOLVE_CLIENT_HOSTNAMES = BoolPref(KEY_RESOLVE_CLIENT_HOSTNAMES, DEFAULT_RESOLVE_CLIENT_HOSTNAMES)
   private val HIDE_HEALTH_LOGS = BoolPref(KEY_HIDE_HEALTH_LOGS, DEFAULT_HIDE_HEALTH_LOGS)
-  private val UPDATE_CHECK_ENABLED = BoolPref(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
-  // Numeric prefs
-  private val PORT = IntPref(KEY_PORT, DEFAULT_PORT)
-  private val KEEP_ALIVE_MINUTES = IntPref(KEY_KEEP_ALIVE_MINUTES, DEFAULT_KEEP_ALIVE_MINUTES)
+
+  // Log Persistence
+  private val LOG_PERSISTENCE_ENABLED = BoolPref(KEY_LOG_PERSISTENCE_ENABLED, DEFAULT_LOG_PERSISTENCE_ENABLED)
   private val LOG_MAX_ENTRIES = IntPref(KEY_LOG_MAX_ENTRIES, DEFAULT_LOG_MAX_ENTRIES)
   private val LOG_AUTO_DELETE_MINUTES = LongPref(KEY_LOG_AUTO_DELETE_MINUTES, DEFAULT_LOG_AUTO_DELETE_MINUTES.toLong())
+
+  // Keep Alive
+  private val KEEP_ALIVE_ENABLED = BoolPref(KEY_KEEP_ALIVE_ENABLED, DEFAULT_KEEP_ALIVE_ENABLED)
+  private val KEEP_ALIVE_MINUTES = IntPref(KEY_KEEP_ALIVE_MINUTES, DEFAULT_KEEP_ALIVE_MINUTES)
+
+  // Boot & Lifecycle
+  private val AUTO_START_ON_BOOT = BoolPref(KEY_AUTO_START_ON_BOOT, false)
+  private val CLEAR_LOGS_ON_STOP = BoolPref(KEY_CLEAR_LOGS_ON_STOP, false)
+  private val CONFIRM_CLEAR_LOGS = BoolPref(KEY_CONFIRM_CLEAR_LOGS, true)
+
+  // Developer / Debug
+  private val VERBOSE_DEBUG_ENABLED = BoolPref(KEY_VERBOSE_DEBUG_ENABLED, false)
+  private val IGNORE_CLIENT_SAMPLER_PARAMS = BoolPref(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, false)
+
+  // Home Assistant / STT
+  private val HA_INTEGRATION_ENABLED = BoolPref(KEY_HA_INTEGRATION_ENABLED, false)
+  private val STT_TRANSCRIPTION_PROMPT = BoolPref(KEY_STT_TRANSCRIPTION_PROMPT, DEFAULT_STT_TRANSCRIPTION_PROMPT)
+
+  // Update Check
+  private val UPDATE_CHECK_ENABLED = BoolPref(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
   private val UPDATE_CHECK_INTERVAL_HOURS = IntPref(KEY_UPDATE_CHECK_INTERVAL_HOURS, DEFAULT_UPDATE_CHECK_INTERVAL_HOURS)
   private val UPDATE_CHECK_CONSECUTIVE_FAILURES = IntPref(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, 0)
+
+  // Engagement Prompt
   private val MANUAL_START_COUNT = IntPref(KEY_MANUAL_START_COUNT, 0)
   private val ENGAGEMENT_PROMPT_SHOW_COUNT = IntPref(KEY_ENGAGEMENT_PROMPT_SHOW_COUNT, 0)
+
+  // Model Update Detection
   private val ALLOWLIST_CONTENT_VERSION = IntPref(KEY_ALLOWLIST_CONTENT_VERSION, 0)
 
-  // ── Public accessors ──────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Server Config
+  // ══════════════════════════════════════════════════════════════════════════
 
   fun getPort(context: Context): Int = get(context, PORT)
 
-  fun getHfToken(context: Context): String =
-    prefs(context).getString(KEY_HF_TOKEN, "")
-      ?: ""
-
-  fun setHfToken(context: Context, token: String) {
+  fun save(context: Context, port: Int) {
     prefs(context)
       .edit()
-      .putString(KEY_HF_TOKEN, token.trim())
+      .putInt(KEY_PORT, port.coerceIn(1, 65535))
       .apply()
   }
 
@@ -246,6 +301,33 @@ object ServerPrefs {
       .apply()
   }
 
+  fun getHfToken(context: Context): String =
+    prefs(context).getString(KEY_HF_TOKEN, "")
+      ?: ""
+
+  fun setHfToken(context: Context, token: String) {
+    prefs(context)
+      .edit()
+      .putString(KEY_HF_TOKEN, token.trim())
+      .apply()
+  }
+
+  fun getCorsAllowedOrigins(context: Context): String =
+    prefs(context)
+      .getString(KEY_CORS_ALLOWED_ORIGINS, DEFAULT_CORS_ALLOWED_ORIGINS)
+      ?: DEFAULT_CORS_ALLOWED_ORIGINS
+
+  fun setCorsAllowedOrigins(context: Context, origins: String) {
+    prefs(context)
+      .edit()
+      .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
+      .apply()
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Model Config
+  // ══════════════════════════════════════════════════════════════════════════
+
   fun getDefaultModelName(context: Context): String? =
     prefs(context)
       .getString(KEY_DEFAULT_MODEL_NAME, null)
@@ -259,24 +341,6 @@ object ServerPrefs {
       }
       .apply()
   }
-
-  fun isAutoStartOnBoot(context: Context): Boolean = get(context, AUTO_START_ON_BOOT)
-  fun setAutoStartOnBoot(context: Context, enabled: Boolean) = set(context, AUTO_START_ON_BOOT, enabled)
-
-  fun isKeepScreenOn(context: Context): Boolean = get(context, KEEP_SCREEN_ON)
-  fun setKeepScreenOn(context: Context, enabled: Boolean) = set(context, KEEP_SCREEN_ON, enabled)
-
-  fun isAutoExpandLogs(context: Context): Boolean = get(context, AUTO_EXPAND_LOGS)
-  fun setAutoExpandLogs(context: Context, enabled: Boolean) = set(context, AUTO_EXPAND_LOGS, enabled)
-
-  fun isStreamLogsPreview(context: Context): Boolean = get(context, STREAM_LOGS_PREVIEW)
-  fun setStreamLogsPreview(context: Context, enabled: Boolean) = set(context, STREAM_LOGS_PREVIEW, enabled)
-
-  fun isKeepPartialResponse(context: Context): Boolean = get(context, KEEP_PARTIAL_RESPONSE)
-  fun setKeepPartialResponse(context: Context, enabled: Boolean) = set(context, KEEP_PARTIAL_RESPONSE, enabled)
-
-  fun isNotifShowRequestCount(context: Context): Boolean = get(context, NOTIF_SHOW_REQUEST_COUNT)
-  fun setNotifShowRequestCount(context: Context, enabled: Boolean) = set(context, NOTIF_SHOW_REQUEST_COUNT, enabled)
 
   fun isWarmupEnabled(context: Context): Boolean = get(context, WARMUP_ENABLED)
   fun setWarmupEnabled(context: Context, enabled: Boolean) = set(context, WARMUP_ENABLED, enabled)
@@ -296,17 +360,11 @@ object ServerPrefs {
   fun isAutoTrimPrompts(context: Context): Boolean = get(context, AUTO_TRIM_PROMPTS)
   fun setAutoTrimPrompts(context: Context, enabled: Boolean) = set(context, AUTO_TRIM_PROMPTS, enabled)
 
-  fun isClearLogsOnStop(context: Context): Boolean = get(context, CLEAR_LOGS_ON_STOP)
-  fun setClearLogsOnStop(context: Context, enabled: Boolean) = set(context, CLEAR_LOGS_ON_STOP, enabled)
+  fun isKeepPartialResponse(context: Context): Boolean = get(context, KEEP_PARTIAL_RESPONSE)
+  fun setKeepPartialResponse(context: Context, enabled: Boolean) = set(context, KEEP_PARTIAL_RESPONSE, enabled)
 
-  fun isConfirmClearLogs(context: Context): Boolean = get(context, CONFIRM_CLEAR_LOGS)
-  fun setConfirmClearLogs(context: Context, enabled: Boolean) = set(context, CONFIRM_CLEAR_LOGS, enabled)
-
-  fun isShowRequestTypes(context: Context): Boolean = get(context, SHOW_REQUEST_TYPES)
-  fun setShowRequestTypes(context: Context, enabled: Boolean) = set(context, SHOW_REQUEST_TYPES, enabled)
-
-  fun isShowAdvancedMetrics(context: Context): Boolean = get(context, SHOW_ADVANCED_METRICS)
-  fun setShowAdvancedMetrics(context: Context, enabled: Boolean) = set(context, SHOW_ADVANCED_METRICS, enabled)
+  fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
+  fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)
 
   fun getSystemPrompt(context: Context, modelName: String): String =
     prefs(context)
@@ -348,19 +406,76 @@ object ServerPrefs {
       .apply()
   }
 
-  fun getCorsAllowedOrigins(context: Context): String =
-    prefs(context)
-      .getString(KEY_CORS_ALLOWED_ORIGINS, DEFAULT_CORS_ALLOWED_ORIGINS)
-      ?: DEFAULT_CORS_ALLOWED_ORIGINS
+  // ══════════════════════════════════════════════════════════════════════════
+  // § UI Preferences
+  // ══════════════════════════════════════════════════════════════════════════
 
-  fun setCorsAllowedOrigins(context: Context, origins: String) {
-    prefs(context)
-      .edit()
-      .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
-      .apply()
-  }
+  fun isKeepScreenOn(context: Context): Boolean = get(context, KEEP_SCREEN_ON)
+  fun setKeepScreenOn(context: Context, enabled: Boolean) = set(context, KEEP_SCREEN_ON, enabled)
 
-  // --- Developer / Debug ---
+  fun isAutoExpandLogs(context: Context): Boolean = get(context, AUTO_EXPAND_LOGS)
+  fun setAutoExpandLogs(context: Context, enabled: Boolean) = set(context, AUTO_EXPAND_LOGS, enabled)
+
+  fun isStreamLogsPreview(context: Context): Boolean = get(context, STREAM_LOGS_PREVIEW)
+  fun setStreamLogsPreview(context: Context, enabled: Boolean) = set(context, STREAM_LOGS_PREVIEW, enabled)
+
+  fun isNotifShowRequestCount(context: Context): Boolean = get(context, NOTIF_SHOW_REQUEST_COUNT)
+  fun setNotifShowRequestCount(context: Context, enabled: Boolean) = set(context, NOTIF_SHOW_REQUEST_COUNT, enabled)
+
+  fun isShowRequestTypes(context: Context): Boolean = get(context, SHOW_REQUEST_TYPES)
+  fun setShowRequestTypes(context: Context, enabled: Boolean) = set(context, SHOW_REQUEST_TYPES, enabled)
+
+  fun isShowAdvancedMetrics(context: Context): Boolean = get(context, SHOW_ADVANCED_METRICS)
+  fun setShowAdvancedMetrics(context: Context, enabled: Boolean) = set(context, SHOW_ADVANCED_METRICS, enabled)
+
+  fun isCompactImageData(context: Context): Boolean = get(context, COMPACT_IMAGE_DATA)
+  fun setCompactImageData(context: Context, enabled: Boolean) = set(context, COMPACT_IMAGE_DATA, enabled)
+
+  fun isResolveClientHostnames(context: Context): Boolean = get(context, RESOLVE_CLIENT_HOSTNAMES)
+  fun setResolveClientHostnames(context: Context, enabled: Boolean) = set(context, RESOLVE_CLIENT_HOSTNAMES, enabled)
+
+  fun isHideHealthLogs(context: Context): Boolean = get(context, HIDE_HEALTH_LOGS)
+  fun setHideHealthLogs(context: Context, enabled: Boolean) = set(context, HIDE_HEALTH_LOGS, enabled)
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Log Persistence
+  // ══════════════════════════════════════════════════════════════════════════
+
+  fun isLogPersistenceEnabled(context: Context): Boolean = get(context, LOG_PERSISTENCE_ENABLED)
+  fun setLogPersistenceEnabled(context: Context, enabled: Boolean) = set(context, LOG_PERSISTENCE_ENABLED, enabled)
+
+  fun getLogMaxEntries(context: Context): Int = get(context, LOG_MAX_ENTRIES)
+  fun setLogMaxEntries(context: Context, maxEntries: Int) = set(context, LOG_MAX_ENTRIES, maxEntries.coerceAtLeast(0))
+
+  fun getLogAutoDeleteMinutes(context: Context): Long = get(context, LOG_AUTO_DELETE_MINUTES)
+  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) = set(context, LOG_AUTO_DELETE_MINUTES, minutes.coerceAtLeast(0L))
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Keep Alive
+  // ══════════════════════════════════════════════════════════════════════════
+
+  fun isKeepAliveEnabled(context: Context): Boolean = get(context, KEEP_ALIVE_ENABLED)
+  fun setKeepAliveEnabled(context: Context, enabled: Boolean) = set(context, KEEP_ALIVE_ENABLED, enabled)
+
+  fun getKeepAliveMinutes(context: Context): Int = get(context, KEEP_ALIVE_MINUTES)
+  fun setKeepAliveMinutes(context: Context, minutes: Int) = set(context, KEEP_ALIVE_MINUTES, minutes.coerceAtLeast(0))
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Boot & Lifecycle
+  // ══════════════════════════════════════════════════════════════════════════
+
+  fun isAutoStartOnBoot(context: Context): Boolean = get(context, AUTO_START_ON_BOOT)
+  fun setAutoStartOnBoot(context: Context, enabled: Boolean) = set(context, AUTO_START_ON_BOOT, enabled)
+
+  fun isClearLogsOnStop(context: Context): Boolean = get(context, CLEAR_LOGS_ON_STOP)
+  fun setClearLogsOnStop(context: Context, enabled: Boolean) = set(context, CLEAR_LOGS_ON_STOP, enabled)
+
+  fun isConfirmClearLogs(context: Context): Boolean = get(context, CONFIRM_CLEAR_LOGS)
+  fun setConfirmClearLogs(context: Context, enabled: Boolean) = set(context, CONFIRM_CLEAR_LOGS, enabled)
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Developer / Debug
+  // ══════════════════════════════════════════════════════════════════════════
 
   fun isVerboseDebugEnabled(context: Context): Boolean = get(context, VERBOSE_DEBUG_ENABLED)
   fun setVerboseDebugEnabled(context: Context, enabled: Boolean) = set(context, VERBOSE_DEBUG_ENABLED, enabled)
@@ -368,10 +483,9 @@ object ServerPrefs {
   fun isIgnoreClientSamplerParams(context: Context): Boolean = get(context, IGNORE_CLIENT_SAMPLER_PARAMS)
   fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) = set(context, IGNORE_CLIENT_SAMPLER_PARAMS, enabled)
 
-  fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
-  fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)
-
-  // --- Home Assistant Integration ---
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Home Assistant / STT
+  // ══════════════════════════════════════════════════════════════════════════
 
   fun isHaIntegrationEnabled(context: Context): Boolean = get(context, HA_INTEGRATION_ENABLED)
   fun setHaIntegrationEnabled(context: Context, enabled: Boolean) = set(context, HA_INTEGRATION_ENABLED, enabled)
@@ -387,37 +501,9 @@ object ServerPrefs {
     prefs(context).edit().putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, text).apply()
   }
 
-  // --- Keep Alive ---
-
-  fun isKeepAliveEnabled(context: Context): Boolean = get(context, KEEP_ALIVE_ENABLED)
-  fun setKeepAliveEnabled(context: Context, enabled: Boolean) = set(context, KEEP_ALIVE_ENABLED, enabled)
-
-  fun getKeepAliveMinutes(context: Context): Int = get(context, KEEP_ALIVE_MINUTES)
-  fun setKeepAliveMinutes(context: Context, minutes: Int) = set(context, KEEP_ALIVE_MINUTES, minutes.coerceAtLeast(0))
-
-  // --- Log Persistence ---
-
-  fun isLogPersistenceEnabled(context: Context): Boolean = get(context, LOG_PERSISTENCE_ENABLED)
-  fun setLogPersistenceEnabled(context: Context, enabled: Boolean) = set(context, LOG_PERSISTENCE_ENABLED, enabled)
-
-  fun getLogMaxEntries(context: Context): Int = get(context, LOG_MAX_ENTRIES)
-  fun setLogMaxEntries(context: Context, maxEntries: Int) = set(context, LOG_MAX_ENTRIES, maxEntries.coerceAtLeast(0))
-
-  fun getLogAutoDeleteMinutes(context: Context): Long = get(context, LOG_AUTO_DELETE_MINUTES)
-  fun setLogAutoDeleteMinutes(context: Context, minutes: Long) = set(context, LOG_AUTO_DELETE_MINUTES, minutes.coerceAtLeast(0L))
-
-  // --- Compact Image Data ---
-
-  fun isCompactImageData(context: Context): Boolean = get(context, COMPACT_IMAGE_DATA)
-  fun setCompactImageData(context: Context, enabled: Boolean) = set(context, COMPACT_IMAGE_DATA, enabled)
-
-  fun isResolveClientHostnames(context: Context): Boolean = get(context, RESOLVE_CLIENT_HOSTNAMES)
-  fun setResolveClientHostnames(context: Context, enabled: Boolean) = set(context, RESOLVE_CLIENT_HOSTNAMES, enabled)
-
-  fun isHideHealthLogs(context: Context): Boolean = get(context, HIDE_HEALTH_LOGS)
-  fun setHideHealthLogs(context: Context, enabled: Boolean) = set(context, HIDE_HEALTH_LOGS, enabled)
-
-  // --- Update Check ---
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Update Check
+  // ══════════════════════════════════════════════════════════════════════════
 
   fun isUpdateCheckEnabled(context: Context): Boolean = get(context, UPDATE_CHECK_ENABLED)
   fun setUpdateCheckEnabled(context: Context, enabled: Boolean) = set(context, UPDATE_CHECK_ENABLED, enabled)
@@ -455,9 +541,20 @@ object ServerPrefs {
   fun getUpdateCheckConsecutiveFailures(context: Context): Int = get(context, UPDATE_CHECK_CONSECUTIVE_FAILURES)
   fun setUpdateCheckConsecutiveFailures(context: Context, count: Int) = set(context, UPDATE_CHECK_CONSECUTIVE_FAILURES, count)
 
-  // ---------------------------------------------------------------------------
-  // Engagement Prompt
-  // ---------------------------------------------------------------------------
+  /** Clear all cached update state (version, URL, ETag, dismiss). Called after a successful app update. */
+  fun clearUpdateState(context: Context) {
+    prefs(context).edit()
+      .remove(KEY_CACHED_LATEST_VERSION)
+      .remove(KEY_CACHED_RELEASE_HTML_URL)
+      .remove(KEY_CACHED_RELEASE_ETAG)
+      .remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
+      .remove(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES)
+      .apply()
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Engagement Prompt
+  // ══════════════════════════════════════════════════════════════════════════
 
   /** Number of times the user has manually pressed "Start Server" (excludes auto-start on boot). */
   fun getManualStartCount(context: Context): Int = get(context, MANUAL_START_COUNT)
@@ -502,40 +599,9 @@ object ServerPrefs {
     }
   }
 
-  /** Clear all cached update state (version, URL, ETag, dismiss). Called after a successful app update. */
-  fun clearUpdateState(context: Context) {
-    prefs(context).edit()
-      .remove(KEY_CACHED_LATEST_VERSION)
-      .remove(KEY_CACHED_RELEASE_HTML_URL)
-      .remove(KEY_CACHED_RELEASE_ETAG)
-      .remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
-      .remove(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES)
-      .apply()
-  }
-
-  fun save(context: Context, port: Int) {
-    prefs(context)
-      .edit()
-      .putInt(KEY_PORT, port.coerceIn(1, 65535))
-      .apply()
-  }
-
-  // -- DataStore Corruption Recovery --
-
-  fun getCorruptedDataStores(context: Context): Set<String> =
-    prefs(context).getStringSet(KEY_CORRUPTED_DATASTORES, emptySet()) ?: emptySet()
-
-  fun addCorruptedDataStore(context: Context, name: String) {
-    val current = getCorruptedDataStores(context).toMutableSet()
-    current.add(name)
-    prefs(context).edit().putStringSet(KEY_CORRUPTED_DATASTORES, current).apply()
-  }
-
-  fun clearCorruptedDataStores(context: Context) {
-    prefs(context).edit().remove(KEY_CORRUPTED_DATASTORES).apply()
-  }
-
-  // --- Model Update Detection ---
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Model Update Detection
+  // ══════════════════════════════════════════════════════════════════════════
 
   fun getAllowlistContentVersion(context: Context): Int = get(context, ALLOWLIST_CONTENT_VERSION)
   fun setAllowlistContentVersion(context: Context, version: Int) = set(context, ALLOWLIST_CONTENT_VERSION, version)
@@ -555,15 +621,26 @@ object ServerPrefs {
     prefs(context).edit().putStringSet(KEY_IGNORED_MODEL_UPDATES, current).apply()
   }
 
-  /**
-   * Clear all settings and restore defaults. Wipes the entire SharedPreferences store,
-   * including per-model inference configs and system prompts.
-   * The cached prefs instance is invalidated so the next access picks up the cleared state.
-   */
-  fun resetToDefaults(context: Context) {
-    prefs(context).edit().clear().apply()
-    cachedPrefs = null
+  // ══════════════════════════════════════════════════════════════════════════
+  // § DataStore Corruption Recovery
+  // ══════════════════════════════════════════════════════════════════════════
+
+  fun getCorruptedDataStores(context: Context): Set<String> =
+    prefs(context).getStringSet(KEY_CORRUPTED_DATASTORES, emptySet()) ?: emptySet()
+
+  fun addCorruptedDataStore(context: Context, name: String) {
+    val current = getCorruptedDataStores(context).toMutableSet()
+    current.add(name)
+    prefs(context).edit().putStringSet(KEY_CORRUPTED_DATASTORES, current).apply()
   }
+
+  fun clearCorruptedDataStores(context: Context) {
+    prefs(context).edit().remove(KEY_CORRUPTED_DATASTORES).apply()
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Migrations
+  // ══════════════════════════════════════════════════════════════════════════
 
   // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0-beta.1 to move
   // per-model prefs from old keys (model.name) to stable keys (model.downloadFileName).
@@ -633,6 +710,20 @@ object ServerPrefs {
     if (migrated > 0) {
       Log.i(TAG, "Migrated $migrated STT prefs key(s) from ha_stt_* to stt_*")
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Reset & Diagnostics
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Clear all settings and restore defaults. Wipes the entire SharedPreferences store,
+   * including per-model inference configs and system prompts.
+   * The cached prefs instance is invalidated so the next access picks up the cleared state.
+   */
+  fun resetToDefaults(context: Context) {
+    prefs(context).edit().clear().apply()
+    cachedPrefs = null
   }
 
   private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN)
