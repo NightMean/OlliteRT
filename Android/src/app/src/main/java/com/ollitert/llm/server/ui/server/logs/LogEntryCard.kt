@@ -432,16 +432,11 @@ internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit)
           MetricsRow(stringResource(R.string.logs_metrics_output_tokens), "~${entry.tokens}")
         }
         if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
-          val utilPct = (entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()) * 100.0
-          val utilColor = when {
-            utilPct > 80 -> MaterialTheme.colorScheme.error
-            utilPct > 50 -> WarningColor
-            else -> MaterialTheme.colorScheme.onSurface
-          }
+          val utilRatio = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
           MetricsRow(
             label = stringResource(R.string.logs_metrics_context_util),
-            value = String.format(Locale.US, "%.1f%%", utilPct),
-            valueColor = utilColor,
+            value = String.format(Locale.US, "%.1f%%", utilRatio * 100.0),
+            valueColor = contextUtilizationColor(utilRatio),
             detail = stringResource(R.string.logs_metrics_ctx_detail, entry.inputTokenEstimate, entry.maxContextTokens),
           )
         }
@@ -773,19 +768,20 @@ private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
     )
   }
   // Per-request context utilization (e.g. "~258 / 1024 ctx")
-  // Color-coded: white ≤50%, yellow 50–80%, red >80%
   if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
-    val utilPct = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
-    val ctxColor = when {
-      utilPct > 0.8 -> MaterialTheme.colorScheme.error
-      utilPct > 0.5 -> WarningColor
-      else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val utilRatio = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
     FooterDot()
     Text(
       text = stringResource(R.string.logs_badge_ctx_format, if (entry.isExactTokenCount) "" else "~", entry.inputTokenEstimate, entry.maxContextTokens),
       style = MaterialTheme.typography.labelSmall,
-      color = ctxColor,
+      color = contextUtilizationColor(utilRatio),
     )
   }
+}
+
+@Composable
+private fun contextUtilizationColor(ratio: Double): Color = when {
+  ratio > 0.8 -> MaterialTheme.colorScheme.error
+  ratio > 0.5 -> WarningColor
+  else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
