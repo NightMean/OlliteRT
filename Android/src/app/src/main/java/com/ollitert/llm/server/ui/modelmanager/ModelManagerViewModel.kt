@@ -34,10 +34,6 @@ import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
 import com.ollitert.llm.server.data.LoadResult
-import com.ollitert.llm.server.data.fetchBounded
-import com.ollitert.llm.server.data.MAX_ALLOWLIST_RESPONSE_BYTES
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelAllowlist
@@ -48,7 +44,6 @@ import com.ollitert.llm.server.data.RefreshResult
 import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.data.RepositoryManager
 import com.ollitert.llm.server.data.SOC
-import com.ollitert.llm.server.data.repoCacheFilename
 import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.service.EventCategory
@@ -69,10 +64,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
 import javax.inject.Inject
 
 private const val TAG = "OlliteRT.ModelVM"
@@ -189,10 +182,11 @@ constructor(
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
   val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
 
-  // Extracted managers — isolate token, file, and allowlist concerns
+  // Extracted managers — isolate token, file, allowlist, and import concerns
   val tokenManager = HuggingFaceTokenManager(dataStoreRepository, context)
   val fileManager = ModelFileManager(context, externalFilesDir)
   private val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
+  private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
 
   // Delegated token state — kept as top-level for backward compatibility with UI code
   val authService get() = tokenManager.authService
@@ -763,7 +757,7 @@ constructor(
 
   fun importModelListFromUrl(url: String, onResult: (String?) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
-      val error = importModelListFromUrlInternal(url)
+      val error = importManager.importFromUrl(url)
       if (error == null) loadModelAllowlist()
       withContext(Dispatchers.Main) { onResult(error) }
     }
@@ -771,106 +765,13 @@ constructor(
 
   fun importModelList(uri: Uri, onResult: (String?) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
-      val error = importModelListFromUri(uri)
+      val error = importManager.importFromUri(uri)
       if (error == null) loadModelAllowlist()
       withContext(Dispatchers.Main) { onResult(error) }
     }
   }
 
-  private suspend fun importModelListFromUri(uri: Uri): String? {
-    val fileSize = try {
-      context.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L
-    } catch (_: Exception) { 0L }
-    if (fileSize > MAX_ALLOWLIST_RESPONSE_BYTES) {
-      return context.getString(
-        R.string.import_model_list_error_too_large,
-        "${MAX_ALLOWLIST_RESPONSE_BYTES / 1024 / 1024}MB",
-      )
-    }
-    val body = try {
-      context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to read model list file", e)
-      return context.getString(R.string.import_model_list_error_read)
-    }
-    if (body.isNullOrBlank()) return context.getString(R.string.import_model_list_error_empty)
-    return validateAndSaveModelList(body, repoUrl = "")
-  }
-
-  private suspend fun importModelListFromUrlInternal(url: String): String? {
-    val normalizedUrl = url.trim().trimEnd('/')
-    val parsed = try { java.net.URL(normalizedUrl) } catch (_: Exception) {
-      return context.getString(R.string.import_model_list_error_invalid_url)
-    }
-    if (parsed.protocol != "https" && parsed.protocol != "http") {
-      return context.getString(R.string.import_model_list_error_invalid_url)
-    }
-    val body = try {
-      fetchBounded(normalizedUrl, userAgent = "OlliteRT-ModelListImport")
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to fetch model list from URL", e)
-      null
-    }
-    if (body.isNullOrBlank()) return context.getString(R.string.import_model_list_error_fetch)
-    return validateAndSaveModelList(body, repoUrl = normalizedUrl)
-  }
-
-  private suspend fun validateAndSaveModelList(body: String, repoUrl: String): String? {
-    val allowlist: ModelAllowlist
-    try {
-      allowlist = ModelAllowlistJson.decode(body)
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to parse model list JSON", e)
-      return context.getString(R.string.import_model_list_error_invalid_json)
-    }
-
-    if (allowlist.models.isEmpty()) return context.getString(R.string.import_model_list_error_no_models)
-
-    if (allowlist.schemaVersion > ModelAllowlist.SUPPORTED_SCHEMA_VERSION) {
-      return context.getString(R.string.import_model_list_error_newer_version)
-    }
-
-    val repoId = UUID.randomUUID().toString()
-    val cacheFilename = repoCacheFilename(repoId)
-    allowlistLoader.saveToDisk(body, cacheFilename)
-    if (allowlistLoader.readFromDiskCache(cacheFilename) == null) {
-      Log.w(TAG, "Disk cache write failed for imported model list")
-      return context.getString(R.string.import_model_list_error_read)
-    }
-    val repoName = allowlist.sourceName.ifEmpty {
-      context.getString(R.string.import_model_list_default_name)
-    }
-    dataStoreRepository.addRepository(
-      Repository(
-        id = repoId,
-        url = repoUrl,
-        enabled = true,
-        isBuiltIn = false,
-        contentVersion = allowlist.contentVersion,
-        lastRefreshMs = System.currentTimeMillis(),
-        lastError = "",
-        name = repoName,
-        description = allowlist.sourceDescription,
-        iconUrl = allowlist.sourceIconUrl,
-        modelCount = allowlist.models.size,
-      )
-    )
-    Log.d(TAG, "Imported model list as repo '$repoName' ($repoId) with ${allowlist.models.size} models")
-    return null
-  }
-
-  private fun migrateDiskCacheIfNeeded() {
-    val dir = context.getExternalFilesDir(null) ?: return
-    val officialFile = File(dir, MODEL_ALLOWLIST_OFFICIAL_FILENAME)
-    val legacyFile = File(dir, MODEL_ALLOWLIST_FILENAME)
-    if (!officialFile.exists() && legacyFile.exists()) {
-      if (legacyFile.renameTo(officialFile)) {
-        Log.d(TAG, "Migrated disk cache: $MODEL_ALLOWLIST_FILENAME → $MODEL_ALLOWLIST_OFFICIAL_FILENAME")
-      } else {
-        Log.e(TAG, "Failed to migrate disk cache")
-      }
-    }
-  }
+  private fun migrateDiskCacheIfNeeded() = importManager.migrateDiskCacheIfNeeded()
 
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState()
