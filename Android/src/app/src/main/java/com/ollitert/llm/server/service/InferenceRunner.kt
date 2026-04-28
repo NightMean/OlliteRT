@@ -20,6 +20,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import androidx.annotation.WorkerThread
 import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
@@ -201,27 +202,11 @@ class InferenceRunner(
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
     if (result.error == "client_disconnected") {
-      val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
-      val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
-      if (logId != null) {
-        RequestLogStore.update(logId) {
-          it.copy(partialText = partial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = result.totalMs)
-        }
-      }
-      logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false client_disconnected=true outputChars=${result.output?.length ?: 0}")
-      return null to "Client disconnected"
+      return handleCancellation(result, logId, requestId, endpoint, prefs, logSuffix = "client_disconnected=true", returnMessage = "Client disconnected")
     }
 
     if (userCancelFlag.get()) {
-      val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
-      val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
-      if (logId != null) {
-        RequestLogStore.update(logId) {
-          it.copy(partialText = partial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = result.totalMs)
-        }
-      }
-      logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false user_stopped=true outputChars=${result.output?.length ?: 0}")
-      return null to "Generation stopped by user in OlliteRT"
+      return handleCancellation(result, logId, requestId, endpoint, prefs, logSuffix = "user_stopped=true", returnMessage = "Generation stopped by user in OlliteRT")
     }
 
     return if (result.error != null) {
@@ -1010,12 +995,36 @@ class InferenceRunner(
     }
   }
 
+  // ── Cancellation helper ──────────────────────────────────────────────────
+
+  private fun handleCancellation(
+    result: InferenceResult,
+    logId: String?,
+    requestId: String,
+    endpoint: String,
+    prefs: RequestPrefsSnapshot?,
+    logSuffix: String,
+    returnMessage: String,
+  ): Pair<String?, String> {
+    val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
+    val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
+    if (logId != null) {
+      RequestLogStore.update(logId) {
+        it.copy(partialText = partial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = result.totalMs)
+      }
+    }
+    logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false $logSuffix outputChars=${result.output?.length ?: 0}")
+    return null to returnMessage
+  }
+
   // ── Warmup ───────────────────────────────────────────────────────────────
 
   /**
    * Warm up the model with a short test inference.
    * Used during model loading to pre-fill caches and verify the model works.
    */
+  // Safe to use runBlocking: only called from OlliteRT-ModelLoad thread, never main thread.
+  @WorkerThread
   fun warmUpModel(model: Model) {
     val startMs = SystemClock.elapsedRealtime()
     val eagerVision = ServerPrefs.isEagerVisionInit(context)
