@@ -41,7 +41,7 @@ The current version and build hash are shown at the bottom of the Settings scree
 
 ### Creating a Release
 
-1. Update `versionName` in `build.gradle.kts`
+1. Update `APP_VERSION_NAME` in `gradle.properties`
 2. Push a tag matching the [Release Tag Convention](#release-tag-convention) — CI builds the correct flavor automatically based on the tag pattern
 3. The GitHub Release body must follow the [Keep a Changelog](#format) format above — write in user-facing language, not code-level details
 
