@@ -137,7 +137,7 @@ class ServerPrefsMigrationTest {
     every { prefs.getBoolean("stt_key_migration_v1", false) } returns false
     every { prefs.contains("ha_stt_transcription_prompt") } returns true
     every { prefs.contains("stt_transcription_prompt") } returns false
-    every { prefs.getBoolean("ha_stt_transcription_prompt", false) } returns true
+    every { prefs.getBoolean("ha_stt_transcription_prompt", true) } returns true
     every { prefs.contains("ha_stt_transcription_prompt_text") } returns true
     every { prefs.contains("stt_transcription_prompt_text") } returns false
     every { prefs.getString("ha_stt_transcription_prompt_text", any()) } returns "Custom prompt"

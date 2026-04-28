@@ -371,8 +371,8 @@ class SettingsViewModelTest {
   // --- Default Consistency ---
 
   @Test
-  fun haSTTTranscriptionPromptDefaultIsFalse() {
-    assertFalse(STT_TRANSCRIPTION_PROMPT.default)
+  fun haSTTTranscriptionPromptDefaultIsTrue() {
+    assertTrue(STT_TRANSCRIPTION_PROMPT.default)
   }
 
   // --- Clear Logs ---

@@ -48,7 +48,7 @@ class RepositoryViewModelHelpersTest {
     every { Log.e(any(), any()) } returns 0
     every { Log.e(any(), any(), any()) } returns 0
     val mockContext: Context = mockk(relaxed = true)
-    every { mockContext.getExternalFilesDir(null) } returns java.io.File(System.getProperty("java.io.tmpdir"))
+    every { mockContext.getExternalFilesDir(null) } returns java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp")
     vm = RepositoryViewModel(dataStoreRepository = FakeDataStoreRepository(), context = mockContext)
   }
 
