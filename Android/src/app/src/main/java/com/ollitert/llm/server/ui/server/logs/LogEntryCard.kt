@@ -101,7 +101,7 @@ internal const val COLLAPSED_MAX_CHARS = 600
 internal const val ASYNC_HIGHLIGHT_THRESHOLD = 1_000
 
 @Composable
-internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, searchQuery: String = "") {
+internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, searchQuery: String = "", wrapText: Boolean = true) {
   val context = LocalContext.current
   val isError = entry.level == LogLevel.ERROR
   val isWarning = entry.level == LogLevel.WARNING
@@ -205,6 +205,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
         showToggle = isLong,
         onToggle = { requestExpanded = !requestExpanded },
         searchQuery = searchQuery,
+        wrapText = wrapText,
       )
     }
 
@@ -223,6 +224,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
         showToggle = isLong,
         onToggle = { compactedExpanded = !compactedExpanded },
         searchQuery = searchQuery,
+        wrapText = wrapText,
       )
       // Strategy badges below the text box, above the Response section
       if (badges.isNotEmpty()) {
@@ -308,6 +310,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
         showToggle = isLong,
         onToggle = { responseExpanded = !responseExpanded },
         searchQuery = searchQuery,
+        wrapText = wrapText,
       )
     }
 
@@ -513,6 +516,7 @@ internal fun ExpandableBodySection(
   annotatedLabel: AnnotatedString? = null,
   /** Active search query — overlays yellow highlight on matches within JSON-highlighted text. */
   searchQuery: String = "",
+  wrapText: Boolean = true,
 ) {
   if (annotatedLabel != null) {
     Text(
@@ -572,7 +576,7 @@ internal fun ExpandableBodySection(
         Box(
           modifier = Modifier
             .padding(12.dp)
-            .horizontalScroll(rememberScrollState()),
+            .then(if (!wrapText) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
         ) {
           val highlighted = fullHighlighted
           if (highlighted != null) {
@@ -626,7 +630,7 @@ internal fun ExpandableBodySection(
       Box(
         modifier = Modifier
           .padding(12.dp)
-          .horizontalScroll(rememberScrollState()),
+          .then(if (!wrapText) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
       ) {
         Text(
           text = collapsedHighlighted,

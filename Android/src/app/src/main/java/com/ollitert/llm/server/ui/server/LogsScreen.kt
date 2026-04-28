@@ -260,6 +260,7 @@ fun LogsScreen(
   val entries by RequestLogStore.entries.collectAsStateWithLifecycle()
   val context = LocalContext.current
   val autoExpand = remember { ServerPrefs.isAutoExpandLogs(context) }
+  val wrapLogText = remember { ServerPrefs.isWrapLogText(context) }
   var showClearConfirmDialog by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
 
@@ -738,7 +739,7 @@ fun LogsScreen(
             if (entry.method == "EVENT") {
               InternalEventCard(entry, searchQuery = filter.query)
             } else {
-              LogEntryCard(entry, autoExpand = autoExpand, searchQuery = filter.query)
+              LogEntryCard(entry, autoExpand = autoExpand, searchQuery = filter.query, wrapText = wrapLogText)
             }
           }
           item { Spacer(modifier = Modifier.height(16.dp)) }

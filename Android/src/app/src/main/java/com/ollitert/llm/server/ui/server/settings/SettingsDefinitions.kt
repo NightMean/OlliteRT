@@ -61,6 +61,17 @@ val AUTO_EXPAND_LOGS = SettingDef.Toggle(
   write = { ctx, v -> ServerPrefs.setAutoExpandLogs(ctx, v) },
 )
 
+val WRAP_LOG_TEXT = SettingDef.Toggle(
+  key = "wrap_log_text",
+  labelRes = R.string.settings_wrap_log_text,
+  descriptionRes = R.string.settings_wrap_log_text_desc,
+  card = CardId.GENERAL,
+  default = true,
+  prefsKey = "wrap_log_text",
+  read = { ServerPrefs.isWrapLogText(it) },
+  write = { ctx, v -> ServerPrefs.setWrapLogText(ctx, v) },
+)
+
 val STREAM_RESPONSE_PREVIEW = SettingDef.Toggle(
   key = "stream_response_preview",
   labelRes = R.string.settings_stream_response_preview,
@@ -579,7 +590,7 @@ val REPOSITORIES_NAV = SettingDef.Custom(
 
 val allSettingDefs: List<SettingDef> = listOf(
   // General
-  KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
+  KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
   RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
   SHOW_MODEL_RECOMMENDATIONS,
   // Repositories
@@ -619,7 +630,7 @@ val allCardDefs: List<CardDef> = listOf(
     titleRes = R.string.settings_card_general,
     icon = CardIcon.Vector(Icons.Outlined.PhoneAndroid),
     settings = listOf(
-      KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
+      KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
       RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
       KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
     ),

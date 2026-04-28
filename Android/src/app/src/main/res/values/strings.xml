@@ -249,6 +249,8 @@
   <string name="settings_keep_screen_awake_desc" translatable="false">Prevent screen from turning off while app is open.</string>
   <string name="settings_auto_expand_logs" translatable="false">Auto-Expand Logs</string>
   <string name="settings_auto_expand_logs_desc" translatable="false">Show full request and response bodies in the Logs tab.</string>
+  <string name="settings_wrap_log_text" translatable="false">Wrap Lines in Log Cards</string>
+  <string name="settings_wrap_log_text_desc" translatable="false">Wrap long lines in log cards instead of scrolling horizontally.</string>
   <string name="settings_stream_response_preview" translatable="false">Stream Response Preview</string>
   <string name="settings_stream_response_preview_desc" translatable="false">Show model output as it generates in the Logs tab for streaming requests.</string>
   <string name="settings_compact_image_data" translatable="false">Compact Image Data in Logs</string>

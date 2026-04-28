@@ -62,6 +62,7 @@ private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 
 private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 private const val KEY_AUTO_EXPAND_LOGS = "auto_expand_logs"
+private const val KEY_WRAP_LOG_TEXT = "wrap_log_text"
 private const val KEY_STREAM_LOGS_PREVIEW = "stream_logs_preview"
 private const val KEY_NOTIF_SHOW_REQUEST_COUNT = "notif_show_request_count"
 private const val KEY_SHOW_REQUEST_TYPES = "show_request_types"
@@ -235,6 +236,7 @@ object ServerPrefs {
   // UI Preferences
   private val KEEP_SCREEN_ON = BoolPref(KEY_KEEP_SCREEN_ON, true)
   private val AUTO_EXPAND_LOGS = BoolPref(KEY_AUTO_EXPAND_LOGS, false)
+  private val WRAP_LOG_TEXT = BoolPref(KEY_WRAP_LOG_TEXT, true)
   private val STREAM_LOGS_PREVIEW = BoolPref(KEY_STREAM_LOGS_PREVIEW, true)
   private val NOTIF_SHOW_REQUEST_COUNT = BoolPref(KEY_NOTIF_SHOW_REQUEST_COUNT, false)
   private val SHOW_REQUEST_TYPES = BoolPref(KEY_SHOW_REQUEST_TYPES, false)
@@ -415,6 +417,9 @@ object ServerPrefs {
 
   fun isAutoExpandLogs(context: Context): Boolean = get(context, AUTO_EXPAND_LOGS)
   fun setAutoExpandLogs(context: Context, enabled: Boolean) = set(context, AUTO_EXPAND_LOGS, enabled)
+
+  fun isWrapLogText(context: Context): Boolean = get(context, WRAP_LOG_TEXT)
+  fun setWrapLogText(context: Context, enabled: Boolean) = set(context, WRAP_LOG_TEXT, enabled)
 
   fun isStreamLogsPreview(context: Context): Boolean = get(context, STREAM_LOGS_PREVIEW)
   fun setStreamLogsPreview(context: Context, enabled: Boolean) = set(context, STREAM_LOGS_PREVIEW, enabled)
