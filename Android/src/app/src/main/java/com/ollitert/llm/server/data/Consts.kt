@@ -53,7 +53,7 @@ const val DEFAULT_TEMPERATURE = 1.0f
 val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
 val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU
 
-// The size the icon shown under each of the model names in the model list screen.
+// The size of capability icons shown beside model names in the model list screen.
 val MODEL_INFO_ICON_SIZE = 18.dp
 
 // The extension of the tmp download files.

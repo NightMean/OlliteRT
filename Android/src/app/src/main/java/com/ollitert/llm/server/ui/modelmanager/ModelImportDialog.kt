@@ -96,7 +96,7 @@ import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import com.ollitert.llm.server.ui.common.ConfigEditorsPanel
-import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
+import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_STORAGE_IN_BYTES
 import com.ollitert.llm.server.ui.common.ensureValidFileName
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.common.isStorageLow
@@ -356,7 +356,7 @@ fun ModelImportDialog(
   val storageModel = pendingStorageModel
   if (storageModel != null) {
     val modelSizeGb = fileSize.bytesToGb()
-    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES.bytesToGb()
+    val reserveGb = SYSTEM_RESERVED_STORAGE_IN_BYTES.bytesToGb()
     val totalRequiredGb = modelSizeGb + reserveGb
     val availableBytes = try {
       val stat = StatFs(Environment.getDataDirectory().path)

@@ -38,12 +38,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * Pure functions that build JSON payloads for informational and inference response
- * endpoints. Extracted from ServerService to isolate payload construction from
- * service lifecycle, model management, and HTTP concerns.
+ * Builds JSON payloads for informational and inference response endpoints.
+ * Extracted from ServerService to isolate payload construction from service
+ * lifecycle, model management, and HTTP concerns.
  *
- * All functions are stateless — they read from [ServerMetrics] (a singleton) and
- * receive any mutable service state (active model, idle model name) as parameters.
+ * Functions read from [ServerMetrics] (a singleton) and receive any mutable
+ * service state (active model, idle model name) as parameters.
  */
 /**
  * Snapshot of server status fields shared between /api/version and /health responses.

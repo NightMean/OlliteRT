@@ -74,7 +74,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.service.ServerMetrics
-import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_MEMORY_IN_BYTES
+import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_STORAGE_IN_BYTES
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTSurfaceContainerLowest
@@ -351,7 +351,7 @@ private fun getStorageInfo(): StorageInfo {
     val stat = StatFs(Environment.getDataDirectory().path)
     val total = stat.totalBytes
     val free = stat.availableBytes
-    val effectiveFree = (free - SYSTEM_RESERVED_MEMORY_IN_BYTES).coerceAtLeast(0L)
+    val effectiveFree = (free - SYSTEM_RESERVED_STORAGE_IN_BYTES).coerceAtLeast(0L)
     val used = (total - free).toFloat() / total.toFloat()
     StorageInfo(
       totalBytes = total,

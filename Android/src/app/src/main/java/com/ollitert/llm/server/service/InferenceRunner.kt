@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * from HTTP routing, service lifecycle, and notification concerns.
  *
  * Dependencies:
- * - [executor] / [inferenceLock]: serialized single-thread inference from KtorServer
+ * - [executor] / [inferenceLock]: serialized single-thread inference from ServerService
  * - [context]: for reading SharedPreferences (ServerPrefs)
  * - Callbacks for logging and system instruction — avoids coupling to the Service class
  * - Singletons: [ServerMetrics], [RequestLogStore], [ServerLlmModelHelper], [InferenceGateway],

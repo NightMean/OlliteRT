@@ -108,7 +108,7 @@ private enum class HfTokenDialogReason { MISSING, INVALID }
  * The storage bar on the Models screen subtracts this from the displayed
  * "available" space so the user sees what's actually usable for models.
  */
-internal const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
+internal const val SYSTEM_RESERVED_STORAGE_IN_BYTES = 3 * (1L shl 30)
 
 /**
  * Handles the "Download & Try it" button click, managing the model download process.
@@ -686,10 +686,10 @@ fun DownloadAndTryButton(
   if (showStorageWarning) {
     // Build a detailed breakdown so the user understands why the download is
     // blocked even though raw free space may appear sufficient. The 3 GB system
-    // reserve (SYSTEM_RESERVED_MEMORY_IN_BYTES) keeps the device stable after
+    // reserve (SYSTEM_RESERVED_STORAGE_IN_BYTES) keeps the device stable after
     // downloading large models\.
     val modelSizeGb = model.totalBytes.bytesToGb()
-    val reserveGb = SYSTEM_RESERVED_MEMORY_IN_BYTES.bytesToGb()
+    val reserveGb = SYSTEM_RESERVED_STORAGE_IN_BYTES.bytesToGb()
     val totalRequiredGb = modelSizeGb + reserveGb
     val availableBytes = try {
       val stat = StatFs(Environment.getDataDirectory().path)
@@ -752,7 +752,7 @@ internal fun isStorageLow(sizeInBytes: Long): Boolean {
   return try {
     val stat = StatFs(Environment.getDataDirectory().path)
     val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
-    availableBytes < sizeInBytes + SYSTEM_RESERVED_MEMORY_IN_BYTES
+    availableBytes < sizeInBytes + SYSTEM_RESERVED_STORAGE_IN_BYTES
   } catch (e: Exception) {
     android.util.Log.w(TAG, "Failed to check storage availability", e)
     false
