@@ -39,7 +39,7 @@
   <string name="delete_benchmark_result_dialog_title" translatable="false">Delete benchmark result</string>
   <string name="delete_benchmark_result_dialog_content" translatable="false">Are you sure you want to delete the benchmark result?</string>
   <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
-  <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
+  <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%1$s\"?</string>
   <string name="dismiss" translatable="false">Dismiss</string>
   <string name="download" translatable="false">Download</string>
   <string name="expand_all" translatable="false">Expand all</string>
@@ -735,6 +735,9 @@
   <!-- Model status labels -->
   <string name="model_status_unzipping" translatable="false">Unzipping…</string>
   <string name="model_status_resuming_suffix" translatable="false">\u0020(resuming…)</string>
+
+  <string name="model_download_progress" translatable="false">%1$s of %2$s</string>
+  <string name="model_download_speed_suffix" translatable="false">%1$s/s</string>
 
   <!-- Model download panel -->
   <string name="model_stop_server_for_benchmark" translatable="false">Stop the server first to run benchmarks</string>
