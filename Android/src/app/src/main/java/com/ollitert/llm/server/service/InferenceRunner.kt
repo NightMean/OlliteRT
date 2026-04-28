@@ -741,7 +741,7 @@ class InferenceRunner(
       markCompleted()
       val (enrichedError, kind) = enrichLlmError(error, context)
       ServerMetrics.incrementErrorCount(kind.category)
-      logEvent("request_error id=$requestId endpoint=$endpoint error=$error streaming=true")
+      logEvent("request_error id=$requestId endpoint=$endpoint error=${error.take(200)} streaming=true")
       val suggestion = ErrorSuggestions.suggest(kind, context)
       if (logId != null) {
         val errorJson = ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)

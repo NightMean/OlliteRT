@@ -518,14 +518,12 @@ internal fun describeClientSamplerParams(
   topP: Double?,
   topK: Int?,
   maxTokens: Int?,
-): String? {
-  val parts = mutableListOf<String>()
-  temperature?.let { parts.add("temperature=$it") }
-  topP?.let { parts.add("top_p=$it") }
-  topK?.let { parts.add("top_k=$it") }
-  maxTokens?.let { parts.add("max_tokens=$it") }
-  return if (parts.isEmpty()) null else parts.joinToString(", ")
-}
+): String? = listOfNotNull(
+  temperature?.let { "temperature=$it" },
+  topP?.let { "top_p=$it" },
+  topK?.let { "top_k=$it" },
+  maxTokens?.let { "max_tokens=$it" },
+).joinToString(", ").ifEmpty { null }
 
 /**
  * Builds a config snapshot with per-request sampler overrides applied.
