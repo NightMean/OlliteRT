@@ -151,28 +151,34 @@ class LlmHttpApiModelsTest {
     assertEquals(true, req.stream)
   }
 
-  // ── Unique IDs: verify UUID format───────────────────────────────────
+  // ── Unique IDs: verify BridgeUtils production functions─────────────
 
   @Test
-  fun chatResponseIdPrefixFormat() {
-    // When constructed with UUID, ID should start with "chatcmpl-"
-    val id = "chatcmpl-${java.util.UUID.randomUUID()}"
-    assertTrue(id.startsWith("chatcmpl-"))
-    assertTrue(id.length > "chatcmpl-".length + 30) // UUID is 36 chars
+  fun generateChatCompletionIdHasCorrectPrefix() {
+    val id = BridgeUtils.generateChatCompletionId()
+    assertTrue("Should start with chatcmpl-", id.startsWith("chatcmpl-"))
+    assertTrue("Should include UUID (length > 30)", id.length > 30)
   }
 
   @Test
-  fun responsesResponseIdPrefixFormat() {
-    val id = "resp-${java.util.UUID.randomUUID()}"
-    assertTrue(id.startsWith("resp-"))
-    assertTrue(id.length > "resp-".length + 30)
+  fun generateResponseIdHasCorrectPrefix() {
+    val id = BridgeUtils.generateResponseId()
+    assertTrue("Should start with resp-", id.startsWith("resp-"))
+    assertTrue("Should include UUID (length > 30)", id.length > 30)
   }
 
   @Test
-  fun uuidIdsAreUnique() {
-    val id1 = "chatcmpl-${java.util.UUID.randomUUID()}"
-    val id2 = "chatcmpl-${java.util.UUID.randomUUID()}"
-    assertTrue("IDs should be unique", id1 != id2)
+  fun generateCompletionIdHasCorrectPrefix() {
+    val id = BridgeUtils.generateCompletionId()
+    assertTrue("Should start with cmpl-", id.startsWith("cmpl-"))
+    assertTrue("Should include UUID (length > 30)", id.length > 30)
+  }
+
+  @Test
+  fun generatedIdsAreUnique() {
+    val id1 = BridgeUtils.generateChatCompletionId()
+    val id2 = BridgeUtils.generateChatCompletionId()
+    assertTrue("Consecutive IDs should be unique", id1 != id2)
   }
 
   // ── CompletionRequest deserialization────────────────────────────
