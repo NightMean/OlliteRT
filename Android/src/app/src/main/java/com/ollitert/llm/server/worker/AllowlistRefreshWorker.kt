@@ -86,7 +86,12 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       if (!repo.enabled || repo.url.isBlank()) continue
       enabledRepoCount++
       try {
-        val rawJson = fetchBounded(repo.url, userAgent = "OlliteRT-AllowlistRefresh") ?: continue
+        val rawJson = fetchBounded(repo.url, userAgent = "OlliteRT-AllowlistRefresh")
+        if (rawJson == null) {
+          Log.w(TAG, "Repo '${repo.id}': fetch returned null (timeout or oversized response)")
+          failedRepoCount++
+          continue
+        }
 
         val allowlist = ModelAllowlistJson.decode(rawJson)
         if (allowlist.models.isEmpty()) {
