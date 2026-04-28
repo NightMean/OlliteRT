@@ -21,7 +21,6 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
-import androidx.datastore.core.Serializer
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
@@ -49,30 +48,11 @@ internal object AppModule {
 
   @Provides
   @Singleton
-  fun provideSettingsSerializer(): Serializer<Settings> {
-    return SettingsSerializer
-  }
-
-  @Provides
-  @Singleton
-  fun provideUserDataSerializer(): Serializer<UserData> {
-    return UserDataSerializer
-  }
-
-  @Provides
-  @Singleton
-  fun provideBenchmarkResultsSerializer(): Serializer<BenchmarkResults> {
-    return BenchmarkResultsSerializer
-  }
-
-  @Provides
-  @Singleton
   fun provideSettingsDataStore(
     @ApplicationContext context: Context,
-    settingsSerializer: Serializer<Settings>,
   ): DataStore<Settings> {
     return DataStoreFactory.create(
-      serializer = settingsSerializer,
+      serializer = SettingsSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
         Log.e(TAG, "settings.pb corrupted — resetting to defaults")
         try { ServerPrefs.addCorruptedDataStore(context, "settings") }
@@ -87,10 +67,9 @@ internal object AppModule {
   @Singleton
   fun provideUserDataDataStore(
     @ApplicationContext context: Context,
-    userDataSerializer: Serializer<UserData>,
   ): DataStore<UserData> {
     return DataStoreFactory.create(
-      serializer = userDataSerializer,
+      serializer = UserDataSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
         Log.e(TAG, "user_data.pb corrupted — resetting to defaults")
         try { ServerPrefs.addCorruptedDataStore(context, "user_data") }
@@ -105,10 +84,9 @@ internal object AppModule {
   @Singleton
   fun provideBenchmarkResultsDataStore(
     @ApplicationContext context: Context,
-    benchmarkResultsSerializer: Serializer<BenchmarkResults>,
   ): DataStore<BenchmarkResults> {
     return DataStoreFactory.create(
-      serializer = benchmarkResultsSerializer,
+      serializer = BenchmarkResultsSerializer,
       corruptionHandler = ReplaceFileCorruptionHandler {
         Log.e(TAG, "benchmark_results.pb corrupted — resetting to defaults")
         try { ServerPrefs.addCorruptedDataStore(context, "benchmark_results") }
