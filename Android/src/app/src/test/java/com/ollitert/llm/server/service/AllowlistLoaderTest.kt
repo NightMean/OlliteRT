@@ -23,7 +23,7 @@ import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-class LlmHttpAllowlistLoaderTest {
+class AllowlistLoaderTest {
 
   private val minimalAllowlistJson = """
     {

@@ -23,7 +23,7 @@ import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-class LlmHttpModelFactoryTest {
+class ModelFactoryTest {
   @Test
   fun buildAllowedModelPrefersNamedImportOverrideWhenPresent() {
     val importsDir = createTempDirectory(prefix = "imports-dir").toFile()

@@ -23,7 +23,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class LlmHttpErrorSuggestionsTest {
+class ErrorSuggestionsTest {
 
   // ── suggestionResId() — verified error kinds return non-null resource IDs ──
 

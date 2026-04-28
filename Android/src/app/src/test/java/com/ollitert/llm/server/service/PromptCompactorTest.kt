@@ -27,7 +27,7 @@ import org.junit.Test
  * These tests exercise the compaction strategies (truncation, tool compaction, trimming)
  * using real [PromptBuilder] prompt building. All functions are pure logic.
  */
-class LlmHttpPromptCompactorTest {
+class PromptCompactorTest {
 
   // ── estimateTokens() ─────────────────────────────────────────────────────
 

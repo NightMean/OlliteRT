@@ -24,7 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LlmHttpRequestAdapterTest {
+class PromptBuilderTest {
   @Test
   fun buildConversationPromptSingleTurnReturnsPlainText() {
     val prompt =

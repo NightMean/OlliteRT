@@ -27,7 +27,7 @@ import org.junit.Test
  * Tests for the pure-logic companion object functions in [InferenceRunner].
  * These functions are stateless utilities that can be tested without any Android context.
  */
-class LlmHttpInferenceRunnerCompanionTest {
+class InferenceRunnerCompanionTest {
 
   // ── applyStopSequences() ─────────────────────────────────────────────────
 

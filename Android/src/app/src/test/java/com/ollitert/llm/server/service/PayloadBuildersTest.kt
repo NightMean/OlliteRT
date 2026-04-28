@@ -30,7 +30,7 @@ import org.junit.Test
  * modelDetail, modelsList) are excluded — they require Robolectric or instrumented tests.
  * This file covers the response builders and timing calculations that are pure JVM logic.
  */
-class LlmHttpPayloadBuildersTest {
+class PayloadBuildersTest {
 
   private val json = Json { encodeDefaults = true }
 

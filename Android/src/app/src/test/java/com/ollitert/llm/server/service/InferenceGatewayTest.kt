@@ -30,7 +30,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-class LlmHttpInferenceGatewayTest {
+class InferenceGatewayTest {
 
   private val directExecutor = Executor { it.run() }
   private val lock = Any()

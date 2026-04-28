@@ -23,7 +23,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LlmHttpResponseRendererTest {
+class ResponseRendererTest {
   private val json = Json { encodeDefaults = true }
 
   @Test

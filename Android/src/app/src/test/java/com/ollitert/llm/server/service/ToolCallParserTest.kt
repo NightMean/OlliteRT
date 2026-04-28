@@ -25,7 +25,7 @@ import org.junit.Test
 /**
  * Tests for ToolCallParser — parsing tool/function calls from raw model text output.
  */
-class LlmHttpToolCallParserTest {
+class ToolCallParserTest {
 
   private val tools = listOf(
     ToolSpec(function = ToolFunctionDef(name = "get_weather", description = "Get weather")),

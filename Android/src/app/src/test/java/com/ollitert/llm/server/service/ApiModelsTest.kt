@@ -29,7 +29,7 @@ import org.junit.Test
 /**
  * Tests for API compatibility: response schema compliance with OpenAI spec.
  */
-class LlmHttpApiModelsTest {
+class ApiModelsTest {
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
   // ── Usage: total_tokens──────────────────────────────────────────────

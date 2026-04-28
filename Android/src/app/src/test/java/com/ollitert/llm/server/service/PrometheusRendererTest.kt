@@ -23,7 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-class LlmHttpPrometheusRendererTest {
+class PrometheusRendererTest {
 
   @Before
   fun setUp() {
