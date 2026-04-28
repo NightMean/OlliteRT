@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -307,6 +308,10 @@ class BenchmarkViewModelTest {
     createVm()
     advanceUntilIdle()
 
+    // Set warning state first so dismiss has something to clear
+    getInternalUiState().value = vm.uiState.value.copy(serverConflictWarning = true)
+    assertTrue(vm.uiState.value.serverConflictWarning)
+
     vm.dismissServerConflictWarning()
     assertFalse(vm.uiState.value.serverConflictWarning)
   }
@@ -316,11 +321,22 @@ class BenchmarkViewModelTest {
     createVm()
     advanceUntilIdle()
 
+    // Set error state first so dismiss has something to clear
+    getInternalUiState().value = vm.uiState.value.copy(errorMessage = "Test error")
+    assertEquals("Test error", vm.uiState.value.errorMessage)
+
     vm.dismissError()
     assertNull(vm.uiState.value.errorMessage)
   }
 
   // --- Helpers ---
+
+  @Suppress("UNCHECKED_CAST")
+  private fun getInternalUiState(): MutableStateFlow<BenchmarkUiState> {
+    val field = BenchmarkViewModel::class.java.getDeclaredField("_uiState")
+    field.isAccessible = true
+    return field.get(vm) as MutableStateFlow<BenchmarkUiState>
+  }
 
   private fun makeResult(modelName: String): BenchmarkResult =
     BenchmarkResult.newBuilder()
