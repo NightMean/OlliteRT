@@ -142,8 +142,7 @@ class AudioTranscriptionHandler(
     }
 
     val temperature = temperatureStr?.toDoubleOrNull()
-    val sampler = resolveSamplerOverrides(model, prefs, temperature, topP = null, topK = null, maxTokens = null, logId)
-    val configSnapshot = sampler.configSnapshot
+    val configSnapshot = resolveSamplerOverrides(model, prefs, temperature, topP = null, topK = null, maxTokens = null, logId)
 
     // Run inference
     val inferenceStart = SystemClock.elapsedRealtime()

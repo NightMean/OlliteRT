@@ -186,10 +186,10 @@ class EndpointHandlers(
 
     val stopSeqs = req.stop.ifEmpty { null }
     return if (req.stream == true) {
-      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = sampler.configSnapshot, json = json, prefs = prefs)
+      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = sampler, json = json, prefs = prefs)
     } else {
       ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = sampler.configSnapshot, prefs = prefs)
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = sampler, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) return handleBlockingInferenceError(llmError, logId)
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
@@ -210,7 +210,7 @@ class EndpointHandlers(
       }
 
       val completionTokens = estimateTokens(text)
-      val effectiveMax = (sampler.configSnapshot ?: model.configValues).maxTokensInt()
+      val effectiveMax = (sampler ?: model.configValues).maxTokensInt()
       val finishReason = FinishReason.infer(completionTokens, effectiveMax)
       val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(PayloadBuilders.chatResponseWithText(model.name, text, promptLen = prompt.length, finishReason = finishReason, timings = timings))
@@ -275,17 +275,17 @@ class EndpointHandlers(
     val stopSeqs = stopSequences?.ifEmpty { null }
 
     return if (req.stream == true) {
-      inferenceRunner.streamCompletions(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, configSnapshot = sampler.configSnapshot, json = json, prefs = prefs)
+      inferenceRunner.streamCompletions(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, configSnapshot = sampler, json = json, prefs = prefs)
     } else {
       ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler.configSnapshot, prefs = prefs)
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) return handleBlockingInferenceError(llmError, logId)
 
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
       val promptTokens = estimateTokens(prompt)
       val completionTokens = estimateTokens(text)
-      val effectiveMaxCompl = (sampler.configSnapshot ?: model.configValues).maxTokensInt()
+      val effectiveMaxCompl = (sampler ?: model.configValues).maxTokensInt()
       val finishReasonCompl = FinishReason.infer(completionTokens, effectiveMaxCompl)
       val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
       val responseJson = json.encodeToString(CompletionResponse(
@@ -353,10 +353,10 @@ class EndpointHandlers(
     val sampler = resolveSamplerOverrides(model, prefs, req.temperature, req.top_p, req.top_k, req.max_output_tokens, logId)
 
     return if (req.stream == true) {
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler.configSnapshot, json = json, tools = if (hasTools) tools else null, prefs = prefs)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, json = json, tools = if (hasTools) tools else null, prefs = prefs)
     } else {
       ServerMetrics.onInferenceStarted()
-      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler.configSnapshot, prefs = prefs)
+      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, prefs = prefs)
       ServerMetrics.onInferenceCompleted()
       if (text == null) return handleBlockingInferenceError(llmError, logId)
 
@@ -478,10 +478,6 @@ internal fun handleBlockingInferenceError(
   return httpInternalError(errorMsg, suggestion, kind)
 }
 
-internal data class SamplerOverrideResult(
-  val configSnapshot: Map<String, Any>?,
-)
-
 internal fun resolveSamplerOverrides(
   model: Model,
   prefs: RequestPrefsSnapshot,
@@ -490,7 +486,7 @@ internal fun resolveSamplerOverrides(
   topK: Int?,
   maxTokens: Int?,
   logId: String?,
-): SamplerOverrideResult {
+): Map<String, Any>? {
   val ignore = prefs.ignoreClientSamplerParams
   val effectiveTemp = temperature.takeUnless { ignore }
   val effectiveTopP = topP.takeUnless { ignore }
@@ -500,9 +496,7 @@ internal fun resolveSamplerOverrides(
     val ignored = describeClientSamplerParams(temperature, topP, topK, maxTokens)
     if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
   }
-  return SamplerOverrideResult(
-    configSnapshot = buildPerRequestConfig(model, effectiveTemp, effectiveTopP, effectiveTopK, effectiveMaxTokens),
-  )
+  return buildPerRequestConfig(model, effectiveTemp, effectiveTopP, effectiveTopK, effectiveMaxTokens)
 }
 
 internal fun describeClientSamplerParams(

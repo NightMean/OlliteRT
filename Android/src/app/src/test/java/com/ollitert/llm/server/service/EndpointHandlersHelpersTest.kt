@@ -171,11 +171,10 @@ class EndpointHandlersHelpersTest {
   @Test
   fun resolveSampler_ignoreDisabled_passesClientValues() {
     val prefs = RequestPrefsSnapshot(ignoreClientSamplerParams = false)
-    val result = resolveSamplerOverrides(
+    val config = resolveSamplerOverrides(
       model = model(), prefs = prefs,
       temperature = 0.7, topP = 0.9, topK = 40, maxTokens = 512, logId = null,
-    )
-    val config = result.configSnapshot!!
+    )!!
     assertEquals(0.7f, config[ConfigKeys.TEMPERATURE.id])
     assertEquals(0.9f, config[ConfigKeys.TOPP.id])
     assertEquals(40, config[ConfigKeys.TOPK.id])
@@ -188,7 +187,7 @@ class EndpointHandlersHelpersTest {
       model = model(), prefs = prefs,
       temperature = 0.7, topP = 0.9, topK = 40, maxTokens = 512, logId = null,
     )
-    assertNull(result.configSnapshot)
+    assertNull(result)
   }
 
   @Test
@@ -198,17 +197,16 @@ class EndpointHandlersHelpersTest {
       model = model(), prefs = prefs,
       temperature = null, topP = null, topK = null, maxTokens = null, logId = null,
     )
-    assertNull(result.configSnapshot)
+    assertNull(result)
   }
 
   @Test
   fun resolveSampler_partialParams_onlyOverridesProvided() {
     val prefs = RequestPrefsSnapshot(ignoreClientSamplerParams = false)
-    val result = resolveSamplerOverrides(
+    val config = resolveSamplerOverrides(
       model = model(), prefs = prefs,
       temperature = 0.5, topP = null, topK = null, maxTokens = null, logId = null,
-    )
-    val config = result.configSnapshot!!
+    )!!
     assertEquals(0.5f, config[ConfigKeys.TEMPERATURE.id])
   }
 }
