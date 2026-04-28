@@ -243,7 +243,6 @@ data class Model(
   @Volatile var instance: Any? = null,
   @Volatile var initializedWithVision: Boolean = false,
   @Volatile var configValues: Map<String, Any> = mapOf(),
-  var prevConfigValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
   var accessToken: String? = null,
 

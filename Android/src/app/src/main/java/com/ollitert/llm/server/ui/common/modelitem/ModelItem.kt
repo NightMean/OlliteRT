@@ -273,7 +273,7 @@ fun ModelItem(
           changes.add("system_prompt: changed")
         }
 
-        model.prevConfigValues = model.configValues
+        val prevConfigValues = model.configValues
         model.configValues = newConfigValues.toMap()
         // Persist inference config so it survives app restarts
         ServerPrefs.setInferenceConfig(context, model.prefsKey, newConfigValues)
@@ -296,7 +296,7 @@ fun ModelItem(
             put("changes", buildJsonArray {
               for (config in model.configs) {
                 val key = config.key.label
-                val oldValue = model.prevConfigValues[key]?.let {
+                val oldValue = prevConfigValues[key]?.let {
                   com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
                 }
                 val newValue = newConfigValues[key]?.let {
