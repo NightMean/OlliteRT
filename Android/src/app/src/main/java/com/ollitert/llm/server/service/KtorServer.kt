@@ -292,32 +292,9 @@ class KtorServer(
     get("/health") { handleHealth(call) }
     get("/v1/health") { handleHealth(call) }
 
-    get("/") {
-      withGetLogging(call) {
-        val body = PayloadBuilders.serverInfo(
-          defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
-        )
-        httpOkJson(body)
-      }
-    }
-
-    get("/v1") {
-      withGetLogging(call) {
-        val body = PayloadBuilders.serverInfo(
-          defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
-        )
-        httpOkJson(body)
-      }
-    }
-
-    get("/api/version") {
-      withGetLogging(call) {
-        val body = PayloadBuilders.serverInfo(
-          defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
-        )
-        httpOkJson(body)
-      }
-    }
+    get("/") { handleServerInfo(call) }
+    get("/v1") { handleServerInfo(call) }
+    get("/api/version") { handleServerInfo(call) }
 
     get("/metrics") {
       withGetLogging(call) {
@@ -326,21 +303,8 @@ class KtorServer(
       }
     }
 
-    get("/v1/models") {
-      if (!requireAuth(call)) return@get
-      withGetLogging(call) {
-        val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
-        httpOkJson(body)
-      }
-    }
-
-    get("/debug/models") {
-      if (!requireAuth(call)) return@get
-      withGetLogging(call) {
-        val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
-        httpOkJson(body)
-      }
-    }
+    get("/v1/models") { handleModelsList(call) }
+    get("/debug/models") { handleModelsList(call) }
 
     get("/v1/models/{id...}") {
       if (!requireAuth(call)) return@get
@@ -599,6 +563,18 @@ class KtorServer(
     var responseBodySnapshot: String? = null
 
     val response: HttpResponse = try {
+      // Defense-in-depth: reject obviously oversized requests before allocating memory.
+      // The OOM catch below is the safety net for spoofed/missing Content-Length.
+      val contentLength = call.request.headers["Content-Length"]?.toLongOrNull()
+      if (contentLength != null && contentLength > 10 * 1024 * 1024) {
+        val tooLargeResponse = httpPayloadTooLarge("Request body too large (${contentLength} bytes)")
+        requestBodySnapshot = "[Content-Length exceeded: $contentLength]"
+        finalizeLogEntry(logId, startMs, tooLargeResponse, requestBodySnapshot, responseBodySnapshot)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(tooLargeResponse)
+        return
+      }
+
       // Read body with OOM protection — oversized payloads should fail the request,
       // not destroy the loaded model.
       val body = try {
@@ -656,13 +632,7 @@ class KtorServer(
 
     // Reset keep-alive idle timer after successful POST requests (inference routes
     // that touch the model). Non-inference GET routes don't reset it.
-    val statusCode = when (response) {
-      is HttpResponse.Json -> response.statusCode
-      is HttpResponse.PlainText -> response.statusCode
-      is HttpResponse.Binary -> response.statusCode
-      is HttpResponse.Sse -> 200 // SSE always starts as 200
-    }
-    if (statusCode in 200..299) {
+    if (response.statusCode in 200..299) {
       modelLifecycle.resetKeepAliveTimer()
     }
   }
@@ -680,12 +650,7 @@ class KtorServer(
     responseBodySnapshot: String?,
   ) {
     val elapsedMs = SystemClock.elapsedRealtime() - startMs
-    val statusCode = when (response) {
-      is HttpResponse.Json -> response.statusCode
-      is HttpResponse.PlainText -> response.statusCode
-      is HttpResponse.Binary -> response.statusCode
-      is HttpResponse.Sse -> 200
-    }
+    val statusCode = response.statusCode
     val isStreaming = response is HttpResponse.Sse
     val isThinking = responseBodySnapshot?.contains("<think>") == true
 
@@ -765,19 +730,35 @@ class KtorServer(
       ?: return httpBadRequest("No model loaded")
     val reloadPort = ServerMetrics.port.value
     ServerService.reload(serviceContext, reloadPort, modelName)
-    return httpOkJson("""{"success":true,"message":"Model reloading","model":"$modelName"}""")
+    val result = buildJsonObject {
+      put("success", true)
+      put("message", "Model reloading")
+      put("model", modelName)
+    }
+    return httpOkJson(result.toString())
+  }
+
+  private data class ModelContext(
+    val model: Model?,
+    val isIdle: Boolean,
+    val modelName: String,
+    val modelPrefsKey: String,
+  )
+
+  private fun resolveModelContext(): ModelContext? {
+    val model = defaultModel
+    val isIdle = ServerMetrics.isIdleUnloaded.value
+    val modelName = model?.name ?: keepAliveUnloadedModelName ?: return null
+    val modelPrefsKey = model?.prefsKey ?: modelLifecycle.keepAliveUnloadedModelPrefsKey ?: return null
+    return ModelContext(model, isIdle, modelName, modelPrefsKey)
   }
 
   /**
    * Handles POST /v1/server/thinking — toggle thinking mode on/off.
    */
   private fun handleServerThinking(body: String): HttpResponse {
-    val model = defaultModel
-    val isIdle = ServerMetrics.isIdleUnloaded.value
-    val modelName = model?.name ?: keepAliveUnloadedModelName
-      ?: return httpBadRequest("No model loaded")
-    val modelPrefsKey = model?.prefsKey ?: modelLifecycle.keepAliveUnloadedModelPrefsKey
-      ?: return httpBadRequest("No model loaded")
+    val ctx = resolveModelContext() ?: return httpBadRequest("No model loaded")
+    val (model, isIdle, modelName, modelPrefsKey) = ctx
     // When model is loaded, check thinking support. When idle-unloaded, skip the check —
     // we can't inspect model capabilities without the Model object, but the saved config
     // will be applied when the model reloads.
@@ -819,6 +800,7 @@ class KtorServer(
       put("thinking_enabled", requestedState)
       put("model", modelName)
       put("model_loaded", !isIdle)
+      if (isIdle) put("warning", "Model is idle-unloaded; thinking support cannot be verified until reload")
     }
     return httpOkJson(result.toString())
   }
@@ -827,12 +809,8 @@ class KtorServer(
    * Handles POST /v1/server/config — update inference settings.
    */
   private fun handleServerConfig(body: String): HttpResponse {
-    val model = defaultModel
-    val isIdle = ServerMetrics.isIdleUnloaded.value
-    val modelName = model?.name ?: keepAliveUnloadedModelName
-      ?: return httpBadRequest("No model loaded")
-    val modelPrefsKey = model?.prefsKey ?: modelLifecycle.keepAliveUnloadedModelPrefsKey
-      ?: return httpBadRequest("No model loaded")
+    val ctx = resolveModelContext() ?: return httpBadRequest("No model loaded")
+    val (model, isIdle, modelName, modelPrefsKey) = ctx
     if (body.isBlank()) {
       // GET-like: return current config. Read under lock when model is loaded.
       val currentConfig = if (model != null) {
@@ -982,6 +960,23 @@ class KtorServer(
   }
 
   // ── Shared route handlers ─────────────────────────────────────────────────
+
+  private suspend fun handleServerInfo(call: ApplicationCall) {
+    withGetLogging(call) {
+      val body = PayloadBuilders.serverInfo(
+        defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
+      )
+      httpOkJson(body)
+    }
+  }
+
+  private suspend fun handleModelsList(call: ApplicationCall) {
+    if (!requireAuth(call)) return
+    withGetLogging(call) {
+      val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+      httpOkJson(body)
+    }
+  }
 
   private suspend fun handleHealth(call: ApplicationCall) {
     val includeMetrics =

@@ -17,25 +17,28 @@
 package com.ollitert.llm.server.service
 
 sealed class HttpResponse {
+  abstract val statusCode: Int
+
   data class Json(
-    val statusCode: Int,
+    override val statusCode: Int,
     val body: String,
     val extraHeaders: Map<String, String> = emptyMap(),
   ) : HttpResponse()
 
   data class Binary(
-    val statusCode: Int,
+    override val statusCode: Int,
     val contentType: String,
     val bytes: ByteArray,
   ) : HttpResponse()
 
   data class PlainText(
-    val statusCode: Int,
+    override val statusCode: Int,
     val contentType: String,
     val body: String,
   ) : HttpResponse()
 
   data class Sse(
+    override val statusCode: Int = 200,
     val writer: suspend (SseWriter) -> Unit,
   ) : HttpResponse()
 }
