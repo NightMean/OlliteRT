@@ -50,7 +50,7 @@ object InferenceGateway {
   /**
    * Fires inference on [executor] and delivers tokens via [onToken] as they arrive.
    * Returns immediately; the caller receives the stream via [onToken]/[onError] callbacks.
-   * [onToken] is called with (partial, false) for each token and (*, true) once when done.
+   * [onToken] is called with (partial, done, thought) for each token and (*, true, *) once when done.
    * [onError] is called instead of [onToken] if inference fails.
    *
    * @param onCaughtThrowable Optional callback invoked with the full [Throwable] when an

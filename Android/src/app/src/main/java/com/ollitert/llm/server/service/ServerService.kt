@@ -876,7 +876,7 @@ class ServerService : Service() {
    * would otherwise be reduced to just [Throwable.message].
    *
    * @param t The caught throwable
-   * @param source Identifier for which catch block produced this (e.g. "model_load", "execute", "serve_catch_all")
+   * @param source Identifier for which catch block produced this (e.g. "model_load", "execute", "ktor_serve_catch_all")
    * @param modelName Optional model name for log entry context
    */
   private fun emitDebugStackTrace(t: Throwable, source: String, modelName: String? = null) {
