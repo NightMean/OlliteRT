@@ -135,11 +135,13 @@ object InferenceGateway {
     onInferenceFinished: () -> Unit = {},
     elapsedMs: () -> Long,
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
+    earlyUnblock: ((CountDownLatch) -> Unit)? = null,
   ): InferenceResult {
     val sb = StringBuilder()
     val thinkingSb = StringBuilder()
     val inferenceLatch = CountDownLatch(1)
     val lifecycleLatch = CountDownLatch(1)
+    earlyUnblock?.invoke(lifecycleLatch)
     val error = AtomicReference<String?>(null)
     val startMs = elapsedMs()
     var firstTokenMs: Long? = null

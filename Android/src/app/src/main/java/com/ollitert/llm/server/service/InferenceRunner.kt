@@ -43,6 +43,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.Json
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Executes LLM inference (blocking and streaming) against a loaded model.
@@ -152,26 +153,21 @@ class InferenceRunner(
 
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
     val supportAudio = model.llmSupportAudio
-    synchronized(inferenceLock) {
-      val initErr = reinitIfNeeded(model, supportImage, supportAudio)
-      if (initErr != null) {
-
-        return null to context.getString(R.string.error_model_init_failed, initErr)
-      }
-    }
-    val enableThinking = model.isThinkingEnabled
-    val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
     val userCancelFlag = AtomicBoolean(false)
     val inferenceActuallyStarted = AtomicBoolean(false)
-    // Register a lightweight cancel callback immediately so queued requests can be cancelled.
-    // This only sets the flag — stopResponse is deferred until the request actually starts.
+    val lifecycleLatchRef = AtomicReference<java.util.concurrent.CountDownLatch?>(null)
+    // Register cancel callback before any lock acquisition so queued requests are cancellable.
     if (logId != null) {
       RequestLogStore.registerCancellation(logId) {
         userCancelFlag.set(true)
         if (inferenceActuallyStarted.get()) ServerLlmModelHelper.stopResponse(model)
+        lifecycleLatchRef.get()?.countDown()
       }
     }
+
+    val enableThinking = model.isThinkingEnabled
+    val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
     // Captured inside the resetConversation lambda (which runs under inferenceLock) so
     // that concurrent updateConfigValues() writes are visible before we snapshot.
@@ -185,6 +181,8 @@ class InferenceRunner(
       resetConversation = {
         // Skip inference entirely if cancelled while queued.
         if (userCancelFlag.get()) throw java.util.concurrent.CancellationException("cancelled_while_queued")
+        val initErr = reinitIfNeeded(model, supportImage, supportAudio)
+        if (initErr != null) throw RuntimeException("model_init_failed: $initErr")
         inferenceActuallyStarted.set(true)
         ServerMetrics.onInferenceStarted()
         if (configSnapshot != null) {
@@ -214,6 +212,7 @@ class InferenceRunner(
       },
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
+      earlyUnblock = { latch -> lifecycleLatchRef.set(latch) },
     )
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
@@ -895,16 +894,19 @@ class InferenceRunner(
     val eagerVision = prefs?.eagerVisionInit ?: ServerPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
     val supportAudio = model.llmSupportAudio
-    synchronized(inferenceLock) {
-      val initErr = reinitIfNeeded(model, supportImage, supportAudio)
-      if (initErr != null) {
-        if (logId != null) {
-          val errorJson = ResponseRenderer.renderJsonError("model_init_failed: $initErr")
-          RequestLogStore.update(logId) { it.copy(responseBody = errorJson, isPending = false, level = LogLevel.ERROR) }
-        }
-        return httpInternalError("model_init_failed")
+
+    // Register cancel callback before any lock so queued requests are immediately cancellable.
+    val userCancelFlag = AtomicBoolean(false)
+    val channelRef = AtomicReference<Channel<StreamEvent>?>(null)
+    val stateRef = AtomicReference<StreamState?>(null)
+    if (logId != null) {
+      RequestLogStore.registerCancellation(logId) {
+        userCancelFlag.set(true)
+        channelRef.get()?.close()
+        stateRef.get()?.let { if (it.inferenceStarted) ServerLlmModelHelper.stopResponse(model) }
       }
     }
+
     val enableThinking = model.isThinkingEnabled
     val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
@@ -915,16 +917,9 @@ class InferenceRunner(
 
     return HttpResponse.Sse { writer ->
       val channel = Channel<StreamEvent>(Channel.UNLIMITED)
+      channelRef.set(channel)
       val state = StreamState(model, requestId, endpoint, logId, streamStartMs, keepPartial)
-      val userCancelFlag = AtomicBoolean(false)
-
-      if (logId != null) {
-        RequestLogStore.registerCancellation(logId) {
-          userCancelFlag.set(true)
-          channel.close()
-          if (state.inferenceStarted) ServerLlmModelHelper.stopResponse(model)
-        }
-      }
+      stateRef.set(state)
 
       // Captured inside the resetConversation lambda (which runs under inferenceLock) so
       // that concurrent updateConfigValues() writes are visible before we snapshot.
@@ -939,6 +934,8 @@ class InferenceRunner(
         inferenceLock = inferenceLock,
         resetConversation = {
           if (userCancelFlag.get()) throw java.util.concurrent.CancellationException("cancelled_while_queued")
+          val initErr = reinitIfNeeded(model, supportImage, supportAudio)
+          if (initErr != null) throw RuntimeException("model_init_failed: $initErr")
           state.markStarted()
           if (configSnapshot != null) {
             originalConfig = model.configValues
