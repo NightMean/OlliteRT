@@ -90,6 +90,7 @@ import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.bytesToGb
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
+import com.ollitert.llm.server.ui.modelmanager.ModelUrlResult
 import com.ollitert.llm.server.ui.modelmanager.TokenRequestResultType
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import kotlinx.coroutines.Dispatchers
@@ -207,11 +208,13 @@ fun DownloadAndTryButton(
               scope.launch(Dispatchers.IO) {
                 // Check if we can use the current token to access model. If not, we might need to
                 // acknowledge the user agreement.
+                val urlResult = modelManagerViewModel.getModelUrlResponse(
+                  model = model,
+                  accessToken = modelManagerViewModel.curAccessToken,
+                )
                 if (
-                  modelManagerViewModel.getModelUrlResponse(
-                    model = model,
-                    accessToken = modelManagerViewModel.curAccessToken,
-                  ) == HttpURLConnection.HTTP_FORBIDDEN
+                  urlResult is ModelUrlResult.Success &&
+                    urlResult.code == HttpURLConnection.HTTP_FORBIDDEN
                 ) {
                   Log.d(TAG, "Model '${model.name}' needs user agreement ack.")
                   showAgreementAckSheet = true
@@ -264,17 +267,22 @@ fun DownloadAndTryButton(
             TAG,
             "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
           )
-          val firstResponseCode = modelManagerViewModel.getModelUrlResponse(model = model)
-          if (firstResponseCode == HttpURLConnection.HTTP_OK) {
-            Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading the model...")
-            withContext(Dispatchers.Main) { startDownload(null) }
-            return@launch
-          } else if (firstResponseCode < 0) {
-            checkingToken = false
-            downloadStarted = false
-            Log.e(TAG, "Unknown network error")
-            showErrorDialog = true
-            return@launch
+          val firstResult = modelManagerViewModel.getModelUrlResponse(model = model)
+          when (firstResult) {
+            is ModelUrlResult.Error -> {
+              checkingToken = false
+              downloadStarted = false
+              Log.e(TAG, "Network error: ${firstResult.message}")
+              showErrorDialog = true
+              return@launch
+            }
+            is ModelUrlResult.Success -> {
+              if (firstResult.code == HttpURLConnection.HTTP_OK) {
+                Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading the model...")
+                withContext(Dispatchers.Main) { startDownload(null) }
+                return@launch
+              }
+            }
           }
           Log.d(TAG, "Model '${model.name}' needs auth.")
 
@@ -282,21 +290,32 @@ fun DownloadAndTryButton(
           val storedHfToken = com.ollitert.llm.server.data.ServerPrefs.getHfToken(context)
           if (storedHfToken.isNotBlank()) {
             Log.d(TAG, "Trying stored HF token from Settings...")
-            val hfResponse = modelManagerViewModel.getModelUrlResponse(
+            val hfResult = modelManagerViewModel.getModelUrlResponse(
               model = model,
               accessToken = storedHfToken,
             )
-            if (hfResponse == HttpURLConnection.HTTP_OK) {
-              Log.d(TAG, "Stored HF token works. Start downloading...")
-              withContext(Dispatchers.Main) { startDownload(storedHfToken) }
-              return@launch
-            } else if (hfResponse == HttpURLConnection.HTTP_FORBIDDEN) {
-              Log.d(TAG, "Model needs license agreement. Opening agreement page...")
-              checkingToken = false
-              showAgreementAckSheet = true
-              return@launch
+            when (hfResult) {
+              is ModelUrlResult.Error -> {
+                Log.e(TAG, "Network error checking HF token: ${hfResult.message}")
+                checkingToken = false
+                downloadStarted = false
+                showErrorDialog = true
+                return@launch
+              }
+              is ModelUrlResult.Success -> {
+                if (hfResult.code == HttpURLConnection.HTTP_OK) {
+                  Log.d(TAG, "Stored HF token works. Start downloading...")
+                  withContext(Dispatchers.Main) { startDownload(storedHfToken) }
+                  return@launch
+                } else if (hfResult.code == HttpURLConnection.HTTP_FORBIDDEN) {
+                  Log.d(TAG, "Model needs license agreement. Opening agreement page...")
+                  checkingToken = false
+                  showAgreementAckSheet = true
+                  return@launch
+                }
+                Log.d(TAG, "Stored HF token is invalid (response=${hfResult.code}).")
+              }
             }
-            Log.d(TAG, "Stored HF token is invalid (response=$hfResponse).")
             checkingToken = false
             downloadStarted = false
             hfTokenDialogReason = HfTokenDialogReason.INVALID

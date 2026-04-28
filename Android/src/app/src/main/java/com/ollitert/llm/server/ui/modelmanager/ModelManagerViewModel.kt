@@ -80,9 +80,14 @@ private const val TEST_MODEL_ALLOW_LIST = ""
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
-  var error: String = "",
-  var initializedBackends: Set<String> = setOf(),
+  val error: String = "",
+  val initializedBackends: Set<String> = setOf(),
 )
+
+sealed class ModelUrlResult {
+  data class Success(val code: Int) : ModelUrlResult()
+  data class Error(val message: String) : ModelUrlResult()
+}
 
 enum class ModelInitializationStatusType {
   NOT_INITIALIZED,
@@ -371,7 +376,7 @@ constructor(
     }
   }
 
-  fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
+  fun getModelUrlResponse(model: Model, accessToken: String? = null): ModelUrlResult {
     var connection: HttpURLConnection? = null
     var redirectConn: HttpURLConnection? = null
     try {
@@ -394,7 +399,9 @@ constructor(
       if (responseCode in 300..399) {
         val redirectUrl = connection.getHeaderField("Location")
         if (redirectUrl == null) {
-          return if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+          return ModelUrlResult.Success(
+            if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+          )
         }
         redirectConn = URL(redirectUrl).openConnection() as HttpURLConnection
         redirectConn.requestMethod = "HEAD"
@@ -404,14 +411,16 @@ constructor(
         // HTML page = login/error page, not a valid model file.
         if (contentType.contains("text/html", ignoreCase = true)) {
           Log.d(TAG, "Redirect landed on HTML page — auth required or token invalid")
-          return if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+          return ModelUrlResult.Success(
+            if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+          )
         }
-        return redirectConn.responseCode
+        return ModelUrlResult.Success(redirectConn.responseCode)
       }
-      return responseCode
+      return ModelUrlResult.Success(responseCode)
     } catch (e: Exception) {
       Log.e(TAG, "$e")
-      return -1
+      return ModelUrlResult.Error(e.message ?: "Unknown network error")
     } finally {
       connection?.disconnect()
       redirectConn?.disconnect()
