@@ -498,6 +498,11 @@
   </plurals>
   <string name="logs_dialog_clear_active_clear" translatable="false">Clear</string>
   <string name="logs_dialog_clear_active_stop" translatable="false">Stop</string>
+  <string name="logs_dialog_stop_active_title" translatable="false">Active Generation</string>
+  <plurals name="logs_dialog_stop_active_body" translatable="false">
+    <item quantity="one">There is %1$d request currently being processed or waiting in the queue. Stopping the server will cancel it.</item>
+    <item quantity="other">There are %1$d requests currently being processed or waiting in the queue. Stopping the server will cancel them.</item>
+  </plurals>
 
   <!-- LogsScreen: Result count banner -->
   <string name="logs_searching" translatable="false">Searching…</string>

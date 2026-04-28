@@ -75,6 +75,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -89,6 +90,7 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.bytesToGb
+import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.modelmanager.ModelUrlResult
 import com.ollitert.llm.server.ui.modelmanager.TokenRequestResultType
@@ -146,6 +148,7 @@ fun DownloadAndTryButton(
   var checkingToken by remember { mutableStateOf(false) }
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
+  var showStopActiveDialog by remember { mutableStateOf(false) }
   var hfTokenDialogReason by remember { mutableStateOf<HfTokenDialogReason?>(null) }
   var showMemoryWarning by remember { mutableStateOf(false) }
   var showStorageWarning by remember { mutableStateOf(false) }
@@ -408,7 +411,13 @@ fun DownloadAndTryButton(
           containerColor = MaterialTheme.colorScheme.errorContainer,
         ),
         contentPadding = PaddingValues(horizontal = 12.dp),
-        onClick = onStopServer,
+        onClick = {
+          if (RequestLogStore.entries.value.any { it.isPending }) {
+            showStopActiveDialog = true
+          } else {
+            onStopServer()
+          }
+        },
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
@@ -642,6 +651,43 @@ fun DownloadAndTryButton(
       text = stringResource(R.string.dialog_network_error_body),
       onDismiss = { showErrorDialog = false },
       confirmLabel = stringResource(R.string.close),
+    )
+  }
+
+  if (showStopActiveDialog) {
+    val pendingCount = RequestLogStore.entries.value.count { it.isPending }
+    AlertDialog(
+      onDismissRequest = { showStopActiveDialog = false },
+      title = {
+        Text(
+          text = stringResource(R.string.logs_dialog_stop_active_title),
+          style = MaterialTheme.typography.titleMedium,
+        )
+      },
+      text = {
+        Text(
+          text = pluralStringResource(R.plurals.logs_dialog_stop_active_body, pendingCount, pendingCount),
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            showStopActiveDialog = false
+            onStopServer()
+          },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+          ),
+        ) {
+          Text(stringResource(R.string.logs_dialog_clear_active_stop))
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showStopActiveDialog = false }) {
+          Text(stringResource(R.string.logs_dialog_clear_cancel))
+        }
+      },
     )
   }
 
