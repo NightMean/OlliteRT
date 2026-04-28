@@ -223,13 +223,6 @@ constructor(
     }
   }
 
-  fun getActivelyDownloadingModelNames(): Set<String> {
-    val activeStatuses = setOf(ModelDownloadStatusType.IN_PROGRESS, ModelDownloadStatusType.UNZIPPING)
-    return uiState.value.modelDownloadStatus
-      .filter { (_, status) -> status.status in activeStatuses }
-      .keys
-  }
-
 
   fun processModels() {
     val models = uiState.value.models
