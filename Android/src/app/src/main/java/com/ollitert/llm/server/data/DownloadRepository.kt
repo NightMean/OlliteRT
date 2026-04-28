@@ -36,7 +36,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.ollitert.llm.server.AppLifecycleProvider
+import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.worker.DownloadWorker
 import java.util.UUID
@@ -57,7 +57,7 @@ private const val MODEL_NAME_TAG = "modelName"
 @Singleton
 class DownloadRepository @Inject constructor(
   @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
-  private val lifecycleProvider: AppLifecycleProvider,
+  private val lifecycleProvider: OlliteRTLifecycleProvider,
 ) {
   private val workManager = WorkManager.getInstance(context)
   /**

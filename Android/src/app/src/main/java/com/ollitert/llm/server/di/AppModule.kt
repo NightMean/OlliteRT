@@ -24,7 +24,6 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
-import com.ollitert.llm.server.AppLifecycleProvider
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.data.BenchmarkResultsSerializer
 import com.ollitert.llm.server.data.DataStoreRepository
@@ -118,12 +117,6 @@ internal object AppModule {
       },
       produceFile = { context.dataStoreFile("benchmark_results.pb") },
     )
-  }
-
-  @Provides
-  @Singleton
-  fun provideAppLifecycleProvider(): AppLifecycleProvider {
-    return OlliteRTLifecycleProvider()
   }
 
   @Provides

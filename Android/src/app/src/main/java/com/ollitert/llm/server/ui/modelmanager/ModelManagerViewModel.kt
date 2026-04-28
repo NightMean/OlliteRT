@@ -24,7 +24,7 @@ import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.AppLifecycleProvider
+import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
@@ -158,7 +158,7 @@ open class ModelManagerViewModel
 constructor(
   private val downloadRepository: DownloadRepository,
   val dataStoreRepository: DataStoreRepository,
-  private val lifecycleProvider: AppLifecycleProvider,
+  private val lifecycleProvider: OlliteRTLifecycleProvider,
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
 ) : ViewModel() {

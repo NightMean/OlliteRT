@@ -17,14 +17,14 @@
 
 package com.ollitert.llm.server
 
-interface AppLifecycleProvider {
-  var isAppInForeground: Boolean
-}
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class OlliteRTLifecycleProvider : AppLifecycleProvider {
+@Singleton
+class OlliteRTLifecycleProvider @Inject constructor() {
   @Volatile private var _isAppInForeground = false
 
-  override var isAppInForeground: Boolean
+  var isAppInForeground: Boolean
     get() = _isAppInForeground
     set(value) {
       _isAppInForeground = value
