@@ -674,6 +674,14 @@ object ServerPrefs {
     )
 }
 
+/**
+ * Snapshot of server preferences captured at request entry time.
+ *
+ * Created once per HTTP request by [ServerPrefs.createSnapshot] to avoid repeated
+ * SharedPreferences reads during token generation. Callers that don't provide a snapshot
+ * (warmup, internal calls) fall back to live [ServerPrefs] reads via the
+ * `prefs?.field ?: ServerPrefs.liveRead(context)` pattern — this is intentional.
+ */
 data class RequestPrefsSnapshot(
   val autoTruncateHistory: Boolean = false,
   val autoTrimPrompts: Boolean = false,
