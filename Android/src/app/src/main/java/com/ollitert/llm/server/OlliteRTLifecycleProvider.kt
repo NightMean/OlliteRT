@@ -20,6 +20,10 @@ package com.ollitert.llm.server
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Shares app foreground/background state between the Activity (which sets it)
+// and the foreground Service (which reads it to adjust notification behavior).
+// Injected via Hilt rather than using ProcessLifecycleOwner so the Service
+// doesn't depend on the lifecycle-process library.
 @Singleton
 class OlliteRTLifecycleProvider @Inject constructor() {
   @Volatile private var _isAppInForeground = false
