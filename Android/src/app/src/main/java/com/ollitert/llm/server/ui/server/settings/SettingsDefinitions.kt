@@ -589,12 +589,12 @@ val REPOSITORIES_NAV = SettingDef.Custom(
 // ─── All Setting Definitions (ordered) ──────────────────────────────────────
 
 val allSettingDefs: List<SettingDef> = listOf(
+  // Repositories
+  REPOSITORIES_NAV,
   // General
   KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
   RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
   SHOW_MODEL_RECOMMENDATIONS,
-  // Repositories
-  REPOSITORIES_NAV,
   // HF Token
   HF_TOKEN,
   // Server Config
@@ -626,6 +626,12 @@ val settingDefsByKey: Map<String, SettingDef> = allSettingDefs.associateBy { it.
 
 val allCardDefs: List<CardDef> = listOf(
   CardDef(
+    id = CardId.REPOSITORIES,
+    titleRes = R.string.settings_card_repositories,
+    icon = CardIcon.Vector(Icons.Outlined.Inventory2),
+    settings = listOf(REPOSITORIES_NAV),
+  ),
+  CardDef(
     id = CardId.GENERAL,
     titleRes = R.string.settings_card_general,
     icon = CardIcon.Vector(Icons.Outlined.PhoneAndroid),
@@ -634,12 +640,6 @@ val allCardDefs: List<CardDef> = listOf(
       RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
       KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
     ),
-  ),
-  CardDef(
-    id = CardId.REPOSITORIES,
-    titleRes = R.string.settings_card_repositories,
-    icon = CardIcon.Vector(Icons.Outlined.Inventory2),
-    settings = listOf(REPOSITORIES_NAV),
   ),
   CardDef(
     id = CardId.HF_TOKEN,
