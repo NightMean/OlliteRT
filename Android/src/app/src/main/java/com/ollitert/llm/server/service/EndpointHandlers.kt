@@ -91,11 +91,7 @@ class EndpointHandlers(
     }
     val prompt = compactionResultGen.prompt
     // Store context utilization data in the log entry for per-request display
-    val maxCtxGen = (maxContextGen ?: 0).toLong()
-    if (logId != null) {
-      val inputEst = estimateTokensLong(prompt)
-      RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxGen) }
-    }
+    recordContextUtilization(logId, prompt, maxContextGen)
     logEvent("request_start id=$requestId endpoint=/generate bodyLength=${body.length} promptChars=${prompt.length} model=default")
     ServerMetrics.onInferenceStarted()
     val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/generate", logId = logId, prefs = prefs)
@@ -176,11 +172,7 @@ class EndpointHandlers(
     // Apply response_format JSON mode prompt injection
     var prompt = InferenceRunner.applyResponseFormat(compactionResult.prompt, req.response_format)
     // Store context utilization data in the log entry for per-request display
-    val maxCtxChat = (maxContext ?: 0).toLong()
-    if (logId != null) {
-      val inputEst = estimateTokensLong(prompt)
-      RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxChat) }
-    }
+    recordContextUtilization(logId, prompt, maxContext)
     // Extract images for multimodal models (before blank-prompt check so image-only requests work).
     val images = if (model.llmSupportImage) modelLifecycle.decodeImageDataUris(req.messages) else emptyList()
     // Extract audio clips for models that support audio input. Models that don't support audio
@@ -273,11 +265,7 @@ class EndpointHandlers(
     }
     val prompt = compactionResultCompl.prompt
     // Store context utilization data in the log entry for per-request display
-    val maxCtxCompl = (maxContextCompl ?: 0).toLong()
-    if (logId != null) {
-      val inputEst = estimateTokensLong(prompt)
-      RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxCompl) }
-    }
+    recordContextUtilization(logId, prompt, maxContextCompl)
     logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${body.length} promptChars=${prompt.length} model=${model.name}")
 
     if (prompt.isBlank()) {
@@ -363,11 +351,7 @@ class EndpointHandlers(
     }
     val prompt = compactionResultResp.prompt
     // Store context utilization data in the log entry for per-request display
-    val maxCtxResp = (maxContextResp ?: 0).toLong()
-    if (logId != null) {
-      val inputEst = estimateTokensLong(prompt)
-      RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtxResp) }
-    }
+    recordContextUtilization(logId, prompt, maxContextResp)
     logEvent("request_start id=$requestId endpoint=/v1/responses bodyLength=${body.length} promptChars=${prompt.length} model=$requestedId resolved=${model.name}")
 
     if (prompt.isBlank()) {
@@ -559,21 +543,22 @@ internal fun buildPerRequestConfig(
 ): Map<String, Any>? {
   if (temperature == null && topP == null && topK == null && maxTokens == null) return null
   val overridden = model.configValues.toMutableMap()
-  temperature?.let {
-    overridden[ConfigKeys.TEMPERATURE.label] = it.toFloat().coerceIn(MIN_TEMPERATURE, MAX_TEMPERATURE)
-  }
-  topP?.let {
-    overridden[ConfigKeys.TOPP.label] = it.toFloat().coerceIn(MIN_TOPP, MAX_TOPP)
-  }
-  topK?.let {
-    overridden[ConfigKeys.TOPK.label] = it.coerceIn(MIN_TOPK, MAX_TOPK)
-  }
+  temperature?.let { overridden[ConfigKeys.TEMPERATURE.label] = clampTemperature(it) }
+  topP?.let { overridden[ConfigKeys.TOPP.label] = clampTopP(it) }
+  topK?.let { overridden[ConfigKeys.TOPK.label] = clampTopK(it) }
   maxTokens?.let {
-    val clamped = it.coerceIn(MIN_MAX_TOKENS, MAX_MAX_TOKENS)
+    val clamped = clampMaxTokens(it)
     val engineMax = model.maxContextTokens
     overridden[ConfigKeys.MAX_TOKENS.label] = if (engineMax != null) clamped.coerceAtMost(engineMax) else clamped
   }
   return overridden.toMap()
+}
+
+private fun recordContextUtilization(logId: String?, prompt: String, maxContext: Int?) {
+  if (logId == null) return
+  val inputEst = estimateTokensLong(prompt)
+  val maxCtx = (maxContext ?: 0).toLong()
+  RequestLogStore.update(logId) { it.copy(inputTokenEstimate = inputEst, maxContextTokens = maxCtx) }
 }
 
 internal fun clampTemperature(value: Double): Float =

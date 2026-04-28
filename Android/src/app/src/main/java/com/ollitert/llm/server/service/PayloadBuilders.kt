@@ -242,8 +242,7 @@ object PayloadBuilders {
    * unloaded the model but the server is still running.
    */
   fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json): String {
-    val model = activeModel
-    if (model == null) {
+    if (activeModel == null) {
       // If model is idle-unloaded (keep_alive), still report it so clients know
       // which model will serve their next request (after auto-reload).
       val idleName = idleUnloadedModelName
@@ -255,16 +254,16 @@ object PayloadBuilders {
       Log.d(TAG, "Models list: no model loaded")
       return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
-    Log.d(TAG, "Models list: active model=${model.name}")
+    Log.d(TAG, "Models list: active model=${activeModel.name}")
     val item = LlmHttpModelItem(
-      id = model.name,
+      id = activeModel.name,
       created = ServerMetrics.modelCreatedAtEpoch.value,
       capabilities = LlmHttpModelCapabilities(
-        image = model.llmSupportImage,
-        audio = model.llmSupportAudio,
-        thinking = model.isThinkingEnabled,
+        image = activeModel.llmSupportImage,
+        audio = activeModel.llmSupportAudio,
+        thinking = activeModel.isThinkingEnabled,
       ),
-      update_available = model.updatable,
+      update_available = activeModel.updatable,
     )
     return json.encodeToString(LlmHttpModelList(data = listOf(item)))
   }
@@ -281,21 +280,7 @@ object PayloadBuilders {
    * Returns null if no valid timing data is available (e.g. TTFB was 0).
    */
   fun buildTimings(promptTokens: Int, completionTokens: Int): InferenceTimings? {
-    val ttfbMs = ServerMetrics.lastTtfbMs.value
-    val totalMs = ServerMetrics.lastLatencyMs.value
-    if (ttfbMs <= 0 || totalMs <= 0) return null
-    val promptMs = ttfbMs.toDouble()
-    val predictedMs = (totalMs - ttfbMs).toDouble()
-    return InferenceTimings(
-      prompt_n = promptTokens,
-      prompt_ms = promptMs,
-      prompt_per_token_ms = if (promptTokens > 0) promptMs / promptTokens else 0.0,
-      prompt_per_second = if (promptMs > 0) promptTokens * 1000.0 / promptMs else 0.0,
-      predicted_n = completionTokens,
-      predicted_ms = predictedMs,
-      predicted_per_token_ms = if (completionTokens > 0) predictedMs / completionTokens else 0.0,
-      predicted_per_second = if (predictedMs > 0) completionTokens * 1000.0 / predictedMs else 0.0,
-    )
+    return buildTimingsFromValues(promptTokens, completionTokens, ServerMetrics.lastTtfbMs.value, ServerMetrics.lastLatencyMs.value)
   }
 
   /**
