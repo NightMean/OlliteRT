@@ -159,9 +159,13 @@ fun StatusScreen(
 
   var authOn by remember { mutableStateOf(ServerPrefs.getBearerToken(context).isNotBlank()) }
   var corsOrigins by remember { mutableStateOf(ServerPrefs.getCorsAllowedOrigins(context)) }
+  var showRequestTypes by remember { mutableStateOf(ServerPrefs.isShowRequestTypes(context)) }
+  var showAdvancedMetrics by remember { mutableStateOf(ServerPrefs.isShowAdvancedMetrics(context)) }
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
     authOn = ServerPrefs.getBearerToken(context).isNotBlank()
     corsOrigins = ServerPrefs.getCorsAllowedOrigins(context)
+    showRequestTypes = ServerPrefs.isShowRequestTypes(context)
+    showAdvancedMetrics = ServerPrefs.isShowAdvancedMetrics(context)
   }
 
   var showReloadDialog by remember { mutableStateOf(false) }
@@ -549,7 +553,6 @@ fun StatusScreen(
     }
 
     // Request modality breakdown — controlled by its own Settings toggle
-    val showRequestTypes = remember { ServerPrefs.isShowRequestTypes(context) }
     if (showRequestTypes) {
       Text(
         text = stringResource(R.string.status_section_request_types),
@@ -581,7 +584,6 @@ fun StatusScreen(
     }
 
     // ── Advanced metrics (behind Settings toggle) ──
-    val showAdvancedMetrics = remember { ServerPrefs.isShowAdvancedMetrics(context) }
     if (showAdvancedMetrics) {
       Text(
         text = stringResource(R.string.status_section_advanced),
