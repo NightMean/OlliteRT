@@ -368,7 +368,7 @@ fun LogsScreen(
     )
   }
 
-  // Clear logs with active generation dialog (3 buttons: Yes / Stop / Cancel)
+  // Clear logs with active generation dialog (Cancel | Yes  Stop)
   if (showClearActiveDialog) {
     val pendingCount = entries.count { it.isPending }
     AlertDialog(
@@ -386,34 +386,38 @@ fun LogsScreen(
         )
       },
       confirmButton = {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          Button(
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          TextButton(
             onClick = {
               RequestLogStore.clear()
               clearAllFilters()
               showClearActiveDialog = false
             },
           ) {
-            Text(stringResource(R.string.logs_dialog_clear_active_yes))
+            Text(stringResource(R.string.logs_dialog_clear_active_clear))
           }
-          Button(
-            onClick = {
-              RequestLogStore.cancelAllPending()
-              RequestLogStore.clear()
-              clearAllFilters()
-              showClearActiveDialog = false
-            },
-            colors = ButtonDefaults.buttonColors(
-              containerColor = MaterialTheme.colorScheme.error,
-            ),
-          ) {
-            Text(stringResource(R.string.logs_dialog_clear_active_stop))
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+              onClick = {
+                RequestLogStore.cancelAllPending()
+                RequestLogStore.clear()
+                clearAllFilters()
+                showClearActiveDialog = false
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+              ),
+            ) {
+              Text(stringResource(R.string.logs_dialog_clear_active_stop))
+            }
+            TextButton(onClick = { showClearActiveDialog = false }) {
+              Text(stringResource(R.string.logs_dialog_clear_cancel))
+            }
           }
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = { showClearActiveDialog = false }) {
-          Text(stringResource(R.string.logs_dialog_clear_cancel))
         }
       },
     )
