@@ -45,6 +45,45 @@ import kotlinx.serialization.json.JsonPrimitive
  * All functions are stateless — they read from [ServerMetrics] (a singleton) and
  * receive any mutable service state (active model, idle model name) as parameters.
  */
+/**
+ * Snapshot of server status fields shared between /api/version and /health responses.
+ */
+private data class ServerStatusSnapshot(
+  val status: com.ollitert.llm.server.common.ServerStatus,
+  val isIdle: Boolean,
+  val uptimeSeconds: Long?,
+  val modelName: String?,
+)
+
+/**
+ * Reads current server status, idle state, uptime, and resolved model name from
+ * [ServerMetrics]. Used by both [PayloadBuilders.serverInfo] and [PayloadBuilders.health]
+ * to avoid duplicating the same metric reads.
+ */
+private fun serverStatusSnapshot(activeModel: Model?, idleUnloadedModelName: String?): ServerStatusSnapshot {
+  val status = ServerMetrics.status.value
+  val isIdle = ServerMetrics.isIdleUnloaded.value
+  val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
+    (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
+  val modelName = activeModel?.name ?: idleUnloadedModelName
+  return ServerStatusSnapshot(status, isIdle, uptimeSeconds, modelName)
+}
+
+/**
+ * Constructs an [LlmHttpModelItem] from an active [Model], populating capabilities
+ * and update availability. Used by both modelDetail and modelsList endpoints.
+ */
+private fun Model.toModelItem(): LlmHttpModelItem = LlmHttpModelItem(
+  id = name,
+  created = ServerMetrics.modelCreatedAtEpoch.value,
+  capabilities = LlmHttpModelCapabilities(
+    image = llmSupportImage,
+    audio = llmSupportAudio,
+    thinking = isThinkingEnabled,
+  ),
+  update_available = updatable,
+)
+
 object PayloadBuilders {
 
   private const val TAG = "OlliteRT.Payload"
@@ -57,10 +96,7 @@ object PayloadBuilders {
    * availability, and the full list of supported endpoints.
    */
   fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, allowlistLoader: AllowlistLoader? = null): String {
-    val status = ServerMetrics.status.value
-    val isIdle = ServerMetrics.isIdleUnloaded.value
-    val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
-      (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
+    val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
       put("version", JsonPrimitive(BuildConfig.VERSION_NAME))
@@ -68,13 +104,12 @@ object PayloadBuilders {
       put("git_hash", JsonPrimitive(BuildConfig.GIT_HASH))
       // Report "idle" when model is unloaded due to keep_alive, matching /health behavior
       val statusStr = when {
-        isIdle -> "idle"
-        else -> status.name.lowercase()
+        snapshot.isIdle -> "idle"
+        else -> snapshot.status.name.lowercase()
       }
       put("status", JsonPrimitive(statusStr))
-      val modelName = activeModel?.name ?: idleUnloadedModelName
-      modelName?.let { put("model", JsonPrimitive(it)) }
-      uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
       val latestVersion = ServerMetrics.availableUpdateVersion.value
       val updateUrl = ServerMetrics.availableUpdateUrl.value
@@ -122,22 +157,18 @@ object PayloadBuilders {
     idleUnloadedModelName: String?,
     includeMetrics: Boolean = false,
   ): String {
-    val status = ServerMetrics.status.value
-    val isIdle = ServerMetrics.isIdleUnloaded.value
-    val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
-      (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
+    val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       // Report "idle" when model is unloaded due to keep_alive — server is reachable but
       // the next inference request will have a cold-start delay while the model reloads.
       val statusStr = when {
-        isIdle -> "idle"
-        status == com.ollitert.llm.server.common.ServerStatus.RUNNING -> "ok"
-        else -> status.name.lowercase()
+        snapshot.isIdle -> "idle"
+        snapshot.status == com.ollitert.llm.server.common.ServerStatus.RUNNING -> "ok"
+        else -> snapshot.status.name.lowercase()
       }
       put("status", JsonPrimitive(statusStr))
-      val modelName = activeModel?.name ?: idleUnloadedModelName
-      modelName?.let { put("model", JsonPrimitive(it)) }
-      uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface update availability in health response — lightweight boolean for monitoring dashboards
       put("update_available", JsonPrimitive(ServerMetrics.availableUpdateVersion.value != null))
 
@@ -216,17 +247,7 @@ object PayloadBuilders {
     if (activeModel != null) {
       // Match against the currently loaded model
       if (!activeModel.name.equals(modelId, ignoreCase = true)) return null
-      val item = LlmHttpModelItem(
-        id = activeModel.name,
-        created = ServerMetrics.modelCreatedAtEpoch.value,
-        capabilities = LlmHttpModelCapabilities(
-          image = activeModel.llmSupportImage,
-          audio = activeModel.llmSupportAudio,
-          thinking = activeModel.isThinkingEnabled,
-        ),
-        update_available = activeModel.updatable,
-      )
-      return json.encodeToString(LlmHttpModelItem.serializer(), item)
+      return json.encodeToString(LlmHttpModelItem.serializer(), activeModel.toModelItem())
     }
     // Model is idle-unloaded by keep_alive — return basic info without capabilities
     // (capabilities require the Model object which isn't available when unloaded)
@@ -255,17 +276,7 @@ object PayloadBuilders {
       return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
     Log.d(TAG, "Models list: active model=${activeModel.name}")
-    val item = LlmHttpModelItem(
-      id = activeModel.name,
-      created = ServerMetrics.modelCreatedAtEpoch.value,
-      capabilities = LlmHttpModelCapabilities(
-        image = activeModel.llmSupportImage,
-        audio = activeModel.llmSupportAudio,
-        thinking = activeModel.isThinkingEnabled,
-      ),
-      update_available = activeModel.updatable,
-    )
-    return json.encodeToString(LlmHttpModelList(data = listOf(item)))
+    return json.encodeToString(LlmHttpModelList(data = listOf(activeModel.toModelItem())))
   }
 
   // ── Response factories ────────────────────────────────────────────────────
