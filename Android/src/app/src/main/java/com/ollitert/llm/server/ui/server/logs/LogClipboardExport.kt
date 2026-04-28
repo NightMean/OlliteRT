@@ -182,7 +182,9 @@ internal suspend fun exportLogcat(context: Context) {
       process.inputStream.use { input ->
         f.outputStream().use { output -> input.copyTo(output) }
       }
-      process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+      if (!process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) {
+        process.destroyForcibly()
+      }
       f
     }
 
