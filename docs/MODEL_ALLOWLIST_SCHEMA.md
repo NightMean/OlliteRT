@@ -52,7 +52,7 @@ Each entry in the `models` array.
 
 | Field | Type | Description |
 |:------|:-----|:------------|
-| `name` | `string` | Unique model identifier (no `/` characters). Used as display name if `displayName` is absent |
+| `name` | `string` | Unique model identifier (no `/` characters). Used as display name |
 | `modelId` | `string` | HuggingFace repo ID (e.g. `litert-community/gemma-4-E2B-it-litert-lm`) |
 | `modelFile` | `string` | Filename of the `.litertlm` model file in the repo |
 | `description` | `string` | Model description (Markdown supported) |
@@ -96,10 +96,10 @@ The `badge` field drives a data-driven chip displayed on model cards (icon + lab
 
 | Field | Type | Default | Description |
 |:------|:-----|:--------|:------------|
-| `topK` | `int` | `40` | Top-K sampling parameter |
+| `topK` | `int` | `64` | Top-K sampling parameter |
 | `topP` | `float` | `0.95` | Top-P (nucleus) sampling parameter |
 | `temperature` | `float` | `1.0` | Sampling temperature |
-| `accelerators` | `string` | `"gpu,cpu"` | Comma-separated list of accelerators: `cpu`, `gpu`, `npu` |
+| `accelerators` | `string` | `"gpu"` | Comma-separated list of accelerators: `cpu`, `gpu`, `npu` |
 | `visionAccelerator` | `string` | `"gpu"` | Accelerator for vision encoder: `cpu`, `gpu`, `npu` |
 | `maxContextLength` | `int` | `null` | Maximum context window size in tokens |
 | `maxTokens` | `int` | `1024` | Maximum output tokens per response |
@@ -165,7 +165,7 @@ Represents a previous model file version. Used in `updatableModelFiles` to detec
         "temperature": 1.0,
         "maxContextLength": 32000,
         "maxTokens": 4000,
-        "accelerators": "gpu,cpu",
+        "accelerators": "gpu",
         "visionAccelerator": "gpu"
       }
     }
@@ -177,9 +177,8 @@ Represents a previous model file version. Used in `updatableModelFiles` to detec
 
 ## Backward Compatibility
 
-- **Gson ignores unknown fields** — adding new optional fields to the JSON won't break older app versions.
-- **Kotlin defaults apply for missing fields** — omitting an optional field uses the default value listed above.
-- **Exception:** Gson bypasses Kotlin default parameter values for non-nullable primitives. `ModelAllowlistJson.decode()` handles normalization (e.g. missing `schemaVersion` → `1`).
+- **`kotlinx.serialization` ignores unknown fields** (`ignoreUnknownKeys = true`) — adding new optional fields to the JSON won't break older app versions.
+- **Kotlin defaults apply for missing fields** — omitting an optional field uses the default value from the `@Serializable` data class constructor.
 - **`contentVersion` defaults to `0`** — old JSON files without this field get version 0, so any bundled asset with `contentVersion >= 1` will correctly win over a stale disk cache.
 
 ---
@@ -189,7 +188,7 @@ Represents a previous model file version. Used in `updatableModelFiles` to detec
 | File | Role |
 |:-----|:-----|
 | `data/ModelAllowlist.kt` | `AllowedModel` and `ModelAllowlist` data classes |
-| `data/ModelAllowlistJson.kt` | JSON decoder with Gson normalization |
+| `data/ModelAllowlistJson.kt` | JSON decoder with `kotlinx.serialization` |
 | `data/ModelBadge.kt` | `ModelBadge` sealed class and `fromKey()` factory |
 | `data/Model.kt` | Domain `Model` class (output of `AllowedModel.toModel()`) |
 | `ui/common/modelitem/ModelBadgeChip.kt` | Badge chip composable |
