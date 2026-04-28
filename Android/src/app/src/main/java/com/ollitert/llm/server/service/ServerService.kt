@@ -137,7 +137,7 @@ class ServerService : Service() {
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
-          try { assets.open(MODEL_ALLOWLIST_FILENAME).reader().readText() } catch (e: Exception) { Log.w(TAG, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
+          try { assets.open(MODEL_ALLOWLIST_FILENAME).use { it.reader().readText() } } catch (e: Exception) { Log.w(TAG, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
         },
         enabledCacheFilenames = {
           try {
@@ -681,7 +681,8 @@ class ServerService : Service() {
     }
     if (t is OutOfMemoryError) {
       try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(TAG, "cleanUp() failed during OOM recovery", e) }
-      defaultModel?.instance = null
+      defaultModel = null
+      modelCache.clear()
       System.gc()
     }
     Log.e(TAG, "Failed to load model ${model.name}", t)
