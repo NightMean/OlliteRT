@@ -165,7 +165,12 @@ class AudioTranscriptionHandler(
     if (rawOutput == null) {
       val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
       ServerMetrics.incrementErrorCount(kind.category)
-      return httpInternalError(errorMsg, kind = kind)
+      val suggestion = ErrorSuggestions.suggest(kind, context)
+      if (logId != null) {
+        val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
+        RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
+      }
+      return httpInternalError(errorMsg, suggestion, kind)
     }
 
     // Strip thinking tags if present, trim whitespace
