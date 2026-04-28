@@ -167,7 +167,7 @@ class KtorServer(
   }
 
   fun stop() {
-    engine?.stop(gracePeriodMillis = 1000, timeoutMillis = 3000)
+    engine?.stop(gracePeriodMillis = 3000, timeoutMillis = 5000)
     engine = null
   }
 
@@ -272,10 +272,13 @@ class KtorServer(
         // Streaming uses its own disconnect detection (SseWriter.isCancelled) which
         // gracefully stops inference, emits [DONE], and updates the log entry.
         // Shield from cancelCallOnClose so coroutine cancellation doesn't bypass that cleanup.
+        // Timeout prevents indefinite hang if cancelProcess fails in the streaming handler.
         respondTextWriter(contentType = ContentType.Text.EventStream) {
           kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-            val writer = KtorSseWriterImpl(this@respondTextWriter)
-            resp.writer(writer)
+            kotlinx.coroutines.withTimeout(150_000L) {
+              val writer = KtorSseWriterImpl(this@respondTextWriter)
+              resp.writer(writer)
+            }
           }
         }
       }
