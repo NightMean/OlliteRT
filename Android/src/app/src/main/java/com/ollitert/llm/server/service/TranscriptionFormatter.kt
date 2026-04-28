@@ -53,7 +53,7 @@ object TranscriptionFormatter {
       append(dur)
       append(""","text":""")
       append(escapedText)
-      append("""}]}""")
+      append(""","tokens":[],"temperature":0.0,"avg_logprob":0.0,"compression_ratio":0.0,"no_speech_prob":0.0}]}""")
     }
   }
 

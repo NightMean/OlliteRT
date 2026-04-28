@@ -109,6 +109,20 @@ class TranscriptionFormatterTest {
   }
 
   @Test
+  fun toVerboseJson_segmentContainsPlaceholderFields() {
+    val result = TranscriptionFormatter.toVerboseJson(
+      text = "Hello",
+      language = "en",
+      durationSeconds = 1.0,
+    )
+    assert(result.contains(""""tokens":[]""")) { result }
+    assert(result.contains(""""temperature":0.0""")) { result }
+    assert(result.contains(""""avg_logprob":0.0""")) { result }
+    assert(result.contains(""""compression_ratio":0.0""")) { result }
+    assert(result.contains(""""no_speech_prob":0.0""")) { result }
+  }
+
+  @Test
   fun toVerboseJson_escapesSpecialCharsInText() {
     val result = TranscriptionFormatter.toVerboseJson(
       text = "He said \"hi\"\nnewline",
