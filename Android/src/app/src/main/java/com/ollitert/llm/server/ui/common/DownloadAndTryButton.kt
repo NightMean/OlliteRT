@@ -186,13 +186,27 @@ fun DownloadAndTryButton(
   }
 
   // A launcher for opening the custom tabs intent for requesting user agreement ack.
-  // Once the tab is closed, try starting the download process.
+  // Once the tab is closed, verify access before starting the download — the user may
+  // have closed the browser without accepting the terms.
   val agreementAckLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-      Log.d(TAG, "User closes the browser tab. Try to start downloading.")
-      startDownload(modelManagerViewModel.curAccessToken)
+      Log.d(TAG, "User closes the browser tab. Verifying access before downloading.")
+      scope.launch(Dispatchers.IO) {
+        val token = modelManagerViewModel.curAccessToken
+        val urlResult = modelManagerViewModel.getModelUrlResponse(model = model, accessToken = token)
+        withContext(Dispatchers.Main) {
+          if (urlResult is ModelUrlResult.Success && urlResult.code == HttpURLConnection.HTTP_OK) {
+            Log.d(TAG, "Agreement accepted. Starting download.")
+            startDownload(token)
+          } else {
+            Log.d(TAG, "Agreement not accepted (code=${(urlResult as? ModelUrlResult.Success)?.code}). Resetting.")
+            downloadStarted = false
+            checkingToken = false
+          }
+        }
+      }
     }
 
   // A launcher for handling the authentication flow.
