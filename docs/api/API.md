@@ -182,7 +182,10 @@ Alternative API format. Accepts either `messages` (array) or `input` (string) fi
 | `input` | string or array | Yes | Input text or messages array |
 | `stream` | boolean | No | Enable SSE streaming |
 | `tools` | array | No | Tool definitions |
+| `tool_choice` | string or object | No | Tool selection strategy (`auto`, `none`, or specific tool) |
 | `temperature` | number | No | Sampling temperature |
+| `top_p` | number | No | Nucleus sampling threshold |
+| `top_k` | integer | No | Top-k sampling |
 | `max_output_tokens` | integer | No | Maximum tokens to generate |
 
 ## Audio Transcriptions — `POST /v1/audio/transcriptions`
@@ -277,7 +280,7 @@ Returns a list of available models with their capabilities and update status.
 | `object` | string | Always `"model"` |
 | `created` | integer | Unix timestamp |
 | `owned_by` | string | Always `"ollitert"` |
-| `capabilities` | object | `image`, `audio`, `thinking` booleans indicating model capabilities |
+| `capabilities` | object | `image`, `audio`, `thinking` booleans. `thinking` indicates the model supports chain-of-thought AND it is currently enabled in settings (not just model capability). |
 | `update_available` | boolean | `true` if a newer version of this model is available in the allowlist |
 
 ## Model Detail — `GET /v1/models/{id}`
@@ -303,7 +306,7 @@ Returns server health status. Also available at `/v1/health`.
 
 | Field | Type | Description |
 |:------|:-----|:------------|
-| `status` | string | `ok`, `idle` (keep-alive unloaded), `loading`, `stopped` |
+| `status` | string | `ok`, `idle` (keep-alive unloaded), `loading`, `stopped`, `error` |
 | `model` | string | Currently loaded (or idle-unloaded) model name. Omitted if no model. |
 | `uptime_seconds` | integer | Seconds since server entered RUNNING state. Omitted if not running. |
 | `update_available` | boolean | `true` if a newer OlliteRT version exists |
@@ -398,8 +401,11 @@ Returns server identity, version, status, update availability, and the full list
 |:-------|:-----|
 | `400` | Malformed request, missing required fields |
 | `401` | Missing or invalid bearer token |
-| `503` | Model not loaded or server not ready |
+| `404` | Not Found — model or endpoint doesn't exist |
+| `405` | Method Not Allowed — wrong HTTP method for endpoint |
+| `413` | Payload Too Large — request body exceeds size limit |
 | `500` | Internal server error |
+| `503` | Model not loaded or server not ready |
 
 See [Troubleshooting → Connection Issues](../TROUBLESHOOTING.md#connection-issues) for detailed explanations of each error code.
 
