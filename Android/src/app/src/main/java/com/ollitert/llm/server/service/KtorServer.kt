@@ -110,7 +110,9 @@ class KtorServer(
 
   private var engine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
 
-  // Convenience accessors for model state
+  // @Volatile on ModelLifecycle.defaultModel guarantees atomic reference reads without the
+  // keepAliveLock. Ktor request threads see a consistent snapshot (either the old or new Model
+  // reference). Model selection and locking happen deeper in selectModel()/InferenceRunner.
   private val defaultModel: Model? get() = modelLifecycle.defaultModel
   private val keepAliveUnloadedModelName: String? get() = modelLifecycle.keepAliveUnloadedModelName
 
