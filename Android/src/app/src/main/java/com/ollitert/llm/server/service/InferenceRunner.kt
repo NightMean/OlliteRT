@@ -916,13 +916,13 @@ class InferenceRunner(
     return HttpResponse.Sse { writer ->
       val channel = Channel<StreamEvent>(Channel.UNLIMITED)
       val state = StreamState(model, requestId, endpoint, logId, streamStartMs, keepPartial)
+      val userCancelFlag = AtomicBoolean(false)
 
       if (logId != null) {
         RequestLogStore.registerCancellation(logId) {
+          userCancelFlag.set(true)
           channel.close()
-          // Signal LiteRT immediately so prefill-phase cancellation doesn't have to
-          // wait for the first onToken callback before stopResponse is called.
-          ServerLlmModelHelper.stopResponse(model)
+          if (state.inferenceStarted) ServerLlmModelHelper.stopResponse(model)
         }
       }
 
@@ -938,6 +938,7 @@ class InferenceRunner(
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
+          if (userCancelFlag.get()) throw java.util.concurrent.CancellationException("cancelled_while_queued")
           state.markStarted()
           if (configSnapshot != null) {
             originalConfig = model.configValues
