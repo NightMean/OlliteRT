@@ -26,13 +26,8 @@ import com.ollitert.llm.server.R
 import kotlin.math.ln
 import kotlin.math.pow
 
-fun cleanUpLiteRtErrorMessage(message: String): String {
-  val index = message.indexOf("=== Source Location Trace")
-  if (index >= 0) {
-    return message.substring(0, index)
-  }
-  return message
-}
+fun cleanUpLiteRtErrorMessage(message: String): String =
+  message.substringBefore("=== Source Location Trace")
 
 fun isPixel10(): Boolean {
   return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
