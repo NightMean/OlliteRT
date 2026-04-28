@@ -263,6 +263,7 @@ fun LogsScreen(
   val autoExpand = remember { ServerPrefs.isAutoExpandLogs(context) }
   val wrapLogText = remember { ServerPrefs.isWrapLogText(context) }
   var showClearConfirmDialog by remember { mutableStateOf(false) }
+  var showClearActiveDialog by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
 
   // ── Filter state ──────────────────────────────────────────────────────────
@@ -367,6 +368,57 @@ fun LogsScreen(
     )
   }
 
+  // Clear logs with active generation dialog (3 buttons: Yes / Stop / Cancel)
+  if (showClearActiveDialog) {
+    val pendingCount = entries.count { it.isPending }
+    AlertDialog(
+      onDismissRequest = { showClearActiveDialog = false },
+      title = {
+        Text(
+          text = stringResource(R.string.logs_dialog_clear_active_title),
+          style = MaterialTheme.typography.titleMedium,
+        )
+      },
+      text = {
+        Text(
+          text = pluralStringResource(R.plurals.logs_dialog_clear_active_body, pendingCount, pendingCount),
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Button(
+            onClick = {
+              RequestLogStore.clear()
+              clearAllFilters()
+              showClearActiveDialog = false
+            },
+          ) {
+            Text(stringResource(R.string.logs_dialog_clear_active_yes))
+          }
+          Button(
+            onClick = {
+              RequestLogStore.cancelAllPending()
+              RequestLogStore.clear()
+              clearAllFilters()
+              showClearActiveDialog = false
+            },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.error,
+            ),
+          ) {
+            Text(stringResource(R.string.logs_dialog_clear_active_stop))
+          }
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showClearActiveDialog = false }) {
+          Text(stringResource(R.string.logs_dialog_clear_cancel))
+        }
+      },
+    )
+  }
+
   // Centered container with max width for tablets
   Box(
     modifier = modifier.fillMaxSize(),
@@ -395,7 +447,9 @@ fun LogsScreen(
             icon = Icons.Outlined.DeleteSweep,
             tooltip = stringResource(R.string.logs_tooltip_clear_all),
             onClick = {
-              if (ServerPrefs.isConfirmClearLogs(context)) {
+              if (entries.any { it.isPending }) {
+                showClearActiveDialog = true
+              } else if (ServerPrefs.isConfirmClearLogs(context)) {
                 showClearConfirmDialog = true
               } else {
                 RequestLogStore.clear()

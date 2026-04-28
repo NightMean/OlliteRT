@@ -491,6 +491,13 @@
   <string name="logs_dialog_clear_body" translatable="false">This will delete all %1$d log entries. This action cannot be undone.</string>
   <string name="logs_dialog_clear_confirm" translatable="false">Clear</string>
   <string name="logs_dialog_clear_cancel" translatable="false">Cancel</string>
+  <string name="logs_dialog_clear_active_title" translatable="false">Active Generation</string>
+  <plurals name="logs_dialog_clear_active_body" translatable="false">
+    <item quantity="one">There is %1$d request currently being processed or waiting in the queue. What would you like to do?</item>
+    <item quantity="other">There are %1$d requests currently being processed or waiting in the queue. What would you like to do?</item>
+  </plurals>
+  <string name="logs_dialog_clear_active_yes" translatable="false">Yes</string>
+  <string name="logs_dialog_clear_active_stop" translatable="false">Stop</string>
 
   <!-- LogsScreen: Result count banner -->
   <string name="logs_searching" translatable="false">Searching…</string>
