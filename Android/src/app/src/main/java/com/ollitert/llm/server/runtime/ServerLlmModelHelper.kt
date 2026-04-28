@@ -288,6 +288,7 @@ object ServerLlmModelHelper {
       try { (model.instance as? LlmModelInstance)?.engine?.close() } catch (e: Exception) {
         Log.w(TAG, "Engine.close() failed during conversation reset (may already be closed by another thread)", e)
       }
+      cleanUpListeners.remove(model.name)?.invoke()
       model.instance = null
       System.gc()
     }
