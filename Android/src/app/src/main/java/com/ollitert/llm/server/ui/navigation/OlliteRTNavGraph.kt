@@ -264,16 +264,11 @@ fun OlliteRTNavHost(
         }
       }
       val settingsServerStatus by serverViewModel.status.collectAsStateWithLifecycle()
-      val settingsActiveModel by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val downloadedModelNames = modelManagerViewModel.getAllDownloadedModels().map { it.name }
       SettingsScreen(
         onBackClick = { navController.navigateUp() },
         serverStatus = settingsServerStatus,
-        onRestartServer = {
-          val currentModel = settingsActiveModel
-          serverViewModel.stopServer()
-          serverViewModel.startServer(modelName = currentModel)
-        },
+        onRestartServer = { serverViewModel.reloadServer() },
         onStopServer = { serverViewModel.stopServer() },
         onNavigateToModels = {
           navController.navigate(OlliteRTRoutes.MODELS) {
