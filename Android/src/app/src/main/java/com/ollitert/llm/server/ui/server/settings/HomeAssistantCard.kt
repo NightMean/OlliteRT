@@ -252,7 +252,7 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
 
       Button(
         onClick = {
-          copyToClipboard(context, "OlliteRT HA Config", haConfig)
+          copyToClipboard(context, "OlliteRT HA Config", haConfig, formatSuffix = "YAML")
         },
         modifier = Modifier
           .fillMaxWidth()
