@@ -124,14 +124,13 @@ fun ModelItem(
         modifier = Modifier.fillMaxWidth(),
       )
 
-      // Description — searchable but not highlighted (MarkdownText uses a third-party
-      // rich text renderer whose AST can't easily accept search highlight spans).
       if (!model.imported && model.info.isNotEmpty()) {
         MarkdownText(
           model.info,
           smallFontSize = true,
           textColor = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(top = 4.dp),
+          searchQuery = searchQuery,
         )
       }
 
