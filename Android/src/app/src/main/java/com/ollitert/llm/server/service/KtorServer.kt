@@ -616,6 +616,7 @@ class KtorServer(
         // Close native Engine/Conversation before nullifying — just setting instance = null
         // leaks GB-scale native memory because GC may not finalize the wrapper promptly.
         defaultModel?.let { ServerLlmModelHelper.safeCleanup(it) }
+        modelLifecycle.defaultModel = null
         ServerMetrics.onServerError(t.message ?: "Out of memory")
       }
       ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
