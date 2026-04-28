@@ -177,7 +177,8 @@ object ServerMetrics {
   private val _activeAccelerator = sessionFlow<String?>(null)
   val activeAccelerator: StateFlow<String?> = _activeAccelerator.asStateFlow()
 
-  /** Whether the "Allow Thinking" toggle is enabled for the active model. */
+  // Mirrors model.isThinkingEnabled for UI observation. Updated in ServerService
+  // after model load and after config changes (updateConfigValues).
   private val _thinkingEnabled = sessionFlow(false)
   val thinkingEnabled: StateFlow<Boolean> = _thinkingEnabled.asStateFlow()
 

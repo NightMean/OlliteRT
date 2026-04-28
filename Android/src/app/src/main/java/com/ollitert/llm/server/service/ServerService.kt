@@ -385,6 +385,9 @@ class ServerService : Service() {
         return@launch
       }
       // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
+      // configValues is written from 3 paths: here (initial load overrides),
+      // updateConfigValues() (runtime settings change), and reload() which triggers this path again.
+      // All paths are serialized via @Synchronized companion methods or the load coroutine.
       // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
       pendingConfigOverrides.getAndSet(null)?.let { overrides ->
         model.configValues = overrides.toMap()
