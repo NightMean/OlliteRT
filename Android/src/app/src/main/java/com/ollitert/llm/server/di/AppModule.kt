@@ -29,8 +29,6 @@ import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.data.BenchmarkResultsSerializer
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
-import com.ollitert.llm.server.data.DefaultDownloadRepository
-import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.SettingsSerializer
 import com.ollitert.llm.server.data.UserDataSerializer
@@ -142,12 +140,4 @@ internal object AppModule {
     )
   }
 
-  @Provides
-  @Singleton
-  fun provideDownloadRepository(
-    @ApplicationContext context: Context,
-    lifecycleProvider: AppLifecycleProvider,
-  ): DownloadRepository {
-    return DefaultDownloadRepository(context, lifecycleProvider)
-  }
 }

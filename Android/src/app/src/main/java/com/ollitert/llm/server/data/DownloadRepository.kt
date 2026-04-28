@@ -41,26 +41,11 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.worker.DownloadWorker
 import java.util.UUID
 import java.util.concurrent.Executors
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private const val TAG = "OlliteRT.DownloadRepo"
 private const val MODEL_NAME_TAG = "modelName"
-
-interface DownloadRepository {
-  fun downloadModel(
-    model: Model,
-    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
-  )
-
-  fun cancelDownloadModel(model: Model)
-
-  fun cancelAll(onComplete: () -> Unit)
-
-  fun observerWorkerProgress(
-    workerId: UUID,
-    model: Model,
-    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
-  )
-}
 
 /**
  * Repository for managing model downloads using WorkManager.
@@ -69,10 +54,11 @@ interface DownloadRepository {
  * progress, and retrieve information about enqueued or running download tasks. It utilizes
  * WorkManager to handle background download operations.
  */
-class DefaultDownloadRepository(
-  private val context: Context,
+@Singleton
+class DownloadRepository @Inject constructor(
+  @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
   private val lifecycleProvider: AppLifecycleProvider,
-) : DownloadRepository {
+) {
   private val workManager = WorkManager.getInstance(context)
   /**
    * Stores the start time of a model download.
@@ -84,7 +70,7 @@ class DefaultDownloadRepository(
   private val downloadStartTimeSharedPreferences =
     context.getSharedPreferences("download_start_time_ms", Context.MODE_PRIVATE)
 
-  override fun downloadModel(
+  fun downloadModel(
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -136,18 +122,28 @@ class DefaultDownloadRepository(
     )
   }
 
-  override fun cancelDownloadModel(model: Model) {
+  fun cancelDownloadModel(model: Model) {
     workManager.cancelAllWorkByTag("$MODEL_NAME_TAG:${model.name}")
   }
 
-  override fun cancelAll(onComplete: () -> Unit) {
+  fun cancelAll(onComplete: () -> Unit) {
+    val executor = Executors.newSingleThreadExecutor()
     workManager
       .cancelAllWork()
       .result
-      .addListener({ onComplete() }, Executors.newSingleThreadExecutor())
+      .addListener(
+        {
+          try {
+            onComplete()
+          } finally {
+            executor.shutdown()
+          }
+        },
+        executor,
+      )
   }
 
-  override fun observerWorkerProgress(
+  fun observerWorkerProgress(
     workerId: UUID,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
