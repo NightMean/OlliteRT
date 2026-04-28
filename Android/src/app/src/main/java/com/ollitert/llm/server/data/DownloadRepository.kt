@@ -56,7 +56,7 @@ private const val MODEL_NAME_TAG = "modelName"
  */
 @Singleton
 class DownloadRepository @Inject constructor(
-  @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
+  @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
   private val lifecycleProvider: OlliteRTLifecycleProvider,
 ) {
   private val workManager = WorkManager.getInstance(context)

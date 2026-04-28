@@ -87,7 +87,7 @@ class BenchmarkViewModel
 constructor(
   @param:ApplicationContext private val appContext: Context,
   val dataStoreRepository: DataStoreRepository,
-  @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+  @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
   val uiState = _uiState.asStateFlow()
