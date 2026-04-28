@@ -476,6 +476,9 @@ class ServerService : Service() {
       } catch (e: Exception) {
         Log.w(TAG, "Error cleaning up model during reload: ${e.message}")
       }
+      // Safe outside lock: defaultModel is already null so no concurrent code path can
+      // reach this model object. This is purely defensive — cleanUp() already closed the
+      // native Engine, this just marks the wrapper as released.
       model.instance = null
     }
     // Close any secondary models' native Engines before dropping references.
@@ -1075,6 +1078,9 @@ class ServerService : Service() {
     private var activeInstance: ServerService? = null
 
     fun updateConfigValues(configValues: Map<String, Any>) {
+      // TOCTOU: activeInstance may become null between this read and the synchronized block
+      // if onDestroy runs concurrently. Consequence is benign — defaultModel will be null
+      // inside the lock, so the ?.let is a no-op. Not worth adding a second lock layer for.
       val instance = activeInstance ?: return
       synchronized(instance.inferenceLock) {
         instance.defaultModel?.let { model ->
