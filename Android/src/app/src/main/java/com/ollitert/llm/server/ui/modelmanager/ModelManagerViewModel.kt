@@ -306,6 +306,8 @@ constructor(
     }
 
     val action = if (model.imported) "Imported model deleted" else "Model deleted"
+    // Log event messages are intentionally English-only — they're diagnostic output for
+    // the Logs tab, not localizable UI strings.
     RequestLogStore.addEvent(
       "$action: ${model.name} (${model.sizeInBytes.humanReadableSize()})",
       level = LogLevel.DEBUG,
