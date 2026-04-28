@@ -48,6 +48,12 @@ object ServerMetrics {
   private val _status = sessionFlow(ServerStatus.STOPPED)
   val status: StateFlow<ServerStatus> = _status.asStateFlow()
 
+  /**
+   * The currently-loaded model name (set during server start, cleared on stop).
+   * Distinct from [ServerPrefs.getDefaultModelName] which is the user's configured default that
+   * auto-loads on next start. They diverge when: (1) server is stopped (activeModelName=null,
+   * default still set), (2) keep-alive reload picks a different model.
+   */
   private val _activeModelName = sessionFlow<String?>(null)
   val activeModelName: StateFlow<String?> = _activeModelName.asStateFlow()
 
@@ -207,6 +213,9 @@ object ServerMetrics {
    * True when the model was unloaded due to keep_alive idle timeout.
    * The server is still running (Ktor up, port bound) but the native Engine/Conversation
    * have been freed to reclaim RAM. The next inference request will auto-reload the model.
+   *
+   * Written by ModelLifecycle.unloadIdleModel(), read by UI (Status screen) and
+   * ServerService (auto-reload path).
    */
   private val _isIdleUnloaded = sessionFlow(false)
   val isIdleUnloaded: StateFlow<Boolean> = _isIdleUnloaded.asStateFlow()
