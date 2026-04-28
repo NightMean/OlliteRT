@@ -18,7 +18,7 @@ package com.ollitert.llm.server.ui.repositories
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.ui.benchmark.FakeDataStoreRepository
+import com.ollitert.llm.server.data.FakeDataStoreRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic

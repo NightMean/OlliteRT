@@ -25,7 +25,7 @@ import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.service.ServerService
-import com.ollitert.llm.server.ui.benchmark.FakeDataStoreRepository
+import com.ollitert.llm.server.data.FakeDataStoreRepository
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import io.mockk.every
 import io.mockk.mockk

@@ -18,11 +18,8 @@ package com.ollitert.llm.server.ui.benchmark
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.Repository
-import com.ollitert.llm.server.proto.AccessTokenData
+import com.ollitert.llm.server.data.FakeDataStoreRepository
 import com.ollitert.llm.server.proto.BenchmarkResult
-import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import io.mockk.every
@@ -344,32 +341,4 @@ class BenchmarkViewModelTest {
           .build()
       )
       .build()
-}
-
-class FakeDataStoreRepository : DataStoreRepository {
-  val storedResults = mutableListOf<BenchmarkResult>()
-  val addedResults = mutableListOf<BenchmarkResult>()
-  val deletedIndices = mutableListOf<Int>()
-
-  override suspend fun getAllBenchmarkResults() = storedResults.toList()
-  override suspend fun addBenchmarkResult(result: BenchmarkResult) { addedResults.add(result) }
-  override suspend fun deleteBenchmarkResult(index: Int) { deletedIndices.add(index) }
-  override suspend fun setBenchmarkResults(results: List<BenchmarkResult>) { storedResults.clear(); storedResults.addAll(results) }
-  override suspend fun setHasSeenBenchmarkComparisonHelp(seen: Boolean) {}
-  override suspend fun getHasSeenBenchmarkComparisonHelp() = false
-  override suspend fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {}
-  override suspend fun clearAccessTokenData() {}
-  override suspend fun readAccessTokenData(): AccessTokenData? = null
-  override suspend fun saveImportedModels(importedModels: List<ImportedModel>) {}
-  override suspend fun readImportedModels(): List<ImportedModel> = emptyList()
-  override suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel) {}
-  override suspend fun isOnboardingCompleted() = true
-  override suspend fun setOnboardingCompleted() {}
-  override suspend fun readRepositories(): List<Repository> = emptyList()
-  override suspend fun addRepository(repo: Repository) {}
-  override suspend fun seedRepositoryIfAbsent(repo: Repository) {}
-  override suspend fun updateRepository(repo: Repository) {}
-  override suspend fun toggleRepositoryEnabled(id: String, enabled: Boolean) {}
-  override suspend fun removeRepository(id: String) {}
-  override suspend fun resetRepositories() {}
 }
