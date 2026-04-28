@@ -146,6 +146,9 @@ internal val ContextOverflowColor = OlliteRTContextOverflowRed
  * Easter-egg "Generating" messages with rarity tiers.
  * First [DEFAULT_COUNT] pending entries always show "Generating".
  * After that, ~35% chance of "Generating", ~65% chance of a random pick weighted by rarity.
+ *
+ * Intentionally English-only — these rely on wordplay, puns, and cultural references
+ * that don't translate meaningfully (e.g. "Weight a minute", "Cache me outside").
  */
 private object GeneratingMessages {
   private const val DEFAULT_COUNT = 3

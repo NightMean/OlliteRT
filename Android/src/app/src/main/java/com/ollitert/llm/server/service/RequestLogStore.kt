@@ -198,7 +198,13 @@ object RequestLogStore {
     _pendingPartialText.value = id to text
   }
 
-  /** Update an existing entry by ID. */
+  /**
+   * Update an existing entry by ID.
+   *
+   * Uses O(n) linear scan + full list copy. Acceptable at current scale (max ~500 entries,
+   * capped by [HARD_MAX_IN_MEMORY_ENTRIES]). If scale grows significantly, consider an
+   * indexed map (id → index) alongside the list for O(1) lookup.
+   */
   fun update(id: String, transform: (RequestLogEntry) -> RequestLogEntry) {
     // Capture old/new for the persistence callback outside the atomic update.
     var oldEntry: RequestLogEntry? = null
@@ -238,6 +244,11 @@ object RequestLogStore {
    * Uses [ConcurrentHashMap.remove] as the single source of truth — if the callback was
    * already removed (inference completed normally), we don't mark the entry as cancelled.
    * This prevents a race where the entry shows "cancelled" but the full response was sent.
+   *
+   * Cosmetic race: between setting cancelledByUser=true and the callback stopping inference,
+   * a few more tokens may be generated and streamed. The UI may briefly show "Cancelled" while
+   * the response body still grows. This is harmless — the final entry state is consistent once
+   * the callback completes and isPending is set to false by the inference teardown path.
    */
   fun cancelRequest(id: String) {
     val callback = pendingCancellations.remove(id)
