@@ -75,15 +75,4 @@ class BuildConfigFlavorTest {
     }
   }
 
-  @Test
-  fun allFlavorsCanCoexist() {
-    // Verify application ID suffixes are distinct so all flavors install side-by-side
-    val baseId = "com.ollitert.llm.server"
-    val devId = "$baseId.dev"
-    val betaId = "$baseId.beta"
-    val prodId = baseId
-
-    val ids = setOf(devId, betaId, prodId)
-    assertEquals("All three flavor applicationIds must be unique", 3, ids.size)
-  }
 }
