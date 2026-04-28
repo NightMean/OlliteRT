@@ -163,14 +163,7 @@ class AudioTranscriptionHandler(
     val elapsedMs = SystemClock.elapsedRealtime() - startMs
 
     if (rawOutput == null) {
-      val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-      ServerMetrics.incrementErrorCount(kind.category)
-      val suggestion = ErrorSuggestions.suggest(kind, context)
-      if (logId != null) {
-        val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-        RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
-      }
-      return httpInternalError(errorMsg, suggestion, kind)
+      return handleBlockingInferenceError(llmError, logId, context)
     }
 
     // Strip thinking tags if present, trim whitespace

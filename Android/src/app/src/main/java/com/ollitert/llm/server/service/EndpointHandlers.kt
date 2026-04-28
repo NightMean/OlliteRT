@@ -386,23 +386,10 @@ class EndpointHandlers(
 
   // ── Shared error handling ────────────────────────────────────────────────
 
-  /**
-   * Shared error handling for non-streaming inference failures.
-   * Enriches the raw LLM error, records metrics, updates the request log, and returns an HTTP 500.
-   */
   private fun handleBlockingInferenceError(
     llmError: String?,
     logId: String?,
-  ): HttpResponse {
-    val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
-    ServerMetrics.incrementErrorCount(kind.category)
-    val suggestion = ErrorSuggestions.suggest(kind, context)
-    if (logId != null) {
-      val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
-      RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
-    }
-    return httpInternalError(errorMsg, suggestion, kind)
-  }
+  ): HttpResponse = handleBlockingInferenceError(llmError, logId, context)
 
   // ── SSE response helpers ─────────────────────────────────────────────────
 
@@ -477,6 +464,21 @@ internal fun validateNParam(n: Int?): Pair<String, String>? {
 internal fun validateBestOfParam(bestOf: Int?): Pair<String, String>? {
   if (bestOf != null && bestOf > 1) return "best_of" to "This server does not support best_of > 1. Omit the parameter or set best_of=1."
   return null
+}
+
+internal fun handleBlockingInferenceError(
+  llmError: String?,
+  logId: String?,
+  context: Context,
+): HttpResponse {
+  val (errorMsg, kind) = InferenceRunner.enrichLlmError(llmError ?: "llm error", context)
+  ServerMetrics.incrementErrorCount(kind.category)
+  val suggestion = ErrorSuggestions.suggest(kind, context)
+  if (logId != null) {
+    val errorJson = ResponseRenderer.renderJsonError(errorMsg, suggestion, kind)
+    RequestLogStore.update(logId) { it.copy(responseBody = errorJson, level = LogLevel.ERROR, errorKind = kind) }
+  }
+  return httpInternalError(errorMsg, suggestion, kind)
 }
 
 internal data class SamplerOverrideResult(
