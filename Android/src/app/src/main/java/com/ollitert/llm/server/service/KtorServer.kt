@@ -571,8 +571,8 @@ class KtorServer(
       // Defense-in-depth: reject obviously oversized requests before allocating memory.
       // The OOM catch below is the safety net for spoofed/missing Content-Length.
       val contentLength = call.request.headers["Content-Length"]?.toLongOrNull()
-      if (contentLength != null && contentLength > 10 * 1024 * 1024) {
-        val tooLargeResponse = httpPayloadTooLarge("Request body too large (${contentLength} bytes)")
+      if (contentLength != null && contentLength > MAX_FILE_SIZE_BYTES) {
+        val tooLargeResponse = httpPayloadTooLarge("Request body too large (${contentLength / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
         requestBodySnapshot = "[Content-Length exceeded: $contentLength]"
         finalizeLogEntry(logId, startMs, tooLargeResponse, requestBodySnapshot, responseBodySnapshot)
         call.response.headers.append("x-request-id", logId)
