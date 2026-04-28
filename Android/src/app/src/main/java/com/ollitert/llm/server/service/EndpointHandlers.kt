@@ -323,6 +323,9 @@ class EndpointHandlers(
       is ModelLifecycle.ModelSelection.Error -> return sel.toHttpResponse()
     }
     // Build prompt with progressive compaction if context window is exceeded
+    if (req.messages != null && !req.input.isNullOrEmpty()) {
+      logEvent("request_warning id=$requestId endpoint=/v1/responses detail=input_ignored_when_messages_present")
+    }
     val truncateHistoryResp = prefs.autoTruncateHistory
     val trimPromptsResp = prefs.autoTrimPrompts
     val maxContextResp = model.maxContextTokens
