@@ -118,6 +118,7 @@ Supported audio formats: `wav`, `mp3`, `ogg`, `flac`. Audio must be mono — ste
   "object": "chat.completion",
   "created": 1234567890,
   "model": "Gemma-4-E2B-it",
+  "system_fingerprint": null,
   "choices": [{
     "index": 0,
     "message": {
@@ -135,6 +136,8 @@ Supported audio formats: `wav`, `mp3`, `ogg`, `flac`. Audio must be mono — ste
 ```
 
 `finish_reason` values: `"stop"` (natural end or stop sequence), `"length"` (output truncated by `max_tokens`), `"tool_calls"` (model invoked a tool).
+
+> **Note:** The `system_fingerprint` field is always `null`. The LiteRT runtime does not expose a tokenizer or model configuration hash, so there is no meaningful fingerprint to generate. Clients that check this field should treat `null` as "unknown configuration."
 
 ### Streaming Response
 
@@ -187,6 +190,53 @@ Alternative API format. Accepts either `messages` (array) or `input` (string) fi
 | `top_p` | number | No | Nucleus sampling threshold |
 | `top_k` | integer | No | Top-k sampling |
 | `max_output_tokens` | integer | No | Maximum tokens to generate |
+
+### Streaming Response
+
+When `stream: true`, the Responses API uses typed Server-Sent Events with an `event:` prefix (unlike Chat Completions which uses `data:`-only lines). Each SSE frame has the format:
+
+```
+event: <event-type>
+data: <JSON payload>
+```
+
+The full event sequence for a text response:
+
+```
+event: response.created
+data: {"type":"response.created","response":{"id":"resp-...","object":"response","created_at":1234567890,"status":"in_progress","model":"Gemma-4-E2B-it","output":[]}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"resp-...","object":"response","created_at":1234567890,"status":"in_progress","model":"Gemma-4-E2B-it","output":[]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"msg-...","type":"message","status":"in_progress","content":[],"role":"assistant"},"output_index":0,"sequence_number":0}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","content_index":0,"item_id":"msg-...","output_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"Hello","item_id":"msg-...","output_index":0}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"!","item_id":"msg-...","output_index":0}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","content_index":0,"item_id":"msg-...","output_index":0,"text":"Hello!"}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","content_index":0,"item_id":"msg-...","output_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"Hello!"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"msg-...","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"Hello!"}],"role":"assistant"},"output_index":0}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp-...","object":"response","created_at":1234567890,"status":"completed","model":"Gemma-4-E2B-it","output":[...],"usage":{"input_tokens":10,"output_tokens":2,"total_tokens":12}}}
+
+data: [DONE]
+```
+
+The final `data: [DONE]` line has no `event:` prefix — it signals the end of the stream (same as Chat Completions).
 
 ## Audio Transcriptions — `POST /v1/audio/transcriptions`
 
