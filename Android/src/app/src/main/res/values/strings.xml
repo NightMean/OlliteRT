@@ -424,6 +424,7 @@
   <string name="status_auth_off" translatable="false">off</string>
   <string name="status_cors_all_origins" translatable="false">all origins</string>
   <string name="status_cors_restricted" translatable="false">restricted</string>
+  <string name="status_cors_disabled" translatable="false">disabled</string>
 
   <!-- Status: Section headers -->
   <string name="status_section_metrics" translatable="false">Metrics</string>
