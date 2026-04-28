@@ -34,6 +34,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.CLEANUP_AWAIT_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.DATASTORE_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
@@ -52,6 +53,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -141,7 +143,7 @@ class ServerService : Service() {
         },
         enabledCacheFilenames = {
           try {
-            kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { dataStoreRepo?.readRepositories() }
+            kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readRepositories() } }
               ?.filter { it.enabled }
               ?.map { it.cacheFilename }
               ?.toSet()
@@ -152,7 +154,11 @@ class ServerService : Service() {
       modelLifecycle = ModelLifecycle(
         context = this,
         allowlistLoader = allowlistLoader,
-        readImportedModels = { kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { dataStoreRepo?.readImportedModels() ?: emptyList() } },
+        readImportedModels = {
+          try {
+            kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()
+          } catch (e: Exception) { Log.w(TAG, "Failed to read imported models from DataStore", e); emptyList() }
+        },
       )
       // Create a partial wake lock to keep the CPU awake while the server is running.
       // Acquired in onStartCommand once the server starts, released in onDestroy.

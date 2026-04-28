@@ -75,6 +75,9 @@ const val STREAMING_TIMEOUT_SECONDS = 90L
 const val BLOCKING_TIMEOUT_SECONDS = 30L
 // Maximum time (seconds) to wait for previous model cleanup before initializing a new one.
 const val CLEANUP_AWAIT_TIMEOUT_SECONDS = 15L
+// Maximum time (ms) for runBlocking DataStore reads during service init / keep-alive reload.
+// Protects against indefinite hangs if the DataStore file is corrupted or locked.
+const val DATASTORE_READ_TIMEOUT_MS = 5_000L
 
 // Keep-alive settings.
 // When model is inferring at keep-alive timeout, recheck after this delay (ms).
