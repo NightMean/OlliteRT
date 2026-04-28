@@ -622,10 +622,13 @@ class KtorServer(
         modelLifecycle.defaultModel = null
         ServerMetrics.onServerError(t.message ?: "Out of memory")
       }
-      ServerMetrics.incrementErrorCount(ErrorCategory.SYSTEM)
+      val errorCategory = if (t is OutOfMemoryError) ErrorCategory.INFERENCE else ErrorCategory.SYSTEM
+      ServerMetrics.incrementErrorCount(errorCategory)
       emitDebugStackTrace(t, "ktor_serve_catch_all", null)
       responseBodySnapshot = t.message
-      httpInternalError("internal_error")
+      val errorMsg = if (t is OutOfMemoryError) "out_of_memory" else "internal_error"
+      val suggestion = if (t is OutOfMemoryError) "Try a smaller model or reduce max_tokens" else null
+      httpInternalError(errorMsg, suggestion)
     }
 
     finalizeLogEntry(logId, startMs, response, requestBodySnapshot, responseBodySnapshot)
