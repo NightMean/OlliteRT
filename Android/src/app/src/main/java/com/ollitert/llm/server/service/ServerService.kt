@@ -211,39 +211,8 @@ class ServerService : Service() {
       return START_NOT_STICKY
     }
 
-    // Android requires startForeground() within ~10s of startForegroundService().
-    // Call it immediately with a minimal notification to avoid
-    // ForegroundServiceDidNotStartInTimeException on early-return paths
-    // (e.g. model not found, files missing). The notification is replaced later
-    // with the full loading/running notification once setup completes.
-    val placeholderIntent = Intent(this, MainActivity::class.java)
-    placeholderIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-    val placeholderContentIntent = PendingIntent.getActivity(
-      this, 0, placeholderIntent, PendingIntent.FLAG_IMMUTABLE,
-    )
-    val placeholderNotification = NotificationHelper.build(
-      context = this,
-      title = getString(R.string.notif_starting_title),
-      text = getString(R.string.notif_starting_body),
-      contentIntent = placeholderContentIntent,
-      showProgress = true,
-    )
-    // Pass the foreground service type explicitly so Android 14+ (which requires it)
-    // shows the notification immediately instead of deferring it for up to 10 seconds.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      startForeground(
-        NotificationHelper.NOTIFICATION_ID,
-        placeholderNotification,
-        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
-      )
-    } else {
-      startForeground(NotificationHelper.NOTIFICATION_ID, placeholderNotification)
-    }
-
-    // Keep CPU awake for the entire server lifetime so the HTTP server stays reachable
-    // on locked/idle devices (e.g. dedicated "closet server" use case).
-    wakeLock?.acquire()
-    wifiLock?.acquire()
+    startForegroundWithPlaceholder()
+    acquireWakeLocks()
 
     // Handle reload action: clean up current model first, then proceed with normal start.
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
@@ -267,105 +236,18 @@ class ServerService : Service() {
     val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
 
     // ── Ktor server setup (no model dependency) ─────────────────────────────
-    // Set up the HTTP server before model resolution so DataStore reads
-    // (runBlocking inside AllowlistLoader/ModelLifecycle lambdas) don't
-    // block the main thread and risk ANR.
-
     val wifiIp = getWifiIpAddress(this)
-    val displayAddress = wifiIp ?: "localhost"
+    val notifState = buildNotificationIntents(wifiIp, port)
 
-    // Content intent: tap notification → open app
-    val openAppIntent = Intent(this, MainActivity::class.java)
-    openAppIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-    val contentIntent = PendingIntent.getActivity(
-      this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    // Stop action
-    val stopIntent = PendingIntent.getService(
-      this, 1,
-      Intent(this, ServerService::class.java).apply { action = ACTION_STOP },
-      PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    // Copy URL action
-    val endpointUrl = "http://$displayAddress:$port/v1"
-    val copyIntent = PendingIntent.getBroadcast(
-      this, 2,
-      Intent(this, CopyUrlReceiver::class.java).apply {
-        putExtra(CopyUrlReceiver.EXTRA_URL, endpointUrl)
-      },
-      PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    // Replace the placeholder notification with the full loading notification.
-    // Uses requestedModelName (not resolved model) since resolution hasn't happened yet.
     NotificationHelper.update(
       context = this,
       title = getString(R.string.notif_loading_model_title, requestedModelName),
       text = getString(R.string.notif_loading_model_body),
-      contentIntent = contentIntent,
+      contentIntent = notifState.contentIntent,
       showProgress = true,
     )
 
-    server?.stop()
-    inferenceExecutor?.shutdownNow()
-    val executor = Executors.newSingleThreadExecutor()
-    inferenceExecutor = executor
-    val runner = InferenceRunner(
-      context = this,
-      executor = executor,
-      inferenceLock = inferenceLock,
-      logEvent = { msg -> logEvent(msg) },
-      emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
-      buildSystemInstruction = { name -> buildSystemInstruction(name) },
-    )
-    inferenceRunner = runner
-    val handlers = EndpointHandlers(
-      context = this,
-      json = json,
-      inferenceRunner = runner,
-      modelLifecycle = modelLifecycle,
-      logEvent = { msg -> logEvent(msg) },
-      nextRequestId = { nextRequestId() },
-    )
-    val audioTranscriptionHandler = AudioTranscriptionHandler(
-      context = this,
-      inferenceRunner = runner,
-      modelLifecycle = modelLifecycle,
-    )
-    server = KtorServer(
-      port = port,
-      serviceContext = this,
-      endpointHandlers = handlers,
-      modelLifecycle = modelLifecycle,
-      json = json,
-      nextRequestId = { nextRequestId() },
-      emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
-      audioTranscriptionHandler = audioTranscriptionHandler,
-      inferenceLock = inferenceLock,
-    )
-    try {
-      server?.start()
-    } catch (e: Exception) {
-      // Java's BindException says "Address already in use" — rewrite to mention the port explicitly
-      val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
-        getString(R.string.error_port_in_use, port) else (e.message?.take(120) ?: getString(R.string.error_unknown))
-      val msg = getString(R.string.error_server_failed_to_start, reason)
-      Log.e(TAG, msg, e)
-      ServerMetrics.onServerError(msg)
-      ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
-      stopSelf()
-      return START_NOT_STICKY
-    }
-
-    val notifState = LoadNotificationState(
-      contentIntent = contentIntent,
-      stopIntent = stopIntent,
-      copyIntent = copyIntent,
-      endpointUrl = endpointUrl,
-    )
+    if (!startHttpServer(port, requestedModelName)) return START_NOT_STICKY
 
     // ── Model resolution + initialization (off main thread) ─────────────────
     // pickModelByName triggers runBlocking DataStore reads inside
@@ -428,6 +310,124 @@ class ServerService : Service() {
     }
 
     return START_STICKY
+  }
+
+  /** Starts the foreground service with a minimal placeholder notification to meet the Android 10s deadline. */
+  private fun startForegroundWithPlaceholder() {
+    val placeholderIntent = Intent(this, MainActivity::class.java)
+    placeholderIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    val placeholderContentIntent = PendingIntent.getActivity(
+      this, 0, placeholderIntent, PendingIntent.FLAG_IMMUTABLE,
+    )
+    val placeholderNotification = NotificationHelper.build(
+      context = this,
+      title = getString(R.string.notif_starting_title),
+      text = getString(R.string.notif_starting_body),
+      contentIntent = placeholderContentIntent,
+      showProgress = true,
+    )
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      startForeground(
+        NotificationHelper.NOTIFICATION_ID,
+        placeholderNotification,
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+      )
+    } else {
+      startForeground(NotificationHelper.NOTIFICATION_ID, placeholderNotification)
+    }
+  }
+
+  /** Acquires CPU + WiFi wake locks for 24/7 server operation. */
+  private fun acquireWakeLocks() {
+    wakeLock?.acquire()
+    wifiLock?.acquire()
+  }
+
+  /** Builds notification PendingIntents (content, stop, copy URL) for the running server. */
+  private fun buildNotificationIntents(wifiIp: String?, port: Int): LoadNotificationState {
+    val displayAddress = wifiIp ?: "localhost"
+    val contentIntent = PendingIntent.getActivity(
+      this, 0,
+      Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+      PendingIntent.FLAG_IMMUTABLE,
+    )
+    val stopIntent = PendingIntent.getService(
+      this, 1,
+      Intent(this, ServerService::class.java).apply { action = ACTION_STOP },
+      PendingIntent.FLAG_IMMUTABLE,
+    )
+    val endpointUrl = "http://$displayAddress:$port/v1"
+    val copyIntent = PendingIntent.getBroadcast(
+      this, 2,
+      Intent(this, CopyUrlReceiver::class.java).apply {
+        putExtra(CopyUrlReceiver.EXTRA_URL, endpointUrl)
+      },
+      PendingIntent.FLAG_IMMUTABLE,
+    )
+    return LoadNotificationState(
+      contentIntent = contentIntent,
+      stopIntent = stopIntent,
+      copyIntent = copyIntent,
+      endpointUrl = endpointUrl,
+    )
+  }
+
+  /**
+   * Creates the Ktor HTTP server and inference pipeline. Returns false if the server
+   * failed to bind (caller should return START_NOT_STICKY).
+   */
+  private fun startHttpServer(port: Int, requestedModelName: String): Boolean {
+    server?.stop()
+    inferenceExecutor?.shutdownNow()
+    val executor = Executors.newSingleThreadExecutor()
+    inferenceExecutor = executor
+    val runner = InferenceRunner(
+      context = this,
+      executor = executor,
+      inferenceLock = inferenceLock,
+      logEvent = { msg -> logEvent(msg) },
+      emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
+      buildSystemInstruction = { name -> buildSystemInstruction(name) },
+    )
+    inferenceRunner = runner
+    val handlers = EndpointHandlers(
+      context = this,
+      json = json,
+      inferenceRunner = runner,
+      modelLifecycle = modelLifecycle,
+      logEvent = { msg -> logEvent(msg) },
+      nextRequestId = { nextRequestId() },
+    )
+    val audioTranscriptionHandler = AudioTranscriptionHandler(
+      context = this,
+      inferenceRunner = runner,
+      modelLifecycle = modelLifecycle,
+    )
+    server = KtorServer(
+      port = port,
+      serviceContext = this,
+      endpointHandlers = handlers,
+      modelLifecycle = modelLifecycle,
+      json = json,
+      nextRequestId = { nextRequestId() },
+      emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
+      audioTranscriptionHandler = audioTranscriptionHandler,
+      inferenceLock = inferenceLock,
+    )
+    return try {
+      server?.start()
+      true
+    } catch (e: Exception) {
+      val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
+        getString(R.string.error_port_in_use, port) else (e.message?.take(120) ?: getString(R.string.error_unknown))
+      val msg = getString(R.string.error_server_failed_to_start, reason)
+      Log.e(TAG, msg, e)
+      ServerMetrics.onServerError(msg)
+      ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
+      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
+      stopSelf()
+      false
+    }
   }
 
   /**
