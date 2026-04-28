@@ -683,8 +683,8 @@ class ServerService : Service() {
       return
     }
     if (t is OutOfMemoryError) {
+      synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
       try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(TAG, "cleanUp() failed during OOM recovery", e) }
-      defaultModel = null
       modelCache.clear()
       System.gc()
     }
