@@ -110,6 +110,21 @@ class InferenceRunner(
 
   // ── Blocking inference ───────────────────────────────────────────────────
 
+  suspend fun runLlm(model: Model, request: InferenceRequest): Pair<String?, String?> =
+    runLlm(
+      model = model,
+      prompt = request.prompt,
+      requestId = request.requestId,
+      endpoint = request.endpoint,
+      timeoutSeconds = request.timeoutSeconds,
+      images = request.images,
+      audioClips = request.audioClips,
+      eagerVisionInit = request.eagerVisionInit,
+      logId = request.logId,
+      configSnapshot = request.configSnapshot,
+      prefs = request.prefs,
+    )
+
   /**
    * Run a single blocking inference pass. Returns (output, error) — one is always null.
    * Output includes thinking content wrapped in `<think>` tags if the model produced it.
