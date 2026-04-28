@@ -28,7 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class LlmHttpPrefsTest {
+class ServerPrefsTest {
 
   private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 

@@ -122,7 +122,7 @@ class RequestLogDaoTest {
   }
 
   @Test
-  fun pruneToCountKeepsNewest() = runTest {
+  fun pruneToCountKeepsMaxCountPlusOne() = runTest {
     // SQL uses strict < (not <=), so the entry at OFFSET maxCount survives too.
     // pruneToCount(3) with unique timestamps keeps maxCount + 1 entries.
     (1..10).forEach { dao.upsert(entity("id-$it", timestamp = it * 1000L)) }
