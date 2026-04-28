@@ -253,7 +253,8 @@ class EndpointHandlers(
     val prompt = compactionResultCompl.prompt
     // Store context utilization data in the log entry for per-request display
     recordContextUtilization(logId, prompt, maxContextCompl)
-    logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${body.length} promptChars=${prompt.length} model=${model.name}")
+    val requestedIdCompl = BridgeUtils.resolveRequestedModelId(req.model)
+    logEvent("request_start id=$requestId endpoint=/v1/completions bodyLength=${body.length} promptChars=${prompt.length} model=$requestedIdCompl resolved=${model.name}")
 
     if (prompt.isBlank()) {
       logEvent("request_empty id=$requestId endpoint=/v1/completions")
