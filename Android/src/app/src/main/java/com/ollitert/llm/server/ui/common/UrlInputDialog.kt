@@ -29,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
 fun UrlInputDialog(
@@ -82,6 +84,11 @@ fun UrlInputDialog(
           supportingText = if (error != null) {
             { Text(error, color = MaterialTheme.colorScheme.error) }
           } else null,
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = OlliteRTPrimary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            cursorColor = OlliteRTPrimary,
+          ),
         )
         if (url.trim().startsWith("http://", ignoreCase = true)) {
           Text(
