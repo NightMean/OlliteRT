@@ -775,6 +775,7 @@ class KtorServer(
         val config = model.configValues
         currentState = config.configThinkingEnabled() ?: false
         requestedState = parseThinkingRequestedState(body, currentState)
+          ?: return httpBadRequest("Invalid JSON in request body")
         updatedConfig = config + (ConfigKeys.ENABLE_THINKING.label to requestedState)
         model.configValues = updatedConfig
       }
@@ -782,6 +783,7 @@ class KtorServer(
       val config = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)
       currentState = config?.configThinkingEnabled() ?: false
       requestedState = parseThinkingRequestedState(body, currentState)
+        ?: return httpBadRequest("Invalid JSON in request body")
       updatedConfig = (config ?: emptyMap()) + (ConfigKeys.ENABLE_THINKING.label to requestedState)
     }
     ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updatedConfig)
@@ -854,32 +856,11 @@ class KtorServer(
         updated = result.first
         configChanges = result.second
       }
-      // ── Behavior toggles (SharedPrefs-only, not in configValues — no lock needed) ──
+      // ── Behavior toggles & special fields (SharedPrefs-only, no lock needed) ──
       val changes = configChanges.toMutableList()
-      for (toggle in behaviorToggles) {
-        parseConfigBool(obj, toggle.jsonKey)?.let { v ->
-          val old = toggle.read(serviceContext)
-          toggle.write(serviceContext, v)
-          toggle.onChanged?.invoke(v)
-          changes.add("${toggle.displayName}: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
-        }
-      }
-      parseConfigInt(obj, "keep_alive_minutes")?.let { v ->
-        if (v < 1 || v > 7200) {
-          return httpBadRequest("keep_alive_minutes out of range (1–7200)")
-        }
-        val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
-        ServerPrefs.setKeepAliveMinutes(serviceContext, v)
-        if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
-        changes.add("Keep Alive Minutes: $old → $v")
-      }
-      parseConfigString(obj, "system_prompt")?.let { v ->
-        val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
-        ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
-        val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
-        val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
-        changes.add("System Prompt: $oldDisplay → $newDisplay")
-      }
+      applyBehaviorToggles(obj, changes)
+      val specialFieldError = applySpecialFields(obj, modelPrefsKey, changes)
+      if (specialFieldError != null) return specialFieldError
       if (changes.isEmpty()) {
         httpBadRequest("No recognized config fields")
       } else {
@@ -947,16 +928,65 @@ class KtorServer(
     return updated.toMap() to changes
   }
 
-  private fun parseThinkingRequestedState(body: String, currentState: Boolean): Boolean {
+  /**
+   * Parses the requested thinking state from the body JSON.
+   * Returns null if the body contains malformed JSON (caller should return httpBadRequest).
+   * An empty/blank body means "toggle" (returns !currentState).
+   * A valid JSON body with no "enabled" field also means "toggle".
+   */
+  private fun parseThinkingRequestedState(body: String, currentState: Boolean): Boolean? {
     if (body.isNotBlank()) {
-      try {
-        val obj = Json.parseToJsonElement(body).jsonObject
-        return obj["enabled"]?.jsonPrimitive?.booleanOrNull ?: !currentState
+      val obj = try {
+        Json.parseToJsonElement(body).jsonObject
       } catch (_: Exception) {
-        return !currentState
+        return null
       }
+      return obj["enabled"]?.jsonPrimitive?.booleanOrNull ?: !currentState
     }
     return !currentState
+  }
+
+  /**
+   * Applies behavior toggle changes from the JSON object to SharedPreferences.
+   * Appends human-readable change descriptions to [changes].
+   */
+  private fun applyBehaviorToggles(obj: JsonObject, changes: MutableList<String>) {
+    for (toggle in behaviorToggles) {
+      parseConfigBool(obj, toggle.jsonKey)?.let { v ->
+        val old = toggle.read(serviceContext)
+        toggle.write(serviceContext, v)
+        toggle.onChanged?.invoke(v)
+        changes.add("${toggle.displayName}: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+      }
+    }
+  }
+
+  /**
+   * Applies special-field changes (keep_alive_minutes, system_prompt) from the JSON object.
+   * Returns an [HttpResponse] error if validation fails, or null on success.
+   */
+  private fun applySpecialFields(
+    obj: JsonObject,
+    modelPrefsKey: String,
+    changes: MutableList<String>,
+  ): HttpResponse? {
+    parseConfigInt(obj, "keep_alive_minutes")?.let { v ->
+      if (v < 1 || v > 7200) {
+        return httpBadRequest("keep_alive_minutes out of range (1–7200)")
+      }
+      val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
+      ServerPrefs.setKeepAliveMinutes(serviceContext, v)
+      if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+      changes.add("Keep Alive Minutes: $old → $v")
+    }
+    parseConfigString(obj, "system_prompt")?.let { v ->
+      val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
+      ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
+      val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
+      val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
+      changes.add("System Prompt: $oldDisplay → $newDisplay")
+    }
+    return null
   }
 
   // ── Shared route handlers ─────────────────────────────────────────────────
