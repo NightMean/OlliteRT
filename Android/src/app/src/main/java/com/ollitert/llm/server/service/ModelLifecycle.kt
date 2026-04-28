@@ -35,6 +35,7 @@ import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
@@ -160,6 +161,12 @@ class ModelLifecycle(
   /** Cancel any pending keep-alive unload timer. */
   fun cancelKeepAliveTimer() {
     keepAliveHandler.removeCallbacks(keepAliveRunnable)
+  }
+
+  /** Cancel the lifecycle scope to prevent coroutine leaks when the service is destroyed. */
+  fun destroy() {
+    cancelKeepAliveTimer()
+    lifecycleScope.cancel()
   }
 
   /**

@@ -829,6 +829,7 @@ class ServerService : Service() {
     } catch (e: Exception) {
       Log.w(TAG, "Failed to shut down RequestLogPersistence", e)
     }
+    modelLifecycle.destroy()
     serviceScope.cancel()
     super.onDestroy()
   }
