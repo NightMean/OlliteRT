@@ -74,6 +74,7 @@ object ServerLlmModelHelper {
     onDone: (String) -> Unit,
     systemInstruction: Contents? = null,
     tools: List<ToolProvider> = listOf(),
+    initialMessages: List<Message> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     coroutineScope: CoroutineScope? = null,
     configOverrides: Map<String, Any>? = null,
@@ -197,6 +198,8 @@ object ServerLlmModelHelper {
                 },
               systemInstruction = systemInstruction,
               tools = tools,
+              initialMessages = initialMessages,
+              automaticToolCalling = false,
             ),
           )
         model.instance = LlmModelInstance(engine = engine, conversation = conversation)
@@ -221,6 +224,7 @@ object ServerLlmModelHelper {
     supportAudio: Boolean = false,
     systemInstruction: Contents? = null,
     tools: List<ToolProvider> = listOf(),
+    initialMessages: List<Message> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
   ) {
     try {
@@ -267,6 +271,8 @@ object ServerLlmModelHelper {
                 },
               systemInstruction = systemInstruction,
               tools = tools,
+              initialMessages = initialMessages,
+              automaticToolCalling = false,
             )
           )
         instance.conversation = newConversation
@@ -351,6 +357,7 @@ object ServerLlmModelHelper {
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
     extraContext: Map<String, String>? = null,
+    onNativeToolCalls: ((List<com.google.ai.edge.litertlm.ToolCall>) -> Unit)? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -402,6 +409,9 @@ object ServerLlmModelHelper {
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
+          if (onNativeToolCalls != null && message.toolCalls.isNotEmpty()) {
+            onNativeToolCalls.invoke(message.toolCalls)
+          }
           resultListener(message.toString(), false, message.channels["thought"])
         }
 
