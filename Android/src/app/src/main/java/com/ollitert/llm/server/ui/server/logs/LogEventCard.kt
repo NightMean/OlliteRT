@@ -543,17 +543,38 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (parsedEvent.instruction != null) {
+        if (parsedEvent.serverPrompt != null) {
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = stringResource(R.string.logs_audio_instruction),
+            text = stringResource(R.string.logs_audio_server_prompt),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.SemiBold,
           )
           Spacer(modifier = Modifier.height(4.dp))
           ExpandablePromptBox(
-            text = parsedEvent.instruction,
+            text = parsedEvent.serverPrompt,
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
+            textColor = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        if (parsedEvent.clientLanguage != null || parsedEvent.clientPrompt != null) {
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(
+            text = stringResource(R.string.logs_audio_client_params),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          ExpandablePromptBox(
+            text = buildString {
+              if (parsedEvent.clientLanguage != null) append("language: ${parsedEvent.clientLanguage}")
+              if (parsedEvent.clientPrompt != null) {
+                if (isNotEmpty()) append("\n")
+                append("prompt: ${parsedEvent.clientPrompt}")
+              }
+            },
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
             textColor = MaterialTheme.colorScheme.onSurface,
           )

@@ -185,7 +185,12 @@ class AudioTranscriptionHandler(
     }
     val eventBody = buildJsonObject {
       put("type", "audio_transcription")
-      if (hintText.isNotEmpty()) put("instruction", hintText)
+      if (useTranscriptionPrompt) {
+        val customPrompt = prefs.sttTranscriptionPromptText
+        put("server_prompt", customPrompt.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT })
+      }
+      if (language != null) put("client_language", language)
+      if (prompt != null) put("client_prompt", prompt)
       put("transcription", text)
     }.toString()
     RequestLogStore.addEvent(

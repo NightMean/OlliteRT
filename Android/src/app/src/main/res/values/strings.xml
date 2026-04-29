@@ -641,7 +641,8 @@
   <string name="logs_prompt_empty" translatable="false">(empty)</string>
 
   <!-- LogEventCard: Audio transcription -->
-  <string name="logs_audio_instruction" translatable="false">Instruction</string>
+  <string name="logs_audio_server_prompt" translatable="false">Server Prompt</string>
+  <string name="logs_audio_client_params" translatable="false">Client Parameters</string>
   <string name="logs_audio_transcription_output" translatable="false">Transcription</string>
 
   <!-- LogEventCard: Footer badge -->

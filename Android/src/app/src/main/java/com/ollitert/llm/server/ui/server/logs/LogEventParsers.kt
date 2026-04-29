@@ -115,7 +115,9 @@ internal sealed class ParsedEventType {
     val fileSize: String,
     val durationSec: String,
     val forced: Boolean,
-    val instruction: String?,
+    val serverPrompt: String?,
+    val clientLanguage: String?,
+    val clientPrompt: String?,
     val transcription: String?,
   ) : ParsedEventType()
 
@@ -346,12 +348,20 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
 
   // Audio transcription: "Audio transcription: ModelName (lang=en, wav, 245KB, 3.2s, forced)"
   PATTERN_AUDIO_TRANSCRIPTION.find(message)?.let {
-    var instruction: String? = null
+    var serverPrompt: String? = null
+    var clientLanguage: String? = null
+    var clientPrompt: String? = null
     var transcription: String? = null
     if (eventBody != null) {
       try {
         val json = Json.parseToJsonElement(eventBody).jsonObject
-        instruction = json["instruction"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
+        serverPrompt = json["server_prompt"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
+        clientLanguage = json["client_language"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
+        clientPrompt = json["client_prompt"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
+        // Legacy fallback for events stored before the split
+        if (serverPrompt == null && clientLanguage == null && clientPrompt == null) {
+          serverPrompt = json["instruction"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
+        }
         transcription = json["transcription"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
       } catch (_: Exception) {
         transcription = eventBody
@@ -364,7 +374,9 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
       fileSize = it.groupValues[4],
       durationSec = it.groupValues[5],
       forced = it.groupValues[6].isNotEmpty(),
-      instruction = instruction,
+      serverPrompt = serverPrompt,
+      clientLanguage = clientLanguage,
+      clientPrompt = clientPrompt,
       transcription = transcription,
     )
   }
