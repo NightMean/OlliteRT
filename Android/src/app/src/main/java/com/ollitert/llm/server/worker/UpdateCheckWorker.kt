@@ -192,7 +192,7 @@ class UpdateCheckWorker @AssistedInject constructor(
 
   // ── GitHub API fetching ──────────────────────────────────────────────────
 
-  private data class ReleaseInfo(
+  internal data class ReleaseInfo(
     val tagName: String,
     val htmlUrl: String,
     val etag: String?,
@@ -276,22 +276,8 @@ class UpdateCheckWorker @AssistedInject constructor(
     }
   }
 
-  /**
-   * Find the newest release matching the given tag pattern, skipping drafts.
-   * Releases are returned by GitHub in reverse chronological order.
-   */
   private fun findBestRelease(releasesJson: String, tagPattern: Regex): ReleaseInfo? {
-    return Json.parseToJsonElement(releasesJson).jsonArray
-      .map { it.jsonObject }
-      .firstOrNull { release ->
-        release["draft"]?.jsonPrimitive?.booleanOrNull != true &&
-          (release["tag_name"]?.jsonPrimitive?.content ?: "").let { it.isNotBlank() && tagPattern.matches(it) } &&
-          (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
-      }?.let { release ->
-        val tag = release["tag_name"]?.jsonPrimitive?.content ?: return@let null
-        val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
-        ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
-      }
+    return Companion.findBestRelease(releasesJson, tagPattern)
   }
 
   private fun findCrossChannelRelease(releasesJson: String): ReleaseInfo? {
@@ -301,19 +287,7 @@ class UpdateCheckWorker @AssistedInject constructor(
       "dev" -> DEV_TAG_PATTERN
       else -> STABLE_TAG_PATTERN
     }
-    return Json.parseToJsonElement(releasesJson).jsonArray
-      .map { it.jsonObject }
-      .firstOrNull { release ->
-        release["draft"]?.jsonPrimitive?.booleanOrNull != true &&
-          (release["tag_name"]?.jsonPrimitive?.content ?: "").let { tag ->
-            tag.isNotBlank() && !ownPattern.matches(tag) && SemVer.parse(tag) != null
-          } &&
-          (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
-      }?.let { release ->
-        val tag = release["tag_name"]?.jsonPrimitive?.content ?: return@let null
-        val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
-        ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
-      }
+    return Companion.findCrossChannelRelease(releasesJson, ownPattern)
   }
 
   private fun checkCrossChannel(context: Context, verbose: Boolean) {
@@ -387,11 +361,7 @@ class UpdateCheckWorker @AssistedInject constructor(
   }
 
   private fun parseRelease(json: String, etag: String?): ReleaseInfo? {
-    val obj = Json.parseToJsonElement(json).jsonObject
-    val tag = obj["tag_name"]?.jsonPrimitive?.content ?: ""
-    val url = obj["html_url"]?.jsonPrimitive?.content ?: ""
-    if (tag.isBlank() || url.isBlank()) return null
-    return ReleaseInfo(tag, url, etag)
+    return Companion.parseRelease(json, etag)
   }
 
   // ── HTTP layer ───────────────────────────────────────────────────────────
@@ -598,6 +568,44 @@ class UpdateCheckWorker @AssistedInject constructor(
     internal val STABLE_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+$")
     internal val BETA_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+(-beta\\.\\d+)?$")
     internal val DEV_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+(-(?:dev|beta)\\.\\d+)?$")
+
+    internal fun parseRelease(json: String, etag: String?): ReleaseInfo? {
+      val obj = Json.parseToJsonElement(json).jsonObject
+      val tag = obj["tag_name"]?.jsonPrimitive?.content ?: ""
+      val url = obj["html_url"]?.jsonPrimitive?.content ?: ""
+      if (tag.isBlank() || url.isBlank()) return null
+      return ReleaseInfo(tag, url, etag)
+    }
+
+    internal fun findBestRelease(releasesJson: String, tagPattern: Regex): ReleaseInfo? {
+      return Json.parseToJsonElement(releasesJson).jsonArray
+        .map { it.jsonObject }
+        .firstOrNull { release ->
+          release["draft"]?.jsonPrimitive?.booleanOrNull != true &&
+            (release["tag_name"]?.jsonPrimitive?.content ?: "").let { it.isNotBlank() && tagPattern.matches(it) } &&
+            (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
+        }?.let { release ->
+          val tag = release["tag_name"]?.jsonPrimitive?.content ?: return@let null
+          val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
+          ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
+        }
+    }
+
+    internal fun findCrossChannelRelease(releasesJson: String, ownPattern: Regex): ReleaseInfo? {
+      return Json.parseToJsonElement(releasesJson).jsonArray
+        .map { it.jsonObject }
+        .firstOrNull { release ->
+          release["draft"]?.jsonPrimitive?.booleanOrNull != true &&
+            (release["tag_name"]?.jsonPrimitive?.content ?: "").let { tag ->
+              tag.isNotBlank() && !ownPattern.matches(tag) && SemVer.parse(tag) != null
+            } &&
+            (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
+        }?.let { release ->
+          val tag = release["tag_name"]?.jsonPrimitive?.content ?: return@let null
+          val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
+          ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
+        }
+    }
 
     /**
      * Determine tap target based on install source:
