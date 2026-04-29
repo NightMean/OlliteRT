@@ -566,30 +566,18 @@ fun LogsScreen(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             SegmentedToggleGroup(segmentCount = 3) { segmentShape ->
-              SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0)) {
-                filter = filter.copy(methods = filter.methods.toggle("POST"))
-              }
-              SegmentItem("GET", "GET" in filter.methods, shape = segmentShape(1)) {
-                filter = filter.copy(methods = filter.methods.toggle("GET"))
-              }
-              SegmentItem("EVENT", "EVENT" in filter.methods, shape = segmentShape(2)) {
-                filter = filter.copy(methods = filter.methods.toggle("EVENT"))
-              }
+              SegmentItem("POST", "POST" in filter.methods, onClick = { filter = filter.copy(methods = filter.methods.toggle("POST")) }, shape = segmentShape(0))
+              SegmentItem("GET", "GET" in filter.methods, onClick = { filter = filter.copy(methods = filter.methods.toggle("GET")) }, shape = segmentShape(1))
+              SegmentItem("EVENT", "EVENT" in filter.methods, onClick = { filter = filter.copy(methods = filter.methods.toggle("EVENT")) }, shape = segmentShape(2))
             }
             SegmentedToggleGroup(segmentCount = StatusRange.entries.size) { segmentShape ->
               StatusRange.entries.forEachIndexed { index, range ->
-                SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index)) {
-                  filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
-                }
+                SegmentItem(range.label, range in filter.statusRanges, onClick = { filter = filter.copy(statusRanges = filter.statusRanges.toggle(range)) }, shape = segmentShape(index))
               }
             }
             SegmentedToggleGroup(segmentCount = 2) { segmentShape ->
-              SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed) {
-                filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
-              }
-              SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor) {
-                filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING))
-              }
+              SegmentItem("ERROR", LogLevel.ERROR in filter.levels, onClick = { filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR)) }, shape = segmentShape(0), accentColor = OlliteRTDeleteRed)
+              SegmentItem("WARN", LogLevel.WARNING in filter.levels, onClick = { filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING)) }, shape = segmentShape(1), accentColor = WarningColor)
             }
           } // Row
         } else {
@@ -600,30 +588,18 @@ fun LogsScreen(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             SegmentedToggleGroup(segmentCount = 3, modifier = Modifier.weight(3f)) { segmentShape ->
-              SegmentItem("POST", "POST" in filter.methods, shape = segmentShape(0), modifier = Modifier.weight(1f)) {
-                filter = filter.copy(methods = filter.methods.toggle("POST"))
-              }
-              SegmentItem("GET", "GET" in filter.methods, shape = segmentShape(1), modifier = Modifier.weight(1f)) {
-                filter = filter.copy(methods = filter.methods.toggle("GET"))
-              }
-              SegmentItem("EVENT", "EVENT" in filter.methods, shape = segmentShape(2), modifier = Modifier.weight(1f)) {
-                filter = filter.copy(methods = filter.methods.toggle("EVENT"))
-              }
+              SegmentItem("POST", "POST" in filter.methods, onClick = { filter = filter.copy(methods = filter.methods.toggle("POST")) }, modifier = Modifier.weight(1f), shape = segmentShape(0))
+              SegmentItem("GET", "GET" in filter.methods, onClick = { filter = filter.copy(methods = filter.methods.toggle("GET")) }, modifier = Modifier.weight(1f), shape = segmentShape(1))
+              SegmentItem("EVENT", "EVENT" in filter.methods, onClick = { filter = filter.copy(methods = filter.methods.toggle("EVENT")) }, modifier = Modifier.weight(1f), shape = segmentShape(2))
             }
             SegmentedToggleGroup(segmentCount = StatusRange.entries.size, modifier = Modifier.weight(3f)) { segmentShape ->
               StatusRange.entries.forEachIndexed { index, range ->
-                SegmentItem(range.label, range in filter.statusRanges, shape = segmentShape(index), modifier = Modifier.weight(1f)) {
-                  filter = filter.copy(statusRanges = filter.statusRanges.toggle(range))
-                }
+                SegmentItem(range.label, range in filter.statusRanges, onClick = { filter = filter.copy(statusRanges = filter.statusRanges.toggle(range)) }, modifier = Modifier.weight(1f), shape = segmentShape(index))
               }
             }
             SegmentedToggleGroup(segmentCount = 2, modifier = Modifier.weight(2f)) { segmentShape ->
-              SegmentItem("ERROR", LogLevel.ERROR in filter.levels, shape = segmentShape(0), accentColor = OlliteRTDeleteRed, modifier = Modifier.weight(1f)) {
-                filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR))
-              }
-              SegmentItem("WARN", LogLevel.WARNING in filter.levels, shape = segmentShape(1), accentColor = WarningColor, modifier = Modifier.weight(1f)) {
-                filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING))
-              }
+              SegmentItem("ERROR", LogLevel.ERROR in filter.levels, onClick = { filter = filter.copy(levels = filter.levels.toggle(LogLevel.ERROR)) }, modifier = Modifier.weight(1f), shape = segmentShape(0), accentColor = OlliteRTDeleteRed)
+              SegmentItem("WARN", LogLevel.WARNING in filter.levels, onClick = { filter = filter.copy(levels = filter.levels.toggle(LogLevel.WARNING)) }, modifier = Modifier.weight(1f), shape = segmentShape(1), accentColor = WarningColor)
             }
           } // Row
         }
@@ -903,10 +879,10 @@ internal fun SegmentedToggleGroup(
 private fun RowScope.SegmentItem(
   label: String,
   selected: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
   shape: Shape = RoundedCornerShape(0.dp),
   accentColor: Color? = null,
-  modifier: Modifier = Modifier,
-  onClick: () -> Unit,
 ) {
   val selectedColor = accentColor ?: OlliteRTPrimary
   val bgColor by animateColorAsState(

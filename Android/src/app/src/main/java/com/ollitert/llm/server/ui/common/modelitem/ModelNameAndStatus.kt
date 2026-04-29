@@ -68,9 +68,9 @@ import com.ollitert.llm.server.ui.theme.labelSmallNarrow
 fun ModelNameAndStatus(
   model: Model,
   downloadStatus: ModelDownloadStatus?,
+  modifier: Modifier = Modifier,
   searchQuery: String = "",
   showRecommendations: Boolean = true,
-  modifier: Modifier = Modifier,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED

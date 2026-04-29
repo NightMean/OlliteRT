@@ -103,8 +103,8 @@ fun OlliteRTNavHost(
   navController: NavHostController,
   modelManagerViewModel: ModelManagerViewModel,
   serverViewModel: ServerViewModel,
-  startDestination: String = OlliteRTRoutes.MODELS,
   modifier: Modifier = Modifier,
+  startDestination: String = OlliteRTRoutes.MODELS,
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current

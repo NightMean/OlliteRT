@@ -68,10 +68,10 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 @Composable
 fun OlliteRTTopBar(
   serverStatus: ServerStatus,
-  isInferring: Boolean = false,
   onSettingsClick: () -> Unit,
-  onBackClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
+  isInferring: Boolean = false,
+  onBackClick: (() -> Unit)? = null,
   trailingContent: @Composable (() -> Unit)? = null,
 ) {
   Box(
@@ -158,8 +158,8 @@ fun OlliteRTTopBar(
 @Composable
 fun StatusPill(
   serverStatus: ServerStatus,
-  isInferring: Boolean = false,
   modifier: Modifier = Modifier,
+  isInferring: Boolean = false,
 ) {
   val isProcessing = serverStatus == ServerStatus.RUNNING && isInferring
   val (dotColor, label) = when {

@@ -87,11 +87,11 @@ fun RepositoryListScreen(
   viewModel: RepositoryViewModel,
   onBackClick: (hasChanges: Boolean) -> Unit,
   onRepoClick: (repoId: String) -> Unit,
+  modifier: Modifier = Modifier,
   downloadedModelRepoIds: Map<String, String> = emptyMap(),
   downloadingModelRepoIds: Map<String, String> = emptyMap(),
   onCancelDownload: (modelName: String) -> Unit = {},
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
-  modifier: Modifier = Modifier,
 ) {
   LaunchedEffect(Unit) { viewModel.loadRepositories() }
 

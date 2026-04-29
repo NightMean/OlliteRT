@@ -73,9 +73,9 @@ fun RepositoryDetailScreen(
   viewModel: RepositoryViewModel,
   repoId: String,
   onBackClick: (hasChanges: Boolean) -> Unit,
+  modifier: Modifier = Modifier,
   downloadingModelRepoIds: Map<String, String> = emptyMap(),
   onCancelDownload: (modelName: String) -> Unit = {},
-  modifier: Modifier = Modifier,
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   var hasChanges by rememberSaveable { mutableStateOf(false) }
@@ -336,8 +336,8 @@ fun RepositoryDetailScreen(
 private fun DetailRow(
   label: String,
   value: String,
-  isError: Boolean = false,
   modifier: Modifier = Modifier,
+  isError: Boolean = false,
 ) {
   Column(modifier = modifier) {
     Text(
