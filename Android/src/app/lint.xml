@@ -13,4 +13,7 @@
   <issue id="UnusedResources">
     <ignore path="**/ic_launcher_background.xml" />
   </issue>
+
+  <!-- English-only app with translatable="false" strings; plurals adds overhead without benefit -->
+  <issue id="PluralsCandidate" severity="ignore" />
 </lint>
