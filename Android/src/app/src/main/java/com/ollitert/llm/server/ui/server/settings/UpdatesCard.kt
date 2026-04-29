@@ -222,7 +222,10 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
             )
           } else {
             Text(
-              text = stringResource(R.string.settings_check_for_updates_desc, BuildConfig.UPDATE_CHANNEL),
+              text = if (vm.crossChannelNotifyEntry.current)
+                stringResource(R.string.settings_check_for_updates_desc_cross_channel)
+              else
+                stringResource(R.string.settings_check_for_updates_desc, BuildConfig.UPDATE_CHANNEL),
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
