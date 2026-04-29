@@ -108,6 +108,22 @@ See [Troubleshooting → Voice Transcription](TROUBLESHOOTING.md#voice-transcrip
 > Open WebUI supports streaming, markdown rendering, and conversation history — making it a great desktop companion for OlliteRT.
 > Voice input and audio transcription work out of the box — no additional configuration needed. Just use the voice mode button in the chat UI.
 
+**Tool Calling:**
+
+> [!IMPORTANT]
+> To use tools (function calling) with OlliteRT in Open WebUI, you need to set the Function Calling mode to **Native**. By default, Open WebUI does not send tool calls natively to the backend.
+
+The recommended approach is to set it globally for all models:
+
+1. Go to **Admin Panel → Settings → Models**
+2. Click the **Settings button** (top right of the models list)
+3. Under **Model Parameters**, set **Function Calling** to `Native`
+4. Save
+
+This applies to all existing and future models. You can also override per-model (edit a specific model → Model Parameters → Function Calling → Native) or per-chat (Chat Controls → Advanced Params → Function Calling → Native).
+
+See the [Open WebUI docs on Native mode](https://docs.openwebui.com/features/extensibility/plugin/tools/#how-to-enable-native-mode-agentic-mode) for more details.
+
 ## OpenClaw
 
 [OpenClaw](https://github.com/openclaw/openclaw) is a self-hosted personal AI assistant gateway. Instead of a web chat UI, it routes AI responses through messaging platforms you already use — WhatsApp, Telegram, Discord, and 30+ others.
