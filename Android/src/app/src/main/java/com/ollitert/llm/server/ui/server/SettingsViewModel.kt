@@ -301,7 +301,7 @@ class SettingsViewModel @Inject constructor(
       if (updateCheckEnabledEntry.current) UpdateCheckWorker.scheduleUpdateCheck(context)
       else UpdateCheckWorker.cancelUpdateCheck(context)
     }
-    if (crossChannelNotifyEntry.isChanged && !crossChannelNotifyEntry.current) {
+    if (!crossChannelNotifyEntry.current) {
       val cached = ServerMetrics.availableUpdateVersion.value
       if (cached != null && !UpdateCheckWorker.isOwnChannelTag(cached)) {
         ServerMetrics.setAvailableUpdate(null, null)
