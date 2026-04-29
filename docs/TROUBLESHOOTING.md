@@ -194,7 +194,9 @@ OlliteRT supports two tool calling modes:
 
 ### Streaming and tool calling
 
-When tools are present in a request, responses are **buffered** instead of streamed in real time. This is because tool call detection can only happen after the full output is available. Once generation completes, OlliteRT either emits the response as a tool call or flushes it as regular text. Total latency is unchanged, but you won't see tokens appear progressively for tool-calling requests.
+When tools are present in a request and **Tool Schema Injection is disabled**, responses are **buffered** and sent all at once — even if the client requests streaming. This is because without schema injection, tool call detection can only happen after the full output is available (the server can't tell mid-generation if the output will be a tool call or regular text).
+
+**To get real-time word-by-word streaming with tools present**, enable **Tool Schema Injection** in Settings → Model Behaviour. With schema injection active, the SDK handles tool calls via a separate callback, so text responses stream progressively while tool calls are still detected and emitted correctly.
 
 ## Voice Transcription
 
