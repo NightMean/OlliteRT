@@ -1023,6 +1023,7 @@
   <!-- ServerLlmModelHelper: error messages -->
   <string name="error_model_file_not_found">Model file not found: %1$s</string>
   <string name="error_model_file_corrupted">Model file appears corrupted or truncated (%1$d bytes): %2$s</string>
+  <string name="error_model_file_size_mismatch">Model file is corrupted (size mismatch: %1$s on disk, expected %2$s). Please delete the model and download it again.</string>
   <string name="error_storage_insufficient">Insufficient storage to load model (%1$sMB free, need at least %2$sMB). Free up space by deleting unused models or files, then try again.</string>
 
   <!-- ErrorSuggestions: recovery suggestions -->

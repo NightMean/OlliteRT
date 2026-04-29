@@ -136,6 +136,15 @@ object ServerLlmModelHelper {
       onDone(context.getString(R.string.error_model_file_corrupted, modelFile.length(), modelFile.name))
       return
     }
+    if (model.totalBytes > 0 && modelFile.length() != model.totalBytes) {
+      Log.e(TAG, "Model file size mismatch: on-disk=${modelFile.length()}, expected=${model.totalBytes}")
+      onDone(context.getString(
+        R.string.error_model_file_size_mismatch,
+        modelFile.length().bytesToMb().toString() + "MB",
+        model.totalBytes.bytesToMb().toString() + "MB",
+      ))
+      return
+    }
 
     // Pre-flight storage check: LiteRT needs scratch space for memory-mapping, temp files,
     // and GPU buffer allocation during Engine initialization. If the device is critically
@@ -207,6 +216,7 @@ object ServerLlmModelHelper {
         ExperimentalFlags.enableConversationConstrainedDecoding = false
       }
     } catch (e: Exception) {
+      Log.e(TAG, "Engine initialization failed for '${model.name}': ${e.message}", e)
       try { engine?.close() } catch (e: Exception) {
         Log.w(TAG, "Engine.close() failed during error cleanup (may already be closed by another thread)", e)
       }

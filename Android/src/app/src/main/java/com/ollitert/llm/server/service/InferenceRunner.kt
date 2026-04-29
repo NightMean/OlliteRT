@@ -1119,10 +1119,13 @@ class InferenceRunner(
   fun warmUpModel(model: Model) {
     val startMs = SystemClock.elapsedRealtime()
     val eagerVision = ServerPrefs.isEagerVisionInit(context)
-    val (result, _) = kotlinx.coroutines.runBlocking {
+    val (result, error) = kotlinx.coroutines.runBlocking {
       runLlm(model, WARMUP_MESSAGE, "warmup", "warmup", timeoutSeconds = WARMUP_TIMEOUT_SECONDS, eagerVisionInit = eagerVision)
     }
     val elapsedMs = SystemClock.elapsedRealtime() - startMs
+    if (error != null && error.startsWith("model_init_failed:")) {
+      throw RuntimeException(error.removePrefix("model_init_failed: "))
+    }
     val snippet = result?.take(80)?.replace("\n", " ") ?: "no response"
     RequestLogStore.addEvent(
       "Sending a warmup message: \"$WARMUP_MESSAGE\" → \"$snippet\" (${elapsedMs}ms)",
