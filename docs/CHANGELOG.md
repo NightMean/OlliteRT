@@ -15,11 +15,19 @@ All notable changes to OlliteRT are documented in [GitHub Releases](https://gith
 
 ## Update Channels
 
-OlliteRT checks for updates automatically (configurable in Settings → Auto-Launch & Behavior):
+OlliteRT checks for updates automatically (configurable in Settings → App Updates):
 
 - **Stable** builds check `/releases/latest` — auto-skips pre-releases
 - **Beta** builds check all releases, filtering for `-beta.N` or newer stable
 - **Dev** builds take the most recent non-draft release
+
+### Cross-Channel Notifications
+
+Users can opt-in to notifications about releases from other channels (Settings → App Updates → "Notify about other channels"). When enabled:
+
+- The update check fetches all recent releases and notifies about versions outside the installed channel
+- Separate Android notification channels for beta and dev releases allow granular muting
+- Tapping the notification opens the GitHub release page directly
 
 ## Format
 
@@ -35,7 +43,7 @@ Releases follow [Keep a Changelog](https://keepachangelog.com/) conventions:
 
 ## Checking Your Version
 
-The current version and build hash are shown at the bottom of the Settings screen (e.g. `OlliteRT v1.0.0 (abc123)`). You can also check for updates manually via the "Check Now" button in Settings → Auto-Launch & Behavior.
+The current version and build hash are shown at the bottom of the Settings screen (e.g. `OlliteRT v1.0.0 (abc123)`). You can also check for updates manually via the "Check Now" button in Settings → App Updates.
 
 ## For Developers
 

@@ -31,7 +31,7 @@ OlliteRT makes outbound network connections only for the following purposes:
 |:-----------|:-----|:------------|:----------------|
 | **HuggingFace model download** | When you download a model | HTTP request to `huggingface.co` | Don't download models (import from local storage instead) |
 | **HuggingFace OAuth** | When signing in to download gated models | Standard OAuth flow with HuggingFace | Optional — only needed for gated models |
-| **GitHub update check** | Periodically (configurable) | HTTP request to GitHub Releases API | Disable in Settings → Auto-Launch & Behavior |
+| **GitHub update check** | Periodically (configurable) | HTTP request to GitHub Releases API | Disable in Settings → App Updates |
 | **Model source refresh** | Periodically (~24 hours) and on pull-to-refresh | HTTPS request to each enabled model source URL to fetch the model list JSON | Remove the source in Settings → Model Sources |
 
 Custom model sources are fetched from URLs you configure. The built-in Official source points to a JSON file hosted on GitHub. If you add a custom model source, OlliteRT will periodically fetch its URL — only the HTTP request itself is sent; no device data, usage metrics, or personal information is included.
