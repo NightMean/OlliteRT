@@ -27,6 +27,7 @@ enum class ModelCapability {
   VISION,
   AUDIO,
   THINKING,
+  TOOLS,
   NPU,
 }
 

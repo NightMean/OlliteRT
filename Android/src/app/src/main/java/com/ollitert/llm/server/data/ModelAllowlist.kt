@@ -67,6 +67,7 @@ data class AllowedModel(
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
   val llmSupportThinking: Boolean? = null,
+  val llmSupportTools: Boolean? = null,
   val minDeviceMemoryInGb: Int? = null,
   val localModelFilePathOverride: String? = null,
   val url: String? = null,
@@ -196,6 +197,7 @@ data class AllowedModel(
         if (llmSupportImage == true) add(ModelCapability.VISION)
         if (llmSupportAudio == true) add(ModelCapability.AUDIO)
         if (llmSupportThinking == true) add(ModelCapability.THINKING)
+        if (llmSupportTools == true) add(ModelCapability.TOOLS)
         if (accelerators.any { it == Accelerator.NPU || it == Accelerator.TPU }) add(ModelCapability.NPU)
       },
       llmMaxToken = llmMaxToken,
