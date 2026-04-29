@@ -137,6 +137,9 @@ private const val KEY_CACHED_LATEST_VERSION = "cached_latest_version"
 private const val KEY_CACHED_RELEASE_HTML_URL = "cached_release_html_url"
 private const val KEY_CACHED_RELEASE_ETAG = "cached_release_etag"
 private const val KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES = "update_check_consecutive_failures"
+private const val KEY_CROSS_CHANNEL_NOTIFY_ENABLED = "cross_channel_notify_enabled"
+private const val KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION = "last_dismissed_cross_channel_version"
+private const val KEY_CACHED_CROSS_CHANNEL_VERSION = "cached_cross_channel_version"
 private const val DEFAULT_UPDATE_CHECK_ENABLED = true
 private const val DEFAULT_UPDATE_CHECK_INTERVAL_HOURS = 24
 
@@ -280,6 +283,7 @@ object ServerPrefs {
   private val UPDATE_CHECK_ENABLED = BoolPref(KEY_UPDATE_CHECK_ENABLED, DEFAULT_UPDATE_CHECK_ENABLED)
   private val UPDATE_CHECK_INTERVAL_HOURS = IntPref(KEY_UPDATE_CHECK_INTERVAL_HOURS, DEFAULT_UPDATE_CHECK_INTERVAL_HOURS)
   private val UPDATE_CHECK_CONSECUTIVE_FAILURES = IntPref(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES, 0)
+  private val CROSS_CHANNEL_NOTIFY_ENABLED = BoolPref(KEY_CROSS_CHANNEL_NOTIFY_ENABLED, false)
 
   // Engagement Prompt
   private val MANUAL_START_COUNT = IntPref(KEY_MANUAL_START_COUNT, 0)
@@ -570,7 +574,32 @@ object ServerPrefs {
       .remove(KEY_CACHED_RELEASE_ETAG)
       .remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
       .remove(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES)
+      .remove(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION)
+      .remove(KEY_CACHED_CROSS_CHANNEL_VERSION)
       .apply()
+  }
+
+  fun isCrossChannelNotifyEnabled(context: Context): Boolean = get(context, CROSS_CHANNEL_NOTIFY_ENABLED)
+  fun setCrossChannelNotifyEnabled(context: Context, enabled: Boolean) = set(context, CROSS_CHANNEL_NOTIFY_ENABLED, enabled)
+
+  fun getLastDismissedCrossChannelVersion(context: Context): String? =
+    prefs(context).getString(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION, null)
+
+  fun setLastDismissedCrossChannelVersion(context: Context, version: String?) {
+    prefs(context).edit().apply {
+      if (version != null) putString(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION, version)
+      else remove(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION)
+    }.apply()
+  }
+
+  fun getCachedCrossChannelVersion(context: Context): String? =
+    prefs(context).getString(KEY_CACHED_CROSS_CHANNEL_VERSION, null)
+
+  fun setCachedCrossChannelVersion(context: Context, version: String?) {
+    prefs(context).edit().apply {
+      if (version != null) putString(KEY_CACHED_CROSS_CHANNEL_VERSION, version)
+      else remove(KEY_CACHED_CROSS_CHANNEL_VERSION)
+    }.apply()
   }
 
   // ══════════════════════════════════════════════════════════════════════════
