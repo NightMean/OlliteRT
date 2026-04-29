@@ -21,6 +21,7 @@ import com.ollitert.llm.server.common.ServerStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -192,7 +193,10 @@ object ServerMetrics {
   private val _lastError = sessionFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
-  /** True while the model is actively generating a response. */
+  /** Count of concurrent in-flight inference requests. */
+  private val _inferringCount = AtomicInteger(0)
+
+  /** True while at least one inference request is active. */
   private val _isInferring = sessionFlow(false)
   val isInferring: StateFlow<Boolean> = _isInferring.asStateFlow()
 
@@ -266,6 +270,7 @@ object ServerMetrics {
   }
 
   fun onServerStopped() {
+    _inferringCount.set(0)
     sessionAtomicResets.forEach { it() }
     sessionFlowResets.forEach { it() }
   }
@@ -391,11 +396,14 @@ object ServerMetrics {
   }
 
   fun onInferenceStarted() {
+    _inferringCount.incrementAndGet()
     _isInferring.value = true
   }
 
   fun onInferenceCompleted() {
-    _isInferring.value = false
+    val count = _inferringCount.decrementAndGet().coerceAtLeast(0)
+    if (count == 0) _inferringCount.set(0)
+    _isInferring.value = count > 0
   }
 
   fun onModelIdleUnloaded() {
