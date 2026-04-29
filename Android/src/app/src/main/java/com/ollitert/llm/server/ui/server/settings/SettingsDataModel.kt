@@ -44,11 +44,14 @@ class SettingEntry<T>(initialValue: T) {
   fun reset(default: T) { saved = default; current = default }
 }
 
-/** Identifies which settings card a setting belongs to. */
+/**
+ * Identifies which settings card a setting belongs to.
+ * Order must match: SettingsScreen.kt rendering, allSettingDefs, and allCardDefs.
+ */
 enum class CardId {
   REPOSITORIES,
-  GENERAL,
   HF_TOKEN,
+  GENERAL,
   SERVER_CONFIG,
   AUTO_LAUNCH,
   MODEL_BEHAVIOUR,

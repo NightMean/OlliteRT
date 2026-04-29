@@ -616,16 +616,17 @@ val REPOSITORIES_NAV = SettingDef.Custom(
 )
 
 // ─── All Setting Definitions (ordered) ──────────────────────────────────────
+// Order must match: CardId enum, allCardDefs, and SettingsScreen.kt rendering.
 
 val allSettingDefs: List<SettingDef> = listOf(
   // Repositories
   REPOSITORIES_NAV,
+  // HF Token
+  HF_TOKEN,
   // General
   KEEP_SCREEN_AWAKE, SHOW_MODEL_RECOMMENDATIONS, RESOLVE_CLIENT_HOSTNAMES,
   WRAP_LOG_TEXT, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, KEEP_PARTIAL_RESPONSE, COMPACT_IMAGE_DATA,
   HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
-  // HF Token
-  HF_TOKEN,
   // Server Config
   HOST_PORT, BEARER_TOKEN, CORS_ORIGINS,
   // Auto-Launch
@@ -653,6 +654,7 @@ val allSettingDefs: List<SettingDef> = listOf(
 val settingDefsByKey: Map<String, SettingDef> = allSettingDefs.associateBy { it.key }
 
 // ─── Card Definitions ───────────────────────────────────────────────────────
+// Order must match: CardId enum, allSettingDefs sections, and SettingsScreen.kt rendering.
 
 val allCardDefs: List<CardDef> = listOf(
   CardDef(
@@ -660,6 +662,12 @@ val allCardDefs: List<CardDef> = listOf(
     titleRes = R.string.settings_card_repositories,
     icon = CardIcon.Vector(Icons.Outlined.Inventory2),
     settings = listOf(REPOSITORIES_NAV),
+  ),
+  CardDef(
+    id = CardId.HF_TOKEN,
+    titleRes = R.string.settings_card_hf_token,
+    icon = CardIcon.Vector(Icons.Outlined.Key),
+    settings = listOf(HF_TOKEN),
   ),
   CardDef(
     id = CardId.GENERAL,
@@ -670,12 +678,6 @@ val allCardDefs: List<CardDef> = listOf(
       WRAP_LOG_TEXT, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, KEEP_PARTIAL_RESPONSE, COMPACT_IMAGE_DATA,
       HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
     ),
-  ),
-  CardDef(
-    id = CardId.HF_TOKEN,
-    titleRes = R.string.settings_card_hf_token,
-    icon = CardIcon.Vector(Icons.Outlined.Key),
-    settings = listOf(HF_TOKEN),
   ),
   CardDef(
     id = CardId.SERVER_CONFIG,

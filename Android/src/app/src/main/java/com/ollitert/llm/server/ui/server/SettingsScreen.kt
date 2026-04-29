@@ -204,7 +204,7 @@ fun SettingsScreen(
       )
     }
 
-    // Cards
+    // Cards — order must match: CardId enum, allSettingDefs, and allCardDefs.
     AnimatedVisibility(visible = vm.cardVisible(CardId.REPOSITORIES), enter = expandVertically(), exit = shrinkVertically()) {
       RepositoriesCard(
         repoCount = vm.repoCount,
@@ -213,11 +213,11 @@ fun SettingsScreen(
         searchQuery = vm.searchQuery,
       )
     }
-    AnimatedVisibility(visible = vm.cardVisible(CardId.GENERAL), enter = expandVertically(), exit = shrinkVertically()) {
-      GeneralCard(vm)
-    }
     AnimatedVisibility(visible = vm.cardVisible(CardId.HF_TOKEN), enter = expandVertically(), exit = shrinkVertically()) {
       HfTokenCard(vm, context)
+    }
+    AnimatedVisibility(visible = vm.cardVisible(CardId.GENERAL), enter = expandVertically(), exit = shrinkVertically()) {
+      GeneralCard(vm)
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.SERVER_CONFIG), enter = expandVertically(), exit = shrinkVertically()) {
       ServerConfigCard(vm, context)
