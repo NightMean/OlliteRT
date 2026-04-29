@@ -286,6 +286,10 @@ class InferenceRunner(
 
   private sealed interface StreamingFormat {
     val sourceTag: String
+    // When true, all tokens are collected in memory and sent as a single response after
+    // inference completes. This prevents word-by-word streaming but is required when tools
+    // are present without native SDK tool calling — the server must see the full output to
+    // determine if it's a tool call or plain text before sending anything to the client.
     val bufferAllTokens: Boolean
     val stopSequences: List<String>?
 
@@ -324,13 +328,13 @@ class InferenceRunner(
     private val now: Long,
     private val json: Json,
     private val tools: List<ToolSpec>?,
+    private val hasSchemaInjection: Boolean = false,
   ) : StreamingFormat {
     private val respId = BridgeUtils.generateResponseId()
     private val msgId = BridgeUtils.generateMessageId()
     override val sourceTag = "executeStreaming_responses"
-    // When tools are present, buffer all tokens so tool calls can be parsed atomically
-    // before emitting any SSE events. Streaming partial tool call JSON would be invalid.
-    override val bufferAllTokens = tools != null
+    // Buffer only when tools are present AND native tool calling is not active.
+    override val bufferAllTokens = tools != null && !hasSchemaInjection
     override val stopSequences: List<String>? = null
 
     override suspend fun emitHeader(writer: SseWriter) {
@@ -372,7 +376,7 @@ class InferenceRunner(
         if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
       }
 
-      if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
+      if (parsedToolCalls.isNotEmpty()) {
         writer.emit(ResponseRenderer.buildResponsesStreamToolCallEvents(
           respId, modelName, now, parsedToolCalls, promptTokens, completionTokens))
       } else {
@@ -424,11 +428,14 @@ class InferenceRunner(
     private val tools: List<ToolSpec>?,
     private val json: Json,
     private val includeUsage: Boolean,
+    private val hasSchemaInjection: Boolean = false,
   ) : StreamingFormat {
     private val chatId = BridgeUtils.generateChatCompletionId()
     override val sourceTag = "executeStreaming_chat"
-    // Buffer all tokens when tools are present — tool calls must be parsed atomically.
-    override val bufferAllTokens = tools != null
+    // Buffer only when tools are present AND native tool calling is not active.
+    // With schema injection, the SDK handles tool calls atomically via onNativeToolCalls,
+    // so text can stream progressively without risk of emitting partial tool call JSON.
+    override val bufferAllTokens = tools != null && !hasSchemaInjection
 
     override suspend fun emitHeader(writer: SseWriter) {
       writer.emit(ResponseRenderer.buildChatStreamFirstChunk(chatId, modelName, now))
@@ -466,7 +473,7 @@ class InferenceRunner(
       val parsedToolCalls = nativeToolCalls.ifEmpty {
         if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
       }
-      if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
+      if (parsedToolCalls.isNotEmpty()) {
         writer.emit(ResponseRenderer.buildChatStreamToolCallChunks(chatId, modelName, now, parsedToolCalls))
       } else {
         if (bufferAllTokens) {
@@ -859,7 +866,7 @@ class InferenceRunner(
     schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
-    val format = ResponsesApiFormat(model.name, now, json, tools)
+    val format = ResponsesApiFormat(model.name, now, json, tools, hasSchemaInjection = schemaInjectionProviders.isNotEmpty())
     return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages)
   }
 
@@ -884,7 +891,7 @@ class InferenceRunner(
     schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
-    val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage)
+    val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage, hasSchemaInjection = schemaInjectionProviders.isNotEmpty())
     return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages)
   }
 

@@ -389,7 +389,7 @@
   <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>
   <string name="settings_ignore_client_params_desc" translatable="false">Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server\'s own Inference Settings will always be used instead</string>
   <string name="settings_schema_injection_tool_calling" translatable="false">Tool Schema Injection (Experimental)</string>
-  <string name="settings_schema_injection_tool_calling_desc" translatable="false">Injects tool schemas directly into the model\'s context via the LiteRT SDK instead of embedding them in the text prompt. May produce more reliable tool calls with compatible models (Gemma 4). Disable if tool calling stops working</string>
+  <string name="settings_schema_injection_tool_calling_desc" translatable="false">Injects tool schemas directly into the model\'s context via the LiteRT SDK instead of embedding them in the text prompt. May produce more reliable tool calls with compatible models (Gemma 4). Also enables word-by-word streaming — without this, responses are buffered and sent all at once when tools are present, even if the client requests streaming. Disable if tool calling stops working</string>
   <string name="settings_show_model_recommendations" translatable="false">Show model recommendations</string>
   <string name="settings_show_model_recommendations_desc" translatable="false">Display badges and pin recommended models to the top of the list</string>
 
