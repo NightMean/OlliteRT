@@ -460,6 +460,16 @@ class KtorServer(
         }
       }
 
+      if (prefs.rejectWhenBusy && ServerMetrics.isInferring.value) {
+        val busyResponse = httpServiceUnavailable(
+          "Server is busy processing another request. Disable \"Reject Requests When Busy\" in settings to queue instead.",
+        )
+        finalizeLogEntry(logId, startMs, busyResponse, "[multipart audio — rejected: busy]", busyResponse.body)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(busyResponse)
+        return@post
+      }
+
       val response = try {
         audioTranscriptionHandler.handle(fileBytes, fields, actualSize, model, logId = logId, prefs = prefs)
       } catch (_: kotlinx.coroutines.CancellationException) {
@@ -609,6 +619,17 @@ class KtorServer(
         }
       }
       val captureResponse = { resp: String -> responseBodySnapshot = resp }
+
+      if (prefs.rejectWhenBusy && ServerMetrics.isInferring.value) {
+        val busyResponse = httpServiceUnavailable(
+          "Server is busy processing another request. Disable \"Reject Requests When Busy\" in settings to queue instead.",
+        )
+        requestBodySnapshot = body
+        finalizeLogEntry(logId, startMs, busyResponse, requestBodySnapshot, responseBodySnapshot)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(busyResponse)
+        return
+      }
 
       handler(body, captureBody, captureResponse, logId, sseExtraHeaders, prefs)
     } catch (_: kotlinx.coroutines.CancellationException) {

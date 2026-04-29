@@ -110,6 +110,12 @@ private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
 private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
 
 // ═══════════════════════════════════════════════════════════════════════════
+// § Request Queueing — reject concurrent requests instead of queueing
+// ═══════════════════════════════════════════════════════════════════════════
+
+private const val KEY_REJECT_WHEN_BUSY = "reject_when_busy"
+
+// ═══════════════════════════════════════════════════════════════════════════
 // § Home Assistant / STT — HA integration, STT transcription prompt
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -262,6 +268,9 @@ object ServerPrefs {
   // Developer / Debug
   private val VERBOSE_DEBUG_ENABLED = BoolPref(KEY_VERBOSE_DEBUG_ENABLED, false)
   private val IGNORE_CLIENT_SAMPLER_PARAMS = BoolPref(KEY_IGNORE_CLIENT_SAMPLER_PARAMS, false)
+
+  // Request Queueing
+  private val REJECT_WHEN_BUSY = BoolPref(KEY_REJECT_WHEN_BUSY, false)
 
   // Home Assistant / STT
   private val HA_INTEGRATION_ENABLED = BoolPref(KEY_HA_INTEGRATION_ENABLED, false)
@@ -487,6 +496,13 @@ object ServerPrefs {
 
   fun isIgnoreClientSamplerParams(context: Context): Boolean = get(context, IGNORE_CLIENT_SAMPLER_PARAMS)
   fun setIgnoreClientSamplerParams(context: Context, enabled: Boolean) = set(context, IGNORE_CLIENT_SAMPLER_PARAMS, enabled)
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // § Request Queueing
+  // ══════════════════════════════════════════════════════════════════════════
+
+  fun isRejectWhenBusy(context: Context): Boolean = get(context, REJECT_WHEN_BUSY)
+  fun setRejectWhenBusy(context: Context, enabled: Boolean) = set(context, REJECT_WHEN_BUSY, enabled)
 
   // ══════════════════════════════════════════════════════════════════════════
   // § Home Assistant / STT
@@ -765,6 +781,7 @@ object ServerPrefs {
       resolveClientHostnames = isResolveClientHostnames(context),
       hideHealthLogs = isHideHealthLogs(context),
       verboseDebug = isVerboseDebugEnabled(context),
+      rejectWhenBusy = isRejectWhenBusy(context),
       sttTranscriptionPromptEnabled = isSttTranscriptionPromptEnabled(context),
       sttTranscriptionPromptText = getSttTranscriptionPromptText(context),
     )
@@ -790,6 +807,7 @@ data class RequestPrefsSnapshot(
   val resolveClientHostnames: Boolean = false,
   val hideHealthLogs: Boolean = false,
   val verboseDebug: Boolean = false,
+  val rejectWhenBusy: Boolean = false,
   val sttTranscriptionPromptEnabled: Boolean = true,
   val sttTranscriptionPromptText: String = "",
 )

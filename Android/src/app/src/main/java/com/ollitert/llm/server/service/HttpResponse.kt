@@ -57,6 +57,10 @@ fun httpUnauthorized(error: String) = HttpResponse.Json(
 fun httpMethodNotAllowed() = httpJsonError(405, "method_not_allowed")
 fun httpPayloadTooLarge(error: String) = httpJsonError(413, error)
 fun httpInternalError(error: String, suggestion: String? = null, kind: ErrorKind? = null) = httpJsonError(500, error, suggestion, kind)
+fun httpServiceUnavailable(error: String) = HttpResponse.Json(
+  503, ResponseRenderer.renderJsonError(error),
+  extraHeaders = mapOf("Retry-After" to "5"),
+)
 
 fun ModelLifecycle.ModelSelection.Error.toHttpResponse() = HttpResponse.Json(
   statusCode = statusCode,

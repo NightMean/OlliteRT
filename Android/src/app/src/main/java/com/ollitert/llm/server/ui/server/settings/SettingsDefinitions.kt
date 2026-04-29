@@ -149,6 +149,17 @@ val KEEP_PARTIAL_RESPONSE = SettingDef.Toggle(
   write = { ctx, v -> ServerPrefs.setKeepPartialResponse(ctx, v) },
 )
 
+val REJECT_WHEN_BUSY = SettingDef.Toggle(
+  key = "reject_when_busy",
+  labelRes = R.string.settings_reject_when_busy,
+  descriptionRes = R.string.settings_reject_when_busy_desc,
+  card = CardId.GENERAL,
+  default = false,
+  prefsKey = "reject_when_busy",
+  read = { ServerPrefs.isRejectWhenBusy(it) },
+  write = { ctx, v -> ServerPrefs.setRejectWhenBusy(ctx, v) },
+)
+
 // ─── HF Token Card ────────────────────────────────────────────────────
 
 val HF_TOKEN = SettingDef.TextInput(
@@ -594,7 +605,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // General
   KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
   RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
-  SHOW_MODEL_RECOMMENDATIONS,
+  REJECT_WHEN_BUSY, SHOW_MODEL_RECOMMENDATIONS,
   // HF Token
   HF_TOKEN,
   // Server Config
@@ -638,7 +649,7 @@ val allCardDefs: List<CardDef> = listOf(
     settings = listOf(
       KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
       RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
-      KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
+      KEEP_PARTIAL_RESPONSE, REJECT_WHEN_BUSY, SHOW_MODEL_RECOMMENDATIONS,
     ),
   ),
   CardDef(
