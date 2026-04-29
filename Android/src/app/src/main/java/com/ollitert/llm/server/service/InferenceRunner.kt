@@ -758,7 +758,7 @@ class InferenceRunner(
             partialText = null,
             isPending = false,
             latencyMs = totalLatencyMs,
-            isThinking = fullThinking.isNotEmpty(),
+            isThinking = ServerMetrics.thinkingEnabled.value,
             ttfbMs = ttfbMs,
             decodeSpeed = reqDecodeSpeed,
             prefillSpeed = reqPrefillSpeed,

@@ -92,6 +92,10 @@ import kotlinx.serialization.json.put
  */
 private const val TAG = "OlliteRT.Server"
 
+private val INFERENCE_PATHS = setOf(
+  "/generate", "/v1/completions", "/v1/chat/completions", "/v1/responses", "/v1/audio/transcriptions",
+)
+
 class KtorServer(
   private val port: Int,
   private val serviceContext: Context,
@@ -691,8 +695,6 @@ class KtorServer(
     val elapsedMs = SystemClock.elapsedRealtime() - startMs
     val statusCode = response.statusCode
     val isStreaming = response is HttpResponse.Sse
-    val isThinking = responseBodySnapshot?.contains("<think>") == true
-
     RequestLogStore.update(logId) {
       // If the cancel handler already finalized this entry (user tapped Stop or client
       // disconnected), preserve the cancel state but fill in the status code if still at default.
@@ -719,6 +721,7 @@ class KtorServer(
       val perReqDecode = if (!isStreaming) ServerMetrics.lastDecodeSpeed.value else it.decodeSpeed
       val perReqPrefill = if (!isStreaming) ServerMetrics.lastPrefillSpeed.value else it.prefillSpeed
       val perReqItl = if (!isStreaming) ServerMetrics.lastItlMs.value else it.itlMs
+      val isThinking = ServerMetrics.thinkingEnabled.value && it.path in INFERENCE_PATHS
       it.copy(
         requestBody = requestBodySnapshot ?: it.requestBody,
         responseBody = finalResponseBody,
