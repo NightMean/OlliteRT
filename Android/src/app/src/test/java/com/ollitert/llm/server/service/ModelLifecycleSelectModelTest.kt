@@ -93,19 +93,4 @@ class ModelLifecycleSelectModelTest {
     assertEquals(503, (result as ModelLifecycle.ModelSelection.Error).statusCode)
   }
 
-  @Test
-  fun selectModel_returns503_whenReloading() {
-    lifecycle.defaultModel = testModel
-    // Simulate reload state via reflection since isReloading setter is private
-    val field = ModelLifecycle::class.java.getDeclaredField("isReloading")
-    field.isAccessible = true
-    field.set(lifecycle, true)
-
-    val result = lifecycle.selectModel("Gemma-4-E2B-it")
-    assertTrue(result is ModelLifecycle.ModelSelection.Error)
-    assertEquals(503, (result as ModelLifecycle.ModelSelection.Error).statusCode)
-    assertTrue(result.message.contains("reloading"))
-
-    field.set(lifecycle, false)
-  }
 }

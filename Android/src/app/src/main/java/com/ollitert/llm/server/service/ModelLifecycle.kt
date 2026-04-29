@@ -88,11 +88,6 @@ class ModelLifecycle(
     keepAliveUnloadedRef.set(name to prefsKey)
   }
 
-  // True while a keep-alive reload is in progress. Concurrent requests check this to
-  // return 503 immediately instead of queuing on keepAliveLock for 10-60+ seconds.
-  @Volatile var isReloading: Boolean = false
-    private set
-
   // ── Keep-alive timer ───────────────────────────────────────────────────────
   // Uses a Handler on the main looper to schedule a delayed unload. The timer is reset
   // after each inference request completes. When it fires, native model memory (Engine +
@@ -190,79 +185,72 @@ class ModelLifecycle(
    *
    * Intentionally holds [keepAliveLock] for the full 10-60s model init. Releasing
    * the lock during init would allow concurrent double-reloads (crashing the
-   * non-thread-safe native SDK) and keep-alive timer interference. The [isReloading]
-   * volatile is a best-effort optimization that gives most concurrent requests an
-   * immediate 503 — threads that slip past the TOCTOU window block on the lock and
-   * get a successful response once the model is ready, which is better than a 503.
+   * non-thread-safe native SDK) and keep-alive timer interference. Concurrent
+   * requests block on the lock and get a successful response once the model is ready.
    */
   fun reloadModelFromIdle(): Model? {
     synchronized(keepAliveLock) {
       // Double-check: another thread may have already reloaded
       if (defaultModel != null) return defaultModel
       val modelName = keepAliveUnloadedModelName ?: return null
-      isReloading = true
-      try {
-        Log.i(TAG, "Keep-alive: reloading model $modelName (waking from idle)")
+      Log.i(TAG, "Keep-alive: reloading model $modelName (waking from idle)")
+      RequestLogStore.addEvent(
+        "Auto-reloading model: $modelName (keep_alive wake-up)",
+        modelName = modelName,
+        category = EventCategory.MODEL,
+      )
+      ServerMetrics.onModelReloadedFromIdle()
+
+      // pickModelByName already restores persisted inference config via restoreInferenceConfig
+      val model = pickModelByName(modelName) ?: run {
+        Log.e(TAG, "Keep-alive: model '$modelName' not found during reload")
+        // Clear unloaded state to prevent infinite retry on every subsequent request
+        // (e.g. model file was deleted while idle-unloaded)
+        keepAliveUnloadedRef.set(null to null)
+        ServerMetrics.onModelReloadedFromIdle()
+        return null
+      }
+
+      val loadStart = SystemClock.elapsedRealtime()
+      val eagerVision = ServerPrefs.isEagerVisionInit(context)
+      val supportImage = model.llmSupportImage && eagerVision
+      val supportAudio = model.llmSupportAudio
+      var initErr = ""
+      ServerLlmModelHelper.initialize(
+        context = context,
+        model = model,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        onDone = { initErr = it },
+        systemInstruction = buildSystemInstruction(model.prefsKey),
+      )
+      if (initErr.isNotEmpty()) {
+        Log.e(TAG, "Keep-alive: model reload failed: $initErr")
         RequestLogStore.addEvent(
-          "Auto-reloading model: $modelName (keep_alive wake-up)",
+          "Keep-alive reload failed: $initErr",
+          level = LogLevel.ERROR,
           modelName = modelName,
           category = EventCategory.MODEL,
         )
-        ServerMetrics.onModelReloadedFromIdle()
-
-        // pickModelByName already restores persisted inference config via restoreInferenceConfig
-        val model = pickModelByName(modelName) ?: run {
-          Log.e(TAG, "Keep-alive: model '$modelName' not found during reload")
-          // Clear unloaded state to prevent infinite retry on every subsequent request
-          // (e.g. model file was deleted while idle-unloaded)
-          keepAliveUnloadedRef.set(null to null)
-          ServerMetrics.onModelReloadedFromIdle()
-          return null
-        }
-
-        val loadStart = SystemClock.elapsedRealtime()
-        val eagerVision = ServerPrefs.isEagerVisionInit(context)
-        val supportImage = model.llmSupportImage && eagerVision
-        val supportAudio = model.llmSupportAudio
-        var initErr = ""
-        ServerLlmModelHelper.initialize(
-          context = context,
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          onDone = { initErr = it },
-          systemInstruction = buildSystemInstruction(model.prefsKey),
-        )
-        if (initErr.isNotEmpty()) {
-          Log.e(TAG, "Keep-alive: model reload failed: $initErr")
-          RequestLogStore.addEvent(
-            "Keep-alive reload failed: $initErr",
-            level = LogLevel.ERROR,
-            modelName = modelName,
-            category = EventCategory.MODEL,
-          )
-          // Clear unloaded state to prevent infinite retry on every subsequent request
-          keepAliveUnloadedRef.set(null to null)
-          ServerMetrics.onModelReloadedFromIdle()
-          return null
-        }
-        model.initializedWithVision = supportImage
-        defaultModel = model
-        modelCache[model.name] = model
+        // Clear unloaded state to prevent infinite retry on every subsequent request
         keepAliveUnloadedRef.set(null to null)
-        val loadMs = SystemClock.elapsedRealtime() - loadStart
-        ServerMetrics.recordModelLoadTime(loadMs)
-        RequestLogStore.addEvent(
-          "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
-          modelName = model.name,
-          category = EventCategory.MODEL,
-        )
-        // Reset keep-alive timer for the next idle period
-        resetKeepAliveTimer()
-        return model
-      } finally {
-        isReloading = false
+        ServerMetrics.onModelReloadedFromIdle()
+        return null
       }
+      model.initializedWithVision = supportImage
+      defaultModel = model
+      modelCache[model.name] = model
+      keepAliveUnloadedRef.set(null to null)
+      val loadMs = SystemClock.elapsedRealtime() - loadStart
+      ServerMetrics.recordModelLoadTime(loadMs)
+      RequestLogStore.addEvent(
+        "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      // Reset keep-alive timer for the next idle period
+      resetKeepAliveTimer()
+      return model
     }
   }
 
@@ -323,11 +311,6 @@ class ModelLifecycle(
    * active model, and returns a descriptive error if there's a mismatch.
    */
   fun selectModel(requestedModel: String?): ModelSelection {
-    // If another thread is already reloading the model, return 503 immediately instead
-    // of blocking the request thread for 10-60+ seconds on keepAliveLock.
-    if (isReloading) {
-      return ModelSelection.Error(503, "Model is reloading after idle timeout, please retry in a few seconds", retryAfterSeconds = 30)
-    }
     // Hold keepAliveLock to prevent the keep-alive timer from unloading the model between
     // our read of defaultModel and the caller's use of the returned Model object.
     synchronized(keepAliveLock) {
@@ -337,7 +320,7 @@ class ModelLifecycle(
       // idle-unloaded.
       if (defaultModel == null && ServerMetrics.isIdleUnloaded.value) {
         reloadModelFromIdle()
-          ?: return ModelSelection.Error(503, "Model is reloading after idle timeout, please retry")
+          ?: return ModelSelection.Error(503, "Failed to reload model after idle timeout — check logs for details")
       }
 
       val active = defaultModel
