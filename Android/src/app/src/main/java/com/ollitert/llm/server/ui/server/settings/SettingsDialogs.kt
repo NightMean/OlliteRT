@@ -121,6 +121,37 @@ internal fun SettingsDialogs(
     )
   }
 
+  // Trim Prompt enable warning
+  if (vm.showTrimPromptWarning) {
+    AlertDialog(
+      onDismissRequest = { vm.showTrimPromptWarning = false },
+      title = { Text(stringResource(R.string.dialog_trim_prompt_warning_title)) },
+      text = { Text(stringResource(R.string.dialog_trim_prompt_warning_body)) },
+      confirmButton = {
+        Button(
+          onClick = {
+            vm.showTrimPromptWarning = false
+            vm.autoTrimPromptsEntry.update(true)
+          },
+          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+        ) {
+          Text(stringResource(R.string.button_enable_anyway))
+        }
+      },
+      dismissButton = {
+        Button(
+          onClick = { vm.showTrimPromptWarning = false },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+          ),
+        ) {
+          Text(stringResource(R.string.cancel))
+        }
+      },
+    )
+  }
+
   // Discard unsaved changes dialog
   if (vm.showDiscardDialog) {
     AlertDialog(

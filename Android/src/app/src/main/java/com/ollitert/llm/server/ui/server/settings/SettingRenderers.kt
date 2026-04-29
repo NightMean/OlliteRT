@@ -254,11 +254,18 @@ internal fun ToggleCardContent(
     val entry = vm.getToggleEntry(key) ?: return@forEachIndexed
     if (visibleCount > 0) SettingDivider(verticalPadding = dividerPadding)
     visibleCount++
+    val descRes = vm.settingDescriptionOverride(key) ?: def.descriptionRes
     ToggleSettingRow(
       label = stringResource(def.labelRes),
-      description = stringResource(def.descriptionRes),
+      description = stringResource(descRes),
       checked = entry.current,
-      onCheckedChange = { entry.update(it) },
+      onCheckedChange = { newValue ->
+        if (key == "trim_prompt" && newValue) {
+          vm.showTrimPromptWarning = true
+        } else {
+          entry.update(newValue)
+        }
+      },
       searchQuery = vm.searchQuery,
       enabled = vm.isSettingEnabled(key),
       alphaOverride = vm.settingAlpha(key),

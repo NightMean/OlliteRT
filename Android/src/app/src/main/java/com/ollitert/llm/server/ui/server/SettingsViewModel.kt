@@ -164,6 +164,7 @@ class SettingsViewModel @Inject constructor(
   var showResetDialog by mutableStateOf(false)
   var showDiscardDialog by mutableStateOf(false)
   var showDonateDialog by mutableStateOf(false)
+  var showTrimPromptWarning by mutableStateOf(false)
 
   // ─── Search ──────────────────────────────────────────────────────────────
   var searchQuery by mutableStateOf("")
@@ -229,6 +230,11 @@ class SettingsViewModel @Inject constructor(
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> if (logPersistenceEnabledEntry.current) 1f else 0.4f
     "compact_tool_schemas" -> if (!schemaInjectionEntry.current) 1f else 0.4f
     else -> 1f
+  }
+
+  fun settingDescriptionOverride(key: String): Int? = when (key) {
+    "compact_tool_schemas" -> if (schemaInjectionEntry.current) R.string.settings_compact_tool_schemas_desc_disabled else null
+    else -> null
   }
 
   // ─── Change Detection ────────────────────────────────────────────────────

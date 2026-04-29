@@ -123,6 +123,9 @@
   <string name="dialog_restart_server_body">Some of the changed settings require a server restart to take effect.</string>
   <string name="button_restart">Restart</string>
   <string name="button_later">Later</string>
+  <string name="dialog_trim_prompt_warning_title">Enable Trim Prompt?</string>
+  <string name="dialog_trim_prompt_warning_body">This will hard-cut prompts that exceed the context window, discarding content from the beginning — including system prompts, tool definitions, and earlier conversation history.\n\nThe model will receive incomplete context, which typically results in incoherent, off-topic, or nonsensical responses.\n\nOnly enable this if requests are being rejected for exceeding context limits and no other strategy (truncate history, compact schemas) is sufficient.</string>
+  <string name="button_enable_anyway">Enable Anyway</string>
   <string name="dialog_reset_defaults_title">Reset to Defaults</string>
   <string name="dialog_reset_defaults_body">This will reset all settings to their default values, including port, bearer token, HuggingFace token, inference configs, system prompts, and all toggles.</string>
   <string name="dialog_reset_defaults_body_server_active">This will reset all settings to their default values, including port, bearer token, HuggingFace token, inference configs, system prompts, and all toggles.\n\nThe server will be stopped.</string>
@@ -383,8 +386,9 @@
   <string name="settings_truncate_history_desc" translatable="false">When a request exceeds the model\'s context window, drop older messages from the conversation while keeping system prompts and the most recent messages</string>
   <string name="settings_compact_tool_schemas" translatable="false">Compact Tool Schemas</string>
   <string name="settings_compact_tool_schemas_desc" translatable="false">When a request with tools exceeds the model\'s context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). If still too large, tool schemas are removed entirely</string>
+  <string name="settings_compact_tool_schemas_desc_disabled" translatable="false">Not applicable when Schema Injection is enabled — tools are registered natively with the SDK instead of being injected into the prompt</string>
   <string name="settings_trim_prompt" translatable="false">Trim Prompt</string>
-  <string name="settings_trim_prompt_desc" translatable="false">Last resort when other strategies aren\'t enough. Hard-cuts the prompt to fit the context window, keeping the most recent content and discarding the beginning</string>
+  <string name="settings_trim_prompt_desc" translatable="false">⚠️ Last resort — will likely produce degraded output. Hard-cuts the prompt to fit the context window, discarding the beginning (including system prompts and tool definitions). Only enable if requests are consistently rejected for exceeding context limits</string>
   <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>
   <string name="settings_ignore_client_params_desc" translatable="false">Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server\'s own Inference Settings will always be used instead</string>
   <string name="settings_schema_injection_tool_calling" translatable="false">Schema Injection (Experimental)</string>
