@@ -527,8 +527,7 @@ class SettingsViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val value = (entry as SettingEntry<Long>).current
         if (value !in def.min..def.max) {
-          val label = context.getString(def.labelRes)
-          context.getString(R.string.validation_numeric_range_with_unit, label, def.min, def.max, def.baseUnitLabel)
+          formatNumericWithUnitRangeError(def, value, context)
         } else null
       }
       is SettingDef.NumericPlain -> {
@@ -549,5 +548,18 @@ class SettingsViewModel @Inject constructor(
 
   companion object {
     private fun fmtToggle(enabled: Boolean) = if (enabled) "enabled" else "disabled"
+
+    internal fun formatNumericWithUnitRangeError(
+      def: SettingDef.NumericWithUnit,
+      baseValue: Long,
+      context: Context,
+    ): String {
+      val label = context.getString(def.labelRes)
+      val (_, displayUnit) = def.fromBaseUnit(baseValue)
+      val multiplier = def.toBaseUnit(1L, displayUnit)
+      val displayMin = (def.min + multiplier - 1) / multiplier
+      val displayMax = def.max / multiplier
+      return context.getString(R.string.validation_numeric_range_with_unit, label, displayMin, displayMax, displayUnit)
+    }
   }
 }
