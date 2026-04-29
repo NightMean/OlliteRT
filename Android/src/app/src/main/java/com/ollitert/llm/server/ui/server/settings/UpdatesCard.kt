@@ -26,10 +26,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,15 +46,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkManager
+import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 
 @Composable
@@ -156,7 +165,7 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
           SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
           Text(
-            text = stringResource(R.string.settings_check_for_updates_desc),
+            text = stringResource(R.string.settings_check_for_updates_desc, BuildConfig.UPDATE_CHANNEL),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -182,6 +191,92 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
             },
           )
         }
+      }
+    }
+
+    if (vm.settingVisible(CROSS_CHANNEL_NOTIFY.key)) {
+      if (vm.settingVisible(CHECK_FOR_UPDATES.key)) {
+        SettingDivider()
+      }
+
+      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+      val crossChannelMuted = UpdateCheckWorker.areCrossChannelChannelsMuted(context)
+      val crossChannelEnabled = notifPermissionGranted && !crossChannelMuted
+      val isDevBuild = BuildConfig.UPDATE_CHANNEL == "dev"
+
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_cross_channel_notify),
+        description = if (isDevBuild) {
+          stringResource(R.string.settings_cross_channel_notify_desc_dev)
+        } else {
+          stringResource(R.string.settings_cross_channel_notify_desc)
+        },
+        checked = vm.crossChannelNotifyEntry.current,
+        onCheckedChange = { vm.crossChannelNotifyEntry.update(it) },
+        searchQuery = vm.searchQuery,
+        enabled = crossChannelEnabled && !isDevBuild,
+      )
+
+      if (!notifPermissionGranted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_permission_warning),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+      } else if (crossChannelMuted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_cross_channel_muted),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+            context.startActivity(intent)
+          },
+        )
+      }
+    }
+
+    if (vm.settingVisible(NOTIFICATION_SETTINGS.key)) {
+      if (vm.settingVisible(CROSS_CHANNEL_NOTIFY.key) || vm.settingVisible(CHECK_FOR_UPDATES.key)) {
+        SettingDivider()
+      }
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+            context.startActivity(intent)
+          }
+          .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = highlightSearchMatches(stringResource(R.string.settings_notification_settings), vm.searchQuery, OlliteRTPrimary),
+            style = MaterialTheme.typography.bodyMedium,
+            color = OlliteRTPrimary,
+          )
+          Text(
+            text = stringResource(R.string.settings_notification_settings_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+          imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+          contentDescription = stringResource(R.string.settings_notification_settings),
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(18.dp),
+        )
       }
     }
   }
