@@ -160,4 +160,4 @@ fun Long.bytesToGb(): Float = this / (1024f * 1024f * 1024f)
 fun Long.bytesToMb(): Long = this / (1024L * 1024L)
 
 // Current device's SOC in lowercase.
-val SOC = Build.SOC_MODEL.lowercase()
+val SOC by lazy { Build.SOC_MODEL.lowercase() }
