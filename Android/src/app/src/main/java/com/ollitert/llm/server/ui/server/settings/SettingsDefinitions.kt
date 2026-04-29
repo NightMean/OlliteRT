@@ -498,18 +498,6 @@ val TRUNCATE_HISTORY = SettingDef.Toggle(
   write = { ctx, v -> ServerPrefs.setAutoTruncateHistory(ctx, v) },
 )
 
-val COMPACT_TOOL_SCHEMAS = SettingDef.Toggle(
-  key = "compact_tool_schemas",
-  labelRes = R.string.settings_compact_tool_schemas,
-  descriptionRes = R.string.settings_compact_tool_schemas_desc,
-  card = CardId.CONTEXT_MANAGEMENT,
-  default = false,
-  resetDefault = true,
-  prefsKey = "compact_tool_schemas",
-  read = { ServerPrefs.isCompactToolSchemas(it) },
-  write = { ctx, v -> ServerPrefs.setCompactToolSchemas(ctx, v) },
-)
-
 val TRIM_PROMPT = SettingDef.Toggle(
   key = "trim_prompt",
   labelRes = R.string.settings_trim_prompt,
@@ -643,10 +631,10 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Auto-Launch
   DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
   // Model Behaviour
-  CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
-  SCHEMA_INJECTION_TOOL_CALLING, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
+  CUSTOM_PROMPTS, SCHEMA_INJECTION_TOOL_CALLING, REJECT_WHEN_BUSY, WARMUP_MESSAGE,
+  PRE_INIT_VISION, IGNORE_CLIENT_PARAMS, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
   // Context Management
-  TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT,
+  TRUNCATE_HISTORY, TRIM_PROMPT,
   // Metrics
   SHOW_REQUEST_TYPES, SHOW_ADVANCED_METRICS, NOTIF_REQUEST_COUNT,
   // Log Persistence
@@ -709,15 +697,15 @@ val allCardDefs: List<CardDef> = listOf(
     titleRes = R.string.settings_card_model_behaviour,
     icon = CardIcon.Vector(Icons.Outlined.Token),
     settings = listOf(
-      CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
-      SCHEMA_INJECTION_TOOL_CALLING, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
+      CUSTOM_PROMPTS, SCHEMA_INJECTION_TOOL_CALLING, REJECT_WHEN_BUSY, WARMUP_MESSAGE,
+      PRE_INIT_VISION, IGNORE_CLIENT_PARAMS, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
     ),
   ),
   CardDef(
     id = CardId.CONTEXT_MANAGEMENT,
     titleRes = R.string.settings_card_context_management,
     icon = CardIcon.Vector(Icons.Outlined.Compress),
-    settings = listOf(TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT),
+    settings = listOf(TRUNCATE_HISTORY, TRIM_PROMPT),
   ),
   CardDef(
     id = CardId.METRICS,

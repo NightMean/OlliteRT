@@ -297,10 +297,10 @@ class LogEventParsersTest {
 
   @Test
   fun settingsToggleEnabled() {
-    val result = parseEventType("Compact Tool Schemas enabled")
+    val result = parseEventType("Truncate History enabled")
     assertTrue(result is ParsedEventType.SettingsToggle)
     val st = result as ParsedEventType.SettingsToggle
-    assertEquals("Compact Tool Schemas", st.settingName)
+    assertEquals("Truncate History", st.settingName)
     assertTrue(st.enabled)
   }
 
