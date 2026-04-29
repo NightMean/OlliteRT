@@ -178,15 +178,17 @@ When you delete a model source and navigate back, the Models screen refreshes au
 
 ## Tool Calling (Experimental)
 
-Tool calling is not natively supported by the LiteRT runtime. OlliteRT implements it by injecting tool definitions into the system prompt and parsing the model's text output for tool call patterns. This means it depends on the model following the instructions correctly — there is no guaranteed structured output.
+OlliteRT supports two tool calling modes:
+
+- **Tool Schema Injection (default)** — Tool schemas are injected directly into the model's context via the LiteRT SDK. The model returns structured tool call objects, producing more reliable results. Configurable in Settings → Model Behaviour → Tool Schema Injection.
+- **Prompt-based (fallback)** — Tool definitions are embedded in the text prompt and the model's output is parsed for tool call patterns. Used when schema injection is disabled or as a fallback when the model doesn't return structured calls.
 
 ### Tool calling doesn't work / returns wrong results
 
-Since tool calling is prompt-based, the model may ignore tool instructions entirely, call the wrong function, or produce malformed output — these are all variations of the same issue.
-
+- **Try disabling Tool Schema Injection** — if your model doesn't support SDK-level schema injection, disable it in Settings → Model Behaviour. The app will fall back to prompt-based tool calling
 - **Use the right model** — only Gemma 4 E2B and E4B support tool calling reliably. Smaller models (Gemma 3 1B, Qwen 2.5, DeepSeek-R1) may ignore tool instructions entirely or produce malformed output
 - **Keep tool definitions simple** — use short, clear names and descriptions. The more tools you define, the more context they consume and the harder it is for the model to follow them correctly
-- **Too many tools** — large tool sets (e.g. Home Assistant with 20+ device control functions) can exceed the model's context window. You can enable **Compact Tool Schemas** in Settings → Context Management to automatically reduce tool definitions when context is tight. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details on all compaction strategies
+- **Too many tools** — large tool sets (e.g. Home Assistant with 20+ device control functions) can exceed the model's context window. When using prompt-based mode, you can enable **Compact Tool Schemas** in Settings → Context Management to automatically reduce tool definitions when context is tight. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details on all compaction strategies
 - **Lower the temperature** — higher temperatures increase randomness, which can cause the model to include extra text in tool arguments or call the wrong function. If your client limits temperature to 0–1 (Gemma supports 0–2), enable **Ignore Client Sampler Parameters** in Settings → Model Behaviour to use your own inference settings instead
 - **Check the Logs screen** — expand the response body to see what the model actually output
 

@@ -217,10 +217,15 @@ See also [Troubleshooting → Context window exceeded](TROUBLESHOOTING.md#long-c
 
 ### How does tool calling work?
 
-Tool definitions are injected into the system prompt and the model's output is parsed for tool call patterns.
+OlliteRT supports two tool calling modes:
+
+- **Tool Schema Injection (default, experimental)** — Tool schemas are injected directly into the model's context via the LiteRT SDK, and the model returns structured tool call objects. This produces more reliable results with compatible models (Gemma 4).
+- **Prompt-based (fallback)** — Tool definitions are embedded in the system prompt as text, and the model's output is parsed for tool call patterns using regex/bracket matching.
+
+You can switch between modes in **Settings → Model Behaviour → Tool Schema Injection**. If schema injection doesn't work with your model, disable the toggle to fall back to prompt-based injection.
 
 > [!NOTE]
-> Tool calling currently works best with **Gemma 4** models. Smaller models may not follow tool calling instructions reliably.
+> Tool calling works best with **Gemma 4** models. Smaller models may not follow tool calling instructions reliably regardless of the mode used.
 
 See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) if tool calls aren't working as expected.
 

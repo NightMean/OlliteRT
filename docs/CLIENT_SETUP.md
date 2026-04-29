@@ -197,7 +197,7 @@ if message.tool_calls:
 ```
 
 > [!NOTE]
-> Tool calling is experimental and prompt-based. See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) if results are unexpected.
+> Tool calling is experimental. By default it uses SDK schema injection for structured output; disable **Tool Schema Injection** in Settings → Model Behaviour to fall back to prompt-based parsing. See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) if results are unexpected.
 
 ## curl
 

@@ -100,8 +100,9 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `AudioTranscriptionHandler.kt` | Audio transcription endpoint (`/v1/audio/transcriptions`) |
 | `TranscriptionFormatter.kt` | Formats transcription output (json, text, verbose_json) |
 | `AudioPreprocessor.kt` | Audio format detection and stereo-to-mono downmix |
-| `ToolCallParser.kt` | Post-inference [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection — 5 single-call patterns (`tool_call` wrapper, `<tool_call>` XML, native Gemma `<\|tool_call>`, `function` wrapper, bare `name`+`arguments` JSON) and 3 multi-call patterns (multiple XML blocks, multiple Gemma blocks, JSON array) |
-| `PromptBuilder.kt` | Prompt building, tool schema injection, image/audio extraction, tool_choice resolution |
+| `SchemaInjectionBridge.kt` | SDK tool schema injection — converts OpenAI tool specs to LiteRT `ToolProvider`, builds native `Message` history, converts native `ToolCall` objects back to API format |
+| `ToolCallParser.kt` | Fallback text-based [tool call](TROUBLESHOOTING.md#tool-calling-experimental) detection — 5 single-call patterns (`tool_call` wrapper, `<tool_call>` XML, native Gemma `<\|tool_call>`, `function` wrapper, bare `name`+`arguments` JSON) and 3 multi-call patterns (multiple XML blocks, multiple Gemma blocks, JSON array) |
+| `PromptBuilder.kt` | Prompt building, tool schema injection (prompt-based fallback), image/audio extraction, tool_choice resolution |
 | `PromptCompactor.kt` | Context window overflow handling |
 | `PrometheusRenderer.kt` | Prometheus `/metrics` exposition format |
 | `ModelLifecycle.kt` | Model load/unload/reload, keep-alive idle timeout |
@@ -204,7 +205,7 @@ Client HTTP request
       → Prompt building (PromptBuilder — tool schema injection, image/audio extraction)
       → Prompt compaction (PromptCompactor — history truncation, context fitting)
       → Inference (InferenceRunner → InferenceGateway → ServerLlmModelHelper → LiteRT Engine)
-      → Tool call detection (ToolCallParser)
+      → Tool call detection (SchemaInjectionBridge native calls, ToolCallParser fallback)
       → Response building (PayloadBuilders / ResponseRenderer)
     → HTTP response to client (JSON, SSE stream, or binary)
 ```

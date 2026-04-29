@@ -67,6 +67,7 @@ Each entry in the `models` array.
 | `llmSupportImage` | `boolean` | `null` | Model supports vision/image input |
 | `llmSupportAudio` | `boolean` | `null` | Model supports audio input |
 | `llmSupportThinking` | `boolean` | `null` | Model supports extended thinking mode |
+| `llmSupportTools` | `boolean` | `null` | Model supports tool calling (shows "Tools" capability chip) |
 | `badge` | `string` | `null` | Badge key for UI display. Known keys: `best_overall`, `new`, `fastest`. Unknown keys render as title-cased text |
 | `minDeviceMemoryInGb` | `int` | `null` | Minimum device RAM in GB (shows warning dialog if insufficient) |
 | `localModelFilePathOverride` | `string` | `null` | Override path for local testing |
@@ -151,6 +152,7 @@ Represents a previous model file version. Used in `updatableModelFiles` to detec
       "llmSupportImage": true,
       "llmSupportAudio": true,
       "llmSupportThinking": true,
+      "llmSupportTools": true,
       "badge": "best_overall",
       "updatableModelFiles": [
         {

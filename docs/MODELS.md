@@ -49,7 +49,7 @@ All models are downloaded from [HuggingFace](https://huggingface.co/litert-commu
 | **Vision** | Send images in API requests — the model can describe, analyze, and answer questions about them |
 | **Audio** | Send audio in API requests — the model can transcribe and respond via text to spoken content |
 | **Thinking** | Chain-of-thought reasoning mode — the model shows its reasoning process before answering (toggle per model in inference settings) |
-| **Tools** | **Experimental.** Function/tool calling — not natively supported by the LiteRT runtime, so tool definitions are injected into the system prompt and the model's output is parsed for tool call patterns. Best with Gemma 4 models, smaller models may not follow tool instructions reliably. See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) for tips |
+| **Tools** | **Experimental.** Function/tool calling via SDK schema injection (default) or prompt-based fallback. With schema injection enabled, tool schemas are registered directly with the LiteRT SDK for structured output. Best with Gemma 4 models, smaller models may not follow tool instructions reliably. See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) for tips |
 
 ## RAM Requirements
 
