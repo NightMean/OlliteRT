@@ -100,7 +100,7 @@ internal sealed class ParsedEventType {
   /** Model reloaded successfully after keep_alive idle unload. */
   data class KeepAliveReloaded(val modelName: String, val timeMs: String) : ParsedEventType()
   /** A newer version is available from GitHub. */
-  data class UpdateAvailable(val version: String, val body: String?) : ParsedEventType()
+  data class UpdateAvailable(val version: String, val releaseUrl: String?, val body: String?) : ParsedEventType()
   /** Update check ran and current version is latest. */
   data class UpdateCurrent(val body: String?) : ParsedEventType()
   /** Update check auto-disabled after consecutive failures. */
@@ -333,7 +333,10 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
   // Update available: "Update available: vX.Y.Z"
   if (message.startsWith("Update available: v")) {
     val version = message.removePrefix("Update available: ")
-    return ParsedEventType.UpdateAvailable(version, eventBody)
+    val releaseUrl = eventBody?.lineSequence()
+      ?.firstOrNull { it.startsWith("Release: http") }
+      ?.removePrefix("Release: ")
+    return ParsedEventType.UpdateAvailable(version, releaseUrl, eventBody)
   }
 
   // Already on latest version

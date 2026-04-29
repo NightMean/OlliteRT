@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
+import com.ollitert.llm.server.ui.common.buildTrackableUrlAnnotatedString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import com.ollitert.llm.server.service.EventCategory
@@ -495,12 +496,11 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (parsedEvent.body != null) {
+        if (parsedEvent.releaseUrl != null) {
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = highlightPlainIfSearching(parsedEvent.body),
+            text = buildTrackableUrlAnnotatedString(parsedEvent.releaseUrl, parsedEvent.releaseUrl),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_DETAIL_FONT_SIZE),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           )
         }
       }
