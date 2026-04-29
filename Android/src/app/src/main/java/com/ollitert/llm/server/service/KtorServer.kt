@@ -480,13 +480,12 @@ class KtorServer(
         return@post
       }
 
-      val response = try {
+      // Shield from cancelCallOnClose: audio transcription is blocking (non-streaming)
+      // and short-lived. If the client disconnects mid-inference, let it finish and
+      // attempt to send the response. Without this, HA's aggressive socket close
+      // triggers CancellationException via runInterruptible in InferenceGateway.
+      val response = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
         audioTranscriptionHandler.handle(fileBytes, fields, actualSize, model, logId = logId, prefs = prefs)
-      } catch (_: kotlinx.coroutines.CancellationException) {
-        RequestLogStore.update(logId) {
-          it.copy(requestBody = "[multipart audio $actualSize bytes]", isPending = false, isCancelled = true, statusCode = 499, latencyMs = SystemClock.elapsedRealtime() - startMs)
-        }
-        throw kotlinx.coroutines.CancellationException("Client disconnected")
       }
       val responseBody = when (response) {
         is HttpResponse.Json -> response.body
