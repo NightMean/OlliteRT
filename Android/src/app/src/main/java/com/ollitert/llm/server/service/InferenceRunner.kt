@@ -145,6 +145,9 @@ class InferenceRunner(
     logId: String? = null,
     configSnapshot: Map<String, Any>? = null,
     prefs: RequestPrefsSnapshot? = null,
+    schemaInjectionProviders: List<com.google.ai.edge.litertlm.ToolProvider> = emptyList(),
+    schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
+    onNativeToolCalls: ((List<ToolCall>) -> Unit)? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -172,6 +175,7 @@ class InferenceRunner(
     // Captured inside the resetConversation lambda (which runs under inferenceLock) so
     // that concurrent updateConfigValues() writes are visible before we snapshot.
     var originalConfig: Map<String, Any>? = null
+    val capturedNativeToolCalls = AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>(null)
 
     val result = InferenceGateway.execute(
       prompt = prompt,
@@ -190,7 +194,14 @@ class InferenceRunner(
           originalConfig = model.configValues
           model.configValues = configSnapshot
         }
-        ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.prefsKey))
+        ServerLlmModelHelper.resetConversation(
+          model,
+          supportImage = supportImage,
+          supportAudio = supportAudio,
+          systemInstruction = buildSystemInstruction(model.prefsKey),
+          tools = schemaInjectionProviders,
+          initialMessages = schemaInjectionMessages,
+        )
       },
       runInference = { input, onPartial, onError ->
         ServerLlmModelHelper.runInference(
@@ -202,6 +213,9 @@ class InferenceRunner(
           images = images,
           audioClips = audioClips,
           extraContext = extraContext,
+          onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
+            capturedNativeToolCalls.set(calls)
+          } else null,
         )
       },
       cancelInference = { ServerLlmModelHelper.stopResponse(model) },
@@ -216,6 +230,11 @@ class InferenceRunner(
       earlyUnblock = { latch -> lifecycleLatchRef.set(latch) },
     )
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
+
+    val nativeCalls = capturedNativeToolCalls.get()
+    if (nativeCalls != null && nativeCalls.isNotEmpty() && onNativeToolCalls != null) {
+      onNativeToolCalls(SchemaInjectionBridge.convertNativeToolCalls(nativeCalls))
+    }
 
     if (result.error == "client_disconnected") {
       return handleCancellation(result, logId, requestId, endpoint, prefs, logSuffix = "client_disconnected=true", returnMessage = "Client disconnected")
@@ -286,6 +305,7 @@ class InferenceRunner(
       ttfbMs: Long,
       totalLatencyMs: Long,
       maxTokens: Int?,
+      nativeToolCalls: List<ToolCall> = emptyList(),
     ): List<ToolCall>
     fun buildLogResponseJson(
       combinedText: String,
@@ -346,8 +366,11 @@ class InferenceRunner(
       ttfbMs: Long,
       totalLatencyMs: Long,
       maxTokens: Int?,
+      nativeToolCalls: List<ToolCall>,
     ): List<ToolCall> {
-      val parsedToolCalls = if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
+      val parsedToolCalls = nativeToolCalls.ifEmpty {
+        if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
+      }
 
       if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
         writer.emit(ResponseRenderer.buildResponsesStreamToolCallEvents(
@@ -438,8 +461,11 @@ class InferenceRunner(
       ttfbMs: Long,
       totalLatencyMs: Long,
       maxTokens: Int?,
+      nativeToolCalls: List<ToolCall>,
     ): List<ToolCall> {
-      val parsedToolCalls = if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
+      val parsedToolCalls = nativeToolCalls.ifEmpty {
+        if (tools != null) ToolCallParser.parseAll(fullText, tools) else emptyList()
+      }
       if (bufferAllTokens && parsedToolCalls.isNotEmpty()) {
         writer.emit(ResponseRenderer.buildChatStreamToolCallChunks(chatId, modelName, now, parsedToolCalls))
       } else {
@@ -526,6 +552,7 @@ class InferenceRunner(
       ttfbMs: Long,
       totalLatencyMs: Long,
       maxTokens: Int?,
+      nativeToolCalls: List<ToolCall>,
     ): List<ToolCall> {
       val finishReason = FinishReason.infer(completionTokens, maxTokens)
       writer.emit(ResponseRenderer.buildCompletionStreamFinalChunk(cmplId, modelName, now, finishReason))
@@ -702,6 +729,7 @@ class InferenceRunner(
       prefs: RequestPrefsSnapshot?,
       streamPreview: Boolean,
       channel: Channel<StreamEvent>,
+      capturedNativeToolCalls: AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>,
     ) {
       if (firstTokenMs == 0L && (event.partial.isNotEmpty() || !event.thought.isNullOrEmpty())) {
         firstTokenMs = SystemClock.elapsedRealtime()
@@ -743,7 +771,11 @@ class InferenceRunner(
       }
 
       val effectiveMaxTokens = (configSnapshot ?: model.configValues).maxTokensInt()
-      val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens)
+      val nativeCalls = capturedNativeToolCalls.get()
+      val convertedNativeCalls = if (nativeCalls != null && nativeCalls.isNotEmpty()) {
+        SchemaInjectionBridge.convertNativeToolCalls(nativeCalls)
+      } else emptyList()
+      val parsedToolCalls = format.emitCompletion(writer, fullText.toString(), fullThinking.toString(), promptTokens, completionTokens, ttfbMs, totalLatencyMs, effectiveMaxTokens, convertedNativeCalls)
 
       if (logId != null) {
         val combinedText = buildCombinedText(fullText, fullThinking)
@@ -822,10 +854,12 @@ class InferenceRunner(
     json: Json,
     tools: List<ToolSpec>? = null,
     prefs: RequestPrefsSnapshot? = null,
+    schemaInjectionProviders: List<com.google.ai.edge.litertlm.ToolProvider> = emptyList(),
+    schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ResponsesApiFormat(model.name, now, json, tools)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages)
   }
 
   // ── Streaming inference: /v1/chat/completions ────────────────────────────
@@ -845,10 +879,12 @@ class InferenceRunner(
     configSnapshot: Map<String, Any>? = null,
     json: Json,
     prefs: RequestPrefsSnapshot? = null,
+    schemaInjectionProviders: List<com.google.ai.edge.litertlm.ToolProvider> = emptyList(),
+    schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage)
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages)
   }
 
   // ── Streaming inference: /v1/completions ───────────────────────────────
@@ -885,6 +921,8 @@ class InferenceRunner(
     logId: String?,
     configSnapshot: Map<String, Any>?,
     prefs: RequestPrefsSnapshot? = null,
+    schemaInjectionProviders: List<com.google.ai.edge.litertlm.ToolProvider> = emptyList(),
+    schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -925,6 +963,7 @@ class InferenceRunner(
       // Captured inside the resetConversation lambda (which runs under inferenceLock) so
       // that concurrent updateConfigValues() writes are visible before we snapshot.
       var originalConfig: Map<String, Any>? = null
+      val capturedNativeToolCalls = AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>(null)
 
       // Launch inference on the executor thread. Callbacks send events into the channel
       // via trySend() — non-blocking from the executor thread's perspective.
@@ -943,7 +982,14 @@ class InferenceRunner(
             originalConfig = model.configValues
             model.configValues = configSnapshot
           }
-          ServerLlmModelHelper.resetConversation(model, supportImage = supportImage, supportAudio = supportAudio, systemInstruction = buildSystemInstruction(model.prefsKey))
+          ServerLlmModelHelper.resetConversation(
+            model,
+            supportImage = supportImage,
+            supportAudio = supportAudio,
+            systemInstruction = buildSystemInstruction(model.prefsKey),
+            tools = schemaInjectionProviders,
+            initialMessages = schemaInjectionMessages,
+          )
         },
         runInference = { input, onPartial, onError ->
           ServerLlmModelHelper.runInference(
@@ -955,6 +1001,9 @@ class InferenceRunner(
             images = images,
             audioClips = audioClips,
             extraContext = extraContext,
+            onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
+              capturedNativeToolCalls.set(calls)
+            } else null,
           )
         },
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
@@ -993,7 +1042,7 @@ class InferenceRunner(
             when (event) {
               is StreamEvent.Token -> {
                 try {
-                  state.handleToken(event, format, writer, prompt, configSnapshot, prefs, streamPreview, channel)
+                  state.handleToken(event, format, writer, prompt, configSnapshot, prefs, streamPreview, channel, capturedNativeToolCalls)
                 } catch (e: Exception) {
                   if (logId != null) RequestLogStore.unregisterCancellation(logId)
                   state.markCompleted()
