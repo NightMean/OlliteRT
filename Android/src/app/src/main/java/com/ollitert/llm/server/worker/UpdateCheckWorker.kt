@@ -70,6 +70,8 @@ class UpdateCheckWorker @AssistedInject constructor(
   @Assisted workerParams: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParams) {
 
+  private var cachedReleasesJson: String? = null
+
   override suspend fun doWork(): Result {
     val context = applicationContext
 
@@ -125,6 +127,9 @@ class UpdateCheckWorker @AssistedInject constructor(
         }
         // Clear any stale update state
         ServerMetrics.setAvailableUpdate(null, null)
+        if (ServerPrefs.isCrossChannelNotifyEnabled(context) && cachedReleasesJson != null) {
+          checkCrossChannel(context, verbose)
+        }
         return Result.success(workDataOf(
           KEY_RESULT to RESULT_UP_TO_DATE,
           KEY_MESSAGE to context.getString(R.string.update_check_up_to_date, currentVersion),
@@ -155,6 +160,10 @@ class UpdateCheckWorker @AssistedInject constructor(
       }
 
       postUpdateNotification(context, release)
+
+      if (ServerPrefs.isCrossChannelNotifyEnabled(context) && cachedReleasesJson != null) {
+        checkCrossChannel(context, verbose)
+      }
 
       return Result.success(workDataOf(
         KEY_RESULT to RESULT_UPDATE_AVAILABLE,
@@ -197,11 +206,35 @@ class UpdateCheckWorker @AssistedInject constructor(
    * Returns null if the API returned 304 (Not Modified) or no applicable release was found.
    */
   private fun fetchLatestRelease(context: Context): ReleaseInfo? {
-    return when (BuildConfig.UPDATE_CHANNEL) {
-      "stable" -> fetchLatestStable(context)
-      "beta" -> fetchLatestBetaOrStable(context)
-      "dev" -> fetchLatestAny(context)
-      else -> fetchLatestStable(context)
+    val crossChannelEnabled = ServerPrefs.isCrossChannelNotifyEnabled(context)
+    return if (crossChannelEnabled) {
+      fetchFromReleasesList(context)
+    } else {
+      when (BuildConfig.UPDATE_CHANNEL) {
+        "stable" -> fetchLatestStable(context)
+        "beta" -> fetchLatestBetaOrStable(context)
+        "dev" -> fetchLatestAny(context)
+        else -> fetchLatestStable(context)
+      }
+    }
+  }
+
+  private fun fetchFromReleasesList(context: Context): ReleaseInfo? {
+    val url = "${GitHubConfig.API_BASE}/releases?per_page=10"
+    val response = fetchGitHub(url, etag = null)
+    return when (response) {
+      is GitHubResponse.NotModified -> null
+      is GitHubResponse.Success -> {
+        cachedReleasesJson = response.body
+        val ownPattern = when (BuildConfig.UPDATE_CHANNEL) {
+          "stable" -> STABLE_TAG_PATTERN
+          "beta" -> BETA_TAG_PATTERN
+          "dev" -> DEV_TAG_PATTERN
+          else -> STABLE_TAG_PATTERN
+        }
+        findBestRelease(response.body, ownPattern)
+      }
+      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
     }
   }
 
@@ -267,6 +300,98 @@ class UpdateCheckWorker @AssistedInject constructor(
         val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
         ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
       }
+  }
+
+  private fun findCrossChannelRelease(releasesJson: String): ReleaseInfo? {
+    val ownPattern = when (BuildConfig.UPDATE_CHANNEL) {
+      "stable" -> STABLE_TAG_PATTERN
+      "beta" -> BETA_TAG_PATTERN
+      "dev" -> DEV_TAG_PATTERN
+      else -> STABLE_TAG_PATTERN
+    }
+    return Json.parseToJsonElement(releasesJson).jsonArray
+      .map { it.jsonObject }
+      .firstOrNull { release ->
+        release["draft"]?.jsonPrimitive?.booleanOrNull != true &&
+          (release["tag_name"]?.jsonPrimitive?.content ?: "").let { tag ->
+            tag.isNotBlank() && !ownPattern.matches(tag) && SemVer.parse(tag) != null
+          } &&
+          (release["html_url"]?.jsonPrimitive?.content ?: "").isNotBlank()
+      }?.let { release ->
+        val tag = release["tag_name"]?.jsonPrimitive?.content ?: return@let null
+        val url = release["html_url"]?.jsonPrimitive?.content ?: return@let null
+        ReleaseInfo(tagName = tag, htmlUrl = url, etag = null)
+      }
+  }
+
+  private fun checkCrossChannel(context: Context, verbose: Boolean) {
+    val json = cachedReleasesJson ?: return
+    val crossRelease = findCrossChannelRelease(json) ?: return
+
+    val dismissed = ServerPrefs.getLastDismissedCrossChannelVersion(context)
+    if (dismissed == crossRelease.tagName) {
+      if (verbose) {
+        Log.d(TAG, "Cross-channel release ${crossRelease.tagName} already dismissed")
+      }
+      return
+    }
+
+    val cached = ServerPrefs.getCachedCrossChannelVersion(context)
+    if (cached == crossRelease.tagName) return
+
+    ServerPrefs.setCachedCrossChannelVersion(context, crossRelease.tagName)
+
+    if (verbose) {
+      RequestLogStore.addEvent(
+        "Cross-channel release: ${crossRelease.tagName}",
+        level = LogLevel.DEBUG,
+        category = EventCategory.UPDATE,
+        body = "Channel: ${BuildConfig.UPDATE_CHANNEL}, Cross-channel: ${crossRelease.tagName}",
+      )
+    }
+
+    postCrossChannelNotification(context, crossRelease)
+  }
+
+  private fun postCrossChannelNotification(context: Context, release: ReleaseInfo) {
+    val channelId = crossChannelNotificationChannelId(release.tagName)
+
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+    val channel = mgr.getNotificationChannel(channelId)
+    if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) return
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+
+    val tapIntent = buildUpdateIntent(context, release.htmlUrl)
+    val contentIntent = PendingIntent.getActivity(
+      context, CROSS_CHANNEL_REQUEST_CODE, tapIntent,
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    val dismissIntent = PendingIntent.getBroadcast(
+      context, CROSS_CHANNEL_DISMISS_REQUEST_CODE,
+      Intent(context, UpdateDismissReceiver::class.java)
+        .putExtra(UpdateDismissReceiver.EXTRA_DISMISSED_VERSION, release.tagName)
+        .putExtra(UpdateDismissReceiver.EXTRA_IS_CROSS_CHANNEL, true),
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    val versionDisplay = release.tagName.removePrefix("v")
+    val titleRes = when {
+      release.tagName.contains("-dev.") -> R.string.notif_cross_channel_title_dev
+      release.tagName.contains("-beta.") -> R.string.notif_cross_channel_title_beta
+      else -> R.string.notif_cross_channel_title_stable
+    }
+
+    val notification = NotificationCompat.Builder(context, channelId)
+      .setContentTitle(context.getString(titleRes))
+      .setContentText(context.getString(R.string.notif_cross_channel_body, versionDisplay))
+      .setSmallIcon(R.mipmap.ic_launcher_monochrome)
+      .setContentIntent(contentIntent)
+      .setDeleteIntent(dismissIntent)
+      .setAutoCancel(true)
+      .build()
+
+    mgr.notify(CROSS_CHANNEL_NOTIFICATION_ID, notification)
   }
 
   private fun parseRelease(json: String, etag: String?): ReleaseInfo? {
@@ -434,6 +559,11 @@ class UpdateCheckWorker @AssistedInject constructor(
     const val UPDATE_NOTIFICATION_ID = 43
     private const val UPDATE_REQUEST_CODE = 100
     private const val UPDATE_DISMISS_REQUEST_CODE = 101
+    const val BETA_RELEASE_CHANNEL_ID = "ollitert-beta-release"
+    const val DEV_RELEASE_CHANNEL_ID = "ollitert-dev-release"
+    private const val CROSS_CHANNEL_NOTIFICATION_ID = 44
+    private const val CROSS_CHANNEL_REQUEST_CODE = 102
+    private const val CROSS_CHANNEL_DISMISS_REQUEST_CODE = 103
     private const val MAX_CONSECUTIVE_FAILURES = 5
 
     // Output data keys for communicating check results to the UI (via WorkInfo.outputData)
@@ -529,6 +659,60 @@ class UpdateCheckWorker @AssistedInject constructor(
         return
       }
       mgr.createNotificationChannel(channel)
+    }
+
+    fun createCrossChannelNotificationChannels(context: Context) {
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      if (mgr == null) {
+        Log.e(TAG, "NotificationManager unavailable — cannot create cross-channel notification channels")
+        return
+      }
+      val betaChannel = NotificationChannel(
+        BETA_RELEASE_CHANNEL_ID,
+        context.getString(R.string.notif_channel_beta_release_name),
+        NotificationManager.IMPORTANCE_DEFAULT,
+      ).apply {
+        description = context.getString(R.string.notif_channel_beta_release_desc)
+      }
+      val devChannel = NotificationChannel(
+        DEV_RELEASE_CHANNEL_ID,
+        context.getString(R.string.notif_channel_dev_release_name),
+        NotificationManager.IMPORTANCE_DEFAULT,
+      ).apply {
+        description = context.getString(R.string.notif_channel_dev_release_desc)
+      }
+      mgr.createNotificationChannel(betaChannel)
+      mgr.createNotificationChannel(devChannel)
+    }
+
+    fun canPostCrossChannelNotification(context: Context): Boolean {
+      if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        ?: return false
+      val beta = mgr.getNotificationChannel(BETA_RELEASE_CHANNEL_ID)
+      val dev = mgr.getNotificationChannel(DEV_RELEASE_CHANNEL_ID)
+      val betaActive = beta == null || beta.importance != NotificationManager.IMPORTANCE_NONE
+      val devActive = dev == null || dev.importance != NotificationManager.IMPORTANCE_NONE
+      return betaActive || devActive
+    }
+
+    fun areCrossChannelChannelsMuted(context: Context): Boolean {
+      if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+      val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        ?: return false
+      val beta = mgr.getNotificationChannel(BETA_RELEASE_CHANNEL_ID)
+      val dev = mgr.getNotificationChannel(DEV_RELEASE_CHANNEL_ID)
+      val betaMuted = beta != null && beta.importance == NotificationManager.IMPORTANCE_NONE
+      val devMuted = dev != null && dev.importance == NotificationManager.IMPORTANCE_NONE
+      return betaMuted && devMuted
+    }
+
+    private fun crossChannelNotificationChannelId(tag: String): String {
+      return when {
+        tag.contains("-dev.") -> DEV_RELEASE_CHANNEL_ID
+        tag.contains("-beta.") -> BETA_RELEASE_CHANNEL_ID
+        else -> UPDATE_CHANNEL_ID
+      }
     }
 
     /**
