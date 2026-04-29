@@ -10,6 +10,7 @@ This document describes OlliteRT's internal architecture for contributors and an
 - [Threading Model](#threading-model)
 - [Persistence](#persistence)
 - [Request Flow](#request-flow)
+- [Tool Calling](#tool-calling)
 - [Dependencies](#dependencies)
 
 ---
@@ -209,6 +210,26 @@ Client HTTP request
       → Response building (PayloadBuilders / ResponseRenderer)
     → HTTP response to client (JSON, SSE stream, or binary)
 ```
+
+## Tool Calling
+
+OlliteRT supports OpenAI-compatible tool calling via two modes:
+
+### Schema Injection (default)
+
+The client sends tools in OpenAI format (`tools` array with JSON Schema parameters). `SchemaInjectionBridge` translates this into the LiteRT LM SDK's native tool calling interface:
+
+1. **Tool specs → ToolProviders** — each OpenAI `ToolSpec` is converted to a LiteRT `ToolProvider` object (name + parameter schema as `JsonObjectSchema`)
+2. **Conversation history → native Messages** — prior `user`/`assistant`/`tool` messages are converted to LiteRT `Message` objects with the appropriate roles, skipping the system prompt (which is handled separately) and the last user message (which becomes the `inputText` parameter)
+3. **Tool result workaround** — when the last messages are `assistant` (with tool_calls) followed by `tool` (with results), these are formatted into a synthetic user message describing the function return values, because the SDK doesn't support multi-turn tool result injection directly
+4. **Native tool calls → API response** — when the model produces tool calls via the SDK callback (`onMessage` with `toolCalls`), `SchemaInjectionBridge` converts them back to OpenAI `ToolCall` objects (with generated call IDs, serialized arguments)
+
+The SDK handles tool schema formatting internally — tool definitions don't appear in the text prompt.
+
+### Prompt-based fallback
+
+When Schema Injection is disabled, `PromptBuilder` injects tool schemas directly into the text prompt with explicit formatting instructions. `ToolCallParser` then attempts to parse tool calls from the model's raw text output using pattern matching (JSON wrappers, XML tags, Gemma-native format). This mode works with any model but is less reliable since the model must follow the formatting instructions exactly.
+
 ## Dependencies
 
 | Library | Purpose |

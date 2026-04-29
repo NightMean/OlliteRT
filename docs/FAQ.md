@@ -203,10 +203,9 @@ Yes. Enable **Custom System Prompt** in Settings → Model Behaviour, then set a
 
 ### What is prompt compaction?
 
-When a conversation exceeds the model's context window, OlliteRT can automatically reduce the prompt to fit. Three strategies are available in Settings → Context Management, all **disabled by default**:
+When a conversation exceeds the model's context window, OlliteRT can automatically reduce the prompt to fit. Two strategies are available in Settings → Context Management, both **disabled by default**:
 
 - **Truncate History** — drop older messages, keeping system prompts and the most recent messages
-- **Compact Tool Schemas** — reduce tool definitions to names and descriptions only. If still too large, tool schemas are removed entirely
 - **Trim Prompt** — last resort, hard-cuts the prompt to fit the context window
 
 When enabled, compaction happens transparently — the client doesn't need to handle it.

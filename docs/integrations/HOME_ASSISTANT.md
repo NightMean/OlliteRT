@@ -120,7 +120,6 @@ Send an empty body to read current config, or any subset of fields to update:
 | `thinking_enabled` | boolean | Enable chain-of-thought mode |
 | `auto_truncate_history` | boolean | Auto-drop older messages when context is full |
 | `auto_trim_prompts` | boolean | Hard-cut prompts as last resort when context overflows |
-| `compact_tool_schemas` | boolean | Reduce tool definition sizes in prompts |
 | `warmup_enabled` | boolean | Run warmup inference on model load |
 | `keep_alive_enabled` | boolean | Enable idle timeout auto-unload |
 | `keep_alive_minutes` | integer | Idle timeout duration (1 - 7200) |
