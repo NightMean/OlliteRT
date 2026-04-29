@@ -330,7 +330,7 @@
   <string name="settings_check_frequency_label" translatable="false">Check Frequency</string>
   <string name="settings_check_frequency_desc" translatable="false">How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days.</string>
   <string name="settings_cross_channel_notify" translatable="false">Notify About Other Channels</string>
-  <string name="settings_cross_channel_notify_desc" translatable="false">Get notified when releases are available on other channels (beta, dev, stable).</string>
+  <string name="settings_cross_channel_notify_desc" translatable="false">Get notified when releases are available on other channels (beta, dev, stable).\nEach channel installs as a separate app — you can run them side by side.</string>
   <string name="settings_cross_channel_notify_desc_dev" translatable="false">Dev builds already receive all release notifications.</string>
   <string name="settings_notification_settings" translatable="false">Notification Settings</string>
   <string name="settings_notification_settings_desc" translatable="false">Customize which notification channels are enabled.</string>

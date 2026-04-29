@@ -162,10 +162,6 @@ class UpdateCheckWorker @AssistedInject constructor(
 
       postUpdateNotification(context, release)
 
-      if (ServerPrefs.isCrossChannelNotifyEnabled(context) && cachedReleasesJson != null) {
-        checkCrossChannel(context, verbose)
-      }
-
       return Result.success(workDataOf(
         KEY_RESULT to RESULT_UPDATE_AVAILABLE,
         KEY_MESSAGE to context.getString(R.string.notif_update_available_body, versionDisplay),
