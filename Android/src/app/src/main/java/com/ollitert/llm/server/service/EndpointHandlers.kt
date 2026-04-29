@@ -133,6 +133,9 @@ class EndpointHandlers(
     // useful for Home Assistant), "Trim Prompt" (hard-cut as last resort).
     val tools = req.tools.orEmpty()
     val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
+    val useSchemaInjection = hasTools && prefs.schemaInjectionToolCalling
+    val schemaInjectionProviders = if (useSchemaInjection) SchemaInjectionBridge.toolSpecsToProviders(tools) else emptyList()
+    val schemaInjectionMessages = if (useSchemaInjection) SchemaInjectionBridge.buildInitialMessages(req.messages) else emptyList()
     val truncateHistory = prefs.autoTruncateHistory
     val compactToolSchemas = prefs.compactToolSchemas
     val trimPrompts = prefs.autoTrimPrompts
@@ -160,7 +163,11 @@ class EndpointHandlers(
     logCompactionResult(compactionResult, requestId, "/v1/chat/completions", logId, maxContext, logEvent, compactionLogUpdater(logId))
 
     // Apply response_format JSON mode prompt injection
-    var prompt = InferenceRunner.applyResponseFormat(compactionResult.prompt, req.response_format)
+    var prompt = if (useSchemaInjection) {
+      InferenceRunner.applyResponseFormat(SchemaInjectionBridge.buildLastUserInput(req.messages), req.response_format)
+    } else {
+      InferenceRunner.applyResponseFormat(compactionResult.prompt, req.response_format)
+    }
     // Store context utilization data in the log entry for per-request display
     recordContextUtilization(logId, prompt, maxContext)
     // Extract images for multimodal models (before blank-prompt check so image-only requests work).
@@ -186,10 +193,11 @@ class EndpointHandlers(
 
     val stopSeqs = req.stop.ifEmpty { null }
     return if (req.stream == true) {
-      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = sampler, json = json, prefs = prefs)
+      inferenceRunner.streamChatLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, includeUsage = includeUsage, stopSequences = stopSeqs, tools = if (hasTools) tools else null, configSnapshot = sampler, json = json, prefs = prefs, schemaInjectionProviders = schemaInjectionProviders, schemaInjectionMessages = schemaInjectionMessages)
     } else {
       ServerMetrics.onInferenceStarted()
-      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = sampler, prefs = prefs)
+      var schemaInjectionToolCalls: List<ToolCall> = emptyList()
+      val (rawText, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/chat/completions", timeoutSeconds = CHAT_COMPLETIONS_TIMEOUT_SECONDS, images = images, audioClips = audioClips, logId = logId, configSnapshot = sampler, prefs = prefs, schemaInjectionProviders = schemaInjectionProviders, schemaInjectionMessages = schemaInjectionMessages, onNativeToolCalls = if (useSchemaInjection) { calls -> schemaInjectionToolCalls = calls } else null)
       ServerMetrics.onInferenceCompleted()
       if (rawText == null) return handleBlockingInferenceError(llmError, logId)
       val (text, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
@@ -198,9 +206,14 @@ class EndpointHandlers(
 
       // Check if the model output contains tool call(s) — supports parallel calls
       if (hasTools) {
-        val toolCalls = ToolCallParser.parseAll(text, tools)
+        val toolCalls = if (useSchemaInjection) {
+          schemaInjectionToolCalls.ifEmpty { ToolCallParser.parseAll(text, tools) }
+        } else {
+          ToolCallParser.parseAll(text, tools)
+        }
         if (toolCalls.isNotEmpty()) {
-          logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size}")
+          val source = if (useSchemaInjection && schemaInjectionToolCalls.isNotEmpty()) "schema_injection" else "text_parse"
+          logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size} source=$source")
           val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
           val timings = PayloadBuilders.buildTimings(promptTokens, completionTokens)
           val responseJson = json.encodeToString(PayloadBuilders.chatResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length, timings = timings))
@@ -349,20 +362,27 @@ class EndpointHandlers(
 
     val tools = req.tools.orEmpty()
     val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
+    val useSchemaInjectionResp = hasTools && prefs.schemaInjectionToolCalling
+    val schemaInjectionProvidersResp = if (useSchemaInjectionResp) SchemaInjectionBridge.toolSpecsToProviders(tools) else emptyList()
 
     val sampler = resolveSamplerOverrides(model, prefs, req.temperature, req.top_p, req.top_k, req.max_output_tokens, logId)
 
     return if (req.stream == true) {
-      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, json = json, tools = if (hasTools) tools else null, prefs = prefs)
+      inferenceRunner.streamLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, json = json, tools = if (hasTools) tools else null, prefs = prefs, schemaInjectionProviders = schemaInjectionProvidersResp)
     } else {
       ServerMetrics.onInferenceStarted()
-      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, prefs = prefs)
+      var schemaInjectionToolCallsResp: List<ToolCall> = emptyList()
+      val (text, llmError) = inferenceRunner.runLlm(model, prompt, requestId, "/v1/responses", timeoutSeconds = RESPONSES_TIMEOUT_SECONDS, logId = logId, configSnapshot = sampler, prefs = prefs, schemaInjectionProviders = schemaInjectionProvidersResp, onNativeToolCalls = if (useSchemaInjectionResp) { calls -> schemaInjectionToolCallsResp = calls } else null)
       ServerMetrics.onInferenceCompleted()
       if (text == null) return handleBlockingInferenceError(llmError, logId)
 
       // Check if the model output contains tool call(s)
       if (hasTools) {
-        val toolCalls = ToolCallParser.parseAll(text, tools)
+        val toolCalls = if (useSchemaInjectionResp) {
+          schemaInjectionToolCallsResp.ifEmpty { ToolCallParser.parseAll(text, tools) }
+        } else {
+          ToolCallParser.parseAll(text, tools)
+        }
         if (toolCalls.isNotEmpty()) {
           val responseJson = json.encodeToString(PayloadBuilders.responsesResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
           captureResponse(responseJson)
