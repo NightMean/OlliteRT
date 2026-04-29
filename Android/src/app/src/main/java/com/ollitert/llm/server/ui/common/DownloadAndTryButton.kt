@@ -64,6 +64,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -669,7 +670,8 @@ fun DownloadAndTryButton(
   }
 
   if (showStopActiveDialog) {
-    val pendingCount = RequestLogStore.entries.value.count { it.isPending }
+    val entries by RequestLogStore.entries.collectAsStateWithLifecycle()
+    val pendingCount = entries.count { it.isPending }
     AlertDialog(
       onDismissRequest = { showStopActiveDialog = false },
       title = {
