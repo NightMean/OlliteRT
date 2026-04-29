@@ -310,7 +310,7 @@
   <string name="settings_keep_alive_desc" translatable="false">Model stays in RAM by default. Enable to unload after idle timeout and free memory. Next request auto-reloads (cold start)</string>
   <string name="settings_idle_timeout_label" translatable="false">Idle Timeout</string>
   <string name="settings_idle_timeout_desc" translatable="false">How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size)</string>
-  <string name="settings_dontkillmyapp_title" translatable="false">Device background settings</string>
+  <string name="settings_dontkillmyapp_title" translatable="false">Manufacturer Background Guides</string>
   <string name="settings_dontkillmyapp_desc" translatable="false">Some manufacturers kill background apps aggressively. Check dontkillmyapp.com for device-specific fixes</string>
   <string name="settings_dontkillmyapp_cd" translatable="false">Open dontkillmyapp.com</string>
 
