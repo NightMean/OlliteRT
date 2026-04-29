@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+  <!-- Intentional: 24/7 server holds wakelock indefinitely -->
+  <issue id="WakelockTimeout" severity="ignore" />
+
+  <!-- Intentional: server app needs battery optimization exemption -->
+  <issue id="BatteryLife" severity="ignore" />
+
+  <!-- Intentional: LiteRT native lib is arm64-only, no x86 support -->
+  <issue id="ChromeOsAbiSupport" severity="ignore" />
+
+  <!-- False positive: color is referenced by adaptive icon XML in all flavors -->
+  <issue id="UnusedResources">
+    <ignore path="**/ic_launcher_background.xml" />
+  </issue>
+</lint>

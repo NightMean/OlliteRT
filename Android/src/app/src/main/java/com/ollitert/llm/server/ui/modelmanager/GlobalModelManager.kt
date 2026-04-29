@@ -82,6 +82,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -175,7 +176,7 @@ fun GlobalModelManager(
   // Re-check permissions when the user returns from system settings.
   // A simple counter bumped on ON_RESUME forces recomposition of permission-dependent UI.
   val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-  var resumeCount by remember { mutableStateOf(0) }
+  var resumeCount by remember { mutableIntStateOf(0) }
   androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
     val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
       if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {

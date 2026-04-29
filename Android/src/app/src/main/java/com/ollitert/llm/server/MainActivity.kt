@@ -19,7 +19,6 @@ package com.ollitert.llm.server
 
 import android.animation.ObjectAnimator
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -161,11 +160,9 @@ class MainActivity : ComponentActivity() {
     }
 
     enableEdgeToEdge()
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      // Fix for three-button nav not properly going edge-to-edge.
-      // See: https://issuetracker.google.com/issues/298296168
-      window.isNavigationBarContrastEnforced = false
-    }
+    // Fix for three-button nav not properly going edge-to-edge.
+    // See: https://issuetracker.google.com/issues/298296168
+    window.isNavigationBarContrastEnforced = false
     // Keep-screen-on is handled dynamically via Compose (KeepScreenOn effect in OlliteRTApp).
     // Read the initial pref and set the flag so it's active before Compose renders.
     if (ServerPrefs.isKeepScreenOn(this)) {

@@ -85,6 +85,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
@@ -678,6 +680,7 @@ private fun AcceleratorToggle(
   val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
   val singleOption = options.size == 1
 
+  val density = LocalDensity.current
   val offsetX by animateDpAsState(
     targetValue = segmentWidth * selectedIndex,
     animationSpec = tween(200),
@@ -694,7 +697,7 @@ private fun AcceleratorToggle(
     // Sliding indicator
     Box(
       modifier = Modifier
-        .offset(x = offsetX)
+        .offset { IntOffset(with(density) { offsetX.roundToPx() }, 0) }
         .width(segmentWidth)
         .height(36.dp)
         .clip(RoundedCornerShape(50))
