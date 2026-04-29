@@ -139,6 +139,7 @@ class SettingsViewModel @Inject constructor(
   val notifShowRequestCountEntry get() = entry<Boolean>("notif_request_count")
   val sttTranscriptionPromptEntry get() = entry<Boolean>("stt_transcription_prompt")
   val sttTranscriptionPromptTextEntry get() = entry<String>("stt_transcription_prompt_text")
+  val schemaInjectionEntry get() = entry<Boolean>("schema_injection_tool_calling")
   val logPersistenceEnabledEntry get() = entry<Boolean>("log_persistence_enabled")
   val logMaxEntriesEntry get() = entry<Int>("log_max_entries")
   val logAutoDeleteMinutesEntry get() = entry<Long>("log_auto_delete")
@@ -216,6 +217,7 @@ class SettingsViewModel @Inject constructor(
     "check_frequency" -> updateCheckEnabledEntry.current
     "auto_update_check" -> true
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> logPersistenceEnabledEntry.current
+    "compact_tool_schemas" -> !schemaInjectionEntry.current
     else -> true
   }
 
@@ -225,6 +227,7 @@ class SettingsViewModel @Inject constructor(
     "start_on_boot" -> if (defaultModelEntry.current != null) 1f else 0.4f
     "keep_alive_timeout" -> if (keepAliveEnabledEntry.current) 1f else 0.4f
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> if (logPersistenceEnabledEntry.current) 1f else 0.4f
+    "compact_tool_schemas" -> if (!schemaInjectionEntry.current) 1f else 0.4f
     else -> 1f
   }
 
