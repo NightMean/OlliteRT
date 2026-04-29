@@ -63,7 +63,6 @@ import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.server.settings.AdvancedCard
 import com.ollitert.llm.server.ui.server.settings.AutoLaunchCard
 import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.ContextManagementCard
@@ -73,6 +72,7 @@ import com.ollitert.llm.server.ui.server.settings.HfTokenCard
 import com.ollitert.llm.server.ui.server.settings.HomeAssistantCard
 import com.ollitert.llm.server.ui.server.settings.LogPersistenceCard
 import com.ollitert.llm.server.ui.server.settings.MetricsCard
+import com.ollitert.llm.server.ui.server.settings.ModelBehaviourCard
 import com.ollitert.llm.server.ui.server.settings.ResetCard
 import com.ollitert.llm.server.ui.server.settings.ServerConfigCard
 import com.ollitert.llm.server.ui.server.settings.SettingsDialogs
@@ -225,6 +225,9 @@ fun SettingsScreen(
     AnimatedVisibility(visible = vm.cardVisible(CardId.AUTO_LAUNCH), enter = expandVertically(), exit = shrinkVertically()) {
       AutoLaunchCard(vm, downloadedModelNames)
     }
+    AnimatedVisibility(visible = vm.cardVisible(CardId.MODEL_BEHAVIOUR), enter = expandVertically(), exit = shrinkVertically()) {
+      ModelBehaviourCard(vm)
+    }
     AnimatedVisibility(visible = vm.cardVisible(CardId.CONTEXT_MANAGEMENT), enter = expandVertically(), exit = shrinkVertically()) {
       ContextManagementCard(vm)
     }
@@ -253,9 +256,6 @@ fun SettingsScreen(
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.UPDATES), enter = expandVertically(), exit = shrinkVertically()) {
       UpdatesCard(vm, context)
-    }
-    AnimatedVisibility(visible = vm.cardVisible(CardId.ADVANCED), enter = expandVertically(), exit = shrinkVertically()) {
-      AdvancedCard(vm)
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.DEVELOPER), enter = expandVertically(), exit = shrinkVertically()) {
       DeveloperCard(vm, context)

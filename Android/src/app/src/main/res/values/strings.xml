@@ -370,8 +370,8 @@
   <!-- Settings: Context Management card -->
   <string name="settings_card_context_management" translatable="false">Context Management</string>
 
-  <!-- Settings: Advanced card -->
-  <string name="settings_card_advanced" translatable="false">Advanced</string>
+  <!-- Settings: Model Behaviour card -->
+  <string name="settings_card_model_behaviour" translatable="false">Model Behaviour</string>
   <string name="settings_warmup_message" translatable="false">Warmup Message</string>
   <string name="settings_warmup_message_desc" translatable="false">Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup.</string>
   <string name="settings_pre_init_vision" translatable="false">Pre-initialize Vision</string>

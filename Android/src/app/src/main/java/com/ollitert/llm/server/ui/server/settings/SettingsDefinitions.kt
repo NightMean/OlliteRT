@@ -25,8 +25,8 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RestartAlt
-import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Token
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
@@ -153,7 +153,7 @@ val REJECT_WHEN_BUSY = SettingDef.Toggle(
   key = "reject_when_busy",
   labelRes = R.string.settings_reject_when_busy,
   descriptionRes = R.string.settings_reject_when_busy_desc,
-  card = CardId.GENERAL,
+  card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "reject_when_busy",
   read = { ServerPrefs.isRejectWhenBusy(it) },
@@ -462,7 +462,7 @@ val STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
   key = "stt_transcription_prompt",
   labelRes = R.string.settings_stt_transcription_prompt,
   descriptionRes = R.string.settings_stt_transcription_prompt_desc,
-  card = CardId.HOME_ASSISTANT,
+  card = CardId.MODEL_BEHAVIOUR,
   default = true,
   prefsKey = "stt_transcription_prompt",
   read = { ServerPrefs.isSttTranscriptionPromptEnabled(it) },
@@ -473,7 +473,7 @@ val STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
   key = "stt_transcription_prompt_text",
   labelRes = R.string.settings_stt_transcription_prompt_text,
   descriptionRes = R.string.settings_stt_transcription_prompt_text_desc,
-  card = CardId.HOME_ASSISTANT,
+  card = CardId.MODEL_BEHAVIOUR,
   default = DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT,
   prefsKey = "stt_transcription_prompt_text",
   read = { ServerPrefs.getSttTranscriptionPromptText(it).ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
@@ -521,13 +521,13 @@ val TRIM_PROMPT = SettingDef.Toggle(
   write = { ctx, v -> ServerPrefs.setAutoTrimPrompts(ctx, v) },
 )
 
-// ─── Advanced Card ─────────────────────────────────────────────────────────
+// ─── Model Behaviour Card ─────────────────────────────────────────────────
 
 val WARMUP_MESSAGE = SettingDef.Toggle(
   key = "warmup_message",
   labelRes = R.string.settings_warmup_message,
   descriptionRes = R.string.settings_warmup_message_desc,
-  card = CardId.ADVANCED,
+  card = CardId.MODEL_BEHAVIOUR,
   default = true,
   prefsKey = "warmup_enabled",
   read = { ServerPrefs.isWarmupEnabled(it) },
@@ -538,7 +538,7 @@ val PRE_INIT_VISION = SettingDef.Toggle(
   key = "pre_init_vision",
   labelRes = R.string.settings_pre_init_vision,
   descriptionRes = R.string.settings_pre_init_vision_desc,
-  card = CardId.ADVANCED,
+  card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "eager_vision_init",
   requiresRestart = true,
@@ -550,7 +550,7 @@ val CUSTOM_PROMPTS = SettingDef.Toggle(
   key = "custom_prompts",
   labelRes = R.string.settings_custom_prompts,
   descriptionRes = R.string.settings_custom_prompts_desc,
-  card = CardId.ADVANCED,
+  card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "custom_prompts_enabled",
   read = { ServerPrefs.isCustomPromptsEnabled(it) },
@@ -561,7 +561,7 @@ val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
   key = "ignore_client_params",
   labelRes = R.string.settings_ignore_client_params,
   descriptionRes = R.string.settings_ignore_client_params_desc,
-  card = CardId.ADVANCED,
+  card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "ignore_client_sampler_params",
   read = { ServerPrefs.isIgnoreClientSamplerParams(it) },
@@ -623,13 +623,16 @@ val allSettingDefs: List<SettingDef> = listOf(
   // General
   KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
   RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS, KEEP_PARTIAL_RESPONSE,
-  REJECT_WHEN_BUSY, SHOW_MODEL_RECOMMENDATIONS,
+  SHOW_MODEL_RECOMMENDATIONS,
   // HF Token
   HF_TOKEN,
   // Server Config
   HOST_PORT, BEARER_TOKEN, CORS_ORIGINS,
   // Auto-Launch
   DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
+  // Model Behaviour
+  CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
+  STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
   // Context Management
   TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT,
   // Metrics
@@ -637,11 +640,9 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Log Persistence
   LOG_PERSISTENCE_ENABLED, LOG_MAX_ENTRIES, LOG_AUTO_DELETE, CLEAR_ALL_LOGS,
   // Home Assistant
-  HA_INTEGRATION, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
+  HA_INTEGRATION,
   // Updates
   AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CROSS_CHANNEL_NOTIFY, CHECK_FOR_UPDATES, NOTIFICATION_SETTINGS,
-  // Advanced
-  WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS,
   // Developer
   VERBOSE_DEBUG, EXPORT_LOGCAT,
   // Reset
@@ -667,7 +668,7 @@ val allCardDefs: List<CardDef> = listOf(
     settings = listOf(
       KEEP_SCREEN_AWAKE, AUTO_EXPAND_LOGS, WRAP_LOG_TEXT, STREAM_RESPONSE_PREVIEW, COMPACT_IMAGE_DATA,
       RESOLVE_CLIENT_HOSTNAMES, HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
-      KEEP_PARTIAL_RESPONSE, REJECT_WHEN_BUSY, SHOW_MODEL_RECOMMENDATIONS,
+      KEEP_PARTIAL_RESPONSE, SHOW_MODEL_RECOMMENDATIONS,
     ),
   ),
   CardDef(
@@ -688,6 +689,15 @@ val allCardDefs: List<CardDef> = listOf(
     icon = CardIcon.Vector(Icons.Outlined.PlayArrow),
     settings = listOf(
       DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
+    ),
+  ),
+  CardDef(
+    id = CardId.MODEL_BEHAVIOUR,
+    titleRes = R.string.settings_card_model_behaviour,
+    icon = CardIcon.Vector(Icons.Outlined.Token),
+    settings = listOf(
+      CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
+      STT_TRANSCRIPTION_PROMPT,
     ),
   ),
   CardDef(
@@ -712,19 +722,13 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.HOME_ASSISTANT,
     titleRes = R.string.settings_card_home_assistant,
     icon = CardIcon.Resource(R.drawable.ic_home_assistant),
-    settings = listOf(HA_INTEGRATION, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT),
+    settings = listOf(HA_INTEGRATION),
   ),
   CardDef(
     id = CardId.UPDATES,
     titleRes = R.string.settings_card_updates,
     icon = CardIcon.Vector(Icons.Outlined.SystemUpdate),
     settings = listOf(AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CROSS_CHANNEL_NOTIFY, CHECK_FOR_UPDATES, NOTIFICATION_SETTINGS),
-  ),
-  CardDef(
-    id = CardId.ADVANCED,
-    titleRes = R.string.settings_card_advanced,
-    icon = CardIcon.Vector(Icons.Outlined.Science),
-    settings = listOf(WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS),
   ),
   CardDef(
     id = CardId.DEVELOPER,

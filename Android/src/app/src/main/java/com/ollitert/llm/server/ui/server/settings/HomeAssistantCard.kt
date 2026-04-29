@@ -17,10 +17,6 @@
 package com.ollitert.llm.server.ui.server.settings
 
 import android.content.Context
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,18 +24,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,88 +65,6 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
       },
       searchQuery = vm.searchQuery,
     )
-
-    SettingDivider()
-
-    ToggleSettingRow(
-      label = stringResource(R.string.settings_stt_transcription_prompt),
-      description = stringResource(R.string.settings_stt_transcription_prompt_desc),
-      checked = vm.sttTranscriptionPromptEntry.current,
-      onCheckedChange = { vm.sttTranscriptionPromptEntry.update(it) },
-      searchQuery = vm.searchQuery,
-    )
-
-    // "Edit Prompt" button + expandable text field (only when toggle is ON)
-    AnimatedVisibility(
-      visible = vm.sttTranscriptionPromptEntry.current,
-      enter = expandVertically(),
-      exit = shrinkVertically(),
-    ) {
-      var promptExpanded by remember { mutableStateOf(false) }
-
-      Column {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        TextButton(
-          onClick = { promptExpanded = !promptExpanded },
-        ) {
-          Icon(
-            imageVector = Icons.Outlined.Edit,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = OlliteRTPrimary,
-          )
-          Spacer(modifier = Modifier.width(4.dp))
-          Text(
-            text = stringResource(R.string.settings_ha_edit_prompt),
-            style = MaterialTheme.typography.labelMedium,
-            color = OlliteRTPrimary,
-          )
-        }
-
-        AnimatedVisibility(
-          visible = promptExpanded,
-          enter = expandVertically(),
-          exit = shrinkVertically(),
-        ) {
-          Column {
-            Spacer(modifier = Modifier.height(4.dp))
-            OutlinedTextField(
-              value = vm.sttTranscriptionPromptTextEntry.current,
-              onValueChange = { vm.sttTranscriptionPromptTextEntry.update(it) },
-              placeholder = {
-                Text(
-                  stringResource(R.string.settings_ha_transcription_prompt_placeholder),
-                  style = MaterialTheme.typography.bodyMedium,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                )
-              },
-              trailingIcon = {
-                if (vm.sttTranscriptionPromptTextEntry.current.isNotBlank()) {
-                  IconButton(onClick = { vm.sttTranscriptionPromptTextEntry.update("") }) {
-                    Icon(
-                      imageVector = Icons.Outlined.Close,
-                      contentDescription = null,
-                      tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                  }
-                }
-              },
-              minLines = 2,
-              maxLines = 5,
-              colors = olliteTextFieldColors(),
-              modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-              text = stringResource(R.string.settings_stt_transcription_prompt_text_desc),
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
-        }
-      }
-    }
 
     if (haIntegrationEnabled) {
       SettingDivider()
