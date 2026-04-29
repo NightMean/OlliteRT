@@ -133,6 +133,8 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
       val crossChannelEnabled = notifPermissionGranted && !crossChannelMuted
       val isDevBuild = BuildConfig.UPDATE_CHANNEL == "dev"
 
+      val crossChannelToggleEnabled = vm.updateCheckEnabledEntry.current && crossChannelEnabled && !isDevBuild
+
       ToggleSettingRow(
         label = stringResource(R.string.settings_cross_channel_notify),
         description = if (isDevBuild) {
@@ -143,7 +145,8 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
         checked = vm.crossChannelNotifyEntry.current,
         onCheckedChange = { vm.crossChannelNotifyEntry.update(it) },
         searchQuery = vm.searchQuery,
-        enabled = crossChannelEnabled && !isDevBuild,
+        enabled = crossChannelToggleEnabled,
+        alphaOverride = if (crossChannelToggleEnabled) 1f else 0.4f,
       )
 
       if (!notifPermissionGranted) {
