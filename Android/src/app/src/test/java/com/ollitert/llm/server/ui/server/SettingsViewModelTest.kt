@@ -87,7 +87,6 @@ class SettingsViewModelTest {
     every { ServerPrefs.isEagerVisionInit(any()) } returns false
     every { ServerPrefs.isCustomPromptsEnabled(any()) } returns false
     every { ServerPrefs.isAutoTruncateHistory(any()) } returns true
-    every { ServerPrefs.isCompactToolSchemas(any()) } returns false
     every { ServerPrefs.isAutoTrimPrompts(any()) } returns false
     every { ServerPrefs.isIgnoreClientSamplerParams(any()) } returns false
     every { ServerPrefs.getDefaultModelName(any()) } returns null

@@ -132,7 +132,6 @@ class SettingsViewModel @Inject constructor(
   val eagerVisionInitEntry get() = entry<Boolean>("pre_init_vision")
   val customPromptsEnabledEntry get() = entry<Boolean>("custom_prompts")
   val autoTruncateHistoryEntry get() = entry<Boolean>("truncate_history")
-  val compactToolSchemasEntry get() = entry<Boolean>("compact_tool_schemas")
   val autoTrimPromptsEntry get() = entry<Boolean>("trim_prompt")
   val ignoreClientSamplerParamsEntry get() = entry<Boolean>("ignore_client_params")
   val verboseDebugEnabledEntry get() = entry<Boolean>("verbose_debug")
@@ -218,7 +217,6 @@ class SettingsViewModel @Inject constructor(
     "check_frequency" -> updateCheckEnabledEntry.current
     "auto_update_check" -> true
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> logPersistenceEnabledEntry.current
-    "compact_tool_schemas" -> !schemaInjectionEntry.current
     else -> true
   }
 
@@ -228,14 +226,10 @@ class SettingsViewModel @Inject constructor(
     "start_on_boot" -> if (defaultModelEntry.current != null) 1f else 0.4f
     "keep_alive_timeout" -> if (keepAliveEnabledEntry.current) 1f else 0.4f
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> if (logPersistenceEnabledEntry.current) 1f else 0.4f
-    "compact_tool_schemas" -> if (!schemaInjectionEntry.current) 1f else 0.4f
     else -> 1f
   }
 
-  fun settingDescriptionOverride(key: String): Int? = when (key) {
-    "compact_tool_schemas" -> if (schemaInjectionEntry.current) R.string.settings_compact_tool_schemas_desc_disabled else null
-    else -> null
-  }
+  fun settingDescriptionOverride(key: String): Int? = null
 
   // ─── Change Detection ────────────────────────────────────────────────────
 

@@ -28,7 +28,6 @@ class RequestPrefsSnapshotTest {
     val snapshot = RequestPrefsSnapshot()
     assertFalse(snapshot.autoTruncateHistory)
     assertFalse(snapshot.autoTrimPrompts)
-    assertFalse(snapshot.compactToolSchemas)
     assertFalse(snapshot.ignoreClientSamplerParams)
     assertFalse(snapshot.eagerVisionInit)
     assertTrue(snapshot.streamLogsPreview)

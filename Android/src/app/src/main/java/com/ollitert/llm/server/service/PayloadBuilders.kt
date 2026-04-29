@@ -225,7 +225,6 @@ object PayloadBuilders {
       put("thinking_enabled", JsonPrimitive(inferenceConfig.configThinkingEnabled() ?: false))
       put("auto_truncate_history", JsonPrimitive(ServerPrefs.isAutoTruncateHistory(context)))
       put("auto_trim_prompts", JsonPrimitive(ServerPrefs.isAutoTrimPrompts(context)))
-      put("compact_tool_schemas", JsonPrimitive(ServerPrefs.isCompactToolSchemas(context)))
       put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
       put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
       put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))

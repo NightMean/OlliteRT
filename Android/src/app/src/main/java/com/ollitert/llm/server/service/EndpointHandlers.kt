@@ -137,7 +137,6 @@ class EndpointHandlers(
     val schemaInjectionProviders = if (useSchemaInjection) SchemaInjectionBridge.toolSpecsToProviders(tools) else emptyList()
     val schemaInjectionMessages = if (useSchemaInjection) SchemaInjectionBridge.buildInitialMessages(req.messages) else emptyList()
     val truncateHistory = prefs.autoTruncateHistory
-    val compactToolSchemas = prefs.compactToolSchemas
     val trimPrompts = prefs.autoTrimPrompts
     val maxContext = model.maxContextTokens
 
@@ -155,7 +154,7 @@ class EndpointHandlers(
       chatTemplate = null,
       maxContext = maxContext,
       truncateHistory = truncateHistory,
-      compactToolSchemas = compactToolSchemas,
+      compactToolSchemas = false,
       trimPrompts = trimPrompts,
       interleaveImagePlaceholders = hasImageParts,
     )

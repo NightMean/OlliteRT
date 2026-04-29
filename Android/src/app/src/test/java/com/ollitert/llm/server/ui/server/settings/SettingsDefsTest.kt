@@ -116,7 +116,7 @@ class SettingsDefsTest {
     assertTrue("Expected at least 1 toggle with dual defaults", dualDefaults.isNotEmpty())
     for (def in dualDefaults) {
       assertTrue("Toggle '${def.key}' has dual defaults but is not a known case",
-        def.key in setOf("keep_screen_awake", "truncate_history", "compact_tool_schemas"))
+        def.key in setOf("keep_screen_awake", "truncate_history"))
     }
   }
 

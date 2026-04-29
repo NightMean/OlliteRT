@@ -125,8 +125,6 @@ class KtorServer(
       ServerPrefs::isAutoTruncateHistory, ServerPrefs::setAutoTruncateHistory),
     BooleanToggle("auto_trim_prompts", "Auto Trim Prompts",
       ServerPrefs::isAutoTrimPrompts, ServerPrefs::setAutoTrimPrompts),
-    BooleanToggle("compact_tool_schemas", "Compact Tool Schemas",
-      ServerPrefs::isCompactToolSchemas, ServerPrefs::setCompactToolSchemas),
     BooleanToggle("warmup_enabled", "Warmup",
       ServerPrefs::isWarmupEnabled, ServerPrefs::setWarmupEnabled),
     BooleanToggle("keep_alive_enabled", "Keep Alive",

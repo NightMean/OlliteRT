@@ -52,7 +52,6 @@ private const val KEY_SHOW_MODEL_RECOMMENDATIONS = "show_model_recommendations"
 private const val KEY_WARMUP_ENABLED = "warmup_enabled"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
 private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
-private const val KEY_COMPACT_TOOL_SCHEMAS = "compact_tool_schemas"
 private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
 private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
@@ -238,7 +237,6 @@ object ServerPrefs {
   private val WARMUP_ENABLED = BoolPref(KEY_WARMUP_ENABLED, true)
   private val EAGER_VISION_INIT = BoolPref(KEY_EAGER_VISION_INIT, false)
   private val CUSTOM_PROMPTS_ENABLED = BoolPref(KEY_CUSTOM_PROMPTS_ENABLED, false)
-  private val COMPACT_TOOL_SCHEMAS = BoolPref(KEY_COMPACT_TOOL_SCHEMAS, false)
   private val AUTO_TRUNCATE_HISTORY = BoolPref(KEY_AUTO_TRUNCATE_HISTORY, false)
   private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
   private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
@@ -353,9 +351,6 @@ object ServerPrefs {
 
   fun isCustomPromptsEnabled(context: Context): Boolean = get(context, CUSTOM_PROMPTS_ENABLED)
   fun setCustomPromptsEnabled(context: Context, enabled: Boolean) = set(context, CUSTOM_PROMPTS_ENABLED, enabled)
-
-  fun isCompactToolSchemas(context: Context): Boolean = get(context, COMPACT_TOOL_SCHEMAS)
-  fun setCompactToolSchemas(context: Context, enabled: Boolean) = set(context, COMPACT_TOOL_SCHEMAS, enabled)
 
   fun isAutoTruncateHistory(context: Context): Boolean = get(context, AUTO_TRUNCATE_HISTORY)
   fun setAutoTruncateHistory(context: Context, enabled: Boolean) = set(context, AUTO_TRUNCATE_HISTORY, enabled)
@@ -783,7 +778,6 @@ object ServerPrefs {
     RequestPrefsSnapshot(
       autoTruncateHistory = isAutoTruncateHistory(context),
       autoTrimPrompts = isAutoTrimPrompts(context),
-      compactToolSchemas = isCompactToolSchemas(context),
       ignoreClientSamplerParams = isIgnoreClientSamplerParams(context),
       eagerVisionInit = isEagerVisionInit(context),
       streamLogsPreview = isStreamLogsPreview(context),
@@ -810,7 +804,6 @@ object ServerPrefs {
 data class RequestPrefsSnapshot(
   val autoTruncateHistory: Boolean = false,
   val autoTrimPrompts: Boolean = false,
-  val compactToolSchemas: Boolean = false,
   val ignoreClientSamplerParams: Boolean = false,
   val eagerVisionInit: Boolean = false,
   val streamLogsPreview: Boolean = true,

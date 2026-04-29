@@ -384,9 +384,6 @@
   <string name="settings_custom_prompts_desc" translatable="false">Enable per-model system prompt field in Inference Settings. The system prompt is prepended to every conversation as an instruction to the model</string>
   <string name="settings_truncate_history" translatable="false">Truncate Conversation History</string>
   <string name="settings_truncate_history_desc" translatable="false">When a request exceeds the model\'s context window, drop older messages from the conversation while keeping system prompts and the most recent messages</string>
-  <string name="settings_compact_tool_schemas" translatable="false">Compact Tool Schemas</string>
-  <string name="settings_compact_tool_schemas_desc" translatable="false">When a request with tools exceeds the model\'s context window, automatically reduce tool schemas to names and descriptions only (omitting parameter details). If still too large, tool schemas are removed entirely</string>
-  <string name="settings_compact_tool_schemas_desc_disabled" translatable="false">Not applicable when Schema Injection is enabled — tools are registered natively with the SDK instead of being injected into the prompt</string>
   <string name="settings_trim_prompt" translatable="false">Trim Prompt</string>
   <string name="settings_trim_prompt_desc" translatable="false">⚠️ Last resort — will likely produce degraded output. Hard-cuts the prompt to fit the context window, discarding the beginning (including system prompts and tool definitions). Only enable if requests are consistently rejected for exceeding context limits</string>
   <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>

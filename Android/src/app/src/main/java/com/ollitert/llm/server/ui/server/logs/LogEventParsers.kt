@@ -65,7 +65,7 @@ internal sealed class ParsedEventType {
   data class Ready(val modelName: String, val timeMs: String) : ParsedEventType()
   data class Warmup(val input: String, val output: String, val timeMs: String) : ParsedEventType()
   data class InferenceSettings(val parsed: ParsedInferenceEvent) : ParsedEventType()
-  /** A settings toggle like "Compact Tool Schemas enabled/disabled". */
+  /** A settings toggle like "Truncate History enabled/disabled". */
   data class SettingsToggle(val settingName: String, val enabled: Boolean) : ParsedEventType()
   /** System prompt or chat template active on server start. */
   data class PromptActive(val promptType: String, val promptText: String) : ParsedEventType()
