@@ -233,40 +233,48 @@ jobs:
             if [ -f "$LINT_REPORT" ] && [ "$LINT_WARNINGS" -gt 0 ]; then
               echo "<details><summary>Lint overview ($LINT_WARNINGS warnings)</summary>"
               echo ""
-              echo "| Category | Count | Details |"
-              echo "|----------|-------|---------|"
               python3 -c "
           import xml.etree.ElementTree as ET
-          from collections import defaultdict
+          from collections import defaultdict, OrderedDict
 
           tree = ET.parse('$LINT_REPORT')
-          categories = defaultdict(lambda: {'count': 0, 'details': []})
+
+          # Group: category -> issue_id -> {summary, count, details[]}
+          groups = defaultdict(lambda: defaultdict(lambda: {'summary': '', 'count': 0, 'details': []}))
 
           for issue in tree.iter('issue'):
               if issue.get('severity') not in ('Warning', 'Information'):
                   continue
-              cat_id = issue.get('id', 'Unknown')
-              categories[cat_id]['count'] += 1
+              cat = issue.get('category', 'Other')
+              issue_id = issue.get('id', 'Unknown')
+              entry = groups[cat][issue_id]
+              entry['count'] += 1
+              if not entry['summary']:
+                  entry['summary'] = issue.get('summary', '')
               msg = issue.get('message', '')
-              # For dependency issues, collect version info
-              if cat_id in ('NewerVersionAvailable', 'GradleDependency') and msg:
-                  if msg not in categories[cat_id]['details']:
-                      categories[cat_id]['details'].append(msg)
+              if issue_id in ('NewerVersionAvailable', 'GradleDependency', 'AndroidGradlePluginVersion') and msg:
+                  if msg not in entry['details']:
+                      entry['details'].append(msg)
 
-          for cat_id, info in sorted(categories.items(), key=lambda x: -x[1]['count']):
-              count = info['count']
-              details = info['details']
-              if details:
-                  # Show up to 5 version details, truncate long messages
-                  shown = [d[:80] for d in details[:5]]
-                  detail_str = '<br>'.join(shown)
-                  if len(details) > 5:
-                      detail_str += f'<br>… and {len(details) - 5} more'
-              else:
-                  detail_str = ''
-              print(f'| {cat_id} | {count} | {detail_str} |')
+          for cat in sorted(groups.keys()):
+              issues = groups[cat]
+              print(f'**{cat}**')
+              print('')
+              print('| # | Issue | Description |')
+              print('|---|-------|-------------|')
+              for issue_id, info in sorted(issues.items(), key=lambda x: -x[1]['count']):
+                  count = info['count']
+                  summary = info['summary']
+                  details = info['details']
+                  desc = summary
+                  if details:
+                      shown = [d[:90] for d in details[:4]]
+                      desc += '<br>' + '<br>'.join(shown)
+                      if len(details) > 4:
+                          desc += f'<br>… +{len(details) - 4} more'
+                  print(f'| {count} | {issue_id} | {desc} |')
+              print('')
           "
-              echo ""
               echo "</details>"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
