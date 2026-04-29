@@ -59,6 +59,7 @@ class ServerPrefsTest {
     ServerPrefs.setHaIntegrationEnabled(context, true)
     ServerPrefs.setVerboseDebugEnabled(context, true)
     ServerPrefs.setUpdateCheckEnabled(context, false)
+    ServerPrefs.setCrossChannelNotifyEnabled(context, true)
 
     ServerPrefs.resetToDefaults(context)
 
@@ -75,6 +76,7 @@ class ServerPrefsTest {
     assertFalse(ServerPrefs.isHaIntegrationEnabled(context))
     assertFalse(ServerPrefs.isVerboseDebugEnabled(context))
     assertTrue(ServerPrefs.isUpdateCheckEnabled(context))
+    assertFalse(ServerPrefs.isCrossChannelNotifyEnabled(context))
   }
 
   @Test
@@ -186,6 +188,50 @@ class ServerPrefsTest {
     assertNull(ServerPrefs.getCachedReleaseETag(context))
     assertNull(ServerPrefs.getLastDismissedUpdateVersion(context))
     assertEquals(0, ServerPrefs.getUpdateCheckConsecutiveFailures(context))
+  }
+
+  // --- Cross-Channel State ---
+
+  @Test
+  fun crossChannelNotifyDefaultsToFalse() {
+    assertFalse(ServerPrefs.isCrossChannelNotifyEnabled(context))
+  }
+
+  @Test
+  fun crossChannelNotifyRoundTrip() {
+    ServerPrefs.setCrossChannelNotifyEnabled(context, true)
+    assertTrue(ServerPrefs.isCrossChannelNotifyEnabled(context))
+    ServerPrefs.setCrossChannelNotifyEnabled(context, false)
+    assertFalse(ServerPrefs.isCrossChannelNotifyEnabled(context))
+  }
+
+  @Test
+  fun lastDismissedCrossChannelVersionRoundTrip() {
+    assertNull(ServerPrefs.getLastDismissedCrossChannelVersion(context))
+    ServerPrefs.setLastDismissedCrossChannelVersion(context, "v1.0.0-beta.1")
+    assertEquals("v1.0.0-beta.1", ServerPrefs.getLastDismissedCrossChannelVersion(context))
+    ServerPrefs.setLastDismissedCrossChannelVersion(context, null)
+    assertNull(ServerPrefs.getLastDismissedCrossChannelVersion(context))
+  }
+
+  @Test
+  fun cachedCrossChannelVersionRoundTrip() {
+    assertNull(ServerPrefs.getCachedCrossChannelVersion(context))
+    ServerPrefs.setCachedCrossChannelVersion(context, "v1.0.0-dev.3")
+    assertEquals("v1.0.0-dev.3", ServerPrefs.getCachedCrossChannelVersion(context))
+    ServerPrefs.setCachedCrossChannelVersion(context, null)
+    assertNull(ServerPrefs.getCachedCrossChannelVersion(context))
+  }
+
+  @Test
+  fun clearUpdateStateAlsoClearsCrossChannelState() {
+    ServerPrefs.setLastDismissedCrossChannelVersion(context, "v1.0.0-beta.2")
+    ServerPrefs.setCachedCrossChannelVersion(context, "v1.0.0-beta.2")
+
+    ServerPrefs.clearUpdateState(context)
+
+    assertNull(ServerPrefs.getLastDismissedCrossChannelVersion(context))
+    assertNull(ServerPrefs.getCachedCrossChannelVersion(context))
   }
 
   // --- Default Model Name ---
