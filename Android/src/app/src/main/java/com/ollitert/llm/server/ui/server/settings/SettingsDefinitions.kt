@@ -699,7 +699,7 @@ val allCardDefs: List<CardDef> = listOf(
     icon = CardIcon.Vector(Icons.Outlined.Token),
     settings = listOf(
       CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
-      STT_TRANSCRIPTION_PROMPT,
+      STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
     ),
   ),
   CardDef(

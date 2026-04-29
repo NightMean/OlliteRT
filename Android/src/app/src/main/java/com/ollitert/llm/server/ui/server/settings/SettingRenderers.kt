@@ -250,10 +250,10 @@ internal fun ToggleCardContent(
   var visibleCount = 0
   keys.forEachIndexed { index, key ->
     if (!visible[index]) return@forEachIndexed
+    val def = settingDefsByKey[key] as? SettingDef.Toggle ?: return@forEachIndexed
+    val entry = vm.getToggleEntry(key) ?: return@forEachIndexed
     if (visibleCount > 0) SettingDivider(verticalPadding = dividerPadding)
     visibleCount++
-    val entry = vm.getToggleEntry(key) ?: return@forEachIndexed
-    val def = settingDefsByKey[key] as? SettingDef.Toggle ?: return@forEachIndexed
     ToggleSettingRow(
       label = stringResource(def.labelRes),
       description = stringResource(def.descriptionRes),
