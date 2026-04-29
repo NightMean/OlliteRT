@@ -10,6 +10,7 @@
 - [Signing Release Builds](#signing-release-builds)
 - [HuggingFace OAuth](#huggingface-oauth)
 - [Lint & Tests](#lint--tests)
+- [Model Allowlist](#model-allowlist)
 - [R8 & ProGuard](#r8--proguard)
 
 ---
@@ -196,6 +197,18 @@ To set up OAuth:
 # Both at once
 ./gradlew :app:compileStableDebugKotlin :app:lintStableDebug :app:testStableDebugUnitTest
 ```
+
+## Model Allowlist
+
+The model allowlist source of truth is:
+
+```
+model_allowlists/v1/model_allowlist.json   ← edit this file
+```
+
+A Gradle `syncAllowlist` task (defined in `app/build.gradle.kts`) copies it to `Android/src/app/src/main/assets/model_allowlist.json` during `preBuild`. **Never edit the assets copy directly** — it will be overwritten on the next build.
+
+See [MODEL_ALLOWLIST_SCHEMA.md](MODEL_ALLOWLIST_SCHEMA.md) for the full field reference.
 
 ## R8 & ProGuard
 

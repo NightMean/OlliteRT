@@ -242,6 +242,12 @@ fun GlobalModelManager(
   }
   val builtInModels by remember { derivedStateOf { sortedAllModels.filter { !it.imported } } }
   val importedModels by remember { derivedStateOf { sortedAllModels.filter { it.imported } } }
+  val availableCapabilityFilters by remember {
+    derivedStateOf {
+      val allCaps = sortedAllModels.flatMapTo(mutableSetOf()) { it.capabilities }
+      CapabilityFilter.entries.filter { it.capability in allCaps }
+    }
+  }
 
   // Reset to ALL if the Imported filter is active but all imported models have been deleted
   LaunchedEffect(importedModels.size) {
@@ -438,7 +444,7 @@ fun GlobalModelManager(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
               ) {
-                CapabilityFilter.entries.forEach { cap ->
+                availableCapabilityFilters.forEach { cap ->
                   val isSelected = cap in activeCapabilities
                   ModelFilterChip(
                     label = stringResource(cap.labelResId),
