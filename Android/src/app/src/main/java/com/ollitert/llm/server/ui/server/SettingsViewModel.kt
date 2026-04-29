@@ -125,6 +125,7 @@ class SettingsViewModel @Inject constructor(
   val keepAliveMinutesEntry get() = entry<Long>("keep_alive_timeout")
   val updateCheckEnabledEntry get() = entry<Boolean>("auto_update_check")
   val updateCheckIntervalHoursEntry get() = entry<Long>("check_frequency")
+  val crossChannelNotifyEntry get() = entry<Boolean>("cross_channel_notify")
   val warmupEnabledEntry get() = entry<Boolean>("warmup_message")
   val eagerVisionInitEntry get() = entry<Boolean>("pre_init_vision")
   val customPromptsEnabledEntry get() = entry<Boolean>("custom_prompts")

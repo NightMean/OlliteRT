@@ -343,6 +343,24 @@ val CHECK_FOR_UPDATES = SettingDef.Custom(
   card = CardId.UPDATES,
 )
 
+val CROSS_CHANNEL_NOTIFY = SettingDef.Toggle(
+  key = "cross_channel_notify",
+  labelRes = R.string.settings_cross_channel_notify,
+  descriptionRes = R.string.settings_cross_channel_notify_desc,
+  card = CardId.UPDATES,
+  default = false,
+  prefsKey = "cross_channel_notify_enabled",
+  read = { ServerPrefs.isCrossChannelNotifyEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setCrossChannelNotifyEnabled(ctx, v) },
+)
+
+val NOTIFICATION_SETTINGS = SettingDef.Custom(
+  key = "notification_settings",
+  labelRes = R.string.settings_notification_settings,
+  descriptionRes = R.string.settings_notification_settings_desc,
+  card = CardId.UPDATES,
+)
+
 // ─── Metrics Card ─────────────────────────────────────────────────
 
 val SHOW_REQUEST_TYPES = SettingDef.Toggle(
@@ -621,7 +639,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Home Assistant
   HA_INTEGRATION, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
   // Updates
-  AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES,
+  AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES, CROSS_CHANNEL_NOTIFY, NOTIFICATION_SETTINGS,
   // Advanced
   WARMUP_MESSAGE, PRE_INIT_VISION, CUSTOM_PROMPTS, IGNORE_CLIENT_PARAMS,
   // Developer
@@ -700,7 +718,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.UPDATES,
     titleRes = R.string.settings_card_updates,
     icon = CardIcon.Vector(Icons.Outlined.SystemUpdate),
-    settings = listOf(AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES),
+    settings = listOf(AUTO_UPDATE_CHECK, CHECK_FREQUENCY, CHECK_FOR_UPDATES, CROSS_CHANNEL_NOTIFY, NOTIFICATION_SETTINGS),
   ),
   CardDef(
     id = CardId.ADVANCED,
