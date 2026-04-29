@@ -154,6 +154,7 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     // pair of calls in onCreate() not already protected.
     try {
       UpdateCheckWorker.createNotificationChannel(this)
+      UpdateCheckWorker.createCrossChannelNotificationChannels(this)
       AllowlistRefreshWorker.createNotificationChannel(this)
     } catch (e: Exception) {
       Log.e(TAG, "Failed to create notification channels — notifications may not work", e)
