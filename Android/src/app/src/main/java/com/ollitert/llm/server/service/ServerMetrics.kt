@@ -282,6 +282,14 @@ object ServerMetrics {
     _lastError.value = message
   }
 
+  fun clearErrorIfModel(modelName: String) {
+    if (_status.value == ServerStatus.ERROR && _activeModelName.value == modelName) {
+      _status.value = ServerStatus.STOPPED
+      _lastError.value = null
+      _activeModelName.value = null
+    }
+  }
+
   fun incrementRequestCount() {
     _requestCountFlow.value = _requestCount.incrementAndGet()
   }

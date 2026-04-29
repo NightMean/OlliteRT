@@ -51,6 +51,7 @@ import com.ollitert.llm.server.service.ModelFactory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.common.humanReadableSize
+import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -258,14 +259,15 @@ constructor(
       mgr?.cancel(AllowlistRefreshWorker.modelUpdateNotificationId(model.name))
     }
 
-    // Update status.
+    // Delete stale model files before starting fresh download.
+    deleteModel(model = model)
+
+    // Set IN_PROGRESS after deleteModel (which resets to NOT_DOWNLOADED) so the UI
+    // shows the progress bar immediately.
     setDownloadStatus(
       curModel = model,
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
-
-    // Delete the model files first.
-    deleteModel(model = model)
 
     // Start to send download request.
     downloadRepository.downloadModel(
@@ -288,6 +290,9 @@ constructor(
     // Cancel any in-progress download before deleting files — prevents the WorkManager
     // worker from writing to deleted paths and reporting false success.
     downloadRepository.cancelDownloadModel(model)
+
+    // Clear error state if this model was the one that failed to load.
+    ServerMetrics.clearErrorIfModel(model.name)
 
     // If the downloaded version is stale (updatable), reset to the latest version so
     // re-downloading picks up the newest file.
