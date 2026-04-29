@@ -317,6 +317,7 @@
   <!-- Settings: Check for Updates -->
   <string name="settings_check_for_updates" translatable="false">Check for Updates</string>
   <string name="settings_check_for_updates_desc" translatable="false">Check for a newer version of OlliteRT %1$s. Only checks releases matching your install channel.</string>
+  <string name="settings_update_available" translatable="false">New version available: %1$s</string>
   <string name="settings_download_version" translatable="false">Download %1$s</string>
   <string name="settings_check_now_tooltip" translatable="false">Check now</string>
   <string name="settings_checking_for_updates" translatable="false">Checking for updates…</string>

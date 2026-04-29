@@ -213,11 +213,19 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
       ) {
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
           SettingLabel(text = stringResource(R.string.settings_check_for_updates), searchQuery = vm.searchQuery)
-          Text(
-            text = stringResource(R.string.settings_check_for_updates_desc, BuildConfig.UPDATE_CHANNEL),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
+          if (hasUpdate) {
+            Text(
+              text = stringResource(R.string.settings_update_available, availableVersion ?: ""),
+              style = MaterialTheme.typography.bodySmall,
+              color = OlliteRTPrimary,
+            )
+          } else {
+            Text(
+              text = stringResource(R.string.settings_check_for_updates_desc, BuildConfig.UPDATE_CHANNEL),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
         }
         if (hasUpdate && !availableUrl.isNullOrBlank()) {
           val uriHandler = LocalUriHandler.current

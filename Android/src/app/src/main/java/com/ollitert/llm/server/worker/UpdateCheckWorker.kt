@@ -588,6 +588,16 @@ class UpdateCheckWorker @AssistedInject constructor(
     /** GitHub Releases page URL for the "What's New" link in Settings. */
     const val GITHUB_RELEASES_URL = GitHubConfig.RELEASES_URL
 
+    fun isOwnChannelTag(tag: String): Boolean {
+      val ownPattern = when (BuildConfig.UPDATE_CHANNEL) {
+        "stable" -> STABLE_TAG_PATTERN
+        "beta" -> BETA_TAG_PATTERN
+        "dev" -> DEV_TAG_PATTERN
+        else -> STABLE_TAG_PATTERN
+      }
+      return ownPattern.matches(tag)
+    }
+
     // Tag patterns for channel-aware filtering (internal for testability)
     internal val STABLE_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+$")
     internal val BETA_TAG_PATTERN = Regex("^v\\d+\\.\\d+\\.\\d+(-beta\\.\\d+)?$")

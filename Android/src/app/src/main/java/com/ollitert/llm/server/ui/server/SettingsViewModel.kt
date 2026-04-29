@@ -34,6 +34,7 @@ import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.SettingDef
@@ -299,6 +300,13 @@ class SettingsViewModel @Inject constructor(
     if (updateCheckEnabledEntry.isChanged || updateCheckIntervalHoursEntry.isChanged) {
       if (updateCheckEnabledEntry.current) UpdateCheckWorker.scheduleUpdateCheck(context)
       else UpdateCheckWorker.cancelUpdateCheck(context)
+    }
+    if (crossChannelNotifyEntry.isChanged && !crossChannelNotifyEntry.current) {
+      val cached = ServerMetrics.availableUpdateVersion.value
+      if (cached != null && !UpdateCheckWorker.isOwnChannelTag(cached)) {
+        ServerMetrics.setAvailableUpdate(null, null)
+        ServerPrefs.setCachedUpdateInfo(context, null, null, null)
+      }
     }
 
     // ── Log changes ──
