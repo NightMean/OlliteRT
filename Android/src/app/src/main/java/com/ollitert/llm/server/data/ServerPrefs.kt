@@ -242,7 +242,7 @@ object ServerPrefs {
   private val AUTO_TRUNCATE_HISTORY = BoolPref(KEY_AUTO_TRUNCATE_HISTORY, false)
   private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
   private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
-  private val SCHEMA_INJECTION_TOOL_CALLING = BoolPref(KEY_SCHEMA_INJECTION_TOOL_CALLING, false)
+  private val SCHEMA_INJECTION_TOOL_CALLING = BoolPref(KEY_SCHEMA_INJECTION_TOOL_CALLING, true)
   private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
 
   // UI Preferences
@@ -822,7 +822,7 @@ data class RequestPrefsSnapshot(
   val rejectWhenBusy: Boolean = false,
   val sttTranscriptionPromptEnabled: Boolean = true,
   val sttTranscriptionPromptText: String = "",
-  val schemaInjectionToolCalling: Boolean = false,
+  val schemaInjectionToolCalling: Boolean = true,
 )
 
 internal fun encodeInferenceConfig(configValues: Map<String, Any>): String = buildJsonObject {
