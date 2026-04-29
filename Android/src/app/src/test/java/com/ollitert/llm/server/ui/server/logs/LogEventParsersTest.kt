@@ -246,11 +246,31 @@ class LogEventParsersTest {
 
   @Test
   fun updateAvailable() {
-    val result = parseEventType("Update available: v1.2.0", "Release notes here")
+    val result = parseEventType("Update available: v1.2.0", "Current: v1.1.0\nRelease: https://github.com/repo/releases/tag/v1.2.0")
     assertTrue(result is ParsedEventType.UpdateAvailable)
     val ua = result as ParsedEventType.UpdateAvailable
     assertEquals("v1.2.0", ua.version)
-    assertEquals("Release notes here", ua.body)
+    assertEquals("https://github.com/repo/releases/tag/v1.2.0", ua.releaseUrl)
+    assertEquals("Current: v1.1.0\nRelease: https://github.com/repo/releases/tag/v1.2.0", ua.body)
+  }
+
+  @Test
+  fun updateAvailableWithoutUrl() {
+    val result = parseEventType("Update available: v1.2.0", "Release notes only")
+    assertTrue(result is ParsedEventType.UpdateAvailable)
+    val ua = result as ParsedEventType.UpdateAvailable
+    assertEquals("v1.2.0", ua.version)
+    assertNull(ua.releaseUrl)
+  }
+
+  @Test
+  fun updateAvailableWithNullBody() {
+    val result = parseEventType("Update available: v1.2.0", null)
+    assertTrue(result is ParsedEventType.UpdateAvailable)
+    val ua = result as ParsedEventType.UpdateAvailable
+    assertEquals("v1.2.0", ua.version)
+    assertNull(ua.releaseUrl)
+    assertNull(ua.body)
   }
 
   @Test
