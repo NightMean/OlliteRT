@@ -93,21 +93,22 @@ class UpdateCheckWorker @AssistedInject constructor(
       )
     }
 
+    val crossChannelEnabled = ServerPrefs.isCrossChannelNotifyEnabled(context)
+    val checkedChannels = if (crossChannelEnabled) "stable/beta/dev" else BuildConfig.UPDATE_CHANNEL
+
     try {
       val release = fetchLatestRelease(context) ?: run {
-        // null means either 304 Not Modified with no cache, or no matching releases found.
-        // Both mean there's nothing newer to report — but distinguish for user feedback.
         if (verbose) {
           RequestLogStore.addEvent(
             "No releases found",
             level = LogLevel.DEBUG,
             category = EventCategory.UPDATE,
-            body = "Channel: ${BuildConfig.UPDATE_CHANNEL}, Version: ${BuildConfig.VERSION_NAME}",
+            body = "Channel: $checkedChannels, Version: ${BuildConfig.VERSION_NAME}",
           )
         }
         return Result.success(workDataOf(
           KEY_RESULT to RESULT_UP_TO_DATE,
-          KEY_MESSAGE to context.getString(R.string.update_check_no_updates),
+          KEY_MESSAGE to context.getString(R.string.update_check_no_updates, checkedChannels),
         ))
       }
 
@@ -226,13 +227,8 @@ class UpdateCheckWorker @AssistedInject constructor(
       is GitHubResponse.NotModified -> null
       is GitHubResponse.Success -> {
         cachedReleasesJson = response.body
-        val ownPattern = when (BuildConfig.UPDATE_CHANNEL) {
-          "stable" -> STABLE_TAG_PATTERN
-          "beta" -> BETA_TAG_PATTERN
-          "dev" -> DEV_TAG_PATTERN
-          else -> STABLE_TAG_PATTERN
-        }
-        findBestRelease(response.body, ownPattern)
+        // When cross-channel is enabled, find the latest release from any channel
+        findBestRelease(response.body, DEV_TAG_PATTERN)
       }
       is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
     }
@@ -457,7 +453,21 @@ class UpdateCheckWorker @AssistedInject constructor(
         return context.getString(R.string.update_check_failed_rate_limited)
       }
       404 -> {
-        // Repository not found — increment consecutive failure counter
+        // /releases/latest returns 404 when no non-prerelease releases exist —
+        // this is normal when no releases match the user's channel, not an error.
+        if (e.url.endsWith("/releases/latest")) {
+          if (verbose) {
+            RequestLogStore.addEvent(
+              "No releases found for ${BuildConfig.UPDATE_CHANNEL} channel",
+              level = LogLevel.DEBUG,
+              category = EventCategory.UPDATE,
+              body = "GitHub /releases/latest returned 404 — no releases for ${BuildConfig.UPDATE_CHANNEL} channel yet",
+            )
+          }
+          return context.getString(R.string.update_check_no_updates, BuildConfig.UPDATE_CHANNEL)
+        }
+
+        // Other 404s: repository not found — increment consecutive failure counter
         val failures = ServerPrefs.getUpdateCheckConsecutiveFailures(context) + 1
         ServerPrefs.setUpdateCheckConsecutiveFailures(context, failures)
         Log.w(TAG, "Update check 404 — consecutive failures: $failures/$MAX_CONSECUTIVE_FAILURES")
