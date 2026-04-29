@@ -81,3 +81,133 @@ jobs:
           path: Android/src/app/build/reports/lint-results-stableDebug.html
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Job summary
+        if: always()
+        env:
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          RESULTS_DIR="app/build/test-results/testStableDebugUnitTest"
+          LINT_REPORT="app/build/reports/lint-results-stableDebug.xml"
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_FULL=$(git rev-parse HEAD)
+          APP_VERSION=$(grep -oP '(?<=^APP_VERSION_NAME=).+' gradle.properties)
+          BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
+
+          TOTAL=0; FAILED=0; SKIPPED=0; ERRORS=0; TIME="0"
+          if [ -d "$RESULTS_DIR" ]; then
+            for XML in "$RESULTS_DIR"/*.xml; do
+              [ -f "$XML" ] || continue
+              T=$(grep -oP '(?<=tests=")[^"]+' "$XML" | head -1)
+              F=$(grep -oP '(?<=failures=")[^"]+' "$XML" | head -1)
+              E=$(grep -oP '(?<=errors=")[^"]+' "$XML" | head -1)
+              S=$(grep -oP '(?<=skipped=")[^"]+' "$XML" | head -1)
+              TM=$(grep -oP '(?<=time=")[^"]+' "$XML" | head -1)
+              TOTAL=$((TOTAL + ${T:-0}))
+              FAILED=$((FAILED + ${F:-0}))
+              ERRORS=$((ERRORS + ${E:-0}))
+              SKIPPED=$((SKIPPED + ${S:-0}))
+              TIME=$(python3 -c "print(round(${TIME:-0} + ${TM:-0}, 2))")
+            done
+          fi
+          PASSED=$((TOTAL - FAILED - ERRORS - SKIPPED))
+
+          if [ "$FAILED" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
+            STATUS="❌ FAILED"
+          elif [ "$TOTAL" -eq 0 ]; then
+            STATUS="⚠️ NO TESTS RUN"
+          else
+            STATUS="✅ PASSED"
+          fi
+
+          TRIGGER="push"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            TRIGGER="pull request"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TRIGGER="manual"
+          fi
+
+          # Lint counts
+          LINT_ERRORS=0; LINT_WARNINGS=0
+          if [ -f "$LINT_REPORT" ]; then
+            LINT_ERRORS=$(grep -c 'severity="Error"' "$LINT_REPORT" || true)
+            LINT_WARNINGS=$(grep -c 'severity="Warning"' "$LINT_REPORT" || true)
+          fi
+
+          {
+            echo "## JVM Unit Tests: $STATUS"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| **Commit** | [\`$COMMIT_SHA\`](https://github.com/$REPO/commit/$COMMIT_FULL) |"
+            echo "| **Branch** | \`$BRANCH\` |"
+            echo "| **App version** | $APP_VERSION |"
+            echo "| **Trigger** | $TRIGGER |"
+            echo "| **Total tests** | $TOTAL |"
+            echo "| **Passed** | $PASSED |"
+            if [ "$FAILED" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
+              echo "| **Failed** | $((FAILED + ERRORS)) |"
+            fi
+            if [ "$SKIPPED" -gt 0 ]; then
+              echo "| **Skipped** | $SKIPPED |"
+            fi
+            echo "| **Duration** | ${TIME}s |"
+            if [ -f "$LINT_REPORT" ]; then
+              echo "| **Lint errors** | $LINT_ERRORS |"
+              echo "| **Lint warnings** | $LINT_WARNINGS |"
+            fi
+            echo ""
+
+            # Show failed tests with assertion messages (not collapsed)
+            if [ "$FAILED" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
+              echo "### Failed Tests"
+              echo ""
+              for XML in "$RESULTS_DIR"/*.xml; do
+                [ -f "$XML" ] || continue
+                python3 -c "
+          import xml.etree.ElementTree as ET, sys
+          tree = ET.parse('$XML')
+          for tc in tree.iter('testcase'):
+              failure = tc.find('failure')
+              error = tc.find('error')
+              elem = failure if failure is not None else error
+              if elem is None:
+                  continue
+              cls = tc.get('classname', '').rsplit('.', 1)[-1]
+              name = tc.get('name', '')
+              msg = elem.get('message', '')
+              # Truncate long messages
+              if len(msg) > 200:
+                  msg = msg[:200] + '…'
+              print(f'- \`{cls}.{name}\`')
+              if msg:
+                  print(f'  > {msg}')
+          "
+              done
+              echo ""
+            fi
+
+            # Lint details (collapsed)
+            if [ -f "$LINT_REPORT" ] && [ "$LINT_ERRORS" -gt 0 ]; then
+              echo "<details><summary>Lint errors ($LINT_ERRORS)</summary>"
+              echo ""
+              python3 -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('$LINT_REPORT')
+          for issue in tree.iter('issue'):
+              if issue.get('severity') != 'Error':
+                  continue
+              msg = issue.get('message', '')
+              loc = issue.find('location')
+              if loc is not None:
+                  f = loc.get('file', '').replace('$PWD/', '')
+                  line = loc.get('line', '')
+                  print(f'- \`{f}:{line}\` — {msg}')
+              else:
+                  print(f'- {msg}')
+          "
+              echo ""
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
