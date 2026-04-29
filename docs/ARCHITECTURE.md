@@ -90,6 +90,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `HttpResponse.kt` | Sealed class for response types (JSON, Binary, PlainText, SSE) |
 | `RouteResolver.kt` | URL → handler mapping for all endpoints |
 | `EndpointHandlers.kt` | Inference API endpoints (`/v1/chat/completions`, `/v1/completions`, `/v1/responses`) |
+| `InferenceRequest.kt` | Internal request data class — wraps prompt, images, audio, config for inference |
 | `InferenceRunner.kt` | Inference execution — streaming, non-streaming, tool call detection |
 | `InferenceGateway.kt` | Request validation and inference orchestration |
 | `PayloadBuilders.kt` | JSON response construction (health, models, server info) |
@@ -169,7 +170,7 @@ All screens use Jetpack Compose with Material 3. State is managed via `@HiltView
 | Models | `modelmanager/` | Model list, download, import, delete |
 | Status | `server/StatusScreen.kt` | Live metrics dashboard |
 | Logs | `server/LogsScreen.kt` + `server/logs/` | Request/response logs with event parsing |
-| Settings | `server/SettingsScreen.kt`, `SettingsViewModel.kt` + `server/settings/` (13 card files, data model, definitions, dialogs, footer, renderers, validators) | Server configuration |
+| Settings | `server/SettingsScreen.kt`, `SettingsViewModel.kt`, `InferenceSettingsSheet.kt` + `server/settings/` (13 card files, data model, definitions, dialogs, footer, renderers, validators) | Server configuration, per-model inference settings bottom sheet |
 | Model Sources | `repositories/RepositoryListScreen.kt`, `RepositoryDetailScreen.kt`, `RepositoryViewModel.kt` | Model source management — add, remove, enable/disable model sources |
 | Benchmark | `benchmark/` | Model performance benchmarking |
 
