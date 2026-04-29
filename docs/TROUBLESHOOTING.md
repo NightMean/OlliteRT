@@ -46,7 +46,7 @@ A server control endpoint (`/v1/server/reload`, `/v1/server/thinking`, `/v1/serv
 ### "500 Internal Error"
 
 An unexpected error occurred while generating a response. Common causes:
-- **Context window exceeded** — the conversation is too long for the model. Prompt compaction can be enabled in Settings → Advanced to handle this automatically, but it may reduce response quality by dropping older context. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details
+- **Context window exceeded** — the conversation is too long for the model. Prompt compaction can be enabled in Settings → Context Management to handle this automatically, but it may reduce response quality by dropping older context. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details
 - **Model crash** — the LiteRT runtime encountered an error. Try reloading the model
 - Check the Logs screen for the full error message. If the issue persists, [open a bug report](https://github.com/NightMean/OlliteRT/issues/new?template=01_bug_report.yml) — the template includes instructions for exporting logs
 
@@ -94,7 +94,7 @@ See [Importing Your Own Models](MODELS.md#importing-your-own-models) for the ful
 
 ### Long conversations fail / context window exceeded
 
-When a conversation exceeds the model's context window, the request may fail with an error. By default, OlliteRT does not automatically handle this. Enable prompt compaction in Settings → Advanced to automatically truncate older messages when the context is full. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details on the three available strategies.
+When a conversation exceeds the model's context window, the request may fail with an error. By default, OlliteRT does not automatically handle this. Enable prompt compaction in Settings → Context Management to automatically truncate older messages when the context is full. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details on the three available strategies.
 
 ## Multimodal
 
@@ -186,8 +186,8 @@ Since tool calling is prompt-based, the model may ignore tool instructions entir
 
 - **Use the right model** — only Gemma 4 E2B and E4B support tool calling reliably. Smaller models (Gemma 3 1B, Qwen 2.5, DeepSeek-R1) may ignore tool instructions entirely or produce malformed output
 - **Keep tool definitions simple** — use short, clear names and descriptions. The more tools you define, the more context they consume and the harder it is for the model to follow them correctly
-- **Too many tools** — large tool sets (e.g. Home Assistant with 20+ device control functions) can exceed the model's context window. You can enable **Compact Tool Schemas** in Settings → Advanced to automatically reduce tool definitions when context is tight. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details on all compaction strategies
-- **Lower the temperature** — higher temperatures increase randomness, which can cause the model to include extra text in tool arguments or call the wrong function. If your client limits temperature to 0–1 (Gemma supports 0–2), enable **Ignore Client Sampler Parameters** in Settings → Advanced to use your own inference settings instead
+- **Too many tools** — large tool sets (e.g. Home Assistant with 20+ device control functions) can exceed the model's context window. You can enable **Compact Tool Schemas** in Settings → Context Management to automatically reduce tool definitions when context is tight. See the [FAQ](FAQ.md#what-is-prompt-compaction) for details on all compaction strategies
+- **Lower the temperature** — higher temperatures increase randomness, which can cause the model to include extra text in tool arguments or call the wrong function. If your client limits temperature to 0–1 (Gemma supports 0–2), enable **Ignore Client Sampler Parameters** in Settings → Model Behaviour to use your own inference settings instead
 - **Check the Logs screen** — expand the response body to see what the model actually output
 
 ### Streaming and tool calling

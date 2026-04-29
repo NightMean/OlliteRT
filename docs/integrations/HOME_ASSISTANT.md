@@ -168,7 +168,7 @@ rest_command:
 ### Automation Examples
 
 > [!TIP]
-> Instead of automating temperature changes, you can enable **Ignore Client Sampler Parameters** in OlliteRT Settings → Advanced to always use your own per-model inference settings regardless of what HA sends.
+> Instead of automating temperature changes, you can enable **Ignore Client Sampler Parameters** in OlliteRT Settings → Model Behaviour to always use your own per-model inference settings regardless of what HA sends.
 
 **Lower temperature when switching to a tool-calling automation** (see [Troubleshooting → Tool Calling](../TROUBLESHOOTING.md#tool-calling-experimental) for more tips):
 

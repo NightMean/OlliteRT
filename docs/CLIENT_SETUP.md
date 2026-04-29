@@ -67,7 +67,7 @@ OlliteRT integrates with Home Assistant in two ways — as a [conversation agent
 > [!TIP]
 > **For better tool calling results:**
 > - Keep entity names and aliases short and simple — the model matches concise names (e.g. "Living Room Light") more reliably than long or complex ones
-> - Some integrations limit temperature to 0–1, but Gemma models support 0–2. Enable **Ignore Client Sampler Parameters** in Settings → Advanced to discard client-sent values and use your own per-model inference settings instead
+> - Some integrations limit temperature to 0–1, but Gemma models support 0–2. Enable **Ignore Client Sampler Parameters** in Settings → Model Behaviour to discard client-sent values and use your own per-model inference settings instead
 
 ### Voice Transcription (STT)
 

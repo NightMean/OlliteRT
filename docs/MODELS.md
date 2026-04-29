@@ -75,7 +75,7 @@ The context window determines how much conversation history the model can "see" 
 > [!NOTE]
 > The word counts in the table above are approximate, based on ~0.75 words per token. Actual numbers vary depending on language, content type, and vocabulary — code and non-English text typically use more tokens per word.
 
-When a conversation exceeds the context window, OlliteRT can automatically compact older messages to fit. Three compaction strategies are available in Settings → Advanced (all disabled by default). See the [FAQ](FAQ.md#what-is-prompt-compaction) for details, or [Troubleshooting](TROUBLESHOOTING.md#long-conversations-fail--context-window-exceeded) if conversations are failing.
+When a conversation exceeds the context window, OlliteRT can automatically compact older messages to fit. Three compaction strategies are available in Settings → Context Management (all disabled by default). See the [FAQ](FAQ.md#what-is-prompt-compaction) for details, or [Troubleshooting](TROUBLESHOOTING.md#long-conversations-fail--context-window-exceeded) if conversations are failing.
 
 ## Importing Your Own Models
 

@@ -188,7 +188,7 @@ If thinking mode isn't producing reasoning output, see [Troubleshooting → Thin
 Yes. Tap the gear icon on any model card to open inference settings. You can configure temperature, top-K, top-P, and max tokens individually for each model. Settings are saved per model and persist across server restarts.
 
 > [!TIP]
-> Some API clients send their own sampler values (e.g. temperature capped at 1.0) that may override your per-model settings. Enable **Ignore Client Sampler Parameters** in Settings → Advanced to discard client-sent values and always use your own inference settings instead.
+> Some API clients send their own sampler values (e.g. temperature capped at 1.0) that may override your per-model settings. Enable **Ignore Client Sampler Parameters** in Settings → Model Behaviour to discard client-sent values and always use your own inference settings instead.
 
 > [!TIP]
 > For imported models, you can also edit the default capabilities (vision, audio, thinking) and inference parameters after import — tap the edit icon on the imported model's card. Enabling a capability only tells OlliteRT to advertise and use it — the model itself must actually support it, otherwise requests using that capability will fail or produce garbage output.
@@ -197,13 +197,13 @@ Yes. Tap the gear icon on any model card to open inference settings. You can con
 
 ### Can I set a custom system prompt?
 
-Yes. Enable **Custom System Prompt** in Settings → Advanced, then set a per-model system prompt in the inference settings (tap the gear icon on a model card → expand "Custom System Prompt"). The system prompt is prepended to every conversation as an instruction to the model.
+Yes. Enable **Custom System Prompt** in Settings → Model Behaviour, then set a per-model system prompt in the inference settings (tap the gear icon on a model card → expand "Custom System Prompt"). The system prompt is prepended to every conversation as an instruction to the model.
 
 ---
 
 ### What is prompt compaction?
 
-When a conversation exceeds the model's context window, OlliteRT can automatically reduce the prompt to fit. Three strategies are available in Settings → Advanced, all **disabled by default**:
+When a conversation exceeds the model's context window, OlliteRT can automatically reduce the prompt to fit. Three strategies are available in Settings → Context Management, all **disabled by default**:
 
 - **Truncate History** — drop older messages, keeping system prompts and the most recent messages
 - **Compact Tool Schemas** — reduce tool definitions to names and descriptions only. If still too large, tool schemas are removed entirely
