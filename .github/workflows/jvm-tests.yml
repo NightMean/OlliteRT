@@ -177,12 +177,30 @@ jobs:
               cls = tc.get('classname', '').rsplit('.', 1)[-1]
               name = tc.get('name', '')
               msg = elem.get('message', '')
-              # Truncate long messages
               if len(msg) > 200:
                   msg = msg[:200] + '…'
               print(f'- \`{cls}.{name}\`')
               if msg:
                   print(f'  > {msg}')
+          "
+              done
+              echo ""
+            fi
+
+            # Show skipped tests
+            if [ "$SKIPPED" -gt 0 ]; then
+              echo "### Skipped Tests"
+              echo ""
+              for XML in "$RESULTS_DIR"/*.xml; do
+                [ -f "$XML" ] || continue
+                python3 -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('$XML')
+          for tc in tree.iter('testcase'):
+              if tc.find('skipped') is not None:
+                  cls = tc.get('classname', '').rsplit('.', 1)[-1]
+                  name = tc.get('name', '')
+                  print(f'- \`{cls}.{name}\`')
           "
               done
               echo ""
@@ -206,6 +224,47 @@ jobs:
                   print(f'- \`{f}:{line}\` — {msg}')
               else:
                   print(f'- {msg}')
+          "
+              echo ""
+              echo "</details>"
+            fi
+
+            # Lint overview by category (collapsed)
+            if [ -f "$LINT_REPORT" ] && [ "$LINT_WARNINGS" -gt 0 ]; then
+              echo "<details><summary>Lint overview ($LINT_WARNINGS warnings)</summary>"
+              echo ""
+              echo "| Category | Count | Details |"
+              echo "|----------|-------|---------|"
+              python3 -c "
+          import xml.etree.ElementTree as ET
+          from collections import defaultdict
+
+          tree = ET.parse('$LINT_REPORT')
+          categories = defaultdict(lambda: {'count': 0, 'details': []})
+
+          for issue in tree.iter('issue'):
+              if issue.get('severity') not in ('Warning', 'Information'):
+                  continue
+              cat_id = issue.get('id', 'Unknown')
+              categories[cat_id]['count'] += 1
+              msg = issue.get('message', '')
+              # For dependency issues, collect version info
+              if cat_id in ('NewerVersionAvailable', 'GradleDependency') and msg:
+                  if msg not in categories[cat_id]['details']:
+                      categories[cat_id]['details'].append(msg)
+
+          for cat_id, info in sorted(categories.items(), key=lambda x: -x[1]['count']):
+              count = info['count']
+              details = info['details']
+              if details:
+                  # Show up to 5 version details, truncate long messages
+                  shown = [d[:80] for d in details[:5]]
+                  detail_str = '<br>'.join(shown)
+                  if len(details) > 5:
+                      detail_str += f'<br>… and {len(details) - 5} more'
+              else:
+                  detail_str = ''
+              print(f'| {cat_id} | {count} | {detail_str} |')
           "
               echo ""
               echo "</details>"
