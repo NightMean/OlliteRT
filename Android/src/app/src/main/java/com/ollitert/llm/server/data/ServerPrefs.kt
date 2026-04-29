@@ -56,6 +56,7 @@ private const val KEY_COMPACT_TOOL_SCHEMAS = "compact_tool_schemas"
 private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
 private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
+private const val KEY_SCHEMA_INJECTION_TOOL_CALLING = "schema_injection_tool_calling"
 
 // ═══════════════════════════════════════════════════════════════════════════
 // § UI Preferences — keep screen on, log display, stream preview, metrics
@@ -241,6 +242,7 @@ object ServerPrefs {
   private val AUTO_TRUNCATE_HISTORY = BoolPref(KEY_AUTO_TRUNCATE_HISTORY, false)
   private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
   private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
+  private val SCHEMA_INJECTION_TOOL_CALLING = BoolPref(KEY_SCHEMA_INJECTION_TOOL_CALLING, false)
   private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
 
   // UI Preferences
@@ -363,6 +365,9 @@ object ServerPrefs {
 
   fun isKeepPartialResponse(context: Context): Boolean = get(context, KEEP_PARTIAL_RESPONSE)
   fun setKeepPartialResponse(context: Context, enabled: Boolean) = set(context, KEEP_PARTIAL_RESPONSE, enabled)
+
+  fun isSchemaInjectionToolCalling(context: Context): Boolean = get(context, SCHEMA_INJECTION_TOOL_CALLING)
+  fun setSchemaInjectionToolCalling(context: Context, enabled: Boolean) = set(context, SCHEMA_INJECTION_TOOL_CALLING, enabled)
 
   fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
   fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)
@@ -790,6 +795,7 @@ object ServerPrefs {
       rejectWhenBusy = isRejectWhenBusy(context),
       sttTranscriptionPromptEnabled = isSttTranscriptionPromptEnabled(context),
       sttTranscriptionPromptText = getSttTranscriptionPromptText(context),
+      schemaInjectionToolCalling = isSchemaInjectionToolCalling(context),
     )
 }
 
@@ -816,6 +822,7 @@ data class RequestPrefsSnapshot(
   val rejectWhenBusy: Boolean = false,
   val sttTranscriptionPromptEnabled: Boolean = true,
   val sttTranscriptionPromptText: String = "",
+  val schemaInjectionToolCalling: Boolean = false,
 )
 
 internal fun encodeInferenceConfig(configValues: Map<String, Any>): String = buildJsonObject {
