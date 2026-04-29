@@ -123,11 +123,57 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
       )
     }
 
-    if (vm.settingVisible(AUTO_UPDATE_CHECK.key) && vm.settingVisible(CHECK_FOR_UPDATES.key)) {
-      SettingDivider()
+    if (vm.settingVisible(CROSS_CHANNEL_NOTIFY.key)) {
+      if (vm.settingVisible(AUTO_UPDATE_CHECK.key)) {
+        SettingDivider()
+      }
+
+      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+      val crossChannelMuted = UpdateCheckWorker.areCrossChannelChannelsMuted(context)
+      val crossChannelEnabled = notifPermissionGranted && !crossChannelMuted
+      val isDevBuild = BuildConfig.UPDATE_CHANNEL == "dev"
+
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_cross_channel_notify),
+        description = if (isDevBuild) {
+          stringResource(R.string.settings_cross_channel_notify_desc_dev)
+        } else {
+          stringResource(R.string.settings_cross_channel_notify_desc)
+        },
+        checked = vm.crossChannelNotifyEntry.current,
+        onCheckedChange = { vm.crossChannelNotifyEntry.update(it) },
+        searchQuery = vm.searchQuery,
+        enabled = crossChannelEnabled && !isDevBuild,
+      )
+
+      if (!notifPermissionGranted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_notif_permission_warning),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+      } else if (crossChannelMuted) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = stringResource(R.string.settings_cross_channel_muted),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.clickable {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+            context.startActivity(intent)
+          },
+        )
+      }
     }
 
     if (vm.settingVisible(CHECK_FOR_UPDATES.key)) {
+      if (vm.settingVisible(CROSS_CHANNEL_NOTIFY.key) || vm.settingVisible(AUTO_UPDATE_CHECK.key)) {
+        SettingDivider()
+      }
+
       val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
       val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
       val hasUpdate = availableVersion != null
@@ -194,54 +240,8 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
       }
     }
 
-    if (vm.settingVisible(CROSS_CHANNEL_NOTIFY.key)) {
-      if (vm.settingVisible(CHECK_FOR_UPDATES.key)) {
-        SettingDivider()
-      }
-
-      val notifPermissionGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
-      val crossChannelMuted = UpdateCheckWorker.areCrossChannelChannelsMuted(context)
-      val crossChannelEnabled = notifPermissionGranted && !crossChannelMuted
-      val isDevBuild = BuildConfig.UPDATE_CHANNEL == "dev"
-
-      ToggleSettingRow(
-        label = stringResource(R.string.settings_cross_channel_notify),
-        description = if (isDevBuild) {
-          stringResource(R.string.settings_cross_channel_notify_desc_dev)
-        } else {
-          stringResource(R.string.settings_cross_channel_notify_desc)
-        },
-        checked = vm.crossChannelNotifyEntry.current,
-        onCheckedChange = { vm.crossChannelNotifyEntry.update(it) },
-        searchQuery = vm.searchQuery,
-        enabled = crossChannelEnabled && !isDevBuild,
-      )
-
-      if (!notifPermissionGranted) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_notif_permission_warning),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.error,
-        )
-      } else if (crossChannelMuted) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.settings_cross_channel_muted),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.error,
-          modifier = Modifier.clickable {
-            val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-              putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
-            }
-            context.startActivity(intent)
-          },
-        )
-      }
-    }
-
     if (vm.settingVisible(NOTIFICATION_SETTINGS.key)) {
-      if (vm.settingVisible(CROSS_CHANNEL_NOTIFY.key) || vm.settingVisible(CHECK_FOR_UPDATES.key)) {
+      if (vm.settingVisible(CHECK_FOR_UPDATES.key) || vm.settingVisible(CROSS_CHANNEL_NOTIFY.key)) {
         SettingDivider()
       }
 
