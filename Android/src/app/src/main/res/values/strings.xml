@@ -211,6 +211,10 @@
   <string name="notif_model_load_failed_title">Model Load Failed</string>
   <string name="notif_update_available_title">OlliteRT Update Available</string>
   <string name="notif_update_available_body">Version %1$s is available</string>
+  <string name="notif_cross_channel_title_beta" translatable="false">New Release on Beta Channel</string>
+  <string name="notif_cross_channel_title_dev" translatable="false">New Release on Dev Channel</string>
+  <string name="notif_cross_channel_title_stable" translatable="false">New Release on Stable Channel</string>
+  <string name="notif_cross_channel_body" translatable="false">OlliteRT v%1$s is available</string>
 
   <!-- Toast messages -->
   <string name="toast_settings_saved">Settings saved</string>
@@ -312,7 +316,7 @@
 
   <!-- Settings: Check for Updates -->
   <string name="settings_check_for_updates" translatable="false">Check for Updates</string>
-  <string name="settings_check_for_updates_desc" translatable="false">Check for a newer version of OlliteRT.</string>
+  <string name="settings_check_for_updates_desc" translatable="false">Check for a newer version of OlliteRT %1$s. Only checks releases matching your install channel.</string>
   <string name="settings_download_version" translatable="false">Download %1$s</string>
   <string name="settings_check_now_tooltip" translatable="false">Check now</string>
   <string name="settings_checking_for_updates" translatable="false">Checking for updates…</string>
@@ -323,6 +327,12 @@
   <string name="settings_notif_channel_muted" translatable="false">Update notification channel is muted in system settings.</string>
   <string name="settings_check_frequency_label" translatable="false">Check Frequency</string>
   <string name="settings_check_frequency_desc" translatable="false">How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days.</string>
+  <string name="settings_cross_channel_notify" translatable="false">Notify About Other Channels</string>
+  <string name="settings_cross_channel_notify_desc" translatable="false">Get notified when releases are available on other channels (beta, dev, stable).</string>
+  <string name="settings_cross_channel_notify_desc_dev" translatable="false">Dev builds already receive all release notifications.</string>
+  <string name="settings_notification_settings" translatable="false">Notification Settings</string>
+  <string name="settings_notification_settings_desc" translatable="false">Customize which notification channels are enabled.</string>
+  <string name="settings_cross_channel_muted" translatable="false">Cross-channel notification channels are muted in system settings.</string>
 
   <!-- Settings: Metrics card -->
   <string name="settings_card_metrics" translatable="false">Metrics</string>
@@ -807,6 +817,10 @@
   <!-- UpdateCheckWorker: Notification channel (visible in Android system notification settings) -->
   <string name="notif_channel_app_update_name" translatable="false">App Updates</string>
   <string name="notif_channel_app_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>
+  <string name="notif_channel_beta_release_name" translatable="false">Beta Releases</string>
+  <string name="notif_channel_beta_release_desc" translatable="false">Notifications about new beta releases from other channels.</string>
+  <string name="notif_channel_dev_release_name" translatable="false">Dev Releases</string>
+  <string name="notif_channel_dev_release_desc" translatable="false">Notifications about new dev pre-releases from other channels.</string>
 
   <!-- AllowlistRefreshWorker: Model update notification channel and content -->
   <string name="notif_channel_model_update_name" translatable="false">Model Updates</string>

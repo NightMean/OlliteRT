@@ -27,6 +27,7 @@
 - [How do I add or create a custom model source?](#how-do-i-add-or-create-a-custom-model-source)
 - [What do the log card footer badges mean?](#what-do-the-log-card-footer-badges-mean)
 - [How do I update a downloaded model?](#how-do-i-update-a-downloaded-model)
+- [Why am I not seeing new app updates?](#why-am-i-not-seeing-new-app-updates)
 
 ---
 
@@ -279,3 +280,19 @@ OlliteRT checks your model sources periodically (~24 hours) for updated model fi
 - The `/v1/models` API response includes `"update_available": true` for that model
 
 To update, tap the model card and download the new version — it replaces the existing file. You can also pull-to-refresh on the Models screen to check for updates immediately.
+
+---
+
+### Why am I not seeing new app updates?
+
+OlliteRT has three release channels: **stable**, **beta**, and **dev**. Each build only checks for updates within its own channel:
+
+| Install channel | Sees updates from |
+|-----------------|-------------------|
+| **stable** | Stable releases only |
+| **beta** | Beta and stable releases |
+| **dev** | Dev, beta, and stable releases |
+
+If you're on the beta channel, you won't be notified about a new stable-only release because stable is already included in beta's update scope. However, if you're on stable, you won't see beta or dev pre-releases.
+
+**To switch channels**, install the desired flavor from GitHub Releases. All three flavors can be installed side-by-side (they have different package IDs), so you can try a beta build without losing your stable install. Your current channel is shown in Settings → Check for Updates.
