@@ -80,6 +80,7 @@ data class RequestLogEntity(
     val partialText: String? = null,
     val isExactTokenCount: Boolean = false,
     val ignoredClientParams: String? = null,
+    val hasToolCalls: Boolean = false,
     val errorKind: String? = null,
     // Per-request performance metrics
     val ttfbMs: Long = 0,
@@ -124,6 +125,7 @@ data class RequestLogEntity(
       maxContextTokens = maxContextTokens,
       isExactTokenCount = ext.isExactTokenCount,
       ignoredClientParams = ext.ignoredClientParams,
+      hasToolCalls = ext.hasToolCalls,
       errorKind = ext.errorKind?.let { try { ErrorKind.valueOf(it) } catch (_: Exception) { null } },
       ttfbMs = ext.ttfbMs,
       decodeSpeed = ext.decodeSpeed,
@@ -154,6 +156,7 @@ data class RequestLogEntity(
         partialText = entry.partialText,
         isExactTokenCount = entry.isExactTokenCount,
         ignoredClientParams = entry.ignoredClientParams,
+        hasToolCalls = entry.hasToolCalls,
         errorKind = entry.errorKind?.name,
         ttfbMs = entry.ttfbMs,
         decodeSpeed = entry.decodeSpeed,

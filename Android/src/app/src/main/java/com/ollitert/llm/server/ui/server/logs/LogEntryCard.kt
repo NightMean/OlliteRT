@@ -33,6 +33,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Construction
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -64,6 +65,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -197,13 +200,20 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
         sizeChars.humanReadableSize()
       }
       Spacer(modifier = Modifier.height(10.dp))
+      val requestLabel = stringResource(R.string.logs_entry_request_label, requestSize)
+      val toolCallLabel = if (entry.hasToolCalls) stringResource(R.string.logs_badge_tool_call) else null
+      val annotatedRequestLabel = if (toolCallLabel != null) {
+        val base = buildAnnotatedRequestLabel(requestLabel, toolCallLabel, MaterialTheme.colorScheme.onSurfaceVariant, OlliteRTPrimary)
+        if (searchQuery.isNotEmpty()) overlaySearchHighlights(base, searchQuery) else base
+      } else null
       ExpandableBodySection(
-        label = stringResource(R.string.logs_entry_request_label, requestSize),
+        label = requestLabel,
         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         body = formatted,
         expanded = requestExpanded,
         showToggle = isLong,
         onToggle = { requestExpanded = !requestExpanded },
+        annotatedLabel = annotatedRequestLabel,
         searchQuery = searchQuery,
         wrapText = wrapText,
       )
@@ -769,6 +779,15 @@ private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
       fontWeight = FontWeight.SemiBold,
     )
   }
+  if (entry.hasToolCalls) {
+    FooterDot()
+    Icon(
+      imageVector = Icons.Outlined.Construction,
+      contentDescription = stringResource(R.string.logs_badge_tool_call),
+      tint = OlliteRTPrimary,
+      modifier = Modifier.size(14.dp),
+    )
+  }
   if (entry.isThinking) {
     FooterDot()
     Text(
@@ -804,4 +823,20 @@ private fun contextUtilizationColor(ratio: Double): Color = when {
   ratio > 0.8 -> MaterialTheme.colorScheme.error
   ratio > 0.5 -> WarningColor
   else -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+private fun buildAnnotatedRequestLabel(
+  baseLabel: String,
+  toolCallLabel: String,
+  baseColor: Color,
+  toolCallColor: Color,
+): AnnotatedString {
+  return buildAnnotatedString {
+    pushStyle(SpanStyle(color = baseColor))
+    append("$baseLabel · ")
+    pop()
+    pushStyle(SpanStyle(color = toolCallColor))
+    append(toolCallLabel)
+    pop()
+  }
 }

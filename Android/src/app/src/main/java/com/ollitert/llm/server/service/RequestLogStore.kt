@@ -74,6 +74,8 @@ data class RequestLogEntry(
   val isExactTokenCount: Boolean = false,
   /** Client-supplied sampler params that were ignored due to the "Ignore Client Sampler" setting. */
   val ignoredClientParams: String? = null,
+  /** True when the response contains tool calls (finish_reason = "tool_calls"). */
+  val hasToolCalls: Boolean = false,
   /** Classified error type, set when inference fails. Null for successful requests. */
   val errorKind: ErrorKind? = null,
   // ── Per-request performance metrics ──

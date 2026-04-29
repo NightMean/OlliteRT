@@ -212,6 +212,7 @@ class EndpointHandlers(
           ToolCallParser.parseAll(text, tools)
         }
         if (toolCalls.isNotEmpty()) {
+          if (logId != null) RequestLogStore.update(logId) { it.copy(hasToolCalls = true) }
           val source = if (useSchemaInjection && schemaInjectionToolCalls.isNotEmpty()) "schema_injection" else "text_parse"
           logEvent("request_tool_calls id=$requestId endpoint=/v1/chat/completions tools=${toolCalls.joinToString(",") { it.function.name }} count=${toolCalls.size} source=$source")
           val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
@@ -384,6 +385,7 @@ class EndpointHandlers(
           ToolCallParser.parseAll(text, tools)
         }
         if (toolCalls.isNotEmpty()) {
+          if (logId != null) RequestLogStore.update(logId) { it.copy(hasToolCalls = true) }
           val responseJson = json.encodeToString(PayloadBuilders.responsesResponseWithToolCalls(model.name, toolCalls, promptLen = prompt.length))
           captureResponse(responseJson)
           return httpOkJson(responseJson)

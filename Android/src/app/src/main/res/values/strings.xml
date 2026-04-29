@@ -566,6 +566,7 @@
   <!-- LogEntryCard: Footer badges -->
   <string name="logs_badge_sse" translatable="false">SSE</string>
   <string name="logs_badge_thinking" translatable="false">Thinking</string>
+  <string name="logs_badge_tool_call" translatable="false">Tool Call</string>
   <string name="logs_badge_cancelled" translatable="false">Cancelled</string>
   <string name="logs_badge_ctx_format" translatable="false">%1$s%2$d / %3$d ctx</string>
 

@@ -87,6 +87,7 @@ internal fun RequestLogEntry.matchesTextQuery(query: String, context: Context? =
   if (modelName?.contains(query, ignoreCase = true) == true) return true
   if (clientIp?.contains(query, ignoreCase = true) == true) return true
   if (method.contains(query, ignoreCase = true)) return true
+  if (hasToolCalls && "tool call".contains(query, ignoreCase = true)) return true
   if (requestBody?.contains(query, ignoreCase = true) == true) return true
   if (responseBody?.contains(query, ignoreCase = true) == true) return true
   if (method == "EVENT" && context != null) {
