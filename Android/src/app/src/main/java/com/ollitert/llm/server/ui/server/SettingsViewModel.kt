@@ -108,6 +108,7 @@ class SettingsViewModel @Inject constructor(
   private fun <T> entry(key: String): SettingEntry<T> = entryByKey.getValue(key) as SettingEntry<T>
 
   // ─── Typed Accessors (preserve call-site readability) ──────────────────
+  // Keys must match SettingDef.key values in SettingsDefinitions.kt.
   val portEntry get() = entry<Int>("host_port")
   val bearerTokenEntry get() = entry<String>("bearer_token")
   val hfTokenEntry get() = entry<String>("hf_token")
@@ -207,7 +208,8 @@ class SettingsViewModel @Inject constructor(
     return entryByKey[key] as? SettingEntry<Boolean>
   }
 
-  /** Whether a setting is interactive (not disabled by a parent dependency). */
+  /** Whether a setting is interactive (not disabled by a parent dependency).
+   *  Keys must match SettingDef.key values. Update settingAlpha() in tandem. */
   fun isSettingEnabled(key: String): Boolean = when (key) {
     "start_on_boot" -> defaultModelEntry.current != null
     "keep_alive_timeout" -> keepAliveEnabledEntry.current
@@ -217,7 +219,8 @@ class SettingsViewModel @Inject constructor(
     else -> true
   }
 
-  /** Alpha for settings that dim when their parent is disabled. */
+  /** Alpha for settings that dim when their parent is disabled.
+   *  Must stay in sync with isSettingEnabled() above. */
   fun settingAlpha(key: String): Float = when (key) {
     "start_on_boot" -> if (defaultModelEntry.current != null) 1f else 0.4f
     "keep_alive_timeout" -> if (keepAliveEnabledEntry.current) 1f else 0.4f
