@@ -568,6 +568,17 @@ val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
   write = { ctx, v -> ServerPrefs.setIgnoreClientSamplerParams(ctx, v) },
 )
 
+val SCHEMA_INJECTION_TOOL_CALLING = SettingDef.Toggle(
+  key = "schema_injection_tool_calling",
+  labelRes = R.string.settings_schema_injection_tool_calling,
+  descriptionRes = R.string.settings_schema_injection_tool_calling_desc,
+  card = CardId.MODEL_BEHAVIOUR,
+  default = false,
+  prefsKey = "schema_injection_tool_calling",
+  read = { ServerPrefs.isSchemaInjectionToolCalling(it) },
+  write = { ctx, v -> ServerPrefs.setSchemaInjectionToolCalling(ctx, v) },
+)
+
 val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
   key = "show_model_recommendations",
   labelRes = R.string.settings_show_model_recommendations,
@@ -633,7 +644,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
   // Model Behaviour
   CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
-  STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
+  SCHEMA_INJECTION_TOOL_CALLING, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
   // Context Management
   TRUNCATE_HISTORY, COMPACT_TOOL_SCHEMAS, TRIM_PROMPT,
   // Metrics
@@ -699,7 +710,7 @@ val allCardDefs: List<CardDef> = listOf(
     icon = CardIcon.Vector(Icons.Outlined.Token),
     settings = listOf(
       CUSTOM_PROMPTS, REJECT_WHEN_BUSY, WARMUP_MESSAGE, PRE_INIT_VISION, IGNORE_CLIENT_PARAMS,
-      STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
+      SCHEMA_INJECTION_TOOL_CALLING, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
     ),
   ),
   CardDef(
