@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -189,12 +188,6 @@ fun OlliteRTNavHost(
         if (reposChanged.value) {
           modelManagerViewModel.loadModelAllowlist()
           backStackEntry.savedStateHandle["reposChanged"] = false
-        }
-      }
-      val modelsLifecycleOwner = LocalLifecycleOwner.current
-      LaunchedEffect(modelsLifecycleOwner) {
-        modelsLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-          modelManagerViewModel.loadModelAllowlist()
         }
       }
       val modelsContext = LocalContext.current

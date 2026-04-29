@@ -164,6 +164,9 @@ fun DownloadAndTryButton(
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+  if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
+    downloadStarted = false
+  }
   val showDownloadProgress =
     !downloadSucceeded && (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded)
   var curDownloadProgress: Float
@@ -546,7 +549,7 @@ fun DownloadAndTryButton(
     if (curDownloadProgress.isNaN()) {
       curDownloadProgress = 0f
     }
-    val animatedProgress = remember { Animatable(0f) }
+    val animatedProgress = remember { Animatable(curDownloadProgress) }
 
     var downloadProgressModifier: Modifier = modifier
     if (!compact) {
