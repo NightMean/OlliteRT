@@ -219,13 +219,17 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                   downloadedBytes += startByte
                 } else {
                   Log.d(TAG, "Download starts from beginning.")
+                  if (outputTmpFile.exists()) {
+                    outputTmpFile.delete()
+                  }
                 }
               } else {
                 throw IOException("HTTP error code: ${connection.responseCode}")
               }
 
+              val appendMode = outputTmpFile.exists() && outputTmpFile.length() > 0
               connection.inputStream.use { inputStream ->
-              FileOutputStream(outputTmpFile, true /* append */).use { outputStream ->
+              FileOutputStream(outputTmpFile, appendMode).use { outputStream ->
 
               val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
               var bytesRead: Int
