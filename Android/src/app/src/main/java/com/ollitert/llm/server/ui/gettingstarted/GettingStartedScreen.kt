@@ -19,7 +19,7 @@ package com.ollitert.llm.server.ui.gettingstarted
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -105,7 +105,7 @@ fun GettingStartedScreen(
       // Uses ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS which is allowed by Google Play
       // for apps that need sustained background work (HTTP servers, media players, etc.).
       val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-        data = Uri.parse("package:${context.packageName}")
+        data = "package:${context.packageName}".toUri()
       }
       batteryOptLauncher.launch(intent)
     } else {
@@ -241,7 +241,7 @@ fun GettingStartedScreen(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.clickable {
           context.startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse(GitHubConfig.REPO_URL))
+            Intent(Intent.ACTION_VIEW, GitHubConfig.REPO_URL.toUri())
           )
         },
       ) {

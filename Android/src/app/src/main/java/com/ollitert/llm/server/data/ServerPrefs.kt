@@ -18,6 +18,7 @@ package com.ollitert.llm.server.data
 
 import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -224,7 +225,7 @@ object ServerPrefs {
   private fun <T> get(context: Context, pref: Pref<T>): T = pref.read(prefs(context))
 
   private fun <T> set(context: Context, pref: Pref<T>, value: T) {
-    pref.write(prefs(context).edit(), value).apply()
+    prefs(context).edit { pref.write(this, value) }
   }
 
   // ── Pref declarations (grouped by concern) ─────────────────────────────
@@ -299,10 +300,7 @@ object ServerPrefs {
   fun getPort(context: Context): Int = get(context, PORT)
 
   fun save(context: Context, port: Int) {
-    prefs(context)
-      .edit()
-      .putInt(KEY_PORT, port.coerceIn(1, 65535))
-      .apply()
+    prefs(context).edit { putInt(KEY_PORT, port.coerceIn(1, 65535)) }
   }
 
   fun getBearerToken(context: Context): String =
@@ -310,10 +308,7 @@ object ServerPrefs {
       ?: ""
 
   fun setBearerToken(context: Context, token: String) {
-    prefs(context)
-      .edit()
-      .putString(KEY_BEARER_TOKEN, token.trim())
-      .apply()
+    prefs(context).edit { putString(KEY_BEARER_TOKEN, token.trim()) }
   }
 
   fun getHfToken(context: Context): String =
@@ -321,10 +316,7 @@ object ServerPrefs {
       ?: ""
 
   fun setHfToken(context: Context, token: String) {
-    prefs(context)
-      .edit()
-      .putString(KEY_HF_TOKEN, token.trim())
-      .apply()
+    prefs(context).edit { putString(KEY_HF_TOKEN, token.trim()) }
   }
 
   fun getCorsAllowedOrigins(context: Context): String =
@@ -333,10 +325,7 @@ object ServerPrefs {
       ?: DEFAULT_CORS_ALLOWED_ORIGINS
 
   fun setCorsAllowedOrigins(context: Context, origins: String) {
-    prefs(context)
-      .edit()
-      .putString(KEY_CORS_ALLOWED_ORIGINS, origins)
-      .apply()
+    prefs(context).edit { putString(KEY_CORS_ALLOWED_ORIGINS, origins) }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -348,13 +337,10 @@ object ServerPrefs {
       .getString(KEY_DEFAULT_MODEL_NAME, null)
 
   fun setDefaultModelName(context: Context, modelName: String?) {
-    prefs(context)
-      .edit()
-      .apply {
-        if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
-        else remove(KEY_DEFAULT_MODEL_NAME)
-      }
-      .apply()
+    prefs(context).edit {
+      if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
+      else remove(KEY_DEFAULT_MODEL_NAME)
+    }
   }
 
   fun isWarmupEnabled(context: Context): Boolean = get(context, WARMUP_ENABLED)
@@ -386,10 +372,7 @@ object ServerPrefs {
       .getString(KEY_PREFIX_SYSTEM_PROMPT + modelName, "") ?: ""
 
   fun setSystemPrompt(context: Context, modelName: String, prompt: String) {
-    prefs(context)
-      .edit()
-      .putString(KEY_PREFIX_SYSTEM_PROMPT + modelName, prompt)
-      .apply()
+    prefs(context).edit { putString(KEY_PREFIX_SYSTEM_PROMPT + modelName, prompt) }
   }
 
   /**
@@ -397,10 +380,7 @@ object ServerPrefs {
    * Stored as a JSON string so it survives app restarts. Values are keyed by ConfigKey label.
    */
   fun setInferenceConfig(context: Context, modelName: String, configValues: Map<String, Any>) {
-    prefs(context)
-      .edit()
-      .putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, encodeInferenceConfig(configValues))
-      .apply()
+    prefs(context).edit { putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, encodeInferenceConfig(configValues)) }
   }
 
   /**
@@ -415,10 +395,7 @@ object ServerPrefs {
 
   /** Removes any saved inference config overrides for a model, reverting it to defaults. */
   fun clearInferenceConfig(context: Context, modelName: String) {
-    prefs(context)
-      .edit()
-      .remove(KEY_PREFIX_INFERENCE_CONFIG + modelName)
-      .apply()
+    prefs(context).edit { remove(KEY_PREFIX_INFERENCE_CONFIG + modelName) }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -523,7 +500,7 @@ object ServerPrefs {
       ?: DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
 
   fun setSttTranscriptionPromptText(context: Context, text: String) {
-    prefs(context).edit().putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, text).apply()
+    prefs(context).edit { putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, text) }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -540,10 +517,10 @@ object ServerPrefs {
     prefs(context).getString(KEY_LAST_DISMISSED_UPDATE_VERSION, null)
 
   fun setLastDismissedUpdateVersion(context: Context, version: String?) {
-    prefs(context).edit().apply {
+    prefs(context).edit {
       if (version != null) putString(KEY_LAST_DISMISSED_UPDATE_VERSION, version)
       else remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
-    }.apply()
+    }
   }
 
   fun getCachedLatestVersion(context: Context): String? =
@@ -556,11 +533,11 @@ object ServerPrefs {
     prefs(context).getString(KEY_CACHED_RELEASE_ETAG, null)
 
   fun setCachedUpdateInfo(context: Context, version: String?, htmlUrl: String?, etag: String?) {
-    prefs(context).edit().apply {
+    prefs(context).edit {
       if (version != null) putString(KEY_CACHED_LATEST_VERSION, version) else remove(KEY_CACHED_LATEST_VERSION)
       if (htmlUrl != null) putString(KEY_CACHED_RELEASE_HTML_URL, htmlUrl) else remove(KEY_CACHED_RELEASE_HTML_URL)
       if (etag != null) putString(KEY_CACHED_RELEASE_ETAG, etag) else remove(KEY_CACHED_RELEASE_ETAG)
-    }.apply()
+    }
   }
 
   fun getUpdateCheckConsecutiveFailures(context: Context): Int = get(context, UPDATE_CHECK_CONSECUTIVE_FAILURES)
@@ -568,15 +545,15 @@ object ServerPrefs {
 
   /** Clear all cached update state (version, URL, ETag, dismiss). Called after a successful app update. */
   fun clearUpdateState(context: Context) {
-    prefs(context).edit()
-      .remove(KEY_CACHED_LATEST_VERSION)
-      .remove(KEY_CACHED_RELEASE_HTML_URL)
-      .remove(KEY_CACHED_RELEASE_ETAG)
-      .remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
-      .remove(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES)
-      .remove(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION)
-      .remove(KEY_CACHED_CROSS_CHANNEL_VERSION)
-      .apply()
+    prefs(context).edit {
+      remove(KEY_CACHED_LATEST_VERSION)
+      remove(KEY_CACHED_RELEASE_HTML_URL)
+      remove(KEY_CACHED_RELEASE_ETAG)
+      remove(KEY_LAST_DISMISSED_UPDATE_VERSION)
+      remove(KEY_UPDATE_CHECK_CONSECUTIVE_FAILURES)
+      remove(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION)
+      remove(KEY_CACHED_CROSS_CHANNEL_VERSION)
+    }
   }
 
   fun isCrossChannelNotifyEnabled(context: Context): Boolean = get(context, CROSS_CHANNEL_NOTIFY_ENABLED)
@@ -586,20 +563,20 @@ object ServerPrefs {
     prefs(context).getString(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION, null)
 
   fun setLastDismissedCrossChannelVersion(context: Context, version: String?) {
-    prefs(context).edit().apply {
+    prefs(context).edit {
       if (version != null) putString(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION, version)
       else remove(KEY_LAST_DISMISSED_CROSS_CHANNEL_VERSION)
-    }.apply()
+    }
   }
 
   fun getCachedCrossChannelVersion(context: Context): String? =
     prefs(context).getString(KEY_CACHED_CROSS_CHANNEL_VERSION, null)
 
   fun setCachedCrossChannelVersion(context: Context, version: String?) {
-    prefs(context).edit().apply {
+    prefs(context).edit {
       if (version != null) putString(KEY_CACHED_CROSS_CHANNEL_VERSION, version)
       else remove(KEY_CACHED_CROSS_CHANNEL_VERSION)
-    }.apply()
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -620,7 +597,7 @@ object ServerPrefs {
     prefs(context).getBoolean(KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED, false)
 
   fun setEngagementPromptPermanentlyDismissed(context: Context) {
-    prefs(context).edit().putBoolean(KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED, true).apply()
+    prefs(context).edit { putBoolean(KEY_ENGAGEMENT_PROMPT_PERMANENTLY_DISMISSED, true) }
   }
 
   /** How many times the engagement prompt has been shown (max 2 lifetime). */
@@ -662,13 +639,13 @@ object ServerPrefs {
   fun addIgnoredModelUpdate(context: Context, nameVersion: String) {
     val current = getIgnoredModelUpdates(context).toMutableSet()
     current.add(nameVersion)
-    prefs(context).edit().putStringSet(KEY_IGNORED_MODEL_UPDATES, current).apply()
+    prefs(context).edit { putStringSet(KEY_IGNORED_MODEL_UPDATES, current) }
   }
 
   fun removeIgnoredModelUpdate(context: Context, nameVersion: String) {
     val current = getIgnoredModelUpdates(context).toMutableSet()
     current.remove(nameVersion)
-    prefs(context).edit().putStringSet(KEY_IGNORED_MODEL_UPDATES, current).apply()
+    prefs(context).edit { putStringSet(KEY_IGNORED_MODEL_UPDATES, current) }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -681,11 +658,11 @@ object ServerPrefs {
   fun addCorruptedDataStore(context: Context, name: String) {
     val current = getCorruptedDataStores(context).toMutableSet()
     current.add(name)
-    prefs(context).edit().putStringSet(KEY_CORRUPTED_DATASTORES, current).apply()
+    prefs(context).edit { putStringSet(KEY_CORRUPTED_DATASTORES, current) }
   }
 
   fun clearCorruptedDataStores(context: Context) {
-    prefs(context).edit().remove(KEY_CORRUPTED_DATASTORES).apply()
+    prefs(context).edit { remove(KEY_CORRUPTED_DATASTORES) }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -698,33 +675,33 @@ object ServerPrefs {
     val p = prefs(context)
     if (p.getBoolean(KEY_PREFS_KEY_MIGRATION_DONE, false)) return
 
-    val editor = p.edit()
     var migrated = 0
 
-    for ((oldName, newKey) in modelNameToDownloadFileName) {
-      if (oldName == newKey) continue
+    p.edit {
+      for ((oldName, newKey) in modelNameToDownloadFileName) {
+        if (oldName == newKey) continue
 
-      val oldPromptKey = KEY_PREFIX_SYSTEM_PROMPT + oldName
-      val newPromptKey = KEY_PREFIX_SYSTEM_PROMPT + newKey
-      val prompt = p.getString(oldPromptKey, null)
-      if (prompt != null && !p.contains(newPromptKey)) {
-        editor.putString(newPromptKey, prompt)
-        editor.remove(oldPromptKey)
-        migrated++
+        val oldPromptKey = KEY_PREFIX_SYSTEM_PROMPT + oldName
+        val newPromptKey = KEY_PREFIX_SYSTEM_PROMPT + newKey
+        val prompt = p.getString(oldPromptKey, null)
+        if (prompt != null && !p.contains(newPromptKey)) {
+          putString(newPromptKey, prompt)
+          remove(oldPromptKey)
+          migrated++
+        }
+
+        val oldConfigKey = KEY_PREFIX_INFERENCE_CONFIG + oldName
+        val newConfigKey = KEY_PREFIX_INFERENCE_CONFIG + newKey
+        val config = p.getString(oldConfigKey, null)
+        if (config != null && !p.contains(newConfigKey)) {
+          putString(newConfigKey, config)
+          remove(oldConfigKey)
+          migrated++
+        }
       }
 
-      val oldConfigKey = KEY_PREFIX_INFERENCE_CONFIG + oldName
-      val newConfigKey = KEY_PREFIX_INFERENCE_CONFIG + newKey
-      val config = p.getString(oldConfigKey, null)
-      if (config != null && !p.contains(newConfigKey)) {
-        editor.putString(newConfigKey, config)
-        editor.remove(oldConfigKey)
-        migrated++
-      }
+      putBoolean(KEY_PREFS_KEY_MIGRATION_DONE, true)
     }
-
-    editor.putBoolean(KEY_PREFS_KEY_MIGRATION_DONE, true)
-    editor.apply()
 
     if (migrated > 0) {
       Log.i(TAG, "Migrated $migrated per-model prefs key(s) to stable format")
@@ -737,25 +714,25 @@ object ServerPrefs {
     val p = prefs(context)
     if (p.getBoolean(KEY_STT_KEY_MIGRATION_DONE, false)) return
 
-    val editor = p.edit()
     var migrated = 0
 
-    val oldToggle = "ha_stt_transcription_prompt"
-    if (p.contains(oldToggle) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT)) {
-      editor.putBoolean(KEY_STT_TRANSCRIPTION_PROMPT, p.getBoolean(oldToggle, DEFAULT_STT_TRANSCRIPTION_PROMPT))
-      editor.remove(oldToggle)
-      migrated++
-    }
+    p.edit {
+      val oldToggle = "ha_stt_transcription_prompt"
+      if (p.contains(oldToggle) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT)) {
+        putBoolean(KEY_STT_TRANSCRIPTION_PROMPT, p.getBoolean(oldToggle, DEFAULT_STT_TRANSCRIPTION_PROMPT))
+        remove(oldToggle)
+        migrated++
+      }
 
-    val oldText = "ha_stt_transcription_prompt_text"
-    if (p.contains(oldText) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT_TEXT)) {
-      editor.putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, p.getString(oldText, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT))
-      editor.remove(oldText)
-      migrated++
-    }
+      val oldText = "ha_stt_transcription_prompt_text"
+      if (p.contains(oldText) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT_TEXT)) {
+        putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, p.getString(oldText, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT))
+        remove(oldText)
+        migrated++
+      }
 
-    editor.putBoolean(KEY_STT_KEY_MIGRATION_DONE, true)
-    editor.apply()
+      putBoolean(KEY_STT_KEY_MIGRATION_DONE, true)
+    }
 
     if (migrated > 0) {
       Log.i(TAG, "Migrated $migrated STT prefs key(s) from ha_stt_* to stt_*")
@@ -772,7 +749,7 @@ object ServerPrefs {
    * The cached prefs instance is invalidated so the next access picks up the cleared state.
    */
   fun resetToDefaults(context: Context) {
-    prefs(context).edit().clear().apply()
+    prefs(context).edit { clear() }
     cachedPrefs = null
   }
 

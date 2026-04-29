@@ -21,7 +21,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -614,9 +614,9 @@ class UpdateCheckWorker @AssistedInject constructor(
      */
     fun buildUpdateIntent(context: Context, releaseHtmlUrl: String): Intent {
       val uri = if (isPlayStoreBuild(context)) {
-        Uri.parse("market://details?id=${context.packageName}")
+        "market://details?id=${context.packageName}".toUri()
       } else {
-        Uri.parse(releaseHtmlUrl)
+        releaseHtmlUrl.toUri()
       }
       val intent = Intent(Intent.ACTION_VIEW, uri)
       // Play Store intent fallback — if Play Store app isn't installed (rare: degoogled ROMs)
@@ -624,10 +624,10 @@ class UpdateCheckWorker @AssistedInject constructor(
         try {
           // Verify the market:// intent can be resolved
           if (intent.resolveActivity(context.packageManager) == null) {
-            return Intent(Intent.ACTION_VIEW, Uri.parse(releaseHtmlUrl))
+            return Intent(Intent.ACTION_VIEW, releaseHtmlUrl.toUri())
           }
         } catch (_: Exception) {
-          return Intent(Intent.ACTION_VIEW, Uri.parse(releaseHtmlUrl))
+          return Intent(Intent.ACTION_VIEW, releaseHtmlUrl.toUri())
         }
       }
       return intent

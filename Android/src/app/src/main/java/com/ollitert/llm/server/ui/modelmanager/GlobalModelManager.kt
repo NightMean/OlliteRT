@@ -21,7 +21,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -151,9 +151,9 @@ fun GlobalModelManager(
   navigateUp: () -> Unit,
   onModelSelected: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
+  modifier: Modifier = Modifier,
   onNavigateToSettings: () -> Unit = {},
   onNavigateToRepositories: () -> Unit = {},
-  modifier: Modifier = Modifier,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   lastError: String? = null,
@@ -509,7 +509,7 @@ fun GlobalModelManager(
               .clickable {
                 // Open app settings so the user can grant the missing permissions
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                  data = Uri.parse("package:${context.packageName}")
+                  data = "package:${context.packageName}".toUri()
                 }
                 context.startActivity(intent)
               }

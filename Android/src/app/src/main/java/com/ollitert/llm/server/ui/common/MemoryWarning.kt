@@ -20,6 +20,7 @@ package com.ollitert.llm.server.ui.common
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import androidx.core.content.edit
 import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -116,9 +117,7 @@ fun isMemoryWarningSuppressed(context: Context, modelName: String): Boolean =
 /** Suppress memory warning for this model. */
 fun suppressMemoryWarning(context: Context, modelName: String) {
   context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    .edit()
-    .putBoolean("$KEY_PREFIX$modelName", true)
-    .apply()
+    .edit { putBoolean("$KEY_PREFIX$modelName", true) }
 }
 
 /** Checks if the device's memory is lower than the required minimum for the given model. */
