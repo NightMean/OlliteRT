@@ -266,7 +266,7 @@
   <string name="settings_keep_partial_response" translatable="false">Keep Partial Response</string>
   <string name="settings_keep_partial_response_desc" translatable="false">Preserve incomplete response text in logs when a streaming request is cancelled by the client.</string>
   <string name="settings_reject_when_busy" translatable="false">Reject Requests When Busy</string>
-  <string name="settings_reject_when_busy_desc" translatable="false">Return an error immediately when a request is already being processed, instead of queueing. Clients like LiteLLM and Open WebUI can retry automatically.</string>
+  <string name="settings_reject_when_busy_desc" translatable="false">Return an error immediately when a request is already being processed, instead of queueing.</string>
 
   <!-- Settings: Hugging Face Token card -->
   <string name="settings_card_hf_token" translatable="false">Hugging Face Token</string>
