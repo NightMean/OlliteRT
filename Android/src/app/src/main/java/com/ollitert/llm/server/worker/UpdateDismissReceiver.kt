@@ -36,11 +36,20 @@ class UpdateDismissReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
     val version = intent.getStringExtra(EXTRA_DISMISSED_VERSION) ?: return
-    ServerPrefs.setLastDismissedUpdateVersion(context, version)
-    Log.d(TAG, "User dismissed update notification for $version")
+    val isCrossChannel = intent.getBooleanExtra(EXTRA_IS_CROSS_CHANNEL, false)
+
+    if (isCrossChannel) {
+      ServerPrefs.setLastDismissedCrossChannelVersion(context, version)
+      Log.d(TAG, "User dismissed cross-channel notification for $version")
+    } else {
+      ServerPrefs.setLastDismissedUpdateVersion(context, version)
+      Log.d(TAG, "User dismissed update notification for $version")
+    }
+
     if (ServerPrefs.isVerboseDebugEnabled(context)) {
+      val prefix = if (isCrossChannel) "Cross-channel notification" else "Notification"
       RequestLogStore.addEvent(
-        "Notification dismissed for $version",
+        "$prefix dismissed for $version",
         level = LogLevel.DEBUG,
         category = EventCategory.UPDATE,
       )
@@ -49,5 +58,6 @@ class UpdateDismissReceiver : BroadcastReceiver() {
 
   companion object {
     const val EXTRA_DISMISSED_VERSION = "dismissed_version"
+    const val EXTRA_IS_CROSS_CHANNEL = "is_cross_channel"
   }
 }
