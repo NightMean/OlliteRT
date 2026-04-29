@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkManager
 import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
@@ -243,6 +244,7 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
             icon = Icons.Outlined.Refresh,
             tooltip = stringResource(R.string.settings_check_now_tooltip),
             onClick = {
+              ServerPrefs.setCrossChannelNotifyEnabled(context, vm.crossChannelNotifyEntry.current)
               Toast.makeText(context, checkingForUpdatesText, Toast.LENGTH_SHORT).show()
               checkWorkId = UpdateCheckWorker.checkNow(context)
             },
