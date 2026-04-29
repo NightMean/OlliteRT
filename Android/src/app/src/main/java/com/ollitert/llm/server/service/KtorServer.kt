@@ -234,6 +234,16 @@ class KtorServer(
     return false
   }
 
+  // Gates /v1/server/* endpoints behind the HA integration toggle.
+  // Returns 404 when disabled so the endpoints appear non-existent to scanners.
+  private suspend fun requireServerControl(call: ApplicationCall): Boolean {
+    if (!ServerPrefs.isHaIntegrationEnabled(serviceContext)) {
+      call.respondHttpResponse(httpNotFound())
+      return false
+    }
+    return requireAuth(call)
+  }
+
   // ── Response dispatcher ───────────────────────────────────────────────────
 
   /**
@@ -371,28 +381,28 @@ class KtorServer(
     // template in HomeAssistantCard.kt (haConfig buildString block) with the new rest_command.
 
     post("/v1/server/stop") {
-      if (!requireAuth(call)) return@post
+      if (!requireServerControl(call)) return@post
       withRequestLogging(call) { _, _, _, _, _, _ ->
         handleServerStop()
       }
     }
 
     post("/v1/server/reload") {
-      if (!requireAuth(call)) return@post
+      if (!requireServerControl(call)) return@post
       withRequestLogging(call) { _, _, _, _, _, _ ->
         handleServerReload()
       }
     }
 
     post("/v1/server/thinking") {
-      if (!requireAuth(call)) return@post
+      if (!requireServerControl(call)) return@post
       withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerThinking(body)
       }
     }
 
     post("/v1/server/config") {
-      if (!requireAuth(call)) return@post
+      if (!requireServerControl(call)) return@post
       withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerConfig(body)
       }
