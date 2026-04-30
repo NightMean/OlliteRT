@@ -16,7 +16,7 @@ OlliteRT provides a built-in REST API for monitoring and controlling the server 
 
 Two ways to use OlliteRT with Home Assistant:
 
-1. **As an LLM brain** — Use OlliteRT as a conversation agent for voice assistants and automations via [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) or [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm). See the [Client Setup Guide](../CLIENT_SETUP.md#home-assistant) for setup.
+1. **As an LLM brain** — Use OlliteRT as a conversation agent for voice assistants and automations via [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm) (recommended), [Home LLM](https://github.com/acon96/home-llm/), or [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation). See the [Client Setup Guide](../CLIENT_SETUP.md#home-assistant) for setup.
 
 2. **As a monitored server** — Poll OlliteRT's health endpoint for status, metrics, and control via REST sensors and commands (documented below).
 

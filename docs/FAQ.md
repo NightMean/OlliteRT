@@ -167,6 +167,9 @@ Yes. In Settings → Auto-Launch & Behavior:
 > [!IMPORTANT]
 > Disable battery optimization for OlliteRT (Android Settings → Apps → OlliteRT → Battery → Unrestricted). Without this, Android may kill the server in the background or prevent it from starting on boot. See [Troubleshooting](TROUBLESHOOTING.md#auto-start-on-boot-doesnt-work) for device-specific instructions.
 
+> [!TIP]
+> **Dedicated server setup:** If the phone lives in a drawer or on a shelf as a headless server, it is recommended to remove the lock screen (Android Settings → Security → Screen Lock → None). With a lock screen enabled, the server cannot start after a reboot until someone physically unlocks the device. See [Troubleshooting](TROUBLESHOOTING.md#auto-start-on-boot-is-delayed-or-requires-unlock) for details.
+
 ---
 
 ### Why does OlliteRT show a persistent notification?

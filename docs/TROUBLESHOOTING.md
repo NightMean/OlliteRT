@@ -127,7 +127,7 @@ When a conversation exceeds the model's context window, the request may fail wit
 
 ### The server crashes / stops unexpectedly
 
-- **Out of memory** — Android kills background processes when RAM is low. Try a smaller model or close other apps. See [RAM Requirements](MODELS.md#ram-requirements) for per-model recommendations
+- **Out of memory** — Android kills background processes when RAM is low. Try a smaller model or close other apps. A large context window on a device with limited RAM can also trigger OOM kills — reduce the context window size in the model's inference settings if the server keeps getting killed. See [RAM Requirements](MODELS.md#ram-requirements) for per-model recommendations
 - **Thermal shutdown** — prolonged heavy use can overheat the phone. In mild cases Android throttles the CPU/GPU (slower responses), in severe cases it shuts down the device entirely to protect the battery
 - **Battery optimization** — OlliteRT requests battery optimization exemption during initial setup, but if it was denied or later revoked, Android may kill the server in the background. Re-enable it in Android Settings → Apps → OlliteRT → Battery → Unrestricted
 
@@ -142,6 +142,16 @@ When a conversation exceeds the model's context window, the request may fail wit
 
 > [!TIP]
 > Some manufacturers (Xiaomi, Huawei, Samsung) have additional app-killing features. Search your phone brand on [Don't kill my app!](https://dontkillmyapp.com/) for device-specific instructions.
+
+### Auto-start on boot is delayed or requires unlock
+
+Android encrypts app data with your lock screen credential (PIN, pattern, or password). After a reboot, the model files and server configuration are inaccessible until someone physically unlocks the device. This means:
+
+- **With a lock screen** — the server cannot start until you unlock the phone. If the phone is in a drawer or unattended (e.g. after a power outage), it will sit at the lock screen indefinitely and the server won't come back up.
+- **Without a lock screen** — the device boots directly to fully-unlocked state and auto-start works immediately without any interaction.
+
+> [!TIP]
+> If the phone is a dedicated server (in a drawer, on a shelf, plugged in permanently), it is recommended to remove the lock screen entirely (Android Settings → Security → Screen Lock → None) so it can recover from power outages automatically.
 
 ### No notification showing
 
@@ -192,7 +202,7 @@ OlliteRT supports two tool calling modes:
 - **Lower the temperature** — higher temperatures increase randomness, which can cause the model to include extra text in tool arguments or call the wrong function. If your client limits temperature to 0–1 (Gemma supports 0–2), enable **Ignore Client Sampler Parameters** in Settings → Model Behaviour to use your own inference settings instead
 - **Check the Logs screen** — expand the response body to see what the model actually output
 
-### Streaming and tool calling
+### Streaming enabled but response arrives all at once
 
 When tools are present in a request and **Tool Schema Injection is disabled**, responses are **buffered** and sent all at once — even if the client requests streaming. This is because without schema injection, tool call detection can only happen after the full output is available (the server can't tell mid-generation if the output will be a tool call or regular text).
 

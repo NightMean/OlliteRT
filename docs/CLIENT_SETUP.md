@@ -39,9 +39,75 @@ OlliteRT integrates with Home Assistant in two ways — as a [conversation agent
 ### Conversation Agent
 
 > [!NOTE]
-> Home Assistant currently requires a custom integration for OlliteRT to work with conversation. The two recommended options are [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) and [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm).
+> Home Assistant currently requires a custom integration for OlliteRT to work with conversation. The recommended options are [Custom Conversation](https://github.com/michelle-avery/custom-conversation) (recommended), [Home LLM](https://github.com/acon96/home-llm/), [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm), and [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation).
 
-**Step 1 — Install [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) or [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm) via [HACS](https://hacs.xyz/).**
+Pick one of the following integrations, install and configure it, then continue with the [common steps below](#after-installation).
+
+#### Option A — Custom Conversation (recommended)
+
+**Step 1 — Install [Custom Conversation](https://github.com/michelle-avery/custom-conversation) via [HACS](https://hacs.xyz/).**
+
+**Step 2 — Configure the integration** (Settings → Devices & Services → Add Integration → search "Custom Conversation" → Choose **OpenAI** as LLM Provider):
+
+| Field | Value |
+|:------|:------|
+| **Base URL** | `http://PHONE_IP:8000/v1` |
+| **API Key** | Your bearer token (if auth is enabled — enter any value if required but auth is disabled) |
+| **Model** | `Gemma-4-E2B-it` (or any model name shown on the Models screen) |
+
+**Step 3 — Open Custom Conversation Integration settings**, click on settings button under Services → Custom Conversation and choose **Assist** as the API to expose to the LLM and select the desired LLM from the dropdown. Then click on save.
+
+**Step 4 — Continue with [After Installation](#after-installation) to set up the Assist pipeline and test.**
+
+> [!NOTE]
+> **Custom Conversation** was easiest to setup without any additional configuration and produced the most consistent results during testing. This however, does not mean that it is the best integration for every use case. Your mileage may vary.
+
+#### Option B — Home LLM
+
+[Home LLM](https://github.com/acon96/home-llm/) is built specifically for local/self-hosted models and uses Home Assistant's native Assist tool-calling API for device control.
+
+**Step 1 — Install [Home LLM](https://github.com/acon96/home-llm/) via [HACS](https://hacs.xyz/).**
+
+**Step 2 — Add the integration** (Settings → Devices & Services → Add Integration → search "Local LLM"):
+
+1. Select **"OpenAI Compatible 'Conversations' API"** as the backend
+2. Configure the connection:
+
+| Setting | Value |
+|:--------|:------|
+| **API Hostname** | `PHONE_IP` (without http:// and port number) |
+| **API Port** | `8000` |
+| **API Key** | Your bearer token (if auth is enabled — enter any value if the client requires it but auth is disabled) |
+| **API Path** | `v1` |
+| **Model** | e.g. `Gemma-4-E2B-it` |
+
+**Step 3 — Configure the conversation agent** (in the integration options after adding):
+
+Select model from the dropdown (auto-populated from OlliteRT's `/v1/models`) → Press **Next** → Select **Assist** as Selected LLM API(s) → Scroll down and **Enable Legacy Tool Calling** → Press **Submit**.
+
+**Step 4 — Continue with [After Installation](#after-installation) to set up the Assist pipeline and test.**
+
+#### Option C — Local OpenAI LLM
+
+**Step 1 — Install [Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm) via [HACS](https://hacs.xyz/).**
+
+**Step 2 — Configure the integration** (Settings → Devices & Services → Add Integration):
+
+| Field | Value |
+|:------|:------|
+| **Base / Server URL** | `http://PHONE_IP:8000/v1` |
+| **API Key** | Your bearer token (if auth is enabled — enter any value if required but auth is disabled) |
+| **Model** | `Gemma-4-E2B-it` (or any model name shown on the Models screen) |
+
+**Step 3 — Add a conversation agent** (in the integration options after adding):
+
+Select model from the dropdown (auto-populated from OlliteRT's `/v1/models`)→ Select **Assist** under Tool Providers → Press **Submit**.
+
+**Step 4 — Continue with [After Installation](#after-installation) to set up the Assist pipeline and test.**
+
+#### Option D — Extended OpenAI Conversation
+
+**Step 1 — Install [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) via [HACS](https://hacs.xyz/).**
 
 **Step 2 — Configure the integration** (Settings → Devices & Services → Add Integration):
 
@@ -53,16 +119,21 @@ OlliteRT integrates with Home Assistant in two ways — as a [conversation agent
 
 > [!IMPORTANT]
 > Configuring a model for Extended OpenAI Conversation needs to be done in the Integration settings > Cog Wheel icon > `chat_model` field.
-> By default integration uses `gpt-4o-mini` which is not available on OlliteRT.
+> By default integration uses `gpt-4o-mini` which is not available on OlliteRT. Change it to `Gemma-4-E2B-it` or any other model from the Models screen, otherwise Assist will not work.
 
-**Step 3 — Create an Assist pipeline** (Settings → Voice assistants → Add Assistant):
+**Step 3 — Continue with [After Installation](#after-installation) to set up the Assist pipeline and test.**
 
-| Field | Value |
-|:------|:------|
-| **Conversation agent** | Your chosen integration |
-| **Model** | `Gemma-4-E2B-it` (or any model name shown on the Models screen) |
+---
 
-**Step 4 — Test it.** Open the Assist UI and try "Turn on the living room lights" to verify tool calling works. See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) if it doesn't respond correctly.
+#### After Installation
+
+These steps apply to all integrations above.
+
+**Create an Assist pipeline** — Settings → Voice assistants → Add Assistant. Select your chosen integration as the **Conversation Agent**.
+
+**Expose entities** — Settings → Voice Assistants → Expose tab. Only exposed entities are available to the model. Keep the number reasonable to avoid exceeding the model's context window.
+
+**Test it** — Open the Assist UI and try "Turn on [Name of exposed entity]" to verify tool calling works. See [Troubleshooting → Tool Calling](TROUBLESHOOTING.md#tool-calling-experimental) if it doesn't respond correctly.
 
 > [!TIP]
 > **For better tool calling results:**
