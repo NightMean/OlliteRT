@@ -347,6 +347,15 @@ constructor(
   fun deleteModelAndRefreshStorage(model: Model) {
     deleteModel(model = model)
     notifyStorageChanged()
+    // Android's filesystem (f2fs/ext4) doesn't reclaim all blocks immediately after
+    // File.delete() — StatFs can lag 10+ seconds for multi-GB files. Re-read storage
+    // at increasing intervals so the bar converges to the true value.
+    viewModelScope.launch {
+      for (delaySec in listOf(2L, 5L, 10L)) {
+        kotlinx.coroutines.delay(delaySec * 1000)
+        notifyStorageChanged()
+      }
+    }
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {

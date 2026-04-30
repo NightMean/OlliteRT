@@ -74,7 +74,7 @@ class ModelFileManager(
     val prefixAbsolutePath = "${dir.absolutePath}${File.separator}$fileName"
     val filesToDelete =
       File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
-        File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath)
+        File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath, ignoreCase = true)
       } ?: arrayOf()
     for (file in filesToDelete) {
       Log.d(TAG, "Deleting file: ${file.name}")
