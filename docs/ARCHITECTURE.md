@@ -234,7 +234,7 @@ When Schema Injection is disabled, `PromptBuilder` injects tool schemas directly
 
 | Library | Purpose |
 |:--------|:--------|
-| **[LiteRT LM](https://github.com/google-ai-edge/LiteRT-LM)** | On-device LLM inference runtime |
+| **[LiteRT LM](https://github.com/google-ai-edge/LiteRT-LM)** | On-device LLM inference runtime (see [SDK Compatibility](SDK_COMPATIBILITY.md)) |
 | **[Ktor CIO](https://ktor.io/)** | Coroutine-based HTTP server (CORS, content negotiation, status pages plugins) |
 | **[Hilt](https://dagger.dev/hilt/)** | Dependency injection |
 | **[Jetpack Compose](https://developer.android.com/compose)** | UI framework (Material 3) |

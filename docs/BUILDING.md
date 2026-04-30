@@ -22,6 +22,7 @@
 - **Android SDK** — API level 36 (`compileSdk 36`), target SDK 35
 - **Gradle** 9.4.1 (bundled via wrapper)
 - **Git** — required at build time to embed the commit hash in `BuildConfig.GIT_HASH` and for auto-versioning (`APP_VERSION_CODE=auto`)
+- **LiteRT LM SDK** — bundled via Gradle dependency (see [SDK Compatibility](SDK_COMPATIBILITY.md) for version mapping)
 - **Minimum SDK** — Android 12 (API 31)
 
 ### `local.properties`

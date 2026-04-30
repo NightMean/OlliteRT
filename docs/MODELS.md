@@ -159,3 +159,8 @@ Models are stored in the app's private storage directory. You can manage them fr
 - **Download** — one-tap download from HuggingFace (or from custom model sources)
 - **Delete** — removes the model file and frees storage
 - **Storage indicator** — the bottom bar shows available vs used storage
+
+## SDK Compatibility
+
+The LiteRT SDK version bundled with OlliteRT determines which models can run. Some newer models may require an app update even if they appear in a model source. See [SDK Compatibility](SDK_COMPATIBILITY.md) for the full compatibility table.
+
