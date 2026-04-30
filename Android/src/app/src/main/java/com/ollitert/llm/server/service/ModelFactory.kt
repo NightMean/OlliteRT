@@ -87,6 +87,7 @@ object ModelFactory {
         if (info.llmConfig.supportImage) add(ModelCapability.VISION)
         if (info.llmConfig.supportAudio) add(ModelCapability.AUDIO)
         if (info.llmConfig.supportThinking) add(ModelCapability.THINKING)
+        if (info.llmConfig.supportTools) add(ModelCapability.TOOLS)
         if (accelerators.any { it == Accelerator.NPU || it == Accelerator.TPU }) add(ModelCapability.NPU)
       },
       llmMaxToken = info.llmConfig.defaultMaxTokens,

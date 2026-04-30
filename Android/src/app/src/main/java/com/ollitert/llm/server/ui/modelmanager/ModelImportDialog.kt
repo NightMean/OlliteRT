@@ -25,6 +25,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -45,6 +47,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,6 +62,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -100,6 +104,8 @@ import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_STORAGE_IN_BYTES
 import com.ollitert.llm.server.ui.common.ensureValidFileName
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.common.isStorageLow
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimaryContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -168,9 +174,6 @@ private fun buildImportConfigsLlm(context: Context, fileExtension: String): List
       defaultValue = DEFAULT_TEMPERATURE,
       valueType = ValueType.FLOAT,
     ),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_IMAGE, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_THINKING, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKeys.COMPATIBLE_ACCELERATORS,
       defaultValue = SUPPORTED_ACCELERATORS[0].label,
@@ -223,6 +226,11 @@ fun ModelImportDialog(
       put(ConfigKeys.NAME.id, fileStem)
       // Hardcoded to LLM -- when non-LLM model types are supported, make this selectable
       put(ConfigKeys.MODEL_TYPE.id, "LLM")
+      // Capability toggles rendered inline as rows, not via ConfigEditorsPanel
+      put(ConfigKeys.SUPPORT_IMAGE.id, false)
+      put(ConfigKeys.SUPPORT_AUDIO.id, false)
+      put(ConfigKeys.SUPPORT_THINKING.id, false)
+      put(ConfigKeys.SUPPORT_TOOLS.id, false)
 
       for ((key, value) in defaultValues) {
         put(key.id, value)
@@ -257,12 +265,69 @@ fun ModelImportDialog(
           modifier = Modifier.padding(bottom = 8.dp),
         )
 
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(OlliteRTPrimaryContainer)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.Info,
+            contentDescription = null,
+            tint = OlliteRTPrimary,
+            modifier = Modifier.size(18.dp),
+          )
+          Text(
+            text = stringResource(R.string.import_defaults_disclaimer),
+            style = MaterialTheme.typography.bodySmall,
+            color = OlliteRTPrimary,
+          )
+        }
+
         Column(
           modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-          // Default configs for users to set.
           ConfigEditorsPanel(configs = importConfigs, values = values)
+
+          // Capability toggles — compact two-per-row layout
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_IMAGE.labelResId),
+              checked = values[ConfigKeys.SUPPORT_IMAGE.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_IMAGE.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_AUDIO.labelResId),
+              checked = values[ConfigKeys.SUPPORT_AUDIO.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_AUDIO.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_THINKING.labelResId),
+              checked = values[ConfigKeys.SUPPORT_THINKING.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_THINKING.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_TOOLS.labelResId),
+              checked = values[ConfigKeys.SUPPORT_TOOLS.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_TOOLS.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+          }
         }
 
         // Button row.
@@ -286,6 +351,7 @@ fun ModelImportDialog(
               val supportImage = safeConfigValue(values, ConfigKeys.SUPPORT_IMAGE, ValueType.BOOLEAN, false)
               val supportAudio = safeConfigValue(values, ConfigKeys.SUPPORT_AUDIO, ValueType.BOOLEAN, false)
               val supportThinking = safeConfigValue(values, ConfigKeys.SUPPORT_THINKING, ValueType.BOOLEAN, false)
+              val supportTools = safeConfigValue(values, ConfigKeys.SUPPORT_TOOLS, ValueType.BOOLEAN, false)
               // Rejoin the user-edited stem with the original extension and sanitize.
               val editedStem = ensureValidFileName(
                 (values[ConfigKeys.NAME.id] as? String) ?: fileStem
@@ -305,6 +371,7 @@ fun ModelImportDialog(
                       .setSupportImage(supportImage)
                       .setSupportAudio(supportAudio)
                       .setSupportThinking(supportThinking)
+                      .setSupportTools(supportTools)
                       .build()
                   )
                   .build()
@@ -440,6 +507,7 @@ fun EditImportedModelDialog(
         put(ConfigKeys.SUPPORT_IMAGE.id, cfg.supportImage)
         put(ConfigKeys.SUPPORT_AUDIO.id, cfg.supportAudio)
         put(ConfigKeys.SUPPORT_THINKING.id, cfg.supportThinking)
+        put(ConfigKeys.SUPPORT_TOOLS.id, cfg.supportTools)
         if (cfg.compatibleAcceleratorsList.isNotEmpty()) {
           put(ConfigKeys.COMPATIBLE_ACCELERATORS.id, cfg.compatibleAcceleratorsList.joinToString(","))
         }
@@ -503,6 +571,41 @@ fun EditImportedModelDialog(
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           ConfigEditorsPanel(configs = editConfigs, values = values)
+
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_IMAGE.labelResId),
+              checked = values[ConfigKeys.SUPPORT_IMAGE.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_IMAGE.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_AUDIO.labelResId),
+              checked = values[ConfigKeys.SUPPORT_AUDIO.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_AUDIO.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_THINKING.labelResId),
+              checked = values[ConfigKeys.SUPPORT_THINKING.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_THINKING.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+            CompactToggle(
+              label = stringResource(ConfigKeys.SUPPORT_TOOLS.labelResId),
+              checked = values[ConfigKeys.SUPPORT_TOOLS.id] as? Boolean ?: false,
+              onCheckedChange = { values[ConfigKeys.SUPPORT_TOOLS.id] = it },
+              modifier = Modifier.weight(1f),
+            )
+          }
         }
 
         Row(
@@ -522,6 +625,7 @@ fun EditImportedModelDialog(
               val supportImage = safeConfigValue(values, ConfigKeys.SUPPORT_IMAGE, ValueType.BOOLEAN, false)
               val supportAudio = safeConfigValue(values, ConfigKeys.SUPPORT_AUDIO, ValueType.BOOLEAN, false)
               val supportThinking = safeConfigValue(values, ConfigKeys.SUPPORT_THINKING, ValueType.BOOLEAN, false)
+              val supportTools = safeConfigValue(values, ConfigKeys.SUPPORT_TOOLS, ValueType.BOOLEAN, false)
               val updated = ImportedModel.newBuilder()
                 .setFileName(existingModel.fileName)
                 .setFileSize(existingModel.fileSize)
@@ -535,6 +639,7 @@ fun EditImportedModelDialog(
                     .setSupportImage(supportImage)
                     .setSupportAudio(supportAudio)
                     .setSupportThinking(supportThinking)
+                    .setSupportTools(supportTools)
                     .build()
                 )
                 .build()
@@ -744,4 +849,21 @@ private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<L
   }
 
   return Pair(fileSize, displayName)
+}
+
+@Composable
+private fun CompactToggle(
+  label: String,
+  checked: Boolean,
+  onCheckedChange: (Boolean) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Row(
+    modifier = modifier,
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween,
+  ) {
+    Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+    Switch(checked = checked, onCheckedChange = onCheckedChange)
+  }
 }

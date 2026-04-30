@@ -180,6 +180,7 @@
   <string name="import_model_list_url_loading">Fetching model list…</string>
   <string name="repo_detail_imported_locally">Imported from local file</string>
   <string name="dialog_import_model_title">Import Model</string>
+  <string name="import_defaults_disclaimer">These are app defaults, not recommended values for this model. Adjust them now or later in the model\'s inference settings for best results.</string>
   <string name="import_compatible_accelerators_description">Select the accelerators supported by this model</string>
   <string name="button_import">Import</string>
   <string name="button_replace">Replace</string>
@@ -876,9 +877,10 @@
   <string name="config_label_default_topk" translatable="false">Default TopK</string>
   <string name="config_label_default_topp" translatable="false">Default TopP</string>
   <string name="config_label_default_temperature" translatable="false">Default temperature</string>
-  <string name="config_label_support_image" translatable="false">Support image</string>
-  <string name="config_label_support_audio" translatable="false">Support audio</string>
-  <string name="config_label_support_thinking" translatable="false">Support thinking</string>
+  <string name="config_label_support_image" translatable="false">Support\nvision</string>
+  <string name="config_label_support_audio" translatable="false">Support\naudio</string>
+  <string name="config_label_support_thinking" translatable="false">Support\nthinking</string>
+  <string name="config_label_support_tools" translatable="false">Support\ntools</string>
   <string name="config_label_enable_thinking" translatable="false">Enable thinking</string>
   <string name="config_label_accelerator" translatable="false">Accelerator</string>
   <string name="config_label_vision_accelerator" translatable="false">Vision accelerator</string>

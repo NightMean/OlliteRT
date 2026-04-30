@@ -200,6 +200,7 @@ fun InferenceSettingsSheet(
   var maxTokensForceError by remember { mutableStateOf(false) }
   var topKForceError by remember { mutableStateOf(false) }
   var topPForceError by remember { mutableStateOf(false) }
+  val outOfRangeMessage = stringResource(R.string.inference_settings_error_out_of_range)
 
   // Reset confirmation dialog
   if (showResetDialog) {
@@ -521,7 +522,7 @@ fun InferenceSettingsSheet(
           if (hasValidationError) {
             Toast.makeText(
               context,
-              context.getString(R.string.inference_settings_error_out_of_range),
+              outOfRangeMessage,
               Toast.LENGTH_SHORT,
             ).show()
             return@Button
