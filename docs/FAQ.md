@@ -194,7 +194,7 @@ Yes. Tap the gear icon on any model card to open inference settings. You can con
 > Some API clients send their own sampler values (e.g. temperature capped at 1.0) that may override your per-model settings. Enable **Ignore Client Sampler Parameters** in Settings → Model Behaviour to discard client-sent values and always use your own inference settings instead.
 
 > [!TIP]
-> For imported models, you can also edit the default capabilities (vision, audio, thinking) and inference parameters after import — tap the edit icon on the imported model's card. Enabling a capability only tells OlliteRT to advertise and use it — the model itself must actually support it, otherwise requests using that capability will fail or produce garbage output.
+> For imported models, you can configure capabilities (vision, audio, thinking, tools) and inference parameters during the import dialog, or edit them afterwards in the model's inference settings (tap the gear icon on the model card). Enabling a capability only tells OlliteRT to advertise and use it — the model itself must actually support it, otherwise requests using that capability will fail or produce garbage output.
 
 ---
 
@@ -249,7 +249,7 @@ Use the built-in REST API to monitor and control the server. See [HOME_ASSISTANT
 
 ### How do I add or create a custom model source?
 
-**To add an existing model source:** Go to **Settings → Model Sources**, tap **+**, and enter the URL of a JSON model list (e.g. a raw GitHub link). The source is refreshed automatically (~24 hours) to check for new models. You can enable, disable, or remove it at any time.
+**To add an existing model source:** Go to **Settings → Model Sources**, tap **+**, and choose to add from a local JSON file or enter a URL (e.g. a raw GitHub link). The source is refreshed automatically (~24 hours) to check for new models. You can enable, disable, or remove it at any time.
 
 **To create your own model source:** Host a JSON file following the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md) — for example, in a GitHub repository. The JSON defines model names, download URLs, capabilities, and metadata. Once hosted, add the raw URL as a model source in OlliteRT.
 

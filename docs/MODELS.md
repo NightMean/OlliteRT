@@ -93,10 +93,20 @@ OlliteRT supports three ways to import models. Tap the **+** button on the Model
 > [!TIP]
 > The JSON file and URL imports are one-time operations — models are added but the source is not tracked. For ongoing access to a third-party model source with automatic refresh and update detection, [add it as a model source](#model-sources) instead.
 
+### Import Dialog
+
+When importing a `.litertlm` file, the import dialog lets you configure the model before adding it:
+
+- **Name** — editable model name (file extension is preserved automatically). If the name conflicts with an existing imported model, you're prompted to replace it. Names that conflict with built-in models are rejected
+- **Capabilities** — toggle vision, audio, thinking, and tools support. These tell OlliteRT what to advertise — the model itself must actually support the capability
+- **Max tokens** — configure the maximum output length
+- **Context window** — set the model's context window size
+
+You can also edit all of these settings after import via the model's inference settings (tap the gear icon on the model card).
+
 > [!IMPORTANT]
 > - Only `.litertlm` format is supported — **GGUF files cannot be used** (LiteRT runtime limitation)
 > - Imported models are copied to app storage (Android scoped storage requirement), so the file will temporarily use double the disk space
-> - Capabilities (vision, audio, thinking, tools) are not auto-detected for imported models — they default to text-only. You can edit capabilities after import by tapping the edit icon on the model card. Enabling a capability only tells OlliteRT to advertise and use it — the model itself must actually support it, otherwise requests using that capability will fail or produce garbage output
 >
 > If import fails, see [Troubleshooting → Model import fails](TROUBLESHOOTING.md#model-import-fails).
 
@@ -114,9 +124,17 @@ You can add custom model sources to make additional models available:
 
 1. Go to **Settings → Model Sources**
 2. Tap the **+** button
-3. Enter the URL of a model list JSON file (e.g. a raw GitHub link) following the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md)
+3. Choose how to add the source:
+   - **From a model list file** — select a local JSON file from your device
+   - **From a URL** — enter the URL of a model list JSON file (e.g. a raw GitHub link)
+
+The JSON file must follow the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md).
 
 Custom model sources can be enabled, disabled, or removed at any time. Disabled sources are hidden from the Models screen but their configuration is preserved.
+
+### Incompatible Models
+
+The Model Sources detail screen shows all models in a source, including those incompatible with your device (shown greyed out with the reason, e.g. "Requires app version X.Y.Z"). The source list shows the count as "N models · M hidden" when some models are filtered out.
 
 ### Automatic Refresh
 
