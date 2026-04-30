@@ -132,6 +132,7 @@ class NumberSliderConfig(
   override val defaultValue: Float,
   override val valueType: ValueType,
   override val needReinitialization: Boolean = true,
+  val allowAboveMax: Boolean = false,
 ) :
   Config(
     key = key,

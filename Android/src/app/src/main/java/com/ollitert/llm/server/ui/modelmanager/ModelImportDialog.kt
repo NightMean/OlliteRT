@@ -152,6 +152,7 @@ private fun buildImportConfigsLlm(context: Context, fileExtension: String): List
       sliderMax = MAX_MAX_TOKENS.toFloat(),
       defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
       valueType = ValueType.INT,
+      allowAboveMax = true,
     ),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_TOPK,

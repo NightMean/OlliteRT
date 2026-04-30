@@ -205,7 +205,8 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
         )
       }
 
-      val sliderValue = values[config.key.id] as? Float ?: 0f
+      val rawValue = values[config.key.id] as? Float ?: 0f
+      val sliderValue = rawValue.coerceIn(config.sliderMin, config.sliderMax)
 
       Text(
         text = getTextFieldDisplayValue(config.valueType, config.sliderMin),
@@ -242,13 +243,15 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
         singleLine = true,
         onValueChange = {
-          // Always update the display value to reflect the update on the UI.
           textFieldDisplayValue = it
 
-          // Only if the new value could be converted to a float, then update the internal value,
-          // bounded by the slider range. It prevents invalid values like NaN from crashing the app.
           it.toFloatOrNull()?.let { floatValue ->
-            values[config.key.id] = minOf(maxOf(floatValue, config.sliderMin), config.sliderMax)
+            val clamped = if (config.allowAboveMax) {
+              maxOf(floatValue, config.sliderMin)
+            } else {
+              floatValue.coerceIn(config.sliderMin, config.sliderMax)
+            }
+            values[config.key.id] = clamped
           }
         },
         textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
