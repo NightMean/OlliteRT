@@ -105,7 +105,7 @@ import com.ollitert.llm.server.ui.common.ensureValidFileName
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.common.isStorageLow
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-import com.ollitert.llm.server.ui.theme.OlliteRTPrimaryContainer
+import com.ollitert.llm.server.ui.theme.OlliteRTOnPrimary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -270,7 +270,7 @@ fun ModelImportDialog(
           modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(OlliteRTPrimaryContainer)
+            .background(OlliteRTPrimary)
             .padding(horizontal = 14.dp, vertical = 10.dp),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -278,13 +278,13 @@ fun ModelImportDialog(
           Icon(
             imageVector = Icons.Outlined.Info,
             contentDescription = null,
-            tint = OlliteRTPrimary,
+            tint = OlliteRTOnPrimary,
             modifier = Modifier.size(18.dp),
           )
           Text(
             text = stringResource(R.string.import_defaults_disclaimer),
             style = MaterialTheme.typography.bodySmall,
-            color = OlliteRTPrimary,
+            color = OlliteRTOnPrimary,
           )
         }
 
