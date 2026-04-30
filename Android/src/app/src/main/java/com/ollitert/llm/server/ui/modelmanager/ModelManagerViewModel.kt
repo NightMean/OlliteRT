@@ -337,7 +337,11 @@ constructor(
         current.models.filter { it.name != model.name }
       } else {
         statusMap[model.name] = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
-        current.models
+        if (current.allReposDisabled) {
+          current.models.filter { it.name != model.name }
+        } else {
+          current.models
+        }
       }
       current.copy(modelDownloadStatus = statusMap, models = models)
     }
