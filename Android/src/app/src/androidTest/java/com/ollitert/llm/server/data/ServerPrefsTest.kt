@@ -113,19 +113,19 @@ class ServerPrefsTest {
   @Test
   fun inferenceConfigJsonRoundTrip() {
     val config = mapOf(
-      "Temperature" to 0.8,
-      "Max Tokens" to 2048,
-      "Top-K" to 40,
-      "Top-P" to 0.95,
+      "temperature" to 0.8,
+      "max_tokens" to 2048,
+      "topk" to 40,
+      "topp" to 0.95,
     )
 
     ServerPrefs.setInferenceConfig(context, "test-model", config)
     val loaded = ServerPrefs.getInferenceConfig(context, "test-model")!!
 
-    assertEquals(0.8, (loaded["Temperature"] as Number).toDouble(), 0.001)
-    assertEquals(2048, (loaded["Max Tokens"] as Number).toInt())
-    assertEquals(40, (loaded["Top-K"] as Number).toInt())
-    assertEquals(0.95, (loaded["Top-P"] as Number).toDouble(), 0.001)
+    assertEquals(0.8, (loaded["temperature"] as Number).toDouble(), 0.001)
+    assertEquals(2048, (loaded["max_tokens"] as Number).toInt())
+    assertEquals(40, (loaded["topk"] as Number).toInt())
+    assertEquals(0.95, (loaded["topp"] as Number).toDouble(), 0.001)
   }
 
   @Test
@@ -135,13 +135,13 @@ class ServerPrefsTest {
 
   @Test
   fun clearInferenceConfigRemovesOnlyTargetModel() {
-    ServerPrefs.setInferenceConfig(context, "model-a", mapOf("Temperature" to 0.5))
-    ServerPrefs.setInferenceConfig(context, "model-b", mapOf("Temperature" to 0.9))
+    ServerPrefs.setInferenceConfig(context, "model-a", mapOf("temperature" to 0.5))
+    ServerPrefs.setInferenceConfig(context, "model-b", mapOf("temperature" to 0.9))
 
     ServerPrefs.clearInferenceConfig(context, "model-a")
 
     assertNull(ServerPrefs.getInferenceConfig(context, "model-a"))
-    assertEquals(0.9, (ServerPrefs.getInferenceConfig(context, "model-b")!!["Temperature"] as Number).toDouble(), 0.001)
+    assertEquals(0.9, (ServerPrefs.getInferenceConfig(context, "model-b")!!["temperature"] as Number).toDouble(), 0.001)
   }
 
   // --- Engagement Prompt Logic ---
@@ -264,7 +264,8 @@ class ServerPrefsTest {
     ServerPrefs.migratePerModelKeys(context, mapOf("Gemma-4-E2B-it" to "gemma-4-E2B-it.litertlm"))
 
     assertEquals("You are helpful.", ServerPrefs.getSystemPrompt(context, "gemma-4-E2B-it.litertlm"))
-    assertEquals(0.7, (ServerPrefs.getInferenceConfig(context, "gemma-4-E2B-it.litertlm")!!["Temperature"] as Number).toDouble(), 0.001)
+    // Legacy key "Temperature" is migrated to "temperature" on read by decodeInferenceConfig
+    assertEquals(0.7, (ServerPrefs.getInferenceConfig(context, "gemma-4-E2B-it.litertlm")!!["temperature"] as Number).toDouble(), 0.001)
     assertEquals("", ServerPrefs.getSystemPrompt(context, "Gemma-4-E2B-it"))
     assertNull(ServerPrefs.getInferenceConfig(context, "Gemma-4-E2B-it"))
   }
