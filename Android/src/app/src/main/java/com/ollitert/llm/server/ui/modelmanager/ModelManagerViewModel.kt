@@ -513,6 +513,60 @@ constructor(
     )
   }
 
+  /**
+   * Renames an imported model: disk file, DataStore proto entry, and SharedPreferences key.
+   * If only the display name changed (oldFileName == newFileName), updates proto without disk rename.
+   * Returns false if the disk rename could not be completed.
+   */
+  fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): Boolean {
+    if (oldFileName == newFileName) {
+      viewModelScope.launch(Dispatchers.IO) {
+        val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+        val index = importedModels.indexOfFirst { it.fileName == oldFileName }
+        if (index >= 0) {
+          val updated = importedModels[index].toBuilder().setDisplayName(displayName).build()
+          importedModels[index] = updated
+          dataStoreRepository.saveImportedModels(importedModels)
+        }
+        rebuildImportedModelInUiState(oldFileName)
+      }
+      return true
+    }
+
+    if (!fileManager.renameImportedFile(oldFileName, newFileName)) return false
+
+    viewModelScope.launch(Dispatchers.IO) {
+      val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+      val index = importedModels.indexOfFirst { it.fileName == oldFileName }
+      if (index >= 0) {
+        val updated = importedModels[index].toBuilder()
+          .setFileName(newFileName)
+          .setDisplayName(displayName)
+          .build()
+        importedModels[index] = updated
+        dataStoreRepository.saveImportedModels(importedModels)
+      }
+
+      ServerPrefs.renameModelPrefsKey(context, oldFileName, newFileName)
+      rebuildImportedModelInUiState(newFileName)
+    }
+    return true
+  }
+
+  private suspend fun rebuildImportedModelInUiState(fileName: String) {
+    val importedModels = dataStoreRepository.readImportedModels()
+    val info = importedModels.firstOrNull { it.fileName == fileName } ?: return
+    val updatedModel = ModelFactory.buildImportedModel(info)
+    ModelFactory.restoreInferenceConfig(context, updatedModel)
+
+    _uiState.update { current ->
+      val updatedModels = current.models.map { m ->
+        if (m.imported && m.name == fileName) updatedModel else m
+      }
+      current.copy(models = updatedModels)
+    }
+  }
+
   // Token management — delegated to HuggingFaceTokenManager
   suspend fun getTokenStatusAndData() = tokenManager.getTokenStatusAndData()
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) =

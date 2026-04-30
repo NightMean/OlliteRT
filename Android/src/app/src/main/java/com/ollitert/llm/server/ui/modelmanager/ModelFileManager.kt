@@ -82,6 +82,16 @@ class ModelFileManager(
     }
   }
 
+  fun renameImportedFile(oldFileName: String, newFileName: String): Boolean {
+    val dir = context.getExternalFilesDir(null) ?: return false
+    val importsDir = File(dir, IMPORTS_DIR)
+    val oldFile = File(importsDir, oldFileName)
+    val newFile = File(importsDir, newFileName)
+    if (!oldFile.exists()) return false
+    if (newFile.exists()) return false
+    return oldFile.renameTo(newFile)
+  }
+
   fun deleteDirFromExternalFilesDir(dir: String) {
     if (isFileInExternalFilesDir(dir)) {
       val file = File(externalFilesDir, dir)

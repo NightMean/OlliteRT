@@ -34,6 +34,9 @@ message ImportedModel {
   oneof config {
     LlmConfig llm_config = 3;
   }
+
+  // User-chosen display name. If empty, falls back to file_name stem.
+  string display_name = 4;
 }
 
 message LlmConfig {

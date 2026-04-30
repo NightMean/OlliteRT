@@ -217,7 +217,12 @@ fun ModelItem(
       com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog(
         existingModel = loadedInfo,
         isCurrentlyActive = activeModelName == model.name && serverStatus != ServerStatus.STOPPED,
+        existingImportedModelNames = modelManagerUiState.models.filter { it.imported }.map { it.name }.toSet(),
+        allowlistModelNames = modelManagerUiState.models.filter { !it.imported }.map { it.name }.toSet(),
         onDismiss = { showEditDefaults = false },
+        onRename = { oldFileName, newFileName, displayName ->
+          modelManagerViewModel.renameImportedModel(oldFileName, newFileName, displayName)
+        },
         onDone = { updated ->
           modelManagerViewModel.updateImportedModelDefaults(updated)
           showEditDefaults = false

@@ -708,6 +708,28 @@ object ServerPrefs {
     }
   }
 
+  fun renameModelPrefsKey(context: Context, oldKey: String, newKey: String) {
+    if (oldKey == newKey) return
+    val p = prefs(context)
+    p.edit {
+      val oldPromptKey = KEY_PREFIX_SYSTEM_PROMPT + oldKey
+      val newPromptKey = KEY_PREFIX_SYSTEM_PROMPT + newKey
+      val prompt = p.getString(oldPromptKey, null)
+      if (prompt != null) {
+        putString(newPromptKey, prompt)
+        remove(oldPromptKey)
+      }
+
+      val oldConfigKey = KEY_PREFIX_INFERENCE_CONFIG + oldKey
+      val newConfigKey = KEY_PREFIX_INFERENCE_CONFIG + newKey
+      val config = p.getString(oldConfigKey, null)
+      if (config != null) {
+        putString(newConfigKey, config)
+        remove(oldConfigKey)
+      }
+    }
+  }
+
   // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0 to rename
   // ha_stt_transcription_prompt → stt_transcription_prompt (setting is not HA-specific).
   fun migrateSttKeys(context: Context) {

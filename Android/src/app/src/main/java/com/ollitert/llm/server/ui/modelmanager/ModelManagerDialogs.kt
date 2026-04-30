@@ -102,6 +102,7 @@ fun ModelManagerDialogs(
   state: ModelManagerDialogState,
   viewModel: ModelManagerViewModel,
   importedModelNames: Set<String>,
+  allowlistModelNames: Set<String>,
   snackbarHostState: SnackbarHostState,
   serverStatus: ServerStatus,
   activeModelName: String?,
@@ -247,6 +248,7 @@ fun ModelManagerDialogs(
           state.showImportingDialog = true
         },
         existingImportedModelNames = importedModelNames,
+        allowlistModelNames = allowlistModelNames,
       )
     }
   }

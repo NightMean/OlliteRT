@@ -800,6 +800,7 @@ fun GlobalModelManager(
     state = dialogState,
     viewModel = viewModel,
     importedModelNames = importedModels.map { it.name }.toSet(),
+    allowlistModelNames = uiState.models.filter { !it.imported }.map { it.name }.toSet(),
     snackbarHostState = snackbarHostState,
     serverStatus = serverStatus,
     activeModelName = activeModelName,

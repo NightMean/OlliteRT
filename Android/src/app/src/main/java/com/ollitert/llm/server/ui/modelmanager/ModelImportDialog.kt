@@ -47,6 +47,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -192,6 +193,8 @@ fun ModelImportDialog(
   defaultValues: Map<ConfigKey, Any> = emptyMap(),
   /** Names of already-imported models — used to show a replace confirmation dialog. */
   existingImportedModelNames: Set<String> = emptySet(),
+  /** Names of allowlist models — used to prevent importing with conflicting names. */
+  allowlistModelNames: Set<String> = emptySet(),
 ) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
@@ -215,6 +218,9 @@ fun ModelImportDialog(
 
   // Pending model to import when storage is low — shows a warning before proceeding.
   var pendingStorageModel by remember { mutableStateOf<ImportedModel?>(null) }
+
+  // Shown when imported model name conflicts with an allowlist model.
+  var showAllowlistConflictError by remember { mutableStateOf(false) }
 
   val importConfigs = remember { buildImportConfigsLlm(context, fileExtension) }
 
@@ -362,6 +368,7 @@ fun ModelImportDialog(
                 ImportedModel.newBuilder()
                   .setFileName(editedName)
                   .setFileSize(fileSize)
+                  .setDisplayName(editedStem)
                   .setLlmConfig(
                     LlmConfig.newBuilder()
                       .addAllCompatibleAccelerators(supportedAccelerators)
@@ -383,6 +390,10 @@ fun ModelImportDialog(
               // Check if a model with this name already exists.
               else if (editedName in existingImportedModelNames) {
                 pendingReplaceModel = importedModel
+              }
+              // Check if name conflicts with an allowlist model.
+              else if (editedName in allowlistModelNames || editedStem in allowlistModelNames) {
+                showAllowlistConflictError = true
               } else {
                 onDone(importedModel)
               }
@@ -460,13 +471,28 @@ fun ModelImportDialog(
       dismissButton = {
         TextButton(onClick = {
           pendingStorageModel = null
-          // Proceed despite low storage — still check for duplicate name.
+          // Proceed despite low storage — still check for duplicate name and allowlist conflict.
           if (storageModel.fileName in existingImportedModelNames) {
             pendingReplaceModel = storageModel
+          } else if (storageModel.fileName in allowlistModelNames || storageModel.fileName.substringBeforeLast('.') in allowlistModelNames) {
+            showAllowlistConflictError = true
           } else {
             onDone(storageModel)
           }
         }) { Text(stringResource(R.string.button_import_anyway)) }
+      },
+    )
+  }
+
+  if (showAllowlistConflictError) {
+    AlertDialog(
+      onDismissRequest = { showAllowlistConflictError = false },
+      title = { Text(stringResource(R.string.dialog_allowlist_conflict_title)) },
+      text = { Text(stringResource(R.string.dialog_allowlist_conflict_body)) },
+      confirmButton = {
+        TextButton(onClick = { showAllowlistConflictError = false }) {
+          Text(stringResource(R.string.ok))
+        }
       },
     )
   }
@@ -481,16 +507,44 @@ fun ModelImportDialog(
 fun EditImportedModelDialog(
   existingModel: ImportedModel,
   isCurrentlyActive: Boolean,
+  existingImportedModelNames: Set<String>,
+  allowlistModelNames: Set<String>,
   onDismiss: () -> Unit,
   onDone: (ImportedModel) -> Unit,
+  onRename: (oldFileName: String, newFileName: String, displayName: String) -> Boolean,
 ) {
+  val context = LocalContext.current
   val fileExtension = remember {
     val dotIndex = existingModel.fileName.lastIndexOf('.')
     if (dotIndex > 0) existingModel.fileName.substring(dotIndex) else ""
   }
+  val fileStem = remember {
+    existingModel.displayName.ifEmpty {
+      val dotIndex = existingModel.fileName.lastIndexOf('.')
+      if (dotIndex > 0) existingModel.fileName.substring(0, dotIndex) else existingModel.fileName
+    }
+  }
+  var editedStem by remember { mutableStateOf(fileStem) }
+  var nameError by remember { mutableStateOf("") }
+  val nameValidationRegex = remember { Regex("^[a-zA-Z0-9._-]+$") }
 
-  val context = LocalContext.current
-  // Build configs without the name field — file name is fixed and cannot be changed here
+  val errorNameEmpty = stringResource(R.string.error_model_name_empty)
+  val errorNameInvalidChars = stringResource(R.string.error_model_name_invalid_chars)
+  val errorNameTakenImported = stringResource(R.string.error_model_name_taken_imported)
+  val errorNameTakenAllowlist = stringResource(R.string.error_model_name_taken_allowlist)
+  val errorRenameFailed = stringResource(R.string.error_model_rename_failed)
+
+  fun validateName(stem: String): String {
+    if (stem.isBlank()) return errorNameEmpty
+    if (!nameValidationRegex.matches(stem)) return errorNameInvalidChars
+    val fullName = stem + fileExtension
+    if (fullName == existingModel.fileName && stem == existingModel.displayName.ifEmpty { fileStem }) return ""
+    if (fullName != existingModel.fileName && fullName in existingImportedModelNames) return errorNameTakenImported
+    if (fullName in allowlistModelNames || stem in allowlistModelNames) return errorNameTakenAllowlist
+    return ""
+  }
+
+  // Build configs without the name field — name is handled separately above
   val editConfigs = remember {
     buildImportConfigsLlm(context, fileExtension).filter { it.key != ConfigKeys.NAME && it.key != ConfigKeys.MODEL_TYPE }
   }
@@ -571,6 +625,23 @@ fun EditImportedModelDialog(
           modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+          OutlinedTextField(
+            value = editedStem,
+            onValueChange = { newValue ->
+              editedStem = newValue
+              nameError = validateName(newValue)
+            },
+            label = { Text(stringResource(R.string.config_label_name)) },
+            suffix = { Text(fileExtension, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            isError = nameError.isNotEmpty(),
+            supportingText = if (nameError.isNotEmpty()) {
+              { Text(nameError) }
+            } else null,
+            singleLine = true,
+            enabled = !isCurrentlyActive,
+            modifier = Modifier.fillMaxWidth(),
+          )
+
           ConfigEditorsPanel(configs = editConfigs, values = values)
 
           Row(
@@ -616,6 +687,19 @@ fun EditImportedModelDialog(
           TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
           Button(
             onClick = {
+              val error = validateName(editedStem)
+              if (error.isNotEmpty()) {
+                nameError = error
+                return@Button
+              }
+
+              val newFileName = editedStem + fileExtension
+              val renamed = onRename(existingModel.fileName, newFileName, editedStem)
+              if (!renamed) {
+                nameError = errorRenameFailed
+                return@Button
+              }
+
               val supportedAccelerators = safeConfigValue(
                 values, ConfigKeys.COMPATIBLE_ACCELERATORS, ValueType.STRING, SUPPORTED_ACCELERATORS[0].label
               ).split(",")
@@ -628,8 +712,9 @@ fun EditImportedModelDialog(
               val supportThinking = safeConfigValue(values, ConfigKeys.SUPPORT_THINKING, ValueType.BOOLEAN, false)
               val supportTools = safeConfigValue(values, ConfigKeys.SUPPORT_TOOLS, ValueType.BOOLEAN, false)
               val updated = ImportedModel.newBuilder()
-                .setFileName(existingModel.fileName)
+                .setFileName(newFileName)
                 .setFileSize(existingModel.fileSize)
+                .setDisplayName(editedStem)
                 .setLlmConfig(
                   LlmConfig.newBuilder()
                     .addAllCompatibleAccelerators(supportedAccelerators)

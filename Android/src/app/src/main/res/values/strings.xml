@@ -188,6 +188,14 @@
   <string name="button_replace">Replace</string>
   <string name="dialog_replace_model_title">Replace existing model?</string>
   <string name="dialog_replace_model_body">A model named \"%1$s\" is already imported. Replacing it will overwrite the existing model file and settings.</string>
+  <string name="error_model_name_taken_imported">A model with this name is already imported</string>
+  <string name="error_model_name_taken_allowlist">This name is used by a model in the repository</string>
+  <string name="error_model_name_empty">Model name cannot be empty</string>
+  <string name="error_model_name_invalid_chars">Name can only contain letters, numbers, periods, hyphens, and underscores</string>
+  <string name="toast_model_renamed">Model renamed successfully</string>
+  <string name="error_model_rename_failed">Failed to rename model file</string>
+  <string name="dialog_allowlist_conflict_title">Name conflict</string>
+  <string name="dialog_allowlist_conflict_body">Please rename the model file or use a different name to avoid conflicts with repository models.</string>
   <string name="dialog_donate_title">Support OlliteRT</string>
   <string name="dialog_donate_body">If you find OlliteRT useful, consider supporting its development.</string>
   <string name="dialog_engagement_title">Enjoying OlliteRT?</string>
