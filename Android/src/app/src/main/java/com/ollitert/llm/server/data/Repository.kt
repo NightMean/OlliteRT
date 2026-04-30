@@ -32,6 +32,7 @@ data class Repository(
   val description: String = "",
   val iconUrl: String = "",
   val modelCount: Int? = null,
+  val hiddenModelCount: Int = 0,
 ) {
   val cacheFilename: String
     get() = repoCacheFilename(id)

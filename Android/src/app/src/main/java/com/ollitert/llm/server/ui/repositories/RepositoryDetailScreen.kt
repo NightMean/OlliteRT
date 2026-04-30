@@ -241,6 +241,7 @@ fun RepositoryDetailScreen(
         }
 
         itemsIndexed(uiState.detailModels, key = { index, model -> "${index}_${model.name}" }) { _, model ->
+          val contentAlpha = if (model.isIncompatible) 0.4f else 1f
           Row(
             modifier = Modifier
               .fillMaxWidth()
@@ -254,6 +255,7 @@ fun RepositoryDetailScreen(
               Text(
                 text = model.name,
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -261,7 +263,14 @@ fun RepositoryDetailScreen(
                 MarkdownText(
                   text = model.description,
                   smallFontSize = true,
-                  textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                  textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                )
+              }
+              if (model.isIncompatible && model.incompatibilityReason.isNotEmpty()) {
+                Text(
+                  text = model.incompatibilityReason,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 )
               }
             }
@@ -269,7 +278,7 @@ fun RepositoryDetailScreen(
               Text(
                 text = model.sizeInBytes.humanReadableSize(),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
               )
             }
           }

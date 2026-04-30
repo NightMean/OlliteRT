@@ -420,8 +420,11 @@ private fun RepositoryRow(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
       )
-      val subtitle = when (repo.modelCount) {
-        null -> stringResource(R.string.repo_model_count_none)
+      val subtitle = when {
+        repo.modelCount == null -> stringResource(R.string.repo_model_count_none)
+        repo.hiddenModelCount > 0 -> stringResource(
+          R.string.repo_model_count_with_hidden, repo.modelCount, repo.hiddenModelCount
+        )
         else -> stringResource(R.string.repo_model_count, repo.modelCount)
       }
       Text(

@@ -21,7 +21,9 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.FetchResult
 import com.ollitert.llm.server.data.fetchBoundedResult
@@ -52,6 +54,8 @@ data class RepoDetailModel(
   val name: String,
   val description: String,
   val sizeInBytes: Long,
+  val isIncompatible: Boolean = false,
+  val incompatibilityReason: String = "",
 )
 
 data class RepositoryUiState(
@@ -100,16 +104,18 @@ class RepositoryViewModel @Inject constructor(
   }
 
   private fun enrichRepo(repo: Repository): Repository {
-    val needsName = repo.name.isEmpty()
-    val needsCount = repo.modelCount == null
-    if (!needsName && !needsCount) return repo
     val allowlist = readAllowlistForRepo(repo)
+    val needsName = repo.name.isEmpty()
     val name = if (needsName) {
       allowlist?.sourceName?.ifEmpty { null } ?: deriveRepositoryName(repo.url)
     } else repo.name
-    val count = if (needsCount) allowlist?.models?.size else repo.modelCount
+    val count = allowlist?.models?.size ?: repo.modelCount
     val version = if (allowlist != null) maxOf(repo.contentVersion, allowlist.contentVersion) else repo.contentVersion
-    return repo.copy(name = name, modelCount = count, contentVersion = version)
+    val hidden = if (allowlist != null) {
+      val appVersion = SemVer.parse(BuildConfig.VERSION_NAME) ?: return repo.copy(name = name, modelCount = count, contentVersion = version)
+      allowlist.models.count { !it.isCompatibleWith(appVersion) }
+    } else 0
+    return repo.copy(name = name, modelCount = count, contentVersion = version, hiddenModelCount = hidden)
   }
 
   private fun readAllowlistForRepo(repo: Repository): ModelAllowlist? {
@@ -174,6 +180,7 @@ class RepositoryViewModel @Inject constructor(
       val (enrichedRepo, models) = try {
         val allowlist = readAllowlistForRepo(repo)
         if (allowlist != null) {
+          val appVersion = SemVer.parse(BuildConfig.VERSION_NAME) ?: SemVer(0, 0, 0)
           val enriched = repo.copy(
             name = allowlist.sourceName.ifEmpty { repo.name },
             description = allowlist.sourceDescription.ifEmpty { repo.description },
@@ -182,12 +189,19 @@ class RepositoryViewModel @Inject constructor(
             modelCount = allowlist.models.size,
           )
           val detailModels = allowlist.models.map { m ->
+            val compatible = m.isCompatibleWith(appVersion)
             RepoDetailModel(
               name = m.name,
               description = m.description,
               sizeInBytes = m.sizeInBytes,
+              isIncompatible = !compatible,
+              incompatibilityReason = when {
+                !compatible && m.minAppVersion != null -> "Requires v${m.minAppVersion}"
+                !compatible && m.maxAppVersion != null -> "Not available after v${m.maxAppVersion}"
+                else -> ""
+              },
             )
-          }
+          }.sortedBy { it.isIncompatible }
           enriched to detailModels
         } else {
           repo to emptyList()

@@ -995,6 +995,7 @@
   <string name="repo_add_loading">Validating…</string>
   <string name="repo_added_success">Model source added</string>
   <string name="repo_model_count">%1$d models</string>
+  <string name="repo_model_count_with_hidden">%1$d models · %2$d hidden</string>
   <string name="repo_delete_title">Remove model source?</string>
   <string name="repo_delete_message">Remove %1$s? This won\'t delete any downloaded models.</string>
   <string name="repo_disable_title">Disable model source?</string>
