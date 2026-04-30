@@ -74,6 +74,11 @@ private const val TAG = "OlliteRT.Download"
 
 data class UrlAndFileName(val url: String, val fileName: String)
 
+private class HttpErrorException(
+  val statusCode: Int,
+  val isRepoNotFound: Boolean = false,
+) : IOException("HTTP error code: $statusCode")
+
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
 private var channelCreated = false
 
@@ -224,7 +229,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                   }
                 }
               } else {
-                throw IOException("HTTP error code: ${connection.responseCode}")
+                val errorBody = try {
+                  connection.errorStream?.bufferedReader()?.use { it.readText() }
+                } catch (_: Exception) { null }
+                val repoNotFound = errorBody?.contains("Repository Not Found", ignoreCase = true) == true
+                Log.w(TAG, "HTTP ${connection.responseCode}: $errorBody")
+                throw HttpErrorException(connection.responseCode, isRepoNotFound = repoNotFound)
               }
 
               val appendMode = outputTmpFile.exists() && outputTmpFile.length() > 0
@@ -392,12 +402,19 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           val errorMessage = if (isDiskFull) {
             applicationContext.getString(R.string.download_error_disk_full)
           } else {
-            applicationContext.getString(when (e) {
-              is SocketTimeoutException -> R.string.download_error_timeout
-              is UnknownHostException -> R.string.download_error_no_internet
-              is SocketException -> R.string.download_error_connection_lost
-              else -> R.string.download_error_network
-            })
+            when (e) {
+              is HttpErrorException -> when {
+                e.isRepoNotFound -> applicationContext.getString(R.string.download_error_not_found)
+                e.statusCode == HttpURLConnection.HTTP_NOT_FOUND -> applicationContext.getString(R.string.download_error_not_found)
+                e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || e.statusCode == HttpURLConnection.HTTP_FORBIDDEN ->
+                  applicationContext.getString(R.string.download_error_unauthorized)
+                else -> applicationContext.getString(R.string.download_error_server, e.statusCode)
+              }
+              is SocketTimeoutException -> applicationContext.getString(R.string.download_error_timeout)
+              is UnknownHostException -> applicationContext.getString(R.string.download_error_no_internet)
+              is SocketException -> applicationContext.getString(R.string.download_error_connection_lost)
+              else -> applicationContext.getString(R.string.download_error_network)
+            }
           }
 
           Result.failure(

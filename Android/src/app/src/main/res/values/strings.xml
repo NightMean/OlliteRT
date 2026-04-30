@@ -137,6 +137,8 @@
   <string name="button_open_user_agreement">Open user agreement</string>
   <string name="dialog_network_error_title">Unknown network error</string>
   <string name="dialog_network_error_body">Please check your internet connection.</string>
+  <string name="dialog_model_not_found_title">Model not found</string>
+  <string name="dialog_model_not_found_body">The model could not be found on HuggingFace. Verify that the model ID and commit hash in your model list are correct.</string>
   <string name="dialog_hf_token_required_title">HuggingFace Token Required</string>
   <string name="dialog_hf_token_required_body">This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Settings.</string>
   <string name="dialog_hf_token_invalid_title">HuggingFace Token Invalid</string>
@@ -946,6 +948,9 @@
   <string name="download_error_no_internet">No internet connection. Check your network settings and try again.</string>
   <string name="download_error_connection_lost">Network connection was lost during download. Try again when your connection is stable.</string>
   <string name="download_error_network">Download failed due to a network error. Check your connection and try again.</string>
+  <string name="download_error_not_found">Model not found (404). Check the model ID and commit hash in your model list.</string>
+  <string name="download_error_unauthorized">Authentication failed. Check your HuggingFace token or verify the model is publicly accessible.</string>
+  <string name="download_error_server">Server returned HTTP %1$d. Try again later.</string>
   <string name="download_error_zip_corrupted">Download failed: the model archive appears corrupted or contains invalid paths. Try downloading again.</string>
   <string name="download_notif_title_generic">Downloading model</string>
   <string name="download_notif_title_named">Downloading \"%1$s\"</string>

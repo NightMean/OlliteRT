@@ -149,6 +149,7 @@ fun DownloadAndTryButton(
   var checkingToken by remember { mutableStateOf(false) }
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
+  var showModelNotFoundDialog by remember { mutableStateOf(false) }
   var showStopActiveDialog by remember { mutableStateOf(false) }
   var hfTokenDialogReason by remember { mutableStateOf<HfTokenDialogReason?>(null) }
   var showMemoryWarning by remember { mutableStateOf(false) }
@@ -303,6 +304,13 @@ fun DownloadAndTryButton(
                 withContext(Dispatchers.Main) { startDownload(null) }
                 return@launch
               }
+              if (firstResult.code == HttpURLConnection.HTTP_NOT_FOUND) {
+                Log.d(TAG, "Model '${model.name}' returned 404 — model not found.")
+                checkingToken = false
+                downloadStarted = false
+                showModelNotFoundDialog = true
+                return@launch
+              }
             }
           }
           Log.d(TAG, "Model '${model.name}' needs auth.")
@@ -327,6 +335,12 @@ fun DownloadAndTryButton(
                 if (hfResult.code == HttpURLConnection.HTTP_OK) {
                   Log.d(TAG, "Stored HF token works. Start downloading...")
                   withContext(Dispatchers.Main) { startDownload(storedHfToken) }
+                  return@launch
+                } else if (hfResult.code == HttpURLConnection.HTTP_NOT_FOUND) {
+                  Log.d(TAG, "Model '${model.name}' returned 404 with token — model not found.")
+                  checkingToken = false
+                  downloadStarted = false
+                  showModelNotFoundDialog = true
                   return@launch
                 } else if (hfResult.code == HttpURLConnection.HTTP_FORBIDDEN) {
                   Log.d(TAG, "Model needs license agreement. Opening agreement page...")
@@ -668,6 +682,15 @@ fun DownloadAndTryButton(
       title = stringResource(R.string.dialog_network_error_title),
       text = stringResource(R.string.dialog_network_error_body),
       onDismiss = { showErrorDialog = false },
+      confirmLabel = stringResource(R.string.close),
+    )
+  }
+
+  if (showModelNotFoundDialog) {
+    ErrorAlertDialog(
+      title = stringResource(R.string.dialog_model_not_found_title),
+      text = stringResource(R.string.dialog_model_not_found_body),
+      onDismiss = { showModelNotFoundDialog = false },
       confirmLabel = stringResource(R.string.close),
     )
   }
