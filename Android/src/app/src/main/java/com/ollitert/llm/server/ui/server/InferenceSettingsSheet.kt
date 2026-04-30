@@ -24,6 +24,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.selection.selectable
@@ -188,6 +189,18 @@ fun InferenceSettingsSheet(
 
   var showResetDialog by remember { mutableStateOf(false) }
 
+  // Track out-of-range errors across all parameter inputs to gate the Apply button.
+  // "above max" errors are detected live during typing; "below min" errors are detected
+  // on Apply and surfaced via forceError flags.
+  var tempError by remember { mutableStateOf(false) }
+  var maxTokensError by remember { mutableStateOf(false) }
+  var topKError by remember { mutableStateOf(false) }
+  var topPError by remember { mutableStateOf(false) }
+  var tempForceError by remember { mutableStateOf(false) }
+  var maxTokensForceError by remember { mutableStateOf(false) }
+  var topKForceError by remember { mutableStateOf(false) }
+  var topPForceError by remember { mutableStateOf(false) }
+
   // Reset confirmation dialog
   if (showResetDialog) {
     AlertDialog(
@@ -285,23 +298,27 @@ fun InferenceSettingsSheet(
       ) {
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_temperature),
-          value = String.format(Locale.US, "%.1f", temperature),
-          onValueChange = { temperature = it.toFloat() },
+          value = String.format(Locale.US, "%.2f", temperature).trimEnd('0').trimEnd('.'),
+          onValueChange = { temperature = it.toFloat(); tempForceError = false },
           min = tempRange.first,
           max = tempRange.second,
           isFloat = true,
           keyboardType = KeyboardType.Decimal,
           modifier = Modifier.weight(1f),
+          forceError = tempForceError,
+          onErrorStateChange = { tempError = it },
         )
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_max_tokens),
           value = maxTokens.toString(),
-          onValueChange = { maxTokens = it.toInt() },
+          onValueChange = { maxTokens = it.toInt(); maxTokensForceError = false },
           min = maxTokensRange.first,
           max = maxTokensRange.second,
           isFloat = false,
           keyboardType = KeyboardType.Number,
           modifier = Modifier.weight(1f),
+          forceError = maxTokensForceError,
+          onErrorStateChange = { maxTokensError = it },
         )
       }
 
@@ -313,22 +330,26 @@ fun InferenceSettingsSheet(
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_top_k),
           value = topK.toString(),
-          onValueChange = { topK = it.toInt() },
+          onValueChange = { topK = it.toInt(); topKForceError = false },
           min = topKRange.first,
           max = topKRange.second,
           isFloat = false,
           keyboardType = KeyboardType.Number,
           modifier = Modifier.weight(1f),
+          forceError = topKForceError,
+          onErrorStateChange = { topKError = it },
         )
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_top_p),
           value = String.format(Locale.US, "%.2f", topP),
-          onValueChange = { topP = it.toFloat() },
+          onValueChange = { topP = it.toFloat(); topPForceError = false },
           min = topPRange.first,
           max = topPRange.second,
           isFloat = true,
           keyboardType = KeyboardType.Decimal,
           modifier = Modifier.weight(1f),
+          forceError = topPForceError,
+          onErrorStateChange = { topPError = it },
         )
       }
 
@@ -487,26 +508,31 @@ fun InferenceSettingsSheet(
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
       )
 
-      // Apply button
+      // Apply button — disabled when any parameter is out of valid range
       Button(
         onClick = {
+          // Validate all parameters against full range (min and max)
+          tempForceError = temperature < tempRange.first || temperature > tempRange.second
+          maxTokensForceError = maxTokens < maxTokensRange.first.toInt() || maxTokens > maxTokensRange.second.toInt()
+          topKForceError = topK < topKRange.first.toInt() || topK > topKRange.second.toInt()
+          topPForceError = topP < topPRange.first || topP > topPRange.second
+          val hasValidationError = tempForceError || maxTokensForceError || topKForceError || topPForceError
+            || tempError || maxTokensError || topKError || topPError
+          if (hasValidationError) {
+            Toast.makeText(
+              context,
+              context.getString(R.string.inference_settings_error_out_of_range),
+              Toast.LENGTH_SHORT,
+            ).show()
+            return@Button
+          }
           focusManager.clearFocus()
-          // Clamp all values to valid ranges before saving — can't rely on blur/commitValue
-          // completing synchronously before this handler reads the state vars.
-          val clampedTemp = temperature.coerceIn(tempRange.first, tempRange.second)
-          val clampedMaxTokens = maxTokens.coerceIn(maxTokensRange.first.toInt(), maxTokensRange.second.toInt())
-          val clampedTopK = topK.coerceIn(topKRange.first.toInt(), topKRange.second.toInt())
-          val clampedTopP = topP.coerceIn(topPRange.first, topPRange.second)
-          temperature = clampedTemp
-          maxTokens = clampedMaxTokens
-          topK = clampedTopK
-          topP = clampedTopP
           val newValues = mutableMapOf<String, Any>()
           newValues.putAll(configValues)
-          newValues[ConfigKeys.TEMPERATURE.id] = clampedTemp
-          newValues[ConfigKeys.MAX_TOKENS.id] = clampedMaxTokens
-          newValues[ConfigKeys.TOPK.id] = clampedTopK
-          newValues[ConfigKeys.TOPP.id] = clampedTopP
+          newValues[ConfigKeys.TEMPERATURE.id] = temperature
+          newValues[ConfigKeys.MAX_TOKENS.id] = maxTokens
+          newValues[ConfigKeys.TOPK.id] = topK
+          newValues[ConfigKeys.TOPP.id] = topP
           newValues[ConfigKeys.ENABLE_THINKING.id] = enableThinking
           newValues[ConfigKeys.ACCELERATOR.id] = selectedAccelerator.label
           onApply(newValues, systemPrompt, false)
@@ -538,21 +564,38 @@ private fun ParameterInputBox(
   isFloat: Boolean,
   keyboardType: KeyboardType,
   modifier: Modifier = Modifier,
+  forceError: Boolean = false,
+  onErrorStateChange: (Boolean) -> Unit = {},
 ) {
   val focusRequester = remember { FocusRequester() }
   val focusManager = LocalFocusManager.current
   var textValue by remember { mutableStateOf(value) }
-  // Track focus state to avoid resetting the text field while the user is typing.
-  // When focused, the text field owns its content. When not focused, sync from parent
-  // (e.g. after reset to defaults).
   var isFocused by remember { mutableStateOf(false) }
   if (!isFocused && textValue != value) {
     textValue = value
   }
 
-  // Clamp and commit the current text value — called on blur and keyboard Done.
-  // Clamping only happens here, NOT during typing, so the user can freely type
-  // without seeing numbers snap to min/max mid-keystroke.
+  // Flag values above max during typing — gives immediate feedback for clearly invalid input.
+  // Below-min is not flagged live (user may still be typing digits), but is caught on Apply.
+  val isAboveMax = remember(textValue, max, isFloat) {
+    if (isFloat) {
+      val parsed = textValue.toFloatOrNull()
+      parsed != null && parsed > max
+    } else {
+      val parsed = textValue.toLongOrNull()
+      parsed != null && parsed > max.toLong()
+    }
+  }
+
+  val showError = isAboveMax || forceError
+
+  // Notify parent of above-max error state changes
+  val previousError = remember { mutableStateOf(false) }
+  if (previousError.value != isAboveMax) {
+    previousError.value = isAboveMax
+    onErrorStateChange(isAboveMax)
+  }
+
   fun commitValue() {
     val raw = textValue
     if (isFloat) {
@@ -562,11 +605,13 @@ private fun ParameterInputBox(
         else String.format(Locale.US, "%.2f", clamped).trimEnd('0').trimEnd('.')
       textValue = formatted
       onValueChange(clamped)
+      onErrorStateChange(false)
     } else {
       val parsed = raw.toLongOrNull() ?: return
       val clamped = parsed.coerceIn(min.toLong(), max.toLong()).toInt()
       textValue = clamped.toString()
       onValueChange(clamped)
+      onErrorStateChange(false)
     }
   }
 
@@ -576,9 +621,9 @@ private fun ParameterInputBox(
     "${min.toInt()}–${max.toInt()}"
   }
 
+  val errorColor = MaterialTheme.colorScheme.error
+
   Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    // Label + range hint — FlowRow wraps the hint below the label at large font scaling
-    // instead of overlapping or truncating.
     @OptIn(ExperimentalLayoutApi::class)
     FlowRow(
       modifier = Modifier.fillMaxWidth(),
@@ -589,19 +634,23 @@ private fun ParameterInputBox(
         text = label,
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
-        color = OlliteRTPrimary,
+        color = if (showError) errorColor else OlliteRTPrimary,
         letterSpacing = 1.sp,
       )
       Text(
         text = hint,
         style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (showError) errorColor else MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
     Row(
       modifier = Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(12.dp))
+        .then(
+          if (showError) Modifier.border(1.5.dp, errorColor, RoundedCornerShape(12.dp))
+          else Modifier
+        )
         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         .clickable { focusRequester.requestFocus() }
         .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -610,37 +659,36 @@ private fun ParameterInputBox(
       BasicTextField(
         value = textValue,
         onValueChange = { raw ->
-          // Strip non-numeric characters (keep digits, dot, comma, minus).
-          // Normalize comma to dot (some locales use comma as decimal separator).
-          // No clamping here — let the user type freely. Clamping happens on commit (blur/done).
           val allowed = if (isFloat) {
             val normalized = raw.replace(',', '.')
             val filtered = normalized.filter { it.isDigit() || it == '.' || it == '-' }
-            // Enforce single decimal point — keep only the first dot
             val dotIndex = filtered.indexOf('.')
             if (dotIndex >= 0) {
-              filtered.substring(0, dotIndex + 1) + filtered.substring(dotIndex + 1).replace(".", "")
+              val afterDot = filtered.substring(dotIndex + 1).replace(".", "")
+              filtered.substring(0, dotIndex + 1) + afterDot.take(2)
             } else filtered
           } else {
             raw.filter { it.isDigit() }
           }
           textValue = allowed
-          // Push unclamped value to parent so state stays in sync for intermediate display,
-          // but only if it's a valid number (incomplete inputs like "" or "." are ignored)
           if (isFloat) {
-            allowed.toFloatOrNull()?.let { onValueChange(it) }
+            allowed.toFloatOrNull()?.let { parsed ->
+              if (parsed <= max) onValueChange(parsed)
+            }
           } else {
-            allowed.toIntOrNull()?.let { onValueChange(it) }
+            allowed.toLongOrNull()?.let { parsed ->
+              if (parsed <= max.toLong()) onValueChange(parsed.toInt())
+            }
           }
         },
         singleLine = true,
         textStyle = TextStyle(
-          color = MaterialTheme.colorScheme.onSurface,
+          color = if (showError) errorColor else MaterialTheme.colorScheme.onSurface,
           fontSize = 14.sp,
           fontWeight = FontWeight.SemiBold,
           fontFamily = SpaceGroteskFontFamily,
         ),
-        cursorBrush = SolidColor(OlliteRTPrimary),
+        cursorBrush = SolidColor(if (showError) errorColor else OlliteRTPrimary),
         keyboardOptions = KeyboardOptions(
           keyboardType = keyboardType,
           imeAction = ImeAction.Done,
@@ -662,7 +710,7 @@ private fun ParameterInputBox(
       Icon(
         Icons.Outlined.Edit,
         contentDescription = stringResource(R.string.cd_edit_field, label),
-        tint = OlliteRTPrimary,
+        tint = if (showError) errorColor else OlliteRTPrimary,
         modifier = Modifier.size(18.dp),
       )
     }

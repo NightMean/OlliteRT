@@ -862,6 +862,7 @@
   <string name="inference_settings_system_prompt_placeholder">e.g. You are a helpful coding assistant…</string>
   <string name="inference_settings_reload_warning">Changes to Max Tokens or Accelerator will reload the model</string>
   <string name="inference_settings_save_apply">Save &amp; Apply Configuration</string>
+  <string name="inference_settings_error_out_of_range">Values must be within the allowed range</string>
   <string name="cd_clear">Clear</string>
   <string name="cd_collapse">Collapse</string>
   <string name="cd_expand">Expand</string>
