@@ -16,7 +16,13 @@
 
 package com.ollitert.llm.server.ui.repositories
 
+import android.app.Activity
+import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,9 +43,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +53,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -54,20 +61,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,8 +92,11 @@ import coil3.request.crossfade
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
+import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.UrlInputDialog
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,12 +113,37 @@ fun RepositoryListScreen(
   LaunchedEffect(Unit) { viewModel.loadRepositories() }
 
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val scope = rememberCoroutineScope()
+  val context = LocalContext.current
   var hasChanges by rememberSaveable { mutableStateOf(false) }
-  var showAddDialog by rememberSaveable { mutableStateOf(false) }
+  var showAddSheet by rememberSaveable { mutableStateOf(false) }
+  var showAddUrlDialog by rememberSaveable { mutableStateOf(false) }
   var disableInfoRepoId by rememberSaveable { mutableStateOf<String?>(null) }
   var downloadingBlockRepoId by rememberSaveable { mutableStateOf<String?>(null) }
   var downloadingBlockModelNames by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
   var showInfoDialog by rememberSaveable { mutableStateOf(false) }
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+  val repoAddedText = stringResource(R.string.repo_added_success)
+  val jsonPickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.StartActivityForResult()
+  ) { result ->
+    if (result.resultCode == Activity.RESULT_OK) {
+      result.data?.data?.let { uri ->
+        viewModel.addRepositoryFromFile(uri) { addResult ->
+          when (addResult) {
+            is AddRepoResult.Success -> {
+              hasChanges = true
+              Toast.makeText(context, repoAddedText, Toast.LENGTH_SHORT).show()
+            }
+            is AddRepoResult.Error -> {
+              Toast.makeText(context, addResult.message, Toast.LENGTH_LONG).show()
+            }
+          }
+        }
+      }
+    }
+  }
 
   DisposableEffect(Unit) {
     onSetTopBarTrailingContent {
@@ -205,7 +247,7 @@ fun RepositoryListScreen(
         state = rememberTooltipState(),
       ) {
         FloatingActionButton(
-          onClick = { showAddDialog = true },
+          onClick = { showAddSheet = true },
           containerColor = OlliteRTPrimary,
           contentColor = MaterialTheme.colorScheme.onPrimary,
           modifier = Modifier
@@ -217,17 +259,56 @@ fun RepositoryListScreen(
     }
   }
 
-  // Add dialog
-  if (showAddDialog) {
+  // Add source bottom sheet
+  if (showAddSheet) {
+    ModalBottomSheet(
+      onDismissRequest = { showAddSheet = false },
+      sheetState = sheetState,
+      sheetMaxWidth = SHEET_MAX_WIDTH,
+    ) {
+      Text(
+        stringResource(R.string.repo_add),
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+      )
+      AddSourceSheetRow(
+        icon = Icons.Outlined.Dns,
+        labelRes = R.string.label_import_from_model_list,
+        onClick = {
+          scope.launch {
+            delay(200)
+            showAddSheet = false
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+              addCategory(Intent.CATEGORY_OPENABLE)
+              type = "application/json"
+              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+            }
+            jsonPickerLauncher.launch(intent)
+          }
+        },
+      )
+      AddSourceSheetRow(
+        icon = Icons.Outlined.Link,
+        labelRes = R.string.label_import_from_url,
+        onClick = {
+          showAddSheet = false
+          showAddUrlDialog = true
+        },
+      )
+    }
+  }
+
+  // Add from URL dialog
+  if (showAddUrlDialog) {
     AddRepositoryDialog(
       isAdding = uiState.isAdding,
       error = uiState.addDialogError,
-      onDismiss = { showAddDialog = false },
+      onDismiss = { showAddUrlDialog = false },
       onAdd = { url ->
         viewModel.addRepository(url) { result ->
           when (result) {
             is AddRepoResult.Success -> {
-              showAddDialog = false
+              showAddUrlDialog = false
               hasChanges = true
             }
             is AddRepoResult.Error -> {
@@ -421,4 +502,32 @@ private fun AddRepositoryDialog(
     onDismiss = onDismiss,
     onConfirm = onAdd,
   )
+}
+
+@Composable
+private fun AddSourceSheetRow(
+  icon: ImageVector,
+  @androidx.annotation.StringRes labelRes: Int,
+  onClick: () -> Unit,
+) {
+  val cd = stringResource(labelRes)
+  Box(
+    modifier = Modifier
+      .clickable(onClick = onClick)
+      .semantics {
+        role = Role.Button
+        contentDescription = cd
+      },
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp),
+    ) {
+      Icon(icon, contentDescription = null)
+      Text(stringResource(labelRes), modifier = Modifier.clearAndSetSemantics {})
+    }
+  }
 }

@@ -993,6 +993,7 @@
   <string name="repo_add_url_label">URL</string>
   <string name="repo_add_helper">Enter the URL of a model list JSON file</string>
   <string name="repo_add_loading">Validating…</string>
+  <string name="repo_added_success">Model source added</string>
   <string name="repo_model_count">%1$d models</string>
   <string name="repo_delete_title">Remove model source?</string>
   <string name="repo_delete_message">Remove %1$s? This won\'t delete any downloaded models.</string>

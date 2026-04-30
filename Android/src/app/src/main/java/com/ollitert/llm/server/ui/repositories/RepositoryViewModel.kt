@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.repositories
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -31,6 +32,7 @@ import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.data.repoCacheFilename
 import com.ollitert.llm.server.data.deriveRepositoryName
 import com.ollitert.llm.server.ui.modelmanager.ModelAllowlistLoader
+import com.ollitert.llm.server.ui.modelmanager.ModelListImportManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +76,7 @@ class RepositoryViewModel @Inject constructor(
 ) : ViewModel() {
 
   private val allowlistLoader = ModelAllowlistLoader(context, context.getExternalFilesDir(null))
+  private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
   private val _uiState = MutableStateFlow(RepositoryUiState())
   val uiState: StateFlow<RepositoryUiState> = _uiState.asStateFlow()
 
@@ -276,5 +279,19 @@ class RepositoryViewModel @Inject constructor(
     dataStoreRepository.addRepository(newRepo)
     loadRepositories()
     return AddRepoResult.Success
+  }
+
+  fun addRepositoryFromFile(uri: Uri, onResult: (AddRepoResult) -> Unit) {
+    viewModelScope.launch {
+      _uiState.update { it.copy(isAdding = true, addDialogError = null) }
+      val error = withContext(Dispatchers.IO) { importManager.importFromUri(uri) }
+      _uiState.update { it.copy(isAdding = false) }
+      if (error != null) {
+        onResult(AddRepoResult.Error(error))
+      } else {
+        loadRepositories()
+        onResult(AddRepoResult.Success)
+      }
+    }
   }
 }
