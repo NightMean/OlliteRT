@@ -18,6 +18,7 @@
 package com.ollitert.llm.server.runtime
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import android.os.StatFs
 import android.util.Log
@@ -46,6 +47,7 @@ import com.ollitert.llm.server.data.DEFAULT_VISION_ACCELERATOR
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.bytesToMb
+import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.PromptBuilder
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
@@ -61,6 +63,61 @@ typealias CleanUpListener = () -> Unit
 private const val TAG = "OlliteRT.ModelHelper"
 
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
+
+object GpuAvailability {
+  // The SDK's sampler uses dlopen("libOpenCL.so") without a full path. On some
+  // devices (Pixel 5), the library exists only in /vendor/lib64/ which is not
+  // accessible from the app's linker namespace even though File.exists() returns
+  // true (because /system/vendor/ is a symlink to /vendor/).
+  val isOpenClAccessible: Boolean by lazy {
+    Log.i(TAG, "OpenCL probe: device=${Build.DEVICE} model=${Build.MODEL} " +
+      "SOC=${Build.SOC_MODEL} SDK=${Build.VERSION.SDK_INT}")
+
+    val probeResults = StringBuilder()
+
+    // Step 1: Check if System.loadLibrary can find it (app linker namespace).
+    // This is the most reliable signal — if the app's own classloader can't
+    // load it, the SDK's native dlopen definitely can't either.
+    val javaLoadSuccess = try {
+      System.loadLibrary("OpenCL")
+      probeResults.append("System.loadLibrary=OK; ")
+      true
+    } catch (e: UnsatisfiedLinkError) {
+      probeResults.append("System.loadLibrary=FAIL(${e.message}); ")
+      false
+    }
+
+    // Step 2: Check where the library physically exists (diagnostic only).
+    // /system/vendor/ is a symlink to /vendor/ on most devices — both are
+    // blocked by linker namespace restrictions for app processes.
+    val searchPaths = listOf(
+      "/system/lib64/libOpenCL.so",
+      "/system/lib/libOpenCL.so",
+      "/system/vendor/lib64/libOpenCL.so",
+      "/system/vendor/lib/libOpenCL.so",
+      "/vendor/lib64/libOpenCL.so",
+      "/vendor/lib/libOpenCL.so",
+    )
+    val foundPaths = searchPaths.filter { File(it).exists() }
+    probeResults.append("paths_found=$foundPaths")
+
+    // System.loadLibrary is authoritative: if it fails, OpenCL is not usable
+    // regardless of which paths show the file. The file may physically exist
+    // but the linker namespace prevents loading it.
+    val accessible = javaLoadSuccess
+
+    Log.i(TAG, "OpenCL probe result: accessible=$accessible — $probeResults")
+    RequestLogStore.addEvent(
+      "OpenCL probe: accessible=$accessible, " +
+        "javaLoad=${if (javaLoadSuccess) "OK" else "FAIL"}, " +
+        "found=${foundPaths.map { it.removePrefix("/system").removePrefix("/") }}",
+      level = if (accessible) LogLevel.DEBUG else LogLevel.WARNING,
+      category = EventCategory.MODEL,
+    )
+
+    accessible
+  }
+}
 
 object ServerLlmModelHelper {
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = java.util.concurrent.ConcurrentHashMap()
@@ -100,8 +157,39 @@ object ServerLlmModelHelper {
         key = ConfigKeys.VISION_ACCELERATOR,
         defaultValue = DEFAULT_VISION_ACCELERATOR.label,
       )
+    val gpuAccessible = GpuAvailability.isOpenClAccessible
+    val canFallbackToCpu = model.accelerators.contains(Accelerator.CPU)
+
+    Log.i(TAG, "Backend selection: requested=$accelerator, openCL=$gpuAccessible, " +
+      "cpuFallbackAvailable=$canFallbackToCpu, accelerators=${model.accelerators}")
+    RequestLogStore.addEvent(
+      "Backend: requested=$accelerator, OpenCL=${if (gpuAccessible) "OK" else "unavailable"}, " +
+        "accelerators=${model.accelerators.map { it.label }}",
+      level = LogLevel.DEBUG,
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
+
+    val effectiveAccelerator = if (accelerator == Accelerator.GPU.label && !gpuAccessible && canFallbackToCpu) {
+      Log.w(TAG, "GPU requested but OpenCL not accessible — falling back to CPU")
+      RequestLogStore.addEvent(
+        "GPU unavailable (OpenCL not accessible), using CPU",
+        level = LogLevel.WARNING,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      Accelerator.CPU.label
+    } else {
+      accelerator
+    }
+    val effectiveVisionAccelerator = if (visionAccelerator == Accelerator.GPU.label && !gpuAccessible) {
+      Accelerator.CPU.label
+    } else {
+      visionAccelerator
+    }
+
     val visionBackend =
-      when (visionAccelerator) {
+      when (effectiveVisionAccelerator) {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
         Accelerator.NPU.label,
@@ -110,7 +198,7 @@ object ServerLlmModelHelper {
         else -> Backend.GPU()
       }
     val preferredBackend =
-      when (accelerator) {
+      when (effectiveAccelerator) {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
         Accelerator.NPU.label,
@@ -118,7 +206,14 @@ object ServerLlmModelHelper {
           Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.CPU()
       }
-    Log.d(TAG, "Preferred backend: $preferredBackend")
+    Log.i(TAG, "Preferred backend: ${preferredBackend::class.simpleName} " +
+      "(requested: $accelerator, effective: $effectiveAccelerator)")
+    RequestLogStore.addEvent(
+      "Using backend: ${preferredBackend::class.simpleName} (effective=$effectiveAccelerator)",
+      level = LogLevel.DEBUG,
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
 
     val modelPath = model.getPath(context = context)
 
@@ -191,19 +286,32 @@ object ServerLlmModelHelper {
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       try {
+        // The SDK's sampler internally uses an OpenCL topK kernel. On devices where
+        // OpenCL is inaccessible (e.g. Pixel 5), passing SamplerConfig triggers
+        // "Can not find OpenCL library" at inference time. Pass null to let the SDK
+        // use its built-in non-OpenCL sampler path.
+        val useSampler = preferredBackend !is Backend.NPU && gpuAccessible
+        if (!useSampler && preferredBackend !is Backend.NPU) {
+          Log.i(TAG, "Skipping SamplerConfig (OpenCL unavailable) — SDK will use internal sampler")
+          RequestLogStore.addEvent(
+            "SamplerConfig disabled (OpenCL unavailable for topK sampler)",
+            level = LogLevel.INFO,
+            modelName = model.name,
+            category = EventCategory.MODEL,
+          )
+        }
         val conversation =
           engine.createConversation(
             ConversationConfig(
-              // NPU/TPU backends handle sampling internally; passing SamplerConfig is unsupported.
               samplerConfig =
-                if (preferredBackend is Backend.NPU) {
-                  null
-                } else {
+                if (useSampler) {
                   SamplerConfig(
                     topK = topK,
                     topP = topP.toDouble(),
                     temperature = temperature.toDouble(),
                   )
+                } else {
+                  null
                 },
               systemInstruction = systemInstruction,
               tools = tools,
@@ -215,12 +323,97 @@ object ServerLlmModelHelper {
       } finally {
         ExperimentalFlags.enableConversationConstrainedDecoding = false
       }
+      Log.i(TAG, "Engine initialized successfully on ${preferredBackend::class.simpleName} for '${model.name}'")
+      RequestLogStore.addEvent(
+        "Engine initialized on ${preferredBackend::class.simpleName}",
+        level = LogLevel.INFO,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
     } catch (e: Exception) {
-      Log.e(TAG, "Engine initialization failed for '${model.name}': ${e.message}", e)
-      try { engine?.close() } catch (e: Exception) {
-        Log.w(TAG, "Engine.close() failed during error cleanup (may already be closed by another thread)", e)
+      Log.e(TAG, "Engine init failed for '${model.name}' with ${preferredBackend::class.simpleName}: " +
+        "[${e::class.simpleName}] ${e.message}", e)
+      RequestLogStore.addEvent(
+        "${preferredBackend::class.simpleName} init failed: [${e::class.simpleName}] ${e.message?.take(120)}",
+        level = LogLevel.ERROR,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      try { engine?.close() } catch (closeEx: Exception) {
+        Log.w(TAG, "Engine.close() failed during error cleanup (may already be closed by another thread)", closeEx)
       }
       System.gc()
+
+      // Safety-net: if GPU init failed and the model supports CPU, retry with CPU.
+      if (preferredBackend is Backend.GPU && canFallbackToCpu) {
+        Log.w(TAG, "GPU initialization failed, retrying with CPU backend")
+        RequestLogStore.addEvent(
+          "GPU init failed, retrying with CPU: ${e.message?.take(80)}",
+          level = LogLevel.WARNING,
+          modelName = model.name,
+          category = EventCategory.MODEL,
+        )
+        val cpuConfig = EngineConfig(
+          modelPath = modelPath,
+          backend = Backend.CPU(),
+          visionBackend = if (supportImage) Backend.CPU() else null,
+          audioBackend = if (supportAudio) Backend.CPU() else null,
+          maxNumTokens = maxTokens,
+          cacheDir =
+            if (modelPath.startsWith("/data/local/tmp"))
+              context.getExternalFilesDir(null)?.absolutePath
+            else null,
+        )
+        var fallbackEngine: Engine? = null
+        try {
+          fallbackEngine = Engine(cpuConfig)
+          fallbackEngine.initialize()
+          ExperimentalFlags.enableConversationConstrainedDecoding =
+            enableConversationConstrainedDecoding
+          try {
+            val conversation =
+              fallbackEngine.createConversation(
+                ConversationConfig(
+                  samplerConfig = if (gpuAccessible) SamplerConfig(
+                    topK = topK,
+                    topP = topP.toDouble(),
+                    temperature = temperature.toDouble(),
+                  ) else null,
+                  systemInstruction = systemInstruction,
+                  tools = tools,
+                  initialMessages = initialMessages,
+                  automaticToolCalling = false,
+                ),
+              )
+            model.instance = LlmModelInstance(engine = fallbackEngine, conversation = conversation)
+          } finally {
+            ExperimentalFlags.enableConversationConstrainedDecoding = false
+          }
+          Log.i(TAG, "CPU fallback successful for '${model.name}'")
+          RequestLogStore.addEvent(
+            "Model loaded on CPU (GPU unavailable on this device)",
+            level = LogLevel.INFO,
+            modelName = model.name,
+            category = EventCategory.MODEL,
+          )
+          onDone("")
+          return
+        } catch (fallbackEx: Exception) {
+          Log.e(TAG, "CPU fallback also failed for '${model.name}': " +
+            "[${fallbackEx::class.simpleName}] ${fallbackEx.message}", fallbackEx)
+          RequestLogStore.addEvent(
+            "CPU fallback failed: [${fallbackEx::class.simpleName}] ${fallbackEx.message?.take(120)}",
+            level = LogLevel.ERROR,
+            modelName = model.name,
+            category = EventCategory.MODEL,
+          )
+          try { fallbackEngine?.close() } catch (closeEx: Exception) {
+            Log.w(TAG, "Engine.close() failed during CPU fallback cleanup", closeEx)
+          }
+          System.gc()
+        }
+      }
+
       onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
     }
@@ -265,19 +458,20 @@ object ServerLlmModelHelper {
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       try {
+        val isNpuBackend = accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label
+        val useSampler = !isNpuBackend && GpuAvailability.isOpenClAccessible
         val newConversation =
           engine.createConversation(
             ConversationConfig(
-              // NPU/TPU backends handle sampling internally; passing SamplerConfig is unsupported.
               samplerConfig =
-                if (accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label) {
-                  null
-                } else {
+                if (useSampler) {
                   SamplerConfig(
                     topK = topK,
                     topP = topP.toDouble(),
                     temperature = temperature.toDouble(),
                   )
+                } else {
+                  null
                 },
               systemInstruction = systemInstruction,
               tools = tools,
@@ -434,7 +628,8 @@ object ServerLlmModelHelper {
             Log.i(TAG, "The inference is cancelled.")
             resultListener("", true, null)
           } else {
-            Log.e(TAG, "onError", throwable)
+            Log.e(TAG, "Inference onError for '${model.name}': " +
+              "[${throwable::class.simpleName}] ${throwable.message}", throwable)
             onError("Error: ${throwable.message}")
           }
         }
