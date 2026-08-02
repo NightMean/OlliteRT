@@ -22,6 +22,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.CORS_PREFLIGHT_MAX_AGE_SECONDS
+import com.ollitert.llm.server.data.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
@@ -34,6 +35,7 @@ import com.ollitert.llm.server.data.configTopP
 import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -43,6 +45,7 @@ import io.ktor.http.withCharset
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
@@ -100,6 +103,8 @@ private val INFERENCE_PATHS = setOf(
 
 class KtorServer(
   private val port: Int,
+  private val bindHost: String,
+  initialClientIpAccessPolicy: ClientIpAccessPolicy,
   private val serviceContext: Context,
   private val endpointHandlers: EndpointHandlers,
   private val modelLifecycle: ModelLifecycle,
@@ -112,6 +117,7 @@ class KtorServer(
 ) {
 
   private val logIdCounter = AtomicLong(0)
+  private val clientIpAccessPolicy = AtomicReference(initialClientIpAccessPolicy)
 
   private fun nextLogId() = "log-${System.currentTimeMillis()}-${logIdCounter.incrementAndGet()}"
 
@@ -147,7 +153,8 @@ class KtorServer(
   }
 
   fun start() {
-    engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
+    engine = embeddedServer(CIO, port = port, host = bindHost) {
+      configureClientIpAccess()
       configureCors()
       install(ContentNegotiation) { json(json) }
       install(StatusPages) {
@@ -179,6 +186,42 @@ class KtorServer(
   }
 
   // ── CORS ──────────────────────────────────────────────────────────────────
+
+  /** Atomically applies a validated policy without restarting Ktor or unloading the model. */
+  fun updateClientIpAccessPolicy(policy: ClientIpAccessPolicy) {
+    clientIpAccessPolicy.set(policy)
+  }
+
+  /**
+   * Rejects blocked peers before routing, authentication, body reads, or inference admission.
+   * The direct socket address is intentional: forwarded headers are client-controlled unless a
+   * trusted reverse-proxy boundary is explicitly configured.
+   */
+  private fun Application.configureClientIpAccess() {
+    intercept(ApplicationCallPipeline.Plugins) {
+      val applicationCall = context
+      val remoteAddress = applicationCall.request.local.remoteAddress
+      if (clientIpAccessPolicy.get().allows(remoteAddress)) return@intercept
+
+      val logId = nextLogId()
+      val response = httpJsonError(403, "client_ip_not_allowed")
+      RequestLogStore.add(
+        RequestLogEntry(
+          id = logId,
+          method = applicationCall.request.local.method.value,
+          path = applicationCall.request.uri,
+          responseBody = response.body,
+          statusCode = response.statusCode,
+          modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
+          clientIp = remoteAddress,
+          level = LogLevel.WARNING,
+        ),
+      )
+      applicationCall.response.headers.append("x-request-id", logId)
+      applicationCall.respondHttpResponse(response)
+      finish()
+    }
+  }
 
   /**
    * Configures the Ktor CORS plugin based on the user's SharedPreferences setting.

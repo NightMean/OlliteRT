@@ -547,6 +547,14 @@ class ServerMetricsTest {
   }
 
   @Test
+  fun explicitLoopbackStateDoesNotDependOnWhetherHostIsPresent() {
+    ServerMetrics.onServerRunning("localhost", isLoopbackOnly = true)
+
+    assertEquals("localhost", ServerMetrics.bindAddress.value)
+    assertTrue(ServerMetrics.isLoopbackOnly.value)
+  }
+
+  @Test
   fun modelCreatedAtEpochResetOnServerStopped() {
     ServerMetrics.onServerRunning("192.168.1.1")
     assertTrue(ServerMetrics.modelCreatedAtEpoch.value > 0)

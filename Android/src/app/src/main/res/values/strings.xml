@@ -1014,6 +1014,8 @@
   <string name="error_model_file_missing">Model file not found on disk. The model may have been deleted — re-download or update the default model in Settings.</string>
   <string name="error_port_in_use">Port %1$d is already in use</string>
   <string name="error_server_failed_to_start">Server failed to start: %1$s</string>
+  <string name="error_invalid_bind_address">Invalid server bind address: %1$s. Enter a numeric IP address in Settings.</string>
+  <string name="error_invalid_client_ip_policy">Invalid client IP access policy. Open Settings and correct the address list.</string>
   <string name="error_storage_low_model_init">Not enough storage to load model (%1$sMB available, need at least %2$sMB). Free up space and try again.</string>
   <string name="error_model_init_unknown">Unknown error during model initialization</string>
   <string name="error_unknown">Unknown error</string>

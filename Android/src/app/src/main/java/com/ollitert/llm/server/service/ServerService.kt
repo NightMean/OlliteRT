@@ -33,6 +33,9 @@ import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.getWifiIpAddress
+import com.ollitert.llm.server.data.BindAddressResult
+import com.ollitert.llm.server.data.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.DATASTORE_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
 import com.ollitert.llm.server.data.ServerPrefs
@@ -40,11 +43,15 @@ import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.bytesToMb
+import com.ollitert.llm.server.data.advertisedHost
+import com.ollitert.llm.server.data.formatHostForUrl
+import com.ollitert.llm.server.data.isLoopbackOnly
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.isSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.isThinkingEnabled
 import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.resolveHost
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.ServerService.Companion.queueReloadAfterLoad
 import com.ollitert.llm.server.service.ServerService.Companion.reload
@@ -237,8 +244,34 @@ class ServerService : Service() {
     val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
 
     // ── Ktor server setup (no model dependency) ─────────────────────────────
+    val bindConfig = ServerPrefs.getServerBindConfig(this)
+    val bindHost = when (val resolved = bindConfig.resolveHost()) {
+      is BindAddressResult.Valid -> resolved.host
+      is BindAddressResult.Invalid -> {
+        reportNetworkConfigFailure(
+          getString(R.string.error_invalid_bind_address, resolved.input),
+          requestedModelName,
+        )
+        return START_NOT_STICKY
+      }
+    }
+    val accessPolicy = when (
+      val compiled = ClientIpAccessPolicy.compile(ServerPrefs.getClientIpPolicyConfig(this))
+    ) {
+      is ClientIpPolicyCompileResult.Success -> compiled.policy
+      is ClientIpPolicyCompileResult.EmptyRules,
+      is ClientIpPolicyCompileResult.InvalidRule -> {
+        reportNetworkConfigFailure(
+          getString(R.string.error_invalid_client_ip_policy),
+          requestedModelName,
+        )
+        return START_NOT_STICKY
+      }
+    }
     val wifiIp = getWifiIpAddress(this)
-    val notifState = buildNotificationIntents(wifiIp, port)
+    val advertisedHost = bindConfig.advertisedHost(wifiIp, bindHost)
+    val isLoopbackOnly = bindConfig.isLoopbackOnly(wifiIp)
+    val notifState = buildNotificationIntents(advertisedHost, isLoopbackOnly, port)
 
     NotificationHelper.update(
       context = this,
@@ -248,7 +281,7 @@ class ServerService : Service() {
       showProgress = true,
     )
 
-    if (!startHttpServer(port, requestedModelName)) return START_NOT_STICKY
+    if (!startHttpServer(port, bindHost, accessPolicy, requestedModelName)) return START_NOT_STICKY
 
     // ── Model resolution + initialization (off main thread) ─────────────────
     // pickModelByName triggers runBlocking DataStore reads inside
@@ -303,7 +336,7 @@ class ServerService : Service() {
       ServerMetrics.setActiveModelSize(model.totalBytes)
       RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
 
-      loadModelOnThread(model, thisGeneration, wifiIp, notifState)
+      loadModelOnThread(model, thisGeneration, notifState)
     }
 
     return START_STICKY
@@ -340,9 +373,25 @@ class ServerService : Service() {
     wifiLock?.acquire()
   }
 
+  private fun reportNetworkConfigFailure(message: String, requestedModelName: String) {
+    Log.e(TAG, message)
+    ServerMetrics.onServerError(message)
+    ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
+    RequestLogStore.addEvent(
+      message,
+      level = LogLevel.ERROR,
+      modelName = requestedModelName,
+      category = EventCategory.SERVER,
+    )
+    stopSelf()
+  }
+
   /** Builds notification PendingIntents (content, stop, copy URL) for the running server. */
-  private fun buildNotificationIntents(wifiIp: String?, port: Int): LoadNotificationState {
-    val displayAddress = wifiIp ?: "localhost"
+  private fun buildNotificationIntents(
+    displayAddress: String,
+    isLoopbackOnly: Boolean,
+    port: Int,
+  ): LoadNotificationState {
     val contentIntent = PendingIntent.getActivity(
       this, 0,
       Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
@@ -353,7 +402,7 @@ class ServerService : Service() {
       Intent(this, ServerService::class.java).apply { action = ACTION_STOP },
       PendingIntent.FLAG_IMMUTABLE,
     )
-    val endpointUrl = "http://$displayAddress:$port/v1"
+    val endpointUrl = "http://${formatHostForUrl(displayAddress)}:$port/v1"
     val copyIntent = PendingIntent.getBroadcast(
       this, 2,
       Intent(this, CopyUrlReceiver::class.java).apply {
@@ -362,6 +411,8 @@ class ServerService : Service() {
       PendingIntent.FLAG_IMMUTABLE,
     )
     return LoadNotificationState(
+      advertisedHost = displayAddress,
+      isLoopbackOnly = isLoopbackOnly,
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,
@@ -373,7 +424,12 @@ class ServerService : Service() {
    * Creates the Ktor HTTP server and inference pipeline. Returns false if the server
    * failed to bind (caller should return START_NOT_STICKY).
    */
-  private fun startHttpServer(port: Int, requestedModelName: String): Boolean {
+  private fun startHttpServer(
+    port: Int,
+    bindHost: String,
+    clientIpAccessPolicy: ClientIpAccessPolicy,
+    requestedModelName: String,
+  ): Boolean {
     // Pre-flight bind test: Ktor's CIO engine binds the socket asynchronously inside a
     // background coroutine, so a BindException ("Address already in use") thrown during
     // Ktor start propagates as an uncaught FATAL on a Dispatchers.IO worker — the outer
@@ -391,13 +447,13 @@ class ServerService : Service() {
         // when another process is actively LISTENing on the port (e.g. another flavor),
         // so genuine collisions are still detected.
         probe.reuseAddress = true
-        probe.bind(java.net.InetSocketAddress("0.0.0.0", port))
+        probe.bind(java.net.InetSocketAddress(bindHost, port))
       }
     } catch (e: java.io.IOException) {
       val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
         getString(R.string.error_port_in_use, port) else (e.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS) ?: getString(R.string.error_unknown))
       val msg = getString(R.string.error_server_failed_to_start, reason)
-      Log.e(TAG, "Pre-flight port bind probe failed on port $port: $msg", e)
+      Log.e(TAG, "Pre-flight bind probe failed on $bindHost:$port: $msg", e)
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
@@ -438,6 +494,8 @@ class ServerService : Service() {
     )
     server = KtorServer(
       port = port,
+      bindHost = bindHost,
+      initialClientIpAccessPolicy = clientIpAccessPolicy,
       serviceContext = this,
       endpointHandlers = handlers,
       modelLifecycle = modelLifecycle,
@@ -449,6 +507,11 @@ class ServerService : Service() {
       inferenceLock = inferenceLock,
     )
     return try {
+      Log.i(
+        TAG,
+        "Starting HTTP server on $bindHost:$port with client IP policy " +
+          "${clientIpAccessPolicy.mode.preferenceValue} (${clientIpAccessPolicy.ruleCount} rules)",
+      )
       server?.start()
       true
     } catch (e: Exception) {
@@ -536,7 +599,6 @@ class ServerService : Service() {
   private fun loadModelOnThread(
     model: Model,
     thisGeneration: Long,
-    wifiIp: String?,
     notifState: LoadNotificationState,
   ) {
     try {
@@ -572,7 +634,7 @@ class ServerService : Service() {
       )
       ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
       ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)
-      ServerMetrics.onServerRunning(wifiIp)
+      ServerMetrics.onServerRunning(notifState.advertisedHost, notifState.isLoopbackOnly)
       resetKeepAliveTimer()
       RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
       logVerboseModelConfig(model)
@@ -1012,6 +1074,8 @@ class ServerService : Service() {
 
   /** Notification intents + metadata passed to the model load thread. */
   private class LoadNotificationState(
+    val advertisedHost: String,
+    val isLoopbackOnly: Boolean,
     val contentIntent: PendingIntent,
     val stopIntent: PendingIntent,
     val copyIntent: PendingIntent,
@@ -1120,6 +1184,11 @@ class ServerService : Service() {
       } catch (e: Exception) {
         Log.w(TAG, "Failed to reset keep-alive timer — service may not be running", e)
       }
+    }
+
+    /** Applies validated client admission rules without restarting the listener or model. */
+    fun updateClientIpAccessPolicy(policy: ClientIpAccessPolicy) {
+      activeInstance?.server?.updateClientIpAccessPolicy(policy)
     }
 
     /**

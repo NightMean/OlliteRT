@@ -50,6 +50,23 @@ class ServerNetworkAccessTest {
   }
 
   @Test
+  fun advertisedHostReflectsListenerReachability() {
+    val allInterfaces = ServerBindConfig(ServerBindMode.ALL_INTERFACES)
+    assertEquals("192.168.1.44", allInterfaces.advertisedHost("192.168.1.44", "0.0.0.0"))
+    assertFalse(allInterfaces.isLoopbackOnly("192.168.1.44"))
+    assertEquals("localhost", allInterfaces.advertisedHost(null, "0.0.0.0"))
+    assertTrue(allInterfaces.isLoopbackOnly(null))
+
+    val loopback = ServerBindConfig(ServerBindMode.LOOPBACK)
+    assertEquals("localhost", loopback.advertisedHost("192.168.1.44", "127.0.0.1"))
+    assertTrue(loopback.isLoopbackOnly("192.168.1.44"))
+
+    val custom = ServerBindConfig(ServerBindMode.CUSTOM, "10.0.0.7")
+    assertEquals("10.0.0.7", custom.advertisedHost("192.168.1.44", "10.0.0.7"))
+    assertFalse(custom.isLoopbackOnly(null))
+  }
+
+  @Test
   fun allowOnlyMatchesExactAddressesAndCidrs() {
     val policy = compilePolicy(
       ClientIpPolicyMode.ALLOW_ONLY,

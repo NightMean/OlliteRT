@@ -37,6 +37,10 @@ private const val PREFS_NAME = "llm_http_prefs"
 // ═══════════════════════════════════════════════════════════════════════════
 
 private const val KEY_PORT = "port"
+private const val KEY_SERVER_BIND_MODE = "server_bind_mode"
+private const val KEY_CUSTOM_BIND_ADDRESS = "custom_bind_address"
+private const val KEY_CLIENT_IP_POLICY_MODE = "client_ip_policy_mode"
+private const val KEY_CLIENT_IP_RULES = "client_ip_rules"
 private const val KEY_BEARER_TOKEN = "bearer_token"
 private const val KEY_HF_TOKEN = "hf_token"
 private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
@@ -253,6 +257,10 @@ object ServerPrefs {
 
   // Server Config
   private val PORT = IntPref(KEY_PORT, DEFAULT_PORT)
+  private val SERVER_BIND_MODE = StringPref(KEY_SERVER_BIND_MODE, ServerBindMode.ALL_INTERFACES.preferenceValue)
+  private val CUSTOM_BIND_ADDRESS = StringPref(KEY_CUSTOM_BIND_ADDRESS, "")
+  private val CLIENT_IP_POLICY_MODE = StringPref(KEY_CLIENT_IP_POLICY_MODE, ClientIpPolicyMode.ALLOW_ALL.preferenceValue)
+  private val CLIENT_IP_RULES = StringPref(KEY_CLIENT_IP_RULES, "")
 
   // Model Config
   private val WARMUP_ENABLED = BoolPref(KEY_WARMUP_ENABLED, true)
@@ -336,6 +344,32 @@ object ServerPrefs {
 
   fun save(context: Context, port: Int) {
     prefs(context).edit { putInt(KEY_PORT, port.coerceIn(1, 65535)) }
+  }
+
+  fun getServerBindConfig(context: Context): ServerBindConfig = ServerBindConfig(
+    mode = ServerBindMode.fromPreference(get(context, SERVER_BIND_MODE)),
+    customAddress = get(context, CUSTOM_BIND_ADDRESS),
+  )
+
+  /** Writes both listener fields in one editor transaction so startup never sees a mixed config. */
+  fun setServerBindConfig(context: Context, config: ServerBindConfig) {
+    prefs(context).edit {
+      putString(KEY_SERVER_BIND_MODE, config.mode.preferenceValue)
+      putString(KEY_CUSTOM_BIND_ADDRESS, config.customAddress.trim())
+    }
+  }
+
+  fun getClientIpPolicyConfig(context: Context): ClientIpPolicyConfig = ClientIpPolicyConfig(
+    mode = ClientIpPolicyMode.fromPreference(get(context, CLIENT_IP_POLICY_MODE)),
+    rulesText = get(context, CLIENT_IP_RULES),
+  )
+
+  /** Writes the policy and its rules atomically before the running server receives the compiled policy. */
+  fun setClientIpPolicyConfig(context: Context, config: ClientIpPolicyConfig) {
+    prefs(context).edit {
+      putString(KEY_CLIENT_IP_POLICY_MODE, config.mode.preferenceValue)
+      putString(KEY_CLIENT_IP_RULES, config.rulesText.trim())
+    }
   }
 
   fun getBearerToken(context: Context): String =
@@ -848,7 +882,7 @@ object ServerPrefs {
     cachedPrefs = null
   }
 
-  private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN)
+  private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN, KEY_CLIENT_IP_RULES)
   private val SENSITIVE_PREFIXES = listOf(KEY_PREFIX_SYSTEM_PROMPT, KEY_PREFIX_INFERENCE_CONFIG)
 
   private fun isSensitiveKey(key: String): Boolean =

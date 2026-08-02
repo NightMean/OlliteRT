@@ -63,6 +63,16 @@ fun ServerBindConfig.resolveHost(): BindAddressResult = when (mode) {
   }
 }
 
+/** Chooses the reachable host advertised by status, notifications, and copy actions. */
+fun ServerBindConfig.advertisedHost(wifiAddress: String?, resolvedHost: String): String = when (mode) {
+  ServerBindMode.ALL_INTERFACES -> wifiAddress ?: "localhost"
+  ServerBindMode.LOOPBACK -> "localhost"
+  ServerBindMode.CUSTOM -> resolvedHost
+}
+
+fun ServerBindConfig.isLoopbackOnly(wifiAddress: String?): Boolean =
+  mode == ServerBindMode.LOOPBACK || (mode == ServerBindMode.ALL_INTERFACES && wifiAddress == null)
+
 /** Brackets IPv6 literals when inserting a host into an HTTP URL. */
 fun formatHostForUrl(host: String): String =
   if (':' in host && !(host.startsWith('[') && host.endsWith(']'))) "[$host]" else host

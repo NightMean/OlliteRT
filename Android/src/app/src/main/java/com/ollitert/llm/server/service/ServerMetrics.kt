@@ -279,13 +279,12 @@ object ServerMetrics {
     _lastError.value = null
   }
 
-  fun onServerRunning(bindAddress: String?) {
+  fun onServerRunning(bindAddress: String?, isLoopbackOnly: Boolean = bindAddress == null) {
     _status.value = ServerStatus.RUNNING
-    // When no Wi-Fi IP is detected, fall back to "localhost" so on-device clients
-    // (termux, aichat, browsers) still see a usable endpoint URL on the Status screen
-    // and the Copy button has something to copy. The server already binds 0.0.0.0
-    // which accepts loopback regardless of network state.
-    _isLoopbackOnly.value = bindAddress == null
+    // The service derives reachability from the configured listener plus current network state.
+    // A loopback listener stays local even when Wi-Fi has an address; an all-interface listener
+    // without Wi-Fi temporarily advertises localhost until the next start.
+    _isLoopbackOnly.value = isLoopbackOnly
     _bindAddress.value = bindAddress ?: "localhost"
     _startedAtMs.value = System.currentTimeMillis()
     _modelCreatedAtEpoch.value = System.currentTimeMillis() / 1000
