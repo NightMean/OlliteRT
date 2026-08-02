@@ -424,10 +424,9 @@ object ServerLlmModelHelper {
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       try {
-        // SDK issue #2211: the sampler .so has a linker dependency bug — on devices
-        // where OpenCL is inaccessible, sampler settings may be silently ignored.
-        // We pass SamplerConfig unconditionally (matching the reference app) because
-        // the SDK should handle the fallback internally. NPU uses its own sampler.
+        // SDK issue #2080: LiteRT-LM 0.11's GPU executor replaces session sampler
+        // parameters with fixed defaults. Keep passing SamplerConfig so CPU works
+        // correctly and a future SDK upgrade can honor it on GPU. NPU uses its own sampler.
         val useSampler = preferredBackend !is Backend.NPU
         val conversation =
           engine.createConversation(

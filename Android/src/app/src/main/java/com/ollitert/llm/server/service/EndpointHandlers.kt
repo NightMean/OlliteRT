@@ -669,12 +669,13 @@ internal fun resolveSamplerOverrides(
     model.claimGpuSamplerWarningForCurrentLoad()
   ) {
     RequestLogStore.addEvent(
-      "Sampler params may be ignored on GPU backend",
+      "Sampler params are ignored on LiteRT-LM 0.11 GPU",
       level = LogLevel.WARNING,
       modelName = model.name,
       category = EventCategory.SERVER,
-      body = "LiteRT-LM 0.11.0 behaves deterministically on the GPU conversation path even when " +
-        "temperature/top_p/top_k/seed are passed to SamplerConfig. Select CPU accelerator for sampler-sensitive requests.",
+      body = "LiteRT-LM 0.11.0's GPU executor uses fixed sampler defaults instead of the request's " +
+        "temperature/top_p/top_k/seed (upstream issue google-ai-edge/LiteRT-LM#2080), causing deterministic " +
+        "greedy decoding. Select CPU accelerator for sampler-sensitive requests.",
     )
   }
   return buildPerRequestConfig(model, effectiveTemp, effectiveTopP, effectiveTopK, effectiveMaxTokens, effectiveSeed)
