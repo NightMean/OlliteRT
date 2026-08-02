@@ -89,7 +89,7 @@ Changing the listener or port requires a server restart. The Status screen alway
 
 ## Client IP Access Rules
 
-The **Client IP access** setting can allow only listed clients or block listed clients. Rules accept numeric IPv4/IPv6 addresses and CIDR networks (for example, `192.168.1.25`, `192.168.1.0/24`, or `2001:db8::/64`). Hostnames are not accepted, so request admission never depends on DNS.
+The **Client IP access** setting can use an allowlist or blocklist. Rules accept numeric IPv4/IPv6 addresses and CIDR networks (for example, `192.168.1.25`, `192.168.1.0/24`, or `2001:db8::/64`). Hostnames are not accepted, so request admission never depends on DNS.
 
 The policy checks the direct socket peer before CORS, authentication, request-body parsing, or inference. A rejected client receives `403 Forbidden`. Policy edits apply immediately without restarting the server. Behind a reverse proxy, the direct peer is the proxy unless the network design preserves the original source address; OlliteRT does not trust forwarded-IP headers for access decisions.
 

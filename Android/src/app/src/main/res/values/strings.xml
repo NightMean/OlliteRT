@@ -314,8 +314,8 @@
   <string name="settings_client_ip_policy_label" translatable="false">Client IP access</string>
   <string name="settings_client_ip_policy_desc" translatable="false">Filter clients by their direct network address before authentication and CORS</string>
   <string name="settings_client_ip_policy_allow_all" translatable="false">Allow all clients</string>
-  <string name="settings_client_ip_policy_allow_only" translatable="false">Allow only listed</string>
-  <string name="settings_client_ip_policy_block_listed" translatable="false">Block listed</string>
+  <string name="settings_client_ip_policy_allow_only" translatable="false">Allowlist</string>
+  <string name="settings_client_ip_policy_block_listed" translatable="false">Blocklist</string>
   <string name="settings_client_ip_rules_label" translatable="false">IP addresses and networks</string>
   <string name="settings_client_ip_rules_desc" translatable="false">IPv4, IPv6, and CIDR rules. Hostnames are not supported. Saved changes apply without restarting the server</string>
   <string name="settings_client_ip_rules_placeholder" translatable="false">192.168.1.25\n192.168.1.0/24</string>
