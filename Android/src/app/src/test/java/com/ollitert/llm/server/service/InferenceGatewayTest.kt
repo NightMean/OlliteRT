@@ -393,6 +393,105 @@ class InferenceGatewayTest {
   // ── Cancellation tests ──────────────────────────────────────────────────
 
   @Test
+  fun streamingNativeErrorCancelsAndRecoversExactlyOnce() {
+    val resetCount = AtomicInteger(0)
+    val nativeCancelCount = AtomicInteger(0)
+    val errors = mutableListOf<String>()
+    var finishCount = 0
+
+    InferenceGateway.executeStreaming(
+      prompt = "error",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = { resetCount.incrementAndGet() },
+      runInference = { _, _, onError ->
+        onError("native_error")
+        onError("late_error")
+      },
+      cancelInference = { nativeCancelCount.incrementAndGet() },
+      onToken = { _, _, _ -> fail("should not receive tokens") },
+      onError = { errors += it },
+      onInferenceFinished = { finishCount++ },
+    )
+
+    assertEquals(listOf("native_error"), errors)
+    assertEquals(1, nativeCancelCount.get())
+    assertEquals(2, resetCount.get())
+    assertEquals(1, finishCount)
+  }
+
+  @Test
+  fun streamingTimeoutCancelsAndRecoversExactlyOnce() {
+    val resetCount = AtomicInteger(0)
+    val nativeCancelCount = AtomicInteger(0)
+    val errors = mutableListOf<String>()
+
+    InferenceGateway.executeStreaming(
+      prompt = "timeout",
+      timeoutSeconds = 1,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = { resetCount.incrementAndGet() },
+      runInference = { _, _, _ -> },
+      cancelInference = { nativeCancelCount.incrementAndGet() },
+      onToken = { _, _, _ -> fail("should not receive tokens") },
+      onError = { errors += it },
+    )
+
+    assertEquals(listOf("timeout"), errors)
+    assertEquals(1, nativeCancelCount.get())
+    assertEquals(2, resetCount.get())
+  }
+
+  @Test
+  fun streamingExternalCancellationSettlesBeforeFinish() {
+    val threadPool = Executors.newSingleThreadExecutor()
+    val cancellationReady = CountDownLatch(1)
+    val inferenceStarted = CountDownLatch(1)
+    val finished = CountDownLatch(1)
+    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
+    val resetCount = AtomicInteger(0)
+    val nativeCancelCount = AtomicInteger(0)
+    val settlementOrder = java.util.Collections.synchronizedList(mutableListOf<String>())
+    try {
+      InferenceGateway.executeStreaming(
+        prompt = "cancel",
+        timeoutSeconds = 30,
+        executor = threadPool,
+        inferenceLock = lock,
+        resetConversation = {
+          settlementOrder += if (resetCount.incrementAndGet() == 1) "prepare" else "recover"
+        },
+        runInference = { _, _, _ -> inferenceStarted.countDown() },
+        cancelInference = {
+          nativeCancelCount.incrementAndGet()
+          settlementOrder += "cancel"
+        },
+        onToken = { _, _, _ -> fail("should not receive tokens") },
+        onError = { assertEquals("cancelled", it) },
+        onInferenceFinished = {
+          settlementOrder += "finish"
+          finished.countDown()
+        },
+        onExecutionReady = {
+          cancellation.set(it)
+          cancellationReady.countDown()
+        },
+      )
+
+      assertTrue(cancellationReady.await(5, TimeUnit.SECONDS))
+      assertTrue(inferenceStarted.await(5, TimeUnit.SECONDS))
+      assertTrue(cancellation.get().cancel(InferenceGateway.CancellationReason.EXTERNAL))
+      assertTrue(finished.await(5, TimeUnit.SECONDS))
+      assertEquals(listOf("prepare", "cancel", "recover", "finish"), settlementOrder)
+      assertEquals(1, nativeCancelCount.get())
+    } finally {
+      threadPool.shutdownNow()
+    }
+  }
+
+  @Test
   fun cancellationTriggersCancelInference() = runBlocking {
     val threadPool = Executors.newSingleThreadExecutor()
     var cancelled = false

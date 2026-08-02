@@ -44,6 +44,20 @@ typealias InferenceFn = (
 
 private const val TAG = "OlliteRT.Gateway"
 
+private fun reportGatewayFailure(
+  onCaughtThrowable: ((Throwable) -> Unit)?,
+  message: String,
+  throwable: Throwable,
+) {
+  try {
+    onCaughtThrowable?.invoke(throwable)
+  } catch (reportingFailure: Throwable) {
+    // Diagnostics must not interrupt native cancellation, recovery, or final cleanup.
+    Log.w(TAG, "Throwable reporter failed while handling: $message", reportingFailure)
+  }
+  Log.w(TAG, message, throwable)
+}
+
 object InferenceGateway {
 
   internal enum class CancellationReason {
@@ -72,8 +86,8 @@ object InferenceGateway {
     FINISHED,
   }
 
-  /** Owns native-dispatch and terminal-state decisions for one blocking request. */
-  private class BlockingExecution(
+  /** Owns native-dispatch and terminal-state decisions for one request. */
+  private class RequestExecution(
     private val cancelNative: () -> Unit,
   ) : InferenceCancellation {
     private val stateLock = Any()
@@ -145,10 +159,14 @@ object InferenceGateway {
         requireNotNull(outcome)
       }
       val shouldCancelNative = synchronized(stateLock) {
-        terminal !is ExecutionOutcome.Success && nativeDispatched && !nativeCancellationStarted
+        if (terminal !is ExecutionOutcome.Success && nativeDispatched && !nativeCancellationStarted) {
+          nativeCancellationStarted = true
+          true
+        } else {
+          false
+        }
       }
       if (shouldCancelNative) {
-        synchronized(stateLock) { nativeCancellationStarted = true }
         try {
           cancelNative()
         } catch (t: Throwable) {
@@ -175,6 +193,8 @@ object InferenceGateway {
     fun awaitSettlement() {
       settledSignal.await()
     }
+
+    fun acceptsCallbacks(): Boolean = synchronized(stateLock) { outcome == null }
   }
 
   /**
@@ -189,7 +209,7 @@ object InferenceGateway {
    *   via [onError] — this callback preserves the full stack trace for diagnostics.
    */
 
-  fun executeStreaming(
+  internal fun executeStreaming(
     prompt: String,
     timeoutSeconds: Long = STREAMING_TIMEOUT_SECONDS,
     executor: Executor,
@@ -201,50 +221,59 @@ object InferenceGateway {
     onError: (error: String) -> Unit,
     onInferenceFinished: () -> Unit = {},
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
+    onExecutionReady: ((InferenceCancellation) -> Unit)? = null,
   ) {
+    val execution = RequestExecution(cancelNative = cancelInference)
+    onExecutionReady?.invoke(execution)
     executor.execute {
       synchronized(inferenceLock) {
-        val latch = CountDownLatch(1)
-        var errorOccurred = false
-        try {
+        if (!execution.beginPreparation()) return@synchronized
+        val terminal = try {
           resetConversation()
-          runInference(
-            prompt,
-            { partial, done, thought ->
-              onToken(partial, done, thought)
-              if (done) latch.countDown()
-            },
-            { e ->
-              errorOccurred = true
-              onError(e)
-              try { cancelInference() } catch (t: Throwable) {
-                Log.w(TAG, "cancelInference() failed during error callback cleanup", t)
+          execution.dispatch {
+            runInference(
+              prompt,
+              { partial, done, thought ->
+                if (done) {
+                  if (execution.complete(ExecutionOutcome.Success)) {
+                    onToken(partial, true, thought)
+                  }
+                } else if (execution.acceptsCallbacks()) {
+                  onToken(partial, false, thought)
+                }
+              },
+              { message -> execution.complete(ExecutionOutcome.Error(message)) },
+            )
+          }
+          execution.awaitTerminal(timeoutSeconds)
+        } catch (t: Throwable) {
+          if (t is OutOfMemoryError) System.gc()
+          reportGatewayFailure(onCaughtThrowable, "Streaming inference failed", t)
+          execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
+          execution.awaitTerminal(0)
+        }
+        try {
+          when (terminal) {
+            ExecutionOutcome.Success -> Unit
+            ExecutionOutcome.Timeout -> onError("timeout")
+            is ExecutionOutcome.Cancelled -> onError(
+              when (terminal.reason) {
+                CancellationReason.CALLER -> "client_disconnected"
+                CancellationReason.EXTERNAL -> "cancelled"
               }
-              latch.countDown()
-            },
-          )
-          val completed = latch.await(timeoutSeconds, TimeUnit.SECONDS)
-          if (!completed && !errorOccurred) {
-            onError("timeout")
-            cancelInference()
-            // Safe: entire block holds inferenceLock, so no concurrent inference can start
-            // between cancelInference() and resetConversation().
-            resetConversation()
+            )
+            is ExecutionOutcome.Error -> onError(terminal.message)
           }
         } catch (t: Throwable) {
-          // Reclaim memory before reporting the error if OOM
-          if (t is OutOfMemoryError) System.gc()
-          onCaughtThrowable?.invoke(t)
-          if (!errorOccurred) {
-            onError(t.message ?: "unknown_error")
-            try { cancelInference() } catch (t2: Throwable) {
-              Log.w(TAG, "cancelInference() failed during exception recovery", t2)
-            }
-          }
+          reportGatewayFailure(onCaughtThrowable, "Streaming terminal callback failed", t)
         } finally {
-          try { onInferenceFinished() } catch (t: Throwable) {
-            Log.w(TAG, "onInferenceFinished() failed", t)
-          }
+          execution.settle(
+            recover = resetConversation,
+            finish = onInferenceFinished,
+            onFailure = { t ->
+              reportGatewayFailure(onCaughtThrowable, "Streaming settlement step failed", t)
+            },
+          )
         }
       }
     }
@@ -271,7 +300,7 @@ object InferenceGateway {
     val thinkingSb = StringBuilder()
     val startMs = elapsedMs()
     var firstTokenMs: Long? = null
-    val execution = BlockingExecution(cancelNative = cancelInference)
+    val execution = RequestExecution(cancelNative = cancelInference)
     onExecutionReady?.invoke(execution)
 
     executor.execute {
@@ -300,15 +329,14 @@ object InferenceGateway {
           execution.awaitTerminal(timeoutSeconds)
         } catch (t: Throwable) {
           if (t is OutOfMemoryError) System.gc()
-          onCaughtThrowable?.invoke(t)
+          reportGatewayFailure(onCaughtThrowable, "Blocking inference failed", t)
           execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
         } finally {
           execution.settle(
             recover = resetConversation,
             finish = onInferenceFinished,
             onFailure = { t ->
-              onCaughtThrowable?.invoke(t)
-              Log.w(TAG, "Inference settlement step failed", t)
+              reportGatewayFailure(onCaughtThrowable, "Inference settlement step failed", t)
             },
           )
         }
