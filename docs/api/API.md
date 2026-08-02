@@ -1,6 +1,6 @@
 # API Reference
 
-OlliteRT exposes an OpenAI-compatible HTTP API on your local network. Default port is `8000` (configurable in Settings).
+OlliteRT exposes an OpenAI-compatible HTTP API. The listener address, client IP access policy, and default port `8000` are configurable in Settings.
 
 ## Table of Contents
 
@@ -575,6 +575,7 @@ Returns server identity, version, status, update availability, and the full list
 |:-------|:-----|
 | `400` | Malformed request, missing required fields |
 | `401` | Missing or invalid bearer token |
+| `403` | Client IP access policy rejected the direct network peer |
 | `404` | Not Found — model or endpoint doesn't exist |
 | `405` | Method Not Allowed — wrong HTTP method for endpoint |
 | `413` | Payload Too Large — request body exceeds size limit |

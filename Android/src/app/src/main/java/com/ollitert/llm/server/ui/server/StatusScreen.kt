@@ -79,8 +79,10 @@ import java.util.Locale
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.copyToClipboard
+import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
+import com.ollitert.llm.server.data.formatHostForUrl
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
@@ -162,11 +164,13 @@ fun StatusScreen(
 
   var authOn by remember { mutableStateOf(ServerPrefs.getBearerToken(context).isNotBlank()) }
   var corsOrigins by remember { mutableStateOf(ServerPrefs.getCorsAllowedOrigins(context)) }
+  var clientIpPolicy by remember { mutableStateOf(ServerPrefs.getClientIpPolicyConfig(context)) }
   var showRequestTypes by remember { mutableStateOf(ServerPrefs.isShowRequestTypes(context)) }
   var showAdvancedMetrics by remember { mutableStateOf(ServerPrefs.isShowAdvancedMetrics(context)) }
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
     authOn = ServerPrefs.getBearerToken(context).isNotBlank()
     corsOrigins = ServerPrefs.getCorsAllowedOrigins(context)
+    clientIpPolicy = ServerPrefs.getClientIpPolicyConfig(context)
     showRequestTypes = ServerPrefs.isShowRequestTypes(context)
     showAdvancedMetrics = ServerPrefs.isShowAdvancedMetrics(context)
   }
@@ -175,7 +179,7 @@ fun StatusScreen(
 
   // Only show a real endpoint URL when bindAddress is known (server is RUNNING and bound).
   // During reload/loading, bindAddress is null — show "—" instead of "localhost".
-  val endpointUrl = if (bindAddress != null) "http://${bindAddress}:$port/v1" else null
+  val endpointUrl = bindAddress?.let { "http://${formatHostForUrl(it)}:$port/v1" }
 
   // Global average throughput: tokens/sec over entire uptime (includes idle time).
   // Wrapped in remember to avoid Formatter allocation on every recomposition.
@@ -438,6 +442,23 @@ fun StatusScreen(
           Spacer(modifier = Modifier.height(2.dp))
           Text(
             text = stringResource(R.string.status_auth_cors, authLabel, corsLabel),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+          )
+          val clientAccessLabel = when (clientIpPolicy.mode) {
+            ClientIpPolicyMode.ALLOW_ALL -> stringResource(R.string.status_client_access_all)
+            ClientIpPolicyMode.ALLOW_ONLY -> stringResource(
+              R.string.status_client_access_allow_only,
+              clientIpPolicy.rulesText.countIpRules(),
+            )
+            ClientIpPolicyMode.BLOCK_LISTED -> stringResource(
+              R.string.status_client_access_block_listed,
+              clientIpPolicy.rulesText.countIpRules(),
+            )
+          }
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = stringResource(R.string.status_client_access, clientAccessLabel),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
           )
@@ -771,3 +792,5 @@ private fun formatUptime(totalSeconds: Long): String {
   val seconds = totalSeconds % 60
   return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 }
+
+private fun String.countIpRules(): Int = split(Regex("[,\\r\\n]+")).count { it.isNotBlank() }

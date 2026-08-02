@@ -19,52 +19,133 @@ package com.ollitert.llm.server.ui.server.settings
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import com.ollitert.llm.server.ui.common.olliteTextFieldColors
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
+import com.ollitert.llm.server.data.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
+import com.ollitert.llm.server.data.ClientIpPolicyConfig
+import com.ollitert.llm.server.data.ClientIpPolicyMode
+import com.ollitert.llm.server.data.ServerBindMode
 import com.ollitert.llm.server.service.BridgeUtils
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
+import com.ollitert.llm.server.ui.common.MultilineTextInputDialog
+import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
 internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
   val tokenRegeneratedText = stringResource(R.string.toast_token_regenerated)
+  var showClientIpRulesDialog by rememberSaveable { mutableStateOf(false) }
+  val bindMode = ServerBindMode.fromPreference(vm.serverBindModeEntry.current)
+  val policyMode = ClientIpPolicyMode.fromPreference(vm.clientIpPolicyModeEntry.current)
+  val showBindMode = vm.settingVisible(SERVER_BIND_MODE.key)
+  val showCustomBind = vm.settingVisible(CUSTOM_BIND_ADDRESS.key) &&
+    (bindMode == ServerBindMode.CUSTOM || vm.searchQuery.isNotBlank())
+  val showPort = vm.settingVisible(HOST_PORT.key)
+  val showPolicyMode = vm.settingVisible(CLIENT_IP_POLICY_MODE.key)
+  val showIpRules = vm.settingVisible(CLIENT_IP_RULES.key) &&
+    (policyMode != ClientIpPolicyMode.ALLOW_ALL || vm.searchQuery.isNotBlank())
+  val showBearer = vm.settingVisible(BEARER_TOKEN.key)
+  val showCors = vm.settingVisible(CORS_ORIGINS.key)
 
   SettingsCard(
     icon = Icons.Outlined.Tune,
     title = stringResource(R.string.settings_card_server_config),
     searchQuery = vm.searchQuery,
   ) {
-    if (vm.settingVisible(HOST_PORT.key)) {
+    if (showBindMode) {
+      ServerConfigDropdown(
+        label = stringResource(R.string.settings_bind_mode_label),
+        description = stringResource(R.string.settings_bind_mode_desc),
+        selectedValue = vm.serverBindModeEntry.current,
+        options = listOf(
+          ServerBindMode.ALL_INTERFACES.preferenceValue to stringResource(R.string.settings_bind_mode_all_interfaces),
+          ServerBindMode.LOOPBACK.preferenceValue to stringResource(R.string.settings_bind_mode_loopback),
+          ServerBindMode.CUSTOM.preferenceValue to stringResource(R.string.settings_bind_mode_custom),
+        ),
+        searchQuery = vm.searchQuery,
+        onSelected = { vm.serverBindModeEntry.update(it) },
+      )
+    }
+
+    if (showCustomBind && showBindMode) SettingDivider()
+
+    if (showCustomBind) {
+      Text(
+        text = highlightSearchMatches(stringResource(R.string.settings_custom_bind_address_label), vm.searchQuery, OlliteRTPrimary),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      OutlinedTextField(
+        value = vm.customBindAddressEntry.current,
+        onValueChange = {
+          vm.customBindAddressEntry.update(it)
+          vm.clearError(CUSTOM_BIND_ADDRESS.key)
+        },
+        enabled = vm.isSettingEnabled(CUSTOM_BIND_ADDRESS.key),
+        singleLine = true,
+        isError = vm.hasError(CUSTOM_BIND_ADDRESS.key),
+        placeholder = { Text(stringResource(R.string.settings_custom_bind_address_placeholder)) },
+        supportingText = vm.validationErrors[CUSTOM_BIND_ADDRESS.key]?.let { error ->
+          { Text(error, color = MaterialTheme.colorScheme.error) }
+        },
+        colors = olliteTextFieldColors(isError = vm.hasError(CUSTOM_BIND_ADDRESS.key)),
+        modifier = Modifier.fillMaxWidth(),
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = stringResource(R.string.settings_custom_bind_address_desc),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+
+    if (showPort && (showBindMode || showCustomBind)) SettingDivider()
+
+    if (showPort) {
       Text(
         text = highlightSearchMatches(stringResource(R.string.settings_host_port_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
@@ -98,11 +179,91 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
       )
     }
 
-    if (vm.settingVisible(HOST_PORT.key) && vm.settingVisible(BEARER_TOKEN.key)) {
+    if (showPolicyMode && (showBindMode || showCustomBind || showPort)) SettingDivider()
+
+    if (showPolicyMode) {
+      ServerConfigDropdown(
+        label = stringResource(R.string.settings_client_ip_policy_label),
+        description = stringResource(R.string.settings_client_ip_policy_desc),
+        selectedValue = vm.clientIpPolicyModeEntry.current,
+        options = listOf(
+          ClientIpPolicyMode.ALLOW_ALL.preferenceValue to stringResource(R.string.settings_client_ip_policy_allow_all),
+          ClientIpPolicyMode.ALLOW_ONLY.preferenceValue to stringResource(R.string.settings_client_ip_policy_allow_only),
+          ClientIpPolicyMode.BLOCK_LISTED.preferenceValue to stringResource(R.string.settings_client_ip_policy_block_listed),
+        ),
+        searchQuery = vm.searchQuery,
+        onSelected = {
+          vm.clientIpPolicyModeEntry.update(it)
+          vm.clearError(CLIENT_IP_RULES.key)
+        },
+      )
+    }
+
+    if (showIpRules && (showBindMode || showCustomBind || showPort || showPolicyMode)) SettingDivider()
+
+    if (showIpRules) {
+      val ruleCount = countIpRuleEntries(vm.clientIpRulesEntry.current)
+      val rulesError = vm.validationErrors[CLIENT_IP_RULES.key]
+      Text(
+        text = highlightSearchMatches(
+          stringResource(R.string.settings_client_ip_rules_label),
+          vm.searchQuery,
+          OlliteRTPrimary,
+        ),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      OutlinedTextField(
+        value = if (ruleCount == 0) {
+          stringResource(R.string.settings_client_ip_rules_none)
+        } else {
+          pluralStringResource(R.plurals.settings_client_ip_rules_count, ruleCount, ruleCount)
+        },
+        onValueChange = {},
+        readOnly = true,
+        singleLine = true,
+        enabled = false,
+        isError = rulesError != null,
+        trailingIcon = {
+          Icon(
+            imageVector = Icons.Outlined.Edit,
+            contentDescription = stringResource(R.string.settings_client_ip_rules_edit),
+            modifier = Modifier.size(20.dp),
+          )
+        },
+        supportingText = rulesError?.let { error ->
+          { Text(error, color = MaterialTheme.colorScheme.error) }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+          disabledTextColor = MaterialTheme.colorScheme.onSurface,
+          disabledBorderColor = if (rulesError != null) {
+            MaterialTheme.colorScheme.error
+          } else {
+            MaterialTheme.colorScheme.outline
+          },
+          disabledTrailingIconColor = OlliteRTPrimary,
+          disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable(enabled = vm.isSettingEnabled(CLIENT_IP_RULES.key)) {
+            showClientIpRulesDialog = true
+          },
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = stringResource(R.string.settings_client_ip_rules_desc),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+
+    if (showBearer && (showBindMode || showCustomBind || showPort || showPolicyMode || showIpRules)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible(BEARER_TOKEN.key)) {
+    if (showBearer) {
       ToggleSettingRow(
         label = stringResource(R.string.settings_bearer_token),
         description = stringResource(R.string.settings_bearer_token_desc),
@@ -160,11 +321,11 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
       }
     }
 
-    if (vm.settingVisible(BEARER_TOKEN.key) && vm.settingVisible(CORS_ORIGINS.key)) {
+    if (showCors && (showBindMode || showCustomBind || showPort || showPolicyMode || showIpRules || showBearer)) {
       SettingDivider()
     }
 
-    if (vm.settingVisible(CORS_ORIGINS.key)) {
+    if (showCors) {
       Text(
         text = highlightSearchMatches(stringResource(R.string.settings_cors_label), vm.searchQuery, OlliteRTPrimary),
         style = MaterialTheme.typography.labelMedium,
@@ -213,4 +374,107 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
     }
 
   }
+
+  if (showClientIpRulesDialog) {
+    val activePolicyMode = ClientIpPolicyMode.fromPreference(vm.clientIpPolicyModeEntry.current)
+    MultilineTextInputDialog(
+      title = stringResource(R.string.settings_client_ip_rules_dialog_title),
+      label = stringResource(R.string.settings_client_ip_rules_label),
+      initialValue = vm.clientIpRulesEntry.current,
+      confirmText = stringResource(R.string.settings_client_ip_rules_apply),
+      helperText = stringResource(R.string.settings_client_ip_rules_dialog_help),
+      placeholder = stringResource(R.string.settings_client_ip_rules_placeholder),
+      validate = { input -> clientIpRulesValidationError(activePolicyMode, input, context) },
+      onDismiss = { showClientIpRulesDialog = false },
+      onConfirm = { input ->
+        val result = ClientIpAccessPolicy.compile(ClientIpPolicyConfig(activePolicyMode, input))
+        if (result is ClientIpPolicyCompileResult.Success) {
+          vm.clientIpRulesEntry.update(result.normalizedRulesText)
+          vm.clearError(CLIENT_IP_RULES.key)
+          showClientIpRulesDialog = false
+        }
+      },
+    )
+  }
+}
+
+private fun countIpRuleEntries(rulesText: String): Int = rulesText
+  .split(Regex("[,\\r\\n]+"))
+  .count { it.isNotBlank() }
+
+private fun clientIpRulesValidationError(
+  mode: ClientIpPolicyMode,
+  rulesText: String,
+  context: Context,
+): String? = when (val result = ClientIpAccessPolicy.compile(ClientIpPolicyConfig(mode, rulesText))) {
+  ClientIpPolicyCompileResult.EmptyRules -> context.getString(R.string.validation_client_ip_rules_required)
+  is ClientIpPolicyCompileResult.InvalidRule -> context.getString(
+    R.string.validation_client_ip_rule_invalid,
+    result.position,
+    result.input,
+  )
+  is ClientIpPolicyCompileResult.Success -> null
+}
+
+@Composable
+private fun ServerConfigDropdown(
+  label: String,
+  description: String,
+  selectedValue: String?,
+  options: List<Pair<String, String>>,
+  searchQuery: String,
+  onSelected: (String) -> Unit,
+) {
+  var expanded by remember { mutableStateOf(false) }
+  val selectedLabel = options.firstOrNull { it.first == selectedValue }?.second ?: options.first().second
+
+  Text(
+    text = highlightSearchMatches(label, searchQuery, OlliteRTPrimary),
+    style = MaterialTheme.typography.labelMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+  Spacer(modifier = Modifier.height(4.dp))
+  Column {
+    OutlinedTextField(
+      value = selectedLabel,
+      onValueChange = {},
+      readOnly = true,
+      singleLine = true,
+      enabled = false,
+      colors = OutlinedTextFieldDefaults.colors(
+        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+        disabledBorderColor = MaterialTheme.colorScheme.outline,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+      ),
+      modifier = Modifier
+        .fillMaxWidth()
+        .clickable { expanded = true },
+    )
+    DropdownMenu(
+      expanded = expanded,
+      onDismissRequest = { expanded = false },
+    ) {
+      options.forEach { (value, optionLabel) ->
+        DropdownMenuItem(
+          text = {
+            Text(
+              text = optionLabel,
+              color = if (value == selectedValue) OlliteRTPrimary
+              else MaterialTheme.colorScheme.onSurface,
+            )
+          },
+          onClick = {
+            onSelected(value)
+            expanded = false
+          },
+        )
+      }
+    }
+  }
+  Spacer(modifier = Modifier.height(4.dp))
+  Text(
+    text = description,
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
 }

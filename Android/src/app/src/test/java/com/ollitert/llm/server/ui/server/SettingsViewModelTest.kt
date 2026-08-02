@@ -19,6 +19,11 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DEFAULT_PORT
+import com.ollitert.llm.server.data.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.ClientIpPolicyConfig
+import com.ollitert.llm.server.data.ClientIpPolicyMode
+import com.ollitert.llm.server.data.ServerBindConfig
+import com.ollitert.llm.server.data.ServerBindMode
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.ui.server.settings.STT_TRANSCRIPTION_PROMPT
 import com.ollitert.llm.server.data.db.RequestLogPersistence
@@ -30,6 +35,7 @@ import com.ollitert.llm.server.worker.UpdateCheckWorker
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +70,8 @@ class SettingsViewModelTest {
     mockkObject(UpdateCheckWorker)
 
     every { ServerPrefs.getPort(any()) } returns DEFAULT_PORT
+    every { ServerPrefs.getServerBindConfig(any()) } returns ServerBindConfig()
+    every { ServerPrefs.getClientIpPolicyConfig(any()) } returns ClientIpPolicyConfig()
     every { ServerPrefs.getBearerToken(any()) } returns ""
     every { ServerPrefs.getHfToken(any()) } returns ""
     every { ServerPrefs.isKeepScreenOn(any()) } returns true
@@ -106,8 +114,12 @@ class SettingsViewModelTest {
     every { ServerPrefs.getTimeoutCleanupAwait(any()) } returns 15L
 
     every { ServerService.resetKeepAliveTimer(any()) } returns Unit
+    every { ServerService.updateClientIpAccessPolicy(any()) } returns Unit
 
     every { ServerPrefs.setBearerToken(any(), any()) } returns Unit
+    every { ServerPrefs.save(any(), any()) } returns Unit
+    every { ServerPrefs.setServerBindConfig(any(), any()) } returns Unit
+    every { ServerPrefs.setClientIpPolicyConfig(any(), any()) } returns Unit
     every { ServerPrefs.setKeepScreenOn(any(), any()) } returns Unit
     every { ServerPrefs.setTimeoutChatCompletions(any(), any()) } returns Unit
     every { ServerPrefs.setTimeoutResponses(any(), any()) } returns Unit
@@ -244,6 +256,20 @@ class SettingsViewModelTest {
     assertTrue(vm.isSettingEnabled("clear_all_logs"))
   }
 
+  @Test
+  fun customBindAddressEnabledOnlyForCustomMode() {
+    assertFalse(vm.isSettingEnabled("custom_bind_address"))
+    vm.serverBindModeEntry.update(ServerBindMode.CUSTOM.preferenceValue)
+    assertTrue(vm.isSettingEnabled("custom_bind_address"))
+  }
+
+  @Test
+  fun clientIpRulesEnabledOnlyForActivePolicy() {
+    assertFalse(vm.isSettingEnabled("client_ip_rules"))
+    vm.clientIpPolicyModeEntry.update(ClientIpPolicyMode.ALLOW_ONLY.preferenceValue)
+    assertTrue(vm.isSettingEnabled("client_ip_rules"))
+  }
+
   // --- Alpha ---
 
   @Test
@@ -295,6 +321,100 @@ class SettingsViewModelTest {
     every { ServerMetrics.status } returns mockk { every { value } returns ServerStatus.RUNNING }
     val result = vm.save(ServerStatus.RUNNING)
     assertTrue(result is SettingsViewModel.SaveResult.NeedsRestart)
+    verify(exactly = 1) { ServerPrefs.save(mockContext, 9090) }
+  }
+
+  @Test
+  fun saveNeedsRestartWhenBindModeChangesServerRunning() {
+    vm.serverBindModeEntry.update(ServerBindMode.LOOPBACK.preferenceValue)
+    every { ServerMetrics.status } returns mockk { every { value } returns ServerStatus.RUNNING }
+
+    val result = vm.save(ServerStatus.RUNNING)
+
+    assertTrue(result is SettingsViewModel.SaveResult.NeedsRestart)
+    verify(exactly = 1) {
+      ServerPrefs.setServerBindConfig(mockContext, ServerBindConfig(ServerBindMode.LOOPBACK, ""))
+    }
+  }
+
+  @Test
+  fun customBindAddressRejectsHostnames() {
+    vm.serverBindModeEntry.update(ServerBindMode.CUSTOM.preferenceValue)
+    vm.customBindAddressEntry.update("phone.local")
+
+    val result = vm.save(ServerStatus.STOPPED)
+
+    assertTrue(result is SettingsViewModel.SaveResult.ValidationError)
+    assertTrue(vm.hasError("custom_bind_address"))
+  }
+
+  @Test
+  fun customBindAddressAcceptsNumericIp() {
+    vm.serverBindModeEntry.update(ServerBindMode.CUSTOM.preferenceValue)
+    vm.customBindAddressEntry.update("192.168.1.50")
+
+    val result = vm.save(ServerStatus.STOPPED)
+
+    assertTrue(result is SettingsViewModel.SaveResult.Success)
+    verify(exactly = 1) {
+      ServerPrefs.setServerBindConfig(
+        mockContext,
+        ServerBindConfig(ServerBindMode.CUSTOM, "192.168.1.50"),
+      )
+    }
+  }
+
+  @Test
+  fun clientIpPolicyAppliesLiveWithoutRestart() {
+    val policySlot = slot<ClientIpAccessPolicy>()
+    vm.clientIpPolicyModeEntry.update(ClientIpPolicyMode.ALLOW_ONLY.preferenceValue)
+    vm.clientIpRulesEntry.update("192.168.1.0/24")
+    every { ServerMetrics.status } returns mockk { every { value } returns ServerStatus.RUNNING }
+
+    val result = vm.save(ServerStatus.RUNNING)
+
+    assertTrue(result is SettingsViewModel.SaveResult.Success)
+    verify(exactly = 1) {
+      ServerPrefs.setClientIpPolicyConfig(
+        mockContext,
+        ClientIpPolicyConfig(ClientIpPolicyMode.ALLOW_ONLY, "192.168.1.0/24"),
+      )
+    }
+    verify(exactly = 1) { ServerService.updateClientIpAccessPolicy(capture(policySlot)) }
+    assertTrue(policySlot.captured.allows("192.168.1.42"))
+    assertFalse(policySlot.captured.allows("10.0.0.1"))
+  }
+
+  @Test
+  fun activeClientIpPolicyRequiresRules() {
+    vm.clientIpPolicyModeEntry.update(ClientIpPolicyMode.BLOCK_LISTED.preferenceValue)
+    vm.clientIpRulesEntry.update("")
+
+    val result = vm.save(ServerStatus.STOPPED)
+
+    assertTrue(result is SettingsViewModel.SaveResult.ValidationError)
+    assertTrue(vm.hasError("client_ip_rules"))
+  }
+
+  @Test
+  fun settingsLogDoesNotExposeClientIpRules() {
+    vm.clientIpPolicyModeEntry.update(ClientIpPolicyMode.BLOCK_LISTED.preferenceValue)
+    vm.clientIpRulesEntry.update("203.0.113.25")
+
+    vm.save(ServerStatus.STOPPED)
+
+    verify(exactly = 1) {
+      RequestLogStore.addEvent(
+        any(),
+        any(),
+        any(),
+        any(),
+        match { body ->
+          !body.orEmpty().contains("203.0.113.25") &&
+            body.orEmpty().contains("Client IP Rules")
+        },
+      )
+    }
   }
 
   @Test

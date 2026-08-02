@@ -4,6 +4,8 @@
 
 - [Bearer Token Authentication](#bearer-token-authentication)
 - [Network Exposure](#network-exposure)
+- [Client IP Access Rules](#client-ip-access-rules)
+- [No HTTPS](#no-https)
 - [Server Control Endpoints](#server-control-endpoints)
 - [Model Sources](#model-sources)
 - [Model Security](#model-security)
@@ -58,10 +60,17 @@ The bearer token is stored in SharedPreferences (read synchronously on every HTT
 
 ### What's Exposed
 
-OlliteRT binds to `0.0.0.0` on the configured port (default: `8000`), which means:
+By default, OlliteRT listens on `0.0.0.0` on the configured port (`8000` by default), which means:
 
 - **Accessible from any device on the same Wi-Fi network** — any computer, phone, or smart home hub on your LAN can reach the server
 - **Not accessible from the internet** — unless you've configured port forwarding on your router
+
+Under **Settings → Server Configuration → Listen on**, you can instead select:
+
+- **This device only (loopback)** — binds to `127.0.0.1`; other devices cannot connect
+- **Custom IP address** — binds to a numeric IPv4 or IPv6 address assigned to the phone
+
+Changing the listener or port requires a server restart. The Status screen always shows the endpoint that the running server is actually advertising.
 
 > [!CAUTION]
 > **Never** expose OlliteRT directly to the internet. There is no HTTPS and bearer token auth is not designed for public-facing use. Use a VPN ([WireGuard](https://wireguard.com/), [Tailscale](https://tailscale.com/)) for remote access.
@@ -78,7 +87,15 @@ OlliteRT binds to `0.0.0.0` on the configured port (default: `8000`), which mean
 
 ---
 
-### No HTTPS
+## Client IP Access Rules
+
+The **Client IP access** setting can allow only listed clients or block listed clients. Rules accept numeric IPv4/IPv6 addresses and CIDR networks (for example, `192.168.1.25`, `192.168.1.0/24`, or `2001:db8::/64`). Hostnames are not accepted, so request admission never depends on DNS.
+
+The policy checks the direct socket peer before CORS, authentication, request-body parsing, or inference. A rejected client receives `403 Forbidden`. Policy edits apply immediately without restarting the server. Behind a reverse proxy, the direct peer is the proxy unless the network design preserves the original source address; OlliteRT does not trust forwarded-IP headers for access decisions.
+
+---
+
+## No HTTPS
 
 OlliteRT serves HTTP only — there is no TLS/SSL support. This is a deliberate choice:
 

@@ -43,6 +43,8 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.ServerBindMode
+import com.ollitert.llm.server.data.formatHostForUrl
 import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
@@ -70,9 +72,16 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
       SettingDivider()
 
       val currentPort = vm.portText.toIntOrNull() ?: ServerPrefs.getPort(context)
-      val currentIp = remember { getWifiIpAddress(context) ?: "<YOUR_DEVICE_IP>" }
+      val wifiIp = remember { getWifiIpAddress(context) }
+      val bindMode = ServerBindMode.fromPreference(vm.serverBindModeEntry.current)
+      val currentIp = when (bindMode) {
+        ServerBindMode.ALL_INTERFACES -> wifiIp ?: "<YOUR_DEVICE_IP>"
+        ServerBindMode.LOOPBACK -> "localhost"
+        ServerBindMode.CUSTOM -> vm.customBindAddressEntry.current.ifBlank { "<YOUR_DEVICE_IP>" }
+      }
+      val isLoopbackOnly = bindMode == ServerBindMode.LOOPBACK
       val currentToken = if (vm.bearerEnabledEntry.current) vm.bearerTokenEntry.current else ""
-      val baseUrl = "http://$currentIp:$currentPort"
+      val baseUrl = "http://${formatHostForUrl(currentIp)}:$currentPort"
 
       val authYaml = if (currentToken.isNotBlank()) "    headers:\n      Authorization: \"Bearer $currentToken\"\n" else ""
 
@@ -146,6 +155,15 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
         appendLine("    payload: '{{ payload }}'")
       }
 
+      if (isLoopbackOnly) {
+        Text(
+          text = stringResource(R.string.settings_ha_loopback_warning),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+      }
+
       Text(
         text = stringResource(R.string.settings_ha_config_preview, currentIp, currentPort, if (currentToken.isNotBlank()) stringResource(R.string.settings_ha_config_preview_token_suffix) else ""),
         style = MaterialTheme.typography.bodySmall,
@@ -161,6 +179,7 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
         modifier = Modifier
           .fillMaxWidth()
           .height(48.dp),
+        enabled = !isLoopbackOnly,
         shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(containerColor = OlliteRTPrimary),
       ) {

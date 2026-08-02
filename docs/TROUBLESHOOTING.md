@@ -19,17 +19,23 @@ See the [Client Setup Guide](CLIENT_SETUP.md) for step-by-step connection instru
 1. **Check the IP address** — The Status screen shows the server's IP and port. Make sure your client is using exactly that URL (e.g. `http://192.168.1.100:8000/v1`)
 2. **Same network** — Your client and phone must be on the same Wi-Fi network
 3. **Server is running** — Check the Status screen shows "Running" (not "Loading" or "Stopped")
-4. **Port not blocked** — Some routers block inter-device communication (AP isolation). Check your router settings
-5. **Bearer token** — If authentication is enabled, make sure your client includes the `Authorization: Bearer your-token` header
-6. **Firewall** — Your router's firewall may block inter-device communication on the local network
+4. **Listener scope** — In Settings → Server Configuration, **This device only (loopback)** intentionally rejects connections from other devices. Select **Local network** or a reachable custom address
+5. **Client IP access** — Verify the Status screen does not show an allow/block policy that excludes the client
+6. **Port not blocked** — Some routers block inter-device communication (AP isolation). Check your router settings
+7. **Bearer token** — If authentication is enabled, make sure your client includes the `Authorization: Bearer your-token` header
+8. **Firewall** — Your router's firewall may block inter-device communication on the local network
 
 ### "Connection refused" error
 
-The server isn't running or is on a different port. Check the Status screen and verify the port in Settings.
+The server isn't running, is on a different port, or could not bind the selected custom address. Check the Status screen and Logs, then verify **Listen on** and the port in Settings. A custom address must be a numeric IPv4/IPv6 address currently assigned to the phone.
 
 ### "401 Unauthorized" error
 
 Bearer token authentication is enabled but your client isn't sending the correct token. Add the `Authorization: Bearer your-token` header to your requests. See the [Security Guide](SECURITY.md) for details on authentication.
+
+### "403 Forbidden" error
+
+The active Client IP access policy rejected the client's direct network address. Check the policy and rule count on the Status screen, then edit the exact IP/CIDR rules under Settings → Server Configuration. If OlliteRT is behind a reverse proxy, rules see the proxy's socket address rather than forwarded-IP headers.
 
 ### "503 Model is reloading after idle timeout, please retry"
 

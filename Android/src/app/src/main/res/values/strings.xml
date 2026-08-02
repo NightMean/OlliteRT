@@ -300,9 +300,34 @@
 
   <!-- Settings: Server Configuration card -->
   <string name="settings_card_server_config" translatable="false">Server Configuration</string>
+  <string name="settings_bind_mode_label" translatable="false">Listen on</string>
+  <string name="settings_bind_mode_desc" translatable="false">Choose which network interfaces accept connections. Changes require a server restart</string>
+  <string name="settings_bind_mode_all_interfaces" translatable="false">Local network (all interfaces) [0.0.0.0]</string>
+  <string name="settings_bind_mode_loopback" translatable="false">This device only (loopback) [127.0.0.1]</string>
+  <string name="settings_bind_mode_custom" translatable="false">Custom IP address</string>
+  <string name="settings_custom_bind_address_label" translatable="false">Custom bind address</string>
+  <string name="settings_custom_bind_address_desc" translatable="false">Numeric IPv4 or IPv6 address assigned to this device. The server cannot start if the address is unavailable</string>
+  <string name="settings_custom_bind_address_placeholder" translatable="false">e.g. 192.168.1.50</string>
   <string name="settings_host_port_label" translatable="false">Host Port (1024–65535)</string>
   <string name="settings_host_port_placeholder" translatable="false">8000</string>
   <string name="settings_host_port_desc" translatable="false">Default: 8000. Requires server restart to take effect</string>
+  <string name="settings_client_ip_policy_label" translatable="false">Client IP access</string>
+  <string name="settings_client_ip_policy_desc" translatable="false">Filter clients by their direct network address before authentication and CORS</string>
+  <string name="settings_client_ip_policy_allow_all" translatable="false">Allow all clients</string>
+  <string name="settings_client_ip_policy_allow_only" translatable="false">Allow only listed</string>
+  <string name="settings_client_ip_policy_block_listed" translatable="false">Block listed</string>
+  <string name="settings_client_ip_rules_label" translatable="false">IP addresses and networks</string>
+  <string name="settings_client_ip_rules_desc" translatable="false">IPv4, IPv6, and CIDR rules. Hostnames are not supported. Saved changes apply without restarting the server</string>
+  <string name="settings_client_ip_rules_placeholder" translatable="false">192.168.1.25\n192.168.1.0/24</string>
+  <string name="settings_client_ip_rules_none" translatable="false">No rules configured</string>
+  <string name="settings_client_ip_rules_edit" translatable="false">Edit</string>
+  <string name="settings_client_ip_rules_dialog_title" translatable="false">Edit IP rules</string>
+  <string name="settings_client_ip_rules_dialog_help" translatable="false">Paste one rule per line or separate rules with commas. Existing rules can be edited or replaced here.</string>
+  <string name="settings_client_ip_rules_apply" translatable="false">Apply rules</string>
+  <plurals name="settings_client_ip_rules_count" translatable="false">
+    <item quantity="one">%1$d active rule</item>
+    <item quantity="other">%1$d active rules</item>
+  </plurals>
   <string name="settings_bearer_token" translatable="false">Require Bearer Token</string>
   <string name="settings_bearer_token_desc" translatable="false">Protect the API with a bearer token. Clients must include it in the Authorization header</string>
   <string name="settings_bearer_copy_tooltip" translatable="false">Copy token</string>
@@ -385,6 +410,7 @@
   <string name="settings_ha_transcription_prompt_placeholder" translatable="false">Default prompt will be used if left blank</string>
   <string name="settings_ha_config_preview" translatable="false">Generates a configuration.yaml snippet with your current IP (%1$s), port (%2$d)%3$s</string>
   <string name="settings_ha_config_preview_token_suffix" translatable="false">, and bearer token</string>
+  <string name="settings_ha_loopback_warning" translatable="false">Home Assistant cannot reach OlliteRT while the server listens only on this device. Choose Local network or a reachable custom address</string>
   <string name="settings_ha_copy_config" translatable="false">Copy Configuration</string>
 
   <!-- Settings: Context Management card -->
@@ -475,6 +501,10 @@
   <string name="status_copy_endpoint_tooltip" translatable="false">Copy endpoint URL</string>
   <string name="status_open_endpoint" translatable="false">Open endpoint in browser</string>
   <string name="status_auth_cors" translatable="false">Auth: %1$s · CORS: %2$s</string>
+  <string name="status_client_access" translatable="false">Client access: %1$s</string>
+  <string name="status_client_access_all" translatable="false">all clients</string>
+  <string name="status_client_access_allow_only" translatable="false">allow-only (%1$d rules)</string>
+  <string name="status_client_access_block_listed" translatable="false">block-list (%1$d rules)</string>
   <string name="status_auth_on" translatable="false">on</string>
   <string name="status_auth_off" translatable="false">off</string>
   <string name="status_cors_all_origins" translatable="false">all origins</string>
@@ -975,6 +1005,9 @@
 
   <!-- SettingsViewModel: validation errors -->
   <string name="validation_invalid_port">Invalid port number</string>
+  <string name="validation_bind_address_invalid" translatable="false">Enter a valid numeric IPv4 or IPv6 address</string>
+  <string name="validation_client_ip_rules_required" translatable="false">Add at least one IP address or CIDR network</string>
+  <string name="validation_client_ip_rule_invalid" translatable="false">Entry %1$d is not a valid IP address or CIDR network: %2$s</string>
   <string name="validation_port_required">A port number is required</string>
   <string name="validation_port_range">Port must be between %1$d and %2$d</string>
   <string name="validation_numeric_range">%1$s must be between %2$d and %3$d</string>

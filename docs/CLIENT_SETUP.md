@@ -30,6 +30,8 @@ Every integration uses the same three values:
 > [!TIP]
 > The port (`8000`) is configurable in Settings → Server Configuration. Replace `PHONE_IP` with your device's local IP address shown on the Status screen.
 
+The **Listen on** setting controls which clients can connect. Keep **Local network (all interfaces)** for other devices, use **This device only (loopback)** for apps running on the same phone, or select a numeric custom IPv4/IPv6 address assigned to the phone. Optional **Client IP access** rules accept exact addresses and CIDR networks; the Status screen shows the active policy.
+
 If you're having trouble connecting, see [Troubleshooting → Connection Issues](TROUBLESHOOTING.md#connection-issues).
 
 ## Home Assistant

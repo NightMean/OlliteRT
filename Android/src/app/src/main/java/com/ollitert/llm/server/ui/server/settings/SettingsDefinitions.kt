@@ -31,11 +31,16 @@ import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Tune
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.BindAddressResult
+import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.DEFAULT_PORT
 import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MAX_VALID_PORT
 import com.ollitert.llm.server.data.MIN_VALID_PORT
+import com.ollitert.llm.server.data.ServerBindConfig
+import com.ollitert.llm.server.data.ServerBindMode
+import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.resolveHost
 
 // ─── General Card ───────────────────────────────────────────────────
 
@@ -177,6 +182,39 @@ val HF_TOKEN = SettingDef.TextInput(
 
 // ─── Server Configuration Card ────────────────────────────────────
 
+val SERVER_BIND_MODE = SettingDef.Dropdown(
+  key = "server_bind_mode",
+  labelRes = R.string.settings_bind_mode_label,
+  descriptionRes = R.string.settings_bind_mode_desc,
+  card = CardId.SERVER_CONFIG,
+  default = ServerBindMode.ALL_INTERFACES.preferenceValue,
+  prefsKey = "server_bind_mode",
+  read = { ServerPrefs.getServerBindConfig(it).mode.preferenceValue },
+  write = { ctx, value ->
+    val current = ServerPrefs.getServerBindConfig(ctx)
+    ServerPrefs.setServerBindConfig(ctx, current.copy(mode = ServerBindMode.fromPreference(value)))
+  },
+)
+
+val CUSTOM_BIND_ADDRESS = SettingDef.TextInput(
+  key = "custom_bind_address",
+  labelRes = R.string.settings_custom_bind_address_label,
+  descriptionRes = R.string.settings_custom_bind_address_desc,
+  card = CardId.SERVER_CONFIG,
+  default = "",
+  prefsKey = "custom_bind_address",
+  validate = { input, ctx ->
+    if (ServerBindConfig(ServerBindMode.CUSTOM, input).resolveHost() is BindAddressResult.Invalid)
+      ctx.getString(R.string.validation_bind_address_invalid)
+    else null
+  },
+  read = { ServerPrefs.getServerBindConfig(it).customAddress },
+  write = { ctx, value ->
+    val current = ServerPrefs.getServerBindConfig(ctx)
+    ServerPrefs.setServerBindConfig(ctx, current.copy(customAddress = value.trim()))
+  },
+)
+
 val HOST_PORT = SettingDef.NumericInput(
   key = "host_port",
   labelRes = R.string.settings_host_port_label,
@@ -188,6 +226,34 @@ val HOST_PORT = SettingDef.NumericInput(
   max = MAX_VALID_PORT,
   read = { ServerPrefs.getPort(it) },
   write = { ctx, v -> ServerPrefs.save(ctx, v) },
+)
+
+val CLIENT_IP_POLICY_MODE = SettingDef.Dropdown(
+  key = "client_ip_policy_mode",
+  labelRes = R.string.settings_client_ip_policy_label,
+  descriptionRes = R.string.settings_client_ip_policy_desc,
+  card = CardId.SERVER_CONFIG,
+  default = ClientIpPolicyMode.ALLOW_ALL.preferenceValue,
+  prefsKey = "client_ip_policy_mode",
+  read = { ServerPrefs.getClientIpPolicyConfig(it).mode.preferenceValue },
+  write = { ctx, value ->
+    val current = ServerPrefs.getClientIpPolicyConfig(ctx)
+    ServerPrefs.setClientIpPolicyConfig(ctx, current.copy(mode = ClientIpPolicyMode.fromPreference(value)))
+  },
+)
+
+val CLIENT_IP_RULES = SettingDef.TextInput(
+  key = "client_ip_rules",
+  labelRes = R.string.settings_client_ip_rules_label,
+  descriptionRes = R.string.settings_client_ip_rules_desc,
+  card = CardId.SERVER_CONFIG,
+  default = "",
+  prefsKey = "client_ip_rules",
+  read = { ServerPrefs.getClientIpPolicyConfig(it).rulesText },
+  write = { ctx, value ->
+    val current = ServerPrefs.getClientIpPolicyConfig(ctx)
+    ServerPrefs.setClientIpPolicyConfig(ctx, current.copy(rulesText = value.trim()))
+  },
 )
 
 val BEARER_TOKEN = SettingDef.Custom(
@@ -837,7 +903,8 @@ val allSettingDefs: List<SettingDef> = listOf(
   WRAP_LOG_TEXT, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, KEEP_PARTIAL_RESPONSE, COMPACT_IMAGE_DATA,
   HIDE_HEALTH_LOGS, CLEAR_LOGS_ON_STOP, CONFIRM_CLEAR_LOGS,
   // Server Config
-  HOST_PORT, BEARER_TOKEN, CORS_ORIGINS,
+  SERVER_BIND_MODE, CUSTOM_BIND_ADDRESS, HOST_PORT, CLIENT_IP_POLICY_MODE, CLIENT_IP_RULES,
+  BEARER_TOKEN, CORS_ORIGINS,
   // Auto-Launch
   DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
   // Model Behaviour
@@ -895,7 +962,10 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.SERVER_CONFIG,
     titleRes = R.string.settings_card_server_config,
     icon = CardIcon.Vector(Icons.Outlined.Tune),
-    settings = listOf(HOST_PORT, BEARER_TOKEN, CORS_ORIGINS),
+    settings = listOf(
+      SERVER_BIND_MODE, CUSTOM_BIND_ADDRESS, HOST_PORT, CLIENT_IP_POLICY_MODE, CLIENT_IP_RULES,
+      BEARER_TOKEN, CORS_ORIGINS,
+    ),
   ),
   CardDef(
     id = CardId.AUTO_LAUNCH,

@@ -26,10 +26,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
+import com.ollitert.llm.server.data.ClientIpPolicyConfig
+import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
+import com.ollitert.llm.server.data.ServerBindConfig
+import com.ollitert.llm.server.data.ServerBindMode
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.ServerService
@@ -109,7 +115,11 @@ class SettingsViewModel @Inject constructor(
 
   // ─── Typed Accessors (preserve call-site readability) ──────────────────
   // Keys must match SettingDef.key values in SettingsDefinitions.kt.
+  val serverBindModeEntry get() = entry<String?>("server_bind_mode")
+  val customBindAddressEntry get() = entry<String>("custom_bind_address")
   val portEntry get() = entry<Int>("host_port")
+  val clientIpPolicyModeEntry get() = entry<String?>("client_ip_policy_mode")
+  val clientIpRulesEntry get() = entry<String>("client_ip_rules")
   val bearerTokenEntry get() = entry<String>("bearer_token")
   val hfTokenEntry get() = entry<String>("hf_token")
   val defaultModelEntry get() = entry<String?>("default_model")
@@ -226,6 +236,8 @@ class SettingsViewModel @Inject constructor(
   /** Whether a setting is interactive (not disabled by a parent dependency).
    *  Keys must match SettingDef.key values. Update settingAlpha() in tandem. */
   fun isSettingEnabled(key: String): Boolean = when (key) {
+    "custom_bind_address" -> ServerBindMode.fromPreference(serverBindModeEntry.current) == ServerBindMode.CUSTOM
+    "client_ip_rules" -> ClientIpPolicyMode.fromPreference(clientIpPolicyModeEntry.current) != ClientIpPolicyMode.ALLOW_ALL
     "start_on_boot" -> defaultModelEntry.current != null
     "keep_alive_timeout" -> keepAliveEnabledEntry.current
     "check_frequency" -> updateCheckEnabledEntry.current
@@ -237,6 +249,8 @@ class SettingsViewModel @Inject constructor(
   /** Alpha for settings that dim when their parent is disabled.
    *  Must stay in sync with isSettingEnabled() above. */
   fun settingAlpha(key: String): Float = when (key) {
+    "custom_bind_address" -> if (isSettingEnabled(key)) 1f else 0.4f
+    "client_ip_rules" -> if (isSettingEnabled(key)) 1f else 0.4f
     "start_on_boot" -> if (defaultModelEntry.current != null) 1f else 0.4f
     "keep_alive_timeout" -> if (keepAliveEnabledEntry.current) 1f else 0.4f
     "log_max_entries", "log_auto_delete", "clear_all_logs" -> if (logPersistenceEnabledEntry.current) 1f else 0.4f
@@ -293,13 +307,28 @@ class SettingsViewModel @Inject constructor(
     }
 
     val port = portText.toIntOrNull() ?: return SaveResult.ValidationError(context.getString(R.string.validation_invalid_port))
+    val bindMode = ServerBindMode.fromPreference(serverBindModeEntry.current)
+    val bindConfig = ServerBindConfig(bindMode, customBindAddressEntry.current.trim())
+    val policyMode = ClientIpPolicyMode.fromPreference(clientIpPolicyModeEntry.current)
+    val policyConfig = ClientIpPolicyConfig(policyMode, clientIpRulesEntry.current)
+    val compiledPolicy = when (val result = ClientIpAccessPolicy.compile(policyConfig)) {
+      is ClientIpPolicyCompileResult.Success -> result
+      else -> return SaveResult.ValidationError(clientIpPolicyValidationError(result))
+    }
+    customBindAddressEntry.update(bindConfig.customAddress)
+    clientIpRulesEntry.update(compiledPolicy.normalizedRulesText)
+
     val isPortChanged = port != portEntry.saved
+    val savedBindMode = ServerBindMode.fromPreference(serverBindModeEntry.saved)
+    val isBindChanged = serverBindModeEntry.isChanged ||
+      (customBindAddressEntry.isChanged &&
+        (bindMode == ServerBindMode.CUSTOM || savedBindMode == ServerBindMode.CUSTOM))
     val isEagerVisionChanged = eagerVisionInitEntry.isChanged
     val isTimeoutChanged = timeoutChatCompletionsEntry.isChanged ||
       timeoutResponsesEntry.isChanged || timeoutStreamingEntry.isChanged ||
       timeoutBlockingEntry.isChanged || timeoutWarmupEntry.isChanged ||
       timeoutKeepAliveRecheckEntry.isChanged || timeoutCleanupAwaitEntry.isChanged
-    val needsRestart = isPortChanged || isEagerVisionChanged || isTimeoutChanged
+    val needsRestart = isPortChanged || isBindChanged || isEagerVisionChanged || isTimeoutChanged
     val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
 
     // Sync portEntry.current from portText before persisting (port is edited as String)
@@ -310,14 +339,21 @@ class SettingsViewModel @Inject constructor(
     val oldAutoDeleteMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
     // Bearer token uses effective value (blank when toggle is off)
     ServerPrefs.setBearerToken(context, effectiveBearerToken)
+    // Persist related network fields atomically so readers never observe a mixed configuration.
+    ServerPrefs.setServerBindConfig(context, bindConfig)
+    ServerPrefs.setClientIpPolicyConfig(
+      context,
+      policyConfig.copy(rulesText = compiledPolicy.normalizedRulesText),
+    )
     // All non-Custom settings: persist via the definition's write lambda
     for (def in allSettingDefs) {
-      if (def.key == "bearer_token") continue // handled above
+      if (def.key in NETWORK_CONFIG_SETTING_KEYS || def.key == "bearer_token") continue // handled above
       val entry = entryByKey[def.key] ?: continue
       persistViaDefinition(def, entry)
     }
 
     // ── Side effects ──
+    ServerService.updateClientIpAccessPolicy(compiledPolicy.policy)
     if ((keepAliveEnabledEntry.isChanged || keepAliveMinutesEntry.isChanged) && isServerActive) {
       ServerService.resetKeepAliveTimer(context)
     }
@@ -398,8 +434,23 @@ class SettingsViewModel @Inject constructor(
   private fun logSettingsChanges(newPort: Int) {
     val changes = mutableListOf<String>()
 
+    if (serverBindModeEntry.isChanged) {
+      changes.add("Listen Mode: ${serverBindModeEntry.saved} -> ${serverBindModeEntry.current}")
+    }
+    if (customBindAddressEntry.isChanged) changes.add("Custom Bind Address: changed")
+
     // Port: compared via parsed int (portText → int)
     if (newPort != portEntry.saved) changes.add("Port: ${portEntry.saved} → $newPort")
+
+    if (clientIpPolicyModeEntry.isChanged) {
+      changes.add("Client IP Policy: ${clientIpPolicyModeEntry.saved} -> ${clientIpPolicyModeEntry.current}")
+    }
+    if (clientIpRulesEntry.isChanged) {
+      changes.add(
+        "Client IP Rules: ${countIpRules(clientIpRulesEntry.saved)} -> " +
+          "${countIpRules(clientIpRulesEntry.current)} rules",
+      )
+    }
 
     // Bearer token: derived state (enabled = token non-blank)
     val bearerWasEnabled = bearerTokenEntry.saved.isNotBlank()
@@ -409,7 +460,7 @@ class SettingsViewModel @Inject constructor(
 
     // All other settings: iterate definitions and format changed entries
     for (def in allSettingDefs) {
-      if (def.key == "host_port" || def.key == "bearer_token") continue // handled above
+      if (def.key in NETWORK_CONFIG_SETTING_KEYS || def.key == "host_port" || def.key == "bearer_token") continue
       val entry = entryByKey[def.key] ?: continue
       if (!entry.isChanged) continue
       formatChange(def, entry)?.let { changes.add(it) }
@@ -517,6 +568,7 @@ class SettingsViewModel @Inject constructor(
     persistence.schedulePruning()
     persistence.clearPersistedLogs()
     UpdateCheckWorker.scheduleUpdateCheck(context)
+    ServerService.updateClientIpAccessPolicy(ClientIpAccessPolicy.ALLOW_ALL)
 
     viewModelScope.launch(Dispatchers.IO) {
       dataStoreRepository.resetRepositories()
@@ -571,7 +623,17 @@ class SettingsViewModel @Inject constructor(
         } else null
       }
       is SettingDef.TextInput -> {
-        def.validate?.invoke((entry as SettingEntry<String>).current, context)
+        if (def.key == "client_ip_rules") {
+          val config = ClientIpPolicyConfig(
+            mode = ClientIpPolicyMode.fromPreference(clientIpPolicyModeEntry.current),
+            rulesText = (entry as SettingEntry<String>).current,
+          )
+          val result = ClientIpAccessPolicy.compile(config)
+          if (result is ClientIpPolicyCompileResult.Success) null
+          else clientIpPolicyValidationError(result)
+        } else {
+          def.validate?.invoke((entry as SettingEntry<String>).current, context)
+        }
       }
       else -> null
     }
@@ -580,7 +642,18 @@ class SettingsViewModel @Inject constructor(
   // ─── Utility ─────────────────────────────────────────────────────────────
 
   companion object {
+    private val NETWORK_CONFIG_SETTING_KEYS = setOf(
+      "server_bind_mode",
+      "custom_bind_address",
+      "client_ip_policy_mode",
+      "client_ip_rules",
+    )
+
     private fun fmtToggle(enabled: Boolean) = if (enabled) "enabled" else "disabled"
+
+    private fun countIpRules(rulesText: String): Int = rulesText
+      .split(Regex("[,\\r\\n]+"))
+      .count { it.isNotBlank() }
 
     internal fun formatNumericWithUnitRangeError(
       def: SettingDef.NumericWithUnit,
@@ -594,5 +667,15 @@ class SettingsViewModel @Inject constructor(
       val displayMax = def.max / multiplier
       return context.getString(R.string.validation_numeric_range_with_unit, label, displayMin, displayMax, displayUnit)
     }
+  }
+
+  private fun clientIpPolicyValidationError(result: ClientIpPolicyCompileResult): String = when (result) {
+    ClientIpPolicyCompileResult.EmptyRules -> context.getString(R.string.validation_client_ip_rules_required)
+    is ClientIpPolicyCompileResult.InvalidRule -> context.getString(
+      R.string.validation_client_ip_rule_invalid,
+      result.position,
+      result.input,
+    )
+    is ClientIpPolicyCompileResult.Success -> error("A valid client IP policy has no validation error")
   }
 }
