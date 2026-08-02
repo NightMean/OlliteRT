@@ -36,8 +36,6 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -425,52 +423,20 @@ private fun ServerConfigDropdown(
   searchQuery: String,
   onSelected: (String) -> Unit,
 ) {
-  var expanded by remember { mutableStateOf(false) }
-  val selectedLabel = options.firstOrNull { it.first == selectedValue }?.second ?: options.first().second
-
   Text(
     text = highlightSearchMatches(label, searchQuery, OlliteRTPrimary),
     style = MaterialTheme.typography.labelMedium,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
   Spacer(modifier = Modifier.height(4.dp))
-  Column {
-    OutlinedTextField(
-      value = selectedLabel,
-      onValueChange = {},
-      readOnly = true,
-      singleLine = true,
-      enabled = false,
-      colors = OutlinedTextFieldDefaults.colors(
-        disabledTextColor = MaterialTheme.colorScheme.onSurface,
-        disabledBorderColor = MaterialTheme.colorScheme.outline,
-        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-      ),
-      modifier = Modifier
-        .fillMaxWidth()
-        .clickable { expanded = true },
-    )
-    DropdownMenu(
-      expanded = expanded,
-      onDismissRequest = { expanded = false },
-    ) {
-      options.forEach { (value, optionLabel) ->
-        DropdownMenuItem(
-          text = {
-            Text(
-              text = optionLabel,
-              color = if (value == selectedValue) OlliteRTPrimary
-              else MaterialTheme.colorScheme.onSurface,
-            )
-          },
-          onClick = {
-            onSelected(value)
-            expanded = false
-          },
-        )
-      }
-    }
-  }
+  SettingsDropdown(
+    selectedValue = selectedValue ?: options.first().first,
+    options = options.map { (value, optionLabel) ->
+      SettingsDropdownOption(value = value, label = optionLabel)
+    },
+    onSelected = onSelected,
+    modifier = Modifier.fillMaxWidth(),
+  )
   Spacer(modifier = Modifier.height(4.dp))
   Text(
     text = description,

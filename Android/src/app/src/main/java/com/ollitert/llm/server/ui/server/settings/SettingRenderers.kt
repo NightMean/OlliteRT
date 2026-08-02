@@ -36,13 +36,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowRight
 import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -153,7 +150,6 @@ fun NumericWithUnitRow(
   }
   var valueText by remember { mutableStateOf(initialDisplayValue.toString()) }
   var selectedUnit by remember { mutableStateOf(initialUnit) }
-  var showUnitDropdown by remember { mutableStateOf(false) }
 
   fun recompute() {
     val num = valueText.toLongOrNull() ?: 0L
@@ -191,47 +187,19 @@ fun NumericWithUnitRow(
         modifier = Modifier.weight(1f),
         colors = olliteTextFieldColors(isError = isError),
       )
-      Column {
-        OutlinedTextField(
-          value = selectedUnit,
-          onValueChange = {},
-          readOnly = true,
-          singleLine = true,
-          modifier = Modifier
-            .widthIn(min = 90.dp, max = 120.dp)
-            .clickable(enabled = enabled) {
-              focusManager.clearFocus()
-              showUnitDropdown = true
-            },
-          enabled = false,
-          colors = OutlinedTextFieldDefaults.colors(
-            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-            disabledBorderColor = MaterialTheme.colorScheme.outline,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-          ),
-        )
-        DropdownMenu(
-          expanded = showUnitDropdown,
-          onDismissRequest = { showUnitDropdown = false },
-        ) {
-          def.unitOptions.forEach { unit ->
-            DropdownMenuItem(
-              text = {
-                Text(
-                  unit,
-                  color = if (unit == selectedUnit) OlliteRTPrimary
-                          else MaterialTheme.colorScheme.onSurface,
-                )
-              },
-              onClick = {
-                selectedUnit = unit
-                showUnitDropdown = false
-                recompute()
-              },
-            )
-          }
-        }
-      }
+      SettingsDropdown(
+        selectedValue = selectedUnit,
+        options = def.unitOptions.map { unit ->
+          SettingsDropdownOption(value = unit, label = unit)
+        },
+        onSelected = { unit ->
+          selectedUnit = unit
+          recompute()
+        },
+        modifier = Modifier.widthIn(min = 90.dp, max = 120.dp),
+        enabled = enabled,
+        onOpen = { focusManager.clearFocus() },
+      )
     }
     Spacer(modifier = Modifier.height(4.dp))
     Text(

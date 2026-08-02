@@ -168,7 +168,6 @@ class SettingsViewModel @Inject constructor(
 
   var portText by mutableStateOf(portEntry.saved.toString())
   var hfTokenVisible by mutableStateOf(false)
-  var showModelDropdown by mutableStateOf(false)
 
   /** Validation errors keyed by setting key. Compose-observable — reads trigger recomposition. */
   val validationErrors = mutableStateMapOf<String, String>()

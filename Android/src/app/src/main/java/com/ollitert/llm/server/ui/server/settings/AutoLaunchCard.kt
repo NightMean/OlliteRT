@@ -29,13 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -73,56 +68,27 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
       } else {
-        Column {
-          OutlinedTextField(
-            value = vm.defaultModelEntry.current ?: stringResource(R.string.settings_none_manual_start),
-            onValueChange = {},
-            readOnly = true,
-            singleLine = true,
-            modifier = Modifier
-              .fillMaxWidth()
-              .clickable { vm.showModelDropdown = true },
-            enabled = false,
-            colors = OutlinedTextFieldDefaults.colors(
-              disabledTextColor = MaterialTheme.colorScheme.onSurface,
-              disabledBorderColor = MaterialTheme.colorScheme.outline,
-              disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-          )
-          DropdownMenu(
-            expanded = vm.showModelDropdown,
-            onDismissRequest = { vm.showModelDropdown = false },
-          ) {
-            DropdownMenuItem(
-              text = {
-                Text(
-                  stringResource(R.string.settings_none_manual_start),
-                  color = if (vm.defaultModelEntry.current == null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
-                )
-              },
-              onClick = {
-                vm.defaultModelEntry.update(null)
-                vm.autoStartOnBootEntry.update(false)
-                vm.showModelDropdown = false
-              },
+        val manualStartLabel = stringResource(R.string.settings_none_manual_start)
+        SettingsDropdown(
+          selectedValue = vm.defaultModelEntry.current,
+          options = buildList {
+            add(
+              SettingsDropdownOption<String?>(
+                value = null,
+                label = manualStartLabel,
+                dividerAfter = true,
+              ),
             )
-            HorizontalDivider()
             downloadedModelNames.forEach { modelName ->
-              DropdownMenuItem(
-                text = {
-                  Text(
-                    modelName,
-                    color = if (modelName == vm.defaultModelEntry.current) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
-                  )
-                },
-                onClick = {
-                  vm.defaultModelEntry.update(modelName)
-                  vm.showModelDropdown = false
-                },
-              )
+              add(SettingsDropdownOption(value = modelName, label = modelName))
             }
-          }
-        }
+          },
+          onSelected = { modelName ->
+            vm.defaultModelEntry.update(modelName)
+            if (modelName == null) vm.autoStartOnBootEntry.update(false)
+          },
+          modifier = Modifier.fillMaxWidth(),
+        )
       }
       Spacer(modifier = Modifier.height(4.dp))
       Text(
