@@ -146,7 +146,6 @@ class AudioTranscriptionHandler(
 
     // Run inference
     val inferenceStart = SystemClock.elapsedRealtime()
-    ServerMetrics.onInferenceStarted()
     val (rawOutput, llmError) = inferenceRunner.runLlm(
       model = model,
       prompt = hintText,
@@ -156,7 +155,6 @@ class AudioTranscriptionHandler(
       logId = logId,
       configSnapshot = configSnapshot,
     )
-    ServerMetrics.onInferenceCompleted()
     val inferenceMs = SystemClock.elapsedRealtime() - inferenceStart
 
     val elapsedMs = SystemClock.elapsedRealtime() - startMs

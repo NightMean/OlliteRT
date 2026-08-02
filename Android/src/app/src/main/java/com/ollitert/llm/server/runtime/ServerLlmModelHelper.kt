@@ -61,6 +61,7 @@ import com.ollitert.llm.server.service.RequestLogStore
 import kotlinx.coroutines.CoroutineScope
 import java.io.File
 import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 
 typealias ResultListener =
@@ -152,8 +153,8 @@ object ServerLlmModelHelper {
    * default behavior) discards the diff state and forces full prefill every turn.
    *
    * Usage: when a client sends [system?, user1, assistant1, ..., userN], compare
-   * messages[0..N-1] to the cached `lastTurns`. If matches, send only userN via
-   * [runInferenceIncremental]; the SDK extends the cached state. On divergence
+   * messages[0..N-1] to the cached [ConversationCacheEntry.turns]. If they match,
+   * call [runInference] with `incrementalUserText`; the SDK extends the cached state. On divergence
    * (different conversation, edited history, system prompt change, tool change),
    * reset the Conversation and rebuild the cache from this request.
    *
@@ -162,17 +163,68 @@ object ServerLlmModelHelper {
   internal data class ConversationTurn(val role: String, val text: String)
   internal data class ConversationCacheEntry(
     val turns: List<ConversationTurn>,
-    val systemPromptHash: Int,
     val toolsHash: Int,
+    val systemPrompts: List<String> = emptyList(),
+    val samplerConfig: Map<String, Any> = emptyMap(),
   )
-  private val conversationCache = java.util.concurrent.ConcurrentHashMap<String, ConversationCacheEntry>()
+  internal data class ConversationCacheClaim(
+    val generation: Long,
+    val entry: ConversationCacheEntry?,
+  )
+  private data class ConversationCacheState(
+    val generation: Long,
+    val entry: ConversationCacheEntry?,
+  )
 
-  internal fun getCachedTurns(modelName: String): ConversationCacheEntry? = conversationCache[modelName]
-  internal fun updateCachedTurns(modelName: String, entry: ConversationCacheEntry) {
-    conversationCache[modelName] = entry
+  private val conversationCacheGeneration = AtomicLong(0)
+  private val conversationCache = java.util.concurrent.ConcurrentHashMap<String, ConversationCacheState>()
+
+  internal fun getCachedTurns(modelName: String): ConversationCacheEntry? = conversationCache[modelName]?.entry
+
+  /**
+   * Atomically consumes the latest reusable state and gives this request publication ownership.
+   * A later claim supersedes that ownership, so a delayed older SSE cannot mutate newer state.
+   */
+  internal fun claimCachedTurns(modelName: String): ConversationCacheClaim {
+    val generation = conversationCacheGeneration.incrementAndGet()
+    var claimedEntry: ConversationCacheEntry? = null
+    conversationCache.compute(modelName) { _, current ->
+      claimedEntry = current?.entry
+      ConversationCacheState(generation, null)
+    }
+    return ConversationCacheClaim(generation, claimedEntry)
   }
+
+  /** Test/setup helper that installs a published entry under a fresh generation. */
+  internal fun updateCachedTurns(modelName: String, entry: ConversationCacheEntry) {
+    conversationCache[modelName] = ConversationCacheState(
+      generation = conversationCacheGeneration.incrementAndGet(),
+      entry = entry,
+    )
+  }
+
+  internal fun publishCachedTurns(
+    modelName: String,
+    generation: Long,
+    entry: ConversationCacheEntry,
+  ) {
+    conversationCache.compute(modelName) { _, current ->
+      if (current?.generation == generation) ConversationCacheState(generation, entry) else current
+    }
+  }
+
+  internal fun discardCachedTurns(modelName: String, generation: Long) {
+    conversationCache.compute(modelName) { _, current ->
+      if (current?.generation == generation) ConversationCacheState(generation, null) else current
+    }
+  }
+
+  /** Supersedes every outstanding request publication for this model. */
   internal fun invalidateCachedTurns(modelName: String) {
-    conversationCache.remove(modelName)
+    conversationCache[modelName] = ConversationCacheState(
+      generation = conversationCacheGeneration.incrementAndGet(),
+      entry = null,
+    )
   }
 
   @OptIn(ExperimentalApi::class)
@@ -501,6 +553,7 @@ object ServerLlmModelHelper {
     tools: List<ToolProvider> = listOf(),
     initialMessages: List<Message> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
+    conversationCacheGeneration: Long? = null,
   ) {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
@@ -508,7 +561,11 @@ object ServerLlmModelHelper {
       // Tearing the Conversation down discards the SDK's incremental prompt-diff
       // state — the next request must rebuild from scratch, so no incremental
       // reuse is possible until a new conversation is established.
-      invalidateCachedTurns(model.name)
+      if (conversationCacheGeneration != null) {
+        discardCachedTurns(model.name, conversationCacheGeneration)
+      } else {
+        invalidateCachedTurns(model.name)
+      }
 
       val instance = model.instance as? LlmModelInstance ?: return
 
@@ -644,9 +701,10 @@ object ServerLlmModelHelper {
     // When non-null, bypass [input] entirely and dispatch via Message.user(incrementalUserText)
     // on the existing Conversation. The SDK will diff the new turn against its stored history
     // and only prefill the delta. Caller must guarantee the Conversation already holds the
-    // prior history (see ServerLlmModelHelper.getCachedTurns / updateCachedTurns in
+    // prior history (see ServerLlmModelHelper.claimCachedTurns / publishCachedTurns in
     // EndpointHandlers.decideIncrementalReuse).
     incrementalUserText: String? = null,
+    conversationCacheGeneration: Long? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -675,7 +733,11 @@ object ServerLlmModelHelper {
             // Conversation state is undefined after an error — drop the cache so
             // the next request rebuilds from scratch instead of trying to extend
             // a possibly-corrupt SDK session.
-            invalidateCachedTurns(model.name)
+            if (conversationCacheGeneration != null) {
+              discardCachedTurns(model.name, conversationCacheGeneration)
+            } else {
+              invalidateCachedTurns(model.name)
+            }
             if (throwable is CancellationException) {
               Log.i(TAG, "The inference is cancelled (incremental).")
               resultListener("", true, null)

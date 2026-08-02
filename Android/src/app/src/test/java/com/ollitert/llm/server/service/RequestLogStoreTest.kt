@@ -310,7 +310,10 @@ class RequestLogStoreTest {
     val cb = TestCallback()
     var callbackInvoked = false
     RequestLogStore.add(entry("cancel-me", isPending = true))
-    RequestLogStore.registerCancellation("cancel-me") { callbackInvoked = true }
+    RequestLogStore.registerCancellation("cancel-me") {
+      callbackInvoked = true
+      true
+    }
     RequestLogStore.setPersistenceCallback(cb)
 
     RequestLogStore.cancelRequest("cancel-me")
@@ -418,7 +421,10 @@ class RequestLogStoreTest {
   fun unregisterCancellationPreventsCallbackOnCancel() {
     var invoked = false
     RequestLogStore.add(entry("x", isPending = true))
-    RequestLogStore.registerCancellation("x") { invoked = true }
+    RequestLogStore.registerCancellation("x") {
+      invoked = true
+      true
+    }
     RequestLogStore.unregisterCancellation("x")
     RequestLogStore.cancelRequest("x")
     assertFalse("callback should NOT be invoked after unregister", invoked)
@@ -430,6 +436,16 @@ class RequestLogStoreTest {
     // No registerCancellation — cancelRequest should be a no-op (nothing to cancel)
     RequestLogStore.cancelRequest("y")
     assertFalse("cancelledByUser should NOT be set when no callback was registered", RequestLogStore.entries.value[0].cancelledByUser)
+  }
+
+  @Test
+  fun rejectedLateCancellationPreservesSuccessfulMetadata() {
+    RequestLogStore.add(entry("finished", isPending = false))
+    RequestLogStore.registerCancellation("finished") { false }
+
+    RequestLogStore.cancelRequest("finished")
+
+    assertFalse(RequestLogStore.entries.value.single().cancelledByUser)
   }
 
   // ── Hard ceiling when maxEntries == 0 ────────────────────────────────

@@ -38,6 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
@@ -112,9 +113,10 @@ class ModelLifecycle(
 
   private var activeRequestAdmissions = 0
   private var isDestroyed = false
+  @Volatile private var idleCleanupFinished: CountDownLatch? = null
 
   /** Keeps a selected model alive until the complete HTTP response has been written. */
-  class RequestAdmission internal constructor(
+  internal class RequestAdmission internal constructor(
     private val release: () -> Unit,
   ) : AutoCloseable {
     private val isReleased = AtomicBoolean(false)
@@ -136,9 +138,10 @@ class ModelLifecycle(
    */
   private fun onKeepAliveTimeout() {
     lifecycleScope.launch {
-      // Keep the transition and native cleanup atomic from request admission's perspective.
-      // This runs on Dispatchers.IO, so a slow Engine.close() cannot block the main thread.
-      data class UnloadInfo(val model: Model, val minutes: Int)
+      // Publish the lifecycle transition under the short state lock, then close native
+      // resources outside it. Reload waits on the cleanup latch from a Ktor worker instead
+      // of making Stop/Reload on the main thread wait for Engine.close().
+      data class UnloadInfo(val model: Model, val minutes: Int, val cleanupFinished: CountDownLatch)
       val info: UnloadInfo = synchronized(keepAliveLock) {
         if (isDestroyed) return@launch
         if (activeRequestAdmissions > 0 || ServerMetrics.isInferring.value) {
@@ -154,11 +157,16 @@ class ModelLifecycle(
         // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
         // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
         defaultModel = null
+        modelCache.remove(model.name, model)
         ServerMetrics.onModelIdleUnloaded()
-        // Keep cleanup inside the lifecycle lock. A new request may wait a few seconds,
-        // but it cannot initialize a replacement Engine while old native state is closing.
-        ServerLlmModelHelper.safeCleanup(model)
-        UnloadInfo(model, mins)
+        val cleanupFinished = CountDownLatch(1)
+        idleCleanupFinished = cleanupFinished
+        UnloadInfo(model, mins, cleanupFinished)
+      }
+      try {
+        ServerLlmModelHelper.safeCleanup(info.model)
+      } finally {
+        info.cleanupFinished.countDown()
       }
       // A later admitted request sees the idle-unloaded state and performs one reload.
       RequestLogStore.addEvent(
@@ -187,7 +195,7 @@ class ModelLifecycle(
    * Admit one model-using HTTP request. The lease must cover response writing,
    * including the complete SSE writer lifetime, not only handler construction.
    */
-  fun acquireRequestAdmission(): RequestAdmission {
+  internal fun acquireRequestAdmission(): RequestAdmission {
     synchronized(keepAliveLock) {
       check(!isDestroyed) { "Model lifecycle is destroyed" }
       cancelKeepAliveTimer()
@@ -206,6 +214,22 @@ class ModelLifecycle(
 
   internal fun activeRequestAdmissionCount(): Int =
     synchronized(keepAliveLock) { activeRequestAdmissions }
+
+  /** Waits off the main thread until an idle-unloaded Engine has finished closing. */
+  internal fun awaitIdleCleanup() {
+    val cleanup = idleCleanupFinished ?: return
+    var wasInterrupted = false
+    while (cleanup.count > 0) {
+      try {
+        cleanup.await()
+      } catch (_: InterruptedException) {
+        wasInterrupted = true
+      }
+    }
+    if (wasInterrupted) Thread.currentThread().interrupt()
+  }
+
+  internal fun hasActiveIdleCleanup(): Boolean = (idleCleanupFinished?.count ?: 0) > 0
 
   /**
    * Reset the keep-alive idle timer. Called after each inference completes.
@@ -239,6 +263,7 @@ class ModelLifecycle(
       // Double-check: another thread may have already reloaded
       if (defaultModel != null) return defaultModel
       val modelName = keepAliveUnloadedModelName ?: return null
+      awaitIdleCleanup()
       Log.i(TAG, "Keep-alive: reloading model $modelName (waking from idle)")
       RequestLogStore.addEvent(
         "Auto-reloading model: $modelName (keep_alive wake-up)",

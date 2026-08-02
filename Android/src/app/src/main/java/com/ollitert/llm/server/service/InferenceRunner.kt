@@ -51,6 +51,12 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
+internal data class ConversationPreparation(
+  val incrementalUserText: String?,
+  val cacheGeneration: Long,
+  val systemInstruction: Contents? = null,
+)
+
 /**
  * Executes LLM inference (blocking and streaming) against a loaded model.
  * Handles model re-initialization for vision/audio, token counting, timeout,
@@ -139,7 +145,7 @@ class InferenceRunner(
    * Called by endpoint handlers for non-streaming /generate, /v1/chat/completions,
    * /v1/completions, and /v1/responses.
    */
-  suspend fun runLlm(
+  internal suspend fun runLlm(
     model: Model,
     prompt: String,
     requestId: String,
@@ -165,6 +171,8 @@ class InferenceRunner(
     // KV-cache reuse: when non-null, dispatch via Message.user(text) on the existing
     // Conversation (skipping resetConversation) so the SDK only prefills the new turn.
     incrementalUserText: String? = null,
+    conversationCacheGeneration: Long? = null,
+    prepareConversation: (() -> ConversationPreparation)? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -179,7 +187,7 @@ class InferenceRunner(
     // Register cancel callback before any lock acquisition so queued requests are cancellable.
     if (logId != null) {
       RequestLogStore.registerCancellation(logId) {
-        cancellationBridge.request()
+        cancellationBridge.request() != CancellationRequestStatus.REJECTED
       }
     }
 
@@ -194,6 +202,9 @@ class InferenceRunner(
     // that concurrent updateConfigValues() writes are visible before we snapshot.
     var originalConfig: Map<String, Any>? = null
     val capturedNativeToolCalls = AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>(null)
+    var preparedIncrementalUserText = incrementalUserText
+    var preparedCacheGeneration = conversationCacheGeneration
+    var preparedSystemInstruction: Contents? = null
 
     val result = InferenceGateway.execute(
       prompt = prompt,
@@ -214,16 +225,22 @@ class InferenceRunner(
           originalConfig = model.configValues
           model.configValues = configSnapshot
         }
-        if (incrementalUserText != null) {
-          Log.i(TAG, "INCREMENTAL_REUSE_BLOCKING requestId=$requestId model=${model.name} userTextLen=${incrementalUserText.length}")
+        prepareConversation?.invoke()?.let { prepared ->
+          preparedIncrementalUserText = prepared.incrementalUserText
+          preparedCacheGeneration = prepared.cacheGeneration
+          preparedSystemInstruction = prepared.systemInstruction
+        }
+        if (preparedIncrementalUserText != null) {
+          Log.i(TAG, "INCREMENTAL_REUSE_BLOCKING requestId=$requestId model=${model.name} userTextLen=${preparedIncrementalUserText?.length}")
         } else {
           ServerLlmModelHelper.resetConversation(
             model,
             supportImage = supportImage,
             supportAudio = supportAudio,
-            systemInstruction = if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
+            systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
             tools = schemaInjectionProviders,
             initialMessages = schemaInjectionMessages,
+            conversationCacheGeneration = preparedCacheGeneration,
           )
         }
       },
@@ -237,7 +254,8 @@ class InferenceRunner(
           images = images,
           audioClips = audioClips,
           extraContext = extraContext,
-          incrementalUserText = incrementalUserText,
+          incrementalUserText = preparedIncrementalUserText,
+          conversationCacheGeneration = preparedCacheGeneration,
           onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
             capturedNativeToolCalls.set(calls)
           } else null,
@@ -252,9 +270,10 @@ class InferenceRunner(
           model,
           supportImage = supportImage,
           supportAudio = supportAudio,
-          systemInstruction = if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
+          systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
           tools = schemaInjectionProviders,
           initialMessages = schemaInjectionMessages,
+          conversationCacheGeneration = preparedCacheGeneration,
         )
       },
       onInferenceFinished = {
@@ -1016,6 +1035,7 @@ class InferenceRunner(
     val streamStartMs: Long,
     val keepPartial: Boolean,
     val inferenceControl: AtomicReference<InferenceGateway.InferenceControl?>,
+    val onConversationFinished: (Boolean, String?) -> Unit,
   ) {
     val fullText = StringBuilder()
     val fullThinking = StringBuilder()
@@ -1023,14 +1043,16 @@ class InferenceRunner(
     var thinkingTagOpened = false
     var lastLogUpdateMs = 0L
     var firstTokenMs = 0L
-    var inferenceStarted = false
+    private val inferenceStartedFlag = AtomicBoolean(false)
+    val inferenceStarted: Boolean get() = inferenceStartedFlag.get()
     var inferenceCompleted = false
     // True once ServerMetrics.onInferenceCompleted has been called for this request.
     // Tracked separately from inferenceCompleted because the metric decrement and the
     // local "we are done emitting" flag have different lifetimes — the metric pairs
     // with onInferenceStarted and must fire at most once even if both the gateway
     // callback and the safety-net finally try to clear it.
-    var metricsCompleted = false
+    private val metricsCompleted = AtomicBoolean(false)
+    private var conversationFinished = false
     var stopSequenceTriggered = false
     // The actual stop string that matched, set in lock-step with stopSequenceTriggered.
     // Anthropic /v1/messages echoes this back in the response `stop_sequence` field;
@@ -1038,8 +1060,7 @@ class InferenceRunner(
     var matchedStopSequence: String? = null
 
     fun markStarted() {
-      if (!inferenceStarted) {
-        inferenceStarted = true
+      if (inferenceStartedFlag.compareAndSet(false, true)) {
         ServerMetrics.onInferenceStarted()
       }
     }
@@ -1056,10 +1077,15 @@ class InferenceRunner(
      * "processing" pill on indefinitely.
      */
     fun markMetricsCompleted() {
-      if (inferenceStarted && !metricsCompleted) {
-        metricsCompleted = true
+      if (inferenceStarted && metricsCompleted.compareAndSet(false, true)) {
         ServerMetrics.onInferenceCompleted()
       }
+    }
+
+    fun finishConversation(isReusable: Boolean, assistantText: String? = null) {
+      if (conversationFinished) return
+      conversationFinished = true
+      onConversationFinished(isReusable, assistantText)
     }
 
     fun buildCancelledPartial(): String? {
@@ -1251,6 +1277,14 @@ class InferenceRunner(
         }
       }
       logEvent("request_done id=$requestId endpoint=$endpoint streaming=true totalMs=$totalLatencyMs ttfbMs=$ttfbMs outputChars=$outputLen${format.buildLogEventSuffix(parsedToolCalls)}")
+      finishConversation(
+        isReusable = !stopSequenceTriggered,
+        assistantText = if (format is AnthropicMessagesFormat) {
+          fullText.toString()
+        } else {
+          buildCombinedText(fullText, fullThinking)
+        },
+      )
       channel.close()
     }
 
@@ -1317,7 +1351,7 @@ class InferenceRunner(
 
   // ── Streaming inference: /v1/chat/completions ────────────────────────────
 
-  fun streamChatLlm(
+  internal fun streamChatLlm(
     model: Model,
     prompt: String,
     requestId: String,
@@ -1337,10 +1371,13 @@ class InferenceRunner(
     suppressPerModelSystem: Boolean = false,
     enableThinkingOverride: Boolean? = null,
     incrementalUserText: String? = null,
+    conversationCacheGeneration: Long? = null,
+    prepareConversation: (() -> ConversationPreparation)? = null,
+    onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage, hasSchemaInjection = schemaInjectionProviders.isNotEmpty())
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished)
   }
 
   // ── Streaming inference: /v1/completions ───────────────────────────────
@@ -1365,7 +1402,7 @@ class InferenceRunner(
 
   // ── Streaming inference: /v1/messages (Anthropic) ───────────────────────
 
-  fun streamMessagesLlm(
+  internal fun streamMessagesLlm(
     model: Model,
     prompt: String,
     requestId: String,
@@ -1384,6 +1421,9 @@ class InferenceRunner(
     enableThinkingOverride: Boolean? = null,
     requestModelId: String,
     incrementalUserText: String? = null,
+    conversationCacheGeneration: Long? = null,
+    prepareConversation: (() -> ConversationPreparation)? = null,
+    onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
   ): HttpResponse {
     val format = AnthropicMessagesFormat(
       modelName = model.name,
@@ -1397,6 +1437,9 @@ class InferenceRunner(
       model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips,
       logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages,
       suppressPerModelSystem, enableThinkingOverride, incrementalUserText,
+      conversationCacheGeneration,
+      prepareConversation,
+      onConversationFinished,
     )
   }
 
@@ -1422,6 +1465,9 @@ class InferenceRunner(
     // on the existing Conversation instead of resetting + sending the full rendered
     // [prompt]. Caller (EndpointHandlers) decides eligibility via decideIncrementalReuse.
     incrementalUserText: String? = null,
+    conversationCacheGeneration: Long? = null,
+    prepareConversation: (() -> ConversationPreparation)? = null,
+    onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -1441,8 +1487,11 @@ class InferenceRunner(
       RequestLogStore.registerCancellation(logId) {
         when (cancellationBridge.request()) {
           CancellationRequestStatus.PENDING,
-          CancellationRequestStatus.ACCEPTED -> channelRef.get()?.close()
-          CancellationRequestStatus.REJECTED -> Unit
+          CancellationRequestStatus.ACCEPTED -> {
+            channelRef.get()?.close()
+            true
+          }
+          CancellationRequestStatus.REJECTED -> false
         }
       }
     }
@@ -1475,12 +1524,16 @@ class InferenceRunner(
         streamStartMs,
         keepPartial,
         inferenceControl,
+        onConversationFinished,
       )
 
       // Captured inside the resetConversation lambda (which runs under inferenceLock) so
       // that concurrent updateConfigValues() writes are visible before we snapshot.
       var originalConfig: Map<String, Any>? = null
       val capturedNativeToolCalls = AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>(null)
+      var preparedIncrementalUserText = incrementalUserText
+      var preparedCacheGeneration = conversationCacheGeneration
+      var preparedSystemInstruction: Contents? = null
 
       // Pre-emit the format's header (e.g. Anthropic `message_start`) as the very
       // first SSE bytes so the client sees a response before prefill begins. Without
@@ -1540,19 +1593,25 @@ class InferenceRunner(
             originalConfig = model.configValues
             model.configValues = configSnapshot
           }
-          if (incrementalUserText != null) {
+          prepareConversation?.invoke()?.let { prepared ->
+            preparedIncrementalUserText = prepared.incrementalUserText
+            preparedCacheGeneration = prepared.cacheGeneration
+            preparedSystemInstruction = prepared.systemInstruction
+          }
+          if (preparedIncrementalUserText != null) {
             // Reuse the live Conversation: SDK has the prior history in its internal
             // diff state, and runInference will dispatch via Message.user(text) so
             // only the new turn is prefilled.
-            Log.i(TAG, "INCREMENTAL_REUSE requestId=$requestId model=${model.name} userTextLen=${incrementalUserText.length}")
+            Log.i(TAG, "INCREMENTAL_REUSE requestId=$requestId model=${model.name} userTextLen=${preparedIncrementalUserText?.length}")
           } else {
             ServerLlmModelHelper.resetConversation(
               model,
               supportImage = supportImage,
               supportAudio = supportAudio,
-              systemInstruction = if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
+              systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
               tools = schemaInjectionProviders,
               initialMessages = schemaInjectionMessages,
+              conversationCacheGeneration = preparedCacheGeneration,
             )
           }
         },
@@ -1566,7 +1625,8 @@ class InferenceRunner(
             images = images,
             audioClips = audioClips,
             extraContext = extraContext,
-            incrementalUserText = incrementalUserText,
+            incrementalUserText = preparedIncrementalUserText,
+            conversationCacheGeneration = preparedCacheGeneration,
             onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
               capturedNativeToolCalls.set(calls)
             } else null,
@@ -1581,9 +1641,10 @@ class InferenceRunner(
             model,
             supportImage = supportImage,
             supportAudio = supportAudio,
-            systemInstruction = if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
+            systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
             tools = schemaInjectionProviders,
             initialMessages = schemaInjectionMessages,
+            conversationCacheGeneration = preparedCacheGeneration,
           )
         },
         onToken = { partial, done, thought ->
@@ -1692,6 +1753,7 @@ class InferenceRunner(
         // even when onInferenceFinished was never reached.
         state.markCompleted()
         state.markMetricsCompleted()
+        if (state.inferenceStarted) state.finishConversation(isReusable = false)
         heartbeatJob?.cancel()
       }
     }

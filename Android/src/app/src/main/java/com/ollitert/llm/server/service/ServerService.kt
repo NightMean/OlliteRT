@@ -299,13 +299,9 @@ class ServerService : Service() {
         return@launch
       }
 
-      modelCache[model.name] = model
-
       ServerMetrics.onServerStarting(port, model.name)
       ServerMetrics.setActiveModelSize(model.totalBytes)
       RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
-
-      synchronized(modelLifecycle.keepAliveLock) { defaultModel = model }
 
       loadModelOnThread(model, thisGeneration, wifiIp, notifState)
     }
@@ -409,7 +405,7 @@ class ServerService : Service() {
       return false
     }
 
-    server?.stop()
+    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
     inferenceExecutor?.shutdownNow()
     val executor = Executors.newSingleThreadExecutor()
     inferenceExecutor = executor
@@ -485,57 +481,49 @@ class ServerService : Service() {
       modelName = previousModelName,
       category = EventCategory.MODEL,
     )
-    server?.stop()
-
-    // Cancel any in-flight inference so the native JNI call returns quickly,
-    // then drain the executor before closing native resources.
+    // Let each request owner choose cancellation before using the model-wide native stop
+    // as a fallback for unregistered work such as warmup.
+    RequestLogStore.cancelAllPending()
+    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
     defaultModel?.let { ServerLlmModelHelper.stopResponse(it) }
+    val previousLoadJob = loadJob
+    previousLoadJob?.cancel()
+    loadJob = null
     val executor = inferenceExecutor
     executor?.shutdownNow()
-    try {
-      executor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
-    } catch (_: InterruptedException) {}
     inferenceExecutor = null
 
-    defaultModel?.let { model ->
+    val modelsToCleanUp = linkedSetOf<Model>()
+    synchronized(modelLifecycle.keepAliveLock) {
+      defaultModel?.let(modelsToCleanUp::add)
+      defaultModel = null
+      modelsToCleanUp.addAll(modelCache.values.filter { it.instance != null })
+      modelCache.clear()
+    }
+    previousModelName?.let { modelName ->
       RequestLogStore.addEvent(
-        "Unloading model: ${model.name}",
-        modelName = model.name,
+        "Unloading model: $modelName",
+        modelName = modelName,
         category = EventCategory.MODEL,
       )
-      // Null defaultModel inside the lock so selectModel() sees it as unavailable immediately.
-      // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
-      // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
-      synchronized(modelLifecycle.keepAliveLock) {
-        defaultModel = null
-      }
-      try {
-        ServerLlmModelHelper.cleanUp(model) {}
-      } catch (e: Exception) {
-        Log.w(TAG, "Error cleaning up model during reload: ${e.message}")
-      }
-      // Safe outside lock: defaultModel is already null so no concurrent code path can
-      // reach this model object. This is purely defensive — cleanUp() already closed the
-      // native Engine, this just marks the wrapper as released.
-      model.instance = null
     }
-    // Close any secondary models' native Engines before dropping references.
-    // Without this, modelCache.clear() orphans Engine instances with GB-scale native memory.
-    for ((_, cachedModel) in modelCache) {
-      if (cachedModel.instance != null) {
-        ServerLlmModelHelper.safeCleanup(cachedModel)
+    if (previousLoadJob != null || executor != null || modelsToCleanUp.isNotEmpty() ||
+      modelLifecycle.hasActiveIdleCleanup()
+    ) {
+      enqueueCleanup("OlliteRT-ReloadCleanup") {
+        modelLifecycle.awaitIdleCleanup()
+        previousLoadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
+        if (executor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
+          Log.w(TAG, "Inference executor did not terminate during reload cleanup")
+        }
+        for (model in modelsToCleanUp) {
+          ServerLlmModelHelper.safeCleanup(model)
+        }
+        System.gc()
       }
     }
-    modelCache.clear()
-    // Cancel any in-flight requests so pending log cards resolve before the reload.
-    RequestLogStore.cancelAllPending()
     // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
     ServerMetrics.onServerStopped()
-    // Hint GC to reclaim native memory from the closed Engine/Conversation.
-    // LiteRT Engine allocates large native buffers (hundreds of MB) that are only
-    // freed when the Java wrapper is finalized. Without this hint, the old Engine's
-    // native memory may persist until the new model's allocation triggers OOM.
-    System.gc()
   }
 
   /**
@@ -554,6 +542,7 @@ class ServerService : Service() {
     try {
       checkStorageBeforeLoad()
       awaitPreviousCleanup()
+      modelLifecycle.awaitIdleCleanup()
 
       val loadStart = SystemClock.elapsedRealtime()
       initializeOrWarmUp(model)
@@ -561,6 +550,19 @@ class ServerService : Service() {
       // If another model load was initiated while we were warming up, discard this result
       if (loadGeneration.get() != thisGeneration) {
         Log.w(TAG, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
+        ServerLlmModelHelper.safeCleanup(model)
+        return
+      }
+      val published = synchronized(modelLifecycle.keepAliveLock) {
+        if (loadGeneration.get() != thisGeneration) {
+          false
+        } else {
+          defaultModel = model
+          modelCache[model.name] = model
+          true
+        }
+      }
+      if (!published) {
         ServerLlmModelHelper.safeCleanup(model)
         return
       }
@@ -598,17 +600,49 @@ class ServerService : Service() {
   }
 
   /** Waits for the previous service instance's native cleanup to finish. */
+  private fun enqueueCleanup(threadName: String, cleanup: () -> Unit) {
+    lateinit var predecessor: java.util.concurrent.CountDownLatch
+    val next = java.util.concurrent.CountDownLatch(1)
+    while (true) {
+      val current = cleanupLatch.get()
+      if (cleanupLatch.compareAndSet(current, next)) {
+        predecessor = current ?: java.util.concurrent.CountDownLatch(0)
+        break
+      }
+    }
+    Thread({
+      var wasInterrupted = false
+      try {
+        while (predecessor.count > 0) {
+          try {
+            predecessor.await()
+          } catch (_: InterruptedException) {
+            wasInterrupted = true
+          }
+        }
+        cleanup()
+      } finally {
+        if (wasInterrupted) Thread.currentThread().interrupt()
+        next.countDown()
+      }
+    }, threadName).start()
+  }
+
+  /** Waits for every previously queued native cleanup to finish. */
   private fun awaitPreviousCleanup() {
     cleanupLatch.get()?.let { latch ->
       if (latch.count > 0) {
         Log.i(TAG, "Waiting for previous model cleanup to finish...")
-        val cleanupTimeout = ServerPrefs.getTimeoutCleanupAwait(this)
-        val cleanedUp = latch.await(cleanupTimeout, java.util.concurrent.TimeUnit.SECONDS)
-        if (cleanedUp) {
-          Log.i(TAG, "Previous cleanup finished, proceeding with model load")
-        } else {
-          Log.w(TAG, "Previous cleanup did not finish within ${cleanupTimeout}s, proceeding anyway — native resource race possible")
+        var wasInterrupted = false
+        while (latch.count > 0) {
+          try {
+            latch.await()
+          } catch (_: InterruptedException) {
+            wasInterrupted = true
+          }
         }
+        if (wasInterrupted) Thread.currentThread().interrupt()
+        Log.i(TAG, "Previous cleanup finished, proceeding with model load")
       }
     }
   }
@@ -786,9 +820,12 @@ class ServerService : Service() {
     keepAliveUnloadedModelName = null
     // Invalidate any in-flight warmup thread so it won't transition to RUNNING after we stop
     loadGeneration.incrementAndGet()
-    loadJob?.cancel()
+    val previousLoadJob = loadJob
+    previousLoadJob?.cancel()
     loadJob = null
-    server?.stop()
+    // Signal request-scoped controls first so native done callbacks cannot win success.
+    RequestLogStore.cancelAllPending()
+    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
     // Cancel any in-flight inference so the native JNI call returns quickly.
     // Without this, shutdownNow() only calls Thread.interrupt() which has no
     // effect on blocking native code — the 5s await can expire with the thread
@@ -796,7 +833,6 @@ class ServerService : Service() {
     defaultModel?.let { ServerLlmModelHelper.stopResponse(it) }
     val executor = inferenceExecutor
     executor?.shutdownNow()
-    try { executor?.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS) } catch (_: InterruptedException) {}
     inferenceExecutor = null
     val modelName = defaultModel?.name
 
@@ -804,50 +840,28 @@ class ServerService : Service() {
     // These operations can take seconds for multi-GB models and must NOT run on the main
     // thread — doing so causes an ANR ("Input dispatching timed out") when the user taps
     // Stop Server, because onDestroy runs on the main thread.
-    val modelsToCleanUp = mutableListOf<Model>()
-    defaultModel?.let { model ->
-      modelsToCleanUp.add(model)
+    val modelsToCleanUp = linkedSetOf<Model>()
+    synchronized(modelLifecycle.keepAliveLock) {
+      defaultModel?.let(modelsToCleanUp::add)
+      defaultModel = null
+      modelsToCleanUp.addAll(modelCache.values.filter { it.instance != null })
+      modelCache.clear()
     }
-    synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
-    for ((_, cachedModel) in modelCache) {
-      if (cachedModel.instance != null) {
-        modelsToCleanUp.add(cachedModel)
-      }
-    }
-    modelCache.clear()
 
-    // Dispatch native memory release to a background thread to avoid ANR.
-    // Set a static latch so the next service instance's load thread can wait for cleanup
-    // to finish before initializing — prevents racing on native LiteRT resources.
-    if (modelsToCleanUp.isNotEmpty()) {
-      val latch = java.util.concurrent.CountDownLatch(1)
-      cleanupLatch.set(latch)
-      Thread({
-        try {
-          // Wait for the inference executor thread to fully exit before closing
-          // native resources. The initial 5s await in onDestroy may have expired
-          // if a native JNI call was still in progress. stopResponse() above
-          // should have made it return, but give it another 10s as a safety net.
-          if (executor?.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS) == false) {
-            Log.w(TAG, "Inference executor did not terminate within 15s total — proceeding with native cleanup (potential use-after-free)")
-          }
-          for (model in modelsToCleanUp) {
-            try {
-              ServerLlmModelHelper.cleanUp(model) {}
-            } catch (e: Exception) {
-              Log.w(TAG, "Error cleaning up model during destroy: ${e.message}")
-            }
-            model.instance = null
-          }
-          // GC hint after releasing large native allocations
-          System.gc()
-        } finally {
-          // Count down but do NOT null the reference — the next service instance reads
-          // the latch and if count==0, await() returns immediately. Nulling it creates a
-          // race where the new instance misses the latch entirely.
-          latch.countDown()
+    if (previousLoadJob != null || executor != null || modelsToCleanUp.isNotEmpty() ||
+      modelLifecycle.hasActiveIdleCleanup()
+    ) {
+      enqueueCleanup("OlliteRT-ModelCleanup") {
+        modelLifecycle.awaitIdleCleanup()
+        previousLoadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
+        if (executor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
+          Log.w(TAG, "Inference executor did not terminate during destroy cleanup")
         }
-      }, "OlliteRT-ModelCleanup").start()
+        for (model in modelsToCleanUp) {
+          ServerLlmModelHelper.safeCleanup(model)
+        }
+        System.gc()
+      }
     }
 
     notifContentIntent = null
@@ -856,8 +870,6 @@ class ServerService : Service() {
     notifEndpointUrl = null
     notifModelName = null
     pendingReloadAfterLoad.set(null)
-    // Cancel any in-flight requests so pending log cards resolve when the service is destroyed.
-    RequestLogStore.cancelAllPending()
     ServerMetrics.onServerStopped()
     if (modelName != null) {
       RequestLogStore.addEvent("Server stopped", modelName = modelName, category = EventCategory.SERVER)

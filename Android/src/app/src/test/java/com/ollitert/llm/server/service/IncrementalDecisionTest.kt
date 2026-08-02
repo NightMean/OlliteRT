@@ -39,7 +39,7 @@ class IncrementalDecisionTest {
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("hi")),
-      systemPromptHash = 0,
+      systemPrompts = emptyList(),
       toolsHash = 0,
       hasTools = false,
       hasImages = false,
@@ -55,13 +55,13 @@ class IncrementalDecisionTest {
       modelName,
       ServerLlmModelHelper.ConversationCacheEntry(
         turns = listOf(ServerLlmModelHelper.ConversationTurn("user", "hi")),
-        systemPromptHash = 0, toolsHash = 0,
+        systemPrompts = emptyList(), toolsHash = 0,
       ),
     )
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("hi"), assistantMsg("hello"), userMsg("again")),
-      systemPromptHash = 0, toolsHash = 0,
+      systemPrompts = emptyList(), toolsHash = 0,
       hasTools = true, hasImages = false, hasAudio = false,
     )
     assertEquals(IncrementalDecision.Kind.RESET, decision.kind)
@@ -73,7 +73,7 @@ class IncrementalDecisionTest {
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("hi")),
-      systemPromptHash = 0, toolsHash = 0,
+      systemPrompts = emptyList(), toolsHash = 0,
       hasTools = false, hasImages = true, hasAudio = false,
     )
     assertEquals("multimodal_unsupported", decision.reason)
@@ -84,14 +84,17 @@ class IncrementalDecisionTest {
     ServerLlmModelHelper.updateCachedTurns(
       modelName,
       ServerLlmModelHelper.ConversationCacheEntry(
-        turns = listOf(ServerLlmModelHelper.ConversationTurn("user", "hi")),
-        systemPromptHash = 42, toolsHash = 0,
+        turns = listOf(
+          ServerLlmModelHelper.ConversationTurn("user", "hi"),
+          ServerLlmModelHelper.ConversationTurn("assistant", "hello"),
+        ),
+        systemPrompts = listOf("42"), toolsHash = 0,
       ),
     )
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("hi"), assistantMsg("hello"), userMsg("how are you")),
-      systemPromptHash = 42, toolsHash = 0,
+      systemPrompts = listOf("42"), toolsHash = 0,
       hasTools = false, hasImages = false, hasAudio = false,
     )
     assertEquals(IncrementalDecision.Kind.EXTEND, decision.kind)
@@ -100,20 +103,88 @@ class IncrementalDecisionTest {
   }
 
   @Test
+  fun publishedConversationCanOnlyBeClaimedByOnePendingRequest() {
+    ServerLlmModelHelper.updateCachedTurns(
+      modelName,
+      ServerLlmModelHelper.ConversationCacheEntry(
+        turns = listOf(
+          ServerLlmModelHelper.ConversationTurn("user", "hi"),
+          ServerLlmModelHelper.ConversationTurn("assistant", "hello"),
+        ),
+        systemPrompts = listOf("42"),
+        toolsHash = 0,
+      ),
+    )
+    val messages = listOf(userMsg("hi"), assistantMsg("hello"), userMsg("next"))
+
+    val first = decideIncrementalReuse(
+      modelName = modelName,
+      messages = messages,
+      systemPrompts = listOf("42"),
+      toolsHash = 0,
+      hasTools = false,
+      hasImages = false,
+      hasAudio = false,
+    )
+    val second = decideIncrementalReuse(
+      modelName = modelName,
+      messages = messages,
+      systemPrompts = listOf("42"),
+      toolsHash = 0,
+      hasTools = false,
+      hasImages = false,
+      hasAudio = false,
+    )
+
+    assertEquals(IncrementalDecision.Kind.EXTEND, first.kind)
+    assertEquals(IncrementalDecision.Kind.RESET, second.kind)
+    assertEquals("no_cache", second.reason)
+  }
+
+  @Test
   fun resetWhenSystemPromptChanged() {
     ServerLlmModelHelper.updateCachedTurns(
       modelName,
       ServerLlmModelHelper.ConversationCacheEntry(
         turns = listOf(ServerLlmModelHelper.ConversationTurn("user", "hi")),
-        systemPromptHash = 1, toolsHash = 0,
+        systemPrompts = listOf("1"), toolsHash = 0,
       ),
     )
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(systemMsg("new sys"), userMsg("hi"), assistantMsg("hello"), userMsg("again")),
-      systemPromptHash = 999, toolsHash = 0,
+      systemPrompts = listOf("999"), toolsHash = 0,
       hasTools = false, hasImages = false, hasAudio = false,
     )
+    assertEquals("system_prompt_changed", decision.reason)
+  }
+
+  @Test
+  fun resetWhenDistinctSystemPromptsShareTheSameLegacyHash() {
+    ServerLlmModelHelper.updateCachedTurns(
+      modelName,
+      ServerLlmModelHelper.ConversationCacheEntry(
+        turns = listOf(
+          ServerLlmModelHelper.ConversationTurn("user", "hi"),
+          ServerLlmModelHelper.ConversationTurn("assistant", "hello"),
+        ),
+        // "Aa" and "BB" have the same Java/Kotlin String hash code.
+        systemPrompts = listOf("Aa"),
+        toolsHash = 0,
+      ),
+    )
+
+    val decision = decideIncrementalReuse(
+      modelName = modelName,
+      messages = listOf(userMsg("hi"), assistantMsg("hello"), userMsg("next")),
+      systemPrompts = listOf("BB"),
+      toolsHash = 0,
+      hasTools = false,
+      hasImages = false,
+      hasAudio = false,
+    )
+
+    assertEquals(IncrementalDecision.Kind.RESET, decision.kind)
     assertEquals("system_prompt_changed", decision.reason)
   }
 
@@ -123,16 +194,103 @@ class IncrementalDecisionTest {
       modelName,
       ServerLlmModelHelper.ConversationCacheEntry(
         turns = listOf(ServerLlmModelHelper.ConversationTurn("user", "original")),
-        systemPromptHash = 0, toolsHash = 0,
+        systemPrompts = emptyList(), toolsHash = 0,
       ),
     )
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("edited"), assistantMsg("hello"), userMsg("new")),
-      systemPromptHash = 0, toolsHash = 0,
+      systemPrompts = emptyList(), toolsHash = 0,
       hasTools = false, hasImages = false, hasAudio = false,
     )
-    assertEquals("user_turn_diverged_at_0", decision.reason)
+    assertEquals("history_changed", decision.reason)
+  }
+
+  @Test
+  fun resetWhenAssistantHistoryChanged() {
+    ServerLlmModelHelper.updateCachedTurns(
+      modelName,
+      ServerLlmModelHelper.ConversationCacheEntry(
+        turns = listOf(
+          ServerLlmModelHelper.ConversationTurn("user", "hi"),
+          ServerLlmModelHelper.ConversationTurn("assistant", "original"),
+        ),
+        systemPrompts = emptyList(),
+        toolsHash = 0,
+      ),
+    )
+
+    val decision = decideIncrementalReuse(
+      modelName = modelName,
+      messages = listOf(userMsg("hi"), assistantMsg("edited"), userMsg("next")),
+      systemPrompts = emptyList(),
+      toolsHash = 0,
+      hasTools = false,
+      hasImages = false,
+      hasAudio = false,
+    )
+
+    assertEquals(IncrementalDecision.Kind.RESET, decision.kind)
+    assertEquals("history_changed", decision.reason)
+  }
+
+  @Test
+  fun resetWhenSamplerChanges() {
+    ServerLlmModelHelper.updateCachedTurns(
+      modelName,
+      ServerLlmModelHelper.ConversationCacheEntry(
+        turns = listOf(
+          ServerLlmModelHelper.ConversationTurn("user", "hi"),
+          ServerLlmModelHelper.ConversationTurn("assistant", "hello"),
+        ),
+        systemPrompts = emptyList(),
+        toolsHash = 0,
+        samplerConfig = mapOf("sampler" to 11),
+      ),
+    )
+
+    val decision = decideIncrementalReuse(
+      modelName = modelName,
+      messages = listOf(userMsg("hi"), assistantMsg("hello"), userMsg("next")),
+      systemPrompts = emptyList(),
+      toolsHash = 0,
+      hasTools = false,
+      hasImages = false,
+      hasAudio = false,
+      samplerConfig = mapOf("sampler" to 22),
+    )
+
+    assertEquals(IncrementalDecision.Kind.RESET, decision.kind)
+    assertEquals("sampler_changed", decision.reason)
+  }
+
+  @Test
+  fun resetWhenPromptWasCompactedOrOtherwiseTransformed() {
+    ServerLlmModelHelper.updateCachedTurns(
+      modelName,
+      ServerLlmModelHelper.ConversationCacheEntry(
+        turns = listOf(
+          ServerLlmModelHelper.ConversationTurn("user", "hi"),
+          ServerLlmModelHelper.ConversationTurn("assistant", "hello"),
+        ),
+        systemPrompts = emptyList(),
+        toolsHash = 0,
+      ),
+    )
+
+    val decision = decideIncrementalReuse(
+      modelName = modelName,
+      messages = listOf(userMsg("hi"), assistantMsg("hello"), userMsg("next")),
+      systemPrompts = emptyList(),
+      toolsHash = 0,
+      hasTools = false,
+      hasImages = false,
+      hasAudio = false,
+      promptWasTransformed = true,
+    )
+
+    assertEquals(IncrementalDecision.Kind.RESET, decision.kind)
+    assertEquals("prompt_transformed", decision.reason)
   }
 
   @Test
@@ -145,13 +303,13 @@ class IncrementalDecisionTest {
           ServerLlmModelHelper.ConversationTurn("user", "a"),
           ServerLlmModelHelper.ConversationTurn("user", "b"),
         ),
-        systemPromptHash = 0, toolsHash = 0,
+        systemPrompts = emptyList(), toolsHash = 0,
       ),
     )
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("a"), userMsg("b")),
-      systemPromptHash = 0, toolsHash = 0,
+      systemPrompts = emptyList(), toolsHash = 0,
       hasTools = false, hasImages = false, hasAudio = false,
     )
     assertEquals(IncrementalDecision.Kind.RESET, decision.kind)
@@ -162,7 +320,7 @@ class IncrementalDecisionTest {
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("hi"), assistantMsg("dangling")),
-      systemPromptHash = 0, toolsHash = 0,
+      systemPrompts = emptyList(), toolsHash = 0,
       hasTools = false, hasImages = false, hasAudio = false,
     )
     assertEquals("last_not_user_text", decision.reason)
@@ -173,7 +331,7 @@ class IncrementalDecisionTest {
     val decision = decideIncrementalReuse(
       modelName = modelName,
       messages = listOf(userMsg("hi"), assistantMsg("hi"), userMsg("")),
-      systemPromptHash = 0, toolsHash = 0,
+      systemPrompts = emptyList(), toolsHash = 0,
       hasTools = false, hasImages = false, hasAudio = false,
     )
     assertEquals("last_not_user_text", decision.reason)

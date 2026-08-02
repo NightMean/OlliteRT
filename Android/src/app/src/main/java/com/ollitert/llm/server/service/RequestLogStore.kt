@@ -184,10 +184,10 @@ object RequestLogStore {
 
   /**
    * Maps pending log-entry IDs to callbacks that cancel the in-flight inference.
-   * For streaming: the callback closes the channel and calls stopResponse.
-   * For non-streaming: the callback calls [ServerLlmModelHelper.stopResponse].
+   * Both streaming and blocking callbacks route through the request-scoped cancellation
+   * bridge and report whether that exact request still accepted cancellation.
    */
-  private val pendingCancellations = ConcurrentHashMap<String, () -> Unit>()
+  private val pendingCancellations = ConcurrentHashMap<String, () -> Boolean>()
 
   private val _entries = MutableStateFlow<List<RequestLogEntry>>(emptyList())
   val entries: StateFlow<List<RequestLogEntry>> = _entries.asStateFlow()
@@ -258,7 +258,7 @@ object RequestLogStore {
   }
 
   /** Register a cancellation callback for an in-flight request. */
-  fun registerCancellation(id: String, onCancel: () -> Unit) {
+  fun registerCancellation(id: String, onCancel: () -> Boolean) {
     pendingCancellations[id] = onCancel
   }
 
@@ -273,16 +273,15 @@ object RequestLogStore {
    * already removed (inference completed normally), we don't mark the entry as cancelled.
    * This prevents a race where the entry shows "cancelled" but the full response was sent.
    *
-   * Cosmetic race: between setting cancelledByUser=true and the callback stopping inference,
+   * Cosmetic race: between accepting cancellation and setting cancelledByUser=true,
    * a few more tokens may be generated and streamed. The UI may briefly show "Cancelled" while
    * the response body still grows. This is harmless — the final entry state is consistent once
    * the callback completes and isPending is set to false by the inference teardown path.
    */
   fun cancelRequest(id: String) {
     val callback = pendingCancellations.remove(id)
-    if (callback != null) {
+    if (callback?.invoke() == true) {
       update(id) { it.copy(cancelledByUser = true) }
-      callback.invoke()
     }
   }
 

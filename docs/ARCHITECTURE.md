@@ -93,7 +93,9 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `EndpointHandlers.kt` | Inference API endpoints (`/v1/chat/completions`, `/v1/completions`, `/v1/responses`) |
 | `InferenceRequest.kt` | Internal request data class — wraps prompt, images, audio, config for inference |
 | `InferenceRunner.kt` | Inference execution — streaming, non-streaming, tool call detection |
-| `InferenceGateway.kt` | Request validation and inference orchestration |
+| `InferenceGateway.kt` | Per-request terminal ownership, serialized native dispatch, cancellation, timeout, and recovery |
+| `RequestCancellationBridge.kt` | Race-safe handoff from UI cancellation to the exact inference request |
+| `ConversationCachePublication.kt` | Success-only publication of reusable conversation history |
 | `PayloadBuilders.kt` | JSON response construction (health, models, server info) |
 | `ResponseRenderer.kt` | Renders LLM responses to JSON with capabilities metadata |
 | `FinishReason.kt` | Infers finish reason (`stop`, `length`, `tool_calls`) from token counts |
@@ -106,7 +108,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `PromptBuilder.kt` | Prompt building, tool schema injection (prompt-based fallback), image/audio extraction, tool_choice resolution |
 | `PromptCompactor.kt` | Context window overflow handling |
 | `PrometheusRenderer.kt` | Prometheus `/metrics` exposition format |
-| `ModelLifecycle.kt` | Model load/unload/reload, keep-alive idle timeout |
+| `ModelLifecycle.kt` | Model load/unload/reload, request admission, keep-alive idle timeout |
 | `ModelFactory.kt` | Builds `Model` instances from allowlist and imported sources |
 | `AllowlistLoader.kt` | Loads and caches the allowed model list |
 | `NotificationHelper.kt` | Foreground notification building |
@@ -209,6 +211,14 @@ Client HTTP request
       → Response building (PayloadBuilders / ResponseRenderer)
     → HTTP response to client (JSON, SSE stream, or binary)
 ```
+
+Model-using routes hold a `ModelLifecycle.RequestAdmission` from model selection until
+the complete HTTP response is written, including SSE streams. Idle unload therefore cannot
+close native state selected by an accepted request. Conversation-cache metadata is claimed
+atomically when serialized native preparation begins and published again only after inference
+and protocol response processing succeed. Generation ownership prevents delayed streams from
+mutating newer state, while full-history/system/sampler checks prevent unsafe reuse; cancellation,
+errors, unsupported modalities, and stop-sequence truncation leave the cache invalidated.
 
 ## Tool Calling
 

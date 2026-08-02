@@ -30,6 +30,7 @@ import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -40,6 +41,46 @@ class InferenceGatewayTest {
   private val lock = Any()
   private var clock = 0L
   private fun tick(): Long { clock += 10; return clock }
+
+  @Test
+  fun blockingExecutorRejectionSettlesAsError() = runBlocking {
+    var finishCount = 0
+
+    val result = InferenceGateway.execute(
+      prompt = "hello",
+      executor = Executor { throw RejectedExecutionException("shutdown") },
+      inferenceLock = lock,
+      resetConversation = { fail("preparation must not run") },
+      runInference = { _, _, _ -> fail("inference must not run") },
+      cancelInference = {},
+      onInferenceFinished = { finishCount++ },
+      elapsedMs = { tick() },
+    )
+
+    assertEquals("executor_rejected", result.error)
+    assertEquals(1, finishCount)
+  }
+
+  @Test
+  fun streamingExecutorRejectionReportsAndSettlesError() {
+    val error = AtomicReference<String?>(null)
+    var finishCount = 0
+
+    InferenceGateway.executeStreaming(
+      prompt = "hello",
+      executor = Executor { throw RejectedExecutionException("shutdown") },
+      inferenceLock = lock,
+      resetConversation = { fail("preparation must not run") },
+      runInference = { _, _, _ -> fail("inference must not run") },
+      cancelInference = {},
+      onToken = { _, _, _ -> fail("tokens must not be emitted") },
+      onError = error::set,
+      onInferenceFinished = { finishCount++ },
+    )
+
+    assertEquals("executor_rejected", error.get())
+    assertEquals(1, finishCount)
+  }
 
   @Test
   fun successfulInferenceReturnsOutput() = runBlocking {
@@ -592,7 +633,7 @@ class InferenceGatewayTest {
         elapsedMs = { tick() },
       )
       // The onError callback fires first with "inference_failed", then the
-      // lifecycleLatch times out. The first error must win.
+      // terminal wait times out. The first error must win.
       assertEquals("inference_failed", result.error)
     } finally {
       threadPool.shutdownNow()

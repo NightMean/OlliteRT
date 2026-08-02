@@ -173,8 +173,8 @@ class KtorServer(
     engine?.start(wait = false)
   }
 
-  fun stop() {
-    engine?.stop(gracePeriodMillis = 3000, timeoutMillis = 5000)
+  fun stop(gracePeriodMillis: Long = 3000, timeoutMillis: Long = 5000) {
+    engine?.stop(gracePeriodMillis = gracePeriodMillis, timeoutMillis = timeoutMillis)
     engine = null
   }
 

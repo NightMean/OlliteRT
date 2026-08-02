@@ -238,57 +238,75 @@ object InferenceGateway {
   ) {
     val execution = RequestExecution(cancelNative = cancelInference)
     onExecutionReady?.invoke(execution)
-    executor.execute {
-      synchronized(inferenceLock) {
-        if (!execution.beginPreparation()) return@synchronized
-        val terminal = try {
-          resetConversation()
-          execution.dispatch {
-            runInference(
-              prompt,
-              { partial, done, thought ->
-                if (done) {
-                  if (execution.complete(ExecutionOutcome.Success)) {
-                    onToken(partial, true, thought)
+    try {
+      executor.execute {
+        synchronized(inferenceLock) {
+          if (!execution.beginPreparation()) return@synchronized
+          val terminal = try {
+            resetConversation()
+            execution.dispatch {
+              runInference(
+                prompt,
+                { partial, done, thought ->
+                  if (done) {
+                    if (execution.complete(ExecutionOutcome.Success)) {
+                      onToken(partial, true, thought)
+                    }
+                  } else if (execution.acceptsCallbacks()) {
+                    onToken(partial, false, thought)
                   }
-                } else if (execution.acceptsCallbacks()) {
-                  onToken(partial, false, thought)
+                },
+                { message -> execution.complete(ExecutionOutcome.Error(message)) },
+              )
+            }
+            execution.awaitTerminal(timeoutSeconds)
+          } catch (t: Throwable) {
+            if (t is OutOfMemoryError) System.gc()
+            reportGatewayFailure(onCaughtThrowable, "Streaming inference failed", t)
+            execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
+            execution.awaitTerminal(0)
+          }
+          try {
+            when (terminal) {
+              ExecutionOutcome.Success -> Unit
+              ExecutionOutcome.Stopped -> Unit
+              ExecutionOutcome.Timeout -> onError("timeout")
+              is ExecutionOutcome.Cancelled -> onError(
+                when (terminal.reason) {
+                  CancellationReason.CALLER -> "client_disconnected"
+                  CancellationReason.EXTERNAL -> "cancelled"
                 }
+              )
+              is ExecutionOutcome.Error -> onError(terminal.message)
+            }
+          } catch (t: Throwable) {
+            reportGatewayFailure(onCaughtThrowable, "Streaming terminal callback failed", t)
+          } finally {
+            execution.settle(
+              recover = recoverConversation,
+              finish = onInferenceFinished,
+              onFailure = { t ->
+                reportGatewayFailure(onCaughtThrowable, "Streaming settlement step failed", t)
               },
-              { message -> execution.complete(ExecutionOutcome.Error(message)) },
             )
           }
-          execution.awaitTerminal(timeoutSeconds)
-        } catch (t: Throwable) {
-          if (t is OutOfMemoryError) System.gc()
-          reportGatewayFailure(onCaughtThrowable, "Streaming inference failed", t)
-          execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
-          execution.awaitTerminal(0)
         }
-        try {
-          when (terminal) {
-            ExecutionOutcome.Success -> Unit
-            ExecutionOutcome.Stopped -> Unit
-            ExecutionOutcome.Timeout -> onError("timeout")
-            is ExecutionOutcome.Cancelled -> onError(
-              when (terminal.reason) {
-                CancellationReason.CALLER -> "client_disconnected"
-                CancellationReason.EXTERNAL -> "cancelled"
-              }
-            )
-            is ExecutionOutcome.Error -> onError(terminal.message)
-          }
-        } catch (t: Throwable) {
-          reportGatewayFailure(onCaughtThrowable, "Streaming terminal callback failed", t)
-        } finally {
-          execution.settle(
-            recover = recoverConversation,
-            finish = onInferenceFinished,
-            onFailure = { t ->
-              reportGatewayFailure(onCaughtThrowable, "Streaming settlement step failed", t)
-            },
-          )
-        }
+      }
+    } catch (t: Throwable) {
+      reportGatewayFailure(onCaughtThrowable, "Streaming executor rejected inference", t)
+      execution.complete(ExecutionOutcome.Error("executor_rejected"))
+      try {
+        onError("executor_rejected")
+      } catch (callbackFailure: Throwable) {
+        reportGatewayFailure(onCaughtThrowable, "Streaming rejection callback failed", callbackFailure)
+      } finally {
+        execution.settle(
+          recover = recoverConversation,
+          finish = onInferenceFinished,
+          onFailure = { failure ->
+            reportGatewayFailure(onCaughtThrowable, "Streaming rejection settlement failed", failure)
+          },
+        )
       }
     }
   }
@@ -318,44 +336,56 @@ object InferenceGateway {
     val execution = RequestExecution(cancelNative = cancelInference)
     onExecutionReady?.invoke(execution)
 
-    executor.execute {
-      synchronized(inferenceLock) {
-        if (!execution.beginPreparation()) return@synchronized
-        try {
-          resetConversation()
-          execution.dispatch {
-            runInference(
-              prompt,
-              { partial, done, thought ->
-                if (partial.isNotEmpty()) {
-                  if (firstTokenMs == null) {
-                    firstTokenMs = elapsedMs() - startMs
+    try {
+      executor.execute {
+        synchronized(inferenceLock) {
+          if (!execution.beginPreparation()) return@synchronized
+          try {
+            resetConversation()
+            execution.dispatch {
+              runInference(
+                prompt,
+                { partial, done, thought ->
+                  if (partial.isNotEmpty()) {
+                    if (firstTokenMs == null) {
+                      firstTokenMs = elapsedMs() - startMs
+                    }
+                    sb.append(partial)
                   }
-                  sb.append(partial)
-                }
-                if (!thought.isNullOrEmpty()) {
-                  thinkingSb.append(thought)
-                }
-                if (done) execution.complete(ExecutionOutcome.Success)
+                  if (!thought.isNullOrEmpty()) {
+                    thinkingSb.append(thought)
+                  }
+                  if (done) execution.complete(ExecutionOutcome.Success)
+                },
+                { message -> execution.complete(ExecutionOutcome.Error(message)) },
+              )
+            }
+            execution.awaitTerminal(timeoutSeconds)
+          } catch (t: Throwable) {
+            if (t is OutOfMemoryError) System.gc()
+            reportGatewayFailure(onCaughtThrowable, "Blocking inference failed", t)
+            execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
+          } finally {
+            execution.settle(
+              recover = recoverConversation,
+              finish = onInferenceFinished,
+              onFailure = { t ->
+                reportGatewayFailure(onCaughtThrowable, "Inference settlement step failed", t)
               },
-              { message -> execution.complete(ExecutionOutcome.Error(message)) },
             )
           }
-          execution.awaitTerminal(timeoutSeconds)
-        } catch (t: Throwable) {
-          if (t is OutOfMemoryError) System.gc()
-          reportGatewayFailure(onCaughtThrowable, "Blocking inference failed", t)
-          execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
-        } finally {
-          execution.settle(
-            recover = recoverConversation,
-            finish = onInferenceFinished,
-            onFailure = { t ->
-              reportGatewayFailure(onCaughtThrowable, "Inference settlement step failed", t)
-            },
-          )
         }
       }
+    } catch (t: Throwable) {
+      reportGatewayFailure(onCaughtThrowable, "Blocking executor rejected inference", t)
+      execution.complete(ExecutionOutcome.Error("executor_rejected"))
+      execution.settle(
+        recover = recoverConversation,
+        finish = onInferenceFinished,
+        onFailure = { failure ->
+          reportGatewayFailure(onCaughtThrowable, "Blocking rejection settlement failed", failure)
+        },
+      )
     }
 
     try {
