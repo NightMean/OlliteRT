@@ -16,54 +16,51 @@
 
 package com.ollitert.llm.server.data
 
-import androidx.datastore.core.DataStoreFactory
+import androidx.datastore.core.DataStore
 import com.ollitert.llm.server.proto.BenchmarkResult
+import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.ImportedModel
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.TestScope
+import com.ollitert.llm.server.proto.Settings
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import java.io.FileOutputStream
-import kotlin.io.path.createTempDirectory
+
+/**
+ * Deterministic unit-test DataStore that exercises repository transforms without filesystem
+ * semantics. Android's real file-backed DataStore is covered by the instrumented counterpart.
+ */
+private class InMemoryDataStore<T>(initialValue: T) : DataStore<T> {
+  private val mutex = Mutex()
+  private val state = MutableStateFlow(initialValue)
+
+  override val data: Flow<T> = state
+
+  override suspend fun updateData(transform: suspend (t: T) -> T): T = mutex.withLock {
+    transform(state.value).also { state.value = it }
+  }
+}
 
 class DataStoreRepositoryTest {
 
   private lateinit var repository: DefaultDataStoreRepository
-  private lateinit var tempDir: File
-  private lateinit var testScope: TestScope
 
   @Before
   fun setUp() {
-    testScope = TestScope()
-    tempDir = createTempDirectory(prefix = "datastore-repo-test").toFile()
-
     repository = DefaultDataStoreRepository(
-      dataStore = DataStoreFactory.create(
-        serializer = SettingsSerializer,
-        scope = testScope.backgroundScope,
-      ) { File(tempDir, "settings.pb") },
-      benchmarkResultsDataStore = DataStoreFactory.create(
-        serializer = BenchmarkResultsSerializer,
-        scope = testScope.backgroundScope,
-      ) { File(tempDir, "benchmark-results.pb") },
+      dataStore = InMemoryDataStore(Settings.getDefaultInstance()),
+      benchmarkResultsDataStore = InMemoryDataStore(BenchmarkResults.getDefaultInstance()),
     )
   }
 
-  @After
-  fun tearDown() {
-    testScope.cancel()
-    tempDir.deleteRecursively()
-  }
-
   @Test
-  fun importedModelWritesRemainReadableFromSnapshots() = testScope.runTest {
+  fun importedModelWritesRemainReadableFromSnapshots() = runTest {
     val importedModel =
       ImportedModel.newBuilder().setFileName("demo.litertlm").setFileSize(42L).build()
 
@@ -72,7 +69,7 @@ class DataStoreRepositoryTest {
   }
 
   @Test
-  fun benchmarkWritesAndDeletesUpdateSnapshotList() = testScope.runTest {
+  fun benchmarkWritesAndDeletesUpdateSnapshotList() = runTest {
     val firstResult = BenchmarkResult.newBuilder().build()
     val secondResult = BenchmarkResult.newBuilder().build()
 
@@ -91,55 +88,22 @@ class DataStoreRepositoryTest {
   }
 
   @Test
-  fun readsPersistedSettingsBeforeCollectorWarmsSnapshots() = runBlocking {
-    // This test creates pre-seeded proto files and reads them with a fresh DataStore,
-    // verifying that snapshot reads work before any Flow collector warms the cache.
-    val freshDir = createTempDirectory(prefix = "datastore-repo-pre-seed").toFile()
-    try {
-      FileOutputStream(File(freshDir, "settings.pb")).use { output ->
-        SettingsSerializer.writeTo(
-          SettingsSerializer.defaultValue
-            .toBuilder()
-            .setIsTosAccepted(true)
-            .build(),
-          output,
-        )
-      }
-      FileOutputStream(File(freshDir, "benchmark-results.pb")).use { output ->
-        BenchmarkResultsSerializer.writeTo(
-          BenchmarkResultsSerializer.defaultValue
-            .toBuilder()
-            .addResult(BenchmarkResult.newBuilder().build())
-            .build(),
-          output,
-        )
-      }
+  fun readsSeededSnapshotsBeforeAnyCollectorStarts() = runTest {
+    val freshRepo = DefaultDataStoreRepository(
+      dataStore = InMemoryDataStore(
+        Settings.newBuilder().setIsTosAccepted(true).build()
+      ),
+      benchmarkResultsDataStore = InMemoryDataStore(
+        BenchmarkResults.newBuilder().addResult(BenchmarkResult.newBuilder().build()).build()
+      ),
+    )
 
-      val freshScope = TestScope()
-      val freshRepo = DefaultDataStoreRepository(
-        dataStore = DataStoreFactory.create(
-          serializer = SettingsSerializer,
-          scope = freshScope.backgroundScope,
-        ) { File(freshDir, "settings.pb") },
-        benchmarkResultsDataStore = DataStoreFactory.create(
-          serializer = BenchmarkResultsSerializer,
-          scope = freshScope.backgroundScope,
-        ) { File(freshDir, "benchmark-results.pb") },
-      )
-
-      freshScope.runTest {
-        assertTrue(freshRepo.isOnboardingCompleted())
-        assertEquals(1, freshRepo.getAllBenchmarkResults().size)
-      }
-
-      freshScope.cancel()
-    } finally {
-      freshDir.deleteRecursively()
-    }
+    assertTrue(freshRepo.isOnboardingCompleted())
+    assertEquals(1, freshRepo.getAllBenchmarkResults().size)
   }
 
   @Test
-  fun onboardingCompletedPersists() = testScope.runTest {
+  fun onboardingCompletedRoundTrips() = runTest {
     assertFalse(repository.isOnboardingCompleted())
     repository.setOnboardingCompleted()
     assertTrue(repository.isOnboardingCompleted())
