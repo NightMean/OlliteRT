@@ -212,4 +212,17 @@ class EndpointHandlersHelpersTest {
     )!!
     assertEquals(0.5f, config[ConfigKeys.TEMPERATURE.id])
   }
+
+  @Test
+  fun samplerWarningPredicateExcludesRequestsWithoutSamplerOverrides() {
+    assertFalse(hasSamplerSensitiveParams(null, null, null, null))
+  }
+
+  @Test
+  fun samplerWarningPredicateIncludesSamplerSensitiveOverrides() {
+    assertTrue(hasSamplerSensitiveParams(0.7, null, null, null))
+    assertTrue(hasSamplerSensitiveParams(null, 0.9, null, null))
+    assertTrue(hasSamplerSensitiveParams(null, null, 40, null))
+    assertTrue(hasSamplerSensitiveParams(null, null, null, 123))
+  }
 }

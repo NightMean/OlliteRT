@@ -38,6 +38,7 @@ import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.maxContextTokens
 import com.ollitert.llm.server.data.maxTokensInt
+import com.ollitert.llm.server.runtime.LlmModelInstance
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -663,7 +664,10 @@ internal fun resolveSamplerOverrides(
     val ignored = describeClientSamplerParams(temperature, topP, topK, maxTokens, seed)
     if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }
   }
-  if (!ignore && logId != null && model.isGpuBackend() && hasSamplerParams(temperature, topP, topK, maxTokens, seed)) {
+  if (!ignore && logId != null && model.isGpuBackend() &&
+    hasSamplerSensitiveParams(temperature, topP, topK, seed) &&
+    model.claimGpuSamplerWarningForCurrentLoad()
+  ) {
     RequestLogStore.addEvent(
       "Sampler params may be ignored on GPU backend",
       level = LogLevel.WARNING,
@@ -676,13 +680,15 @@ internal fun resolveSamplerOverrides(
   return buildPerRequestConfig(model, effectiveTemp, effectiveTopP, effectiveTopK, effectiveMaxTokens, effectiveSeed)
 }
 
-private fun hasSamplerParams(
+internal fun hasSamplerSensitiveParams(
   temperature: Double?,
   topP: Double?,
   topK: Int?,
-  maxTokens: Int?,
   seed: Int?,
-): Boolean = temperature != null || topP != null || topK != null || maxTokens != null || seed != null
+): Boolean = temperature != null || topP != null || topK != null || seed != null
+
+private fun Model.claimGpuSamplerWarningForCurrentLoad(): Boolean =
+  (instance as? LlmModelInstance)?.diagnostics?.claimGpuSamplerWarning() == true
 
 private fun Model.isGpuBackend(): Boolean =
   getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label) == Accelerator.GPU.label

@@ -61,6 +61,7 @@ import com.ollitert.llm.server.service.RequestLogStore
 import kotlinx.coroutines.CoroutineScope
 import java.io.File
 import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 
@@ -75,7 +76,16 @@ private fun Map<String, Any>?.samplerSeedOrRandom(): Int =
   (this?.get(SAMPLER_SEED_CONFIG_KEY) as? Number)?.toInt()
     ?: Random.nextInt(1, Int.MAX_VALUE)
 
-data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
+internal class ModelLoadDiagnosticState {
+  private val gpuSamplerWarningClaimed = AtomicBoolean(false)
+
+  fun claimGpuSamplerWarning(): Boolean = gpuSamplerWarningClaimed.compareAndSet(false, true)
+}
+
+data class LlmModelInstance(val engine: Engine, var conversation: Conversation) {
+  /** Diagnostics scoped to this loaded Engine, preserved across Conversation resets. */
+  internal val diagnostics = ModelLoadDiagnosticState()
+}
 
 object GpuAvailability {
   // The SDK's sampler uses dlopen("libOpenCL.so") without a full path. On some
