@@ -80,7 +80,7 @@ The [keep-alive](FAQ.md#what-is-keep-alive--idle-unload) feature automatically u
 
 ### Model download fails
 
-- **Gated models** — some models require accepting a license agreement on HuggingFace before downloading. Add your HuggingFace token in Settings (or sign in via OAuth when prompted during download) and accept the agreement on the model's HuggingFace page
+- **Gated models** — some models require accepting a license agreement on HuggingFace before downloading. Add your HuggingFace token in Settings and accept the agreement on the model's HuggingFace page
 - **Network errors** — if a download fails mid-way, try again. Downloads resume from where they left off unless being cancelled by user
 - **No internet** — the app needs an internet connection to download models. After downloading, the app works fully offline.
 

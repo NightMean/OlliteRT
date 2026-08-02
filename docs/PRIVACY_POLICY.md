@@ -30,7 +30,6 @@ OlliteRT makes outbound network connections only for the following purposes:
 | Connection | When | What's Sent | Can Be Disabled |
 |:-----------|:-----|:------------|:----------------|
 | **HuggingFace model download** | When you download a model | HTTP request to `huggingface.co` | Don't download models (import from local storage instead) |
-| **HuggingFace OAuth** | When signing in to download gated models | Standard OAuth flow with HuggingFace | Optional — only needed for gated models |
 | **GitHub update check** | Periodically (configurable) | HTTP request to GitHub Releases API | Disable in Settings → App Updates |
 | **Model source refresh** | Periodically (~24 hours) and on pull-to-refresh | HTTPS request to each enabled model source URL to fetch the model list JSON | Remove the source in Settings → Model Sources |
 
@@ -54,7 +53,7 @@ When the server is running, OlliteRT listens for incoming HTTP connections on yo
 |:-----|:-----------------|:-----------|:-------------|
 | Model files | App-private storage (`getExternalFilesDir`) | Android app sandbox | Delete from Models screen |
 | Server settings | SharedPreferences | Android app sandbox | Reset in Settings |
-| HuggingFace token | Proto DataStore | Android app sandbox | Add or remove in Settings |
+| HuggingFace token | SharedPreferences | Android app sandbox | Add or remove in Settings |
 | Request logs | Room database (on-device) | Android app sandbox | Auto-delete configurable, manual clear available |
 | Bearer token | SharedPreferences | Android app sandbox | Change or disable in Settings |
 

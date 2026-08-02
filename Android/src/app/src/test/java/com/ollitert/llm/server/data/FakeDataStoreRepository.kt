@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.data
 
-import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.ImportedModel
 
@@ -56,9 +55,6 @@ class FakeDataStoreRepository : DataStoreRepository {
   }
 
   // Unused in RepositoryManager tests — stub implementations.
-  override suspend fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) = Unit
-  override suspend fun clearAccessTokenData() = Unit
-  override suspend fun readAccessTokenData(): AccessTokenData? = null
   override suspend fun saveImportedModels(importedModels: List<ImportedModel>) = Unit
   override suspend fun readImportedModels(): List<ImportedModel> = emptyList()
   override suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel) = Unit

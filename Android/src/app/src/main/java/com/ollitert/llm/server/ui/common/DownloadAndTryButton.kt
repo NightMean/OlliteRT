@@ -91,11 +91,12 @@ import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.bytesToGb
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.modelmanager.ModelUrlResult
-import com.ollitert.llm.server.ui.modelmanager.TokenRequestResultType
+import com.ollitert.llm.server.ui.modelmanager.configuredHfTokenOrNull
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -205,7 +206,7 @@ fun DownloadAndTryButton(
     ) { result ->
       Log.d(TAG, "User closes the browser tab. Verifying access before downloading.")
       scope.launch(Dispatchers.IO) {
-        val token = modelManagerViewModel.curAccessToken
+        val token = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
         val urlResult = modelManagerViewModel.getModelUrlResponse(model = model, accessToken = token)
         withContext(Dispatchers.Main) {
           if (urlResult is ModelUrlResult.Success && urlResult.code == HttpURLConnection.HTTP_OK) {
@@ -220,68 +221,7 @@ fun DownloadAndTryButton(
       }
     }
 
-  // A launcher for handling the authentication flow.
-  // It processes the result of the authentication activity and then checks if a user agreement
-  // acknowledgement is needed before proceeding with the model download.
-  val authResultLauncher =
-    rememberLauncherForActivityResult(
-      contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-      modelManagerViewModel.handleAuthResult(
-        result,
-        onTokenRequested = { tokenRequestResult ->
-          when (tokenRequestResult.status) {
-            TokenRequestResultType.SUCCEEDED -> {
-              Log.d(TAG, "Token request succeeded. Checking if we need user to ack user agreement")
-              scope.launch(Dispatchers.IO) {
-                // Check if we can use the current token to access model. If not, we might need to
-                // acknowledge the user agreement.
-                val urlResult = modelManagerViewModel.getModelUrlResponse(
-                  model = model,
-                  accessToken = modelManagerViewModel.curAccessToken,
-                )
-                if (
-                  urlResult is ModelUrlResult.Success &&
-                    urlResult.code == HttpURLConnection.HTTP_FORBIDDEN
-                ) {
-                  Log.d(TAG, "Model '${model.name}' needs user agreement ack.")
-                  showAgreementAckSheet = true
-                } else {
-                  Log.d(
-                    TAG,
-                    "Model '${model.name}' does NOT need user agreement ack. Start downloading...",
-                  )
-                  withContext(Dispatchers.Main) {
-                    startDownload(modelManagerViewModel.curAccessToken)
-                  }
-                }
-              }
-            }
-
-            TokenRequestResultType.FAILED -> {
-              Log.d(
-                TAG,
-                "Token request done. Error message: ${tokenRequestResult.errorMessage ?: ""}",
-              )
-              checkingToken = false
-              downloadStarted = false
-            }
-
-            TokenRequestResultType.USER_CANCELLED -> {
-              Log.d(TAG, "User cancelled. Do nothing")
-              checkingToken = false
-              downloadStarted = false
-            }
-          }
-        },
-      )
-    }
-
-  // Launches a coroutine to handle the initial check and potential authentication flow
-  // before downloading the model. It checks if the model needs to be downloaded first,
-  // handles HuggingFace URLs by verifying the need for authentication, and initiates
-  // the token exchange process if required or proceeds with the download if no auth is needed
-  // or a valid token is available.
+  // Checks public access first, then uses the token configured in Settings when required.
   val handleClickButton = {
     scope.launch(Dispatchers.IO) {
       if (needToDownloadFirst) {
@@ -322,8 +262,8 @@ fun DownloadAndTryButton(
           Log.d(TAG, "Model '${model.name}' needs auth.")
 
           // First, try with the HuggingFace token from Settings.
-          val storedHfToken = com.ollitert.llm.server.data.ServerPrefs.getHfToken(context)
-          if (storedHfToken.isNotBlank()) {
+          val storedHfToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
+          if (storedHfToken != null) {
             Log.d(TAG, "Trying stored HF token from Settings...")
             val hfResult = modelManagerViewModel.getModelUrlResponse(
               model = model,

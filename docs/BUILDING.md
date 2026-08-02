@@ -8,7 +8,6 @@
 - [App Icons](#app-icons)
 - [Versioning](#versioning)
 - [Signing Release Builds](#signing-release-builds)
-- [HuggingFace OAuth](#huggingface-oauth)
 - [Lint & Tests](#lint--tests)
 - [Model Allowlist](#model-allowlist)
 - [R8 & ProGuard](#r8--proguard)
@@ -175,17 +174,6 @@ export KEY_PASSWORD=...
 > [!NOTE]
 > If you see `WARNING: Release keystore not configured` during a debug build, this is informational only — debug builds are not affected. You only need the keystore for release variants.
 
-## HuggingFace OAuth
-
-> [!NOTE]
-> This is **not required** for most users. Users can enter their own HuggingFace API token directly in the app's Settings screen to download models — no OAuth setup needed. OAuth is only necessary if you want to enable the "Sign in with HuggingFace" flow for accessing gated models.
-
-To set up OAuth:
-
-1. Create a [HuggingFace Developer Application](https://huggingface.co/docs/hub/oauth#creating-an-oauth-app)
-2. In `Android/src/app/src/main/java/com/ollitert/llm/server/common/ProjectConfig.kt`, replace the `clientId` and `redirectUri` placeholders with your HF app values
-3. In `Android/src/app/build.gradle.kts`, update `manifestPlaceholders["appAuthRedirectScheme"]` to match your redirect URL
-
 ## Lint & Tests
 
 ```bash
@@ -213,6 +201,6 @@ See [MODEL_ALLOWLIST_SCHEMA.md](MODEL_ALLOWLIST_SCHEMA.md) for the full field re
 
 ## R8 & ProGuard
 
-Release builds (`*Release` variants) are minified and shrunk with R8. ProGuard rules are in `Android/src/app/proguard-rules.pro` with keep rules for kotlinx.serialization, Kotlin Reflect, Ktor CIO, Protobuf Lite, Hilt/Dagger, LiteRT LM, AppAuth, and Compose.
+Release builds (`*Release` variants) are minified and shrunk with R8. ProGuard rules are in `Android/src/app/proguard-rules.pro` with keep rules for kotlinx.serialization, Kotlin Reflect, Ktor CIO, Protobuf Lite, Hilt/Dagger, LiteRT LM, and Compose.
 
 If you add a new library that uses reflection or serialization, you may need to add ProGuard keep rules to that file — otherwise R8 will strip classes that are only accessed via reflection, causing runtime crashes in release builds only.

@@ -48,9 +48,6 @@
 # Keep the LiteRT LM SDK classes (native bridge)
 -keep class com.google.ai.edge.litertlm.** { *; }
 
-# --- AppAuth (OpenID) ---
--keep class net.openid.appauth.** { *; }
-
 # --- Compose ---
 # Compose compiler handles most optimizations; keep runtime stability annotations
 -dontwarn androidx.compose.**

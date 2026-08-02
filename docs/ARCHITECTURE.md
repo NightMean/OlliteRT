@@ -140,11 +140,10 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `ModelStorageUtils.kt` | Temp file cleanup and storage requirement checks |
 | `RepositoryNameFallback.kt` | Derives human-readable names for model sources when metadata is unavailable |
 | `BoundedHttpFetcher.kt` | Size-limited HTTP fetcher for model source JSON (10 MB cap) |
-| `ServerPrefs.kt` | SharedPreferences accessor for server config |
+| `ServerPrefs.kt` | SharedPreferences accessor for server config and user-provided tokens |
 | `DataStoreRepository.kt` | Interface for persisting app state to Proto DataStore |
 | `DownloadRepository.kt` | Manages model downloads with progress tracking |
 | `SettingsSerializer.kt` | Proto DataStore serializer for user settings |
-| `UserDataSerializer.kt` | Proto DataStore serializer for user data |
 | `BenchmarkResultsSerializer.kt` | Proto DataStore serializer for benchmark results |
 | `db/OlliteDatabase.kt` | Room database definition |
 | `db/RequestLogDao.kt` | Room DAO for querying and persisting request logs |
@@ -189,8 +188,8 @@ Requests are processed one at a time. The inference lock serializes all model in
 
 | Mechanism | Used For | Why |
 |:----------|:---------|:----|
-| **SharedPreferences** | Server config, per-model settings, feature toggles | Synchronous reads needed by the service on every request |
-| **Proto DataStore** | HuggingFace token, imported model registry, onboarding state, benchmarks, model source configuration | Typed schemas, async API, encryption-ready |
+| **SharedPreferences** | Server config, user-provided tokens, per-model settings, feature toggles | Synchronous reads needed by the service and download flows |
+| **Proto DataStore** | Imported model registry, onboarding state, benchmarks, model source configuration | Typed schemas and async API |
 | **Room** | Request log history | Queryable, prunable, survives process death |
 
 ## Request Flow
@@ -239,12 +238,11 @@ When Schema Injection is disabled, `PromptBuilder` injects tool schemas directly
 | **[Hilt](https://dagger.dev/hilt/)** | Dependency injection |
 | **[Jetpack Compose](https://developer.android.com/compose)** | UI framework (Material 3) |
 | **[Room](https://developer.android.com/training/data-storage/room)** | SQLite database for request log persistence |
-| **[Proto DataStore](https://developer.android.com/topic/libraries/architecture/datastore)** | Typed key-value storage (settings, credentials, imports) |
+| **[Proto DataStore](https://developer.android.com/topic/libraries/architecture/datastore)** | Typed key-value storage (settings, benchmarks, imports) |
 | **[Protobuf Java Lite](https://protobuf.dev/)** | Serialization format for DataStore schemas |
 | **[WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)** | Background tasks (downloads, update checks, allowlist refresh) |
 | **[Coil](https://coil-kt.github.io/coil/)** | Async image loading (model source icons) |
 | **[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)** | JSON serialization for API models |
-| **[AppAuth](https://github.com/openid/AppAuth-Android)** | OAuth 2.0 flow for HuggingFace sign-in |
 | **[Multiplatform Markdown Renderer](https://github.com/mikepenz/multiplatform-markdown-renderer)** | Markdown rendering in Compose (Material 3) |
 | **[Splash Screen](https://developer.android.com/develop/ui/views/launch/splash-screen)** | Android 12+ splash screen API |
 | **[OSS Licenses](https://developers.google.com/android/guides/opensource)** | Open source license display |

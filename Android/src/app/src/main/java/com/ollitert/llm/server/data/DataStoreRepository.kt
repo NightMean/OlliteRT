@@ -18,19 +18,13 @@
 package com.ollitert.llm.server.data
 
 import androidx.datastore.core.DataStore
-import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.Settings
-import com.ollitert.llm.server.proto.UserData
 import kotlinx.coroutines.flow.first
 
 interface DataStoreRepository {
-  suspend fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
-  suspend fun clearAccessTokenData()
-  suspend fun readAccessTokenData(): AccessTokenData?
-
   suspend fun saveImportedModels(importedModels: List<ImportedModel>)
   suspend fun readImportedModels(): List<ImportedModel>
   suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel)
@@ -57,35 +51,8 @@ interface DataStoreRepository {
 
 class DefaultDataStoreRepository(
   private val dataStore: DataStore<Settings>,
-  private val userDataDataStore: DataStore<UserData>,
   private val benchmarkResultsDataStore: DataStore<BenchmarkResults>,
 ) : DataStoreRepository {
-
-  override suspend fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
-    userDataDataStore.updateData { userData ->
-      userData
-        .toBuilder()
-        .setAccessTokenData(
-          AccessTokenData.newBuilder()
-            .setAccessToken(accessToken)
-            .setRefreshToken(refreshToken)
-            .setExpiresAtMs(expiresAt)
-            .build()
-        )
-        .build()
-    }
-  }
-
-  override suspend fun clearAccessTokenData() {
-    userDataDataStore.updateData { userData ->
-      userData.toBuilder().clearAccessTokenData().build()
-    }
-  }
-
-  override suspend fun readAccessTokenData(): AccessTokenData? {
-    val userData = userDataDataStore.data.first()
-    return userData.accessTokenData
-  }
 
   override suspend fun saveImportedModels(importedModels: List<ImportedModel>) {
     dataStore.updateData { settings ->

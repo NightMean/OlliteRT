@@ -62,10 +62,6 @@ android {
     versionCode = resolvedVersionCode
     versionName = findProperty("APP_VERSION_NAME") as String
 
-    // Needed for HuggingFace auth workflows.
-    // Use the scheme of the "Redirect URLs" in HuggingFace app.
-    // Updated per-flavor below to match applicationId (with suffix).
-    manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server"
     manifestPlaceholders["applicationName"] = "com.ollitert.llm.server.OlliteRTApplication"
 
     // Git commit hash for traceability in Settings footer and future bug reports
@@ -122,8 +118,6 @@ android {
       buildConfigField("String", "CHANNEL", "\"dev\"")
       // Update channel: dev sees all releases (stable, beta, dev)
       buildConfigField("String", "UPDATE_CHANNEL", "\"dev\"")
-      // OAuth redirect must match the full applicationId
-      manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.dev"
     }
     create("beta") {
       dimension = "channel"
@@ -132,7 +126,6 @@ android {
       buildConfigField("String", "CHANNEL", "\"beta\"")
       // Update channel: beta sees beta and stable releases
       buildConfigField("String", "UPDATE_CHANNEL", "\"beta\"")
-      manifestPlaceholders["appAuthRedirectScheme"] = "com.ollitert.llm.server.beta"
     }
     create("stable") {
       dimension = "channel"
@@ -211,6 +204,7 @@ dependencies {
   // (app backgrounded), preventing unnecessary recomposition and battery drain.
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.activity.compose)
+  implementation(libs.androidx.browser)
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.ui)
   implementation(libs.androidx.ui.graphics)
@@ -229,7 +223,6 @@ dependencies {
   implementation(libs.ktor.server.status.pages)
   implementation(libs.litertlm)
   implementation(libs.markdown.renderer.m3)
-  implementation(libs.openid.appauth)
   implementation(libs.androidx.splashscreen)
   implementation(libs.protobuf.javalite)
   implementation(libs.hilt.android)

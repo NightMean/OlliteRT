@@ -29,10 +29,8 @@ import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.SettingsSerializer
-import com.ollitert.llm.server.data.UserDataSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.Settings
-import com.ollitert.llm.server.proto.UserData
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -65,23 +63,6 @@ internal object AppModule {
 
   @Provides
   @Singleton
-  fun provideUserDataDataStore(
-    @ApplicationContext context: Context,
-  ): DataStore<UserData> {
-    return DataStoreFactory.create(
-      serializer = UserDataSerializer,
-      corruptionHandler = ReplaceFileCorruptionHandler {
-        Log.e(TAG, "user_data.pb corrupted — resetting to defaults")
-        try { ServerPrefs.addCorruptedDataStore(context, "user_data") }
-        catch (e: Exception) { Log.e(TAG, "Failed to flag corruption", e) }
-        UserData.getDefaultInstance()
-      },
-      produceFile = { context.dataStoreFile("user_data.pb") },
-    )
-  }
-
-  @Provides
-  @Singleton
   fun provideBenchmarkResultsDataStore(
     @ApplicationContext context: Context,
   ): DataStore<BenchmarkResults> {
@@ -101,12 +82,10 @@ internal object AppModule {
   @Singleton
   fun provideDataStoreRepository(
     dataStore: DataStore<Settings>,
-    userDataDataStore: DataStore<UserData>,
     benchmarkResultsStore: DataStore<BenchmarkResults>,
   ): DataStoreRepository {
     return DefaultDataStoreRepository(
       dataStore,
-      userDataDataStore,
       benchmarkResultsStore,
     )
   }

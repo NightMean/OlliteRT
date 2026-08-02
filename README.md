@@ -147,7 +147,7 @@ Full API docs and examples: **[docs/api/API.md](docs/api/API.md)**
 
 ## Building from Source
 
-- **[Building](docs/BUILDING.md)** — build instructions, signing setup, and HuggingFace OAuth configuration
+- **[Building](docs/BUILDING.md)** — build instructions, signing setup, lint, and tests
 - **[Architecture](docs/ARCHITECTURE.md)** — package structure, request flow, and dependency list
 
 Product flavors — all installable side-by-side:

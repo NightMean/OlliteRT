@@ -49,10 +49,6 @@ class DataStoreRepositoryTest {
         serializer = SettingsSerializer,
         scope = testScope.backgroundScope,
       ) { File(tempDir, "settings.pb") },
-      userDataDataStore = DataStoreFactory.create(
-        serializer = UserDataSerializer,
-        scope = testScope.backgroundScope,
-      ) { File(tempDir, "user-data.pb") },
       benchmarkResultsDataStore = DataStoreFactory.create(
         serializer = BenchmarkResultsSerializer,
         scope = testScope.backgroundScope,
@@ -67,23 +63,12 @@ class DataStoreRepositoryTest {
   }
 
   @Test
-  fun importedModelsAndTokenWritesRemainReadableFromSnapshots() = testScope.runTest {
+  fun importedModelWritesRemainReadableFromSnapshots() = testScope.runTest {
     val importedModel =
       ImportedModel.newBuilder().setFileName("demo.litertlm").setFileSize(42L).build()
 
     repository.saveImportedModels(listOf(importedModel))
-    repository.saveAccessTokenData(
-      accessToken = "access",
-      refreshToken = "refresh",
-      expiresAt = 1234L,
-    )
-
     assertEquals(listOf(importedModel), repository.readImportedModels())
-    assertEquals("access", repository.readAccessTokenData()?.accessToken)
-
-    repository.clearAccessTokenData()
-
-    assertTrue(repository.readAccessTokenData()?.accessToken.orEmpty().isEmpty())
   }
 
   @Test
@@ -120,19 +105,6 @@ class DataStoreRepositoryTest {
           output,
         )
       }
-      FileOutputStream(File(freshDir, "user-data.pb")).use { output ->
-        UserDataSerializer.writeTo(
-          UserDataSerializer.defaultValue
-            .toBuilder()
-            .setAccessTokenData(
-              com.ollitert.llm.server.proto.AccessTokenData.newBuilder()
-                .setAccessToken("stored")
-                .build()
-            )
-            .build(),
-          output,
-        )
-      }
       FileOutputStream(File(freshDir, "benchmark-results.pb")).use { output ->
         BenchmarkResultsSerializer.writeTo(
           BenchmarkResultsSerializer.defaultValue
@@ -149,10 +121,6 @@ class DataStoreRepositoryTest {
           serializer = SettingsSerializer,
           scope = freshScope.backgroundScope,
         ) { File(freshDir, "settings.pb") },
-        userDataDataStore = DataStoreFactory.create(
-          serializer = UserDataSerializer,
-          scope = freshScope.backgroundScope,
-        ) { File(freshDir, "user-data.pb") },
         benchmarkResultsDataStore = DataStoreFactory.create(
           serializer = BenchmarkResultsSerializer,
           scope = freshScope.backgroundScope,
@@ -161,7 +129,6 @@ class DataStoreRepositoryTest {
 
       freshScope.runTest {
         assertTrue(freshRepo.isOnboardingCompleted())
-        assertEquals("stored", freshRepo.readAccessTokenData()?.accessToken)
         assertEquals(1, freshRepo.getAllBenchmarkResults().size)
       }
 

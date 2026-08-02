@@ -55,17 +55,12 @@ class DataStoreRepositoryTest {
       scope = testScope.backgroundScope,
     ) { File(testDir, "test_settings.pb") }
 
-    val userDataStore = DataStoreFactory.create(
-      serializer = UserDataSerializer,
-      scope = testScope.backgroundScope,
-    ) { File(testDir, "test_user_data.pb") }
-
     val benchmarkStore = DataStoreFactory.create(
       serializer = BenchmarkResultsSerializer,
       scope = testScope.backgroundScope,
     ) { File(testDir, "test_benchmarks.pb") }
 
-    repo = DefaultDataStoreRepository(settingsStore, userDataStore, benchmarkStore)
+    repo = DefaultDataStoreRepository(settingsStore, benchmarkStore)
   }
 
   @After
@@ -164,36 +159,6 @@ class DataStoreRepositoryTest {
     val loaded = repo.readImportedModels()
     assertEquals(1, loaded.size)
     assertEquals("new.litertlm", loaded[0].fileName)
-  }
-
-  // --- Access Token ---
-
-  @Test
-  fun accessTokenDefaultsToEmpty() = testScope.runTest {
-    val token = repo.readAccessTokenData()
-    // Proto3: unset message field returns default instance, not null
-    assertTrue(token == null || token.accessToken.isEmpty())
-  }
-
-  @Test
-  fun accessTokenRoundTrip() = testScope.runTest {
-    repo.saveAccessTokenData("access-abc", "refresh-xyz", 1700000000000L)
-    val token = repo.readAccessTokenData()!!
-
-    assertEquals("access-abc", token.accessToken)
-    assertEquals("refresh-xyz", token.refreshToken)
-    assertEquals(1700000000000L, token.expiresAtMs)
-  }
-
-  @Test
-  fun clearAccessTokenRemovesData() = testScope.runTest {
-    repo.saveAccessTokenData("a", "r", 999)
-    repo.clearAccessTokenData()
-    val token = repo.readAccessTokenData()
-
-    // Proto default: hasAccessTokenData() is false after clear, but the getter
-    // still returns a default instance. Check the token string is empty.
-    assertTrue(token == null || token.accessToken.isEmpty())
   }
 
   // --- Benchmark Results ---

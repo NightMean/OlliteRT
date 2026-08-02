@@ -21,7 +21,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.activity.result.ActivityResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
@@ -45,7 +44,6 @@ import com.ollitert.llm.server.data.RefreshResult
 import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.data.RepositoryManager
 import com.ollitert.llm.server.data.SOC
-import com.ollitert.llm.server.proto.AccessTokenData
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.ModelFactory
@@ -73,6 +71,10 @@ import javax.inject.Inject
 private const val TAG = "OlliteRT.ModelVM"
 private const val TEST_MODEL_ALLOW_LIST = ""
 
+/** Normalizes the single configured Hugging Face token used by downloads and resumed work. */
+internal fun configuredHfTokenOrNull(rawToken: String): String? =
+  rawToken.trim().takeIf { it.isNotEmpty() }
+
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   val error: String = "",
@@ -90,22 +92,6 @@ enum class ModelInitializationStatusType {
   INITIALIZED,
   ERROR,
 }
-
-enum class TokenStatus {
-  NOT_STORED,
-  EXPIRED,
-  NOT_EXPIRED,
-}
-
-enum class TokenRequestResultType {
-  FAILED,
-  SUCCEEDED,
-  USER_CANCELLED,
-}
-
-data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData?)
-
-data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
 
 enum class ModelEmptyReason {
   NONE,
@@ -184,21 +170,10 @@ constructor(
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
   val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
 
-  // Extracted managers — isolate token, file, allowlist, and import concerns
-  val tokenManager = HuggingFaceTokenManager(dataStoreRepository, context)
+  // Extracted managers isolate file, allowlist, and import concerns.
   val fileManager = ModelFileManager(context, externalFilesDir)
   private val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
   private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
-
-  // Delegated token state — kept as top-level for backward compatibility with UI code
-  val authService get() = tokenManager.authService
-  var curAccessToken: String
-    get() = tokenManager.curAccessToken
-    set(value) { tokenManager.curAccessToken = value }
-
-  override fun onCleared() {
-    tokenManager.dispose()
-  }
 
   fun completeOnboarding() {
     viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.setOnboardingCompleted() }
@@ -597,30 +572,20 @@ constructor(
     }
   }
 
-  // Token management — delegated to HuggingFaceTokenManager
-  suspend fun getTokenStatusAndData() = tokenManager.getTokenStatusAndData()
-  fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) =
-    tokenManager.handleAuthResult(result, onTokenRequested)
-  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) =
-    tokenManager.saveAccessToken(accessToken, refreshToken, expiresAt)
-
+  // Resume interrupted downloads with the same optional token configured in Settings.
   private fun processPendingDownloads() {
     // Cancel all pending downloads for the retrieved models.
     downloadRepository.cancelAll {
       Log.d(TAG, "All workers are cancelled.")
 
       viewModelScope.launch(Dispatchers.Main) {
-        val tokenStatusAndData = getTokenStatusAndData()
+        // New and resumed downloads share the same token configured in Settings.
+        val configuredToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
         for (model in uiState.value.models) {
           // Start download for partially downloaded models.
           val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
           if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
-            if (
-              tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
-                tokenStatusAndData.data != null
-            ) {
-              model.accessToken = tokenStatusAndData.data.accessToken
-            }
+            model.accessToken = configuredToken
             Log.d(TAG, "Sending a new download request for '${model.name}'")
             downloadRepository.downloadModel(
               model = model,
