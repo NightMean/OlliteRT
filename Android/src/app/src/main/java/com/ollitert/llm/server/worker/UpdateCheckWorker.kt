@@ -48,6 +48,7 @@ import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
@@ -167,6 +168,8 @@ class UpdateCheckWorker @AssistedInject constructor(
         KEY_MESSAGE to context.getString(R.string.notif_update_available_body, versionDisplay),
       ))
 
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: UpdateCheckException) {
       val errorMessage = handleError(context, e, verbose)
       return Result.success(workDataOf(

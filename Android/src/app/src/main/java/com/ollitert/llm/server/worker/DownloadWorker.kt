@@ -55,6 +55,7 @@ import com.ollitert.llm.server.data.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.KEY_MODEL_URL
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.TMP_FILE_EXT
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
@@ -353,6 +354,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
           }
           Result.success()
+        } catch (e: CancellationException) {
+          throw e
         } catch (e: SecurityException) {
           Log.e(TAG, "Zip path traversal blocked: ${e.message}", e)
 

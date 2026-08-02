@@ -48,6 +48,7 @@ import com.ollitert.llm.server.ui.modelmanager.ModelFileManager
 import androidx.hilt.work.HiltWorker
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -144,6 +145,8 @@ class AllowlistRefreshWorker @AssistedInject constructor(
             }
           }
         }
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
         failedRepoCount++

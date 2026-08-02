@@ -20,6 +20,7 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.ui.modelmanager.AllowlistLoader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -58,6 +59,8 @@ class RepositoryManager @Inject constructor(
       val legacyVersion = ServerPrefs.getAllowlistContentVersion(context)
       try {
         seedOfficialRepo(legacyContentVersion = legacyVersion)
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to seed Official repo", e)
         return@withContext LoadResult(models = emptyList(), repositories = emptyList())
@@ -219,6 +222,8 @@ class RepositoryManager @Inject constructor(
           )
         )
         Log.d(TAG, "Repo '${repo.id}' refreshed: v${allowlist.contentVersion}")
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
         failedIds.add(repo.id)

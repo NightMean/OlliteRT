@@ -32,6 +32,8 @@ import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
+import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
+import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_SHORT_CHARS
 import com.ollitert.llm.server.data.LoadResult
 import com.ollitert.llm.server.data.ServerPrefs
@@ -84,6 +86,53 @@ data class ModelInitializationStatus(
 sealed class ModelUrlResult {
   data class Success(val code: Int) : ModelUrlResult()
   data class Error(val message: String) : ModelUrlResult()
+}
+
+internal fun probeModelUrl(
+  modelUrl: String,
+  accessToken: String?,
+  openConnection: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection },
+): ModelUrlResult {
+  var connection: HttpURLConnection? = null
+  var redirectConnection: HttpURLConnection? = null
+  try {
+    connection = openConnection(modelUrl)
+    connection.requestMethod = "HEAD"
+    connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+    connection.readTimeout = HTTP_READ_TIMEOUT_MS
+    connection.instanceFollowRedirects = false
+    if (accessToken != null) {
+      connection.setRequestProperty("Authorization", "Bearer $accessToken")
+    }
+    connection.connect()
+
+    val responseCode = connection.responseCode
+    if (responseCode in 300..399) {
+      val redirectUrl = connection.getHeaderField("Location")
+        ?: return ModelUrlResult.Success(
+          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+        )
+      redirectConnection = openConnection(redirectUrl)
+      redirectConnection.requestMethod = "HEAD"
+      redirectConnection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+      redirectConnection.readTimeout = HTTP_READ_TIMEOUT_MS
+      redirectConnection.instanceFollowRedirects = true
+      redirectConnection.connect()
+      val contentType = redirectConnection.contentType ?: ""
+      if (contentType.contains("text/html", ignoreCase = true)) {
+        return ModelUrlResult.Success(
+          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+        )
+      }
+      return ModelUrlResult.Success(redirectConnection.responseCode)
+    }
+    return ModelUrlResult.Success(responseCode)
+  } catch (e: Exception) {
+    return ModelUrlResult.Error(e.message ?: "Unknown network error")
+  } finally {
+    connection?.disconnect()
+    redirectConnection?.disconnect()
+  }
 }
 
 enum class ModelInitializationStatusType {
@@ -381,54 +430,11 @@ constructor(
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): ModelUrlResult {
-    var connection: HttpURLConnection? = null
-    var redirectConn: HttpURLConnection? = null
-    try {
-      val url = URL(model.url)
-      connection = url.openConnection() as HttpURLConnection
-      connection.requestMethod = "HEAD"
-      // Disable auto-redirect so we can distinguish a valid CDN redirect (3xx with
-      // binary content) from an auth failure redirect (3xx to HTML login page).
-      // HuggingFace returns 302 to login page for invalid/expired tokens, which
-      // with followRedirects=true would appear as 200 — masking the auth failure.
-      connection.instanceFollowRedirects = false
-      if (accessToken != null) {
-        connection.setRequestProperty("Authorization", "Bearer $accessToken")
-      }
-      connection.connect()
-
-      val responseCode = connection.responseCode
-      // HuggingFace CDN uses 302 redirects for both valid downloads (→ CDN binary)
-      // and auth failures (→ HTML login page). Follow one level and check content type.
-      if (responseCode in 300..399) {
-        val redirectUrl = connection.getHeaderField("Location")
-        if (redirectUrl == null) {
-          return ModelUrlResult.Success(
-            if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
-          )
-        }
-        redirectConn = URL(redirectUrl).openConnection() as HttpURLConnection
-        redirectConn.requestMethod = "HEAD"
-        redirectConn.instanceFollowRedirects = true
-        redirectConn.connect()
-        val contentType = redirectConn.contentType ?: ""
-        // HTML page = login/error page, not a valid model file.
-        if (contentType.contains("text/html", ignoreCase = true)) {
-          Log.d(TAG, "Redirect landed on HTML page — auth required or token invalid")
-          return ModelUrlResult.Success(
-            if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
-          )
-        }
-        return ModelUrlResult.Success(redirectConn.responseCode)
-      }
-      return ModelUrlResult.Success(responseCode)
-    } catch (e: Exception) {
-      Log.e(TAG, "$e")
-      return ModelUrlResult.Error(e.message ?: "Unknown network error")
-    } finally {
-      connection?.disconnect()
-      redirectConn?.disconnect()
+    val result = probeModelUrl(model.url, accessToken)
+    if (result is ModelUrlResult.Error) {
+      Log.e(TAG, result.message)
     }
+    return result
   }
 
   fun addImportedLlmModel(info: ImportedModel) {
