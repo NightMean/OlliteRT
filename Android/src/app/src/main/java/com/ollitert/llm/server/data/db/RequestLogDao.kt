@@ -34,7 +34,7 @@ interface RequestLogDao {
   suspend fun upsertAll(entities: List<RequestLogEntity>)
 
   /** Load the most recent [limit] entries, newest first. */
-  @Query("SELECT * FROM request_logs ORDER BY timestamp DESC LIMIT :limit")
+  @Query("SELECT * FROM request_logs ORDER BY timestamp DESC, id DESC LIMIT :limit")
   suspend fun getRecent(limit: Int): List<RequestLogEntity>
 
   /** Delete all persisted log entries. */
@@ -47,12 +47,12 @@ interface RequestLogDao {
 
   /**
    * Keep only the newest [maxCount] entries, delete the rest (count-based pruning).
-   * Uses a subquery to find the cutoff timestamp at the Nth newest position.
+   * Uses the primary key as a deterministic tie-breaker when timestamps match.
    */
   @Query(
     """
-    DELETE FROM request_logs WHERE timestamp < (
-      SELECT timestamp FROM request_logs ORDER BY timestamp DESC LIMIT 1 OFFSET :maxCount
+    DELETE FROM request_logs WHERE id NOT IN (
+      SELECT id FROM request_logs ORDER BY timestamp DESC, id DESC LIMIT :maxCount
     )
     """
   )

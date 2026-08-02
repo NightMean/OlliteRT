@@ -31,7 +31,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,6 +52,9 @@ class RequestLogPersistence @Inject constructor(
 ) : RequestLogStore.PersistenceCallback {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+  private val databaseWriter = RequestLogDatabaseWriter(dao, scope) { operation, error ->
+    Log.e(TAG, "Request-log database operation failed: $operation", error)
+  }
   private var pruningJob: Job? = null
   private val isEnabled: Boolean get() = ServerPrefs.isLogPersistenceEnabled(context)
 
@@ -65,17 +67,9 @@ class RequestLogPersistence @Inject constructor(
     updateMaxEntries()
 
     if (isEnabled) {
-      scope.launch {
-        try {
-          // Prune first so expired/excess entries are removed before loading into memory.
-          prune()
-          loadFromDb()
-        } catch (e: CancellationException) {
-          throw e
-        } catch (e: Exception) {
-          Log.e(TAG, "Failed to load persisted logs", e)
-        }
-      }
+      // Submission order guarantees pruning finishes before the persisted snapshot is loaded.
+      prune()
+      loadFromDb()
       schedulePruning()
     }
   }
@@ -93,14 +87,9 @@ class RequestLogPersistence @Inject constructor(
 
   override fun onEntryAdded(entry: RequestLogEntry) {
     if (!isEnabled) return
-    scope.launch {
-      try {
-        dao.upsert(RequestLogEntity.fromEntry(entry))
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to persist new log entry ${entry.id}", e)
-      }
+    val entity = RequestLogEntity.fromEntry(entry)
+    databaseWriter.enqueue("persist new entry ${entry.id}") {
+      upsert(entity)
     }
   }
 
@@ -108,27 +97,16 @@ class RequestLogPersistence @Inject constructor(
     // Only persist terminal state changes (pending→complete or cancelled).
     // Streaming partialText updates fire every ~300ms and are intentionally skipped.
     if (!isEnabled || !isTerminal) return
-    scope.launch {
-      try {
-        dao.upsert(RequestLogEntity.fromEntry(entry))
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to persist log entry update ${entry.id}", e)
-      }
+    val entity = RequestLogEntity.fromEntry(entry)
+    databaseWriter.enqueue("persist terminal entry ${entry.id}") {
+      upsert(entity)
     }
   }
 
   override fun onEntriesCleared() {
     if (!isEnabled) return
-    scope.launch {
-      try {
-        dao.deleteAll()
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to clear persisted logs", e)
-      }
+    databaseWriter.enqueue("clear persisted entries") {
+      deleteAll()
     }
   }
 
@@ -140,64 +118,48 @@ class RequestLogPersistence @Inject constructor(
    * syncs the existing session's logs so they survive the next restart.
    */
   fun persistCurrentEntries() {
-    scope.launch {
-      try {
-        val entries = RequestLogStore.entries.value
-        val entities = entries.map { RequestLogEntity.fromEntry(it) }
-        dao.upsertAll(entities)
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to bulk-persist current entries", e)
-      }
+    val entities = RequestLogStore.entries.value.map { RequestLogEntity.fromEntry(it) }
+    databaseWriter.enqueue("persist current entries") {
+      upsertAll(entities)
     }
   }
 
   /** Explicitly wipe the database (from "Clear Persisted Logs" button in Settings). */
   fun clearPersistedLogs() {
-    scope.launch {
-      try {
-        dao.deleteAll()
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to clear persisted logs", e)
-      }
+    databaseWriter.enqueue("clear persisted entries from settings") {
+      deleteAll()
     }
   }
 
   // --- Internal ---
 
-  private suspend fun loadFromDb() {
+  private fun loadFromDb() {
     val maxEntries = ServerPrefs.getLogMaxEntries(context)
     val dbLimit = if (maxEntries == 0) HARD_MAX_IN_MEMORY_ENTRIES else maxEntries
-    val entities = dao.getRecent(dbLimit)
-    if (entities.isNotEmpty()) {
-      val entries = entities.map { it.toEntry() }
-      RequestLogStore.loadEntries(entries)
+    databaseWriter.enqueue("load persisted entries") {
+      val entities = getRecent(dbLimit)
+      if (entities.isNotEmpty()) {
+        RequestLogStore.loadEntries(entities.map { it.toEntry() })
+      }
     }
   }
 
   /** Run age-based and count-based pruning on both the database and in-memory entries. */
-  private suspend fun prune() {
-    try {
+  private fun prune() {
+    val retentionMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
+    val maxCount = ServerPrefs.getLogMaxEntries(context)
+    databaseWriter.enqueue("prune persisted entries") {
       // Age-based pruning — 0 means disabled (keep indefinitely).
-      val retentionMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
       if (retentionMinutes > 0) {
         val cutoffMs = System.currentTimeMillis() - (retentionMinutes * 60_000L)
-        dao.deleteOlderThan(cutoffMs)
+        deleteOlderThan(cutoffMs)
         RequestLogStore.removeOlderThan(cutoffMs)
       }
 
       // Count-based pruning — 0 means no limit (keep all).
-      val maxCount = ServerPrefs.getLogMaxEntries(context)
       if (maxCount > 0) {
-        dao.pruneToCount(maxCount)
+        pruneToCount(maxCount)
       }
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      Log.e(TAG, "Log pruning failed", e)
     }
   }
 

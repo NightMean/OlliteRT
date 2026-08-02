@@ -122,14 +122,12 @@ class RequestLogDaoTest {
   }
 
   @Test
-  fun pruneToCountKeepsMaxCountPlusOne() = runTest {
-    // SQL uses strict < (not <=), so the entry at OFFSET maxCount survives too.
-    // pruneToCount(3) with unique timestamps keeps maxCount + 1 entries.
+  fun pruneToCountKeepsExactlyMaxCount() = runTest {
     (1..10).forEach { dao.upsert(entity("id-$it", timestamp = it * 1000L)) }
     dao.pruneToCount(3)
     val remaining = dao.getRecent(10)
-    assertEquals(4, remaining.size)
-    assertEquals(listOf("id-10", "id-9", "id-8", "id-7"), remaining.map { it.id })
+    assertEquals(3, remaining.size)
+    assertEquals(listOf("id-10", "id-9", "id-8"), remaining.map { it.id })
   }
 
   @Test
@@ -155,18 +153,15 @@ class RequestLogDaoTest {
   }
 
   @Test
-  fun pruneToCountWithDuplicateTimestampsKeepsAllAtBoundary() = runTest {
-    // Entries at the boundary timestamp all survive (strict < doesn't delete equal)
+  fun pruneToCountWithDuplicateTimestampsStillKeepsExactCount() = runTest {
     dao.upsert(entity("a", timestamp = 3000))
     dao.upsert(entity("b", timestamp = 2000))
     dao.upsert(entity("c", timestamp = 2000))
     dao.upsert(entity("d", timestamp = 2000))
     dao.upsert(entity("e", timestamp = 1000))
-    dao.pruneToCount(1)
-    // OFFSET 1 returns 2000; DELETE WHERE timestamp < 2000 keeps a(3000), b/c/d(2000) = 4
+    dao.pruneToCount(2)
     val remaining = dao.getRecent(10)
-    assertEquals(4, remaining.size)
-    assertEquals("a", remaining.first().id)
+    assertEquals(listOf("a", "d"), remaining.map { it.id })
   }
 
   @Test
@@ -174,8 +169,7 @@ class RequestLogDaoTest {
     val entities = (1..500).map { entity("id-$it", timestamp = it.toLong()) }
     dao.upsertAll(entities)
     dao.pruneToCount(50)
-    // Same off-by-one: strict < keeps the boundary entry (OFFSET 50 = timestamp 450)
-    assertEquals(51, dao.count())
+    assertEquals(50, dao.count())
     val newest = dao.getRecent(1).single()
     assertEquals("id-500", newest.id)
   }
