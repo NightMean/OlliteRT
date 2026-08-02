@@ -21,6 +21,7 @@ import com.ollitert.llm.server.data.Model
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
@@ -38,6 +39,26 @@ class ModelLifecycleSelectModelTest {
       context = context,
       allowlistLoader = allowlistLoader,
     )
+  }
+
+  @After
+  fun tearDown() {
+    lifecycle.destroy()
+  }
+
+  @Test
+  fun requestAdmissionRemainsActiveUntilEveryLeaseCloses() {
+    val first = lifecycle.acquireRequestAdmission()
+    val second = lifecycle.acquireRequestAdmission()
+
+    assertEquals(2, lifecycle.activeRequestAdmissionCount())
+
+    first.close()
+    first.close()
+    assertEquals(1, lifecycle.activeRequestAdmissionCount())
+
+    second.close()
+    assertEquals(0, lifecycle.activeRequestAdmissionCount())
   }
 
   @Test

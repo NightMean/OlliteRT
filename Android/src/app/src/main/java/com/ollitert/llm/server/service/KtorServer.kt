@@ -372,35 +372,35 @@ class KtorServer(
 
     post("/generate") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/completions") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/chat/completions") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/responses") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleResponses(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/messages") {
       if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
+      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         if (prefs.verboseDebug) {
           val headers = call.request.headers
           val redacted = RequestLogStore.redactSensitiveHeaders(
@@ -507,42 +507,47 @@ class KtorServer(
 
       val actualSize = fileBytes?.size?.toLong() ?: contentLengthHeader ?: 0L
 
-      val model = when (val sel = modelLifecycle.selectModel(null)) {
-        is ModelLifecycle.ModelSelection.Ok -> sel.model
-        is ModelLifecycle.ModelSelection.Error -> {
-          val response = sel.toHttpResponse()
-          finalizeLogEntry(logId, startMs, response, null, response.body)
+      val admission = modelLifecycle.acquireRequestAdmission()
+      try {
+        val model = when (val sel = modelLifecycle.selectModel(null)) {
+          is ModelLifecycle.ModelSelection.Ok -> sel.model
+          is ModelLifecycle.ModelSelection.Error -> {
+            val response = sel.toHttpResponse()
+            finalizeLogEntry(logId, startMs, response, null, response.body)
+            call.response.headers.append("x-request-id", logId)
+            call.respondHttpResponse(response)
+            return@post
+          }
+        }
+
+        if (prefs.rejectWhenBusy && ServerMetrics.isInferring.value) {
+          val busyResponse = httpServiceUnavailable(
+            "Server is busy processing another request. Disable \"Reject Requests When Busy\" in settings to queue instead.",
+          )
+          finalizeLogEntry(logId, startMs, busyResponse, "[multipart audio — rejected: busy]", busyResponse.body)
           call.response.headers.append("x-request-id", logId)
-          call.respondHttpResponse(response)
+          call.respondHttpResponse(busyResponse)
           return@post
         }
-      }
 
-      if (prefs.rejectWhenBusy && ServerMetrics.isInferring.value) {
-        val busyResponse = httpServiceUnavailable(
-          "Server is busy processing another request. Disable \"Reject Requests When Busy\" in settings to queue instead.",
-        )
-        finalizeLogEntry(logId, startMs, busyResponse, "[multipart audio — rejected: busy]", busyResponse.body)
+        // Shield from cancelCallOnClose: audio transcription is blocking (non-streaming)
+        // and short-lived. If the client disconnects mid-inference, let it finish and
+        // attempt to send the response. Without this, HA's aggressive socket close
+        // triggers CancellationException via runInterruptible in InferenceGateway.
+        val response = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+          audioTranscriptionHandler.handle(fileBytes, fields, actualSize, model, logId = logId, prefs = prefs)
+        }
+        val responseBody = when (response) {
+          is HttpResponse.Json -> response.body
+          is HttpResponse.PlainText -> response.body
+          else -> null
+        }
+        finalizeLogEntry(logId, startMs, response, "[multipart audio $actualSize bytes]", responseBody)
         call.response.headers.append("x-request-id", logId)
-        call.respondHttpResponse(busyResponse)
-        return@post
+        call.respondHttpResponse(response)
+      } finally {
+        admission.close()
       }
-
-      // Shield from cancelCallOnClose: audio transcription is blocking (non-streaming)
-      // and short-lived. If the client disconnects mid-inference, let it finish and
-      // attempt to send the response. Without this, HA's aggressive socket close
-      // triggers CancellationException via runInterruptible in InferenceGateway.
-      val response = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-        audioTranscriptionHandler.handle(fileBytes, fields, actualSize, model, logId = logId, prefs = prefs)
-      }
-      val responseBody = when (response) {
-        is HttpResponse.Json -> response.body
-        is HttpResponse.PlainText -> response.body
-        else -> null
-      }
-      finalizeLogEntry(logId, startMs, response, "[multipart audio $actualSize bytes]", responseBody)
-      call.response.headers.append("x-request-id", logId)
-      call.respondHttpResponse(response)
     }
   }
 
@@ -599,6 +604,7 @@ class KtorServer(
    */
   private suspend fun withRequestLogging(
     call: ApplicationCall,
+    admitModelRequest: Boolean = false,
     handler: suspend (
       body: String,
       captureBody: (String) -> Unit,
@@ -607,6 +613,28 @@ class KtorServer(
       sseExtraHeaders: Map<String, String>,
       prefs: RequestPrefsSnapshot,
     ) -> HttpResponse,
+  ) {
+    var admission: ModelLifecycle.RequestAdmission? = null
+    try {
+      withRequestLoggingBody(call, handler) {
+        if (admitModelRequest) admission = modelLifecycle.acquireRequestAdmission()
+      }
+    } finally {
+      admission?.close()
+    }
+  }
+
+  private suspend fun withRequestLoggingBody(
+    call: ApplicationCall,
+    handler: suspend (
+      body: String,
+      captureBody: (String) -> Unit,
+      captureResponse: (String) -> Unit,
+      logId: String,
+      sseExtraHeaders: Map<String, String>,
+      prefs: RequestPrefsSnapshot,
+    ) -> HttpResponse,
+    beforeHandler: () -> Unit,
   ) {
     val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
     val startMs = SystemClock.elapsedRealtime()
@@ -688,6 +716,7 @@ class KtorServer(
         return
       }
 
+      beforeHandler()
       handler(body, captureBody, captureResponse, logId, sseExtraHeaders, prefs)
     } catch (_: kotlinx.coroutines.CancellationException) {
       RequestLogStore.update(logId) {

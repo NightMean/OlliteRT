@@ -38,6 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -109,6 +110,20 @@ class ModelLifecycle(
    */
   val keepAliveLock = Any()
 
+  private var activeRequestAdmissions = 0
+  private var isDestroyed = false
+
+  /** Keeps a selected model alive until the complete HTTP response has been written. */
+  class RequestAdmission internal constructor(
+    private val release: () -> Unit,
+  ) : AutoCloseable {
+    private val isReleased = AtomicBoolean(false)
+
+    override fun close() {
+      if (isReleased.compareAndSet(false, true)) release()
+    }
+  }
+
   /** Lifecycle-aware scope for background work (idle unload, cleanup). Cancelled on destroy. */
   private val lifecycleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -121,16 +136,15 @@ class ModelLifecycle(
    */
   private fun onKeepAliveTimeout() {
     lifecycleScope.launch {
-      // Capture the model and null the reference inside the lock (fast — no blocking I/O).
-      // This prevents selectModel() from returning a model that we're about to destroy.
-      // The actual native cleanup (Engine.close) runs OUTSIDE the lock to avoid blocking
-      // request threads for seconds while multi-GB native memory is freed.
+      // Keep the transition and native cleanup atomic from request admission's perspective.
+      // This runs on Dispatchers.IO, so a slow Engine.close() cannot block the main thread.
       data class UnloadInfo(val model: Model, val minutes: Int)
       val info: UnloadInfo = synchronized(keepAliveLock) {
-        if (ServerMetrics.isInferring.value) {
+        if (isDestroyed) return@launch
+        if (activeRequestAdmissions > 0 || ServerMetrics.isInferring.value) {
           val recheckMs = ServerPrefs.getTimeoutKeepAliveRecheckSeconds(context) * 1000
           keepAliveHandler.postDelayed(keepAliveRunnable, recheckMs)
-          Log.i(TAG, "Keep-alive: model is inferring, will recheck in ${recheckMs / 1000}s")
+          Log.i(TAG, "Keep-alive: model has active requests, will recheck in ${recheckMs / 1000}s")
           return@launch
         }
         val model = defaultModel ?: return@launch
@@ -141,11 +155,12 @@ class ModelLifecycle(
         // Keep model.instance non-null so cleanUp() can close the native Engine/Conversation.
         defaultModel = null
         ServerMetrics.onModelIdleUnloaded()
+        // Keep cleanup inside the lifecycle lock. A new request may wait a few seconds,
+        // but it cannot initialize a replacement Engine while old native state is closing.
+        ServerLlmModelHelper.safeCleanup(model)
         UnloadInfo(model, mins)
       }
-      // Native cleanup runs outside the lock — Engine.close() can take seconds for large models.
-      // selectModel() will see defaultModel==null and isIdleUnloaded==true, triggering a reload.
-      ServerLlmModelHelper.safeCleanup(info.model)
+      // A later admitted request sees the idle-unloaded state and performs one reload.
       RequestLogStore.addEvent(
         "Model unloaded: ${info.model.name} (after ${info.minutes}m idle, keep_alive)",
         modelName = keepAliveUnloadedModelName,
@@ -161,20 +176,50 @@ class ModelLifecycle(
 
   /** Cancel the lifecycle scope to prevent coroutine leaks when the service is destroyed. */
   fun destroy() {
-    cancelKeepAliveTimer()
+    synchronized(keepAliveLock) {
+      isDestroyed = true
+      cancelKeepAliveTimer()
+    }
     lifecycleScope.cancel()
   }
+
+  /**
+   * Admit one model-using HTTP request. The lease must cover response writing,
+   * including the complete SSE writer lifetime, not only handler construction.
+   */
+  fun acquireRequestAdmission(): RequestAdmission {
+    synchronized(keepAliveLock) {
+      check(!isDestroyed) { "Model lifecycle is destroyed" }
+      cancelKeepAliveTimer()
+      activeRequestAdmissions++
+    }
+    return RequestAdmission(::releaseRequestAdmission)
+  }
+
+  private fun releaseRequestAdmission() {
+    synchronized(keepAliveLock) {
+      check(activeRequestAdmissions > 0) { "No active model request admission to release" }
+      activeRequestAdmissions--
+      if (activeRequestAdmissions == 0 && !isDestroyed) resetKeepAliveTimer()
+    }
+  }
+
+  internal fun activeRequestAdmissionCount(): Int =
+    synchronized(keepAliveLock) { activeRequestAdmissions }
 
   /**
    * Reset the keep-alive idle timer. Called after each inference completes.
    * If keep_alive is enabled, schedules a model unload after the configured idle duration.
    */
   fun resetKeepAliveTimer() {
-    cancelKeepAliveTimer()
-    if (!ServerPrefs.isKeepAliveEnabled(context)) return
-    val minutes = ServerPrefs.getKeepAliveMinutes(context)
-    if (minutes <= 0) return
-    keepAliveHandler.postDelayed(keepAliveRunnable, minutes * 60_000L)
+    synchronized(keepAliveLock) {
+      cancelKeepAliveTimer()
+      if (isDestroyed || activeRequestAdmissions > 0) return
+      if (!ServerPrefs.isKeepAliveEnabled(context)) return
+      val minutes = ServerPrefs.getKeepAliveMinutes(context)
+      if (minutes <= 0) return
+      keepAliveHandler.postDelayed(keepAliveRunnable, minutes * 60_000L)
+    }
   }
 
   // ── Model reload from idle ─────────────────────────────────────────────────
@@ -372,8 +417,8 @@ class ModelLifecycle(
    * active model, and returns a descriptive error if there's a mismatch.
    */
   fun selectModel(requestedModel: String?): ModelSelection {
-    // Hold keepAliveLock to prevent the keep-alive timer from unloading the model between
-    // our read of defaultModel and the caller's use of the returned Model object.
+    // The HTTP layer holds RequestAdmission across this call and the complete response.
+    // This lock makes selection atomic with unload/reload lifecycle transitions.
     synchronized(keepAliveLock) {
       // If model was unloaded due to keep_alive idle timeout, auto-reload it.
       // After reload, fall through to the name-matching check below — don't return Ok
