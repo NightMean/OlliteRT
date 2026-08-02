@@ -36,8 +36,9 @@ import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
@@ -151,6 +152,11 @@ internal fun parseCompactionBadges(details: String?, short: Boolean = false): Li
   }
 }
 
-internal val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-
-internal fun formatTimestamp(millis: Long): String = timeFormat.format(Date(millis))
+internal fun formatTimestamp(
+  millis: Long,
+  locale: Locale = Locale.getDefault(),
+  zoneId: ZoneId = ZoneId.systemDefault(),
+): String = DateTimeFormatter
+  .ofPattern("HH:mm:ss", locale)
+  .withZone(zoneId)
+  .format(Instant.ofEpochMilli(millis))
