@@ -394,7 +394,8 @@ class InferenceGatewayTest {
 
   @Test
   fun streamingNativeErrorCancelsAndRecoversExactlyOnce() {
-    val resetCount = AtomicInteger(0)
+    val prepareCount = AtomicInteger(0)
+    val recoveryCount = AtomicInteger(0)
     val nativeCancelCount = AtomicInteger(0)
     val errors = mutableListOf<String>()
     var finishCount = 0
@@ -404,12 +405,13 @@ class InferenceGatewayTest {
       timeoutSeconds = 5,
       executor = directExecutor,
       inferenceLock = lock,
-      resetConversation = { resetCount.incrementAndGet() },
+      resetConversation = { prepareCount.incrementAndGet() },
       runInference = { _, _, onError ->
         onError("native_error")
         onError("late_error")
       },
       cancelInference = { nativeCancelCount.incrementAndGet() },
+      recoverConversation = { recoveryCount.incrementAndGet() },
       onToken = { _, _, _ -> fail("should not receive tokens") },
       onError = { errors += it },
       onInferenceFinished = { finishCount++ },
@@ -417,13 +419,15 @@ class InferenceGatewayTest {
 
     assertEquals(listOf("native_error"), errors)
     assertEquals(1, nativeCancelCount.get())
-    assertEquals(2, resetCount.get())
+    assertEquals(1, prepareCount.get())
+    assertEquals(1, recoveryCount.get())
     assertEquals(1, finishCount)
   }
 
   @Test
   fun streamingTimeoutCancelsAndRecoversExactlyOnce() {
-    val resetCount = AtomicInteger(0)
+    val prepareCount = AtomicInteger(0)
+    val recoveryCount = AtomicInteger(0)
     val nativeCancelCount = AtomicInteger(0)
     val errors = mutableListOf<String>()
 
@@ -432,16 +436,18 @@ class InferenceGatewayTest {
       timeoutSeconds = 1,
       executor = directExecutor,
       inferenceLock = lock,
-      resetConversation = { resetCount.incrementAndGet() },
+      resetConversation = { prepareCount.incrementAndGet() },
       runInference = { _, _, _ -> },
       cancelInference = { nativeCancelCount.incrementAndGet() },
+      recoverConversation = { recoveryCount.incrementAndGet() },
       onToken = { _, _, _ -> fail("should not receive tokens") },
       onError = { errors += it },
     )
 
     assertEquals(listOf("timeout"), errors)
     assertEquals(1, nativeCancelCount.get())
-    assertEquals(2, resetCount.get())
+    assertEquals(1, prepareCount.get())
+    assertEquals(1, recoveryCount.get())
   }
 
   @Test
@@ -450,8 +456,9 @@ class InferenceGatewayTest {
     val cancellationReady = CountDownLatch(1)
     val inferenceStarted = CountDownLatch(1)
     val finished = CountDownLatch(1)
-    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
-    val resetCount = AtomicInteger(0)
+    val cancellation = AtomicReference<InferenceGateway.InferenceControl>()
+    val prepareCount = AtomicInteger(0)
+    val recoveryCount = AtomicInteger(0)
     val nativeCancelCount = AtomicInteger(0)
     val settlementOrder = java.util.Collections.synchronizedList(mutableListOf<String>())
     try {
@@ -461,12 +468,17 @@ class InferenceGatewayTest {
         executor = threadPool,
         inferenceLock = lock,
         resetConversation = {
-          settlementOrder += if (resetCount.incrementAndGet() == 1) "prepare" else "recover"
+          prepareCount.incrementAndGet()
+          settlementOrder += "prepare"
         },
         runInference = { _, _, _ -> inferenceStarted.countDown() },
         cancelInference = {
           nativeCancelCount.incrementAndGet()
           settlementOrder += "cancel"
+        },
+        recoverConversation = {
+          recoveryCount.incrementAndGet()
+          settlementOrder += "recover"
         },
         onToken = { _, _, _ -> fail("should not receive tokens") },
         onError = { assertEquals("cancelled", it) },
@@ -486,9 +498,49 @@ class InferenceGatewayTest {
       assertTrue(finished.await(5, TimeUnit.SECONDS))
       assertEquals(listOf("prepare", "cancel", "recover", "finish"), settlementOrder)
       assertEquals(1, nativeCancelCount.get())
+      assertEquals(1, prepareCount.get())
+      assertEquals(1, recoveryCount.get())
     } finally {
       threadPool.shutdownNow()
     }
+  }
+
+  @Test
+  fun streamingSuccessfulStopCancelsAndRecoversWithoutError() {
+    val control = AtomicReference<InferenceGateway.InferenceControl>()
+    val nativeCancelCount = AtomicInteger(0)
+    val recoveryCount = AtomicInteger(0)
+    val receivedTokens = mutableListOf<String>()
+    var doneReceived = false
+    val errors = mutableListOf<String>()
+
+    InferenceGateway.executeStreaming(
+      prompt = "stop",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, onPartial, _ ->
+        onPartial("before-stop", false, null)
+        assertTrue(control.get().stopSuccessfully())
+        onPartial("late", false, null)
+        onPartial("", true, null)
+      },
+      cancelInference = { nativeCancelCount.incrementAndGet() },
+      recoverConversation = { recoveryCount.incrementAndGet() },
+      onToken = { partial, done, _ ->
+        if (partial.isNotEmpty()) receivedTokens += partial
+        doneReceived = doneReceived || done
+      },
+      onError = { errors += it },
+      onExecutionReady = { control.set(it) },
+    )
+
+    assertEquals(listOf("before-stop"), receivedTokens)
+    assertTrue(!doneReceived)
+    assertTrue(errors.isEmpty())
+    assertEquals(1, nativeCancelCount.get())
+    assertEquals(1, recoveryCount.get())
   }
 
   @Test
@@ -586,7 +638,7 @@ class InferenceGatewayTest {
     val executorOccupied = CountDownLatch(1)
     val releaseExecutor = CountDownLatch(1)
     val cancellationReady = CountDownLatch(1)
-    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
+    val cancellation = AtomicReference<InferenceGateway.InferenceControl>()
     val dispatchCount = AtomicInteger(0)
     val nativeCancelCount = AtomicInteger(0)
     try {
@@ -636,8 +688,9 @@ class InferenceGatewayTest {
     val threadPool = Executors.newSingleThreadExecutor()
     val cancellationReady = CountDownLatch(1)
     val inferenceStarted = CountDownLatch(1)
-    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
-    val resetCount = AtomicInteger(0)
+    val cancellation = AtomicReference<InferenceGateway.InferenceControl>()
+    val prepareCount = AtomicInteger(0)
+    val recoveryCount = AtomicInteger(0)
     val nativeCancelCount = AtomicInteger(0)
     val settlementOrder = java.util.Collections.synchronizedList(mutableListOf<String>())
     try {
@@ -648,12 +701,17 @@ class InferenceGatewayTest {
           executor = threadPool,
           inferenceLock = lock,
           resetConversation = {
-            settlementOrder += if (resetCount.incrementAndGet() == 1) "prepare" else "recover"
+            prepareCount.incrementAndGet()
+            settlementOrder += "prepare"
           },
           runInference = { _, _, _ -> inferenceStarted.countDown() },
           cancelInference = {
             nativeCancelCount.incrementAndGet()
             settlementOrder += "cancel"
+          },
+          recoverConversation = {
+            recoveryCount.incrementAndGet()
+            settlementOrder += "recover"
           },
           onInferenceFinished = { settlementOrder += "finish" },
           elapsedMs = { tick() },
@@ -672,6 +730,8 @@ class InferenceGatewayTest {
       assertEquals("cancelled", result.error)
       assertEquals(listOf("prepare", "cancel", "recover", "finish"), settlementOrder)
       assertEquals(1, nativeCancelCount.get())
+      assertEquals(1, prepareCount.get())
+      assertEquals(1, recoveryCount.get())
       assertTrue(!cancellation.get().cancel(InferenceGateway.CancellationReason.EXTERNAL))
       assertEquals(1, nativeCancelCount.get())
     } finally {
@@ -681,7 +741,7 @@ class InferenceGatewayTest {
 
   @Test
   fun completedInferenceIgnoresLateExternalCancellation() = runBlocking {
-    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
+    val cancellation = AtomicReference<InferenceGateway.InferenceControl>()
     val nativeCancelCount = AtomicInteger(0)
 
     val result = InferenceGateway.execute(

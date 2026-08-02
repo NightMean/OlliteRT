@@ -65,13 +65,17 @@ object InferenceGateway {
     EXTERNAL,
   }
 
-  internal fun interface InferenceCancellation {
+  internal interface InferenceControl {
     /** Returns true only when this signal chose the request's terminal outcome. */
     fun cancel(reason: CancellationReason): Boolean
+
+    /** Ends a protocol-level response successfully while stopping native generation. */
+    fun stopSuccessfully(): Boolean
   }
 
   private sealed interface ExecutionOutcome {
     data object Success : ExecutionOutcome
+    data object Stopped : ExecutionOutcome
     data object Timeout : ExecutionOutcome
     data class Cancelled(val reason: CancellationReason) : ExecutionOutcome
     data class Error(val message: String) : ExecutionOutcome
@@ -89,7 +93,7 @@ object InferenceGateway {
   /** Owns native-dispatch and terminal-state decisions for one request. */
   private class RequestExecution(
     private val cancelNative: () -> Unit,
-  ) : InferenceCancellation {
+  ) : InferenceControl {
     private val stateLock = Any()
     private val terminalSignal = CountDownLatch(1)
     private val settledSignal = CountDownLatch(1)
@@ -113,6 +117,8 @@ object InferenceGateway {
       if (settledBeforeDispatch) settledSignal.countDown()
       return accepted
     }
+
+    override fun stopSuccessfully(): Boolean = complete(ExecutionOutcome.Stopped)
 
     fun beginPreparation(): Boolean = synchronized(stateLock) {
       if (phase != ExecutionPhase.QUEUED || outcome != null) return@synchronized false
@@ -159,7 +165,7 @@ object InferenceGateway {
         requireNotNull(outcome)
       }
       val shouldCancelNative = synchronized(stateLock) {
-        if (terminal !is ExecutionOutcome.Success && nativeDispatched && !nativeCancellationStarted) {
+        if (terminal.requiresNativeCancellation() && nativeDispatched && !nativeCancellationStarted) {
           nativeCancellationStarted = true
           true
         } else {
@@ -173,7 +179,7 @@ object InferenceGateway {
           onFailure(t)
         }
       }
-      if (terminal !is ExecutionOutcome.Success && nativeDispatched) {
+      if (terminal.requiresRecovery() && nativeDispatched) {
         try {
           recover()
         } catch (t: Throwable) {
@@ -195,6 +201,12 @@ object InferenceGateway {
     }
 
     fun acceptsCallbacks(): Boolean = synchronized(stateLock) { outcome == null }
+
+    private fun ExecutionOutcome.requiresNativeCancellation(): Boolean =
+      this !is ExecutionOutcome.Success
+
+    private fun ExecutionOutcome.requiresRecovery(): Boolean =
+      this !is ExecutionOutcome.Success
   }
 
   /**
@@ -217,11 +229,12 @@ object InferenceGateway {
     resetConversation: () -> Unit,
     runInference: InferenceFn,
     cancelInference: () -> Unit,
+    recoverConversation: () -> Unit = resetConversation,
     onToken: (partial: String, done: Boolean, thought: String?) -> Unit,
     onError: (error: String) -> Unit,
     onInferenceFinished: () -> Unit = {},
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
-    onExecutionReady: ((InferenceCancellation) -> Unit)? = null,
+    onExecutionReady: ((InferenceControl) -> Unit)? = null,
   ) {
     val execution = RequestExecution(cancelNative = cancelInference)
     onExecutionReady?.invoke(execution)
@@ -255,6 +268,7 @@ object InferenceGateway {
         try {
           when (terminal) {
             ExecutionOutcome.Success -> Unit
+            ExecutionOutcome.Stopped -> Unit
             ExecutionOutcome.Timeout -> onError("timeout")
             is ExecutionOutcome.Cancelled -> onError(
               when (terminal.reason) {
@@ -268,7 +282,7 @@ object InferenceGateway {
           reportGatewayFailure(onCaughtThrowable, "Streaming terminal callback failed", t)
         } finally {
           execution.settle(
-            recover = resetConversation,
+            recover = recoverConversation,
             finish = onInferenceFinished,
             onFailure = { t ->
               reportGatewayFailure(onCaughtThrowable, "Streaming settlement step failed", t)
@@ -291,10 +305,11 @@ object InferenceGateway {
     resetConversation: () -> Unit,
     runInference: InferenceFn,
     cancelInference: () -> Unit,
+    recoverConversation: () -> Unit = resetConversation,
     onInferenceFinished: () -> Unit = {},
     elapsedMs: () -> Long,
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
-    onExecutionReady: ((InferenceCancellation) -> Unit)? = null,
+    onExecutionReady: ((InferenceControl) -> Unit)? = null,
   ): InferenceResult {
     val sb = StringBuilder()
     val thinkingSb = StringBuilder()
@@ -333,7 +348,7 @@ object InferenceGateway {
           execution.complete(ExecutionOutcome.Error(t.message ?: "unknown_error"))
         } finally {
           execution.settle(
-            recover = resetConversation,
+            recover = recoverConversation,
             finish = onInferenceFinished,
             onFailure = { t ->
               reportGatewayFailure(onCaughtThrowable, "Inference settlement step failed", t)
@@ -358,6 +373,7 @@ object InferenceGateway {
     val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
     val finalError = when (val outcome = execution.awaitTerminal(0)) {
       ExecutionOutcome.Success -> null
+      ExecutionOutcome.Stopped -> null
       ExecutionOutcome.Timeout -> "timeout"
       is ExecutionOutcome.Cancelled -> when (outcome.reason) {
         CancellationReason.CALLER -> "client_disconnected"
