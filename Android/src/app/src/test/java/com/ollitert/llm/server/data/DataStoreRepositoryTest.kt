@@ -70,21 +70,37 @@ class DataStoreRepositoryTest {
 
   @Test
   fun benchmarkWritesAndDeletesUpdateSnapshotList() = runTest {
-    val firstResult = BenchmarkResult.newBuilder().build()
-    val secondResult = BenchmarkResult.newBuilder().build()
+    val firstResult = BenchmarkResult.newBuilder().setId("first").build()
+    val secondResult = BenchmarkResult.newBuilder().setId("second").build()
 
     repository.addBenchmarkResult(firstResult)
     repository.addBenchmarkResult(secondResult)
 
     assertEquals(listOf(secondResult, firstResult), repository.getAllBenchmarkResults())
 
-    repository.deleteBenchmarkResult(index = 0)
+    repository.deleteBenchmarkResult(id = "second")
 
     assertEquals(listOf(firstResult), repository.getAllBenchmarkResults())
 
     repository.setBenchmarkResults(listOf(secondResult))
 
     assertEquals(listOf(secondResult), repository.getAllBenchmarkResults())
+  }
+
+  @Test
+  fun legacyBenchmarkResultsReceiveStableIdsOnRead() = runTest {
+    val freshRepo = DefaultDataStoreRepository(
+      dataStore = InMemoryDataStore(Settings.getDefaultInstance()),
+      benchmarkResultsDataStore = InMemoryDataStore(
+        BenchmarkResults.newBuilder().addResult(BenchmarkResult.newBuilder().build()).build()
+      ),
+    )
+
+    val firstRead = freshRepo.getAllBenchmarkResults().single()
+    val secondRead = freshRepo.getAllBenchmarkResults().single()
+
+    assertTrue(firstRead.id.isNotBlank())
+    assertEquals(firstRead.id, secondRead.id)
   }
 
   @Test

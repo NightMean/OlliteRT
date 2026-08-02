@@ -30,6 +30,7 @@ import com.ollitert.llm.server.common.cleanUpLiteRtErrorMessage
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.withStableBenchmarkId
 import com.ollitert.llm.server.di.IoDispatcher
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
@@ -49,7 +50,6 @@ import java.io.File
 import javax.inject.Inject
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.random.Random
 
 private const val TAG = "OlliteRT.BenchmarkVM"
 
@@ -92,6 +92,13 @@ constructor(
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
   val uiState = _uiState.asStateFlow()
+  private val persistenceWriter = BenchmarkPersistenceWriter(
+    repository = dataStoreRepository,
+    scope = viewModelScope,
+    dispatcher = ioDispatcher,
+  ) { operation, error ->
+    Log.e(TAG, "Benchmark persistence failed: $operation", error)
+  }
 
   init {
     viewModelScope.launch(ioDispatcher) {
@@ -267,13 +274,14 @@ constructor(
   }
 
   fun addBenchmarkResult(result: BenchmarkResult): String {
+    val storedResult = result.withStableBenchmarkId()
     val newResults = _uiState.value.results.toMutableList()
     // Add the new result to the beginning of the list.
-    val newId = "${Random.nextDouble()}"
+    val newId = storedResult.id
     newResults.add(
       0,
       BenchmarkResultInfo(
-        benchmarkResult = result,
+        benchmarkResult = storedResult,
         id = newId,
         basicInfoExpanded = true,
         statsExpanded = true,
@@ -281,13 +289,9 @@ constructor(
     )
     _uiState.update { _uiState.value.copy(results = newResults) }
 
-    viewModelScope.launch(ioDispatcher) {
-      try {
-        dataStoreRepository.addBenchmarkResult(result)
-        Log.d(TAG, "Benchmark result persisted to DataStore")
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to persist benchmark result: ${e.message}", e)
-      }
+    persistenceWriter.enqueue("add benchmark $newId") {
+      addBenchmarkResult(storedResult)
+      Log.d(TAG, "Benchmark result persisted to DataStore")
     }
 
     return newId
@@ -298,10 +302,11 @@ constructor(
       _uiState.value.copy(
         results =
           results.map { result ->
+            val storedResult = result.withStableBenchmarkId()
             BenchmarkResultInfo(
-              benchmarkResult = result,
+              benchmarkResult = storedResult,
               expanded = false,
-              id = "${Random.nextDouble()}",
+              id = storedResult.id,
               basicInfoExpanded = false,
               statsExpanded = true,
             )
@@ -320,7 +325,7 @@ constructor(
         _uiState.update { _uiState.value.copy(baselineResult = null) }
       }
 
-      viewModelScope.launch(ioDispatcher) { dataStoreRepository.deleteBenchmarkResult(index = index) }
+      persistenceWriter.enqueue("delete benchmark $id") { deleteBenchmarkResult(id = id) }
     } else {
       Log.w(TAG, "Benchmark result with id $id not found.")
     }

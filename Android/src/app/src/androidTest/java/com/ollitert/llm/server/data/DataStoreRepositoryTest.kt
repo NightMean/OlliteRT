@@ -183,12 +183,12 @@ class DataStoreRepositoryTest {
   }
 
   @Test
-  fun deleteBenchmarkResultByIndex() = testScope.runTest {
-    repo.addBenchmarkResult(makeBenchmarkResult("a"))
-    repo.addBenchmarkResult(makeBenchmarkResult("b"))
-    repo.addBenchmarkResult(makeBenchmarkResult("c"))
+  fun deleteBenchmarkResultById() = testScope.runTest {
+    repo.addBenchmarkResult(makeBenchmarkResult("a").toBuilder().setId("a").build())
+    repo.addBenchmarkResult(makeBenchmarkResult("b").toBuilder().setId("b").build())
+    repo.addBenchmarkResult(makeBenchmarkResult("c").toBuilder().setId("c").build())
 
-    repo.deleteBenchmarkResult(1) // delete "b" (index 1 after c=0, b=1, a=2)
+    repo.deleteBenchmarkResult("b")
 
     val remaining = repo.getAllBenchmarkResults()
     assertEquals(2, remaining.size)

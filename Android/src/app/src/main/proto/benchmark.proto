@@ -27,6 +27,8 @@ message BenchmarkResults {
 }
 
 message BenchmarkResult {
+  // Stable identifier used for order-independent updates and deletion.
+  string id = 1;
   oneof result {
     LlmBenchmarkResult llm_result = 2;
   }

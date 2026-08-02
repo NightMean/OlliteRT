@@ -26,7 +26,7 @@ class FakeDataStoreRepository : DataStoreRepository {
   // Benchmark tracking fields — used by BenchmarkViewModelTest to verify operations.
   val storedResults = mutableListOf<BenchmarkResult>()
   val addedResults = mutableListOf<BenchmarkResult>()
-  val deletedIndices = mutableListOf<Int>()
+  val deletedIds = mutableListOf<String>()
 
   override suspend fun readRepositories(): List<Repository> = repos.toList()
 
@@ -62,7 +62,7 @@ class FakeDataStoreRepository : DataStoreRepository {
   override suspend fun getHasSeenBenchmarkComparisonHelp(): Boolean = false
   override suspend fun addBenchmarkResult(result: BenchmarkResult) { addedResults.add(result) }
   override suspend fun getAllBenchmarkResults() = storedResults.toList()
-  override suspend fun deleteBenchmarkResult(index: Int) { deletedIndices.add(index) }
+  override suspend fun deleteBenchmarkResult(id: String) { deletedIds.add(id) }
   override suspend fun setBenchmarkResults(results: List<BenchmarkResult>) { storedResults.clear(); storedResults.addAll(results) }
   override suspend fun isOnboardingCompleted(): Boolean = true
   override suspend fun setOnboardingCompleted() = Unit

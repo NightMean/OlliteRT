@@ -23,6 +23,10 @@ import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.Settings
 import kotlinx.coroutines.flow.first
+import java.util.UUID
+
+internal fun BenchmarkResult.withStableBenchmarkId(): BenchmarkResult =
+  if (id.isBlank()) toBuilder().setId(UUID.randomUUID().toString()).build() else this
 
 interface DataStoreRepository {
   suspend fun saveImportedModels(importedModels: List<ImportedModel>)
@@ -34,7 +38,7 @@ interface DataStoreRepository {
 
   suspend fun addBenchmarkResult(result: BenchmarkResult)
   suspend fun getAllBenchmarkResults(): List<BenchmarkResult>
-  suspend fun deleteBenchmarkResult(index: Int)
+  suspend fun deleteBenchmarkResult(id: String)
   suspend fun setBenchmarkResults(results: List<BenchmarkResult>)
 
   suspend fun isOnboardingCompleted(): Boolean
@@ -87,23 +91,32 @@ class DefaultDataStoreRepository(
 
   override suspend fun addBenchmarkResult(result: BenchmarkResult) {
     benchmarkResultsDataStore.updateData { results ->
-      results.toBuilder().addResult(0, result).build()
+      results.toBuilder().addResult(0, result.withStableBenchmarkId()).build()
     }
   }
 
   override suspend fun getAllBenchmarkResults(): List<BenchmarkResult> {
-    return benchmarkResultsDataStore.data.first().resultList
+    val stored = benchmarkResultsDataStore.data.first()
+    if (stored.resultList.none { it.id.isBlank() }) return stored.resultList
+
+    return benchmarkResultsDataStore.updateData { current ->
+      current.toBuilder()
+        .clearResult()
+        .addAllResult(current.resultList.map { it.withStableBenchmarkId() })
+        .build()
+    }.resultList
   }
 
-  override suspend fun deleteBenchmarkResult(index: Int) {
+  override suspend fun deleteBenchmarkResult(id: String) {
     benchmarkResultsDataStore.updateData { results ->
-      results.toBuilder().removeResult(index).build()
+      val index = results.resultList.indexOfFirst { it.id == id }
+      if (index >= 0) results.toBuilder().removeResult(index).build() else results
     }
   }
 
   override suspend fun setBenchmarkResults(results: List<BenchmarkResult>) {
     benchmarkResultsDataStore.updateData { existing ->
-      existing.toBuilder().clearResult().addAllResult(results).build()
+      existing.toBuilder().clearResult().addAllResult(results.map { it.withStableBenchmarkId() }).build()
     }
   }
 
