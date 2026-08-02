@@ -17,8 +17,10 @@
 package com.ollitert.llm.server.service
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -29,6 +31,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 class InferenceGatewayTest {
 
@@ -476,6 +480,127 @@ class InferenceGatewayTest {
   }
 
   // ── onInferenceFinished tests ───────────────────────────────────────────
+
+  @Test
+  fun queuedExternalCancellationDoesNotDispatchOrCancelNativeInference() = runBlocking {
+    val threadPool = Executors.newSingleThreadExecutor()
+    val executorOccupied = CountDownLatch(1)
+    val releaseExecutor = CountDownLatch(1)
+    val cancellationReady = CountDownLatch(1)
+    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
+    val dispatchCount = AtomicInteger(0)
+    val nativeCancelCount = AtomicInteger(0)
+    try {
+      threadPool.execute {
+        executorOccupied.countDown()
+        releaseExecutor.await(5, TimeUnit.SECONDS)
+      }
+      assertTrue(executorOccupied.await(5, TimeUnit.SECONDS))
+
+      val deferred = async(Dispatchers.Default) {
+        InferenceGateway.execute(
+          prompt = "queued",
+          timeoutSeconds = 30,
+          executor = threadPool,
+          inferenceLock = lock,
+          resetConversation = {},
+          runInference = { _, _, _ -> dispatchCount.incrementAndGet() },
+          cancelInference = { nativeCancelCount.incrementAndGet() },
+          elapsedMs = { tick() },
+          onExecutionReady = {
+            cancellation.set(it)
+            cancellationReady.countDown()
+          },
+        )
+      }
+
+      assertTrue(cancellationReady.await(5, TimeUnit.SECONDS))
+      assertTrue(cancellation.get().cancel(InferenceGateway.CancellationReason.EXTERNAL))
+      val result = withTimeout(5_000) { deferred.await() }
+      assertEquals("cancelled", result.error)
+      assertEquals(0, dispatchCount.get())
+      assertEquals(0, nativeCancelCount.get())
+
+      releaseExecutor.countDown()
+      threadPool.shutdown()
+      assertTrue(threadPool.awaitTermination(5, TimeUnit.SECONDS))
+      assertEquals(0, dispatchCount.get())
+      assertEquals(0, nativeCancelCount.get())
+    } finally {
+      releaseExecutor.countDown()
+      threadPool.shutdownNow()
+    }
+  }
+
+  @Test
+  fun runningExternalCancellationSettlesExactlyOnceBeforeReturning() = runBlocking {
+    val threadPool = Executors.newSingleThreadExecutor()
+    val cancellationReady = CountDownLatch(1)
+    val inferenceStarted = CountDownLatch(1)
+    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
+    val resetCount = AtomicInteger(0)
+    val nativeCancelCount = AtomicInteger(0)
+    val settlementOrder = java.util.Collections.synchronizedList(mutableListOf<String>())
+    try {
+      val deferred = async(Dispatchers.Default) {
+        InferenceGateway.execute(
+          prompt = "running",
+          timeoutSeconds = 30,
+          executor = threadPool,
+          inferenceLock = lock,
+          resetConversation = {
+            settlementOrder += if (resetCount.incrementAndGet() == 1) "prepare" else "recover"
+          },
+          runInference = { _, _, _ -> inferenceStarted.countDown() },
+          cancelInference = {
+            nativeCancelCount.incrementAndGet()
+            settlementOrder += "cancel"
+          },
+          onInferenceFinished = { settlementOrder += "finish" },
+          elapsedMs = { tick() },
+          onExecutionReady = {
+            cancellation.set(it)
+            cancellationReady.countDown()
+          },
+        )
+      }
+
+      assertTrue(cancellationReady.await(5, TimeUnit.SECONDS))
+      assertTrue(inferenceStarted.await(5, TimeUnit.SECONDS))
+      assertTrue(cancellation.get().cancel(InferenceGateway.CancellationReason.EXTERNAL))
+      val result = withTimeout(5_000) { deferred.await() }
+
+      assertEquals("cancelled", result.error)
+      assertEquals(listOf("prepare", "cancel", "recover", "finish"), settlementOrder)
+      assertEquals(1, nativeCancelCount.get())
+      assertTrue(!cancellation.get().cancel(InferenceGateway.CancellationReason.EXTERNAL))
+      assertEquals(1, nativeCancelCount.get())
+    } finally {
+      threadPool.shutdownNow()
+    }
+  }
+
+  @Test
+  fun completedInferenceIgnoresLateExternalCancellation() = runBlocking {
+    val cancellation = AtomicReference<InferenceGateway.InferenceCancellation>()
+    val nativeCancelCount = AtomicInteger(0)
+
+    val result = InferenceGateway.execute(
+      prompt = "done",
+      timeoutSeconds = 5,
+      executor = directExecutor,
+      inferenceLock = lock,
+      resetConversation = {},
+      runInference = { _, onPartial, _ -> onPartial("ok", true, null) },
+      cancelInference = { nativeCancelCount.incrementAndGet() },
+      elapsedMs = { tick() },
+      onExecutionReady = { cancellation.set(it) },
+    )
+
+    assertEquals("ok", result.output)
+    assertTrue(!cancellation.get().cancel(InferenceGateway.CancellationReason.EXTERNAL))
+    assertEquals(0, nativeCancelCount.get())
+  }
 
   @Test
   fun streamingOnInferenceFinishedCalledInsideLock() {

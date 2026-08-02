@@ -176,13 +176,12 @@ class InferenceRunner(
 
     val userCancelFlag = AtomicBoolean(false)
     val inferenceActuallyStarted = AtomicBoolean(false)
-    val lifecycleLatchRef = AtomicReference<java.util.concurrent.CountDownLatch?>(null)
+    val executionCancellation = AtomicReference<InferenceGateway.InferenceCancellation?>(null)
     // Register cancel callback before any lock acquisition so queued requests are cancellable.
     if (logId != null) {
       RequestLogStore.registerCancellation(logId) {
         userCancelFlag.set(true)
-        if (inferenceActuallyStarted.get()) ServerLlmModelHelper.stopResponse(model)
-        lifecycleLatchRef.get()?.countDown()
+        executionCancellation.get()?.cancel(InferenceGateway.CancellationReason.EXTERNAL)
       }
     }
 
@@ -253,7 +252,12 @@ class InferenceRunner(
       },
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
-      earlyUnblock = { latch -> lifecycleLatchRef.set(latch) },
+      onExecutionReady = { cancellation ->
+        executionCancellation.set(cancellation)
+        if (userCancelFlag.get()) {
+          cancellation.cancel(InferenceGateway.CancellationReason.EXTERNAL)
+        }
+      },
     )
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
