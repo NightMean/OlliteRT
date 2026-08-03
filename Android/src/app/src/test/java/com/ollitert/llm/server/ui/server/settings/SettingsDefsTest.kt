@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.server.settings
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -154,6 +155,17 @@ class SettingsDefsTest {
     assertEquals(
       "allSettingDefs should match the flattened allCardDefs ordering",
       expectedOrder, allSettingDefs,
+    )
+  }
+
+  @Test
+  fun `floating monitor is a live auto launch toggle defaulting off`() {
+    assertEquals("floating_monitor", FLOATING_MONITOR.key)
+    assertEquals(CardId.AUTO_LAUNCH, FLOATING_MONITOR.card)
+    assertFalse(FLOATING_MONITOR.default)
+    assertFalse(FLOATING_MONITOR.requiresRestart)
+    assertTrue(
+      allCardDefs.first { it.id == CardId.AUTO_LAUNCH }.settings.contains(FLOATING_MONITOR),
     )
   }
 

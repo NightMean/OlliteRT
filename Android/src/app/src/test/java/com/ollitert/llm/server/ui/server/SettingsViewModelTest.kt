@@ -31,6 +31,7 @@ import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.data.FakeDataStoreRepository
+import com.ollitert.llm.server.ui.floatingmonitor.FloatingMonitorPermissionCoordinator
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import io.mockk.every
 import io.mockk.mockk
@@ -58,6 +59,7 @@ class SettingsViewModelTest {
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
   private val mockPersistence: RequestLogPersistence = mockk(relaxed = true)
+  private lateinit var floatingMonitorPermissionCoordinator: FloatingMonitorPermissionCoordinator
   private lateinit var vm: SettingsViewModel
 
   @Before
@@ -76,6 +78,7 @@ class SettingsViewModelTest {
     every { ServerPrefs.getHfToken(any()) } returns ""
     every { ServerPrefs.isKeepScreenOn(any()) } returns true
     every { ServerPrefs.isAutoStartOnBoot(any()) } returns false
+    every { ServerPrefs.isFloatingMonitorEnabled(any()) } returns false
     every { ServerPrefs.isKeepAliveEnabled(any()) } returns false
     every { ServerPrefs.getKeepAliveMinutes(any()) } returns 30
     every { ServerPrefs.isWarmupEnabled(any()) } returns true
@@ -128,6 +131,8 @@ class SettingsViewModelTest {
     every { ServerPrefs.setTimeoutWarmup(any(), any()) } returns Unit
     every { ServerPrefs.setTimeoutKeepAliveRecheckSeconds(any(), any()) } returns Unit
     every { ServerPrefs.setTimeoutCleanupAwait(any(), any()) } returns Unit
+    every { ServerPrefs.setFloatingMonitorEnabled(any(), any()) } returns Unit
+    every { ServerPrefs.resetFloatingMonitorPosition(any()) } returns Unit
     every { ServerPrefs.resetToDefaults(any()) } returns Unit
     every { ServerPrefs.dumpToLogcat(any()) } returns Unit
 
@@ -140,7 +145,13 @@ class SettingsViewModelTest {
     every { UpdateCheckWorker.scheduleUpdateCheck(any()) } returns Unit
     every { UpdateCheckWorker.cancelUpdateCheck(any()) } returns Unit
 
-    vm = SettingsViewModel(mockContext, mockPersistence, FakeDataStoreRepository())
+    floatingMonitorPermissionCoordinator = FloatingMonitorPermissionCoordinator()
+    vm = SettingsViewModel(
+      mockContext,
+      mockPersistence,
+      FakeDataStoreRepository(),
+      floatingMonitorPermissionCoordinator,
+    )
   }
 
   @After
@@ -442,6 +453,40 @@ class SettingsViewModelTest {
   }
 
   @Test
+  fun savePersistsFloatingMonitorIntentLiveWithoutRestart() {
+    vm.floatingMonitorEntry.update(true)
+    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
+
+    val result = vm.save(ServerStatus.RUNNING)
+
+    assertTrue(result is SettingsViewModel.SaveResult.Success)
+    verify(exactly = 1) { ServerPrefs.setFloatingMonitorEnabled(mockContext, true) }
+  }
+
+  @Test
+  fun unsavedFloatingMonitorDraftDoesNotExposePermissionAction() {
+    vm.floatingMonitorEntry.update(true)
+
+    assertFalse(vm.shouldShowFloatingMonitorPermissionAction(overlayPermissionGranted = false))
+
+    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
+    vm.save(ServerStatus.STOPPED)
+
+    assertTrue(vm.shouldShowFloatingMonitorPermissionAction(overlayPermissionGranted = false))
+  }
+
+  @Test
+  fun permissionResultUpdatesObservationAndEndsSuppression() {
+    vm.beginFloatingMonitorPermissionFlow()
+    assertTrue(floatingMonitorPermissionCoordinator.permissionFlowInProgress.value)
+
+    vm.endFloatingMonitorPermissionFlow(permissionGranted = true)
+
+    assertTrue(floatingMonitorPermissionCoordinator.overlayPermissionGranted.value)
+    assertFalse(floatingMonitorPermissionCoordinator.permissionFlowInProgress.value)
+  }
+
+  @Test
   fun savePersistsBearerTokenToSharedPreferences() {
     vm.bearerEnabledEntry.update(true)
     vm.bearerTokenEntry.update("my-secret")
@@ -474,9 +519,27 @@ class SettingsViewModelTest {
   // --- Reset ---
 
   @Test
+  fun resetFloatingMonitorPositionOnlyClearsPosition() {
+    vm.resetFloatingMonitorPosition()
+
+    verify(exactly = 1) { ServerPrefs.resetFloatingMonitorPosition(mockContext) }
+    verify(exactly = 0) { ServerPrefs.resetToDefaults(any()) }
+  }
+
+  @Test
   fun resetToDefaultsCallsPrefsReset() {
     vm.resetToDefaults()
     verify(exactly = 1) { ServerPrefs.resetToDefaults(mockContext) }
+  }
+
+  @Test
+  fun resetToDefaultsTurnsFloatingMonitorOff() {
+    vm.floatingMonitorEntry.update(true)
+
+    vm.resetToDefaults()
+
+    assertFalse(vm.floatingMonitorEntry.current)
+    assertFalse(vm.floatingMonitorEntry.saved)
   }
 
   @Test
