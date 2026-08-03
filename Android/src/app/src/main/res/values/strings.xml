@@ -348,6 +348,12 @@
   <string name="settings_start_on_boot" translatable="false">Start on Boot</string>
   <string name="settings_start_on_boot_desc_no_model" translatable="false">Select a default model above to enable</string>
   <string name="settings_start_on_boot_desc" translatable="false">Launch server automatically when device starts</string>
+  <string name="settings_floating_monitor" translatable="false">Floating monitor</string>
+  <string name="settings_floating_monitor_desc" translatable="false">Show server status as an overlay while OlliteRT runs in the background. Manage overlay permission and reset position here. Changes apply immediately after saving.</string>
+  <string name="settings_floating_monitor_permission_required" translatable="false">Permission required</string>
+  <string name="settings_floating_monitor_grant_permission" translatable="false">Grant permission</string>
+  <string name="settings_floating_monitor_reset_position" translatable="false">Reset position</string>
+  <string name="settings_floating_monitor_permission_error" translatable="false">Unable to open overlay permission settings</string>
   <string name="settings_keep_alive" translatable="false">Keep Alive Timeout</string>
   <string name="settings_keep_alive_desc" translatable="false">Model stays in RAM by default. Enable to unload after idle timeout and free memory. Next request auto-reloads (cold start)</string>
   <string name="settings_idle_timeout_label" translatable="false">Idle Timeout</string>

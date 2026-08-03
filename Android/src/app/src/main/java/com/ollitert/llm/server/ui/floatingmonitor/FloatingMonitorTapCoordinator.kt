@@ -25,6 +25,8 @@ internal class FloatingMonitorTapCoordinator(
   private val detach: () -> Unit,
   private val launch: () -> Boolean,
   reconcile: () -> Unit,
+  private val activateSuppressionInput: () -> Unit = {},
+  private val onLaunchFailed: () -> Unit = {},
 ) {
   private val suppression = FloatingMonitorTapSuppression(
     scope = scope,
@@ -36,8 +38,12 @@ internal class FloatingMonitorTapCoordinator(
 
   fun handleTap() {
     suppression.suppress()
+    activateSuppressionInput()
     detach()
-    if (!launch()) suppression.clear()
+    if (!launch()) {
+      onLaunchFailed()
+      suppression.clear()
+    }
   }
 
   fun onAppForegrounded() {

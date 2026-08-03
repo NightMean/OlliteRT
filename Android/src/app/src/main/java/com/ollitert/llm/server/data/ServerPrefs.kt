@@ -17,9 +17,14 @@
 package com.ollitert.llm.server.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import androidx.core.content.edit
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -106,6 +111,9 @@ private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
 // ═══════════════════════════════════════════════════════════════════════════
 
 private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
+private const val KEY_FLOATING_MONITOR_ENABLED = "floating_monitor_enabled"
+private const val KEY_FLOATING_MONITOR_POSITION_X = "floating_monitor_position_x"
+private const val KEY_FLOATING_MONITOR_POSITION_Y = "floating_monitor_position_y"
 private const val KEY_CLEAR_LOGS_ON_STOP = "clear_logs_on_stop"
 private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 
@@ -296,6 +304,7 @@ object ServerPrefs {
 
   // Boot & Lifecycle
   private val AUTO_START_ON_BOOT = BoolPref(KEY_AUTO_START_ON_BOOT, false)
+  private val FLOATING_MONITOR_ENABLED = BoolPref(KEY_FLOATING_MONITOR_ENABLED, false)
   private val CLEAR_LOGS_ON_STOP = BoolPref(KEY_CLEAR_LOGS_ON_STOP, false)
   private val CONFIRM_CLEAR_LOGS = BoolPref(KEY_CONFIRM_CLEAR_LOGS, true)
 
@@ -533,6 +542,59 @@ object ServerPrefs {
 
   fun isAutoStartOnBoot(context: Context): Boolean = get(context, AUTO_START_ON_BOOT)
   fun setAutoStartOnBoot(context: Context, enabled: Boolean) = set(context, AUTO_START_ON_BOOT, enabled)
+
+  fun isFloatingMonitorEnabled(context: Context): Boolean = get(context, FLOATING_MONITOR_ENABLED)
+  fun setFloatingMonitorEnabled(context: Context, enabled: Boolean) = set(context, FLOATING_MONITOR_ENABLED, enabled)
+
+  fun floatingMonitorEnabledFlow(context: Context): Flow<Boolean> {
+    val preferences = prefs(context)
+    return callbackFlow {
+      val listener = SharedPreferences.OnSharedPreferenceChangeListener { changedPreferences, key ->
+        if (key == null || key == KEY_FLOATING_MONITOR_ENABLED) {
+          trySend(changedPreferences.getBoolean(KEY_FLOATING_MONITOR_ENABLED, false))
+        }
+      }
+      trySend(preferences.getBoolean(KEY_FLOATING_MONITOR_ENABLED, false))
+      preferences.registerOnSharedPreferenceChangeListener(listener)
+      awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+  }
+
+  fun getFloatingMonitorPosition(context: Context): Pair<Float, Float>? {
+    val preferences = prefs(context)
+    if (!preferences.contains(KEY_FLOATING_MONITOR_POSITION_X) ||
+      !preferences.contains(KEY_FLOATING_MONITOR_POSITION_Y)
+    ) {
+      return null
+    }
+    return try {
+      val x = preferences.getFloat(KEY_FLOATING_MONITOR_POSITION_X, 0f)
+      val y = preferences.getFloat(KEY_FLOATING_MONITOR_POSITION_Y, 0f)
+      if (!x.isFinite() || !y.isFinite()) null else x.coerceIn(0f, 1f) to y.coerceIn(0f, 1f)
+    } catch (exception: ClassCastException) {
+      Log.w(TAG, "Invalid floating monitor position preferences; resetting", exception)
+      resetFloatingMonitorPosition(context)
+      null
+    }
+  }
+
+  fun setFloatingMonitorPosition(context: Context, x: Float, y: Float) {
+    if (!x.isFinite() || !y.isFinite()) {
+      resetFloatingMonitorPosition(context)
+      return
+    }
+    prefs(context).edit {
+      putFloat(KEY_FLOATING_MONITOR_POSITION_X, x.coerceIn(0f, 1f))
+      putFloat(KEY_FLOATING_MONITOR_POSITION_Y, y.coerceIn(0f, 1f))
+    }
+  }
+
+  fun resetFloatingMonitorPosition(context: Context) {
+    prefs(context).edit {
+      remove(KEY_FLOATING_MONITOR_POSITION_X)
+      remove(KEY_FLOATING_MONITOR_POSITION_Y)
+    }
+  }
 
   fun isClearLogsOnStop(context: Context): Boolean = get(context, CLEAR_LOGS_ON_STOP)
   fun setClearLogsOnStop(context: Context, enabled: Boolean) = set(context, CLEAR_LOGS_ON_STOP, enabled)

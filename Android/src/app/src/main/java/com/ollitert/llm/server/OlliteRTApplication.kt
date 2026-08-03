@@ -31,6 +31,7 @@ import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
 import com.ollitert.llm.server.data.db.RequestLogPersistence
+import com.ollitert.llm.server.ui.floatingmonitor.FloatingMonitorPermissionCoordinator
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.EntryPoint
@@ -70,11 +71,13 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     fun dataStoreRepository(): DataStoreRepository
   }
 
-  /** Entry point for the process-wide foreground state authority. */
+  /** Entry point for lifecycle and overlay-permission state shared with the server Service. */
   @EntryPoint
   @InstallIn(SingletonComponent::class)
-  interface LifecycleEntryPoint {
+  interface FloatingMonitorEntryPoint {
     fun lifecycleProvider(): OlliteRTLifecycleProvider
+
+    fun permissionCoordinator(): FloatingMonitorPermissionCoordinator
   }
 
   @EarlyEntryPoint
@@ -132,13 +135,16 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
   override fun onCreate() {
     super.onCreate()
 
-    val lifecycleProvider = EntryPointAccessors.fromApplication(
+    val floatingMonitorEntryPoint = EntryPointAccessors.fromApplication(
       this,
-      LifecycleEntryPoint::class.java,
-    ).lifecycleProvider()
+      FloatingMonitorEntryPoint::class.java,
+    )
+    val lifecycleProvider = floatingMonitorEntryPoint.lifecycleProvider()
+    val permissionCoordinator = floatingMonitorEntryPoint.permissionCoordinator()
     registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
       override fun onActivityStarted(activity: Activity) {
         lifecycleProvider.onActivityStarted()
+        permissionCoordinator.refreshObservedPermission(this@OlliteRTApplication)
       }
 
       override fun onActivityStopped(activity: Activity) {

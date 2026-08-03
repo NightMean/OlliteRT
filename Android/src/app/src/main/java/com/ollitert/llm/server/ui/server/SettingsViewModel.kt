@@ -42,6 +42,7 @@ import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
+import com.ollitert.llm.server.ui.floatingmonitor.FloatingMonitorPermissionCoordinator
 import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.SettingDef
 import com.ollitert.llm.server.ui.server.settings.SettingEntry
@@ -68,6 +69,7 @@ class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val persistence: RequestLogPersistence,
   private val dataStoreRepository: DataStoreRepository,
+  private val floatingMonitorPermissionCoordinator: FloatingMonitorPermissionCoordinator,
 ) : ViewModel() {
 
   var repoCount: Int by mutableIntStateOf(0)
@@ -133,6 +135,8 @@ class SettingsViewModel @Inject constructor(
   val confirmClearLogsEntry get() = entry<Boolean>("confirm_clear_logs")
   val keepPartialResponseEntry get() = entry<Boolean>("keep_partial_response")
   val autoStartOnBootEntry get() = entry<Boolean>("start_on_boot")
+  val floatingMonitorEntry get() = entry<Boolean>("floating_monitor")
+  val floatingMonitorPermissionGranted = floatingMonitorPermissionCoordinator.overlayPermissionGranted
   val keepAliveEnabledEntry get() = entry<Boolean>("keep_alive")
   val keepAliveMinutesEntry get() = entry<Long>("keep_alive_timeout")
   val updateCheckEnabledEntry get() = entry<Boolean>("auto_update_check")
@@ -187,6 +191,22 @@ class SettingsViewModel @Inject constructor(
   var showDiscardDialog by mutableStateOf(false)
   var showDonateDialog by mutableStateOf(false)
   var showTrimPromptWarning by mutableStateOf(false)
+
+  fun beginFloatingMonitorPermissionFlow() {
+    floatingMonitorPermissionCoordinator.beginPermissionFlow()
+  }
+
+  fun endFloatingMonitorPermissionFlow(permissionGranted: Boolean) {
+    floatingMonitorPermissionCoordinator.updateObservedPermission(permissionGranted)
+    floatingMonitorPermissionCoordinator.endPermissionFlow()
+  }
+
+  fun shouldShowFloatingMonitorPermissionAction(overlayPermissionGranted: Boolean): Boolean =
+    floatingMonitorEntry.saved && !overlayPermissionGranted
+
+  fun resetFloatingMonitorPosition() {
+    ServerPrefs.resetFloatingMonitorPosition(context)
+  }
 
   // ─── Search ──────────────────────────────────────────────────────────────
   var searchQuery by mutableStateOf("")

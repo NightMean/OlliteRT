@@ -55,6 +55,7 @@ import com.ollitert.llm.server.data.resolveHost
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.ServerService.Companion.queueReloadAfterLoad
 import com.ollitert.llm.server.service.ServerService.Companion.reload
+import com.ollitert.llm.server.ui.floatingmonitor.FloatingMonitorController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -87,6 +88,7 @@ class ServerService : Service() {
   private val inferenceLock = Any()
   private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var loadJob: Job? = null
+  private var floatingMonitorController: FloatingMonitorController? = null
 
   // Notification state — saved after warmup so we can refresh the notification with live request count.
   // @Volatile: written from background load thread, read from main thread for notification refresh.
@@ -241,6 +243,8 @@ class ServerService : Service() {
       return START_NOT_STICKY
     }
 
+    initializeFloatingMonitorBestEffort()
+
     val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
 
     // ── Ktor server setup (no model dependency) ─────────────────────────────
@@ -364,6 +368,25 @@ class ServerService : Service() {
       )
     } else {
       startForeground(NotificationHelper.NOTIFICATION_ID, placeholderNotification)
+    }
+  }
+
+  private fun initializeFloatingMonitorBestEffort() {
+    if (floatingMonitorController != null) return
+    try {
+      val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+        applicationContext,
+        OlliteRTApplication.FloatingMonitorEntryPoint::class.java,
+      )
+      floatingMonitorController = FloatingMonitorController(
+        context = this,
+        lifecycleProvider = entryPoint.lifecycleProvider(),
+        permissionCoordinator = entryPoint.permissionCoordinator(),
+        settingEnabled = ServerPrefs.floatingMonitorEnabledFlow(this),
+      ).also { it.start() }
+    } catch (exception: RuntimeException) {
+      Log.w(TAG, "Floating monitor initialization failed; server will continue", exception)
+      floatingMonitorController = null
     }
   }
 
@@ -885,6 +908,13 @@ class ServerService : Service() {
     val previousLoadJob = loadJob
     previousLoadJob?.cancel()
     loadJob = null
+    // Dispose the optional overlay before native/server teardown; failure must not block cleanup.
+    try {
+      floatingMonitorController?.dispose()
+    } catch (exception: RuntimeException) {
+      Log.w(TAG, "Floating monitor disposal failed; continuing server cleanup", exception)
+    }
+    floatingMonitorController = null
     // Signal request-scoped controls first so native done callbacks cannot win success.
     RequestLogStore.cancelAllPending()
     server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)

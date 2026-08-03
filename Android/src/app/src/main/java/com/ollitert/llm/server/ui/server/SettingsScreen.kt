@@ -16,8 +16,13 @@
 
 package com.ollitert.llm.server.ui.server
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -50,6 +55,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -100,6 +106,35 @@ fun SettingsScreen(
   val vm: SettingsViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
 
   val settingsSavedText = stringResource(R.string.toast_settings_saved)
+  val overlayPermissionErrorText = stringResource(R.string.settings_floating_monitor_permission_error)
+  val overlayPermissionGranted by vm.floatingMonitorPermissionGranted.collectAsState()
+  val overlayPermissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.StartActivityForResult(),
+  ) {
+    vm.endFloatingMonitorPermissionFlow(
+      permissionGranted = readOverlayPermissionSafely(context),
+    )
+  }
+  val requestOverlayPermission: () -> Unit = {
+    if (overlayPermissionGranted) {
+      vm.endFloatingMonitorPermissionFlow(permissionGranted = true)
+    } else {
+      vm.beginFloatingMonitorPermissionFlow()
+      try {
+        overlayPermissionLauncher.launch(
+          Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:${context.packageName}"),
+          ),
+        )
+      } catch (_: Exception) {
+        vm.endFloatingMonitorPermissionFlow(
+          permissionGranted = readOverlayPermissionSafely(context),
+        )
+        Toast.makeText(context, overlayPermissionErrorText, Toast.LENGTH_LONG).show()
+      }
+    }
+  }
 
   val performSave: () -> Unit = {
     val result = vm.trySave(serverStatus)
@@ -224,7 +259,12 @@ fun SettingsScreen(
       ServerConfigCard(vm, context)
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.AUTO_LAUNCH), enter = expandVertically(), exit = shrinkVertically()) {
-      AutoLaunchCard(vm, downloadedModelNames)
+      AutoLaunchCard(
+        vm = vm,
+        downloadedModelNames = downloadedModelNames,
+        overlayPermissionGranted = overlayPermissionGranted,
+        onRequestOverlayPermission = requestOverlayPermission,
+      )
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.MODEL_BEHAVIOUR), enter = expandVertically(), exit = shrinkVertically()) {
       ModelBehaviourCard(vm)
@@ -312,3 +352,10 @@ fun SettingsScreen(
     }
   }
 }
+
+private fun readOverlayPermissionSafely(context: android.content.Context): Boolean =
+  try {
+    Settings.canDrawOverlays(context)
+  } catch (_: RuntimeException) {
+    false
+  }

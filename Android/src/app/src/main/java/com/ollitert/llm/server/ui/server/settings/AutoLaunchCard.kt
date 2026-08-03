@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.server.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +48,12 @@ import com.ollitert.llm.server.ui.server.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
-internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<String>) {
+internal fun AutoLaunchCard(
+  vm: SettingsViewModel,
+  downloadedModelNames: List<String>,
+  overlayPermissionGranted: Boolean,
+  onRequestOverlayPermission: () -> Unit,
+) {
   val uriHandler = LocalUriHandler.current
 
   SettingsCard(
@@ -117,7 +124,49 @@ internal fun AutoLaunchCard(vm: SettingsViewModel, downloadedModelNames: List<St
       )
     }
 
-    if (vm.settingVisible(START_ON_BOOT.key) && vm.settingVisible(KEEP_ALIVE.key)) {
+    if (vm.settingVisible(START_ON_BOOT.key) && vm.settingVisible(FLOATING_MONITOR.key)) {
+      SettingDivider()
+    }
+
+    if (vm.settingVisible(FLOATING_MONITOR.key)) {
+      ToggleSettingRow(
+        label = stringResource(R.string.settings_floating_monitor),
+        description = stringResource(R.string.settings_floating_monitor_desc),
+        checked = vm.floatingMonitorEntry.current,
+        onCheckedChange = { enabled -> vm.floatingMonitorEntry.update(enabled) },
+        searchQuery = vm.searchQuery,
+      )
+
+      if (vm.shouldShowFloatingMonitorPermissionAction(overlayPermissionGranted)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = stringResource(R.string.settings_floating_monitor_permission_required),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+          )
+          Spacer(modifier = Modifier.weight(1f))
+          TextButton(onClick = onRequestOverlayPermission) {
+            Text(stringResource(R.string.settings_floating_monitor_grant_permission))
+          }
+        }
+      }
+
+      if (vm.floatingMonitorEntry.current) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.End,
+        ) {
+          TextButton(onClick = vm::resetFloatingMonitorPosition) {
+            Text(stringResource(R.string.settings_floating_monitor_reset_position))
+          }
+        }
+      }
+    }
+
+    if (vm.settingVisible(FLOATING_MONITOR.key) && vm.settingVisible(KEEP_ALIVE.key)) {
       SettingDivider()
     }
 

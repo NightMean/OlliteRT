@@ -316,6 +316,17 @@ val START_ON_BOOT = SettingDef.Toggle(
   write = { ctx, v -> ServerPrefs.setAutoStartOnBoot(ctx, v) },
 )
 
+val FLOATING_MONITOR = SettingDef.Toggle(
+  key = "floating_monitor",
+  labelRes = R.string.settings_floating_monitor,
+  descriptionRes = R.string.settings_floating_monitor_desc,
+  card = CardId.AUTO_LAUNCH,
+  default = false,
+  prefsKey = "floating_monitor_enabled",
+  read = { ServerPrefs.isFloatingMonitorEnabled(it) },
+  write = { ctx, v -> ServerPrefs.setFloatingMonitorEnabled(ctx, v) },
+)
+
 val KEEP_ALIVE = SettingDef.Toggle(
   key = "keep_alive",
   labelRes = R.string.settings_keep_alive,
@@ -906,7 +917,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   SERVER_BIND_MODE, CUSTOM_BIND_ADDRESS, HOST_PORT, CLIENT_IP_POLICY_MODE, CLIENT_IP_RULES,
   BEARER_TOKEN, CORS_ORIGINS,
   // Auto-Launch
-  DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
+  DEFAULT_MODEL, START_ON_BOOT, FLOATING_MONITOR, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
   // Model Behaviour
   CUSTOM_PROMPTS, SCHEMA_INJECTION_TOOL_CALLING, REJECT_WHEN_BUSY, WARMUP_MESSAGE,
   PRE_INIT_VISION, IGNORE_CLIENT_PARAMS, STT_TRANSCRIPTION_PROMPT, STT_TRANSCRIPTION_PROMPT_TEXT,
@@ -972,7 +983,7 @@ val allCardDefs: List<CardDef> = listOf(
     titleRes = R.string.settings_card_auto_launch,
     icon = CardIcon.Vector(Icons.Outlined.PlayArrow),
     settings = listOf(
-      DEFAULT_MODEL, START_ON_BOOT, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
+      DEFAULT_MODEL, START_ON_BOOT, FLOATING_MONITOR, KEEP_ALIVE, KEEP_ALIVE_TIMEOUT, DONTKILLMYAPP,
     ),
   ),
   CardDef(

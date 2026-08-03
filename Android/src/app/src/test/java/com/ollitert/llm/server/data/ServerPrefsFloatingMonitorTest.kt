@@ -84,4 +84,24 @@ class ServerPrefsFloatingMonitorTest {
     assertEquals(listOf(false, true), values.await())
     verify(exactly = 1) { preferences.unregisterOnSharedPreferenceChangeListener(listenerSlot.captured) }
   }
+
+  @Test
+  fun `enabled flow emits disabled after whole preference file is cleared`() = runTest {
+    var enabled = true
+    val listenerSlot = slot<SharedPreferences.OnSharedPreferenceChangeListener>()
+    every { preferences.getBoolean("floating_monitor_enabled", false) } answers { enabled }
+    every { preferences.registerOnSharedPreferenceChangeListener(capture(listenerSlot)) } returns Unit
+    every { preferences.unregisterOnSharedPreferenceChangeListener(any()) } returns Unit
+
+    val values = async {
+      ServerPrefs.floatingMonitorEnabledFlow(context).take(2).toList()
+    }
+    runCurrent()
+
+    enabled = false
+    listenerSlot.captured.onSharedPreferenceChanged(preferences, null)
+    runCurrent()
+
+    assertEquals(listOf(true, false), values.await())
+  }
 }

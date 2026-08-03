@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.DEFAULT_PORT
 import com.ollitert.llm.server.data.ClientIpAccessPolicy
@@ -141,6 +142,9 @@ class SettingsViewModelTest {
     every { RequestLogStore.clear() } returns Unit
 
     every { ServerMetrics.status } returns mockk { every { value } returns ServerStatus.STOPPED }
+    every { mockContext.getString(R.string.settings_floating_monitor) } returns "Floating monitor"
+    every { mockContext.getString(R.string.settings_floating_monitor_desc) } returns
+      "Show server status as an overlay. Manage overlay permission and reset position."
 
     every { UpdateCheckWorker.scheduleUpdateCheck(any()) } returns Unit
     every { UpdateCheckWorker.cancelUpdateCheck(any()) } returns Unit
@@ -484,6 +488,26 @@ class SettingsViewModelTest {
 
     assertTrue(floatingMonitorPermissionCoordinator.overlayPermissionGranted.value)
     assertFalse(floatingMonitorPermissionCoordinator.permissionFlowInProgress.value)
+  }
+
+  @Test
+  fun permissionObservationExposedByViewModelReflectsGrantAndRevocation() {
+    assertFalse(vm.floatingMonitorPermissionGranted.value)
+
+    floatingMonitorPermissionCoordinator.updateObservedPermission(true)
+    assertTrue(vm.floatingMonitorPermissionGranted.value)
+
+    floatingMonitorPermissionCoordinator.updateObservedPermission(false)
+    assertFalse(vm.floatingMonitorPermissionGranted.value)
+  }
+
+  @Test
+  fun floatingMonitorSearchFindsPermissionAndPositionTerms() {
+    vm.searchQuery = "permission"
+    assertTrue(vm.settingVisible("floating_monitor"))
+
+    vm.searchQuery = "position"
+    assertTrue(vm.settingVisible("floating_monitor"))
   }
 
   @Test

@@ -70,11 +70,16 @@ class FloatingMonitorTapCoordinatorTest {
         false
       },
       reconcile = { events += "reconcile" },
+      activateSuppressionInput = { events += "activate" },
+      onLaunchFailed = { events += "launch_failed" },
     )
 
     coordinator.handleTap()
 
-    assertEquals(listOf("detach", "launch", "reconcile"), events)
+    assertEquals(
+      listOf("activate", "detach", "launch", "launch_failed", "reconcile"),
+      events,
+    )
     assertFalse(coordinator.suppressionActive.value)
   }
 
