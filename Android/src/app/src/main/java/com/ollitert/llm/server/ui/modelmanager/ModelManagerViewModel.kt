@@ -23,7 +23,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
@@ -193,7 +192,6 @@ open class ModelManagerViewModel
 constructor(
   private val downloadRepository: DownloadRepository,
   val dataStoreRepository: DataStoreRepository,
-  private val lifecycleProvider: OlliteRTLifecycleProvider,
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
@@ -821,10 +819,6 @@ constructor(
           )
       }
     }
-  }
-
-  fun setAppInForeground(foreground: Boolean) {
-    lifecycleProvider.isAppInForeground = foreground
   }
 
   fun importModelListFromUrl(url: String, onResult: (String?) -> Unit) {

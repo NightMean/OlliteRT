@@ -17,7 +17,9 @@
 
 package com.ollitert.llm.server
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -66,6 +68,13 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
   @InstallIn(SingletonComponent::class)
   interface DataStoreEntryPoint {
     fun dataStoreRepository(): DataStoreRepository
+  }
+
+  /** Entry point for the process-wide foreground state authority. */
+  @EntryPoint
+  @InstallIn(SingletonComponent::class)
+  interface LifecycleEntryPoint {
+    fun lifecycleProvider(): OlliteRTLifecycleProvider
   }
 
   @EarlyEntryPoint
@@ -122,6 +131,26 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
 
   override fun onCreate() {
     super.onCreate()
+
+    val lifecycleProvider = EntryPointAccessors.fromApplication(
+      this,
+      LifecycleEntryPoint::class.java,
+    ).lifecycleProvider()
+    registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+      override fun onActivityStarted(activity: Activity) {
+        lifecycleProvider.onActivityStarted()
+      }
+
+      override fun onActivityStopped(activity: Activity) {
+        lifecycleProvider.onActivityStopped()
+      }
+
+      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+      override fun onActivityResumed(activity: Activity) = Unit
+      override fun onActivityPaused(activity: Activity) = Unit
+      override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+      override fun onActivityDestroyed(activity: Activity) = Unit
+    })
 
     // Initialize log persistence (registers callback on RequestLogStore, loads from DB if enabled).
     // Wrapped in try-catch so a persistence failure doesn't crash the entire app on startup.

@@ -30,7 +30,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +42,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -111,24 +107,8 @@ fun OlliteRTNavHost(
   startDestination: String = OlliteRTRoutes.MODELS,
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
-  val lifecycleOwner = LocalLifecycleOwner.current
   val context = LocalContext.current
   val uriHandler = LocalUriHandler.current
-
-  // Track app foreground state
-  DisposableEffect(lifecycleOwner) {
-    val observer = LifecycleEventObserver { _, event ->
-      when (event) {
-        Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME ->
-          modelManagerViewModel.setAppInForeground(foreground = true)
-        Lifecycle.Event.ON_STOP, Lifecycle.Event.ON_PAUSE ->
-          modelManagerViewModel.setAppInForeground(foreground = false)
-        else -> {}
-      }
-    }
-    lifecycleOwner.lifecycle.addObserver(observer)
-    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-  }
 
   // --- Engagement prompt (donation/support) ---
   // State lives at the NavHost level so it persists across tab navigation.

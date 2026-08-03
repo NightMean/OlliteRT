@@ -247,7 +247,7 @@ class DownloadRepository @Inject constructor(
 
   private fun sendNotification(title: String, text: String, isSuccess: Boolean) {
     // Don't send notification if app is in foreground.
-    if (lifecycleProvider.isAppInForeground) {
+    if (lifecycleProvider.isAppInForeground.value) {
       return
     }
 

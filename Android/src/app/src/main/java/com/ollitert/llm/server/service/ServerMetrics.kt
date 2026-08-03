@@ -216,6 +216,11 @@ object ServerMetrics {
   /** Count of concurrent in-flight inference requests. */
   private val _inferringCount = AtomicInteger(0)
 
+  /** Monotonically increasing identity for each inference start in the current server session. */
+  private val _inferenceSequenceCounter = sessionAtomic()
+  private val _inferenceSequence = sessionFlow(0L)
+  val inferenceSequence: StateFlow<Long> = _inferenceSequence.asStateFlow()
+
   /** True while at least one inference request is active. */
   private val _isInferring = sessionFlow(false)
   val isInferring: StateFlow<Boolean> = _isInferring.asStateFlow()
@@ -432,6 +437,7 @@ object ServerMetrics {
   }
 
   fun onInferenceStarted() {
+    _inferenceSequence.value = _inferenceSequenceCounter.incrementAndGet()
     _inferringCount.incrementAndGet()
     _isInferring.value = true
   }
