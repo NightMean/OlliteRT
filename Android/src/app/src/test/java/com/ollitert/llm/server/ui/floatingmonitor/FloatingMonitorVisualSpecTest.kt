@@ -37,8 +37,8 @@ class FloatingMonitorVisualSpecTest {
 
   @Test
   fun `state palette keeps alpha on fill only`() {
-    assertEquals(0xCC4ADE80.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Running))
-    assertEquals(0xCC9DCAFC.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Processing))
+    assertEquals(0xB34ADE80.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Running))
+    assertEquals(0xB39DCAFC.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Processing))
     assertEquals(0xFF4ADE80.toInt(), floatingMonitorBorderColor(FloatingMonitorVisualState.Running))
     assertEquals(0xFF9DCAFC.toInt(), floatingMonitorBorderColor(FloatingMonitorVisualState.Processing))
     assertEquals(0xFF000000.toInt(), FLOATING_MONITOR_TEXT_COLOR)
@@ -52,6 +52,7 @@ class FloatingMonitorVisualSpecTest {
     assertEquals(10f, FLOATING_MONITOR_LABEL_TEXT_SIZE_DP)
     assertEquals(10f, FLOATING_MONITOR_UNIT_TEXT_SIZE_DP)
     assertEquals(0.80f, FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X)
+    assertEquals(0.45f, FLOATING_MONITOR_LAST_DECIMAL_TEXT_SCALE_X)
     assertEquals(1f, FLOATING_MONITOR_UNIT_TEXT_SCALE_X)
     assertEquals(0.25f, FLOATING_MONITOR_PROC_CENTER_FRACTION)
     assertEquals(0.75f, FLOATING_MONITOR_LAST_CENTER_FRACTION)

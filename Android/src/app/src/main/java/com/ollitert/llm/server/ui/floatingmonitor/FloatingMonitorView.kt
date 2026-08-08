@@ -36,6 +36,7 @@ internal const val FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP = 18f
 internal const val FLOATING_MONITOR_LABEL_TEXT_SIZE_DP = 10f
 internal const val FLOATING_MONITOR_UNIT_TEXT_SIZE_DP = 10f
 internal const val FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X = 0.80f
+internal const val FLOATING_MONITOR_LAST_DECIMAL_TEXT_SCALE_X = 0.45f
 internal const val FLOATING_MONITOR_UNIT_TEXT_SCALE_X = 1f
 internal const val FLOATING_MONITOR_PROCESSING_RUN_MAX_WIDTH_DP = 40f
 internal const val FLOATING_MONITOR_TEXT_COLOR = 0xFF000000.toInt()
@@ -59,8 +60,8 @@ private const val PROCESSING_UNIT_GAP_DP = 0.5f
 
 internal fun floatingMonitorFillColor(state: FloatingMonitorVisualState): Int =
   when (state) {
-    FloatingMonitorVisualState.Running -> 0xCC4ADE80.toInt()
-    FloatingMonitorVisualState.Processing -> 0xCC9DCAFC.toInt()
+    FloatingMonitorVisualState.Running -> 0xB34ADE80.toInt()
+    FloatingMonitorVisualState.Processing -> 0xB39DCAFC.toInt()
     FloatingMonitorVisualState.Hidden -> error("Hidden monitor has no renderable fill")
   }
 
@@ -156,6 +157,12 @@ internal class FloatingMonitorView(
     textSizeDp = FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP,
     typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD),
     textScaleX = FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X,
+  )
+  private val lastDecimalPaint = textPaint(
+    color = FLOATING_MONITOR_LAST_TEXT_COLOR,
+    textSizeDp = FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP,
+    typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD),
+    textScaleX = FLOATING_MONITOR_LAST_DECIMAL_TEXT_SCALE_X,
   )
   private val lastUnitPaint = textPaint(
     color = FLOATING_MONITOR_LAST_TEXT_COLOR,
@@ -281,14 +288,12 @@ internal class FloatingMonitorView(
       valuePaint = processingValuePaint,
       unitPaint = processingUnitPaint,
     )
-    drawCompositeMetric(
+    drawLastCompositeMetric(
       canvas = canvas,
       value = lastLatency.value,
       unit = lastLatency.unit,
       centerX = lastCenterX,
       baseline = valueBaseline,
-      valuePaint = lastValuePaint,
-      unitPaint = lastUnitPaint,
     )
     canvas.drawText("proc", procCenterX, labelBaseline, labelPaint)
     canvas.drawText("last", lastCenterX, labelBaseline, lastLabelPaint)
@@ -334,6 +339,46 @@ internal class FloatingMonitorView(
     canvas.drawText(value, startX, baseline, valuePaint)
     if (unit != null) {
       canvas.drawText(unit, startX + valueWidth + gap, baseline, unitPaint)
+    }
+  }
+
+  private fun drawLastCompositeMetric(
+    canvas: Canvas,
+    value: String,
+    unit: String?,
+    centerX: Float,
+    baseline: Float,
+  ) {
+    val decimalIndex = value.indexOf('.')
+    if (decimalIndex < 0) {
+      drawCompositeMetric(
+        canvas = canvas,
+        value = value,
+        unit = unit,
+        centerX = centerX,
+        baseline = baseline,
+        valuePaint = lastValuePaint,
+        unitPaint = lastUnitPaint,
+      )
+      return
+    }
+
+    val wholePart = value.substring(0, decimalIndex)
+    val fractionalPart = value.substring(decimalIndex + 1)
+    val wholeWidth = lastValuePaint.measureText(wholePart)
+    val decimalWidth = lastDecimalPaint.measureText(".")
+    val fractionalWidth = lastValuePaint.measureText(fractionalPart)
+    val valueWidth = wholeWidth + decimalWidth + fractionalWidth
+    val unitWidth = unit?.let { lastUnitPaint.measureText(it) } ?: 0f
+    val gap = if (unit == null) 0f else PROCESSING_UNIT_GAP_DP * density
+    val width = floatingMonitorCompositeRunWidth(valueWidth, unitWidth, gap)
+    val startX = floatingMonitorCenteredTextStartX(centerX, width)
+
+    canvas.drawText(wholePart, startX, baseline, lastValuePaint)
+    canvas.drawText(".", startX + wholeWidth, baseline, lastDecimalPaint)
+    canvas.drawText(fractionalPart, startX + wholeWidth + decimalWidth, baseline, lastValuePaint)
+    if (unit != null) {
+      canvas.drawText(unit, startX + valueWidth + gap, baseline, lastUnitPaint)
     }
   }
 
