@@ -44,10 +44,10 @@ class FloatingMonitorFormatterTest {
   }
 
   @Test
-  fun `previous successful latency uses deterministic compact units`() {
+  fun `previous successful latency always uses one decimal seconds`() {
     assertEquals(FloatingMonitorLatencyText(value = "—", unit = null), formatPreviousSuccessfulLatency(0))
-    assertEquals(FloatingMonitorLatencyText(value = "842", unit = "ms"), formatPreviousSuccessfulLatency(842))
-    assertEquals(FloatingMonitorLatencyText(value = "9999", unit = "ms"), formatPreviousSuccessfulLatency(9_999))
+    assertEquals(FloatingMonitorLatencyText(value = "0.8", unit = "s"), formatPreviousSuccessfulLatency(842))
+    assertEquals(FloatingMonitorLatencyText(value = "9.9", unit = "s"), formatPreviousSuccessfulLatency(9_999))
     assertEquals(FloatingMonitorLatencyText(value = "10.0", unit = "s"), formatPreviousSuccessfulLatency(10_000))
     assertEquals(FloatingMonitorLatencyText(value = "12.4", unit = "s"), formatPreviousSuccessfulLatency(12_449))
     assertEquals(FloatingMonitorLatencyText(value = "999.9", unit = "s"), formatPreviousSuccessfulLatency(999_999))

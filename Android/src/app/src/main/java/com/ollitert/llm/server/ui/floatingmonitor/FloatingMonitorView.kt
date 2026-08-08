@@ -32,10 +32,11 @@ internal const val FLOATING_MONITOR_BORDER_WIDTH_DP = 2f
 internal const val FLOATING_MONITOR_BORDER_INSET_DP = FLOATING_MONITOR_BORDER_WIDTH_DP / 2f
 internal const val FLOATING_MONITOR_CANVAS_RETRY_MILLIS = 1_000L
 internal const val FLOATING_MONITOR_MAIN_VALUE_TEXT_SIZE_DP = 20f
-internal const val FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP = 16f
+internal const val FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP = 18f
 internal const val FLOATING_MONITOR_LABEL_TEXT_SIZE_DP = 10f
 internal const val FLOATING_MONITOR_UNIT_TEXT_SIZE_DP = 10f
-internal const val FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X = 0.68f
+internal const val FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X = 0.80f
+internal const val FLOATING_MONITOR_UNIT_TEXT_SCALE_X = 1f
 internal const val FLOATING_MONITOR_PROCESSING_RUN_MAX_WIDTH_DP = 40f
 internal const val FLOATING_MONITOR_TEXT_COLOR = 0xFF000000.toInt()
 internal const val FLOATING_MONITOR_LAST_TEXT_COLOR = 0xD9000000.toInt()
@@ -59,14 +60,14 @@ private const val PROCESSING_UNIT_GAP_DP = 0.5f
 internal fun floatingMonitorFillColor(state: FloatingMonitorVisualState): Int =
   when (state) {
     FloatingMonitorVisualState.Running -> 0xCC4ADE80.toInt()
-    FloatingMonitorVisualState.Processing -> 0xCCAFC6FF.toInt()
+    FloatingMonitorVisualState.Processing -> 0xCC9DCAFC.toInt()
     FloatingMonitorVisualState.Hidden -> error("Hidden monitor has no renderable fill")
   }
 
 internal fun floatingMonitorBorderColor(state: FloatingMonitorVisualState): Int =
   when (state) {
     FloatingMonitorVisualState.Running -> 0xFF4ADE80.toInt()
-    FloatingMonitorVisualState.Processing -> 0xFFAFC6FF.toInt()
+    FloatingMonitorVisualState.Processing -> 0xFF9DCAFC.toInt()
     FloatingMonitorVisualState.Hidden -> error("Hidden monitor has no renderable border")
   }
 
@@ -148,7 +149,7 @@ internal class FloatingMonitorView(
     color = FLOATING_MONITOR_TEXT_COLOR,
     textSizeDp = FLOATING_MONITOR_UNIT_TEXT_SIZE_DP,
     typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD),
-    textScaleX = FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X,
+    textScaleX = FLOATING_MONITOR_UNIT_TEXT_SCALE_X,
   )
   private val lastValuePaint = textPaint(
     color = FLOATING_MONITOR_LAST_TEXT_COLOR,
@@ -160,7 +161,7 @@ internal class FloatingMonitorView(
     color = FLOATING_MONITOR_LAST_TEXT_COLOR,
     textSizeDp = FLOATING_MONITOR_UNIT_TEXT_SIZE_DP,
     typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD),
-    textScaleX = FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X,
+    textScaleX = FLOATING_MONITOR_UNIT_TEXT_SCALE_X,
   )
 
   private var model: FloatingMonitorRenderModel? = null

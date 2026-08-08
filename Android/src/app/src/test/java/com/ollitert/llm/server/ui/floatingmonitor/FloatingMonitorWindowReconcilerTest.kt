@@ -58,7 +58,7 @@ class FloatingMonitorWindowReconcilerTest {
         requestValue = "99,999+",
         secondaryValue = "61",
         secondaryLabel = "proc",
-        lastLatency = FloatingMonitorLatencyText(value = "842", unit = "ms"),
+        lastLatency = FloatingMonitorLatencyText(value = "0.8", unit = "s"),
       ),
       deriveFloatingMonitorRenderModel(
         visualState = FloatingMonitorVisualState.Processing,
@@ -84,7 +84,7 @@ class FloatingMonitorWindowReconcilerTest {
       requestValue = "99,999+",
       secondaryValue = "61",
       secondaryLabel = "proc",
-      lastLatency = FloatingMonitorLatencyText(value = "842", unit = "ms"),
+      lastLatency = FloatingMonitorLatencyText(value = "0.8", unit = "s"),
     )
     val firstProcessing = processing.copy(
       secondaryValue = "0",
@@ -96,7 +96,7 @@ class FloatingMonitorWindowReconcilerTest {
       floatingMonitorContentDescription(running),
     )
     assertEquals(
-      "Processing, requests 99,999+, current processing 61 seconds, last successful latency 842 milliseconds",
+      "Processing, requests 99,999+, current processing 61 seconds, last successful latency 0.8 seconds",
       floatingMonitorContentDescription(processing),
     )
     assertEquals(

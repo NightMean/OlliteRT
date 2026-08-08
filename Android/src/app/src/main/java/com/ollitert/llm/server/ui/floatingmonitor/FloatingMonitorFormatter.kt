@@ -18,7 +18,6 @@ package com.ollitert.llm.server.ui.floatingmonitor
 
 private const val MAX_EXACT_COUNT = 99_999L
 private const val MAX_EXACT_ELAPSED_SECONDS = 9_999L
-private const val LAST_LATENCY_SECONDS_THRESHOLD_MS = 10_000L
 private const val LAST_LATENCY_CAP_MS = 1_000_000L
 
 data class FloatingMonitorLatencyText(
@@ -48,9 +47,6 @@ fun formatPreviousSuccessfulLatency(latencyMs: Long): FloatingMonitorLatencyText
   val nonNegativeLatencyMs = latencyMs.coerceAtLeast(0)
   if (nonNegativeLatencyMs == 0L) {
     return FloatingMonitorLatencyText(value = "—", unit = null)
-  }
-  if (nonNegativeLatencyMs < LAST_LATENCY_SECONDS_THRESHOLD_MS) {
-    return FloatingMonitorLatencyText(value = nonNegativeLatencyMs.toString(), unit = "ms")
   }
   if (nonNegativeLatencyMs >= LAST_LATENCY_CAP_MS) {
     return FloatingMonitorLatencyText(value = "999+", unit = "s")

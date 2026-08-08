@@ -38,9 +38,9 @@ class FloatingMonitorVisualSpecTest {
   @Test
   fun `state palette keeps alpha on fill only`() {
     assertEquals(0xCC4ADE80.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Running))
-    assertEquals(0xCCAFC6FF.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Processing))
+    assertEquals(0xCC9DCAFC.toInt(), floatingMonitorFillColor(FloatingMonitorVisualState.Processing))
     assertEquals(0xFF4ADE80.toInt(), floatingMonitorBorderColor(FloatingMonitorVisualState.Running))
-    assertEquals(0xFFAFC6FF.toInt(), floatingMonitorBorderColor(FloatingMonitorVisualState.Processing))
+    assertEquals(0xFF9DCAFC.toInt(), floatingMonitorBorderColor(FloatingMonitorVisualState.Processing))
     assertEquals(0xFF000000.toInt(), FLOATING_MONITOR_TEXT_COLOR)
     assertEquals(0xD9000000.toInt(), FLOATING_MONITOR_LAST_TEXT_COLOR)
   }
@@ -48,10 +48,11 @@ class FloatingMonitorVisualSpecTest {
   @Test
   fun `fixed type hierarchy and processing geometry match active contract`() {
     assertEquals(20f, FLOATING_MONITOR_MAIN_VALUE_TEXT_SIZE_DP)
-    assertEquals(16f, FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP)
+    assertEquals(18f, FLOATING_MONITOR_PROCESSING_VALUE_TEXT_SIZE_DP)
     assertEquals(10f, FLOATING_MONITOR_LABEL_TEXT_SIZE_DP)
     assertEquals(10f, FLOATING_MONITOR_UNIT_TEXT_SIZE_DP)
-    assertEquals(0.68f, FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X)
+    assertEquals(0.80f, FLOATING_MONITOR_PROCESSING_TEXT_SCALE_X)
+    assertEquals(1f, FLOATING_MONITOR_UNIT_TEXT_SCALE_X)
     assertEquals(0.25f, FLOATING_MONITOR_PROC_CENTER_FRACTION)
     assertEquals(0.75f, FLOATING_MONITOR_LAST_CENTER_FRACTION)
     assertEquals(0.66f, FLOATING_MONITOR_PROCESSING_VALUE_BASELINE_FRACTION)
