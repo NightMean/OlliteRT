@@ -52,7 +52,7 @@ fun formatProcessingElapsed(elapsedMillis: Long): FloatingMonitorDurationText {
   return FloatingMonitorDurationText(value = totalSeconds.toString(), inlineUnit = "s")
 }
 
-fun formatPreviousSuccessfulLatency(latencyMs: Long): FloatingMonitorLatencyText {
+fun formatLastLatency(latencyMs: Long): FloatingMonitorLatencyText {
   val nonNegativeLatencyMs = latencyMs.coerceAtLeast(0)
   if (nonNegativeLatencyMs == 0L) {
     return FloatingMonitorLatencyText(value = "—", unit = null)

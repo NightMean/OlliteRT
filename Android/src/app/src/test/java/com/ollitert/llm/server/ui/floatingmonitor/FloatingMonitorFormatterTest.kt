@@ -42,15 +42,15 @@ class FloatingMonitorFormatterTest {
   }
 
   @Test
-  fun `previous successful latency uses tenths below one hundred seconds and integers through 999`() {
-    assertEquals(FloatingMonitorLatencyText(value = "—", unit = null), formatPreviousSuccessfulLatency(0))
-    assertEquals(FloatingMonitorLatencyText(value = "0.8", unit = "s"), formatPreviousSuccessfulLatency(842))
-    assertEquals(FloatingMonitorLatencyText(value = "9.9", unit = "s"), formatPreviousSuccessfulLatency(9_999))
-    assertEquals(FloatingMonitorLatencyText(value = "12.4", unit = "s"), formatPreviousSuccessfulLatency(12_449))
-    assertEquals(FloatingMonitorLatencyText(value = "99.9", unit = "s"), formatPreviousSuccessfulLatency(99_999))
-    assertEquals(FloatingMonitorLatencyText(value = "100", unit = "s"), formatPreviousSuccessfulLatency(100_000))
-    assertEquals(FloatingMonitorLatencyText(value = "999", unit = "s"), formatPreviousSuccessfulLatency(999_999))
-    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null), formatPreviousSuccessfulLatency(1_000_000))
-    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null), formatPreviousSuccessfulLatency(Long.MAX_VALUE))
+  fun `last latency uses tenths below one hundred seconds and integers through 999`() {
+    assertEquals(FloatingMonitorLatencyText(value = "—", unit = null), formatLastLatency(0))
+    assertEquals(FloatingMonitorLatencyText(value = "0.8", unit = "s"), formatLastLatency(842))
+    assertEquals(FloatingMonitorLatencyText(value = "9.9", unit = "s"), formatLastLatency(9_999))
+    assertEquals(FloatingMonitorLatencyText(value = "12.4", unit = "s"), formatLastLatency(12_449))
+    assertEquals(FloatingMonitorLatencyText(value = "99.9", unit = "s"), formatLastLatency(99_999))
+    assertEquals(FloatingMonitorLatencyText(value = "100", unit = "s"), formatLastLatency(100_000))
+    assertEquals(FloatingMonitorLatencyText(value = "999", unit = "s"), formatLastLatency(999_999))
+    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null), formatLastLatency(1_000_000))
+    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null), formatLastLatency(Long.MAX_VALUE))
   }
 }

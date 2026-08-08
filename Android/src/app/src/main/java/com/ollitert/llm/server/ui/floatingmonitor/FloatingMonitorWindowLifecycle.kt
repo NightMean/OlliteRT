@@ -32,7 +32,7 @@ fun deriveFloatingMonitorRenderModel(
   requestCount: Long,
   errorCount: Long,
   processingElapsedMillis: Long?,
-  previousSuccessfulLatencyMs: Long = 0L,
+  lastLatencyMs: Long = 0L,
 ): FloatingMonitorRenderModel? {
   if (visualState == FloatingMonitorVisualState.Hidden) return null
   val processingElapsed = formatProcessingElapsed(processingElapsedMillis ?: 0)
@@ -58,7 +58,7 @@ fun deriveFloatingMonitorRenderModel(
     lastLatency = when (visualState) {
       FloatingMonitorVisualState.Running -> null
       FloatingMonitorVisualState.Processing ->
-        formatPreviousSuccessfulLatency(previousSuccessfulLatencyMs)
+        formatLastLatency(lastLatencyMs)
       FloatingMonitorVisualState.Hidden -> error("Hidden was handled above")
     },
   )

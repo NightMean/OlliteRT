@@ -48,7 +48,6 @@ class FloatingMonitorController(
   private val appContext = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private val elapsedTracker = ProcessingElapsedTracker(SystemClock::elapsedRealtime)
-  private val previousSuccessfulLatencyLatch = PreviousSuccessfulLatencyLatch()
   private val window = LazyFloatingMonitorWindowPort {
     AndroidFloatingMonitorWindow(
       context = appContext,
@@ -226,11 +225,7 @@ class FloatingMonitorController(
       status = input.status,
       isInferring = input.isInferring,
     )
-    val previousSuccessfulLatencyMs = previousSuccessfulLatencyLatch.valueFor(
-      isProcessing = visualState == FloatingMonitorVisualState.Processing,
-      inferenceSequence = input.inferenceSequence,
-      liveLatencyMs = ServerMetrics.lastLatencyMs.value,
-    )
+    val lastLatencyMs = ServerMetrics.lastLatencyMs.value
     val visible = shouldShowFloatingMonitor(
       settingEnabled = input.settingEnabled,
       overlayPermissionGranted = input.overlayPermissionGranted,
@@ -247,7 +242,7 @@ class FloatingMonitorController(
         requestCount = ServerMetrics.requestCount.value,
         errorCount = ServerMetrics.errorCount.value,
         processingElapsedMillis = elapsedTracker.elapsedMillis(),
-        previousSuccessfulLatencyMs = previousSuccessfulLatencyMs,
+        lastLatencyMs = lastLatencyMs,
       )
     } else {
       null

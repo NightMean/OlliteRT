@@ -48,7 +48,7 @@ class FloatingMonitorWindowReconcilerTest {
         requestCount = 1_234,
         errorCount = 5,
         processingElapsedMillis = null,
-        previousSuccessfulLatencyMs = 842,
+        lastLatencyMs = 842,
       ),
     )
 
@@ -66,7 +66,7 @@ class FloatingMonitorWindowReconcilerTest {
         requestCount = 100_000,
         errorCount = 999,
         processingElapsedMillis = 61_000,
-        previousSuccessfulLatencyMs = 842,
+        lastLatencyMs = 842,
       ),
     )
   }
