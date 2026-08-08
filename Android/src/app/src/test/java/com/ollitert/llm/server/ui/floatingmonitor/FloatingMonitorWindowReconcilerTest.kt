@@ -58,6 +58,7 @@ class FloatingMonitorWindowReconcilerTest {
         requestValue = "99,999+",
         secondaryValue = "61",
         secondaryLabel = "proc",
+        secondaryUnit = "s",
         lastLatency = FloatingMonitorLatencyText(value = "0.8", unit = "s"),
       ),
       deriveFloatingMonitorRenderModel(
@@ -68,6 +69,31 @@ class FloatingMonitorWindowReconcilerTest {
         previousSuccessfulLatencyMs = 842,
       ),
     )
+  }
+
+  @Test
+  fun `processing render model keeps the unit only for values below the cap`() {
+    val exact = requireNotNull(
+      deriveFloatingMonitorRenderModel(
+        visualState = FloatingMonitorVisualState.Processing,
+        requestCount = 1,
+        errorCount = 0,
+        processingElapsedMillis = 999_999,
+      )
+    )
+    val capped = requireNotNull(
+      deriveFloatingMonitorRenderModel(
+        visualState = FloatingMonitorVisualState.Processing,
+        requestCount = 1,
+        errorCount = 0,
+        processingElapsedMillis = 1_000_000,
+      )
+    )
+
+    assertEquals("999", exact.secondaryValue)
+    assertEquals("s", exact.secondaryUnit)
+    assertEquals("999+", capped.secondaryValue)
+    assertNull(capped.secondaryUnit)
   }
 
   @Test
@@ -90,6 +116,9 @@ class FloatingMonitorWindowReconcilerTest {
       secondaryValue = "0",
       lastLatency = FloatingMonitorLatencyText(value = "—", unit = null),
     )
+    val cappedLastProcessing = processing.copy(
+      lastLatency = FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null),
+    )
 
     assertEquals(
       "Running, requests 1,234, errors 5",
@@ -102,6 +131,10 @@ class FloatingMonitorWindowReconcilerTest {
     assertEquals(
       "Processing, requests 99,999+, current processing 0 seconds, last successful latency unavailable",
       floatingMonitorContentDescription(firstProcessing),
+    )
+    assertEquals(
+      "Processing, requests 99,999+, current processing 61 seconds, last successful latency 999+ seconds",
+      floatingMonitorContentDescription(cappedLastProcessing),
     )
   }
 

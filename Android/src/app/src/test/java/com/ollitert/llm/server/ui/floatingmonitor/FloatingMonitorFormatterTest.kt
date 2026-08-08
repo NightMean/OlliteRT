@@ -33,25 +33,24 @@ class FloatingMonitorFormatterTest {
   }
 
   @Test
-  fun `processing elapsed always uses seconds without an inline suffix`() {
-    assertEquals("0", formatProcessingElapsed(0))
-    assertEquals("59", formatProcessingElapsed(59_999))
-    assertEquals("60", formatProcessingElapsed(60_000))
-    assertEquals("3599", formatProcessingElapsed(3_599_000))
-    assertEquals("9999", formatProcessingElapsed(9_999_999))
-    assertEquals("9999+", formatProcessingElapsed(10_000_000))
-    assertEquals("9999+", formatProcessingElapsed(Long.MAX_VALUE))
+  fun `processing elapsed caps at 999 seconds and drops only the capped inline unit`() {
+    assertEquals(FloatingMonitorDurationText(value = "0", inlineUnit = "s"), formatProcessingElapsed(0))
+    assertEquals(FloatingMonitorDurationText(value = "59", inlineUnit = "s"), formatProcessingElapsed(59_999))
+    assertEquals(FloatingMonitorDurationText(value = "999", inlineUnit = "s"), formatProcessingElapsed(999_999))
+    assertEquals(FloatingMonitorDurationText(value = "999+", inlineUnit = null), formatProcessingElapsed(1_000_000))
+    assertEquals(FloatingMonitorDurationText(value = "999+", inlineUnit = null), formatProcessingElapsed(Long.MAX_VALUE))
   }
 
   @Test
-  fun `previous successful latency always uses one decimal seconds`() {
+  fun `previous successful latency uses tenths below one hundred seconds and integers through 999`() {
     assertEquals(FloatingMonitorLatencyText(value = "—", unit = null), formatPreviousSuccessfulLatency(0))
     assertEquals(FloatingMonitorLatencyText(value = "0.8", unit = "s"), formatPreviousSuccessfulLatency(842))
     assertEquals(FloatingMonitorLatencyText(value = "9.9", unit = "s"), formatPreviousSuccessfulLatency(9_999))
-    assertEquals(FloatingMonitorLatencyText(value = "10.0", unit = "s"), formatPreviousSuccessfulLatency(10_000))
     assertEquals(FloatingMonitorLatencyText(value = "12.4", unit = "s"), formatPreviousSuccessfulLatency(12_449))
-    assertEquals(FloatingMonitorLatencyText(value = "999.9", unit = "s"), formatPreviousSuccessfulLatency(999_999))
-    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s"), formatPreviousSuccessfulLatency(1_000_000))
-    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s"), formatPreviousSuccessfulLatency(Long.MAX_VALUE))
+    assertEquals(FloatingMonitorLatencyText(value = "99.9", unit = "s"), formatPreviousSuccessfulLatency(99_999))
+    assertEquals(FloatingMonitorLatencyText(value = "100", unit = "s"), formatPreviousSuccessfulLatency(100_000))
+    assertEquals(FloatingMonitorLatencyText(value = "999", unit = "s"), formatPreviousSuccessfulLatency(999_999))
+    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null), formatPreviousSuccessfulLatency(1_000_000))
+    assertEquals(FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null), formatPreviousSuccessfulLatency(Long.MAX_VALUE))
   }
 }

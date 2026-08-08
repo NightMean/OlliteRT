@@ -17,12 +17,19 @@
 package com.ollitert.llm.server.ui.floatingmonitor
 
 private const val MAX_EXACT_COUNT = 99_999L
-private const val MAX_EXACT_ELAPSED_SECONDS = 9_999L
+private const val MAX_EXACT_ELAPSED_SECONDS = 999L
 private const val LAST_LATENCY_CAP_MS = 1_000_000L
+private const val LAST_LATENCY_TENTHS_MAX_SECONDS = 99L
+
+data class FloatingMonitorDurationText(
+  val value: String,
+  val inlineUnit: String?,
+)
 
 data class FloatingMonitorLatencyText(
   val value: String,
   val unit: String?,
+  val inlineUnit: String? = unit,
 )
 
 fun formatFloatingMonitorCount(count: Long): String {
@@ -36,11 +43,13 @@ fun formatFloatingMonitorCount(count: Long): String {
     .reversed()
 }
 
-fun formatProcessingElapsed(elapsedMillis: Long): String {
+fun formatProcessingElapsed(elapsedMillis: Long): FloatingMonitorDurationText {
   val nonNegativeMillis = elapsedMillis.coerceAtLeast(0)
   val totalSeconds = nonNegativeMillis / 1_000
-  if (totalSeconds > MAX_EXACT_ELAPSED_SECONDS) return "9999+"
-  return totalSeconds.toString()
+  if (totalSeconds > MAX_EXACT_ELAPSED_SECONDS) {
+    return FloatingMonitorDurationText(value = "999+", inlineUnit = null)
+  }
+  return FloatingMonitorDurationText(value = totalSeconds.toString(), inlineUnit = "s")
 }
 
 fun formatPreviousSuccessfulLatency(latencyMs: Long): FloatingMonitorLatencyText {
@@ -49,10 +58,13 @@ fun formatPreviousSuccessfulLatency(latencyMs: Long): FloatingMonitorLatencyText
     return FloatingMonitorLatencyText(value = "—", unit = null)
   }
   if (nonNegativeLatencyMs >= LAST_LATENCY_CAP_MS) {
-    return FloatingMonitorLatencyText(value = "999+", unit = "s")
+    return FloatingMonitorLatencyText(value = "999+", unit = "s", inlineUnit = null)
   }
 
   val wholeSeconds = nonNegativeLatencyMs / 1_000L
   val tenths = (nonNegativeLatencyMs % 1_000L) / 100L
+  if (wholeSeconds > LAST_LATENCY_TENTHS_MAX_SECONDS) {
+    return FloatingMonitorLatencyText(value = wholeSeconds.toString(), unit = "s")
+  }
   return FloatingMonitorLatencyText(value = "$wholeSeconds.$tenths", unit = "s")
 }

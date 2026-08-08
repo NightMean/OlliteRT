@@ -23,6 +23,7 @@ data class FloatingMonitorRenderModel(
   val requestValue: String,
   val secondaryValue: String,
   val secondaryLabel: String,
+  val secondaryUnit: String? = null,
   val lastLatency: FloatingMonitorLatencyText? = null,
 )
 
@@ -34,18 +35,24 @@ fun deriveFloatingMonitorRenderModel(
   previousSuccessfulLatencyMs: Long = 0L,
 ): FloatingMonitorRenderModel? {
   if (visualState == FloatingMonitorVisualState.Hidden) return null
+  val processingElapsed = formatProcessingElapsed(processingElapsedMillis ?: 0)
 
   return FloatingMonitorRenderModel(
     visualState = visualState,
     requestValue = formatFloatingMonitorCount(requestCount),
     secondaryValue = when (visualState) {
       FloatingMonitorVisualState.Running -> formatFloatingMonitorCount(errorCount)
-      FloatingMonitorVisualState.Processing -> formatProcessingElapsed(processingElapsedMillis ?: 0)
+      FloatingMonitorVisualState.Processing -> processingElapsed.value
       FloatingMonitorVisualState.Hidden -> error("Hidden was handled above")
     },
     secondaryLabel = when (visualState) {
       FloatingMonitorVisualState.Running -> "err"
       FloatingMonitorVisualState.Processing -> "proc"
+      FloatingMonitorVisualState.Hidden -> error("Hidden was handled above")
+    },
+    secondaryUnit = when (visualState) {
+      FloatingMonitorVisualState.Running -> null
+      FloatingMonitorVisualState.Processing -> processingElapsed.inlineUnit
       FloatingMonitorVisualState.Hidden -> error("Hidden was handled above")
     },
     lastLatency = when (visualState) {

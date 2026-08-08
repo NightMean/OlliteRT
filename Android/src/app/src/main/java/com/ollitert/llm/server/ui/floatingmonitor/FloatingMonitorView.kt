@@ -282,7 +282,7 @@ internal class FloatingMonitorView(
     drawCompositeMetric(
       canvas = canvas,
       value = current.secondaryValue,
-      unit = "s",
+      unit = current.secondaryUnit,
       centerX = procCenterX,
       baseline = valueBaseline,
       valuePaint = processingValuePaint,
@@ -291,7 +291,7 @@ internal class FloatingMonitorView(
     drawLastCompositeMetric(
       canvas = canvas,
       value = lastLatency.value,
-      unit = lastLatency.unit,
+      unit = lastLatency.inlineUnit,
       centerX = lastCenterX,
       baseline = valueBaseline,
     )
