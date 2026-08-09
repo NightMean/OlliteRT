@@ -36,18 +36,28 @@ class FloatingMonitorCadenceTest {
       needsFloatingMonitorTimedRefresh(
         isInferring = true,
         hasPendingWindowRetry = false,
+        isVisible = true,
       ),
     )
     assertTrue(
       needsFloatingMonitorTimedRefresh(
         isInferring = false,
         hasPendingWindowRetry = true,
+        isVisible = false,
       ),
     )
     assertFalse(
       needsFloatingMonitorTimedRefresh(
         isInferring = false,
         hasPendingWindowRetry = false,
+        isVisible = true,
+      ),
+    )
+    assertFalse(
+      needsFloatingMonitorTimedRefresh(
+        isInferring = true,
+        hasPendingWindowRetry = false,
+        isVisible = false,
       ),
     )
   }

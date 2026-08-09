@@ -115,6 +115,7 @@ class FloatingMonitorController(
         throw exception
       } catch (exception: RuntimeException) {
         Log.w(TAG, "Floating monitor observer stopped after a contained failure", exception)
+        cancelTimedRender()
         window?.dispose()
       }
     }
@@ -213,10 +214,10 @@ class FloatingMonitorController(
     cancelTimedRender()
     if (
       !retryAllowed ||
-      !isVisible(input) ||
       !needsFloatingMonitorTimedRefresh(
         isInferring = input.isInferring,
         hasPendingWindowRetry = consecutiveWindowFailures > 0,
+        isVisible = isVisible(input),
       )
     ) {
       return
@@ -228,10 +229,10 @@ class FloatingMonitorController(
           val latest = latestInput ?: break
           if (!render(latest)) break
           if (
-            !isVisible(latest) ||
             !needsFloatingMonitorTimedRefresh(
               isInferring = latest.isInferring,
               hasPendingWindowRetry = consecutiveWindowFailures > 0,
+              isVisible = isVisible(latest),
             )
           ) {
             break
@@ -437,7 +438,8 @@ internal const val FLOATING_MONITOR_REFRESH_MILLIS = 1_000L
 internal fun needsFloatingMonitorTimedRefresh(
   isInferring: Boolean,
   hasPendingWindowRetry: Boolean,
-): Boolean = isInferring || hasPendingWindowRetry
+  isVisible: Boolean,
+): Boolean = hasPendingWindowRetry || (isInferring && isVisible)
 
 internal fun shouldReactivateFloatingMonitorRetryBudget(
   previous: FloatingMonitorRetryActivationKey?,
