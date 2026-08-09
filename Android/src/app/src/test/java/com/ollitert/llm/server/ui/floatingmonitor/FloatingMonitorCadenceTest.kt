@@ -17,49 +17,37 @@
 package com.ollitert.llm.server.ui.floatingmonitor
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FloatingMonitorCadenceTest {
   @Test
-  fun `first visible frame renders immediately`() {
+  fun `timed refresh interval remains one second`() {
     assertEquals(
-      0L,
-      floatingMonitorVisibleRenderDelayMillis(
-        wasVisible = false,
-        lastRenderAtMillis = Long.MIN_VALUE,
-        nowMillis = 100L,
-      ),
-    )
-  }
-
-  @Test
-  fun `visible state emissions share one second cadence`() {
-    assertEquals(
-      900L,
-      floatingMonitorVisibleRenderDelayMillis(
-        wasVisible = true,
-        lastRenderAtMillis = 1_000L,
-        nowMillis = 1_100L,
-      ),
-    )
-    assertEquals(
-      0L,
-      floatingMonitorVisibleRenderDelayMillis(
-        wasVisible = true,
-        lastRenderAtMillis = 1_000L,
-        nowMillis = 2_000L,
-      ),
-    )
-  }
-
-  @Test
-  fun `clock rollback never creates a negative delay`() {
-    assertEquals(
+      1_000L,
       FLOATING_MONITOR_REFRESH_MILLIS,
-      floatingMonitorVisibleRenderDelayMillis(
-        wasVisible = true,
-        lastRenderAtMillis = 2_000L,
-        nowMillis = 1_000L,
+    )
+  }
+
+  @Test
+  fun `only processing or a pending window retry needs a timed refresh`() {
+    assertTrue(
+      needsFloatingMonitorTimedRefresh(
+        isInferring = true,
+        hasPendingWindowRetry = false,
+      ),
+    )
+    assertTrue(
+      needsFloatingMonitorTimedRefresh(
+        isInferring = false,
+        hasPendingWindowRetry = true,
+      ),
+    )
+    assertFalse(
+      needsFloatingMonitorTimedRefresh(
+        isInferring = false,
+        hasPendingWindowRetry = false,
       ),
     )
   }

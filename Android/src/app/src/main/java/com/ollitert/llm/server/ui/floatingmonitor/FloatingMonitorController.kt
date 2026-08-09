@@ -35,7 +35,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -52,12 +52,12 @@ class FloatingMonitorController(
   private val tapSuppressionActive = MutableStateFlow(false)
   private var tapSuppressionReleaseJob: Job? = null
   private var monitorJob: Job? = null
+  private var timedRenderJob: Job? = null
   private var latestInput: CoreInput? = null
   private var retryActivationKey: FloatingMonitorRetryActivationKey? = null
   private var consecutiveWindowFailures = 0
   private var retryAllowed = true
   private var ignoreNextLaunchSuppressionReleaseActivation = false
-  private var lastVisibleRenderAtMillis = Long.MIN_VALUE
   private var activeInferenceSequence: Long? = null
   private var processingStartedAtMillis: Long? = null
   private var disposed = false
@@ -104,34 +104,12 @@ class FloatingMonitorController(
             overlayPermissionGranted = visibility.overlayPermissionGranted,
             launchSuppressionActive = visibility.launchSuppressionActive,
           )
-        }.collectLatest { input ->
+        }.collect { input ->
           latestInput = input
           activateRetryBudgetIfNeeded(input)
           if (input.appIsForeground) releaseTapSuppression()
           updateProcessingElapsed(input.isInferring, input.inferenceSequence)
-          val visible = isVisible(input)
-          if (!visible) {
-            lastVisibleRenderAtMillis = Long.MIN_VALUE
-          } else if (lastVisibleRenderAtMillis != Long.MIN_VALUE) {
-            val remainingDelay = floatingMonitorVisibleRenderDelayMillis(
-              wasVisible = true,
-              lastRenderAtMillis = lastVisibleRenderAtMillis,
-              nowMillis = SystemClock.elapsedRealtime(),
-            )
-            if (remainingDelay > 0L) delay(remainingDelay)
-          }
-          if (!render(input)) return@collectLatest
-          if (visible) {
-            lastVisibleRenderAtMillis = SystemClock.elapsedRealtime()
-          }
-
-          while (currentCoroutineContext().isActive) {
-            delay(FLOATING_MONITOR_REFRESH_MILLIS)
-            val observedPermission = permissionCoordinator.refreshObservedPermission(appContext)
-            if (observedPermission != input.overlayPermissionGranted) return@collectLatest
-            if (!render(input)) return@collectLatest
-            if (visible) lastVisibleRenderAtMillis = SystemClock.elapsedRealtime()
-          }
+          if (render(input)) updateTimedRender(input) else cancelTimedRender()
         }
       } catch (exception: CancellationException) {
         throw exception
@@ -147,6 +125,7 @@ class FloatingMonitorController(
     disposed = true
     monitorJob?.cancel()
     monitorJob = null
+    cancelTimedRender()
     disposeTapSuppression()
     scope.cancel()
     clearProcessingElapsed()
@@ -187,7 +166,6 @@ class FloatingMonitorController(
     val key = input.copy(launchSuppressionActive = true).retryActivationKey()
     retryActivationKey = key
     resetWindowRetryBudget()
-    lastVisibleRenderAtMillis = Long.MIN_VALUE
   }
 
   private fun isVisible(input: CoreInput): Boolean = shouldShowFloatingMonitor(
@@ -229,6 +207,48 @@ class FloatingMonitorController(
     }
     val reconciled = reconcileWindow(model)
     return retryAllowed && (model != null || !reconciled)
+  }
+
+  private fun updateTimedRender(input: CoreInput) {
+    cancelTimedRender()
+    if (
+      !retryAllowed ||
+      !isVisible(input) ||
+      !needsFloatingMonitorTimedRefresh(
+        isInferring = input.isInferring,
+        hasPendingWindowRetry = consecutiveWindowFailures > 0,
+      )
+    ) {
+      return
+    }
+    timedRenderJob = scope.launch {
+      try {
+        while (currentCoroutineContext().isActive) {
+          delay(FLOATING_MONITOR_REFRESH_MILLIS)
+          val latest = latestInput ?: break
+          if (!render(latest)) break
+          if (
+            !isVisible(latest) ||
+            !needsFloatingMonitorTimedRefresh(
+              isInferring = latest.isInferring,
+              hasPendingWindowRetry = consecutiveWindowFailures > 0,
+            )
+          ) {
+            break
+          }
+        }
+      } catch (exception: CancellationException) {
+        throw exception
+      } catch (exception: RuntimeException) {
+        Log.w(TAG, "Floating monitor timed refresh stopped after a contained failure", exception)
+        window?.dispose()
+      }
+    }
+  }
+
+  private fun cancelTimedRender() {
+    timedRenderJob?.cancel()
+    timedRenderJob = null
   }
 
   private fun reconcileWindow(model: FloatingMonitorRenderModel?): Boolean {
@@ -292,10 +312,12 @@ class FloatingMonitorController(
     if (!retryAllowed) {
       Log.w(TAG, "Floating monitor retry budget exhausted after interaction failures")
     }
+    latestInput?.let(::updateTimedRender)
   }
 
   private fun handleTap() {
     if (disposed) return
+    cancelTimedRender()
     beginTapSuppression()
     activateRetryBudgetForTapSuppression()
     reconcileWindow(null)
@@ -335,10 +357,7 @@ class FloatingMonitorController(
     if (disposed) return
     val input = latestInput ?: return
     val recoveryInput = input.copy(launchSuppressionActive = false)
-    render(recoveryInput)
-    if (isVisible(recoveryInput)) {
-      lastVisibleRenderAtMillis = SystemClock.elapsedRealtime()
-    }
+    if (render(recoveryInput)) updateTimedRender(recoveryInput) else cancelTimedRender()
   }
 
   private fun openMainActivity(): Boolean {
@@ -415,15 +434,10 @@ internal data class FloatingMonitorRetryActivationKey(
 
 internal const val FLOATING_MONITOR_REFRESH_MILLIS = 1_000L
 
-internal fun floatingMonitorVisibleRenderDelayMillis(
-  wasVisible: Boolean,
-  lastRenderAtMillis: Long,
-  nowMillis: Long,
-): Long {
-  if (!wasVisible || lastRenderAtMillis == Long.MIN_VALUE) return 0L
-  val elapsedMillis = (nowMillis - lastRenderAtMillis).coerceAtLeast(0L)
-  return (FLOATING_MONITOR_REFRESH_MILLIS - elapsedMillis).coerceAtLeast(0L)
-}
+internal fun needsFloatingMonitorTimedRefresh(
+  isInferring: Boolean,
+  hasPendingWindowRetry: Boolean,
+): Boolean = isInferring || hasPendingWindowRetry
 
 internal fun shouldReactivateFloatingMonitorRetryBudget(
   previous: FloatingMonitorRetryActivationKey?,
