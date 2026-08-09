@@ -33,13 +33,13 @@ internal class AndroidFloatingMonitorWindow(
   context: Context,
   onTap: () -> Unit,
   private val onWindowOperationFailure: (RuntimeException) -> Unit = {},
-) : FloatingMonitorWindowPort {
+) {
   private val appContext = context.applicationContext
   private val windowManager = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
   private val monitorWidth = dp(FLOATING_MONITOR_WIDTH_DP)
   private val monitorHeight = dp(FLOATING_MONITOR_HEIGHT_DP)
   private val view = FloatingMonitorView(appContext, onTap)
-  private val renderGate = FloatingMonitorRenderGate()
+  private var lastRenderedModel: FloatingMonitorRenderModel? = null
   private val gestureTracker = FloatingMonitorGestureTracker(
     ViewConfiguration.get(appContext).scaledTouchSlop.toFloat()
   )
@@ -63,10 +63,48 @@ internal class AndroidFloatingMonitorWindow(
     installTouchHandling()
   }
 
-  override val isAttached: Boolean
+  private val isAttached: Boolean
     get() = view.parent != null
 
-  override fun attach(model: FloatingMonitorRenderModel) {
+  internal fun reconcile(model: FloatingMonitorRenderModel?): Boolean {
+    if (model == null) return detachIfAttached()
+
+    if (!isAttached) {
+      return try {
+        attach(model)
+        isAttached
+      } catch (exception: RuntimeException) {
+        reportReconcileFailure(exception)
+        false
+      }
+    }
+
+    return try {
+      update(model)
+      isAttached
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+      detachIfAttached()
+      false
+    }
+  }
+
+  internal fun dispose() {
+    var attempts = 0
+    while (isAttached && attempts < MAX_DISPOSE_DETACH_ATTEMPTS) {
+      detachIfAttached()
+      attempts += 1
+    }
+    if (isAttached) {
+      try {
+        deactivate()
+      } catch (exception: RuntimeException) {
+        reportReconcileFailure(exception)
+      }
+    }
+  }
+
+  private fun attach(model: FloatingMonitorRenderModel) {
     if (isAttached) {
       update(model)
       return
@@ -77,33 +115,50 @@ internal class AndroidFloatingMonitorWindow(
     windowManager.addView(view, layoutParams)
   }
 
-  override fun update(model: FloatingMonitorRenderModel) {
+  private fun update(model: FloatingMonitorRenderModel) {
     renderIfChanged(model)
     reconcileChangedBounds()
   }
 
-  override fun detach() {
+  private fun detach() {
     if (!isAttached) {
-      renderGate.reset()
+      lastRenderedModel = null
       return
     }
     try {
       windowManager.removeViewImmediate(view)
     } finally {
-      if (!isAttached) renderGate.reset()
+      if (!isAttached) lastRenderedModel = null
     }
   }
 
-  override fun deactivate() {
+  private fun deactivate() {
     view.setOnTouchListener(null)
     view.setOnClickListener(null)
     view.isClickable = false
     view.visibility = View.GONE
-    renderGate.reset()
+    lastRenderedModel = null
   }
 
   private fun renderIfChanged(model: FloatingMonitorRenderModel) {
-    renderGate.renderIfChanged(model) { view.render(model) }
+    if (model == lastRenderedModel) return
+    view.render(model)
+    lastRenderedModel = model
+  }
+
+  private fun detachIfAttached(): Boolean {
+    if (!isAttached) return true
+    return try {
+      detach()
+      !isAttached
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+      false
+    }
+  }
+
+  private fun reportReconcileFailure(failure: RuntimeException) {
+    Log.w(TAG, "Floating monitor window operation failed", failure)
   }
 
   @SuppressLint("ClickableViewAccessibility")
@@ -258,5 +313,6 @@ internal class AndroidFloatingMonitorWindow(
     const val TAG = "OlliteRT.FloatWindow"
     const val DEFAULT_RIGHT_MARGIN_DP = 16f
     const val DEFAULT_TOP_OFFSET_DP = 120f
+    const val MAX_DISPOSE_DETACH_ATTEMPTS = 2
   }
 }

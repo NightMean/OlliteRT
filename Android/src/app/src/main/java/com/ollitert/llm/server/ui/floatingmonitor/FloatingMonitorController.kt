@@ -34,6 +34,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
@@ -47,34 +48,19 @@ class FloatingMonitorController(
 ) {
   private val appContext = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-  private val elapsedTracker = ProcessingElapsedTracker(SystemClock::elapsedRealtime)
-  private val window = LazyFloatingMonitorWindowPort {
-    AndroidFloatingMonitorWindow(
-      context = appContext,
-      onTap = { handleTap() },
-      onWindowOperationFailure = { handleWindowOperationFailure(it) },
-    )
-  }
-  private val reconciler = FloatingMonitorWindowReconciler(window) { failure ->
-    Log.w(TAG, "Floating monitor window operation failed", failure)
-  }
-  private val tapCoordinator = FloatingMonitorTapCoordinator(
-    scope = scope,
-    timeoutMillis = TAP_SUPPRESSION_TIMEOUT_MILLIS,
-    detach = { reconcileWindow(null) },
-    launch = { openMainActivity() },
-    reconcile = { reconcileAfterTapSuppression() },
-    activateSuppressionInput = { activateRetryBudgetForTapSuppression() },
-    onLaunchFailed = { ignoreNextLaunchSuppressionReleaseActivation = true },
-  )
+  private var window: AndroidFloatingMonitorWindow? = null
+  private val tapSuppressionActive = MutableStateFlow(false)
+  private var tapSuppressionReleaseJob: Job? = null
   private var monitorJob: Job? = null
   private var latestInput: CoreInput? = null
   private var retryActivationKey: FloatingMonitorRetryActivationKey? = null
-  private var retryBudget = FloatingMonitorRetryBudget(MAX_CONSECUTIVE_WINDOW_FAILURES)
+  private var consecutiveWindowFailures = 0
   private var retryAllowed = true
   private var ignoreNextLaunchSuppressionReleaseActivation = false
   private var visibleLastCycle = false
   private var lastVisibleRenderAtMillis = Long.MIN_VALUE
+  private var activeInferenceSequence: Long? = null
+  private var processingStartedAtMillis: Long? = null
   private var disposed = false
 
   fun start() {
@@ -100,7 +86,7 @@ class FloatingMonitorController(
         val visibilityInputs = combine(
           permissionCoordinator.permissionFlowInProgress,
           permissionCoordinator.overlayPermissionGranted,
-          tapCoordinator.suppressionActive,
+          tapSuppressionActive,
         ) { permissionFlowInProgress, overlayPermissionGranted, launchSuppressionActive ->
           VisibilityInput(
             permissionFlowInProgress = permissionFlowInProgress,
@@ -122,8 +108,8 @@ class FloatingMonitorController(
         }.collectLatest { input ->
           latestInput = input
           activateRetryBudgetIfNeeded(input)
-          if (input.appIsForeground) tapCoordinator.onAppForegrounded()
-          elapsedTracker.update(input.isInferring, input.inferenceSequence)
+          if (input.appIsForeground) releaseTapSuppression()
+          updateProcessingElapsed(input.isInferring, input.inferenceSequence)
           val visible = isVisible(input)
           if (!visible) {
             visibleLastCycle = false
@@ -154,7 +140,7 @@ class FloatingMonitorController(
         throw exception
       } catch (exception: RuntimeException) {
         Log.w(TAG, "Floating monitor observer stopped after a contained failure", exception)
-        reconciler.dispose()
+        window?.dispose()
       }
     }
   }
@@ -164,10 +150,10 @@ class FloatingMonitorController(
     disposed = true
     monitorJob?.cancel()
     monitorJob = null
-    tapCoordinator.dispose()
+    disposeTapSuppression()
     scope.cancel()
-    elapsedTracker.dispose()
-    reconciler.dispose()
+    clearProcessingElapsed()
+    window?.dispose()
   }
 
   private fun activateRetryBudgetIfNeeded(input: CoreInput) {
@@ -182,8 +168,7 @@ class FloatingMonitorController(
       ignoreNextLaunchSuppressionReleaseActivation = false
     }
     if (!shouldReactivate) return
-    retryBudget = FloatingMonitorRetryBudget(MAX_CONSECUTIVE_WINDOW_FAILURES)
-    retryAllowed = true
+    resetWindowRetryBudget()
   }
 
   private fun CoreInput.retryActivationKey() = FloatingMonitorRetryActivationKey(
@@ -204,8 +189,7 @@ class FloatingMonitorController(
     ignoreNextLaunchSuppressionReleaseActivation = false
     val key = input.copy(launchSuppressionActive = true).retryActivationKey()
     retryActivationKey = key
-    retryBudget = FloatingMonitorRetryBudget(MAX_CONSECUTIVE_WINDOW_FAILURES)
-    retryAllowed = true
+    resetWindowRetryBudget()
     visibleLastCycle = false
     lastVisibleRenderAtMillis = Long.MIN_VALUE
   }
@@ -241,33 +225,74 @@ class FloatingMonitorController(
         visualState = visualState,
         requestCount = ServerMetrics.requestCount.value,
         errorCount = ServerMetrics.errorCount.value,
-        processingElapsedMillis = elapsedTracker.elapsedMillis(),
+        processingElapsedMillis = processingElapsedMillis(),
         lastLatencyMs = lastLatencyMs,
       )
     } else {
       null
     }
     val reconciled = reconcileWindow(model)
-    return shouldContinueFloatingMonitorReconciliation(
-      modelVisible = model != null,
-      reconciled = reconciled,
-      retryAllowed = retryAllowed,
-    )
+    return retryAllowed && (model != null || !reconciled)
   }
 
   private fun reconcileWindow(model: FloatingMonitorRenderModel?): Boolean {
     if (!retryAllowed) return false
-    val reconciled = reconciler.reconcile(model)
-    retryAllowed = retryBudget.record(reconciled)
+    val reconciled = if (model == null) {
+      window?.reconcile(null) ?: true
+    } else {
+      window().reconcile(model)
+    }
+    retryAllowed = recordWindowResult(reconciled)
     if (!reconciled && !retryAllowed) {
       Log.w(TAG, "Floating monitor retry budget exhausted; waiting for a relevant input change")
     }
     return reconciled
   }
 
+  private fun window(): AndroidFloatingMonitorWindow =
+    window ?: AndroidFloatingMonitorWindow(
+      context = appContext,
+      onTap = { handleTap() },
+      onWindowOperationFailure = { handleWindowOperationFailure(it) },
+    ).also { window = it }
+
+  private fun resetWindowRetryBudget() {
+    consecutiveWindowFailures = 0
+    retryAllowed = true
+  }
+
+  private fun recordWindowResult(success: Boolean): Boolean {
+    if (success) {
+      consecutiveWindowFailures = 0
+      return true
+    }
+    consecutiveWindowFailures += 1
+    return consecutiveWindowFailures < MAX_CONSECUTIVE_WINDOW_FAILURES
+  }
+
+  private fun updateProcessingElapsed(isInferring: Boolean, inferenceSequence: Long) {
+    if (!isInferring) {
+      clearProcessingElapsed()
+      return
+    }
+    if (activeInferenceSequence != inferenceSequence) {
+      activeInferenceSequence = inferenceSequence
+      processingStartedAtMillis = SystemClock.elapsedRealtime()
+    }
+  }
+
+  private fun processingElapsedMillis(): Long? = processingStartedAtMillis?.let { startedAt ->
+    (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0)
+  }
+
+  private fun clearProcessingElapsed() {
+    activeInferenceSequence = null
+    processingStartedAtMillis = null
+  }
+
   private fun handleWindowOperationFailure(failure: RuntimeException) {
     Log.w(TAG, "Floating monitor interaction window operation failed", failure)
-    retryAllowed = retryBudget.record(success = false)
+    retryAllowed = recordWindowResult(success = false)
     if (!retryAllowed) {
       Log.w(TAG, "Floating monitor retry budget exhausted after interaction failures")
     }
@@ -275,7 +300,39 @@ class FloatingMonitorController(
 
   private fun handleTap() {
     if (disposed) return
-    tapCoordinator.handleTap()
+    beginTapSuppression()
+    activateRetryBudgetForTapSuppression()
+    reconcileWindow(null)
+    if (!openMainActivity()) {
+      ignoreNextLaunchSuppressionReleaseActivation = true
+      releaseTapSuppression()
+    }
+  }
+
+  private fun beginTapSuppression() {
+    tapSuppressionReleaseJob?.cancel()
+    tapSuppressionActive.value = true
+    tapSuppressionReleaseJob = scope.launch {
+      delay(TAP_SUPPRESSION_TIMEOUT_MILLIS)
+      if (!tapSuppressionActive.value) return@launch
+      tapSuppressionActive.value = false
+      tapSuppressionReleaseJob = null
+      reconcileAfterTapSuppression()
+    }
+  }
+
+  private fun releaseTapSuppression() {
+    val wasActive = tapSuppressionActive.value
+    tapSuppressionReleaseJob?.cancel()
+    tapSuppressionReleaseJob = null
+    tapSuppressionActive.value = false
+    if (wasActive) reconcileAfterTapSuppression()
+  }
+
+  private fun disposeTapSuppression() {
+    tapSuppressionReleaseJob?.cancel()
+    tapSuppressionReleaseJob = null
+    tapSuppressionActive.value = false
   }
 
   private fun reconcileAfterTapSuppression() {
