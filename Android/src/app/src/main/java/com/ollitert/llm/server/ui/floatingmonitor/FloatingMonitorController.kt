@@ -57,7 +57,6 @@ class FloatingMonitorController(
   private var consecutiveWindowFailures = 0
   private var retryAllowed = true
   private var ignoreNextLaunchSuppressionReleaseActivation = false
-  private var visibleLastCycle = false
   private var lastVisibleRenderAtMillis = Long.MIN_VALUE
   private var activeInferenceSequence: Long? = null
   private var processingStartedAtMillis: Long? = null
@@ -112,9 +111,8 @@ class FloatingMonitorController(
           updateProcessingElapsed(input.isInferring, input.inferenceSequence)
           val visible = isVisible(input)
           if (!visible) {
-            visibleLastCycle = false
             lastVisibleRenderAtMillis = Long.MIN_VALUE
-          } else if (visibleLastCycle) {
+          } else if (lastVisibleRenderAtMillis != Long.MIN_VALUE) {
             val remainingDelay = floatingMonitorVisibleRenderDelayMillis(
               wasVisible = true,
               lastRenderAtMillis = lastVisibleRenderAtMillis,
@@ -124,7 +122,6 @@ class FloatingMonitorController(
           }
           if (!render(input)) return@collectLatest
           if (visible) {
-            visibleLastCycle = true
             lastVisibleRenderAtMillis = SystemClock.elapsedRealtime()
           }
 
@@ -190,7 +187,6 @@ class FloatingMonitorController(
     val key = input.copy(launchSuppressionActive = true).retryActivationKey()
     retryActivationKey = key
     resetWindowRetryBudget()
-    visibleLastCycle = false
     lastVisibleRenderAtMillis = Long.MIN_VALUE
   }
 
@@ -341,7 +337,6 @@ class FloatingMonitorController(
     val recoveryInput = input.copy(launchSuppressionActive = false)
     render(recoveryInput)
     if (isVisible(recoveryInput)) {
-      visibleLastCycle = true
       lastVisibleRenderAtMillis = SystemClock.elapsedRealtime()
     }
   }
