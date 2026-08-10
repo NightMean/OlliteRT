@@ -78,6 +78,13 @@ data class FloatingMonitorPoint(
   val y: Int,
 )
 
+internal data class FloatingMonitorPendingLayout(
+  val point: FloatingMonitorPoint,
+  val persistAfterReplay: Boolean,
+) {
+  fun afterReplay(succeeded: Boolean): FloatingMonitorPendingLayout? = if (succeeded) null else this
+}
+
 data class FloatingMonitorPlacementBounds(
   val minX: Int,
   val maxX: Int,

@@ -53,6 +53,7 @@ class FloatingMonitorController(
   private var tapSuppressionReleaseJob: Job? = null
   private var monitorJob: Job? = null
   private var timedRenderJob: Job? = null
+  private var disposeRetryJob: Job? = null
   private var latestInput: CoreInput? = null
   private var retryActivationKey: FloatingMonitorRetryActivationKey? = null
   private var consecutiveWindowFailures = 0
@@ -115,8 +116,7 @@ class FloatingMonitorController(
         throw exception
       } catch (exception: RuntimeException) {
         Log.w(TAG, "Floating monitor observer stopped after a contained failure", exception)
-        cancelTimedRender()
-        window?.dispose()
+        dispose()
       }
     }
   }
@@ -128,9 +128,37 @@ class FloatingMonitorController(
     monitorJob = null
     cancelTimedRender()
     disposeTapSuppression()
-    scope.cancel()
     clearProcessingElapsed()
-    window?.dispose()
+    disposeWindow()
+  }
+
+  private fun disposeWindow() {
+    if (window?.dispose() != false) {
+      completeDisposal()
+      return
+    }
+    disposeRetryJob = scope.launch {
+      var delayedAttempts = 0
+      var detached = false
+      try {
+        while (shouldRetryFloatingMonitorTeardown(detached, delayedAttempts)) {
+          delay(FLOATING_MONITOR_REFRESH_MILLIS)
+          detached = window?.reconcile(null) != false
+          delayedAttempts += 1
+        }
+        if (!detached) {
+          Log.w(TAG, "Floating monitor teardown retry exhausted; leaving deactivated window")
+        }
+      } finally {
+        completeDisposal()
+      }
+    }
+  }
+
+  private fun completeDisposal() {
+    disposeRetryJob = null
+    window = null
+    scope.cancel()
   }
 
   private fun activateRetryBudgetIfNeeded(input: CoreInput) {
@@ -242,7 +270,7 @@ class FloatingMonitorController(
         throw exception
       } catch (exception: RuntimeException) {
         Log.w(TAG, "Floating monitor timed refresh stopped after a contained failure", exception)
-        window?.dispose()
+        dispose()
       }
     }
   }
@@ -434,6 +462,12 @@ internal data class FloatingMonitorRetryActivationKey(
 )
 
 internal const val FLOATING_MONITOR_REFRESH_MILLIS = 1_000L
+internal const val MAX_FLOATING_MONITOR_TEARDOWN_RETRY_ATTEMPTS = 2
+
+internal fun shouldRetryFloatingMonitorTeardown(
+  detached: Boolean,
+  delayedAttempts: Int,
+): Boolean = !detached && delayedAttempts < MAX_FLOATING_MONITOR_TEARDOWN_RETRY_ATTEMPTS
 
 internal fun needsFloatingMonitorTimedRefresh(
   isInferring: Boolean,

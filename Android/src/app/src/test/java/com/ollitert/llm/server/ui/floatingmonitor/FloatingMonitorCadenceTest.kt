@@ -61,4 +61,12 @@ class FloatingMonitorCadenceTest {
       ),
     )
   }
+
+  @Test
+  fun `teardown retry remains bounded after immediate detach fails`() {
+    assertTrue(shouldRetryFloatingMonitorTeardown(detached = false, delayedAttempts = 0))
+    assertTrue(shouldRetryFloatingMonitorTeardown(detached = false, delayedAttempts = 1))
+    assertFalse(shouldRetryFloatingMonitorTeardown(detached = false, delayedAttempts = 2))
+    assertFalse(shouldRetryFloatingMonitorTeardown(detached = true, delayedAttempts = 0))
+  }
 }

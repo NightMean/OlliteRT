@@ -48,6 +48,7 @@ internal class AndroidFloatingMonitorWindow(
   private var dragStartX = 0
   private var dragStartY = 0
   private var lastBounds: FloatingMonitorPlacementBounds? = null
+  private var pendingLayout: FloatingMonitorPendingLayout? = null
   private val layoutParams = WindowManager.LayoutParams(
     monitorWidth,
     monitorHeight,
@@ -80,8 +81,7 @@ internal class AndroidFloatingMonitorWindow(
     }
 
     return try {
-      update(model)
-      isAttached
+      update(model) && isAttached
     } catch (exception: RuntimeException) {
       reportReconcileFailure(exception)
       detachIfAttached()
@@ -89,7 +89,7 @@ internal class AndroidFloatingMonitorWindow(
     }
   }
 
-  internal fun dispose() {
+  internal fun dispose(): Boolean {
     var attempts = 0
     while (isAttached && attempts < MAX_DISPOSE_DETACH_ATTEMPTS) {
       detachIfAttached()
@@ -102,6 +102,7 @@ internal class AndroidFloatingMonitorWindow(
         reportReconcileFailure(exception)
       }
     }
+    return !isAttached
   }
 
   private fun attach(model: FloatingMonitorRenderModel) {
@@ -113,30 +114,52 @@ internal class AndroidFloatingMonitorWindow(
     renderIfChanged(model)
     restorePlacementForAttach()
     windowManager.addView(view, layoutParams)
+    pendingLayout = null
   }
 
-  private fun update(model: FloatingMonitorRenderModel) {
+  private fun update(model: FloatingMonitorRenderModel): Boolean {
     renderIfChanged(model)
     reconcileChangedBounds()
+    return replayPendingLayoutIfAny()
   }
 
   private fun detach() {
     if (!isAttached) {
       lastRenderedModel = null
+      pendingLayout = null
       return
     }
     try {
       windowManager.removeViewImmediate(view)
     } finally {
-      if (!isAttached) lastRenderedModel = null
+      if (!isAttached) {
+        lastRenderedModel = null
+        pendingLayout = null
+      }
     }
   }
 
   private fun deactivate() {
-    view.setOnTouchListener(null)
-    view.setOnClickListener(null)
-    view.isClickable = false
-    view.visibility = View.GONE
+    try {
+      view.setOnTouchListener(null)
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+    }
+    try {
+      view.setOnClickListener(null)
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+    }
+    try {
+      view.isClickable = false
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+    }
+    try {
+      view.visibility = View.GONE
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+    }
     lastRenderedModel = null
   }
 
@@ -180,7 +203,10 @@ internal class AndroidFloatingMonitorWindow(
                 x = dragStartX + (event.rawX - downRawX).roundToInt(),
                 y = dragStartY + (event.rawY - downRawY).roundToInt(),
               )
-              applyPosition(clampFloatingMonitorPosition(target, currentBounds()), updateWindow = true)
+              applyDraggedPosition(
+                point = clampFloatingMonitorPosition(target, currentBounds()),
+                persistAfterReplay = false,
+              )
             }
             true
           }
@@ -192,7 +218,10 @@ internal class AndroidFloatingMonitorWindow(
                   x = dragStartX + (event.rawX - downRawX).roundToInt(),
                   y = dragStartY + (event.rawY - downRawY).roundToInt(),
                 )
-                applyPosition(clampFloatingMonitorPosition(target, currentBounds()), updateWindow = true)
+                applyDraggedPosition(
+                  point = clampFloatingMonitorPosition(target, currentBounds()),
+                  persistAfterReplay = true,
+                )
                 persistCurrentPosition()
               }
               FloatingMonitorGestureResult.Cancelled -> Unit
@@ -201,6 +230,7 @@ internal class AndroidFloatingMonitorWindow(
           }
           MotionEvent.ACTION_CANCEL -> {
             gestureTracker.cancel()
+            pendingLayout = null
             persistCurrentPosition()
             true
           }
@@ -245,6 +275,35 @@ internal class AndroidFloatingMonitorWindow(
       )
     lastBounds = newBounds
     applyPosition(restoreFloatingMonitorPosition(normalized, newBounds), updateWindow = isAttached)
+  }
+
+  private fun replayPendingLayoutIfAny(): Boolean {
+    val pending = pendingLayout ?: return true
+    return try {
+      applyPosition(
+        point = clampFloatingMonitorPosition(pending.point, currentBounds()),
+        updateWindow = true,
+      )
+      pendingLayout = pending.afterReplay(succeeded = true)
+      if (pending.persistAfterReplay) persistCurrentPosition()
+      true
+    } catch (exception: RuntimeException) {
+      reportReconcileFailure(exception)
+      false
+    }
+  }
+
+  private fun applyDraggedPosition(point: FloatingMonitorPoint, persistAfterReplay: Boolean) {
+    try {
+      applyPosition(point, updateWindow = true)
+      pendingLayout = null
+    } catch (exception: RuntimeException) {
+      pendingLayout = FloatingMonitorPendingLayout(
+        point = point,
+        persistAfterReplay = persistAfterReplay,
+      )
+      throw exception
+    }
   }
 
   private fun persistCurrentPosition() {

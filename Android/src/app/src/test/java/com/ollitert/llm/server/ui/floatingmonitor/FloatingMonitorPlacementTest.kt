@@ -18,6 +18,7 @@ package com.ollitert.llm.server.ui.floatingmonitor
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -107,5 +108,27 @@ class FloatingMonitorPlacementTest {
       FloatingMonitorPoint(94, 90),
       defaultFloatingMonitorPosition(bounds, rightMarginPx = 16, topOffsetPx = 120),
     )
+  }
+
+  @Test
+  fun `failed final drag stays pending and persists only after successful replay`() {
+    val pending = FloatingMonitorPendingLayout(
+      point = FloatingMonitorPoint(90, 120),
+      persistAfterReplay = true,
+    )
+
+    assertEquals(pending, pending.afterReplay(succeeded = false))
+    assertNull(pending.afterReplay(succeeded = true))
+  }
+
+  @Test
+  fun `failed move replay never requests persistence`() {
+    val pending = FloatingMonitorPendingLayout(
+      point = FloatingMonitorPoint(90, 120),
+      persistAfterReplay = false,
+    )
+
+    assertFalse(pending.persistAfterReplay)
+    assertNull(pending.afterReplay(succeeded = true))
   }
 }
