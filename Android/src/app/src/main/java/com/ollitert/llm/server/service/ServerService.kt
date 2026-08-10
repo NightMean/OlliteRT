@@ -908,13 +908,6 @@ class ServerService : Service() {
     val previousLoadJob = loadJob
     previousLoadJob?.cancel()
     loadJob = null
-    // Dispose the optional overlay before native/server teardown; failure must not block cleanup.
-    try {
-      floatingMonitorController?.dispose()
-    } catch (exception: RuntimeException) {
-      Log.w(TAG, "Floating monitor disposal failed; continuing server cleanup", exception)
-    }
-    floatingMonitorController = null
     // Signal request-scoped controls first so native done callbacks cannot win success.
     RequestLogStore.cancelAllPending()
     server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
@@ -926,6 +919,13 @@ class ServerService : Service() {
     val executor = inferenceExecutor
     executor?.shutdownNow()
     inferenceExecutor = null
+    // Dispose the optional overlay only after cancellation is underway: WindowManager removal is synchronous.
+    try {
+      floatingMonitorController?.dispose()
+    } catch (exception: RuntimeException) {
+      Log.w(TAG, "Floating monitor disposal failed; continuing server cleanup", exception)
+    }
+    floatingMonitorController = null
     val modelName = defaultModel?.name
 
     // Collect models that need native cleanup (Engine + Conversation close).
