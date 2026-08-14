@@ -27,15 +27,6 @@ private const val PREFS_NAME = "llm_http_prefs"
 // § Server Config — port, CORS, bearer token
 // ═══════════════════════════════════════════════════════════════════════════
 
-private const val KEY_PORT = "port"
-private const val KEY_SERVER_BIND_MODE = "server_bind_mode"
-private const val KEY_CUSTOM_BIND_ADDRESS = "custom_bind_address"
-private const val KEY_CLIENT_IP_POLICY_MODE = "client_ip_policy_mode"
-private const val KEY_CLIENT_IP_RULES = "client_ip_rules"
-private const val KEY_BEARER_TOKEN = "bearer_token"
-private const val KEY_HF_TOKEN = "hf_token"
-private const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
-private const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 
 // ═══════════════════════════════════════════════════════════════════════════
 // § Model Config — default model, inference config, system prompts, recommendations
@@ -175,17 +166,7 @@ private const val KEY_IGNORED_MODEL_UPDATES = "ignored_model_updates"
 
 private const val KEY_CORRUPTED_DATASTORES = "corrupted_datastores"
 
-// ═══════════════════════════════════════════════════════════════════════════
-// § Advanced Timeouts — configurable inference/lifecycle timeouts
-// ═══════════════════════════════════════════════════════════════════════════
 
-private const val KEY_TIMEOUT_CHAT_COMPLETIONS = "timeout_chat_completions_seconds"
-private const val KEY_TIMEOUT_RESPONSES = "timeout_responses_seconds"
-private const val KEY_TIMEOUT_STREAMING = "timeout_streaming_seconds"
-private const val KEY_TIMEOUT_BLOCKING = "timeout_blocking_seconds"
-private const val KEY_TIMEOUT_WARMUP = "timeout_warmup_seconds"
-private const val KEY_TIMEOUT_KEEP_ALIVE_RECHECK = "timeout_keep_alive_recheck_seconds"
-private const val KEY_TIMEOUT_CLEANUP_AWAIT = "timeout_cleanup_await_seconds"
 
 private const val TAG = "OlliteRT.Prefs"
 
@@ -237,12 +218,7 @@ object ServerPrefs {
 
   // ── Pref declarations (grouped by concern) ─────────────────────────────
 
-  // Server Config
-  private val PORT = IntPref(KEY_PORT, DEFAULT_PORT)
-  private val SERVER_BIND_MODE = StringPref(KEY_SERVER_BIND_MODE, ServerBindMode.ALL_INTERFACES.preferenceValue)
-  private val CUSTOM_BIND_ADDRESS = StringPref(KEY_CUSTOM_BIND_ADDRESS, "")
-  private val CLIENT_IP_POLICY_MODE = StringPref(KEY_CLIENT_IP_POLICY_MODE, ClientIpPolicyMode.ALLOW_ALL.preferenceValue)
-  private val CLIENT_IP_RULES = StringPref(KEY_CLIENT_IP_RULES, "")
+
 
   // Model Config
   private val WARMUP_ENABLED = BoolPref(KEY_WARMUP_ENABLED, true)
@@ -309,74 +285,53 @@ object ServerPrefs {
   // Model Update Detection
   private val ALLOWLIST_CONTENT_VERSION = IntPref(KEY_ALLOWLIST_CONTENT_VERSION, 0)
 
-  // Advanced Timeouts
-  private val TIMEOUT_CHAT_COMPLETIONS = LongPref(KEY_TIMEOUT_CHAT_COMPLETIONS, CHAT_COMPLETIONS_TIMEOUT_SECONDS)
-  private val TIMEOUT_RESPONSES = LongPref(KEY_TIMEOUT_RESPONSES, RESPONSES_TIMEOUT_SECONDS)
-  private val TIMEOUT_STREAMING = LongPref(KEY_TIMEOUT_STREAMING, STREAMING_TIMEOUT_SECONDS)
-  private val TIMEOUT_BLOCKING = LongPref(KEY_TIMEOUT_BLOCKING, BLOCKING_TIMEOUT_SECONDS)
-  private val TIMEOUT_WARMUP = LongPref(KEY_TIMEOUT_WARMUP, WARMUP_TIMEOUT_SECONDS)
-  private val TIMEOUT_KEEP_ALIVE_RECHECK = LongPref(KEY_TIMEOUT_KEEP_ALIVE_RECHECK, KEEP_ALIVE_RECHECK_MS / 1000)
-  private val TIMEOUT_CLEANUP_AWAIT = LongPref(KEY_TIMEOUT_CLEANUP_AWAIT, CLEANUP_AWAIT_TIMEOUT_SECONDS)
+
 
   // ══════════════════════════════════════════════════════════════════════════
-  // § Server Config
+  // § Server Network Config
   // ══════════════════════════════════════════════════════════════════════════
 
-  fun getPort(context: Context): Int = get(context, PORT)
+  fun getPort(context: Context): Int = ServerPrefsNetwork.getPort(prefs(context))
 
   fun save(context: Context, port: Int) {
-    prefs(context).edit { putInt(KEY_PORT, port.coerceIn(1, 65535)) }
+    ServerPrefsNetwork.savePort(prefs(context), port)
   }
 
-  fun getServerBindConfig(context: Context): ServerBindConfig = ServerBindConfig(
-    mode = ServerBindMode.fromPreference(get(context, SERVER_BIND_MODE)),
-    customAddress = get(context, CUSTOM_BIND_ADDRESS),
-  )
+  fun getServerBindConfig(context: Context): ServerBindConfig =
+    ServerPrefsNetwork.getServerBindConfig(prefs(context))
 
   /** Writes both listener fields in one editor transaction so startup never sees a mixed config. */
   fun setServerBindConfig(context: Context, config: ServerBindConfig) {
-    prefs(context).edit {
-      putString(KEY_SERVER_BIND_MODE, config.mode.preferenceValue)
-      putString(KEY_CUSTOM_BIND_ADDRESS, config.customAddress.trim())
-    }
+    ServerPrefsNetwork.setServerBindConfig(prefs(context), config)
   }
 
-  fun getClientIpPolicyConfig(context: Context): ClientIpPolicyConfig = ClientIpPolicyConfig(
-    mode = ClientIpPolicyMode.fromPreference(get(context, CLIENT_IP_POLICY_MODE)),
-    rulesText = get(context, CLIENT_IP_RULES),
-  )
+  fun getClientIpPolicyConfig(context: Context): ClientIpPolicyConfig =
+    ServerPrefsNetwork.getClientIpPolicyConfig(prefs(context))
 
   /** Writes the policy and its rules atomically before the running server receives the compiled policy. */
   fun setClientIpPolicyConfig(context: Context, config: ClientIpPolicyConfig) {
-    prefs(context).edit {
-      putString(KEY_CLIENT_IP_POLICY_MODE, config.mode.preferenceValue)
-      putString(KEY_CLIENT_IP_RULES, config.rulesText.trim())
-    }
+    ServerPrefsNetwork.setClientIpPolicyConfig(prefs(context), config)
   }
 
   fun getBearerToken(context: Context): String =
-    prefs(context).getString(KEY_BEARER_TOKEN, "")
-      ?: ""
+    ServerPrefsNetwork.getBearerToken(prefs(context))
 
   fun setBearerToken(context: Context, token: String) {
-    prefs(context).edit { putString(KEY_BEARER_TOKEN, token.trim()) }
+    ServerPrefsNetwork.setBearerToken(prefs(context), token)
   }
 
   fun getHfToken(context: Context): String =
-    prefs(context).getString(KEY_HF_TOKEN, "")
-      ?: ""
+    ServerPrefsNetwork.getHfToken(prefs(context))
 
   fun setHfToken(context: Context, token: String) {
-    prefs(context).edit { putString(KEY_HF_TOKEN, token.trim()) }
+    ServerPrefsNetwork.setHfToken(prefs(context), token)
   }
 
   fun getCorsAllowedOrigins(context: Context): String =
-    prefs(context)
-      .getString(KEY_CORS_ALLOWED_ORIGINS, DEFAULT_CORS_ALLOWED_ORIGINS)
-      ?: DEFAULT_CORS_ALLOWED_ORIGINS
+    ServerPrefsNetwork.getCorsAllowedOrigins(prefs(context))
 
   fun setCorsAllowedOrigins(context: Context, origins: String) {
-    prefs(context).edit { putString(KEY_CORS_ALLOWED_ORIGINS, origins) }
+    ServerPrefsNetwork.setCorsAllowedOrigins(prefs(context), origins)
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -733,26 +688,54 @@ object ServerPrefs {
   // § Advanced Timeouts
   // ══════════════════════════════════════════════════════════════════════════
 
-  fun getTimeoutChatCompletions(context: Context): Long = get(context, TIMEOUT_CHAT_COMPLETIONS)
-  fun setTimeoutChatCompletions(context: Context, seconds: Long) { set(context, TIMEOUT_CHAT_COMPLETIONS, seconds) }
+  fun getTimeoutChatCompletions(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutChatCompletions(prefs(context))
 
-  fun getTimeoutResponses(context: Context): Long = get(context, TIMEOUT_RESPONSES)
-  fun setTimeoutResponses(context: Context, seconds: Long) { set(context, TIMEOUT_RESPONSES, seconds) }
+  fun setTimeoutChatCompletions(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutChatCompletions(prefs(context), seconds)
+  }
 
-  fun getTimeoutStreaming(context: Context): Long = get(context, TIMEOUT_STREAMING)
-  fun setTimeoutStreaming(context: Context, seconds: Long) { set(context, TIMEOUT_STREAMING, seconds) }
+  fun getTimeoutResponses(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutResponses(prefs(context))
 
-  fun getTimeoutBlocking(context: Context): Long = get(context, TIMEOUT_BLOCKING)
-  fun setTimeoutBlocking(context: Context, seconds: Long) { set(context, TIMEOUT_BLOCKING, seconds) }
+  fun setTimeoutResponses(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutResponses(prefs(context), seconds)
+  }
 
-  fun getTimeoutWarmup(context: Context): Long = get(context, TIMEOUT_WARMUP)
-  fun setTimeoutWarmup(context: Context, seconds: Long) { set(context, TIMEOUT_WARMUP, seconds) }
+  fun getTimeoutStreaming(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutStreaming(prefs(context))
 
-  fun getTimeoutKeepAliveRecheckSeconds(context: Context): Long = get(context, TIMEOUT_KEEP_ALIVE_RECHECK)
-  fun setTimeoutKeepAliveRecheckSeconds(context: Context, seconds: Long) { set(context, TIMEOUT_KEEP_ALIVE_RECHECK, seconds) }
+  fun setTimeoutStreaming(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutStreaming(prefs(context), seconds)
+  }
 
-  fun getTimeoutCleanupAwait(context: Context): Long = get(context, TIMEOUT_CLEANUP_AWAIT)
-  fun setTimeoutCleanupAwait(context: Context, seconds: Long) { set(context, TIMEOUT_CLEANUP_AWAIT, seconds) }
+  fun getTimeoutBlocking(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutBlocking(prefs(context))
+
+  fun setTimeoutBlocking(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutBlocking(prefs(context), seconds)
+  }
+
+  fun getTimeoutWarmup(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutWarmup(prefs(context))
+
+  fun setTimeoutWarmup(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutWarmup(prefs(context), seconds)
+  }
+
+  fun getTimeoutKeepAliveRecheckSeconds(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutKeepAliveRecheckSeconds(prefs(context))
+
+  fun setTimeoutKeepAliveRecheckSeconds(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutKeepAliveRecheckSeconds(prefs(context), seconds)
+  }
+
+  fun getTimeoutCleanupAwait(context: Context): Long =
+    ServerPrefsTimeouts.getTimeoutCleanupAwait(prefs(context))
+
+  fun setTimeoutCleanupAwait(context: Context, seconds: Long) {
+    ServerPrefsTimeouts.setTimeoutCleanupAwait(prefs(context), seconds)
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // § Migrations
