@@ -17,24 +17,11 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
-import android.Manifest
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import androidx.core.net.toUri
-import android.os.Build
-import android.os.PowerManager
-import android.provider.Settings
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,23 +36,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -82,14 +58,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -99,12 +73,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelCapability
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.OFFICIAL_REPO_ID
 import com.ollitert.llm.server.data.RuntimeType
@@ -112,39 +84,12 @@ import com.ollitert.llm.server.data.UNKNOWN_REPO_LABEL
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
-import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.common.modelitem.ModelItem
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-import com.ollitert.llm.server.ui.theme.OlliteRTWarningContainer
-import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
+import kotlinx.coroutines.delay
 
 private const val TAG = "OlliteRT.ModelMgr"
-
-/** Filter mode for the models list. */
-enum class ModelFilter {
-  ALL,
-  DOWNLOADED,
-  AVAILABLE,
-  IMPORTED,
-}
-
-/** Capability filter for models. */
-enum class CapabilityFilter(val labelResId: Int, val capability: ModelCapability) {
-  VISION(R.string.capability_vision, ModelCapability.VISION),
-  AUDIO(R.string.capability_audio, ModelCapability.AUDIO),
-  THINKING(R.string.capability_thinking, ModelCapability.THINKING),
-  TOOLS(R.string.capability_tools, ModelCapability.TOOLS),
-  NPU(R.string.capability_npu, ModelCapability.NPU),
-  SPECULATIVE_DECODING(R.string.capability_speculative_decoding, ModelCapability.SPECULATIVE_DECODING),
-}
-
-/** Sort mode for the models list. */
-enum class ModelSort(val labelResId: Int) {
-  DEFAULT(R.string.models_sort_default),
-  ALPHABETICAL(R.string.models_sort_name),
-  SIZE(R.string.models_sort_size),
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,20 +120,6 @@ fun GlobalModelManager(
     }
   }
 
-  // Re-check permissions when the user returns from system settings.
-  // A simple counter bumped on ON_RESUME forces recomposition of permission-dependent UI.
-  val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-  var resumeCount by remember { mutableIntStateOf(0) }
-  androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
-    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-      if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-        resumeCount++
-      }
-    }
-    lifecycleOwner.lifecycle.addObserver(observer)
-    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-  }
-
   // Pull-to-refresh: separate from initial load so the indicator only appears on swipe,
   // with a minimum visible duration so the spinner doesn't flash and vanish.
   var isManualRefreshing by remember { mutableStateOf(false) }
@@ -201,17 +132,7 @@ fun GlobalModelManager(
 
   // Permission state — re-evaluated on every resume so the banner disappears
   // after the user grants permissions in system settings and returns to the app.
-  val missingNotifPermission by remember(resumeCount) {
-    mutableStateOf(
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-      } else false
-    )
-  }
-  val missingBatteryExemption by remember(resumeCount) {
-    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-    mutableStateOf(pm?.let { !it.isIgnoringBatteryOptimizations(context.packageName) } ?: true)
-  }
+  val permissionState = rememberModelManagerPermissionState(context)
 
   // Search, filter, and sort state
   var searchQuery by remember { mutableStateOf("") }
@@ -357,110 +278,36 @@ fun GlobalModelManager(
 
       // Filter chips + sort button
       item(key = "filter_chips") {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          // Outer Row: scrollable chips on the left, fixed action buttons pinned right.
-          // weight() doesn't work inside a horizontalScroll Row (infinite width),
-          // so the chips and buttons must be in separate siblings.
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            // Scrollable filter chips — takes remaining space
-            Row(
-              modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              ModelFilterChip(
-                label = stringResource(R.string.filter_all),
-                selected = activeFilter == ModelFilter.ALL,
-                onClick = { activeFilter = ModelFilter.ALL },
-              )
-              ModelFilterChip(
-                label = stringResource(R.string.filter_downloaded),
-                selected = activeFilter == ModelFilter.DOWNLOADED,
-                onClick = { activeFilter = ModelFilter.DOWNLOADED },
-              )
-              ModelFilterChip(
-                label = stringResource(R.string.filter_available),
-                selected = activeFilter == ModelFilter.AVAILABLE,
-                onClick = { activeFilter = ModelFilter.AVAILABLE },
-              )
-              // Show "Imported" filter chip only when imported models exist
-              if (importedModels.isNotEmpty()) {
-                ModelFilterChip(
-                  label = stringResource(R.string.filter_imported),
-                  selected = activeFilter == ModelFilter.IMPORTED,
-                  onClick = { activeFilter = ModelFilter.IMPORTED },
-                )
-              }
+        ModelFilterSection(
+          activeFilter = activeFilter,
+          onFilterSelected = { activeFilter = it },
+          hasImportedModels = importedModels.isNotEmpty(),
+          showMoreFilters = showMoreFilters,
+          onToggleMoreFilters = { showMoreFilters = !showMoreFilters },
+          activeCapabilities = activeCapabilities,
+          onToggleCapability = { cap ->
+            activeCapabilities = if (cap in activeCapabilities) activeCapabilities - cap else activeCapabilities + cap
+          },
+          availableCapabilityFilters = availableCapabilityFilters,
+          activeSort = activeSort,
+          sortAscending = sortAscending,
+          showSortDropdown = showSortDropdown,
+          onToggleSortDropdown = { showSortDropdown = !showSortDropdown },
+          onDismissSortDropdown = { showSortDropdown = false },
+          onSortSelected = { sort ->
+            if (sort == ModelSort.DEFAULT) {
+              activeSort = sort
+            } else if (activeSort == sort) {
+              sortAscending = !sortAscending
+            } else {
+              activeSort = sort
+              sortAscending = true
             }
-            // Fixed action buttons — always pinned to the right edge
-            Row(
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              // "More Filters" toggle
-              MoreFiltersButton(
-                active = showMoreFilters || activeCapabilities.isNotEmpty(),
-                onClick = { showMoreFilters = !showMoreFilters },
-              )
-              SortButton(
-                activeSort = activeSort,
-                sortAscending = sortAscending,
-                showDropdown = showSortDropdown,
-                onToggleDropdown = { showSortDropdown = !showSortDropdown },
-                onDismissDropdown = { showSortDropdown = false },
-                onSortSelected = { sort ->
-                  if (sort == ModelSort.DEFAULT) {
-                    activeSort = sort
-                  } else if (activeSort == sort) {
-                    sortAscending = !sortAscending
-                  } else {
-                    activeSort = sort
-                    sortAscending = true
-                  }
-                  showSortDropdown = false
-                },
-              )
-            }
-          }
-          // Expandable capability filters
-          AnimatedVisibility(
-            visible = showMoreFilters,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
-          ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-              // Capability section
-              Text(
-                stringResource(R.string.models_filter_capabilities),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                availableCapabilityFilters.forEach { cap ->
-                  val isSelected = cap in activeCapabilities
-                  ModelFilterChip(
-                    label = stringResource(cap.labelResId),
-                    selected = isSelected,
-                    onClick = {
-                      activeCapabilities = if (isSelected) activeCapabilities - cap
-                      else activeCapabilities + cap
-                    },
-                  )
-                }
-              }
-            }
-          }
-        }
+            showSortDropdown = false
+          },
+        )
       }
+
       // All repos disabled — no downloaded models: centered empty state
       if (uiState.allReposDisabled && uiState.models.isEmpty()) {
         item(key = "all_repos_disabled") {
@@ -495,49 +342,9 @@ fun GlobalModelManager(
 
       // Permission warning banner — shown when notification or battery optimization
       // permissions are missing, which can cause the OS to kill the server in the background.
-      // State is hoisted above and re-checked on every ON_RESUME lifecycle event.
-      if ((missingNotifPermission || missingBatteryExemption) && !uiState.loadingModelAllowlist) {
+      if (permissionState.hasMissingPermissions && !uiState.loadingModelAllowlist) {
         item(key = "permission_warning_banner") {
-          // Build a message tailored to which permissions are missing
-          val notifLabel = stringResource(R.string.models_permission_notification)
-          val batteryLabel = stringResource(R.string.models_permission_battery)
-          val issues = buildList {
-            if (missingNotifPermission) add(notifLabel)
-            if (missingBatteryExemption) add(batteryLabel)
-          }
-          val issueText = issues.joinToString(" and ")
-
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 16.dp)
-              .padding(bottom = 12.dp)
-              .clip(RoundedCornerShape(12.dp))
-              .background(OlliteRTWarningContainer)
-              .clickable {
-                // Open app settings so the user can grant the missing permissions
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                  data = "package:${context.packageName}".toUri()
-                }
-                context.startActivity(intent)
-              }
-              .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-          ) {
-            Icon(
-              imageVector = Icons.Outlined.Warning,
-              contentDescription = null,
-              tint = OlliteRTWarningText,
-              modifier = Modifier.size(18.dp),
-            )
-            Text(
-              text = stringResource(R.string.models_permission_warning, issueText),
-              style = MaterialTheme.typography.bodySmall,
-              color = OlliteRTWarningText,
-              modifier = Modifier.weight(1f),
-            )
-          }
+          PermissionWarningBanner(permissionState = permissionState, context = context)
         }
       }
 
@@ -794,7 +601,6 @@ fun GlobalModelManager(
         .align(alignment = Alignment.BottomCenter)
         .padding(bottom = 32.dp),
     )
-
   }
 
   ModelManagerDialogs(
@@ -807,118 +613,6 @@ fun GlobalModelManager(
     activeModelName = activeModelName,
     onSwitchModel = onSwitchModel,
   )
-}
-
-@Composable
-private fun ModelFilterChip(
-  label: String,
-  selected: Boolean,
-  onClick: () -> Unit,
-) {
-  val chipBgColor by animateColorAsState(
-    targetValue = if (selected) OlliteRTPrimary
-    else Color.Transparent,
-    animationSpec = tween(200),
-    label = "chip_bg",
-  )
-  val chipBorderColor by animateColorAsState(
-    targetValue = if (selected) OlliteRTPrimary
-    else MaterialTheme.colorScheme.outlineVariant,
-    animationSpec = tween(200),
-    label = "chip_border",
-  )
-
-  FilterChip(
-    selected = selected,
-    onClick = onClick,
-    label = {
-      Text(
-        label,
-        style = MaterialTheme.typography.labelLarge,
-        color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-    },
-    colors = FilterChipDefaults.filterChipColors(
-      selectedContainerColor = chipBgColor,
-      containerColor = chipBgColor,
-    ),
-    border = FilterChipDefaults.filterChipBorder(
-      enabled = true,
-      selected = selected,
-      borderColor = chipBorderColor,
-      selectedBorderColor = chipBorderColor,
-    ),
-    shape = if (selected) RoundedCornerShape(12.dp) else RoundedCornerShape(50),
-  )
-}
-
-@Composable
-private fun MoreFiltersButton(
-  active: Boolean,
-  onClick: () -> Unit,
-) {
-  TooltipIconButton(
-    icon = Icons.Outlined.FilterList,
-    tooltip = stringResource(R.string.models_tooltip_more_filters),
-    onClick = onClick,
-    backgroundColor = if (active) OlliteRTPrimary else MaterialTheme.colorScheme.surfaceContainerHigh,
-    tint = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
-  )
-}
-
-@Composable
-private fun SortButton(
-  activeSort: ModelSort,
-  sortAscending: Boolean,
-  showDropdown: Boolean,
-  onToggleDropdown: () -> Unit,
-  onDismissDropdown: () -> Unit,
-  onSortSelected: (ModelSort) -> Unit,
-) {
-  Box {
-    TooltipIconButton(
-      icon = Icons.AutoMirrored.Outlined.Sort,
-      tooltip = stringResource(R.string.models_tooltip_sort),
-      onClick = { onToggleDropdown() },
-      backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    )
-    DropdownMenu(
-      expanded = showDropdown,
-      onDismissRequest = onDismissDropdown,
-      containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-      shape = RoundedCornerShape(12.dp),
-    ) {
-      ModelSort.entries.forEach { sort ->
-        val isActive = activeSort == sort
-        DropdownMenuItem(
-          text = {
-            Text(
-              stringResource(sort.labelResId),
-              color = if (isActive) OlliteRTPrimary else MaterialTheme.colorScheme.onSurface,
-            )
-          },
-          onClick = { onSortSelected(sort) },
-          trailingIcon = {
-            if (isActive && sort != ModelSort.DEFAULT) {
-              Icon(
-                if (sortAscending) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward,
-                contentDescription = null,
-                tint = OlliteRTPrimary,
-                modifier = Modifier.size(18.dp),
-              )
-            } else if (isActive) {
-              Icon(
-                Icons.Outlined.Check,
-                contentDescription = null,
-                tint = OlliteRTPrimary,
-                modifier = Modifier.size(18.dp),
-              )
-            }
-          },
-        )
-      }
-    }
-  }
 }
 
 /** Builds a combined searchable string from model name, display name, description, and capabilities. */
@@ -942,4 +636,3 @@ private fun modelMatchesCapabilityFilters(model: Model, caps: Set<CapabilityFilt
   if (caps.isEmpty()) return true
   return caps.all { it.capability in model.capabilities }
 }
-
