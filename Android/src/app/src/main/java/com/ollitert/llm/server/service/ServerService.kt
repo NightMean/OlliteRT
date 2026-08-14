@@ -106,22 +106,8 @@ class ServerService : Service() {
     get() = modelLifecycle.keepAliveUnloadedModelName
     set(value) { modelLifecycle.setKeepAliveUnloadedModel(value, null) }
 
-  /**
-   * Partial wake lock held for the entire server lifetime to keep the CPU awake while serving.
-   * Without this, Doze mode suspends CPU on a locked/idle device — making the HTTP server
-   * unreachable between requests. Essential for "closet server" use cases where the device
-   * sits idle with the screen off for days/weeks. Intentionally acquired without a timeout —
-   * the server is designed to run 24/7, and the lock is released in onDestroy().
-   */
-  private var wakeLock: android.os.PowerManager.WakeLock? = null
-  /**
-   * WiFi lock held for the entire server lifetime to keep the WiFi radio active when the
-   * screen is off. Many OEMs (Samsung, Xiaomi, Huawei) put WiFi into low-power mode when
-   * the screen turns off — even with a partial wake lock held — making the HTTP server
-   * unreachable on the LAN. WIFI_MODE_FULL_HIGH_PERF keeps the radio at full power.
-   * Like the wake lock, held without a timeout for 24/7 operation; released in onDestroy().
-   */
-  private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+  // Wake lock and WiFi lock helper for continuous 24/7 background serving.
+  private lateinit var wakeLockHelper: ServerWakeLockHelper
 
   private lateinit var modelCatalogMerger: ModelCatalogMerger
 
@@ -166,17 +152,7 @@ class ServerService : Service() {
           } catch (e: Exception) { Log.w(TAG, "Failed to read imported models from DataStore", e); emptyList() }
         },
       )
-      // Create a partial wake lock to keep the CPU awake while the server is running.
-      // Acquired in onStartCommand once the server starts, released in onDestroy.
-      val pm = getSystemService(POWER_SERVICE) as? android.os.PowerManager
-      wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "OlliteRT::Server")?.apply {
-        setReferenceCounted(false)
-      }
-      val wm = getSystemService(WIFI_SERVICE) as? android.net.wifi.WifiManager
-      @Suppress("DEPRECATION") // WIFI_MODE_FULL_HIGH_PERF deprecated in API 34, no equivalent for keeping WiFi at full power
-      wifiLock = wm?.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "OlliteRT::Server")?.apply {
-        setReferenceCounted(false)
-      }
+      wakeLockHelper = ServerWakeLockHelper(this)
       NotificationHelper.createChannel(this)
       notificationManager.checkCorruptedDataStores()
     } catch (e: Exception) {
@@ -342,8 +318,9 @@ class ServerService : Service() {
 
   /** Acquires CPU + WiFi wake locks for 24/7 server operation. */
   private fun acquireWakeLocks() {
-    wakeLock?.acquire()
-    wifiLock?.acquire()
+    if (::wakeLockHelper.isInitialized) {
+      wakeLockHelper.acquire()
+    }
   }
 
   private fun reportNetworkConfigFailure(message: String, requestedModelName: String) {
@@ -843,10 +820,9 @@ class ServerService : Service() {
       RequestLogStore.clear()
     }
     // Release wake lock if still held (e.g. service killed mid-inference)
-    if (wifiLock?.isHeld == true) wifiLock?.release()
-    wifiLock = null
-    if (wakeLock?.isHeld == true) wakeLock?.release()
-    wakeLock = null
+    if (::wakeLockHelper.isInitialized) {
+      wakeLockHelper.release()
+    }
     try {
       val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
         applicationContext, OlliteRTApplication.PersistenceEntryPoint::class.java
