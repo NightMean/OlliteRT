@@ -20,6 +20,7 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -331,4 +332,41 @@ Done!"""
     assertEquals("get_weather", results[0].function.name)
     assertEquals("search_docs", results[1].function.name)
   }
+
+  // ── Gemma 4 <|"|> delimiter & nested JSON string tests (Issue #2418) ────────
+
+  @Test
+  fun parsesNativeGemmaWithGemmaQuoteTokensAndNestedJson() {
+    val jsTools = listOf(
+      ToolSpec(function = ToolFunctionDef(name = "run_js", description = "Execute JS with JSON data")),
+    )
+    val output = """<|tool_call>call:run_js{data:<|"|>{"conversion": "ll_to_mgrs", "lat": 34.05, "lon": -118.24}<|"|>}<tool_call|>"""
+    val result = ToolCallParser.parse(output, jsTools)
+    assertNotNull(result)
+    assertEquals("run_js", result!!.function.name)
+    assertTrue(result.function.arguments.contains("conversion"))
+    assertTrue(result.function.arguments.contains("34.05"))
+  }
+
+  @Test
+  fun parsesNativeGemmaWithQuotedStringAndInnerQuotes() {
+    val cmdTools = listOf(
+      ToolSpec(function = ToolFunctionDef(name = "run_command", description = "Execute bash command")),
+    )
+    val output = """<|tool_call>call:run_command{cmd:<|"|>echo "hello world"<|"|>}<tool_call|>"""
+    val result = ToolCallParser.parse(output, cmdTools)
+    assertNotNull(result)
+    assertEquals("run_command", result!!.function.name)
+    assertTrue(result.function.arguments.contains("hello world"))
+  }
+
+  @Test
+  fun normalizeGemmaArgsConvertsUnquotedKeysAndTokens() {
+    val raw = """{data:<|"|>{"key": "value"}<|"|>, count: 42}"""
+    val normalized = ToolCallParser.normalizeGemmaArgs(raw)
+    assertTrue(normalized.contains(""""data":"""))
+    assertTrue(normalized.contains(""""count":"""))
+    assertFalse(normalized.contains("<|\"|>"))
+  }
 }
+

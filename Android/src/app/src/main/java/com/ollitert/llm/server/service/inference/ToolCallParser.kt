@@ -59,7 +59,44 @@ object ToolCallParser {
    *  Gemma models trained with native tool calling emit this format instead of JSON wrappers.
    *  Group 1 = function name, Group 2 = JSON arguments (may be empty `{}`).
    *  Note: `\|` escapes the pipe, `\}` escapes the brace for ICU regex. */
-  private val nativeToolCallRegex = Regex("""<\|tool_call>call:(\w+)(\{.*?\})<tool_call\|>""", RegexOption.DOT_MATCHES_ALL)
+  private val nativeToolCallRegex = Regex("""<\|tool_call>call:(\w+)\s*(\{[\s\S]*?\})?\s*<tool_call\|>""", RegexOption.DOT_MATCHES_ALL)
+
+  /**
+   * Normalizes Gemma 4 pseudo-JSON argument strings, resolving `<|"|>` quote tokens
+   * and unquoted dictionary keys (Issue #2418).
+   *
+   * When Gemma 4 generates tool call arguments with nested string/JSON content (e.g.
+   * `{data:<|"|>{"conversion": "ll_to_mgrs", "lat": 34.05}<|"|>}`), it emits `<|"|>`
+   * as inner quote delimiters. This helper converts them into compliant JSON string literals
+   * with properly escaped inner quotes and ensures object keys are quoted.
+   */
+  internal fun normalizeGemmaArgs(rawArgs: String): String {
+    if (rawArgs.isEmpty() || rawArgs == "{}") return "{}"
+    var normalized = rawArgs.trim()
+
+    // 1. Convert <|"|>(content)<|"|> to JSON-escaped string literals
+    if (normalized.contains("<|\"|>")) {
+      val gemmaQuoteRegex = Regex("""<\|"\|>([\s\S]*?)<\|"\|>""")
+      normalized = gemmaQuoteRegex.replace(normalized) { match ->
+        val inner = match.groupValues[1]
+        val escaped = inner
+          .replace("\\", "\\\\")
+          .replace("\"", "\\\"")
+          .replace("\n", "\\n")
+          .replace("\r", "\\r")
+          .replace("\t", "\\t")
+        "\"$escaped\""
+      }
+    }
+
+    // 2. Normalize unquoted keys: e.g. {data: "..."} -> {"data": "..."}
+    val unquotedKeyRegex = Regex("""([\{,]\s*)([a-zA-Z_]\w*)\s*:""")
+    normalized = unquotedKeyRegex.replace(normalized) { match ->
+      "${match.groupValues[1]}\"${match.groupValues[2]}\":"
+    }
+
+    return normalized
+  }
 
   /**
    * Attempts to parse a tool call from the model's raw text output.
@@ -122,7 +159,8 @@ object ToolCallParser {
     val match = nativeToolCallRegex.find(text) ?: return null
     val name = match.groupValues[1]
     if (name !in toolNames) return null
-    val argsStr = match.groupValues[2]
+    val rawArgs = match.groupValues.getOrNull(2)?.takeIf { it.isNotEmpty() } ?: "{}"
+    val argsStr = normalizeGemmaArgs(rawArgs)
     // Validate the args JSON is parseable (or accept empty {})
     if (argsStr != "{}") {
       parseJsonObjectSafe(argsStr) ?: return null
@@ -144,7 +182,8 @@ object ToolCallParser {
   /** Pattern 4 (renumbered): `{"name": "fn", "arguments": {...}}` — bare call, validated against tool list */
   private fun tryBareCall(text: String, toolNames: Set<String>): ToolCall? {
     val jsonStr = extractFirstJsonObject(text) ?: return null
-    val obj = parseJsonObjectSafe(jsonStr) ?: return null
+    val normalizedJson = if (jsonStr.contains("<|\"|>")) normalizeGemmaArgs(jsonStr) else jsonStr
+    val obj = parseJsonObjectSafe(normalizedJson) ?: return null
     // Must have both "name" and "arguments" to be treated as a tool call
     if ("name" !in obj || "arguments" !in obj) return null
     return extractCall(obj, toolNames)
@@ -172,7 +211,8 @@ object ToolCallParser {
     return matches.mapNotNull { match ->
       val name = match.groupValues[1]
       if (name !in toolNames) return@mapNotNull null
-      val argsStr = match.groupValues[2]
+      val rawArgs = match.groupValues.getOrNull(2)?.takeIf { it.isNotEmpty() } ?: "{}"
+      val argsStr = normalizeGemmaArgs(rawArgs)
       if (argsStr != "{}") {
         parseJsonObjectSafe(argsStr) ?: return@mapNotNull null
       }

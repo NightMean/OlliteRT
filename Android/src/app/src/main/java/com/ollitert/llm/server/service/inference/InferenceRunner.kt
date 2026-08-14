@@ -255,6 +255,7 @@ class InferenceRunner(
             systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
             tools = schemaInjectionProviders,
             initialMessages = schemaInjectionMessages,
+            enableConversationConstrainedDecoding = schemaInjectionProviders.isNotEmpty(),
             conversationCacheGeneration = preparedCacheGeneration,
           )
         }
@@ -634,6 +635,7 @@ class InferenceRunner(
               systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
               tools = schemaInjectionProviders,
               initialMessages = schemaInjectionMessages,
+              enableConversationConstrainedDecoding = schemaInjectionProviders.isNotEmpty(),
               conversationCacheGeneration = preparedCacheGeneration,
             )
           }
