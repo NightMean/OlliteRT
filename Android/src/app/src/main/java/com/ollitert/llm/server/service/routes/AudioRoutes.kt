@@ -16,23 +16,13 @@
 
 package com.ollitert.llm.server.service.routes
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.HttpResponse
-import com.ollitert.llm.server.service.KtorServer
-import com.ollitert.llm.server.service.MAX_FILE_SIZE_BYTES
-import com.ollitert.llm.server.service.ModelLifecycle
-import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.service.ServerMetrics
-import com.ollitert.llm.server.service.clientIp
-import com.ollitert.llm.server.service.finalizeLogEntry
-import com.ollitert.llm.server.service.httpPayloadTooLarge
-import com.ollitert.llm.server.service.httpServiceUnavailable
-import com.ollitert.llm.server.service.readBytesWithLimit
-import com.ollitert.llm.server.service.respondHttpResponse
-import com.ollitert.llm.server.service.toHttpResponse
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.server.application.call

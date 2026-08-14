@@ -16,10 +16,10 @@
 
 package com.ollitert.llm.server.service.formats
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.data.ErrorKind
-import com.ollitert.llm.server.service.ResponseRenderer
-import com.ollitert.llm.server.service.SseWriter
-import com.ollitert.llm.server.service.ToolCall
 
 /**
  * Strategy interface defining wire-format-specific streaming serialization, token estimation,

@@ -1,0 +1,374 @@
+/*
+ * Copyright 2025 Google LLC
+ * Modifications Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.ollitert.llm.server.service.http
+
+import com.ollitert.llm.server.service.*
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+import com.ollitert.llm.server.service.inference.*
+
+import android.content.Context
+import android.util.Log
+import com.ollitert.llm.server.BuildConfig
+import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCatalogMerger
+import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.configTemperature
+import com.ollitert.llm.server.data.configSpeculativeDecodingEnabled
+import com.ollitert.llm.server.data.configThinkingEnabled
+import com.ollitert.llm.server.data.configTopK
+import com.ollitert.llm.server.data.configTopP
+import com.ollitert.llm.server.data.isSpeculativeDecodingEnabled
+import com.ollitert.llm.server.data.isThinkingEnabled
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
+import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.maxTokensInt
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
+/**
+ * Builds JSON payloads for informational and inference response endpoints.
+ * Extracted from ServerService to isolate payload construction from service
+ * lifecycle, model management, and HTTP concerns.
+ *
+ * Functions read from [ServerMetrics] (a singleton) and receive any mutable
+ * service state (active model, idle model name) as parameters.
+ */
+/**
+ * Snapshot of server status fields shared between /api/version and /health responses.
+ */
+private data class ServerStatusSnapshot(
+  val status: com.ollitert.llm.server.common.ServerStatus,
+  val isIdle: Boolean,
+  val uptimeSeconds: Long?,
+  val modelName: String?,
+)
+
+/**
+ * Reads current server status, idle state, uptime, and resolved model name from
+ * [ServerMetrics]. Used by both [PayloadBuilders.serverInfo] and [PayloadBuilders.health]
+ * to avoid duplicating the same metric reads.
+ */
+private fun serverStatusSnapshot(activeModel: Model?, idleUnloadedModelName: String?): ServerStatusSnapshot {
+  val status = ServerMetrics.status.value
+  val isIdle = ServerMetrics.isIdleUnloaded.value
+  val uptimeSeconds = if (ServerMetrics.startedAtMs.value > 0L)
+    (System.currentTimeMillis() - ServerMetrics.startedAtMs.value) / 1000 else null
+  val modelName = activeModel?.name ?: idleUnloadedModelName
+  return ServerStatusSnapshot(status, isIdle, uptimeSeconds, modelName)
+}
+
+/**
+ * Constructs an [LlmHttpModelItem] from an active [Model], populating capabilities
+ * and update availability. Used by both modelDetail and modelsList endpoints.
+ */
+private fun Model.toModelItem(): LlmHttpModelItem = LlmHttpModelItem(
+  id = name,
+  created = ServerMetrics.modelCreatedAtEpoch.value,
+  capabilities = LlmHttpModelCapabilities(
+    image = llmSupportImage,
+    audio = llmSupportAudio,
+    thinking = isThinkingEnabled,
+    speculative_decoding = isSpeculativeDecodingEnabled,
+  ),
+  update_available = updatable,
+)
+
+object PayloadBuilders {
+
+  private const val TAG = "OlliteRT.Payload"
+
+  // ── Info & Health ──────────────────────────────────────────────────────────
+
+  /**
+   * Builds the JSON response for GET /api/version and GET /v1/server/info.
+   * Includes server identity, version, status, loaded model, uptime, update
+   * availability, and the full list of supported endpoints.
+   */
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null): String {
+    val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
+    val info = buildMap {
+      put("name", JsonPrimitive("OlliteRT"))
+      put("version", JsonPrimitive(BuildConfig.VERSION_NAME))
+      put("build", JsonPrimitive(BuildConfig.VERSION_CODE))
+      put("git_hash", JsonPrimitive(BuildConfig.GIT_HASH))
+      // Report "idle" when model is unloaded due to keep_alive, matching /health behavior
+      val statusStr = when {
+        snapshot.isIdle -> "idle"
+        else -> snapshot.status.name.lowercase()
+      }
+      put("status", JsonPrimitive(statusStr))
+      snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
+      val latestVersion = ServerMetrics.availableUpdateVersion.value
+      val updateUrl = ServerMetrics.availableUpdateUrl.value
+      put("update_available", JsonPrimitive(latestVersion != null))
+      if (latestVersion != null) {
+        put("latest_version", JsonPrimitive(latestVersion.removePrefix("v")))
+        if (updateUrl != null) put("release_url", JsonPrimitive(updateUrl))
+      }
+      if (modelCatalogMerger != null) {
+        put("allowlist_content_version", JsonPrimitive(modelCatalogMerger.lastContentVersion))
+        put("allowlist_source", JsonPrimitive(modelCatalogMerger.lastSource))
+      }
+      val modelUpdateAvailable = activeModel?.updatable == true
+      put("model_update_available", JsonPrimitive(modelUpdateAvailable))
+      put("compatibility", JsonPrimitive("openai"))
+      put("endpoints", JsonArray(listOf(
+        JsonPrimitive("/v1/chat/completions"),
+        JsonPrimitive("/v1/completions"),
+        JsonPrimitive("/v1/responses"),
+        JsonPrimitive("/v1/audio/transcriptions"),
+        JsonPrimitive("/v1/models"),
+        JsonPrimitive("/v1/models/{id}"),
+        JsonPrimitive("/health"),
+        JsonPrimitive("/metrics"),
+        JsonPrimitive("/ping"),
+        JsonPrimitive("/v1/server/stop"),
+        JsonPrimitive("/v1/server/reload"),
+        JsonPrimitive("/v1/server/thinking"),
+        JsonPrimitive("/v1/server/config"),
+      )))
+    }
+    return JsonObject(info).toString()
+  }
+
+  /**
+   * Builds the JSON response for GET /health.
+   * When [includeMetrics] is true (via ?metrics=true query param), appends a full
+   * ServerMetrics snapshot — designed for Home Assistant REST sensor integration
+   * so a single poll returns status + all performance metrics.
+   */
+  // IMPORTANT: When adding or changing fields here, also update the HA YAML template
+  // in HomeAssistantCard.kt (haConfig buildString block) so the generated configuration stays in sync.
+  fun health(
+    activeModel: Model?,
+    idleUnloadedModelName: String?,
+    includeMetrics: Boolean = false,
+  ): String {
+    val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
+    val info = buildMap {
+      // Report "idle" when model is unloaded due to keep_alive — server is reachable but
+      // the next inference request will have a cold-start delay while the model reloads.
+      val statusStr = when {
+        snapshot.isIdle -> "idle"
+        snapshot.status == com.ollitert.llm.server.common.ServerStatus.RUNNING -> "ok"
+        else -> snapshot.status.name.lowercase()
+      }
+      put("status", JsonPrimitive(statusStr))
+      snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
+      // Surface update availability in health response — lightweight boolean for monitoring dashboards
+      put("update_available", JsonPrimitive(ServerMetrics.availableUpdateVersion.value != null))
+
+      if (includeMetrics) {
+        put("version", JsonPrimitive(BuildConfig.VERSION_NAME))
+        put("thinking_enabled", JsonPrimitive(ServerMetrics.thinkingEnabled.value))
+        put("speculative_decoding_enabled", JsonPrimitive(ServerMetrics.speculativeDecodingEnabled.value))
+        put("accelerator", JsonPrimitive(ServerMetrics.activeAccelerator.value ?: "unknown"))
+        put("is_idle_unloaded", JsonPrimitive(ServerMetrics.isIdleUnloaded.value))
+        val metricsMap = buildMap {
+          put("requests_total", JsonPrimitive(ServerMetrics.requestCount.value))
+          put("errors_total", JsonPrimitive(ServerMetrics.errorCount.value))
+          put("prompt_tokens_total", JsonPrimitive(ServerMetrics.tokensIn.value))
+          put("generation_tokens_total", JsonPrimitive(ServerMetrics.tokensGenerated.value))
+          put("requests_text", JsonPrimitive(ServerMetrics.textRequests.value))
+          put("requests_image", JsonPrimitive(ServerMetrics.imageRequests.value))
+          put("requests_audio", JsonPrimitive(ServerMetrics.audioRequests.value))
+          put("ttfb_last_ms", JsonPrimitive(ServerMetrics.lastTtfbMs.value))
+          put("ttfb_avg_ms", JsonPrimitive(ServerMetrics.avgTtfbMs.value))
+          put("decode_tokens_per_second", JsonPrimitive(ServerMetrics.lastDecodeSpeed.value))
+          put("decode_tokens_per_second_peak", JsonPrimitive(ServerMetrics.peakDecodeSpeed.value))
+          put("prefill_tokens_per_second", JsonPrimitive(ServerMetrics.lastPrefillSpeed.value))
+          put("inter_token_latency_ms", JsonPrimitive(ServerMetrics.lastItlMs.value))
+          put("request_latency_last_ms", JsonPrimitive(ServerMetrics.lastLatencyMs.value))
+          put("request_latency_avg_ms", JsonPrimitive(ServerMetrics.avgLatencyMs.value))
+          put("request_latency_peak_ms", JsonPrimitive(ServerMetrics.peakLatencyMs.value))
+          put("context_utilization_percent", JsonPrimitive(ServerMetrics.lastContextUtilization.value))
+          put("model_load_time_seconds", JsonPrimitive(ServerMetrics.modelLoadTimeMs.value / 1000.0))
+          put("is_inferring", JsonPrimitive(ServerMetrics.isInferring.value))
+        }
+        put("metrics", JsonObject(metricsMap))
+      }
+    }
+    return JsonObject(info).toString()
+  }
+
+  // ── /v1/server/config ──────────────────────────────────────────────────────
+
+  fun serverConfig(
+    inferenceConfig: Map<String, Any>,
+    modelName: String,
+    isModelLoaded: Boolean,
+    modelPrefsKey: String,
+    context: Context,
+    success: Boolean? = null,
+  ): String {
+    val json = buildJsonObject {
+      if (success != null) put("success", JsonPrimitive(success))
+      put("model", JsonPrimitive(modelName))
+      put("model_loaded", JsonPrimitive(isModelLoaded))
+      put("temperature", JsonPrimitive(inferenceConfig.configTemperature()?.toDouble() ?: 0.0))
+      put("max_tokens", JsonPrimitive(inferenceConfig.maxTokensInt() ?: 0))
+      put("top_k", JsonPrimitive(inferenceConfig.configTopK() ?: 0))
+      put("top_p", JsonPrimitive(inferenceConfig.configTopP()?.toDouble() ?: 0.0))
+      put("thinking_enabled", JsonPrimitive(inferenceConfig.configThinkingEnabled() ?: false))
+      put("speculative_decoding_enabled", JsonPrimitive(inferenceConfig.configSpeculativeDecodingEnabled() ?: false))
+      put("auto_truncate_history", JsonPrimitive(ServerPrefs.isAutoTruncateHistory(context)))
+      put("auto_trim_prompts", JsonPrimitive(ServerPrefs.isAutoTrimPrompts(context)))
+      put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
+      put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
+      put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))
+      put("custom_prompts_enabled", JsonPrimitive(ServerPrefs.isCustomPromptsEnabled(context)))
+      put("system_prompt", JsonPrimitive(ServerPrefs.getSystemPrompt(context, modelPrefsKey)))
+    }
+    return json.toString()
+  }
+
+  // ── /v1/models ────────────────────────────────────────────────────────────
+
+  /**
+   * Builds the JSON response for GET /v1/models/{id}.
+   * Returns null if the model ID doesn't match the active or idle-unloaded model.
+   */
+  fun modelDetail(activeModel: Model?, uri: String, json: Json, idleUnloadedModelName: String? = null): String? {
+    val modelId = uri.removePrefix("/v1/models/")
+    if (modelId.isBlank()) return null
+    if (activeModel != null) {
+      // Match against the currently loaded model
+      if (!activeModel.name.equals(modelId, ignoreCase = true)) return null
+      return json.encodeToString(LlmHttpModelItem.serializer(), activeModel.toModelItem())
+    }
+    // Model is idle-unloaded by keep_alive — return basic info without capabilities
+    // (capabilities require the Model object which isn't available when unloaded)
+    val idleName = idleUnloadedModelName ?: return null
+    if (!idleName.equals(modelId, ignoreCase = true)) return null
+    val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
+    return json.encodeToString(LlmHttpModelItem.serializer(), item)
+  }
+
+  /**
+   * Builds the JSON response for GET /v1/models.
+   * Reports the active model, or the idle-unloaded model name if keep_alive has
+   * unloaded the model but the server is still running.
+   */
+  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json): String {
+    if (activeModel == null) {
+      // If model is idle-unloaded (keep_alive), still report it so clients know
+      // which model will serve their next request (after auto-reload).
+      val idleName = idleUnloadedModelName
+      if (idleName != null) {
+        Log.d(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
+        val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
+        return json.encodeToString(LlmHttpModelList(data = listOf(item)))
+      }
+      Log.d(TAG, "Models list: no model loaded")
+      return json.encodeToString(LlmHttpModelList(data = emptyList()))
+    }
+    Log.d(TAG, "Models list: active model=${activeModel.name}")
+    return json.encodeToString(LlmHttpModelList(data = listOf(activeModel.toModelItem())))
+  }
+
+  // ── Response factories ────────────────────────────────────────────────────
+  // Token counts in all response builders below are **estimates** via estimateTokens().
+  // LiteRT LM SDK has no standalone tokenizer API — see Usage class doc for details.
+
+  /**
+   * Build performance timings from the most recent inference metrics.
+   * Safe to call right after runLlm() completes — inference is serialized via [inferenceLock],
+   * so the ServerMetrics "last" values are guaranteed to be from the current request.
+   *
+   * Returns null if no valid timing data is available (e.g. TTFB was 0).
+   */
+  fun buildTimings(promptTokens: Int, completionTokens: Int): InferenceTimings? {
+    return buildTimingsFromValues(promptTokens, completionTokens, ServerMetrics.lastTtfbMs.value, ServerMetrics.lastLatencyMs.value)
+  }
+
+  /**
+   * Build performance timings from explicit timing values (for streaming paths
+   * where timing data is computed locally, not read from ServerMetrics).
+   */
+  fun buildTimingsFromValues(promptTokens: Int, completionTokens: Int, ttfbMs: Long, totalMs: Long): InferenceTimings? {
+    if (ttfbMs <= 0 || totalMs <= 0) return null
+    val promptMs = ttfbMs.toDouble()
+    val predictedMs = (totalMs - ttfbMs).toDouble()
+    return InferenceTimings(
+      prompt_n = promptTokens,
+      prompt_ms = promptMs,
+      prompt_per_token_ms = if (promptTokens > 0) promptMs / promptTokens else 0.0,
+      prompt_per_second = if (promptMs > 0) promptTokens * 1000.0 / promptMs else 0.0,
+      predicted_n = completionTokens,
+      predicted_ms = predictedMs,
+      predicted_per_token_ms = if (completionTokens > 0) predictedMs / completionTokens else 0.0,
+      predicted_per_second = if (predictedMs > 0) completionTokens * 1000.0 / predictedMs else 0.0,
+    )
+  }
+
+  fun emptyChatResponse(modelName: String) = ChatResponse(
+    id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
+    choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent("")), finish_reason = FinishReason.STOP)),
+    usage = Usage(0, 0),
+  )
+
+  fun chatResponseWithText(modelName: String, text: String, promptLen: Int = 0, finishReason: String = FinishReason.STOP, timings: InferenceTimings? = null): ChatResponse {
+    val promptTokens = estimateTokensByLength(promptLen)
+    val completionTokens = estimateTokens(text)
+    return ChatResponse(
+      id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(text)), finish_reason = finishReason)),
+      usage = Usage(promptTokens, completionTokens),
+      timings = timings,
+    )
+  }
+
+  fun chatResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0, timings: InferenceTimings? = null): ChatResponse {
+    val promptTokens = estimateTokensByLength(promptLen)
+    val completionTokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments })
+    return ChatResponse(
+      id = BridgeUtils.generateChatCompletionId(), created = BridgeUtils.epochSeconds(), model = modelName,
+      choices = listOf(ChatChoice(0, ChatMessage("assistant", ChatContent(""), tool_calls = toolCalls), finish_reason = FinishReason.TOOL_CALLS)),
+      usage = Usage(promptTokens, completionTokens),
+      timings = timings,
+    )
+  }
+
+  fun responsesResponseWithText(modelName: String, text: String, promptLen: Int = 0) = ResponsesResponse(
+    id = BridgeUtils.generateResponseId(), created = BridgeUtils.epochSeconds(), model = modelName,
+    output = listOf(RespMessage(content = listOf(RespContent(text = text)))),
+    usage = ResponsesUsage(
+      input_tokens = estimateTokensByLength(promptLen),
+      output_tokens = estimateTokens(text),
+    ),
+  )
+
+  fun responsesResponseWithToolCalls(modelName: String, toolCalls: List<ToolCall>, promptLen: Int = 0) = ResponsesResponse(
+    id = BridgeUtils.generateResponseId(), created = BridgeUtils.epochSeconds(), model = modelName,
+    output = toolCalls.map { tc ->
+      RespFunctionCall(call_id = tc.id, name = tc.function.name, arguments = tc.function.arguments)
+    },
+    usage = ResponsesUsage(
+      input_tokens = estimateTokensByLength(promptLen),
+      output_tokens = estimateTokens(toolCalls.joinToString("") { it.function.arguments }),
+    ),
+  )
+}

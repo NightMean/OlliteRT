@@ -55,7 +55,7 @@ import androidx.work.WorkManager
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.settings.SettingsViewModel

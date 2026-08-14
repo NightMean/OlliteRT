@@ -64,7 +64,7 @@ import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.ClientIpPolicyConfig
 import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.ServerBindMode
-import com.ollitert.llm.server.service.BridgeUtils
+import com.ollitert.llm.server.service.inference.BridgeUtils
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.common.MultilineTextInputDialog

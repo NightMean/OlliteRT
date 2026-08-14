@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import kotlinx.io.Buffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals

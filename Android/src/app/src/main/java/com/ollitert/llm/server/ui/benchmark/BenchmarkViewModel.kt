@@ -37,7 +37,7 @@ import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkStats
 import com.ollitert.llm.server.proto.ValueSeries
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher

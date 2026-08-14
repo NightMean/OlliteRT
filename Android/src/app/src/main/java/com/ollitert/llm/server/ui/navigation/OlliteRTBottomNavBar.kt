@@ -73,7 +73,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.ui.common.modelitem.SYSTEM_RESERVED_STORAGE_IN_BYTES
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary

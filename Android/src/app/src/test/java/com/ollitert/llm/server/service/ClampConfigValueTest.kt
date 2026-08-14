@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.data.MAX_MAX_TOKENS
 import com.ollitert.llm.server.data.MAX_TEMPERATURE
 import com.ollitert.llm.server.data.MAX_TOPK

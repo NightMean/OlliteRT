@@ -320,8 +320,8 @@ fun StatusScreen(
             // Show recovery suggestion below the error if one is available
             if (!lastError.isNullOrBlank()) {
               val suggestion = remember(lastError) {
-                val kind = com.ollitert.llm.server.service.ErrorSuggestions.classifyFromString(lastError ?: "")
-                com.ollitert.llm.server.service.ErrorSuggestions.suggest(kind, context)
+                val kind = com.ollitert.llm.server.service.http.ErrorSuggestions.classifyFromString(lastError ?: "")
+                com.ollitert.llm.server.service.http.ErrorSuggestions.suggest(kind, context)
               }
               if (suggestion != null) {
                 Text(

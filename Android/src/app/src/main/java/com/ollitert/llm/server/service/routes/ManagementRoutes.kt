@@ -16,12 +16,15 @@
 
 package com.ollitert.llm.server.service.routes
 
-import com.ollitert.llm.server.service.HttpResponse
-import com.ollitert.llm.server.service.KtorServer
-import com.ollitert.llm.server.service.PrometheusRenderer
-import com.ollitert.llm.server.service.httpNotFound
-import com.ollitert.llm.server.service.httpOkJson
-import com.ollitert.llm.server.service.respondHttpResponse
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
+import com.ollitert.llm.server.service.http.HttpResponse
+import com.ollitert.llm.server.service.http.KtorServer
+import com.ollitert.llm.server.service.http.PrometheusRenderer
+import com.ollitert.llm.server.service.http.httpNotFound
+import com.ollitert.llm.server.service.http.httpOkJson
+import com.ollitert.llm.server.service.http.respondHttpResponse
 import io.ktor.server.application.call
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.get

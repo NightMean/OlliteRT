@@ -57,7 +57,7 @@ import com.ollitert.llm.server.data.bytesToMb
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.IMAGE_PLACEHOLDER
 import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.service.inference.RequestLogStore
 import kotlinx.coroutines.CoroutineScope
 import java.io.File
 import java.util.concurrent.CancellationException

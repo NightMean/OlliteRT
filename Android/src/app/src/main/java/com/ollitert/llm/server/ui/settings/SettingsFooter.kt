@@ -56,7 +56,7 @@ import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.worker.UpdateCheckWorker

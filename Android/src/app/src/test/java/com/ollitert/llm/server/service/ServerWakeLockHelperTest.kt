@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.PowerManager

@@ -17,6 +17,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager

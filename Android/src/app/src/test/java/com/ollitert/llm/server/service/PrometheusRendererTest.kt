@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.common.ErrorCategory
 import org.junit.After
 import org.junit.Assert.assertFalse

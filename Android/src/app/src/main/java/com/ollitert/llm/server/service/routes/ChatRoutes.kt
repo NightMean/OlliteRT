@@ -16,9 +16,12 @@
 
 package com.ollitert.llm.server.service.routes
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import android.util.Log
-import com.ollitert.llm.server.service.KtorServer
-import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.service.http.KtorServer
+import com.ollitert.llm.server.service.inference.RequestLogStore
 import io.ktor.server.application.call
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.post

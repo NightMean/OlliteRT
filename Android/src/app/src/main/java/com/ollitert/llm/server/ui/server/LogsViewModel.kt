@@ -22,7 +22,7 @@ import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.service.inference.RequestLogStore
 import com.ollitert.llm.server.ui.server.logs.LogFilter
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import com.ollitert.llm.server.ui.server.logs.matchesFilter

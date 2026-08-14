@@ -44,8 +44,8 @@ import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.RequestLogStore
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException

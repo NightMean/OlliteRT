@@ -84,7 +84,7 @@ import kotlinx.serialization.json.JsonElement
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.RequestLogEntry
-import com.ollitert.llm.server.service.ErrorSuggestions
+import com.ollitert.llm.server.service.http.ErrorSuggestions
 import com.ollitert.llm.server.ui.server.EventColor
 import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed

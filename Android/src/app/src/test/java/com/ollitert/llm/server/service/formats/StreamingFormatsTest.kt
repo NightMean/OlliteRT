@@ -16,10 +16,10 @@
 
 package com.ollitert.llm.server.service.formats
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.data.ErrorKind
-import com.ollitert.llm.server.service.KtorSseWriterImpl
-import com.ollitert.llm.server.service.ToolCall
-import com.ollitert.llm.server.service.ToolSpec
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals

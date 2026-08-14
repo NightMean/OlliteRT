@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.ServerStatus
 import java.util.concurrent.atomic.AtomicLong

@@ -16,8 +16,11 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.data.ErrorKind
-import com.ollitert.llm.server.service.ModelLifecycle
+import com.ollitert.llm.server.service.inference.ModelLifecycle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

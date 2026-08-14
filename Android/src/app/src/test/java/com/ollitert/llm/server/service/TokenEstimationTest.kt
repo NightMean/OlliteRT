@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import com.ollitert.llm.server.data.CHARS_PER_TOKEN_ESTIMATE
 import org.junit.Assert.assertEquals
 import org.junit.Test

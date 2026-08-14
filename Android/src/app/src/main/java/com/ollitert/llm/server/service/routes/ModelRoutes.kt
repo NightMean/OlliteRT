@@ -16,10 +16,13 @@
 
 package com.ollitert.llm.server.service.routes
 
-import com.ollitert.llm.server.service.KtorServer
-import com.ollitert.llm.server.service.PayloadBuilders
-import com.ollitert.llm.server.service.httpNotFound
-import com.ollitert.llm.server.service.httpOkJson
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
+import com.ollitert.llm.server.service.http.KtorServer
+import com.ollitert.llm.server.service.http.PayloadBuilders
+import com.ollitert.llm.server.service.http.httpNotFound
+import com.ollitert.llm.server.service.http.httpOkJson
 import io.ktor.server.application.call
 import io.ktor.server.request.uri
 import io.ktor.server.routing.Routing

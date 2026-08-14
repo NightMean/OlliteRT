@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -54,8 +54,8 @@ import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.ModelFactory
 import com.ollitert.llm.server.proto.ImportedModel
-import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.RequestLogStore
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext

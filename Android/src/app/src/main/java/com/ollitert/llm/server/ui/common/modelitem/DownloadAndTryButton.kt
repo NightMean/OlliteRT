@@ -82,7 +82,7 @@ import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.service.inference.RequestLogStore
 import com.ollitert.llm.server.ui.common.ErrorAlertDialog
 import com.ollitert.llm.server.ui.common.LoadingBlockingOverlay
 import com.ollitert.llm.server.ui.common.MemoryWarningAlert

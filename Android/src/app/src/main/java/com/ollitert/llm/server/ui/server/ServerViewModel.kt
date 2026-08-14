@@ -23,7 +23,7 @@ import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.inference.ServerMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay

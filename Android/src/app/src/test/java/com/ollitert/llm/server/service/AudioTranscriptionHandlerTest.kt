@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.service.http.*
+import com.ollitert.llm.server.service.inference.*
+
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -287,7 +290,7 @@ class AudioTranscriptionHandlerTest {
   fun inferenceErrorReturnsErrorResponse() = runBlocking {
     val wavBytes = buildMinimalWav()
 
-    mockkStatic("com.ollitert.llm.server.service.EndpointHandlersKt")
+    mockkStatic("com.ollitert.llm.server.service.http.EndpointHandlersKt")
     every { handleBlockingInferenceError(any(), any(), any()) } returns
       httpInternalError("Model inference failed")
 
