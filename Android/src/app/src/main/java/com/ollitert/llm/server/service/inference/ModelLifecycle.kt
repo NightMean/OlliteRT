@@ -36,6 +36,7 @@ import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCatalogMerger
 import com.ollitert.llm.server.data.ModelFactory
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage

@@ -30,6 +30,7 @@ import com.ollitert.llm.server.data.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper

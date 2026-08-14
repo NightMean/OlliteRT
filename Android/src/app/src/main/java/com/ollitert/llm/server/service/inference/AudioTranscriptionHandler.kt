@@ -25,8 +25,9 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.llmSupportAudio

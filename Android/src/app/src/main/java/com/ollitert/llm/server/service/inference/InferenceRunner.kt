@@ -37,6 +37,8 @@ import com.ollitert.llm.server.data.LOG_STREAMING_PREVIEW_DEBOUNCE_MS
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RESPONSES_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.SSE_PING_INTERVAL_MS
 import com.ollitert.llm.server.data.STREAM_OUTER_TIMEOUT_SAFETY_BUFFER_SECONDS

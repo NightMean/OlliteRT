@@ -22,6 +22,7 @@ import com.ollitert.llm.server.service.inference.*
 import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.ServerPrefs
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart

@@ -27,6 +27,7 @@ import android.util.Log
 import com.ollitert.llm.server.data.ConfigKeys
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.configTemperature
 import com.ollitert.llm.server.data.configThinkingEnabled

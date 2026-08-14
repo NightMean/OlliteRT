@@ -24,6 +24,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCapability
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import io.mockk.coEvery
 import io.mockk.every

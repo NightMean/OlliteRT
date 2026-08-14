@@ -33,6 +33,7 @@ import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.formatHostForUrl
 

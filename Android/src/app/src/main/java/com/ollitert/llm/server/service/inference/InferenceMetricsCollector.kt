@@ -21,6 +21,7 @@ import android.content.Context
 import com.ollitert.llm.server.data.ErrorKind
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.http.ErrorSuggestions

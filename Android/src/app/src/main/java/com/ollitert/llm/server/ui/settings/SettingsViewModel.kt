@@ -38,7 +38,7 @@ import com.ollitert.llm.server.data.ServerBindConfig
 import com.ollitert.llm.server.data.ServerBindMode
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
-import com.ollitert.llm.server.service.inference.RequestLogStore
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.common.matchesSearchQuery

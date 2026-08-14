@@ -23,7 +23,7 @@ import android.util.Log
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.inference.RequestLogStore
+import com.ollitert.llm.server.data.RequestLogStore
 
 /**
  * Records which update version the user dismissed by swiping the notification away.

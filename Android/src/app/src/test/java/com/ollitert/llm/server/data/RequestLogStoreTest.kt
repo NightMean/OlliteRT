@@ -14,15 +14,8 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service
+package com.ollitert.llm.server.data
 
-import com.ollitert.llm.server.service.http.*
-import com.ollitert.llm.server.service.inference.*
-
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

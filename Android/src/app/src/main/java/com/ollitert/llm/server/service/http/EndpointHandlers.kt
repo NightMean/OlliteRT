@@ -41,6 +41,7 @@ import com.ollitert.llm.server.data.MIN_TEMPERATURE
 import com.ollitert.llm.server.data.MIN_TOPK
 import com.ollitert.llm.server.data.MIN_TOPP
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.llmSupportAudio
 import com.ollitert.llm.server.data.llmSupportImage

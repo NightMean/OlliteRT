@@ -38,6 +38,7 @@ import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCatalogMerger
+import com.ollitert.llm.server.data.RequestLogStore
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.isSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.isThinkingEnabled
