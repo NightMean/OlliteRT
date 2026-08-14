@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.modelmanager
-
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
-import com.ollitert.llm.server.data.ModelAllowlist
+package com.ollitert.llm.server.data
 
 /** Loads the model allowlist from disk cache or bundled assets. */
 interface AllowlistLoader {

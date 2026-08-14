@@ -16,8 +16,6 @@
 
 package com.ollitert.llm.server.data
 
-import com.ollitert.llm.server.ui.modelmanager.AllowlistLoader
-
 class FakeAllowlistLoader : AllowlistLoader {
 
   private val diskCache = mutableMapOf<String, ModelAllowlist>()

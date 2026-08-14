@@ -33,8 +33,8 @@ import com.ollitert.llm.server.data.REPO_LIMIT_WARNING_THRESHOLD
 import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.data.repoCacheFilename
 import com.ollitert.llm.server.data.deriveRepositoryName
-import com.ollitert.llm.server.ui.modelmanager.ModelAllowlistLoader
-import com.ollitert.llm.server.ui.modelmanager.ModelListImportManager
+import com.ollitert.llm.server.data.ModelAllowlistLoader
+import com.ollitert.llm.server.data.ModelListImportManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers

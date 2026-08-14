@@ -43,8 +43,8 @@ import com.ollitert.llm.server.data.ModelAllowlistJson
 import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
-import com.ollitert.llm.server.ui.modelmanager.ModelAllowlistLoader
-import com.ollitert.llm.server.ui.modelmanager.ModelFileManager
+import com.ollitert.llm.server.data.ModelAllowlistLoader
+import com.ollitert.llm.server.data.ModelFileManager
 import androidx.hilt.work.HiltWorker
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

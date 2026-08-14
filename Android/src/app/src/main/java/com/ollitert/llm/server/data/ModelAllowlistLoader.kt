@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.modelmanager
+package com.ollitert.llm.server.data
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_TEST_FILENAME
-import com.ollitert.llm.server.data.ModelAllowlist
-import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
 
 private const val TAG = "OlliteRT.AllowLoad"

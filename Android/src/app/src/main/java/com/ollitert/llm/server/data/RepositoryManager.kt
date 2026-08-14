@@ -19,7 +19,6 @@ package com.ollitert.llm.server.data
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.ui.modelmanager.AllowlistLoader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

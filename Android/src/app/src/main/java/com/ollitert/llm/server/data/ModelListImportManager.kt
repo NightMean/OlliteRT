@@ -14,21 +14,12 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.modelmanager
+package com.ollitert.llm.server.data
 
 import android.content.Context
 import android.net.Uri
 import android.util.Log
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.fetchBounded
-import com.ollitert.llm.server.data.MAX_ALLOWLIST_RESPONSE_BYTES
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
-import com.ollitert.llm.server.data.ModelAllowlist
-import com.ollitert.llm.server.data.ModelAllowlistJson
-import com.ollitert.llm.server.data.Repository
-import com.ollitert.llm.server.data.repoCacheFilename
 import java.io.File
 import java.util.UUID
 
