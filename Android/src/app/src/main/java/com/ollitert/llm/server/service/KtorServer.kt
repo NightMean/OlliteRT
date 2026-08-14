@@ -37,8 +37,11 @@ import com.ollitert.llm.server.data.configTopP
 import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
+import com.ollitert.llm.server.service.routes.audioRoutes
+import com.ollitert.llm.server.service.routes.chatRoutes
+import com.ollitert.llm.server.service.routes.managementRoutes
+import com.ollitert.llm.server.service.routes.modelRoutes
+import com.ollitert.llm.server.service.routes.serverControlRoutes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -54,49 +57,32 @@ import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.http.HttpRequestLifecycle
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
-import io.ktor.server.http.HttpRequestLifecycle
 import io.ktor.server.plugins.statuspages.StatusPages
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
-import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveText
-import io.ktor.utils.io.readRemaining
-import kotlinx.io.readByteArray
 import io.ktor.server.request.uri
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.response.respondTextWriter
-import io.ktor.server.routing.Routing
-import io.ktor.server.routing.get
-import io.ktor.server.routing.head
-import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Ktor CIO embedded HTTP server.
- *
- * Routes requests to [EndpointHandlers] for inference endpoints and
- * handles server info, health, metrics, model listing, and favicon directly.
- * CORS is configured via the Ktor CORS plugin; bearer auth uses constant-time
- * comparison.
- *
- * Separated from [ServerService] to isolate HTTP concerns (routing, auth,
- * CORS, request/response formatting) from Android Service lifecycle concerns.
- */
 private const val TAG = "OlliteRT.Server"
 
 private val INFERENCE_PATHS = setOf(
@@ -108,29 +94,29 @@ class KtorServer(
   private val port: Int,
   private val bindHost: String,
   initialClientIpAccessPolicy: ClientIpAccessPolicy,
-  private val serviceContext: Context,
-  private val endpointHandlers: EndpointHandlers,
-  private val modelLifecycle: ModelLifecycle,
-  private val json: Json,
+  internal val serviceContext: Context,
+  internal val endpointHandlers: EndpointHandlers,
+  internal val modelLifecycle: ModelLifecycle,
+  internal val json: Json,
   private val nextRequestId: () -> String,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
-  private val audioTranscriptionHandler: AudioTranscriptionHandler,
-  private val anthropicEndpointHandlers: AnthropicEndpointHandlers,
+  internal val audioTranscriptionHandler: AudioTranscriptionHandler,
+  internal val anthropicEndpointHandlers: AnthropicEndpointHandlers,
   private val inferenceLock: Any,
 ) {
 
   private val logIdCounter = AtomicLong(0)
   private val clientIpAccessPolicy = AtomicReference(initialClientIpAccessPolicy)
 
-  private fun nextLogId() = "log-${System.currentTimeMillis()}-${logIdCounter.incrementAndGet()}"
+  internal fun nextLogId() = "log-${System.currentTimeMillis()}-${logIdCounter.incrementAndGet()}"
 
   private var engine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
 
   // @Volatile on ModelLifecycle.defaultModel guarantees atomic reference reads without the
   // keepAliveLock. Ktor request threads see a consistent snapshot (either the old or new Model
   // reference). Model selection and locking happen deeper in selectModel()/InferenceRunner.
-  private val defaultModel: Model? get() = modelLifecycle.defaultModel
-  private val keepAliveUnloadedModelName: String? get() = modelLifecycle.keepAliveUnloadedModelName
+  internal val defaultModel: Model? get() = modelLifecycle.defaultModel
+  internal val keepAliveUnloadedModelName: String? get() = modelLifecycle.keepAliveUnloadedModelName
 
   private val behaviorToggles = listOf(
     BooleanToggle("auto_truncate_history", "Auto Truncate History",
@@ -146,7 +132,7 @@ class KtorServer(
       ServerPrefs::isCustomPromptsEnabled, ServerPrefs::setCustomPromptsEnabled),
   )
 
-  private val faviconBytes: ByteArray? by lazy {
+  internal val faviconBytes: ByteArray? by lazy {
     try {
       serviceContext.assets.open("favicon.png").use { it.readBytes() }
     } catch (e: Exception) {
@@ -176,8 +162,11 @@ class KtorServer(
         cancelCallOnClose = true
       }
       routing {
-        configureGetRoutes()
-        configurePostRoutes()
+        managementRoutes(this@KtorServer)
+        modelRoutes(this@KtorServer)
+        chatRoutes(this@KtorServer)
+        audioRoutes(this@KtorServer)
+        serverControlRoutes(this@KtorServer)
       }
     }
     engine?.start(wait = false)
@@ -250,8 +239,6 @@ class KtorServer(
       } else {
         val origins = allowedOrigins.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         for (origin in origins) {
-          // allowHost expects "host:port" format with a schemes list.
-          // Parse the origin URL to extract host, port, and scheme.
           try {
             val url = Url(origin)
             val hostWithPort = if (url.port != url.protocol.defaultPort) {
@@ -276,7 +263,7 @@ class KtorServer(
    * authorized (or auth is disabled). Returns `false` and sends a 401
    * response if unauthorized.
    */
-  private suspend fun requireAuth(call: ApplicationCall): Boolean {
+  internal suspend fun requireAuth(call: ApplicationCall): Boolean {
     val expected = ServerPrefs.getBearerToken(serviceContext)
     if (expected.isBlank()) return true // Auth disabled
     val header = call.request.headers["Authorization"] ?: ""
@@ -290,7 +277,7 @@ class KtorServer(
 
   // Gates /v1/server/* endpoints behind the HA integration toggle.
   // Returns 404 when disabled so the endpoints appear non-existent to scanners.
-  private suspend fun requireServerControl(call: ApplicationCall): Boolean {
+  internal suspend fun requireServerControl(call: ApplicationCall): Boolean {
     if (!ServerPrefs.isHaIntegrationEnabled(serviceContext)) {
       call.respondHttpResponse(httpNotFound())
       return false
@@ -305,7 +292,7 @@ class KtorServer(
    * This bridges the handler layer (which returns [HttpResponse]) with Ktor's
    * response API.
    */
-  private suspend fun ApplicationCall.respondHttpResponse(resp: HttpResponse) {
+  internal suspend fun ApplicationCall.respondHttpResponse(resp: HttpResponse) {
     when (resp) {
       is HttpResponse.Json -> {
         for ((key, value) in resp.extraHeaders) {
@@ -354,249 +341,6 @@ class KtorServer(
     }
   }
 
-  // ── GET routes ────────────────────────────────────────────────────────────
-
-  private fun Routing.configureGetRoutes() {
-    get("/ping") {
-      call.respondHttpResponse(httpOkJson("""{"status":"ok"}"""))
-    }
-
-    get("/health") { handleHealth(call) }
-    get("/v1/health") { handleHealth(call) }
-
-    get("/") { handleServerInfo(call) }
-    get("/v1") { handleServerInfo(call) }
-    get("/api/version") { handleServerInfo(call) }
-
-    // HEAD probes used by Anthropic/OpenAI clients (Claude Code, curl -I, monitors)
-    // to liveness-check the base URL before issuing real requests. RFC 7231 §4.3.2:
-    // HEAD must succeed wherever GET succeeds. Ktor does not auto-derive HEAD from
-    // GET, so register them explicitly. respond with 200 + Content-Type only — Ktor
-    // strips the body from a HEAD response.
-    head("/") { call.respondHttpResponse(httpOkJson("")) }
-    head("/v1") { call.respondHttpResponse(httpOkJson("")) }
-    head("/ping") { call.respondHttpResponse(httpOkJson("")) }
-    head("/health") { call.respondHttpResponse(httpOkJson("")) }
-    head("/v1/health") { call.respondHttpResponse(httpOkJson("")) }
-
-    get("/metrics") {
-      withGetLogging(call) {
-        val body = PrometheusRenderer.render()
-        HttpResponse.PlainText(200, PrometheusRenderer.CONTENT_TYPE, body)
-      }
-    }
-
-    get("/v1/models") { handleModelsList(call) }
-    get("/debug/models") { handleModelsList(call) }
-
-    get("/v1/models/{id...}") {
-      if (!requireAuth(call)) return@get
-      withGetLogging(call) {
-        val body = PayloadBuilders.modelDetail(
-          defaultModel, call.request.uri, json, keepAliveUnloadedModelName,
-        )
-        if (body != null) httpOkJson(body)
-        else httpNotFound("model_not_found")
-      }
-    }
-
-    get("/favicon.ico") {
-      val bytes = faviconBytes
-      if (bytes != null) {
-        call.respondHttpResponse(HttpResponse.Binary(200, "image/png", bytes))
-      } else {
-        call.respondHttpResponse(httpNotFound())
-      }
-    }
-  }
-
-  // ── POST routes ────────────────────────────────────────────────────────────
-
-  private fun Routing.configurePostRoutes() {
-    // ── Inference routes — delegated to EndpointHandlers ──
-    // Handlers return HttpResponse directly (including HttpResponse.Sse for streaming).
-
-    post("/generate") {
-      if (!requireAuth(call)) return@post
-      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
-        endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId, prefs)
-      }
-    }
-
-    post("/v1/completions") {
-      if (!requireAuth(call)) return@post
-      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
-        endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId, prefs)
-      }
-    }
-
-    post("/v1/chat/completions") {
-      if (!requireAuth(call)) return@post
-      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
-        endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId, prefs)
-      }
-    }
-
-    post("/v1/responses") {
-      if (!requireAuth(call)) return@post
-      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
-        endpointHandlers.handleResponses(body, captureBody, captureResponse, logId, prefs)
-      }
-    }
-
-    post("/v1/messages") {
-      if (!requireAuth(call)) return@post
-      withRequestLogging(call, admitModelRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
-        if (prefs.verboseDebug) {
-          val headers = call.request.headers
-          val redacted = RequestLogStore.redactSensitiveHeaders(
-            headers.names().associateWith { headers[it].orEmpty() }
-          )
-          val ua = redacted["User-Agent"] ?: redacted["user-agent"] ?: ""
-          val av = redacted["anthropic-version"] ?: ""
-          val accept = redacted["Accept"] ?: redacted["accept"] ?: ""
-          val cl = redacted["Content-Length"] ?: redacted["content-length"] ?: ""
-          val hasApiKey = (redacted["x-api-key"] != null || redacted["X-Api-Key"] != null).toString()
-          Log.i(TAG, "ANTHROPIC_REQ headers: ua=\"$ua\" anthropic-version=\"$av\" accept=\"$accept\" content-length=$cl x-api-key=$hasApiKey body_chars=${body.length} body_head=\"${body.take(200).replace("\n", "\\n")}\"")
-        }
-        anthropicEndpointHandlers.handleMessages(body, captureBody, captureResponse, logId, prefs)
-      }
-    }
-
-    post("/v1/messages/count_tokens") {
-      if (!requireAuth(call)) return@post
-      withRequestLogging(call) { body, captureBody, captureResponse, logId, _, prefs ->
-        anthropicEndpointHandlers.handleCountTokens(body, captureBody, captureResponse, logId, prefs)
-      }
-    }
-
-    // ── Server control endpoints ──
-    // IMPORTANT: When adding new /v1/server/* endpoints, also update the HA YAML
-    // template in HomeAssistantCard.kt (haConfig buildString block) with the new rest_command.
-
-    post("/v1/server/stop") {
-      if (!requireServerControl(call)) return@post
-      withRequestLogging(call) { _, _, _, _, _, _ ->
-        handleServerStop()
-      }
-    }
-
-    post("/v1/server/reload") {
-      if (!requireServerControl(call)) return@post
-      withRequestLogging(call) { _, _, _, _, _, _ ->
-        handleServerReload()
-      }
-    }
-
-    post("/v1/server/thinking") {
-      if (!requireServerControl(call)) return@post
-      withRequestLogging(call) { body, _, _, _, _, _ ->
-        handleServerThinking(body)
-      }
-    }
-
-    post("/v1/server/config") {
-      if (!requireServerControl(call)) return@post
-      withRequestLogging(call) { body, _, _, _, _, _ ->
-        handleServerConfig(body)
-      }
-    }
-
-    // ── Audio transcription ──
-    // Can't use withRequestLogging — multipart body requires receiveMultipart() instead of receiveText().
-    post("/v1/audio/transcriptions") {
-      if (!requireAuth(call)) return@post
-      val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
-      val startMs = SystemClock.elapsedRealtime()
-      val logId = nextLogId()
-      RequestLogStore.add(
-        RequestLogEntry(
-          id = logId,
-          method = "POST",
-          path = "/v1/audio/transcriptions",
-          modelName = defaultModel?.name ?: keepAliveUnloadedModelName,
-          clientIp = call.clientIp(prefs.resolveClientHostnames),
-          isPending = true,
-        ),
-      )
-
-      val contentLengthHeader = call.request.headers["Content-Length"]?.toLongOrNull()
-
-      if (contentLengthHeader != null && contentLengthHeader > MAX_FILE_SIZE_BYTES) {
-        val response = httpPayloadTooLarge("File too large (${contentLengthHeader / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
-        finalizeLogEntry(logId, startMs, response, null, response.body)
-        call.response.headers.append("x-request-id", logId)
-        call.respondHttpResponse(response)
-        return@post
-      }
-
-      val multipart = call.receiveMultipart(formFieldLimit = MAX_FILE_SIZE_BYTES)
-      var fileBytes: ByteArray? = null
-      val fields = mutableMapOf<String, String>()
-      try {
-        multipart.forEachPart { part ->
-          when (part) {
-            is PartData.FileItem -> fileBytes = readBytesWithLimit(part.provider().readRemaining(), MAX_FILE_SIZE_BYTES)
-            is PartData.FormItem -> fields[part.name ?: ""] = part.value
-            else -> {}
-          }
-          part.dispose()
-        }
-      } catch (e: java.io.IOException) {
-        Log.w(TAG, "Audio upload exceeded ${MAX_FILE_SIZE_BYTES / 1_000_000}MB limit: ${e.message}")
-        val response = httpPayloadTooLarge("File too large. Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
-        finalizeLogEntry(logId, startMs, response, "[multipart audio — rejected: too large]", response.body)
-        call.response.headers.append("x-request-id", logId)
-        call.respondHttpResponse(response)
-        return@post
-      }
-
-      val actualSize = fileBytes?.size?.toLong() ?: contentLengthHeader ?: 0L
-
-      val admission = modelLifecycle.acquireRequestAdmission()
-      try {
-        val model = when (val sel = modelLifecycle.selectModel(null)) {
-          is ModelLifecycle.ModelSelection.Ok -> sel.model
-          is ModelLifecycle.ModelSelection.Error -> {
-            val response = sel.toHttpResponse()
-            finalizeLogEntry(logId, startMs, response, null, response.body)
-            call.response.headers.append("x-request-id", logId)
-            call.respondHttpResponse(response)
-            return@post
-          }
-        }
-
-        if (prefs.rejectWhenBusy && ServerMetrics.isInferring.value) {
-          val busyResponse = httpServiceUnavailable(
-            "Server is busy processing another request. Disable \"Reject Requests When Busy\" in settings to queue instead.",
-          )
-          finalizeLogEntry(logId, startMs, busyResponse, "[multipart audio — rejected: busy]", busyResponse.body)
-          call.response.headers.append("x-request-id", logId)
-          call.respondHttpResponse(busyResponse)
-          return@post
-        }
-
-        // Shield from cancelCallOnClose: audio transcription is blocking (non-streaming)
-        // and short-lived. If the client disconnects mid-inference, let it finish and
-        // attempt to send the response. Without this, HA's aggressive socket close
-        // triggers CancellationException via runInterruptible in InferenceGateway.
-        val response = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-          audioTranscriptionHandler.handle(fileBytes, fields, actualSize, model, logId = logId, prefs = prefs)
-        }
-        val responseBody = when (response) {
-          is HttpResponse.Json -> response.body
-          is HttpResponse.PlainText -> response.body
-          else -> null
-        }
-        finalizeLogEntry(logId, startMs, response, "[multipart audio $actualSize bytes]", responseBody)
-        call.response.headers.append("x-request-id", logId)
-        call.respondHttpResponse(response)
-      } finally {
-        admission.close()
-      }
-    }
-  }
-
   // ── Request logging middleware ─────────────────────────────────────────────
 
   /**
@@ -604,7 +348,7 @@ class KtorServer(
    * handler, finalizes with status/latency, and sends the response. No body
    * parsing or OOM protection needed — GET routes have no request body.
    */
-  private suspend fun withGetLogging(
+  internal suspend fun withGetLogging(
     call: ApplicationCall,
     handler: suspend () -> HttpResponse,
   ) {
@@ -648,7 +392,7 @@ class KtorServer(
    * The handler lambda receives the request body, capture callbacks, log ID, and
    * SSE extra headers, and returns an [HttpResponse].
    */
-  private suspend fun withRequestLogging(
+  internal suspend fun withRequestLogging(
     call: ApplicationCall,
     admitModelRequest: Boolean = false,
     handler: suspend (
@@ -804,7 +548,7 @@ class KtorServer(
    * and per-request performance metrics. For streaming responses, metadata
    * is set but isPending is left for the streaming callbacks to finalize.
    */
-  private fun finalizeLogEntry(
+  internal fun finalizeLogEntry(
     logId: String,
     startMs: Long,
     response: HttpResponse,
@@ -869,7 +613,7 @@ class KtorServer(
    * intent the notification Stop button uses. Response is sent before the
    * service actually stops.
    */
-  private fun handleServerStop(): HttpResponse {
+  internal fun handleServerStop(): HttpResponse {
     val stopIntent = Intent(serviceContext, ServerService::class.java).apply {
       action = ServerService.ACTION_STOP
     }
@@ -886,7 +630,7 @@ class KtorServer(
    * Handles POST /v1/server/reload — triggers a model reload via the same
    * intent the UI uses. Also works when the model is idle-unloaded by keep_alive.
    */
-  private fun handleServerReload(): HttpResponse {
+  internal fun handleServerReload(): HttpResponse {
     val modelName = defaultModel?.name ?: keepAliveUnloadedModelName
       ?: return httpBadRequest("No model loaded")
     val reloadPort = ServerMetrics.port.value
@@ -917,17 +661,12 @@ class KtorServer(
   /**
    * Handles POST /v1/server/thinking — toggle thinking mode on/off.
    */
-  private fun handleServerThinking(body: String): HttpResponse {
+  internal fun handleServerThinking(body: String): HttpResponse {
     val ctx = resolveModelContext() ?: return httpBadRequest("No model loaded")
     val (model, isIdle, modelName, modelPrefsKey) = ctx
-    // When model is loaded, check thinking support. When idle-unloaded, skip the check —
-    // we can't inspect model capabilities without the Model object, but the saved config
-    // will be applied when the model reloads.
     if (model != null && !model.llmSupportThinking) {
       return httpBadRequest("Model does not support thinking")
     }
-    // Read-modify-write configValues atomically under inferenceLock when model is loaded,
-    // preventing concurrent inference config restore from silently overwriting changes.
     val currentState: Boolean
     val requestedState: Boolean
     val updatedConfig: Map<String, Any>
@@ -949,7 +688,6 @@ class KtorServer(
     }
     ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
-    // Log using the same "Settings updated" format as the Settings UI
     val oldLabel = if (currentState) "enabled" else "disabled"
     val newLabel = if (requestedState) "enabled" else "disabled"
     RequestLogStore.addEvent(
@@ -971,11 +709,10 @@ class KtorServer(
   /**
    * Handles POST /v1/server/config — update inference settings.
    */
-  private fun handleServerConfig(body: String): HttpResponse {
+  internal fun handleServerConfig(body: String): HttpResponse {
     val ctx = resolveModelContext() ?: return httpBadRequest("No model loaded")
     val (model, isIdle, modelName, modelPrefsKey) = ctx
     if (body.isBlank()) {
-      // GET-like: return current config. Read under lock when model is loaded.
       val currentConfig = if (model != null) {
         synchronized(inferenceLock) { model.configValues }
       } else {
@@ -985,7 +722,6 @@ class KtorServer(
         PayloadBuilders.serverConfig(currentConfig, modelName, !isIdle, modelPrefsKey, serviceContext),
       )
     }
-    // ── Parse JSON body outside lock (no configValues access) ──
     val obj = try {
       Json.parseToJsonElement(body).jsonObject
     } catch (e: Exception) {
@@ -997,7 +733,6 @@ class KtorServer(
       val reqTopK = parseConfigInt(obj, "top_k")
       val reqTopP = parseConfigDouble(obj, "top_p")
       val reqThinking = parseConfigBool(obj, "thinking_enabled")
-      // ── Read-modify-write configValues atomically under inferenceLock ──
       val updated: Map<String, Any>
       val configChanges: MutableList<String>
       if (model != null) {
@@ -1017,7 +752,6 @@ class KtorServer(
         updated = result.first
         configChanges = result.second
       }
-      // ── Behavior toggles & special fields (SharedPrefs-only, no lock needed) ──
       val changes = configChanges.toMutableList()
       applyBehaviorToggles(obj, changes)
       val specialFieldError = applySpecialFields(obj, modelPrefsKey, changes)
@@ -1089,12 +823,6 @@ class KtorServer(
     return updated.toMap() to changes
   }
 
-  /**
-   * Parses the requested thinking state from the body JSON.
-   * Returns null if the body contains malformed JSON (caller should return httpBadRequest).
-   * An empty/blank body means "toggle" (returns !currentState).
-   * A valid JSON body with no "enabled" field also means "toggle".
-   */
   private fun parseThinkingRequestedState(body: String, currentState: Boolean): Boolean? {
     if (body.isNotBlank()) {
       val obj = try {
@@ -1107,10 +835,6 @@ class KtorServer(
     return !currentState
   }
 
-  /**
-   * Applies behavior toggle changes from the JSON object to SharedPreferences.
-   * Appends human-readable change descriptions to [changes].
-   */
   private fun applyBehaviorToggles(obj: JsonObject, changes: MutableList<String>) {
     for (toggle in behaviorToggles) {
       parseConfigBool(obj, toggle.jsonKey)?.let { v ->
@@ -1122,10 +846,6 @@ class KtorServer(
     }
   }
 
-  /**
-   * Applies special-field changes (keep_alive_minutes, system_prompt) from the JSON object.
-   * Returns an [HttpResponse] error if validation fails, or null on success.
-   */
   private fun applySpecialFields(
     obj: JsonObject,
     modelPrefsKey: String,
@@ -1152,7 +872,7 @@ class KtorServer(
 
   // ── Shared route handlers ─────────────────────────────────────────────────
 
-  private suspend fun handleServerInfo(call: ApplicationCall) {
+  internal suspend fun handleServerInfo(call: ApplicationCall) {
     withGetLogging(call) {
       val body = PayloadBuilders.serverInfo(
         defaultModel, keepAliveUnloadedModelName, modelLifecycle.modelCatalogMerger,
@@ -1161,7 +881,7 @@ class KtorServer(
     }
   }
 
-  private suspend fun handleModelsList(call: ApplicationCall) {
+  internal suspend fun handleModelsList(call: ApplicationCall) {
     if (!requireAuth(call)) return
     withGetLogging(call) {
       val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
@@ -1169,7 +889,7 @@ class KtorServer(
     }
   }
 
-  private suspend fun handleHealth(call: ApplicationCall) {
+  internal suspend fun handleHealth(call: ApplicationCall) {
     val includeMetrics =
       call.request.queryParameters["metrics"]?.equals("true", ignoreCase = true) == true
     val response = httpOkJson(
@@ -1239,11 +959,6 @@ internal fun parseConfigString(obj: JsonObject, field: String): String? {
   }
 }
 
-/**
- * Reads all bytes from [source] up to [maxBytes]. Throws [java.io.IOException]
- * if the source contains more than [maxBytes], preventing unbounded heap allocation
- * from multipart uploads with missing or spoofed Content-Length headers.
- */
 internal fun readBytesWithLimit(source: kotlinx.io.Source, maxBytes: Long): ByteArray {
   val buffer = kotlinx.io.Buffer()
   var totalRead = 0L
