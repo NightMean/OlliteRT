@@ -31,13 +31,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.MODEL_INFO_ICON_SIZE
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.theme.OlliteRTFailedDownloadRed
 import com.ollitert.llm.server.ui.theme.customColors
+
+/** The size of capability icons shown beside model names in the model list screen. */
+val MODEL_INFO_ICON_SIZE = 18.dp
 
 /** Composable function to display an icon representing the download status of a model. */
 @Composable
