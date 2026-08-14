@@ -16,8 +16,8 @@
 
 package com.ollitert.llm.server.data.db
 
-import com.ollitert.llm.server.service.LogLevel
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json

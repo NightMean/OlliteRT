@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.data.db
 
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.RequestLogEntry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

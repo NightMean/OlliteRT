@@ -16,9 +16,9 @@
 
 package com.ollitert.llm.server.data.db
 
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LogLevel
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

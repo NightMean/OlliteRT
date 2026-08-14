@@ -29,7 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.service.ErrorKind
+import com.ollitert.llm.server.data.ErrorKind
 import com.ollitert.llm.server.ui.server.ContextOverflowColor
 import com.ollitert.llm.server.ui.server.TruncatedColor
 import com.ollitert.llm.server.ui.server.WarningColor

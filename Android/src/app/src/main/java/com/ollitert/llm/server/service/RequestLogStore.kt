@@ -16,79 +16,17 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
-import com.ollitert.llm.server.service.RequestLogStore.DEFAULT_MAX_ENTRIES
-import com.ollitert.llm.server.service.RequestLogStore._entries
-import com.ollitert.llm.server.service.RequestLogStore.cancelRequest
-import com.ollitert.llm.server.service.RequestLogStore.entries
-import com.ollitert.llm.server.service.RequestLogStore.maxEntries
-import com.ollitert.llm.server.service.RequestLogStore.pendingPartialText
-import com.ollitert.llm.server.service.RequestLogStore.setMaxEntries
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-
-enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
-
-/** Category for EVENT-type log entries — drives the icon shown in the Logs tab. */
-enum class EventCategory { GENERAL, MODEL, SETTINGS, SERVER, PROMPT, UPDATE }
-
-/**
- * A single API request/response pair displayed in the Logs screen.
- */
-data class RequestLogEntry(
-  val id: String,
-  val timestamp: Long = System.currentTimeMillis(),
-  val method: String,
-  val path: String,
-  val requestBody: String? = null,
-  /** Original request body size in chars before base64 compaction. 0 = no compaction applied. */
-  val originalRequestBodySize: Int = 0,
-  val responseBody: String? = null,
-  val statusCode: Int = 200,
-  val tokens: Long = 0,
-  val latencyMs: Long = 0,
-  val isStreaming: Boolean = false,
-  val modelName: String? = null,
-  val clientIp: String? = null,
-  val level: LogLevel = LogLevel.INFO,
-  val isPending: Boolean = false,
-  val isGenerating: Boolean = false,
-  val isThinking: Boolean = false,
-  val isCompacted: Boolean = false,
-  val compactionDetails: String? = null,
-  val compactedPrompt: String? = null,
-  val isCancelled: Boolean = false,
-  /** True when the user tapped "Stop" in the Logs screen (vs client disconnect). */
-  val cancelledByUser: Boolean = false,
-  val partialText: String? = null,
-  val eventCategory: EventCategory = EventCategory.GENERAL,
-  /** Estimated input token count (~charLen/4), or exact count if extracted from LiteRT error. */
-  val inputTokenEstimate: Long = 0,
-  /** Model's max context window in tokens. 0 if unknown. */
-  val maxContextTokens: Long = 0,
-  /** True when [inputTokenEstimate] was extracted from a LiteRT error (exact count, not estimate). */
-  val isExactTokenCount: Boolean = false,
-  /** Client-supplied sampler params that were ignored due to the "Ignore Client Sampler" setting. */
-  val ignoredClientParams: String? = null,
-  /** True when the response contains tool calls (finish_reason = "tool_calls"). */
-  val hasToolCalls: Boolean = false,
-  /** Classified error type, set when inference fails. Null for successful requests. */
-  val errorKind: ErrorKind? = null,
-  // ── Per-request performance metrics ──
-  // Computed at inference completion and stored per-entry for the Logs info popup.
-  /** Time to first token in ms (0 if unavailable, e.g. non-streaming without TTFB tracking). */
-  val ttfbMs: Long = 0,
-  /** Decode speed in tokens/sec for this request's generation phase. */
-  val decodeSpeed: Double = 0.0,
-  /** Prefill speed in tokens/sec (input tokens / TTFB). */
-  val prefillSpeed: Double = 0.0,
-  /** Inter-token latency in ms (average time between consecutive output tokens). */
-  val itlMs: Double = 0.0,
-)
 
 /**
  * In-memory FIFO store for API request logs. Max [maxEntries] entries.

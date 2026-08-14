@@ -14,15 +14,9 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service
+package com.ollitert.llm.server.data
 
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.data.AllowedModel
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_CACHE_PREFIX
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
-import com.ollitert.llm.server.data.ModelAllowlist
-import com.ollitert.llm.server.data.ModelAllowlistJson
 import java.io.File
 
 /**
@@ -43,9 +37,7 @@ class ModelCatalogMerger(
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
   @Volatile private var cached: ModelAllowlist? = null
   @Volatile var lastSource: String = "unknown"
-    private set
   @Volatile var lastContentVersion: Int = 0
-    private set
 
   /** Returns the current list of allowed models, falling back to cache on error. */
   fun load(): List<AllowedModel> {

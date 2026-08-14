@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service
+package com.ollitert.llm.server.data
 
-import com.ollitert.llm.server.data.AllowedModel
-import com.ollitert.llm.server.data.DefaultConfig
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.File

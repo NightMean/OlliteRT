@@ -14,21 +14,11 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service
+package com.ollitert.llm.server.data
 
 import android.content.Context
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.data.Accelerator
-import com.ollitert.llm.server.data.AllowedModel
-import com.ollitert.llm.server.data.IMPORTS_DIR
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.MIN_MAX_TOKENS
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelCapability
-import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.data.convertValueToTargetType
-import com.ollitert.llm.server.data.createLlmChatConfigs
 import com.ollitert.llm.server.proto.ImportedModel
 import java.io.File
 

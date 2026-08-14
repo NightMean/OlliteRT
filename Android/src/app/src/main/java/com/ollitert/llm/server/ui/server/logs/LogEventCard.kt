@@ -81,10 +81,10 @@ import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
 import com.ollitert.llm.server.ui.common.buildTrackableUrlAnnotatedString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import com.ollitert.llm.server.service.EventCategory
+import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.service.ErrorSuggestions
-import com.ollitert.llm.server.service.LogLevel
-import com.ollitert.llm.server.service.RequestLogEntry
 import com.ollitert.llm.server.ui.server.EventColor
 import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed

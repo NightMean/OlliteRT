@@ -16,7 +16,10 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

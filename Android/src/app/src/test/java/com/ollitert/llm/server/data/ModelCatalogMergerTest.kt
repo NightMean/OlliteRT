@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service
+package com.ollitert.llm.server.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

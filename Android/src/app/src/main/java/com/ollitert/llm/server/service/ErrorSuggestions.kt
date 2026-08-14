@@ -18,28 +18,7 @@ package com.ollitert.llm.server.service
 
 import android.content.Context
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.ErrorCategory
-
-/**
- * Specific error types, assigned at catch sites. Each maps to exactly one recovery suggestion.
- * Only add entries here when you can verify the exact error condition from the code.
- */
-enum class ErrorKind(val category: ErrorCategory) {
-  CONTEXT_OVERFLOW(ErrorCategory.INFERENCE),
-  TIMEOUT(ErrorCategory.INFERENCE),
-  MODEL_NOT_FOUND(ErrorCategory.MODEL_LOAD),
-  MODEL_FILES_MISSING(ErrorCategory.MODEL_LOAD),
-  PORT_BIND_FAILURE(ErrorCategory.NETWORK),
-  MODEL_INSTANCE_NULL(ErrorCategory.INFERENCE),
-  IMAGE_DECODE_FAILED(ErrorCategory.INFERENCE),
-  OOM(ErrorCategory.SYSTEM),
-
-  /** Errors from LiteRT SDK where we don't know the exact string. */
-  UNKNOWN_LITERT(ErrorCategory.INFERENCE),
-
-  /** Catch-all for unrecognized errors. */
-  UNKNOWN(ErrorCategory.SYSTEM),
-}
+import com.ollitert.llm.server.data.ErrorKind
 
 /**
  * Maps [ErrorKind] values to actionable recovery suggestions for the user.

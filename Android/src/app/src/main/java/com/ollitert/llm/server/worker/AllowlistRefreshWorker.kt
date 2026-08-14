@@ -39,9 +39,9 @@ import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.MAX_MODELS_PER_REPO
 import com.ollitert.llm.server.data.MAX_REPO_ERROR_LENGTH
 import com.ollitert.llm.server.data.UNKNOWN_ERROR_FALLBACK
+import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.ModelAllowlistJson
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.data.ModelAllowlistLoader
 import com.ollitert.llm.server.data.ModelFileManager

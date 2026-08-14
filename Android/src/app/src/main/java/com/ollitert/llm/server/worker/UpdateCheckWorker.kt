@@ -39,11 +39,11 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
+import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import dagger.assisted.Assisted

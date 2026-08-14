@@ -21,7 +21,7 @@ import android.util.Log
 import com.ollitert.llm.server.data.DEFAULT_IN_MEMORY_LOG_CAP
 import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.service.RequestLogStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope

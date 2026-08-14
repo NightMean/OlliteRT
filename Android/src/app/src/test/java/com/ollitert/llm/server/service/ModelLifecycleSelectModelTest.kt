@@ -18,6 +18,7 @@ package com.ollitert.llm.server.service
 
 import android.content.Context
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCatalogMerger
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

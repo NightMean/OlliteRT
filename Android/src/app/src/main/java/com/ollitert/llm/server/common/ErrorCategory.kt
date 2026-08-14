@@ -18,7 +18,7 @@ package com.ollitert.llm.server.common
 
 /**
  * Classifies errors for metrics, filtering, and Prometheus breakdowns.
- * Distinct from [com.ollitert.llm.server.service.EventCategory] which labels log events by source area.
+ * Distinct from [com.ollitert.llm.server.data.EventCategory] which labels log events by source area.
  */
 enum class ErrorCategory {
   /** Model loading, initialization, engine creation, file access failures. */

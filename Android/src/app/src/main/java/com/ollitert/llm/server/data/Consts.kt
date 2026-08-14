@@ -55,6 +55,9 @@ val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU
 // The extension of the tmp download files.
 const val TMP_FILE_EXT = "olliterttmp"
 
+// Placeholder token inserted into prompts where images appear.
+const val IMAGE_PLACEHOLDER = "<|image|>"
+
 // Warmup inference settings — sent after model load to pre-fill caches and verify the engine works.
 const val WARMUP_MESSAGE = "Hello"
 // Maximum time (seconds) to wait for the warmup inference pass to complete.

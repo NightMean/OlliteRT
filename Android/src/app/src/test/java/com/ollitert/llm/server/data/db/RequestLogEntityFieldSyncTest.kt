@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.data.db
 
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.RequestLogEntry
 import org.junit.Assert.fail
 import org.junit.Test
 

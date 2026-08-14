@@ -51,8 +51,8 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.service.EventCategory
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
 import kotlinx.serialization.json.buildJsonArray

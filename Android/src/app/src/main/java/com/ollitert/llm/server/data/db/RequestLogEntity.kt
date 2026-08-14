@@ -20,10 +20,10 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.ollitert.llm.server.service.ErrorKind
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LogLevel
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 

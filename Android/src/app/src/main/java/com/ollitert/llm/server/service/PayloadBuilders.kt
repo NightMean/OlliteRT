@@ -21,6 +21,7 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCatalogMerger
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.configTemperature
 import com.ollitert.llm.server.data.configSpeculativeDecodingEnabled

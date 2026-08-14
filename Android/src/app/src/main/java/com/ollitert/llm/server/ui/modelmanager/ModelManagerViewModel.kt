@@ -50,10 +50,10 @@ import com.ollitert.llm.server.data.Repository
 import com.ollitert.llm.server.data.RepositoryManager
 import com.ollitert.llm.server.data.SOC
 import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.ModelFactory
 import com.ollitert.llm.server.proto.ImportedModel
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.ModelFactory
-import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker

@@ -20,9 +20,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.LogLevel
 import com.ollitert.llm.server.service.RequestLogStore
 
 /**

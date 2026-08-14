@@ -74,13 +74,13 @@ import androidx.compose.ui.unit.sp
 import java.util.Locale
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.service.LogLevel
-import com.ollitert.llm.server.service.RequestLogEntry
+import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.LogLevel
+import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.ui.server.CancelledColor
 import com.ollitert.llm.server.ui.server.PendingResponseSection
 import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.server.WarningColor
-import com.ollitert.llm.server.service.ErrorKind
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
 import com.ollitert.llm.server.ui.theme.OlliteRTOnSurfaceVariant

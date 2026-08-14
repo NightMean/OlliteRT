@@ -31,16 +31,16 @@ import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.ClientIpPolicyConfig
 import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.DataStoreRepository
+import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.ServerBindConfig
 import com.ollitert.llm.server.data.ServerBindMode
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
-import com.ollitert.llm.server.service.EventCategory
-import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
+import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.server.settings.CardId
 import com.ollitert.llm.server.ui.server.settings.SettingDef
@@ -401,7 +401,7 @@ class SettingsViewModel @Inject constructor(
 
     // Re-check live server status before triggering restart — the server may have crashed
     // or stopped between when the user opened Settings and when they pressed Save.
-    val liveStatus = com.ollitert.llm.server.service.ServerMetrics.status.value
+    val liveStatus = ServerMetrics.status.value
     val isStillActive = liveStatus == ServerStatus.RUNNING || liveStatus == ServerStatus.LOADING
     return if (needsRestart && isServerActive && isStillActive) {
       SaveResult.NeedsRestart(keepScreenOn = keepScreenOnEntry.current)

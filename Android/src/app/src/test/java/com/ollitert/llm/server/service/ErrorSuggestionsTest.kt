@@ -18,6 +18,7 @@ package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
+import com.ollitert.llm.server.data.ErrorKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

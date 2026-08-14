@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.data.DEFAULT_SSE_OUTER_TIMEOUT_MS
+import com.ollitert.llm.server.data.ErrorKind
 
 sealed class HttpResponse {
   abstract val statusCode: Int

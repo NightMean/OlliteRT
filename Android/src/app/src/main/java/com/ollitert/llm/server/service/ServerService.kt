@@ -37,11 +37,14 @@ import com.ollitert.llm.server.data.BindAddressResult
 import com.ollitert.llm.server.data.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.DATASTORE_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.ModelCatalogMerger
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.bytesToMb
 import com.ollitert.llm.server.data.advertisedHost
 import com.ollitert.llm.server.data.formatHostForUrl

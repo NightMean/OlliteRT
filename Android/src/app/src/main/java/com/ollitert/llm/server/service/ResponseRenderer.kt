@@ -16,6 +16,8 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.data.ErrorKind
+
 object ResponseRenderer {
   // Strips non-slug chars from error messages to generate OpenAI-compatible error type slugs
   private val NON_SLUG_REGEX = Regex("[^a-zA-Z0-9_]")
