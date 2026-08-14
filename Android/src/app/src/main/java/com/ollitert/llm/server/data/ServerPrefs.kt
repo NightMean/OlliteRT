@@ -20,15 +20,6 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import androidx.core.content.edit
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.double
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 
 private const val PREFS_NAME = "llm_http_prefs"
 
@@ -195,15 +186,6 @@ private const val KEY_TIMEOUT_BLOCKING = "timeout_blocking_seconds"
 private const val KEY_TIMEOUT_WARMUP = "timeout_warmup_seconds"
 private const val KEY_TIMEOUT_KEEP_ALIVE_RECHECK = "timeout_keep_alive_recheck_seconds"
 private const val KEY_TIMEOUT_CLEANUP_AWAIT = "timeout_cleanup_await_seconds"
-
-// ═══════════════════════════════════════════════════════════════════════════
-// § Migrations — prefs key migration, STT key migration
-// ═══════════════════════════════════════════════════════════════════════════
-
-// TODO: Remove after 1.0.0 — migration from 0.9.0-beta keys (model.name → model.prefsKey).
-private const val KEY_PREFS_KEY_MIGRATION_DONE = "prefs_key_migration_v1"
-// TODO: Remove after 1.0.0 — migration from 0.9.0 keys (ha_stt_* → stt_*).
-private const val KEY_STT_KEY_MIGRATION_DONE = "stt_key_migration_v1"
 
 private const val TAG = "OlliteRT.Prefs"
 
@@ -779,93 +761,17 @@ object ServerPrefs {
   // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0-beta.1 to move
   // per-model prefs from old keys (model.name) to stable keys (model.downloadFileName).
   fun migratePerModelKeys(context: Context, modelNameToDownloadFileName: Map<String, String>) {
-    val p = prefs(context)
-    if (p.getBoolean(KEY_PREFS_KEY_MIGRATION_DONE, false)) return
-
-    var migrated = 0
-
-    p.edit {
-      for ((oldName, newKey) in modelNameToDownloadFileName) {
-        if (oldName == newKey) continue
-
-        val oldPromptKey = KEY_PREFIX_SYSTEM_PROMPT + oldName
-        val newPromptKey = KEY_PREFIX_SYSTEM_PROMPT + newKey
-        val prompt = p.getString(oldPromptKey, null)
-        if (prompt != null && !p.contains(newPromptKey)) {
-          putString(newPromptKey, prompt)
-          remove(oldPromptKey)
-          migrated++
-        }
-
-        val oldConfigKey = KEY_PREFIX_INFERENCE_CONFIG + oldName
-        val newConfigKey = KEY_PREFIX_INFERENCE_CONFIG + newKey
-        val config = p.getString(oldConfigKey, null)
-        if (config != null && !p.contains(newConfigKey)) {
-          putString(newConfigKey, config)
-          remove(oldConfigKey)
-          migrated++
-        }
-      }
-
-      putBoolean(KEY_PREFS_KEY_MIGRATION_DONE, true)
-    }
-
-    if (migrated > 0) {
-      Log.i(TAG, "Migrated $migrated per-model prefs key(s) to stable format")
-    }
+    ServerPrefsMigrations.migratePerModelKeys(prefs(context), modelNameToDownloadFileName)
   }
 
   fun renameModelPrefsKey(context: Context, oldKey: String, newKey: String) {
-    if (oldKey == newKey) return
-    val p = prefs(context)
-    p.edit {
-      val oldPromptKey = KEY_PREFIX_SYSTEM_PROMPT + oldKey
-      val newPromptKey = KEY_PREFIX_SYSTEM_PROMPT + newKey
-      val prompt = p.getString(oldPromptKey, null)
-      if (prompt != null) {
-        putString(newPromptKey, prompt)
-        remove(oldPromptKey)
-      }
-
-      val oldConfigKey = KEY_PREFIX_INFERENCE_CONFIG + oldKey
-      val newConfigKey = KEY_PREFIX_INFERENCE_CONFIG + newKey
-      val config = p.getString(oldConfigKey, null)
-      if (config != null) {
-        putString(newConfigKey, config)
-        remove(oldConfigKey)
-      }
-    }
+    ServerPrefsMigrations.renameModelPrefsKey(prefs(context), oldKey, newKey)
   }
 
   // TODO: Remove after 1.0.0 — one-time migration introduced in 0.9.0 to rename
   // ha_stt_transcription_prompt → stt_transcription_prompt (setting is not HA-specific).
   fun migrateSttKeys(context: Context) {
-    val p = prefs(context)
-    if (p.getBoolean(KEY_STT_KEY_MIGRATION_DONE, false)) return
-
-    var migrated = 0
-
-    p.edit {
-      val oldToggle = "ha_stt_transcription_prompt"
-      if (p.contains(oldToggle) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT)) {
-        putBoolean(KEY_STT_TRANSCRIPTION_PROMPT, p.getBoolean(oldToggle, DEFAULT_STT_TRANSCRIPTION_PROMPT))
-        remove(oldToggle)
-        migrated++
-      }
-
-      val oldText = "ha_stt_transcription_prompt_text"
-      if (p.contains(oldText) && !p.contains(KEY_STT_TRANSCRIPTION_PROMPT_TEXT)) {
-        putString(KEY_STT_TRANSCRIPTION_PROMPT_TEXT, p.getString(oldText, DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT))
-        remove(oldText)
-        migrated++
-      }
-
-      putBoolean(KEY_STT_KEY_MIGRATION_DONE, true)
-    }
-
-    if (migrated > 0) {
-      Log.i(TAG, "Migrated $migrated STT prefs key(s) from ha_stt_* to stt_*")
-    }
+    ServerPrefsMigrations.migrateSttKeys(prefs(context))
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -920,104 +826,4 @@ object ServerPrefs {
       sttTranscriptionPromptText = getSttTranscriptionPromptText(context),
       schemaInjectionToolCalling = isSchemaInjectionToolCalling(context),
     )
-}
-
-/**
- * Snapshot of server preferences captured at request entry time.
- *
- * Created once per HTTP request by [ServerPrefs.createSnapshot] to avoid repeated
- * SharedPreferences reads during token generation. Callers that don't provide a snapshot
- * (warmup, internal calls) fall back to live [ServerPrefs] reads via the
- * `prefs?.field ?: ServerPrefs.liveRead(context)` pattern — this is intentional.
- */
-data class RequestPrefsSnapshot(
-  val autoTruncateHistory: Boolean = false,
-  val autoTrimPrompts: Boolean = false,
-  val ignoreClientSamplerParams: Boolean = false,
-  val eagerVisionInit: Boolean = false,
-  val streamLogsPreview: Boolean = true,
-  val keepPartialResponse: Boolean = false,
-  val compactImageData: Boolean = true,
-  val resolveClientHostnames: Boolean = false,
-  val hideHealthLogs: Boolean = false,
-  val verboseDebug: Boolean = false,
-  val rejectWhenBusy: Boolean = false,
-  val sttTranscriptionPromptEnabled: Boolean = true,
-  val sttTranscriptionPromptText: String = "",
-  val schemaInjectionToolCalling: Boolean = true,
-)
-
-internal fun encodeInferenceConfig(configValues: Map<String, Any>): String = buildJsonObject {
-  for ((key, value) in configValues) {
-    when (value) {
-      is Boolean -> put(key, JsonPrimitive(value))
-      is Int -> put(key, JsonPrimitive(value))
-      is Long -> put(key, JsonPrimitive(value))
-      is Float -> put(key, JsonPrimitive(value.toDouble()))
-      is Double -> put(key, JsonPrimitive(value))
-      is String -> put(key, JsonPrimitive(value))
-      else -> put(key, JsonPrimitive(value.toString()))
-    }
-  }
-}.toString()
-
-private val LABEL_TO_ID_MIGRATION: Map<String, String> = mapOf(
-  "Max tokens" to "max_tokens",
-  "TopK" to "topk",
-  "TopP" to "topp",
-  "Temperature" to "temperature",
-  "Default max tokens" to "default_max_tokens",
-  "Default TopK" to "default_topk",
-  "Default TopP" to "default_topp",
-  "Default temperature" to "default_temperature",
-  "Support image" to "support_image",
-  "Support audio" to "support_audio",
-  "Support thinking" to "support_thinking",
-  "Enable thinking" to "enable_thinking",
-  "Accelerator" to "accelerator",
-  "Vision accelerator" to "vision_accelerator",
-  "Compatible accelerators" to "compatible_accelerators",
-  "Name" to "name",
-  "Model type" to "model_type",
-  "Prefill tokens" to "prefill_tokens",
-  "Decode tokens" to "decode_tokens",
-  "Number of runs" to "number_of_runs",
-)
-
-internal fun migrateConfigKeys(config: Map<String, Any>): Map<String, Any> {
-  var needsMigration = false
-  for (key in config.keys) {
-    if (key in LABEL_TO_ID_MIGRATION) { needsMigration = true; break }
-  }
-  if (!needsMigration) return config
-  val result = mutableMapOf<String, Any>()
-  for ((key, value) in config) {
-    result[LABEL_TO_ID_MIGRATION[key] ?: key] = value
-  }
-  return result
-}
-
-internal fun decodeInferenceConfig(jsonStr: String?): Map<String, Any>? {
-  if (jsonStr == null) return null
-  return try {
-    val json = Json.parseToJsonElement(jsonStr).jsonObject
-    val result = mutableMapOf<String, Any>()
-    for ((key, element) in json) {
-      val prim = element.jsonPrimitive
-      result[key] = when {
-        prim.isString -> prim.content
-        prim.booleanOrNull != null -> prim.boolean
-        prim.content.contains('.') || prim.content.contains('e', ignoreCase = true) ->
-          prim.double
-        else -> {
-          val longVal = prim.long
-          if (longVal in Int.MIN_VALUE..Int.MAX_VALUE) longVal.toInt() else longVal
-        }
-      }
-    }
-    migrateConfigKeys(result)
-  } catch (e: Exception) {
-    Log.w(TAG, "decodeInferenceConfig: malformed JSON, falling back to null", e)
-    null
-  }
 }
