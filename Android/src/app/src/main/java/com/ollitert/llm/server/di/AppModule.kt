@@ -23,10 +23,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
-import com.ollitert.llm.server.OlliteRTLifecycleProvider
+import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.BenchmarkResultsSerializer
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DefaultDataStoreRepository
+import com.ollitert.llm.server.data.DefaultModelCatalogRepository
+import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.ModelCatalogMerger
+import com.ollitert.llm.server.data.ModelCatalogRepository
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.SettingsSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
@@ -88,6 +92,24 @@ internal object AppModule {
       dataStore,
       benchmarkResultsStore,
     )
+  }
+
+  @Provides
+  @Singleton
+  fun provideModelCatalogRepository(
+    @ApplicationContext context: Context,
+    dataStoreRepository: DataStoreRepository,
+  ): ModelCatalogRepository {
+    val merger = ModelCatalogMerger(
+      externalFilesDir = context.getExternalFilesDir(null),
+      appVersionName = BuildConfig.VERSION_NAME,
+      assetReader = {
+        try {
+          context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }
+        } catch (_: Exception) { null }
+      },
+    )
+    return DefaultModelCatalogRepository(merger, dataStoreRepository)
   }
 
 }
