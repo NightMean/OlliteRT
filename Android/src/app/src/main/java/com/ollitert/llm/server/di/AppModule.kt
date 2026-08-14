@@ -112,4 +112,12 @@ internal object AppModule {
     return DefaultModelCatalogRepository(merger, dataStoreRepository)
   }
 
+  @Provides
+  @Singleton
+  fun provideServerSettingsRepository(
+    @ApplicationContext context: Context,
+  ): com.ollitert.llm.server.data.ServerSettingsRepository {
+    return com.ollitert.llm.server.data.DefaultServerSettingsRepository(context)
+  }
+
 }
