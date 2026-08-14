@@ -20,8 +20,10 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.DEFAULT_IN_MEMORY_LOG_CAP
 import com.ollitert.llm.server.data.HARD_MAX_IN_MEMORY_ENTRIES
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.MAX_PRUNE_INTERVAL_MS
+import com.ollitert.llm.server.data.MIN_PRUNE_INTERVAL_MS
 import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.RequestLogStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -49,7 +51,7 @@ import javax.inject.Singleton
 class RequestLogPersistence @Inject constructor(
   private val dao: RequestLogDao,
   @param:ApplicationContext private val context: Context,
-) : RequestLogStore.PersistenceCallback {
+) : RequestLogRepository, RequestLogStore.PersistenceCallback {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private val databaseWriter = RequestLogDatabaseWriter(dao, scope) { operation, error ->
@@ -62,7 +64,7 @@ class RequestLogPersistence @Inject constructor(
    * Initialize the persistence layer. Called once from [Application.onCreate].
    * Registers the callback, syncs max entries, loads from DB, and schedules pruning.
    */
-  fun initialize() {
+  override fun initialize() {
     RequestLogStore.setPersistenceCallback(this)
     updateMaxEntries()
 
@@ -78,7 +80,7 @@ class RequestLogPersistence @Inject constructor(
    * Sync the in-memory entry cap with the persistence setting.
    * When persistence is OFF → 100 (original default). When ON → configured max.
    */
-  fun updateMaxEntries() {
+  override fun updateMaxEntries() {
     val max = if (isEnabled) ServerPrefs.getLogMaxEntries(context) else DEFAULT_IN_MEMORY_CAP
     RequestLogStore.setMaxEntries(max)
   }
@@ -117,7 +119,7 @@ class RequestLogPersistence @Inject constructor(
    * Called when the user enables persistence for the first time —
    * syncs the existing session's logs so they survive the next restart.
    */
-  fun persistCurrentEntries() {
+  override fun persistCurrentEntries() {
     val entities = RequestLogStore.entries.value.map { RequestLogEntity.fromEntry(it) }
     databaseWriter.enqueue("persist current entries") {
       upsertAll(entities)
@@ -125,7 +127,7 @@ class RequestLogPersistence @Inject constructor(
   }
 
   /** Explicitly wipe the database (from "Clear Persisted Logs" button in Settings). */
-  fun clearPersistedLogs() {
+  override fun clearPersistedLogs() {
     databaseWriter.enqueue("clear persisted entries from settings") {
       deleteAll()
     }
@@ -133,7 +135,7 @@ class RequestLogPersistence @Inject constructor(
 
   // --- Internal ---
 
-  private fun loadFromDb() {
+  override fun loadFromDb() {
     val maxEntries = ServerPrefs.getLogMaxEntries(context)
     val dbLimit = if (maxEntries == 0) HARD_MAX_IN_MEMORY_ENTRIES else maxEntries
     databaseWriter.enqueue("load persisted entries") {
@@ -145,7 +147,7 @@ class RequestLogPersistence @Inject constructor(
   }
 
   /** Run age-based and count-based pruning on both the database and in-memory entries. */
-  private fun prune() {
+  override fun prune() {
     val retentionMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
     val maxCount = ServerPrefs.getLogMaxEntries(context)
     databaseWriter.enqueue("prune persisted entries") {
@@ -168,7 +170,7 @@ class RequestLogPersistence @Inject constructor(
    * Interval = configured retention period, clamped between 1 minute and 6 hours.
    * If auto-delete is disabled (0), falls back to 6 hours for count-based pruning only.
    */
-  internal fun schedulePruning() {
+  override fun schedulePruning() {
     pruningJob?.cancel()
     if (!isEnabled) return
     pruningJob = scope.launch {
@@ -176,11 +178,11 @@ class RequestLogPersistence @Inject constructor(
         val retentionMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
         val intervalMs = if (retentionMinutes > 0) {
           (retentionMinutes * 60_000L).coerceIn(
-            com.ollitert.llm.server.data.MIN_PRUNE_INTERVAL_MS,
-            com.ollitert.llm.server.data.MAX_PRUNE_INTERVAL_MS
+            MIN_PRUNE_INTERVAL_MS,
+            MAX_PRUNE_INTERVAL_MS
           )
         } else {
-          com.ollitert.llm.server.data.MAX_PRUNE_INTERVAL_MS
+          MAX_PRUNE_INTERVAL_MS
         }
         delay(intervalMs)
         prune()
@@ -188,7 +190,7 @@ class RequestLogPersistence @Inject constructor(
     }
   }
 
-  fun shutdown() {
+  override fun shutdown() {
     pruningJob?.cancel()
     // Do NOT cancel the scope — pending DB writes (e.g., "Server stopped" event,
     // clear-on-stop onEntriesCleared()) are launched on this scope earlier in onDestroy().

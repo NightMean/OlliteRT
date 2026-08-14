@@ -41,4 +41,10 @@ object DatabaseModule {
 
   @Provides
   fun provideRequestLogDao(db: OlliteDatabase): RequestLogDao = db.requestLogDao()
+
+  @Provides
+  @Singleton
+  fun provideRequestLogRepository(
+    persistence: com.ollitert.llm.server.data.db.RequestLogPersistence,
+  ): com.ollitert.llm.server.data.db.RequestLogRepository = persistence
 }
