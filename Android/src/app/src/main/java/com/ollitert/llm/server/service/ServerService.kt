@@ -125,7 +125,7 @@ class ServerService : Service() {
    */
   private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
 
-  private lateinit var allowlistLoader: AllowlistLoader
+  private lateinit var modelCatalogMerger: ModelCatalogMerger
 
   override fun onCreate() {
     super.onCreate()
@@ -143,7 +143,7 @@ class ServerService : Service() {
         Log.w(TAG, "Failed to access DataStoreRepository — imported models won't be loadable", e)
         null
       }
-      allowlistLoader = AllowlistLoader(
+      modelCatalogMerger = ModelCatalogMerger(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
@@ -161,7 +161,7 @@ class ServerService : Service() {
       )
       modelLifecycle = ModelLifecycle(
         context = this,
-        allowlistLoader = allowlistLoader,
+        modelCatalogMerger = modelCatalogMerger,
         readImportedModels = {
           try {
             kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()

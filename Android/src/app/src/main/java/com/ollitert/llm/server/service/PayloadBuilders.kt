@@ -98,7 +98,7 @@ object PayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, allowlistLoader: AllowlistLoader? = null): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null): String {
     val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
@@ -121,9 +121,9 @@ object PayloadBuilders {
         put("latest_version", JsonPrimitive(latestVersion.removePrefix("v")))
         if (updateUrl != null) put("release_url", JsonPrimitive(updateUrl))
       }
-      if (allowlistLoader != null) {
-        put("allowlist_content_version", JsonPrimitive(allowlistLoader.lastContentVersion))
-        put("allowlist_source", JsonPrimitive(allowlistLoader.lastSource))
+      if (modelCatalogMerger != null) {
+        put("allowlist_content_version", JsonPrimitive(modelCatalogMerger.lastContentVersion))
+        put("allowlist_source", JsonPrimitive(modelCatalogMerger.lastSource))
       }
       val modelUpdateAvailable = activeModel?.updatable == true
       put("model_update_available", JsonPrimitive(modelUpdateAvailable))

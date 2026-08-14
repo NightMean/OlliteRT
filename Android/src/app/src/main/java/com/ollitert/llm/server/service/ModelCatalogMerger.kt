@@ -33,7 +33,7 @@ import java.io.File
  * Caches the last successful load so callers always get a valid list even
  * when the external files are temporarily unavailable.
  */
-class AllowlistLoader(
+class ModelCatalogMerger(
   private val externalFilesDir: File?,
   private val appVersionName: String = "",
   private val assetReader: () -> String? = { null },

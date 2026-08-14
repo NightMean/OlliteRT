@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class ModelLifecycle(
   private val context: Context,
-  val allowlistLoader: AllowlistLoader,
+  val modelCatalogMerger: ModelCatalogMerger,
   /** Reads imported models from DataStore. Provided by the service via Hilt EntryPoint. */
   private val readImportedModels: () -> List<ImportedModel> = { emptyList() },
 ) {
@@ -341,7 +341,7 @@ class ModelLifecycle(
     val importsDir = File(externalDir, IMPORTS_DIR)
 
     // 1. Try allowlist models first
-    val allowlist = allowlistLoader.load()
+    val allowlist = modelCatalogMerger.load()
     val allowlistMatch = allowlist.firstOrNull { it.name.equals(name, ignoreCase = true) }
     val model = if (allowlistMatch != null) {
       val built = ModelFactory.buildAllowedModel(allowlistMatch, importsDir)

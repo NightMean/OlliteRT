@@ -23,7 +23,7 @@ import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-class AllowlistLoaderTest {
+class ModelCatalogMergerTest {
 
   private val minimalAllowlistJson = """
     {
@@ -44,7 +44,7 @@ class AllowlistLoaderTest {
   fun returnsEmptyListWhenNoFilesAndNoAssets() {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
-      val loader = AllowlistLoader(externalFilesDir = dir)
+      val loader = ModelCatalogMerger(externalFilesDir = dir)
       val result = loader.load()
       assertTrue("should return empty list when no allowlist file", result.isEmpty())
     } finally {
@@ -57,7 +57,7 @@ class AllowlistLoaderTest {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText(minimalAllowlistJson)
-      val loader = AllowlistLoader(externalFilesDir = dir)
+      val loader = ModelCatalogMerger(externalFilesDir = dir)
       val result = loader.load()
       assertEquals(1, result.size)
       assertEquals("TestModel", result.first().name)
@@ -71,7 +71,7 @@ class AllowlistLoaderTest {
   fun fallsBackToAssetReader() {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         assetReader = { minimalAllowlistJson },
       )
@@ -88,7 +88,7 @@ class AllowlistLoaderTest {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText(minimalAllowlistJson)
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         assetReader = { """{"models":[]}""" },
       )
@@ -114,7 +114,7 @@ class AllowlistLoaderTest {
         {"name": "NewModel", "modelId": "test/new", "modelFile": "new.litertlm",
          "description": "fresh", "sizeInBytes": 200, "defaultConfig": {}}
       ]}"""
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         assetReader = { newerBundled },
       )
@@ -142,7 +142,7 @@ class AllowlistLoaderTest {
         {"name": "BundledModel", "modelId": "test/bundled", "modelFile": "bundled.litertlm",
          "description": "older", "sizeInBytes": 200, "defaultConfig": {}}
       ]}"""
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         assetReader = { olderBundled },
       )
@@ -162,7 +162,7 @@ class AllowlistLoaderTest {
       val allowlistFile = File(dir, "model_allowlist.json")
       allowlistFile.writeText(minimalAllowlistJson)
 
-      val loader = AllowlistLoader(externalFilesDir = dir)
+      val loader = ModelCatalogMerger(externalFilesDir = dir)
       val first = loader.load()
       assertEquals(1, first.size)
 
@@ -180,7 +180,7 @@ class AllowlistLoaderTest {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText("not valid json {{{")
-      val loader = AllowlistLoader(externalFilesDir = dir)
+      val loader = ModelCatalogMerger(externalFilesDir = dir)
       val result = loader.load()
       assertTrue("malformed JSON should yield empty list", result.isEmpty())
       // Per-file error handler skips the file; lastSource is "external:" not "error"
@@ -213,7 +213,7 @@ class AllowlistLoaderTest {
       """.trimIndent()
       File(dir, "model_allowlist.json").writeText(json)
 
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         appVersionName = "0.8.0",
       )
@@ -230,7 +230,7 @@ class AllowlistLoaderTest {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
       File(dir, "model_allowlist.json").writeText("")
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         assetReader = { minimalAllowlistJson },
       )
@@ -251,7 +251,7 @@ class AllowlistLoaderTest {
          "description": "A test model", "sizeInBytes": 1000, "defaultConfig": {}}
       ]}"""
       File(dir, "model_allowlist.json").writeText(json)
-      val loader = AllowlistLoader(externalFilesDir = dir)
+      val loader = ModelCatalogMerger(externalFilesDir = dir)
       assertEquals(0, loader.lastContentVersion)
       loader.load()
       assertEquals(42, loader.lastContentVersion)
@@ -264,7 +264,7 @@ class AllowlistLoaderTest {
   fun lastContentVersionZeroWhenNoModelsLoaded() {
     val dir = createTempDirectory("allowlist-test").toFile()
     try {
-      val loader = AllowlistLoader(externalFilesDir = dir)
+      val loader = ModelCatalogMerger(externalFilesDir = dir)
       loader.load()
       assertEquals(0, loader.lastContentVersion)
     } finally {
@@ -286,7 +286,7 @@ class AllowlistLoaderTest {
         {"name": "AssetModel", "modelId": "test/asset", "modelFile": "asset.litertlm",
          "description": "asset", "sizeInBytes": 200, "defaultConfig": {}}
       ]}"""
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         assetReader = { assetJson },
       )
@@ -299,7 +299,7 @@ class AllowlistLoaderTest {
 
   @Test
   fun handlesNullExternalFilesDirGracefully() {
-    val loader = AllowlistLoader(
+    val loader = ModelCatalogMerger(
       externalFilesDir = null,
       assetReader = { minimalAllowlistJson },
     )
@@ -317,7 +317,7 @@ class AllowlistLoaderTest {
       File(dir, "model_allowlist_official.json").writeText(official)
       File(dir, "model_allowlist_abc-123.json").writeText(thirdParty)
 
-      val loader = AllowlistLoader(externalFilesDir = dir, appVersionName = "1.0.0")
+      val loader = ModelCatalogMerger(externalFilesDir = dir, appVersionName = "1.0.0")
       val models = loader.load()
 
       assertEquals(2, models.size)
@@ -338,7 +338,7 @@ class AllowlistLoaderTest {
       File(dir, "model_allowlist_0abc.json").writeText(thirdParty)
       File(dir, "model_allowlist_official.json").writeText(official)
 
-      val loader = AllowlistLoader(externalFilesDir = dir, appVersionName = "1.0.0")
+      val loader = ModelCatalogMerger(externalFilesDir = dir, appVersionName = "1.0.0")
       val models = loader.load()
 
       // Official wins dedup — only 1 model, not 2
@@ -355,7 +355,7 @@ class AllowlistLoaderTest {
       val legacy = """{"schemaVersion":1,"contentVersion":1,"models":[{"name":"Legacy","modelId":"l/m","modelFile":"l.litertlm","description":"l","sizeInBytes":100,"defaultConfig":{}}]}"""
       File(dir, "model_allowlist.json").writeText(legacy)
 
-      val loader = AllowlistLoader(externalFilesDir = dir, appVersionName = "1.0.0")
+      val loader = ModelCatalogMerger(externalFilesDir = dir, appVersionName = "1.0.0")
       val models = loader.load()
 
       // Migration renames model_allowlist.json → model_allowlist_official.json
@@ -374,7 +374,7 @@ class AllowlistLoaderTest {
     try {
       File(dir, "model_allowlist_official.json").writeText("{ not valid json !!!")
       val errors = mutableListOf<Pair<String, Exception>>()
-      val loader = AllowlistLoader(
+      val loader = ModelCatalogMerger(
         externalFilesDir = dir,
         onError = { source, ex -> errors.add(source to ex) },
       )
@@ -390,7 +390,7 @@ class AllowlistLoaderTest {
   @Test
   fun onErrorCallbackFirsForMalformedAsset() {
     val errors = mutableListOf<Pair<String, Exception>>()
-    val loader = AllowlistLoader(
+    val loader = ModelCatalogMerger(
       externalFilesDir = null,
       assetReader = { "{ broken json" },
       onError = { source, ex -> errors.add(source to ex) },

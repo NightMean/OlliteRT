@@ -34,10 +34,10 @@ class ModelLifecycleSelectModelTest {
   @Before
   fun setUp() {
     val context = mockk<Context>(relaxed = true)
-    val allowlistLoader = mockk<AllowlistLoader>(relaxed = true)
+    val modelCatalogMerger = mockk<ModelCatalogMerger>(relaxed = true)
     lifecycle = ModelLifecycle(
       context = context,
-      allowlistLoader = allowlistLoader,
+      modelCatalogMerger = modelCatalogMerger,
     )
   }
 

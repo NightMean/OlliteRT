@@ -1152,7 +1152,7 @@ class KtorServer(
   private suspend fun handleServerInfo(call: ApplicationCall) {
     withGetLogging(call) {
       val body = PayloadBuilders.serverInfo(
-        defaultModel, keepAliveUnloadedModelName, modelLifecycle.allowlistLoader,
+        defaultModel, keepAliveUnloadedModelName, modelLifecycle.modelCatalogMerger,
       )
       httpOkJson(body)
     }
