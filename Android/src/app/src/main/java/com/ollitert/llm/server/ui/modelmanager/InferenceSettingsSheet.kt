@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server
+package com.ollitert.llm.server.ui.modelmanager
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility

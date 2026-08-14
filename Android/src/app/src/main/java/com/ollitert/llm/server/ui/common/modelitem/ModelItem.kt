@@ -62,7 +62,7 @@ import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollitert.llm.server.ui.server.InferenceSettingsSheet
+import com.ollitert.llm.server.ui.modelmanager.InferenceSettingsSheet
 import com.ollitert.llm.server.ui.theme.customColors
 
 /**
