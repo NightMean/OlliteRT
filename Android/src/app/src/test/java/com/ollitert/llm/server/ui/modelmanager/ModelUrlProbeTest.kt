@@ -18,6 +18,8 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.ModelUrlResult
+import com.ollitert.llm.server.data.probeModelUrl
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

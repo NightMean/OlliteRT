@@ -110,5 +110,66 @@ fun fetchBoundedResult(
   }
 }
 
+// ── Model URL probing ────────────────────────────────────────────────────
+
+sealed class ModelUrlResult {
+  data class Success(val code: Int) : ModelUrlResult()
+  data class Error(val message: String) : ModelUrlResult()
+}
+
+internal fun probeModelUrl(
+  modelUrl: String,
+  accessToken: String?,
+  openConnection: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection },
+): ModelUrlResult {
+  var connection: HttpURLConnection? = null
+  var redirectConnection: HttpURLConnection? = null
+  try {
+    connection = openConnection(modelUrl)
+    connection.requestMethod = "HEAD"
+    connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+    connection.readTimeout = HTTP_READ_TIMEOUT_MS
+    connection.instanceFollowRedirects = false
+    if (accessToken != null) {
+      connection.setRequestProperty("Authorization", "Bearer $accessToken")
+    }
+    connection.connect()
+
+    val responseCode = connection.responseCode
+    if (responseCode in 300..399) {
+      val redirectUrl = connection.getHeaderField("Location")
+        ?: return ModelUrlResult.Success(
+          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+        )
+      redirectConnection = openConnection(redirectUrl)
+      redirectConnection.requestMethod = "HEAD"
+      redirectConnection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+      redirectConnection.readTimeout = HTTP_READ_TIMEOUT_MS
+      redirectConnection.instanceFollowRedirects = true
+      redirectConnection.connect()
+      val contentType = redirectConnection.contentType ?: ""
+      if (contentType.contains("text/html", ignoreCase = true)) {
+        return ModelUrlResult.Success(
+          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
+        )
+      }
+      return ModelUrlResult.Success(redirectConnection.responseCode)
+    }
+    return ModelUrlResult.Success(responseCode)
+  } catch (e: Exception) {
+    return ModelUrlResult.Error(e.message ?: "Unknown network error")
+  } finally {
+    connection?.disconnect()
+    redirectConnection?.disconnect()
+  }
+}
+
+// ── Token helpers ────────────────────────────────────────────────────────
+
+/** Normalizes the single configured Hugging Face token used by downloads and resumed work. */
+internal fun configuredHfTokenOrNull(rawToken: String): String? =
+  rawToken.trim().takeIf { it.isNotEmpty() }
+
 private fun defaultOpenConnection(url: String): HttpURLConnection =
   URL(url).openConnection() as HttpURLConnection
+

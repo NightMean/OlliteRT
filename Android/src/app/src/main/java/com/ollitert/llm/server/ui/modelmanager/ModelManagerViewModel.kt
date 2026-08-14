@@ -33,8 +33,9 @@ import com.ollitert.llm.server.data.AllowedModel
 import com.ollitert.llm.server.data.DataStoreRepository
 import com.ollitert.llm.server.data.DownloadRepository
 import com.ollitert.llm.server.data.EMPTY_MODEL
-import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
-import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.ModelUrlResult
+import com.ollitert.llm.server.data.configuredHfTokenOrNull
+import com.ollitert.llm.server.data.probeModelUrl
 import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_SHORT_CHARS
 import com.ollitert.llm.server.data.LoadResult
 import com.ollitert.llm.server.data.Model
@@ -69,74 +70,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 
 private const val TAG = "OlliteRT.ModelVM"
 private const val TEST_MODEL_ALLOW_LIST = ""
 
-/** Normalizes the single configured Hugging Face token used by downloads and resumed work. */
-internal fun configuredHfTokenOrNull(rawToken: String): String? =
-  rawToken.trim().takeIf { it.isNotEmpty() }
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   val error: String = "",
   val initializedBackends: Set<String> = setOf(),
 )
-
-sealed class ModelUrlResult {
-  data class Success(val code: Int) : ModelUrlResult()
-  data class Error(val message: String) : ModelUrlResult()
-}
-
-internal fun probeModelUrl(
-  modelUrl: String,
-  accessToken: String?,
-  openConnection: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection },
-): ModelUrlResult {
-  var connection: HttpURLConnection? = null
-  var redirectConnection: HttpURLConnection? = null
-  try {
-    connection = openConnection(modelUrl)
-    connection.requestMethod = "HEAD"
-    connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-    connection.readTimeout = HTTP_READ_TIMEOUT_MS
-    connection.instanceFollowRedirects = false
-    if (accessToken != null) {
-      connection.setRequestProperty("Authorization", "Bearer $accessToken")
-    }
-    connection.connect()
-
-    val responseCode = connection.responseCode
-    if (responseCode in 300..399) {
-      val redirectUrl = connection.getHeaderField("Location")
-        ?: return ModelUrlResult.Success(
-          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
-        )
-      redirectConnection = openConnection(redirectUrl)
-      redirectConnection.requestMethod = "HEAD"
-      redirectConnection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-      redirectConnection.readTimeout = HTTP_READ_TIMEOUT_MS
-      redirectConnection.instanceFollowRedirects = true
-      redirectConnection.connect()
-      val contentType = redirectConnection.contentType ?: ""
-      if (contentType.contains("text/html", ignoreCase = true)) {
-        return ModelUrlResult.Success(
-          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
-        )
-      }
-      return ModelUrlResult.Success(redirectConnection.responseCode)
-    }
-    return ModelUrlResult.Success(responseCode)
-  } catch (e: Exception) {
-    return ModelUrlResult.Error(e.message ?: "Unknown network error")
-  } finally {
-    connection?.disconnect()
-    redirectConnection?.disconnect()
-  }
-}
 
 enum class ModelInitializationStatusType {
   NOT_INITIALIZED,

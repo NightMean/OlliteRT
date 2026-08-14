@@ -92,8 +92,8 @@ import com.ollitert.llm.server.ui.common.isMemoryLow
 import com.ollitert.llm.server.ui.common.isMemoryWarningSuppressed
 import com.ollitert.llm.server.ui.common.suppressMemoryWarning
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollitert.llm.server.ui.modelmanager.ModelUrlResult
-import com.ollitert.llm.server.ui.modelmanager.configuredHfTokenOrNull
+import com.ollitert.llm.server.data.ModelUrlResult
+import com.ollitert.llm.server.data.configuredHfTokenOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
