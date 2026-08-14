@@ -1177,10 +1177,7 @@ class InferenceRunner(
     private const val TAG = "OlliteRT.Inference"
 
     private fun buildCombinedText(fullText: CharSequence, fullThinking: CharSequence): String =
-      if (fullThinking.isNotEmpty()) "<think>${fullThinking}</think>${fullText}" else fullText.toString()
-
-    // Parses "N >= M" from LiteRT native overflow errors (N=input tokens, M=context limit)
-    private val TOKEN_OVERFLOW_REGEX = Regex("(\\d+)\\s*>=\\s*(\\d+)")
+      InferenceStreamingLoop.buildCombinedText(fullText, fullThinking)
 
     /**
      * Truncates model output at the first occurrence of any stop sequence.
@@ -1188,33 +1185,14 @@ class InferenceRunner(
      * — null when nothing matched). The matched string is needed by the Anthropic
      * /v1/messages response, which echoes it back in the `stop_sequence` field.
      */
-    fun applyStopSequences(text: String, stopSequences: List<String>?): Triple<String, Boolean, String?> {
-      if (stopSequences.isNullOrEmpty()) return Triple(text, false, null)
-      var earliest = text.length
-      var matched: String? = null
-      for (stop in stopSequences) {
-        val idx = text.indexOf(stop)
-        if (idx in 0 until earliest) {
-          earliest = idx
-          matched = stop
-        }
-      }
-      return if (earliest < text.length) Triple(text.substring(0, earliest), true, matched)
-      else Triple(text, false, null)
-    }
+    fun applyStopSequences(text: String, stopSequences: List<String>?): Triple<String, Boolean, String?> =
+      InferenceStopCondition.applyStopSequences(text, stopSequences)
 
     /**
      * Injects a JSON mode instruction into the prompt when response_format is requested.
      */
-    fun applyResponseFormat(prompt: String, responseFormat: ResponseFormat?): String {
-      if (responseFormat == null || responseFormat.type == "text") return prompt
-      val instruction = when (responseFormat.type) {
-        "json_object" -> "Respond with valid JSON only. Do not include any text, explanation, or markdown outside the JSON object.\n\n"
-        "json_schema" -> "Respond with valid JSON only. Output only the JSON object, nothing else.\n\n"
-        else -> return prompt
-      }
-      return instruction + prompt
-    }
+    fun applyResponseFormat(prompt: String, responseFormat: ResponseFormat?): String =
+      InferenceStopCondition.applyResponseFormat(prompt, responseFormat)
 
     /**
      * Classify an opaque LLM error string and return the enriched message with a
@@ -1222,25 +1200,15 @@ class InferenceRunner(
      *
      * Also returns the [ErrorKind] so callers can use it for metrics and API responses.
      */
-    fun enrichLlmError(error: String, context: Context): Pair<String, ErrorKind> {
-      val kind = ErrorSuggestions.classifyFromString(error)
-      val suggestion = ErrorSuggestions.suggest(kind, context)
-      val enriched = if (suggestion != null) "$error — $suggestion" else error
-      return enriched to kind
-    }
+    fun enrichLlmError(error: String, context: Context): Pair<String, ErrorKind> =
+      InferenceMetricsCollector.enrichLlmError(error, context)
 
     /**
      * Extract actual token counts from LiteRT error messages.
      * LiteRT reports context overflow as "N >= M" (e.g. "6579 >= 4000").
      * Returns (actualInputTokens, maxContextTokens) or null if not a context overflow error.
      */
-    fun extractActualTokenCounts(responseBody: String): Pair<Long, Long>? {
-      // Pattern: "6579 >= 4000" — actual input tokens exceeding max context
-      val match = TOKEN_OVERFLOW_REGEX.find(responseBody) ?: return null
-      val actual = match.groupValues[1].toLongOrNull() ?: return null
-      val max = match.groupValues[2].toLongOrNull() ?: return null
-      if (actual <= 0 || max <= 0) return null
-      return actual to max
-    }
+    fun extractActualTokenCounts(responseBody: String): Pair<Long, Long>? =
+      InferenceMetricsCollector.extractActualTokenCounts(responseBody)
   }
 }

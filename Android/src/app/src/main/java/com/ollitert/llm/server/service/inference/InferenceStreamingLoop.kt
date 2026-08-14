@@ -1,5 +1,6 @@
 /*
- * Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+ * Copyright 2025 Google LLC
+ * Modifications Copyright 2025-2026 @NightMean (https://github.com/NightMean)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,51 +17,14 @@
 
 package com.ollitert.llm.server.service.inference
 
-import com.ollitert.llm.server.service.http.FinishReason
-import kotlinx.coroutines.channels.ReceiveChannel
-
 /**
- * Encapsulates the streaming loop state machine and token event processing.
+ * Encapsulates streaming text accumulation and thinking block formatting.
  */
-internal sealed class StreamEvent {
-  data class Token(val text: String) : StreamEvent()
-  data class Error(val message: String) : StreamEvent()
-  data object Done : StreamEvent()
-}
-
-internal data class StreamState(
-  val accumulatedText: StringBuilder = StringBuilder(),
-  val accumulatedThinking: StringBuilder = StringBuilder(),
-  var tokenCount: Int = 0,
-  var firstTokenMs: Long = -1L,
-  var finishReason: FinishReason = FinishReason.STOP,
-  var isThinking: Boolean = false,
-)
-
-internal object InferenceStreamingLoop {
+object InferenceStreamingLoop {
 
   /**
-   * Processes a token string against thinking tag delimiters (`<thought>`, `</thought>`, `think`, etc.).
+   * Combines visible output and thinking text into a final formatted string.
    */
-  fun processThinkingTags(
-    token: String,
-    state: StreamState,
-    onVisibleToken: (String) -> Unit,
-    onThinkingToken: (String) -> Unit,
-  ) {
-    if (token.contains("<thought>") || token.contains("<think>")) {
-      state.isThinking = true
-    }
-
-    if (state.isThinking) {
-      state.accumulatedThinking.append(token)
-      onThinkingToken(token)
-      if (token.contains("</thought>") || token.contains("</think>")) {
-        state.isThinking = false
-      }
-    } else {
-      state.accumulatedText.append(token)
-      onVisibleToken(token)
-    }
-  }
+  fun buildCombinedText(fullText: CharSequence, fullThinking: CharSequence): String =
+    if (fullThinking.isNotEmpty()) "<think>${fullThinking}</think>${fullText}" else fullText.toString()
 }

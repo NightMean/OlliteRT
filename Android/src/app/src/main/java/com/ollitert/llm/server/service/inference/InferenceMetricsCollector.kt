@@ -1,5 +1,6 @@
 /*
- * Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+ * Copyright 2025 Google LLC
+ * Modifications Copyright 2025-2026 @NightMean (https://github.com/NightMean)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,70 +18,83 @@
 package com.ollitert.llm.server.service.inference
 
 import android.content.Context
-import android.util.Log
-import com.ollitert.llm.server.common.ErrorCategory
+import com.ollitert.llm.server.data.ErrorKind
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.ServerPrefs
-
-private const val TAG = "OlliteRT.Inference"
+import com.ollitert.llm.server.service.http.ErrorSuggestions
 
 /**
- * Encapsulates performance telemetry, latency tracking, error metrics enrichment, and debug logging.
+ * Handles LLM error classification, token extraction, and verbose inference metrics logging.
  */
-internal object InferenceMetricsCollector {
+object InferenceMetricsCollector {
 
-  fun recordSuccess(
-    promptTokens: Int,
-    completionTokens: Int,
-    totalDurationMs: Long,
-    ttftMs: Long,
-  ) {
-    ServerMetrics.recordRequestMetrics(
-      promptTokens = promptTokens,
-      completionTokens = completionTokens,
-      durationMs = totalDurationMs,
-      ttftMs = ttftMs,
-    )
+  // Parses "N >= M" from LiteRT native overflow errors (N=input tokens, M=context limit)
+  private val TOKEN_OVERFLOW_REGEX = Regex("(\\d+)\\s*>=\\s*(\\d+)")
+
+  /**
+   * Classify an opaque LLM error string and return the enriched message with a
+   * recovery suggestion appended (if one is available for the classified error kind).
+   *
+   * Also returns the [ErrorKind] so callers can use it for metrics and API responses.
+   */
+  fun enrichLlmError(error: String, context: Context): Pair<String, ErrorKind> {
+    val kind = ErrorSuggestions.classifyFromString(error)
+    val suggestion = ErrorSuggestions.suggest(kind, context)
+    val enriched = if (suggestion != null) "$error — $suggestion" else error
+    return enriched to kind
   }
 
-  fun recordError(
-    errorMsg: String,
-    model: Model?,
-    logId: String?,
-    emitDebugStackTrace: (Throwable, String, String?) -> Unit,
-    throwable: Throwable? = null,
-  ) {
-    Log.e(TAG, "Inference error for model ${model?.name}: $errorMsg", throwable)
-    ServerMetrics.incrementErrorCount(ErrorCategory.INFERENCE)
-    RequestLogStore.addEvent(
-      "Inference error: $errorMsg",
-      level = LogLevel.ERROR,
-      modelName = model?.name,
-      category = EventCategory.INFERENCE,
-      requestId = logId,
-    )
-    if (throwable != null) {
-      emitDebugStackTrace(throwable, "inference_execution", model?.name)
-    }
+  /**
+   * Extract actual token counts from LiteRT error messages.
+   * LiteRT reports context overflow as "N >= M" (e.g. "6579 >= 4000").
+   * Returns (actualInputTokens, maxContextTokens) or null if not a context overflow error.
+   */
+  fun extractActualTokenCounts(responseBody: String): Pair<Long, Long>? {
+    val match = TOKEN_OVERFLOW_REGEX.find(responseBody) ?: return null
+    val actual = match.groupValues[1].toLongOrNull() ?: return null
+    val max = match.groupValues[2].toLongOrNull() ?: return null
+    if (actual <= 0 || max <= 0) return null
+    return actual to max
   }
 
-  fun logVerbosePrompt(
+  /**
+   * Logs comprehensive inference performance metrics and JVM/native memory usage when verbose debug is enabled.
+   */
+  fun logVerboseInferenceDetails(
     context: Context,
-    model: Model,
-    prompt: String,
-    requestId: String,
+    prefs: RequestPrefsSnapshot?,
+    modelName: String,
+    inputTokens: Int,
+    outputTokens: Int,
+    ttfbMs: Long,
+    generationMs: Long,
+    totalMs: Long,
   ) {
-    if (!ServerPrefs.isVerboseDebugEnabled(context)) return
+    if (!(prefs?.verboseDebug ?: ServerPrefs.isVerboseDebugEnabled(context))) return
+    val rt = Runtime.getRuntime()
+    val heapTotalMb = rt.totalMemory() / (1024.0 * 1024.0)
+    val heapFreeMb = rt.freeMemory() / (1024.0 * 1024.0)
+    val nativeAllocMb = android.os.Debug.getNativeHeapAllocatedSize() / (1024.0 * 1024.0)
+    val nativeTotalMb = android.os.Debug.getNativeHeapSize() / (1024.0 * 1024.0)
+    val decodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
+    val prefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
+
+    val body = buildString {
+      appendLine("Timing: TTFB ${ttfbMs}ms, generation ${generationMs}ms, total ${totalMs}ms")
+      appendLine("Tokens: ${inputTokens} input → ${outputTokens} output")
+      appendLine("Speed: ${String.format(java.util.Locale.US, "%.1f", prefillSpeed)} t/s prefill, ${String.format(java.util.Locale.US, "%.1f", decodeSpeed)} t/s decode")
+      appendLine("Heap: ${String.format(java.util.Locale.US, "%.1f", heapFreeMb)}MB free / ${String.format(java.util.Locale.US, "%.1f", heapTotalMb)}MB total")
+      append("Native: ${String.format(java.util.Locale.US, "%.1f", nativeAllocMb)}MB allocated / ${String.format(java.util.Locale.US, "%.1f", nativeTotalMb)}MB total")
+    }
+
     RequestLogStore.addEvent(
-      "Formatted prompt for inference",
+      "Inference details: ${inputTokens}→${outputTokens} tokens in ${totalMs}ms",
       level = LogLevel.DEBUG,
-      modelName = model.name,
-      category = EventCategory.PROMPT,
-      requestId = requestId,
-      body = prompt,
+      modelName = modelName,
+      category = EventCategory.SERVER,
+      body = body,
     )
   }
 }

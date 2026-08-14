@@ -19,48 +19,32 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
-import android.app.PendingIntent
 import android.app.Service
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.Environment
 import android.os.IBinder
-import android.os.StatFs
 import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
-import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.common.getWifiIpAddress
-import com.ollitert.llm.server.data.BindAddressResult
 import com.ollitert.llm.server.data.ClientIpAccessPolicy
-import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.DATASTORE_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.EventCategory
 import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
 import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelCatalogMerger
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.bytesToMb
-import com.ollitert.llm.server.data.advertisedHost
-import com.ollitert.llm.server.data.formatHostForUrl
-import com.ollitert.llm.server.data.isLoopbackOnly
-import com.ollitert.llm.server.data.llmSupportAudio
-import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.isSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.isThinkingEnabled
+import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.llmSupportImage
 import com.ollitert.llm.server.data.llmSupportThinking
-import com.ollitert.llm.server.data.resolveHost
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
-import com.ollitert.llm.server.service.ServerService.Companion.queueReloadAfterLoad
-import com.ollitert.llm.server.service.ServerService.Companion.reload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -220,35 +204,14 @@ class ServerService : Service() {
 
     val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
 
-    // ── Ktor server setup (no model dependency) ─────────────────────────────
-    val bindConfig = ServerPrefs.getServerBindConfig(this)
-    val bindHost = when (val resolved = bindConfig.resolveHost()) {
-      is BindAddressResult.Valid -> resolved.host
-      is BindAddressResult.Invalid -> {
-        reportNetworkConfigFailure(
-          getString(R.string.error_invalid_bind_address, resolved.input),
-          requestedModelName,
-        )
-        return START_NOT_STICKY
-      }
+    // ── Ktor server setup & network resolution ─────────────────────────────
+    val (networkConfig, configError) = ServerNetworkMonitor.resolveConfig(this)
+    if (networkConfig == null || configError != null) {
+      reportNetworkConfigFailure(configError ?: getString(R.string.error_invalid_client_ip_policy), requestedModelName)
+      return START_NOT_STICKY
     }
-    val accessPolicy = when (
-      val compiled = ClientIpAccessPolicy.compile(ServerPrefs.getClientIpPolicyConfig(this))
-    ) {
-      is ClientIpPolicyCompileResult.Success -> compiled.policy
-      is ClientIpPolicyCompileResult.EmptyRules,
-      is ClientIpPolicyCompileResult.InvalidRule -> {
-        reportNetworkConfigFailure(
-          getString(R.string.error_invalid_client_ip_policy),
-          requestedModelName,
-        )
-        return START_NOT_STICKY
-      }
-    }
-    val wifiIp = getWifiIpAddress(this)
-    val advertisedHost = bindConfig.advertisedHost(wifiIp, bindHost)
-    val isLoopbackOnly = bindConfig.isLoopbackOnly(wifiIp)
-    val notifState = notificationManager.buildNotificationIntents(advertisedHost, isLoopbackOnly, port)
+
+    val notifState = notificationManager.buildNotificationIntents(networkConfig.advertisedHost, networkConfig.isLoopbackOnly, port)
 
     NotificationHelper.update(
       context = this,
@@ -258,7 +221,7 @@ class ServerService : Service() {
       showProgress = true,
     )
 
-    if (!startHttpServer(port, bindHost, accessPolicy, requestedModelName)) return START_NOT_STICKY
+    if (!startHttpServer(port, networkConfig.bindHost, networkConfig.accessPolicy, requestedModelName)) return START_NOT_STICKY
 
     // ── Model resolution + initialization (off main thread) ─────────────────
     // pickModelByName triggers runBlocking DataStore reads inside
@@ -294,7 +257,7 @@ class ServerService : Service() {
       }
       // Verify model files actually exist on disk.
       val modelPath = model.getPath(context = this@ServerService)
-      if (!java.io.File(modelPath).exists()) {
+      if (!File(modelPath).exists()) {
         val sourcePrefix = when (startSource) {
           SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
           SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
@@ -349,33 +312,11 @@ class ServerService : Service() {
     clientIpAccessPolicy: ClientIpAccessPolicy,
     requestedModelName: String,
   ): Boolean {
-    // Pre-flight bind test: Ktor's CIO engine binds the socket asynchronously inside a
-    // background coroutine, so a BindException ("Address already in use") thrown during
-    // Ktor start propagates as an uncaught FATAL on a Dispatchers.IO worker — the outer
-    // try/catch around server.start() never sees it. This typically happens when another
-    // installed flavor (dev/beta/stable) is already serving on the same port. Probe the
-    // socket synchronously first so we can fail cleanly with the expected error event.
-    try {
-      java.net.ServerSocket().use { probe ->
-        // SO_REUSEADDR must match what the real Ktor CIO server uses when it binds.
-        // With reuseAddress=false the probe is STRICTER than the actual server: it
-        // refuses to bind while a prior connection's socket lingers in TIME_WAIT
-        // (which happens after stopping the server while a request was in flight),
-        // producing a false "port in use" error even though no process is listening
-        // and the server would bind fine. reuseAddress=true still throws BindException
-        // when another process is actively LISTENing on the port (e.g. another flavor),
-        // so genuine collisions are still detected.
-        probe.reuseAddress = true
-        probe.bind(java.net.InetSocketAddress(bindHost, port))
-      }
-    } catch (e: java.io.IOException) {
-      val reason = if (e is java.net.BindException || e.message?.contains("Address already in use") == true)
-        getString(R.string.error_port_in_use, port) else (e.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS) ?: getString(R.string.error_unknown))
-      val msg = getString(R.string.error_server_failed_to_start, reason)
-      Log.e(TAG, "Pre-flight bind probe failed on $bindHost:$port: $msg", e)
-      ServerMetrics.onServerError(msg)
+    val probeError = ServerNetworkMonitor.probePortBind(this, bindHost, port)
+    if (probeError != null) {
+      ServerMetrics.onServerError(probeError)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
-      RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
+      RequestLogStore.addEvent(probeError, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
       stopSelf()
       return false
     }
@@ -492,7 +433,7 @@ class ServerService : Service() {
     if (previousLoadJob != null || executor != null || modelsToCleanUp.isNotEmpty() ||
       modelLifecycle.hasActiveIdleCleanup()
     ) {
-      enqueueCleanup("OlliteRT-ReloadCleanup") {
+      ServerCleanupCoordinator.enqueueCleanup("OlliteRT-ReloadCleanup") {
         modelLifecycle.awaitIdleCleanup()
         previousLoadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
         if (executor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
@@ -521,8 +462,8 @@ class ServerService : Service() {
     notifState: LoadNotificationState,
   ) {
     try {
-      checkStorageBeforeLoad()
-      awaitPreviousCleanup()
+      ServerCleanupCoordinator.checkStorageBeforeLoad(this)
+      ServerCleanupCoordinator.awaitPreviousCleanup()
       modelLifecycle.awaitIdleCleanup()
 
       val loadStart = SystemClock.elapsedRealtime()
@@ -562,69 +503,6 @@ class ServerService : Service() {
       notificationManager.updateToRunning(model, notifState)
     } catch (t: Throwable) {
       handleModelLoadFailure(t, model, thisGeneration, notifState)
-    }
-  }
-
-  /** Checks available storage before native model init to avoid SIGABRT from LiteRT. */
-  private fun checkStorageBeforeLoad() {
-    try {
-      val stat = StatFs(Environment.getDataDirectory().path)
-      if (stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES) {
-        val availMb = stat.availableBytes.bytesToMb()
-        throw RuntimeException(
-          getString(R.string.error_storage_low_model_init,
-            availMb.toString(), MIN_STORAGE_FOR_MODEL_INIT_BYTES.bytesToMb().toString())
-        )
-      }
-    } catch (e: RuntimeException) { throw e }
-    catch (_: Exception) { /* StatFs failed — proceed and let native code decide */ }
-  }
-
-  /** Waits for the previous service instance's native cleanup to finish. */
-  private fun enqueueCleanup(threadName: String, cleanup: () -> Unit) {
-    lateinit var predecessor: java.util.concurrent.CountDownLatch
-    val next = java.util.concurrent.CountDownLatch(1)
-    while (true) {
-      val current = cleanupLatch.get()
-      if (cleanupLatch.compareAndSet(current, next)) {
-        predecessor = current ?: java.util.concurrent.CountDownLatch(0)
-        break
-      }
-    }
-    Thread({
-      var wasInterrupted = false
-      try {
-        while (predecessor.count > 0) {
-          try {
-            predecessor.await()
-          } catch (_: InterruptedException) {
-            wasInterrupted = true
-          }
-        }
-        cleanup()
-      } finally {
-        if (wasInterrupted) Thread.currentThread().interrupt()
-        next.countDown()
-      }
-    }, threadName).start()
-  }
-
-  /** Waits for every previously queued native cleanup to finish. */
-  private fun awaitPreviousCleanup() {
-    cleanupLatch.get()?.let { latch ->
-      if (latch.count > 0) {
-        Log.i(TAG, "Waiting for previous model cleanup to finish...")
-        var wasInterrupted = false
-        while (latch.count > 0) {
-          try {
-            latch.await()
-          } catch (_: InterruptedException) {
-            wasInterrupted = true
-          }
-        }
-        if (wasInterrupted) Thread.currentThread().interrupt()
-        Log.i(TAG, "Previous cleanup finished, proceeding with model load")
-      }
     }
   }
 
@@ -800,7 +678,7 @@ class ServerService : Service() {
     if (previousLoadJob != null || executor != null || modelsToCleanUp.isNotEmpty() ||
       modelLifecycle.hasActiveIdleCleanup()
     ) {
-      enqueueCleanup("OlliteRT-ModelCleanup") {
+      ServerCleanupCoordinator.enqueueCleanup("OlliteRT-ModelCleanup") {
         modelLifecycle.awaitIdleCleanup()
         previousLoadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
         if (executor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
@@ -893,17 +771,6 @@ class ServerService : Service() {
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
-
-    /**
-     * Latch that the background cleanup thread in onDestroy signals when native memory is released.
-     * The next service instance's model load thread waits on this before initializing to avoid
-     * racing with the old instance's Engine/Conversation cleanup.
-     *
-     * Uses AtomicReference instead of @Volatile to avoid race conditions where the latch is
-     * nulled out between the new instance's read and wait. The latch is never nulled — once
-     * counted down, it stays counted-down and await() returns immediately.
-     */
-    private val cleanupLatch = java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch?>(null)
 
     fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, source: String? = null): Boolean {
       val intent = Intent(context, ServerService::class.java).apply {
