@@ -19,6 +19,9 @@ package com.ollitert.llm.server.common
 
 import android.os.Build
 
+/** Current device's SOC in lowercase. */
+val SOC: String by lazy { Build.SOC_MODEL.lowercase() }
+
 fun isPixelDevice(): Boolean {
   return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel")
 }

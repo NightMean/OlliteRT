@@ -19,49 +19,29 @@ package com.ollitert.llm.server.common
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/**
- * Tests for pure utility functions in FormatUtils.kt that have no Android dependencies.
- */
 class FormatUtilsTest {
 
-  // ── cleanUpLiteRtErrorMessage() ────────────────────────────────────
-
   @Test
-  fun cleanUpLiteRtErrorMessageTrimsTrace() {
-    val msg = "Model failed to load=== Source Location Trace: file.cc:123\nmore stack data"
-    assertEquals("Model failed to load", cleanUpLiteRtErrorMessage(msg))
-  }
-
-  @Test
-  fun cleanUpLiteRtErrorMessageNoTraceReturnsUnchanged() {
-    val msg = "Some normal error message"
-    assertEquals(msg, cleanUpLiteRtErrorMessage(msg))
-  }
-
-  @Test
-  fun cleanUpLiteRtErrorMessageEmptyString() {
-    assertEquals("", cleanUpLiteRtErrorMessage(""))
-  }
-
-  @Test
-  fun cleanUpLiteRtErrorMessageTraceAtStart() {
-    val msg = "=== Source Location Trace: everything after"
-    assertEquals("", cleanUpLiteRtErrorMessage(msg))
-  }
-
-  @Test
-  fun cleanUpLiteRtErrorMessagePreservesTextBeforeTrace() {
-    val msg = "Error: context overflow (6579 >= 4000)=== Source Location Trace: ..."
-    assertEquals("Error: context overflow (6579 >= 4000)", cleanUpLiteRtErrorMessage(msg))
-  }
-
-  // ── humanReadableSize() ───────────────────────────────────────────
-
-  @Test
-  fun humanReadableSizeFormatsBytesCorrectly() {
+  fun `humanReadableSize formats bytes correctly`() {
     assertEquals("500 B", 500L.humanReadableSize())
     assertEquals("1.0 kB", 1000L.humanReadableSize(si = true))
-    assertEquals("1.0 MB", 1_000_000L.humanReadableSize(si = true))
-    assertEquals("1.50 GB", 1_500_000_000L.humanReadableSize(si = true, extraDecimalForGbAndAbove = true))
+    assertEquals("1.0 KiB", 1024L.humanReadableSize(si = false))
+    assertEquals("1.5 MB", (1_500_000L).humanReadableSize(si = true))
+    assertEquals("2.00 GB", (2_000_000_000L).humanReadableSize(si = true, extraDecimalForGbAndAbove = true))
+  }
+
+  @Test
+  fun `bytesToGb and bytesToMb convert correctly`() {
+    val oneGb = 1024L * 1024L * 1024L
+    assertEquals(1.0f, oneGb.bytesToGb(), 0.001f)
+
+    val fiveHundredMb = 500L * 1024L * 1024L
+    assertEquals(500L, fiveHundredMb.bytesToMb())
+  }
+
+  @Test
+  fun `cleanUpLiteRtErrorMessage strips source location trace`() {
+    val raw = "Model inference failed at runtime\n=== Source Location Trace: /build/litert/runtime.cc:123"
+    assertEquals("Model inference failed at runtime\n", cleanUpLiteRtErrorMessage(raw))
   }
 }

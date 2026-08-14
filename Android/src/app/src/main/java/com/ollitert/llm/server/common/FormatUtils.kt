@@ -41,3 +41,9 @@ fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolea
 /** Int overload for contexts where sizes come as Int (e.g. String.length). */
 fun Int.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String =
   toLong().humanReadableSize(si, extraDecimalForGbAndAbove)
+
+/** Convert bytes to gigabytes as Float (for UI display). */
+fun Long.bytesToGb(): Float = this / (1024f * 1024f * 1024f)
+
+/** Convert bytes to megabytes as Long (for log messages). */
+fun Long.bytesToMb(): Long = this / (1024L * 1024L)
