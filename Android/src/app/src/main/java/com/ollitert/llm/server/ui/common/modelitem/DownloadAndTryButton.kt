@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.common
+package com.ollitert.llm.server.ui.common.modelitem
 
+import android.content.Context
 import android.content.Intent
 import android.os.Environment
 import android.os.StatFs
@@ -24,13 +25,11 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
@@ -39,19 +38,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StopCircle
-import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,11 +55,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,27 +68,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.common.isWifiConnected
 import com.ollitert.llm.server.data.Model
 import com.ollitert.llm.server.data.ModelDownloadStatus
 import com.ollitert.llm.server.data.ModelDownloadStatusType
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.bytesToGb
 import com.ollitert.llm.server.service.RequestLogStore
+import com.ollitert.llm.server.ui.common.ErrorAlertDialog
+import com.ollitert.llm.server.ui.common.LoadingBlockingOverlay
+import com.ollitert.llm.server.ui.common.MemoryWarningAlert
+import com.ollitert.llm.server.ui.common.WifiWarningAlert
+import com.ollitert.llm.server.ui.common.checkNotificationPermissionAndStartDownload
+import com.ollitert.llm.server.ui.common.isMemoryLow
+import com.ollitert.llm.server.ui.common.isMemoryWarningSuppressed
+import com.ollitert.llm.server.ui.common.suppressMemoryWarning
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.modelmanager.ModelUrlResult
 import com.ollitert.llm.server.ui.modelmanager.configuredHfTokenOrNull
-import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -105,7 +101,8 @@ import java.net.HttpURLConnection
 
 private const val TAG = "OlliteRT.DownloadBtn"
 
-private enum class HfTokenDialogReason { MISSING, INVALID }
+internal enum class HfTokenDialogReason { MISSING, INVALID }
+
 /**
  * 3 GB reserved for system stability. Downloads are blocked unless
  * availableBytes > modelSize + this reserve, preventing the device from
@@ -167,8 +164,6 @@ fun DownloadAndTryButton(
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-  // Surface a retryable progress row when a download fails mid-stream so the user
-  // can resume from the partial .tmp via Range request instead of starting over.
   val failedWithProgress =
     isFailed && downloadStatus.receivedBytes > 0L && downloadStatus.totalBytes > 0L
   if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
@@ -179,13 +174,11 @@ fun DownloadAndTryButton(
       (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded || failedWithProgress)
   var curDownloadProgress: Float
 
-  // A launcher for requesting notification permission.
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
       modelManagerViewModel.downloadModel(model = model)
     }
 
-  // Function to kick off download.
   val startDownload: (accessToken: String?) -> Unit = { accessToken ->
     model.accessToken = accessToken
     checkNotificationPermissionAndStartDownload(
@@ -197,13 +190,10 @@ fun DownloadAndTryButton(
     checkingToken = false
   }
 
-  // A launcher for opening the custom tabs intent for requesting user agreement ack.
-  // Once the tab is closed, verify access before starting the download — the user may
-  // have closed the browser without accepting the terms.
   val agreementAckLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
+    ) {
       Log.d(TAG, "User closes the browser tab. Verifying access before downloading.")
       scope.launch(Dispatchers.IO) {
         val token = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
@@ -213,7 +203,7 @@ fun DownloadAndTryButton(
             Log.d(TAG, "Agreement accepted. Starting download.")
             startDownload(token)
           } else {
-            Log.d(TAG, "Agreement not accepted (code=${(urlResult as? ModelUrlResult.Success)?.code}). Resetting.")
+            Log.d(TAG, "Agreement not accepted. Resetting.")
             downloadStarted = false
             checkingToken = false
           }
@@ -221,20 +211,13 @@ fun DownloadAndTryButton(
       }
     }
 
-  // Checks public access first, then uses the token configured in Settings when required.
   val handleClickButton = {
     scope.launch(Dispatchers.IO) {
       if (needToDownloadFirst) {
         downloadStarted = true
-        // For HuggingFace urls
         if (model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)) {
           checkingToken = true
-
-          // Check if the url needs auth.
-          Log.d(
-            TAG,
-            "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
-          )
+          Log.d(TAG, "Model '${model.name}' is from HuggingFace. Checking if auth is required")
           val firstResult = modelManagerViewModel.getModelUrlResponse(model = model)
           when (firstResult) {
             is ModelUrlResult.Error -> {
@@ -246,7 +229,7 @@ fun DownloadAndTryButton(
             }
             is ModelUrlResult.Success -> {
               if (firstResult.code == HttpURLConnection.HTTP_OK) {
-                Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading the model...")
+                Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading...")
                 withContext(Dispatchers.Main) { startDownload(null) }
                 return@launch
               }
@@ -261,7 +244,6 @@ fun DownloadAndTryButton(
           }
           Log.d(TAG, "Model '${model.name}' needs auth.")
 
-          // First, try with the HuggingFace token from Settings.
           val storedHfToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
           if (storedHfToken != null) {
             Log.d(TAG, "Trying stored HF token from Settings...")
@@ -302,27 +284,19 @@ fun DownloadAndTryButton(
             hfTokenDialogReason = HfTokenDialogReason.INVALID
             return@launch
           } else {
-            // No HF token stored — prompt user to set one in Settings.
             Log.d(TAG, "No HF token stored. Prompting user to set one in Settings.")
             checkingToken = false
             downloadStarted = false
             hfTokenDialogReason = HfTokenDialogReason.MISSING
             return@launch
           }
-        }
-        // For other urls, just download the model.
-        else {
-          Log.d(
-            TAG,
-            "Model '${model.name}' is not from huggingface. Start downloading the model...",
-          )
+        } else {
+          Log.d(TAG, "Model '${model.name}' is not from HuggingFace. Start downloading...")
           withContext(Dispatchers.Main) { startDownload(null) }
         }
-      }
-      // No need to download. Check WiFi before starting server.
-      else {
+      } else {
         withContext(Dispatchers.Main) {
-          if (!com.ollitert.llm.server.common.isWifiConnected(context)) {
+          if (!isWifiConnected(context)) {
             showWifiWarning = true
           } else {
             onClicked()
@@ -348,7 +322,6 @@ fun DownloadAndTryButton(
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
 
-    // Show loading state when this model is being loaded
     if (isThisModelLoading) {
       Button(
         modifier = buttonModifier,
@@ -374,15 +347,12 @@ fun DownloadAndTryButton(
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,
-              autoSize =
-                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
           }
         }
       }
-    }
-    // Show stop button when this model is running
-    else if (isThisModelRunning) {
+    } else if (isThisModelRunning) {
       Button(
         modifier = buttonModifier,
         colors = ButtonDefaults.buttonColors(
@@ -412,97 +382,75 @@ fun DownloadAndTryButton(
               color = MaterialTheme.colorScheme.error,
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,
-              autoSize =
-                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
           }
         }
       }
-    }
-    // Normal state: download or start server
-    else {
-    // Disable "Start Server" on all models while any model is loading
-    val isAnyModelLoading = serverStatus == ServerStatus.LOADING
-    val isStartDisabled = isAnyModelLoading && downloadSucceeded
-    val effectiveEnabled = enabled && !isStartDisabled
-    Box(modifier = buttonModifier) {
-    Button(
-      modifier = Modifier.defaultMinSize(minHeight = 42.dp).fillMaxWidth(),
-      enabled = effectiveEnabled,
-      colors =
-        ButtonDefaults.buttonColors(
-          disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-          containerColor =
-            if (
-              (!downloadSucceeded || !canShowTryIt) &&
-                model.localFileRelativeDirPathOverride.isEmpty()
-            ) {
+    } else {
+      val isAnyModelLoading = serverStatus == ServerStatus.LOADING
+      val isStartDisabled = isAnyModelLoading && downloadSucceeded
+      val effectiveEnabled = enabled && !isStartDisabled
+      Box(modifier = buttonModifier) {
+        Button(
+          modifier = Modifier.defaultMinSize(minHeight = 42.dp).fillMaxWidth(),
+          enabled = effectiveEnabled,
+          colors = ButtonDefaults.buttonColors(
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = if ((!downloadSucceeded || !canShowTryIt) && model.localFileRelativeDirPathOverride.isEmpty()) {
               MaterialTheme.colorScheme.surfaceContainer
             } else {
               MaterialTheme.colorScheme.primary
             }
-        ),
-      contentPadding = PaddingValues(horizontal = 12.dp),
-      onClick = {
-        if (checkingToken) {
-          return@Button
-        }
-
-        checkMemoryAndClickDownloadButton()
-      },
-    ) {
-      val textColor =
-        if (!effectiveEnabled) {
-          // Define the color for disabled button.
-          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        } else if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
-          MaterialTheme.colorScheme.onSurface
-        } else {
-          MaterialTheme.colorScheme.onPrimary
-        }
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-      ) {
-        Icon(
-          if (needToDownloadFirst) {
-            Icons.Outlined.FileDownload
-          } else {
-            Icons.AutoMirrored.Rounded.ArrowForward
+          ),
+          contentPadding = PaddingValues(horizontal = 12.dp),
+          onClick = {
+            if (!checkingToken) {
+              checkMemoryAndClickDownloadButton()
+            }
           },
-          contentDescription = null,
-          tint = textColor,
-        )
-
-        if (!compact) {
-          if (needToDownloadFirst) {
-            Text(
-              stringResource(R.string.download),
-              color = textColor,
-              style = MaterialTheme.typography.titleMedium,
-            )
-          } else if (canShowTryIt) {
-            Text(
-              stringResource(R.string.try_it),
-              color = textColor,
-              style = MaterialTheme.typography.titleMedium,
-              maxLines = 1,
-              autoSize =
-                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
-            )
+        ) {
+          val textColor = if (!effectiveEnabled) {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+          } else if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
+            MaterialTheme.colorScheme.onSurface
+          } else {
+            MaterialTheme.colorScheme.onPrimary
           }
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(
+              if (needToDownloadFirst) Icons.Outlined.FileDownload else Icons.AutoMirrored.Rounded.ArrowForward,
+              contentDescription = null,
+              tint = textColor,
+            )
+            if (!compact) {
+              if (needToDownloadFirst) {
+                Text(
+                  stringResource(R.string.download),
+                  color = textColor,
+                  style = MaterialTheme.typography.titleMedium,
+                )
+              } else if (canShowTryIt) {
+                Text(
+                  stringResource(R.string.try_it),
+                  color = textColor,
+                  style = MaterialTheme.typography.titleMedium,
+                  maxLines = 1,
+                  autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+                )
+              }
+            }
+          }
+        }
+        if (isStartDisabled) {
+          LoadingBlockingOverlay(stringResource(R.string.model_loading_hint_wait))
         }
       }
     }
-    // Invisible overlay to show toast when disabled
-    if (isStartDisabled) {
-      LoadingBlockingOverlay(stringResource(R.string.model_loading_hint_wait))
-    }
-    }
-    }
-  }
-  // Download progress.
-  else {
+  } else {
     curDownloadProgress = if (downloadStatus != null && downloadStatus.totalBytes > 0) {
       downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
     } else 0f
@@ -515,12 +463,11 @@ fun DownloadAndTryButton(
     if (!compact) {
       downloadProgressModifier = downloadProgressModifier.fillMaxWidth()
     }
-    downloadProgressModifier =
-      downloadProgressModifier
-        .clip(CircleShape)
-        .background(MaterialTheme.colorScheme.surfaceContainer)
-        .padding(horizontal = 8.dp)
-        .height(42.dp)
+    downloadProgressModifier = downloadProgressModifier
+      .clip(CircleShape)
+      .background(MaterialTheme.colorScheme.surfaceContainer)
+      .padding(horizontal = 8.dp)
+      .height(42.dp)
     Row(modifier = downloadProgressModifier, verticalAlignment = Alignment.CenterVertically) {
       if (checkingToken) {
         Text(
@@ -531,23 +478,15 @@ fun DownloadAndTryButton(
           modifier = if (!compact) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 4.dp),
         )
       } else {
-        val percentColor =
-          if (failedWithProgress) MaterialTheme.colorScheme.error
-          else MaterialTheme.colorScheme.onSurface
+        val percentColor = if (failedWithProgress) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
         Text(
           "${(curDownloadProgress * 100).toInt()}%",
-          style =
-            MaterialTheme.typography.bodyMedium.copy(
-              // This stops numbers from "jumping around" when being updated.
-              fontFeatureSettings = "tnum"
-            ),
+          style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
           color = percentColor,
           modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
         )
         if (!compact) {
-          val barColor =
-            if (failedWithProgress) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.primary
+          val barColor = if (failedWithProgress) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
           LinearProgressIndicator(
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
             progress = { animatedProgress.value },
@@ -562,17 +501,12 @@ fun DownloadAndTryButton(
               downloadStarted = true
               modelManagerViewModel.retryDownloadModel(model = model)
             },
-            colors =
-              IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-              ),
+            colors = IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
             modifier = Modifier.semantics { contentDescription = cbRetry },
           ) {
-            Icon(
-              Icons.Outlined.Refresh,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.onSurface,
-            )
+            Icon(Icons.Outlined.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
           }
         }
         val cbStop = stringResource(R.string.cd_stop_icon)
@@ -581,17 +515,12 @@ fun DownloadAndTryButton(
             downloadStarted = false
             modelManagerViewModel.cancelDownloadModel(model = model)
           },
-          colors =
-            IconButtonDefaults.iconButtonColors(
-              containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ),
+          colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+          ),
           modifier = Modifier.semantics { contentDescription = cbStop },
         ) {
-          Icon(
-            Icons.Outlined.Close,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
-          )
+          Icon(Icons.Outlined.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
         }
       }
     }
@@ -600,52 +529,17 @@ fun DownloadAndTryButton(
     }
   }
 
-  // A ModalBottomSheet composable that displays information about the user agreement
-  // for a gated model and provides a button to open the agreement in a custom tab.
-  // Upon clicking the button, it constructs the agreement URL, launches it using a
-  // custom tab, and then dismisses the bottom sheet.
   if (showAgreementAckSheet) {
-    ModalBottomSheet(
-      onDismissRequest = {
+    GatedAgreementSheet(
+      model = model,
+      sheetState = sheetState,
+      agreementAckLauncher = agreementAckLauncher,
+      onDismiss = {
         showAgreementAckSheet = false
         checkingToken = false
         downloadStarted = false
       },
-      sheetState = sheetState,
-      sheetMaxWidth = SHEET_MAX_WIDTH,
-      modifier = Modifier.wrapContentHeight(),
-    ) {
-      Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 16.dp),
-      ) {
-        Text(stringResource(R.string.dialog_user_agreement_title), style = MaterialTheme.typography.titleLarge)
-        Text(
-          stringResource(R.string.dialog_user_agreement_body),
-          style = MaterialTheme.typography.bodyMedium,
-          modifier = Modifier.padding(vertical = 16.dp),
-        )
-        Button(
-          onClick = {
-            // Get agreement url from model url.
-            val index = model.url.indexOf("/resolve/")
-            // Show it in a tab.
-            if (index >= 0) {
-              val agreementUrl = model.url.substring(0, index)
-
-              val customTabsIntent = CustomTabsIntent.Builder().build()
-              customTabsIntent.intent.setData(agreementUrl.toUri())
-              agreementAckLauncher.launch(customTabsIntent.intent)
-            }
-            // Dismiss the sheet — keep downloadStarted true because agreementAckLauncher
-            // will proceed with the download when the user returns from the browser.
-            showAgreementAckSheet = false
-          }
-        ) {
-          Text(stringResource(R.string.button_open_user_agreement))
-        }
-      }
-    }
+    )
   }
 
   if (showErrorDialog) {
@@ -667,64 +561,20 @@ fun DownloadAndTryButton(
   }
 
   if (showStopActiveDialog) {
-    val entries by RequestLogStore.entries.collectAsStateWithLifecycle()
-    val pendingCount = entries.count { it.isPending }
-    AlertDialog(
-      onDismissRequest = { showStopActiveDialog = false },
-      title = {
-        Text(
-          text = stringResource(R.string.logs_dialog_stop_active_title),
-          style = MaterialTheme.typography.titleMedium,
-        )
+    StopActiveRequestsDialog(
+      onConfirmStop = {
+        showStopActiveDialog = false
+        onStopServer()
       },
-      text = {
-        Text(
-          text = pluralStringResource(R.plurals.logs_dialog_stop_active_body, pendingCount, pendingCount),
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      },
-      confirmButton = {
-        Button(
-          onClick = {
-            showStopActiveDialog = false
-            onStopServer()
-          },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error,
-          ),
-        ) {
-          Text(stringResource(R.string.logs_dialog_clear_active_stop))
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = { showStopActiveDialog = false }) {
-          Text(stringResource(R.string.logs_dialog_clear_cancel))
-        }
-      },
+      onDismiss = { showStopActiveDialog = false },
     )
   }
 
   hfTokenDialogReason?.let { reason ->
-    val isInvalid = reason == HfTokenDialogReason.INVALID
-    val titleRes = if (isInvalid) R.string.dialog_hf_token_invalid_title else R.string.dialog_hf_token_required_title
-    val bodyRes = if (isInvalid) R.string.dialog_hf_token_invalid_body else R.string.dialog_hf_token_required_body
-    val icon = if (isInvalid) Icons.Outlined.ErrorOutline else Icons.Outlined.Key
-    val iconTint = if (isInvalid) MaterialTheme.colorScheme.error else OlliteRTPrimary
-    val dismiss = { hfTokenDialogReason = null }
-
-    AlertDialog(
-      icon = { Icon(icon, contentDescription = null, tint = iconTint) },
-      title = { Text(stringResource(titleRes)) },
-      text = { Text(stringResource(bodyRes)) },
-      onDismissRequest = dismiss,
-      confirmButton = {
-        TextButton(onClick = { dismiss(); onNavigateToSettings() }) {
-          Text(stringResource(R.string.button_go_to_settings))
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) }
-      },
+    HfTokenRequiredDialog(
+      reason = reason,
+      onNavigateToSettings = onNavigateToSettings,
+      onDismiss = { hfTokenDialogReason = null },
     )
   }
 
@@ -743,59 +593,16 @@ fun DownloadAndTryButton(
   }
 
   if (showStorageWarning) {
-    // Build a detailed breakdown so the user understands why the download is
-    // blocked even though raw free space may appear sufficient. The 3 GB system
-    // reserve (SYSTEM_RESERVED_STORAGE_IN_BYTES) keeps the device stable after
-    // downloading large models\.
-    val modelSizeGb = model.totalBytes.bytesToGb()
-    val reserveGb = SYSTEM_RESERVED_STORAGE_IN_BYTES.bytesToGb()
-    val totalRequiredGb = modelSizeGb + reserveGb
-    val availableBytes = try {
-      val stat = StatFs(Environment.getDataDirectory().path)
-      stat.availableBlocksLong * stat.blockSizeLong
-    } catch (_: Exception) { 0L }
-    val availableGb = availableBytes.bytesToGb()
-
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      title = { Text(stringResource(R.string.dialog_storage_warning_title)) },
-      text = {
-        Text(
-          stringResource(
-            R.string.dialog_storage_warning_body,
-            totalRequiredGb,
-            modelSizeGb,
-            reserveGb,
-            availableGb,
-            (totalRequiredGb - availableGb).coerceAtLeast(0f),
-          )
-        )
-      },
-      onDismissRequest = { showStorageWarning = false },
-      // Cancel is the confirm (right) button — more prominent position — so the
-      // user's natural tap lands on the safe action. "Download Anyway" is the
-      // less prominent dismiss (left) button for power users who understand the risk.
-      confirmButton = {
-        TextButton(onClick = { showStorageWarning = false }) { Text(stringResource(R.string.cancel)) }
-      },
-      dismissButton = {
-        TextButton(onClick = {
-          showStorageWarning = false
-          handleClickButton()
-        }) { Text(stringResource(R.string.button_download_anyway)) }
-      },
+    StorageWarningDialog(
+      model = model,
+      onProceedAnyway = { handleClickButton() },
+      onDismiss = { showStorageWarning = false },
     )
   }
 
   if (showWifiWarning) {
     WifiWarningAlert(
-      port = com.ollitert.llm.server.data.ServerPrefs.getPort(context),
+      port = ServerPrefs.getPort(context),
       onStartAnyway = {
         showWifiWarning = false
         onClicked()
@@ -803,7 +610,6 @@ fun DownloadAndTryButton(
       onDismissed = { showWifiWarning = false },
     )
   }
-
 }
 
 /** Returns true when available storage is less than the given size plus the system reserve. */
@@ -814,7 +620,7 @@ internal fun isStorageLow(sizeInBytes: Long): Boolean {
     val availableBytes = stat.availableBlocksLong * stat.blockSizeLong
     availableBytes < sizeInBytes + SYSTEM_RESERVED_STORAGE_IN_BYTES
   } catch (e: Exception) {
-    android.util.Log.w(TAG, "Failed to check storage availability", e)
+    Log.w(TAG, "Failed to check storage availability", e)
     false
   }
 }

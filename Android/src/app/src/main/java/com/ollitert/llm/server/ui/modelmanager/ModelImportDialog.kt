@@ -102,10 +102,10 @@ import com.ollitert.llm.server.data.convertValueToTargetType
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import com.ollitert.llm.server.ui.common.ConfigEditorsPanel
-import com.ollitert.llm.server.ui.common.SYSTEM_RESERVED_STORAGE_IN_BYTES
+import com.ollitert.llm.server.ui.common.modelitem.SYSTEM_RESERVED_STORAGE_IN_BYTES
 import com.ollitert.llm.server.data.ensureValidFileName
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.ui.common.isStorageLow
+import com.ollitert.llm.server.ui.common.modelitem.isStorageLow
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTOnPrimary
 import kotlinx.coroutines.CoroutineScope
