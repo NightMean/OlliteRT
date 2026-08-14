@@ -21,6 +21,7 @@ import com.ollitert.llm.server.service.KtorServer
 import com.ollitert.llm.server.service.PrometheusRenderer
 import com.ollitert.llm.server.service.httpNotFound
 import com.ollitert.llm.server.service.httpOkJson
+import com.ollitert.llm.server.service.respondHttpResponse
 import io.ktor.server.application.call
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.get

@@ -27,9 +27,11 @@ import com.ollitert.llm.server.service.ModelLifecycle
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.service.clientIp
+import com.ollitert.llm.server.service.finalizeLogEntry
 import com.ollitert.llm.server.service.httpPayloadTooLarge
 import com.ollitert.llm.server.service.httpServiceUnavailable
 import com.ollitert.llm.server.service.readBytesWithLimit
+import com.ollitert.llm.server.service.respondHttpResponse
 import com.ollitert.llm.server.service.toHttpResponse
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
