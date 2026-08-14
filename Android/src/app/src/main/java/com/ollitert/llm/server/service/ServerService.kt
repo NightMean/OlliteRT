@@ -91,13 +91,8 @@ class ServerService : Service() {
   private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var loadJob: Job? = null
 
-  // Notification state — saved after warmup so we can refresh the notification with live request count.
-  // @Volatile: written from background load thread, read from main thread for notification refresh.
-  @Volatile private var notifContentIntent: PendingIntent? = null
-  @Volatile private var notifStopIntent: PendingIntent? = null
-  @Volatile private var notifCopyIntent: PendingIntent? = null
-  @Volatile private var notifEndpointUrl: String? = null
-  @Volatile private var notifModelName: String? = null
+  // Notification manager — encapsulates notification creation, updates, and intent building.
+  private val notificationManager by lazy { ServerNotificationManager(this) }
 
   // Model lifecycle: keep-alive, model selection, image decoding — see ModelLifecycle.kt
   private lateinit var modelLifecycle: ModelLifecycle
@@ -183,7 +178,7 @@ class ServerService : Service() {
         setReferenceCounted(false)
       }
       NotificationHelper.createChannel(this)
-      checkCorruptedDataStores()
+      notificationManager.checkCorruptedDataStores()
     } catch (e: Exception) {
       Log.e(TAG, "Service initialization failed — stopping immediately", e)
       stopSelf()
@@ -222,7 +217,7 @@ class ServerService : Service() {
       return START_NOT_STICKY
     }
 
-    startForegroundWithPlaceholder()
+    notificationManager.startForegroundPlaceholder(this)
     acquireWakeLocks()
 
     // Handle reload action: clean up current model first, then proceed with normal start.
@@ -274,7 +269,7 @@ class ServerService : Service() {
     val wifiIp = getWifiIpAddress(this)
     val advertisedHost = bindConfig.advertisedHost(wifiIp, bindHost)
     val isLoopbackOnly = bindConfig.isLoopbackOnly(wifiIp)
-    val notifState = buildNotificationIntents(advertisedHost, isLoopbackOnly, port)
+    val notifState = notificationManager.buildNotificationIntents(advertisedHost, isLoopbackOnly, port)
 
     NotificationHelper.update(
       context = this,
@@ -345,31 +340,6 @@ class ServerService : Service() {
     return START_STICKY
   }
 
-  /** Starts the foreground service with a minimal placeholder notification to meet the Android 10s deadline. */
-  private fun startForegroundWithPlaceholder() {
-    val placeholderIntent = Intent(this, MainActivity::class.java)
-    placeholderIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-    val placeholderContentIntent = PendingIntent.getActivity(
-      this, 0, placeholderIntent, PendingIntent.FLAG_IMMUTABLE,
-    )
-    val placeholderNotification = NotificationHelper.build(
-      context = this,
-      title = getString(R.string.notif_starting_title),
-      text = getString(R.string.notif_starting_body),
-      contentIntent = placeholderContentIntent,
-      showProgress = true,
-    )
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      startForeground(
-        NotificationHelper.NOTIFICATION_ID,
-        placeholderNotification,
-        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
-      )
-    } else {
-      startForeground(NotificationHelper.NOTIFICATION_ID, placeholderNotification)
-    }
-  }
-
   /** Acquires CPU + WiFi wake locks for 24/7 server operation. */
   private fun acquireWakeLocks() {
     wakeLock?.acquire()
@@ -387,40 +357,6 @@ class ServerService : Service() {
       category = EventCategory.SERVER,
     )
     stopSelf()
-  }
-
-  /** Builds notification PendingIntents (content, stop, copy URL) for the running server. */
-  private fun buildNotificationIntents(
-    displayAddress: String,
-    isLoopbackOnly: Boolean,
-    port: Int,
-  ): LoadNotificationState {
-    val contentIntent = PendingIntent.getActivity(
-      this, 0,
-      Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
-      PendingIntent.FLAG_IMMUTABLE,
-    )
-    val stopIntent = PendingIntent.getService(
-      this, 1,
-      Intent(this, ServerService::class.java).apply { action = ACTION_STOP },
-      PendingIntent.FLAG_IMMUTABLE,
-    )
-    val endpointUrl = "http://${formatHostForUrl(displayAddress)}:$port/v1"
-    val copyIntent = PendingIntent.getBroadcast(
-      this, 2,
-      Intent(this, CopyUrlReceiver::class.java).apply {
-        putExtra(CopyUrlReceiver.EXTRA_URL, endpointUrl)
-      },
-      PendingIntent.FLAG_IMMUTABLE,
-    )
-    return LoadNotificationState(
-      advertisedHost = displayAddress,
-      isLoopbackOnly = isLoopbackOnly,
-      contentIntent = contentIntent,
-      stopIntent = stopIntent,
-      copyIntent = copyIntent,
-      endpointUrl = endpointUrl,
-    )
   }
 
   /**
@@ -643,7 +579,7 @@ class ServerService : Service() {
       logVerboseModelConfig(model)
       if (handleQueuedReload(model)) return
       logActiveSystemPrompt(model)
-      updateNotificationToRunning(model, notifState)
+      notificationManager.updateToRunning(model, notifState)
     } catch (t: Throwable) {
       handleModelLoadFailure(t, model, thisGeneration, notifState)
     }
@@ -792,32 +728,6 @@ class ServerService : Service() {
     }
   }
 
-  /** Updates notification intents and displays the running notification. */
-  private fun updateNotificationToRunning(model: Model, notifState: LoadNotificationState) {
-    notifContentIntent = notifState.contentIntent
-    notifStopIntent = notifState.stopIntent
-    notifCopyIntent = notifState.copyIntent
-    notifEndpointUrl = notifState.endpointUrl
-    notifModelName = model.name
-    val initialText = buildString {
-      if (ServerPrefs.isNotifShowRequestCount(this@ServerService)) {
-        append(resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
-        append("\n")
-      }
-      append(getString(R.string.notif_server_body_model, model.name))
-      append("\n")
-      append(getString(R.string.notif_server_body_url, notifState.endpointUrl))
-    }
-    NotificationHelper.update(
-      context = this,
-      title = getString(R.string.notif_server_running_title),
-      text = initialText,
-      contentIntent = notifState.contentIntent,
-      stopIntent = notifState.stopIntent,
-      copyIntent = notifState.copyIntent,
-    )
-  }
-
   /** Handles model load failure: OOM cleanup, error reporting, notification update. */
   private fun handleModelLoadFailure(
     t: Throwable,
@@ -844,13 +754,7 @@ class ServerService : Service() {
     ServerMetrics.onServerError(msg)
     ServerMetrics.incrementErrorCount(category)
     RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
-    NotificationHelper.update(
-      context = this,
-      title = getString(R.string.notif_model_load_failed_title),
-      text = msg,
-      contentIntent = notifState.contentIntent,
-      stopIntent = notifState.stopIntent,
-    )
+    notificationManager.updateToLoadFailed(t, model, notifState)
   }
 
   @Suppress("DEPRECATION") // onTrimMemory deprecated in API 34, but onTrimMemory is still called by the framework
@@ -929,11 +833,7 @@ class ServerService : Service() {
       }
     }
 
-    notifContentIntent = null
-    notifStopIntent = null
-    notifCopyIntent = null
-    notifEndpointUrl = null
-    notifModelName = null
+    notificationManager.clear()
     pendingReloadAfterLoad.set(null)
     ServerMetrics.onServerStopped()
     if (modelName != null) {
@@ -971,25 +871,9 @@ class ServerService : Service() {
   private fun nextRequestId(): String {
     ServerMetrics.incrementRequestCount()
     if (ServerPrefs.isNotifShowRequestCount(this)) {
-      refreshRunningNotification()
+      notificationManager.refreshRunning()
     }
     return "r${requestCounter.incrementAndGet()}"
-  }
-
-  /** Update the foreground notification with the current request count and optional update badge. */
-  private fun refreshRunningNotification() {
-    val ci = notifContentIntent ?: return
-    val name = notifModelName ?: return
-    val url = notifEndpointUrl ?: return
-    NotificationHelper.refreshRunning(
-      context = this,
-      modelName = name,
-      endpointUrl = url,
-      contentIntent = ci,
-      stopIntent = notifStopIntent,
-      copyIntent = notifCopyIntent,
-      cachedUpdateVersion = ServerMetrics.availableUpdateVersion.value,
-    )
   }
 
   private fun logEvent(message: String) {
@@ -1018,73 +902,6 @@ class ServerService : Service() {
     )
   }
 
-  /**
-   * Checks for DataStore corruption that was detected during lazy initialization
-   * (flagged via SharedPreferences by the ReplaceFileCorruptionHandler in AppModule).
-   * Logs a WARNING event to the in-app log and posts a system notification so the
-   * user knows their settings/data were reset.
-   */
-  private fun checkCorruptedDataStores() {
-    val corrupted = ServerPrefs.getCorruptedDataStores(this)
-    if (corrupted.isEmpty()) return
-
-    val names = corrupted.sorted().joinToString(", ")
-    Log.w(TAG, "DataStore corruption recovered on previous run: $names")
-    RequestLogStore.addEvent(
-      getString(R.string.log_corruption_recovered, names),
-      level = LogLevel.WARNING,
-      category = EventCategory.SERVER,
-    )
-
-    val channelId = "ollitert-corruption"
-    val mgr = getSystemService(NOTIFICATION_SERVICE) as? android.app.NotificationManager
-    if (mgr != null) {
-      mgr.createNotificationChannel(
-        android.app.NotificationChannel(
-          channelId,
-          getString(R.string.notif_channel_corruption_name),
-          android.app.NotificationManager.IMPORTANCE_HIGH,
-        ).apply { description = getString(R.string.notif_channel_corruption_desc) }
-      )
-      val openIntent = PendingIntent.getActivity(
-        this, 0,
-        Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
-        PendingIntent.FLAG_IMMUTABLE,
-      )
-      val text = if (corrupted.size == 1)
-        getString(R.string.notif_corruption_text_one, corrupted.first())
-      else
-        getString(R.string.notif_corruption_text_many, corrupted.size, names)
-      val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
-        .setSmallIcon(R.mipmap.ic_launcher_monochrome)
-        .setContentTitle(getString(R.string.notif_corruption_title))
-        .setContentText(text)
-        .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
-        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-        .setContentIntent(openIntent)
-        .setAutoCancel(true)
-        .build()
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-          checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        Log.w(TAG, "POST_NOTIFICATIONS not granted — corruption notification suppressed")
-      } else {
-        mgr.notify(NOTIFICATION_ID_CORRUPTION, notification)
-      }
-    }
-
-    ServerPrefs.clearCorruptedDataStores(this)
-  }
-
-  /** Notification intents + metadata passed to the model load thread. */
-  private class LoadNotificationState(
-    val advertisedHost: String,
-    val isLoopbackOnly: Boolean,
-    val contentIntent: PendingIntent,
-    val stopIntent: PendingIntent,
-    val copyIntent: PendingIntent,
-    val endpointUrl: String,
-  )
-
   companion object {
     private const val TAG = "OlliteRT.Service"
     const val EXTRA_PORT = "extra_port"
@@ -1094,7 +911,6 @@ class ServerService : Service() {
     const val SOURCE_BOOT = "boot"
     const val SOURCE_LAUNCH = "launch"
     const val DEFAULT_PORT = com.ollitert.llm.server.data.DEFAULT_PORT
-    private const val NOTIFICATION_ID_CORRUPTION = 44
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"

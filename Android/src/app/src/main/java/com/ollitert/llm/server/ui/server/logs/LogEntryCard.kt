@@ -78,7 +78,6 @@ import com.ollitert.llm.server.data.ErrorKind
 import com.ollitert.llm.server.data.LogLevel
 import com.ollitert.llm.server.data.RequestLogEntry
 import com.ollitert.llm.server.ui.server.CancelledColor
-import com.ollitert.llm.server.ui.server.PendingResponseSection
 import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
