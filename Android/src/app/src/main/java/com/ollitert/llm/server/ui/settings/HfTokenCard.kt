@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
 import android.widget.Toast
@@ -47,7 +47,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable

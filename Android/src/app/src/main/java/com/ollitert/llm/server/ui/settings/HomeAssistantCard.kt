@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
 import androidx.compose.foundation.layout.Spacer
@@ -45,7 +45,7 @@ import com.ollitert.llm.server.common.getWifiIpAddress
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.ServerBindMode
 import com.ollitert.llm.server.data.formatHostForUrl
-import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable

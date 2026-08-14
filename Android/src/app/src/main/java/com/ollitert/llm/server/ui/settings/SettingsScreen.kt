@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server
+package com.ollitert.llm.server.ui.settings
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -63,23 +63,23 @@ import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.server.settings.AdvancedSettingsCard
-import com.ollitert.llm.server.ui.server.settings.AutoLaunchCard
-import com.ollitert.llm.server.ui.server.settings.CardId
-import com.ollitert.llm.server.ui.server.settings.ContextManagementCard
-import com.ollitert.llm.server.ui.server.settings.DeveloperCard
-import com.ollitert.llm.server.ui.server.settings.GeneralCard
-import com.ollitert.llm.server.ui.server.settings.HfTokenCard
-import com.ollitert.llm.server.ui.server.settings.HomeAssistantCard
-import com.ollitert.llm.server.ui.server.settings.LogPersistenceCard
-import com.ollitert.llm.server.ui.server.settings.MetricsCard
-import com.ollitert.llm.server.ui.server.settings.ModelBehaviourCard
-import com.ollitert.llm.server.ui.server.settings.ResetCard
-import com.ollitert.llm.server.ui.server.settings.ServerConfigCard
-import com.ollitert.llm.server.ui.server.settings.SettingsDialogs
-import com.ollitert.llm.server.ui.server.settings.SettingsFooter
-import com.ollitert.llm.server.ui.server.settings.RepositoriesCard
-import com.ollitert.llm.server.ui.server.settings.UpdatesCard
+import com.ollitert.llm.server.ui.settings.AdvancedSettingsCard
+import com.ollitert.llm.server.ui.settings.AutoLaunchCard
+import com.ollitert.llm.server.ui.settings.CardId
+import com.ollitert.llm.server.ui.settings.ContextManagementCard
+import com.ollitert.llm.server.ui.settings.DeveloperCard
+import com.ollitert.llm.server.ui.settings.GeneralCard
+import com.ollitert.llm.server.ui.settings.HfTokenCard
+import com.ollitert.llm.server.ui.settings.HomeAssistantCard
+import com.ollitert.llm.server.ui.settings.LogPersistenceCard
+import com.ollitert.llm.server.ui.settings.MetricsCard
+import com.ollitert.llm.server.ui.settings.ModelBehaviourCard
+import com.ollitert.llm.server.ui.settings.ResetCard
+import com.ollitert.llm.server.ui.settings.ServerConfigCard
+import com.ollitert.llm.server.ui.settings.SettingsDialogs
+import com.ollitert.llm.server.ui.settings.SettingsFooter
+import com.ollitert.llm.server.ui.settings.RepositoriesCard
+import com.ollitert.llm.server.ui.settings.UpdatesCard
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable

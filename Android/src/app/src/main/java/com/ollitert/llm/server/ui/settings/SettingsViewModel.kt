@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server
+package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
 import androidx.compose.runtime.getValue
@@ -42,12 +42,12 @@ import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
-import com.ollitert.llm.server.ui.server.settings.CardId
-import com.ollitert.llm.server.ui.server.settings.SettingDef
-import com.ollitert.llm.server.ui.server.settings.SettingEntry
-import com.ollitert.llm.server.ui.server.settings.allCardDefs
-import com.ollitert.llm.server.ui.server.settings.allSettingDefs
-import com.ollitert.llm.server.ui.server.settings.settingDefsByKey
+import com.ollitert.llm.server.ui.settings.CardId
+import com.ollitert.llm.server.ui.settings.SettingDef
+import com.ollitert.llm.server.ui.settings.SettingEntry
+import com.ollitert.llm.server.ui.settings.allCardDefs
+import com.ollitert.llm.server.ui.settings.allSettingDefs
+import com.ollitert.llm.server.ui.settings.settingDefsByKey
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
 import android.widget.Toast
@@ -58,7 +58,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.service.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
-import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 

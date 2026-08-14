@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -42,7 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
-import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable

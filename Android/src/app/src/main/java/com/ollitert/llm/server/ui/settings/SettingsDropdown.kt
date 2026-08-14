@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background

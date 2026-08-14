@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
 import com.ollitert.llm.server.data.MAX_VALID_PORT

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server.settings
+package com.ollitert.llm.server.ui.settings
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.ui.server.SettingsViewModel
+import com.ollitert.llm.server.ui.settings.SettingsViewModel
 
 @Composable
 internal fun GeneralCard(vm: SettingsViewModel) {

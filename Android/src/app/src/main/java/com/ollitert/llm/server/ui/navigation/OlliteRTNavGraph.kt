@@ -71,7 +71,8 @@ import com.ollitert.llm.server.ui.server.ServerViewModel
 import com.ollitert.llm.server.ui.repositories.RepositoryDetailScreen
 import com.ollitert.llm.server.ui.repositories.RepositoryListScreen
 import com.ollitert.llm.server.ui.repositories.RepositoryViewModel
-import com.ollitert.llm.server.ui.server.SettingsScreen
+import com.ollitert.llm.server.ui.settings.SettingsScreen
+import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.server.StatusScreen
 
 private const val TAG = "OlliteRT.Nav"
@@ -269,7 +270,7 @@ fun OlliteRTNavHost(
       val reposChanged = settingsBackStackEntry.savedStateHandle
         .getStateFlow("reposChanged", false)
         .collectAsStateWithLifecycle()
-      val settingsViewModel: com.ollitert.llm.server.ui.server.SettingsViewModel = hiltViewModel()
+      val settingsViewModel: SettingsViewModel = hiltViewModel()
       LaunchedEffect(reposChanged.value) {
         if (reposChanged.value) {
           settingsViewModel.refreshRepositoryCounts()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.server
+package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
 import com.ollitert.llm.server.common.ServerStatus
@@ -25,7 +25,7 @@ import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.ServerBindConfig
 import com.ollitert.llm.server.data.ServerBindMode
 import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.ui.server.settings.STT_TRANSCRIPTION_PROMPT
+import com.ollitert.llm.server.ui.settings.STT_TRANSCRIPTION_PROMPT
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.service.RequestLogStore
 import com.ollitert.llm.server.service.ServerMetrics
