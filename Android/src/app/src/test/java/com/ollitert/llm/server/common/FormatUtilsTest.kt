@@ -20,10 +20,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Tests for pure utility functions in Utils.kt that have no Android dependencies.
- * Functions requiring Context (Wifi, Bitmap, Uri) are excluded.
+ * Tests for pure utility functions in FormatUtils.kt that have no Android dependencies.
  */
-class UtilsTest {
+class FormatUtilsTest {
 
   // ── cleanUpLiteRtErrorMessage() ────────────────────────────────────
 
@@ -56,4 +55,13 @@ class UtilsTest {
     assertEquals("Error: context overflow (6579 >= 4000)", cleanUpLiteRtErrorMessage(msg))
   }
 
+  // ── humanReadableSize() ───────────────────────────────────────────
+
+  @Test
+  fun humanReadableSizeFormatsBytesCorrectly() {
+    assertEquals("500 B", 500L.humanReadableSize())
+    assertEquals("1.0 kB", 1000L.humanReadableSize(si = true))
+    assertEquals("1.0 MB", 1_000_000L.humanReadableSize(si = true))
+    assertEquals("1.50 GB", 1_500_000_000L.humanReadableSize(si = true, extraDecimalForGbAndAbove = true))
+  }
 }

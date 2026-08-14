@@ -45,7 +45,6 @@ fun formatModelError(context: Context, error: String?): String = when {
 val SMALL_BUTTON_CONTENT_PADDING =
   PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
 
-
 fun checkNotificationPermissionAndStartDownload(
   context: Context,
   launcher: ManagedActivityResultLauncher<String, Boolean>,
@@ -67,8 +66,3 @@ fun checkNotificationPermissionAndStartDownload(
     }
   }
 }
-
-fun ensureValidFileName(fileName: String): String {
-  return fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-}
-

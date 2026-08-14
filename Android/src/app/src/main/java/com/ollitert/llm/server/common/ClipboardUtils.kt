@@ -20,22 +20,8 @@ package com.ollitert.llm.server.common
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
 import android.widget.Toast
 import com.ollitert.llm.server.R
-import kotlin.math.ln
-import kotlin.math.pow
-
-fun cleanUpLiteRtErrorMessage(message: String): String =
-  message.substringBefore("=== Source Location Trace")
-
-fun isPixelDevice(): Boolean {
-  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel")
-}
-
-fun isPixel10(): Boolean {
-  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
-}
 
 /**
  * Copy text to the system clipboard with a standardized toast notification.
@@ -46,7 +32,13 @@ fun isPixel10(): Boolean {
  * @param formatSuffix Optional format hint appended to the toast (e.g. "JSON", "CSV").
  *                     Omit for simple values like URLs or tokens.
  */
-fun copyToClipboard(context: Context, label: String, text: String, formatSuffix: String? = null, toastOverride: String? = null) {
+fun copyToClipboard(
+  context: Context,
+  label: String,
+  text: String,
+  formatSuffix: String? = null,
+  toastOverride: String? = null,
+) {
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
   if (clipboard == null) {
     Toast.makeText(context, context.getString(R.string.toast_clipboard_unavailable), Toast.LENGTH_SHORT).show()
@@ -58,18 +50,3 @@ fun copyToClipboard(context: Context, label: String, text: String, formatSuffix:
     else context.getString(R.string.toast_copied_to_clipboard)
   Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
 }
-
-/** Format a byte count as a human-readable string (e.g. "1.5 kB", "3.20 GB"). */
-fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String {
-  val bytes = this
-  val unit = if (si) 1000 else 1024
-  if (bytes < unit) return "$bytes B"
-  val exp = (ln(bytes.toDouble()) / ln(unit.toDouble())).toInt()
-  val pre = (if (si) "kMGTPE" else "KMGTPE")[exp - 1] + if (si) "" else "i"
-  val formatString = if (extraDecimalForGbAndAbove && pre.lowercase() != "k" && pre != "M") "%.2f %sB" else "%.1f %sB"
-  return String.format(java.util.Locale.US, formatString, bytes / unit.toDouble().pow(exp.toDouble()), pre)
-}
-
-/** Int overload for contexts where sizes come as Int (e.g. String.length). */
-fun Int.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String =
-  toLong().humanReadableSize(si, extraDecimalForGbAndAbove)

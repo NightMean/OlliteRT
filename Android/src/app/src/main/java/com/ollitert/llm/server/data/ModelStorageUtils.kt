@@ -39,3 +39,11 @@ fun cleanupStaleImportTmpFiles(externalFilesDir: File?) {
     Log.w(TAG, "Failed to clean up stale import temp files: ${e.message}")
   }
 }
+
+/**
+ * Sanitizes a model filename by replacing characters that are unsafe on Android filesystems
+ * with underscores.
+ */
+fun ensureValidFileName(fileName: String): String {
+  return fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+}
