@@ -17,7 +17,6 @@
 package com.ollitert.llm.server.ui.server.logs
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,51 +26,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Construction
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import java.util.Locale
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.data.ErrorKind
@@ -82,29 +52,16 @@ import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground
-import com.ollitert.llm.server.ui.theme.OlliteRTOnSurfaceVariant
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-import com.ollitert.llm.server.ui.theme.OlliteRTSubtleGrey
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
-internal val LOG_BODY_FONT_SIZE = 12.sp
-internal val LOG_DETAIL_FONT_SIZE = 11.sp
-internal val LOG_BODY_LINE_HEIGHT = 16.sp
-
-internal const val COLLAPSED_MAX_LINES = 8
-internal const val COLLAPSED_MAX_CHARS = 600
-/**
- * Bodies above this size get highlighted asynchronously (off main thread) to avoid jank.
- * At 1KB, regex-based JSON highlighting can take 10-30ms on mid-range devices — enough
- * to drop frames during scrolling. Larger bodies (2-4KB) can take 50-100ms.
- */
-internal const val ASYNC_HIGHLIGHT_THRESHOLD = 1_000
 
 @Composable
-internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, searchQuery: String = "", wrapText: Boolean = true) {
-  val context = LocalContext.current
+internal fun LogEntryCard(
+  entry: RequestLogEntry,
+  autoExpand: Boolean = false,
+  searchQuery: String = "",
+  wrapText: Boolean = true,
+) {
   val isError = entry.level == LogLevel.ERROR
   val isWarning = entry.level == LogLevel.WARNING
   val cardBg = when {
@@ -118,13 +75,8 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
   var compactedExpanded by remember { mutableStateOf(autoExpand) }
   var responseExpanded by remember { mutableStateOf(autoExpand) }
   var showMetricsDialog by remember { mutableStateOf(false) }
-  // Hoisted here (not inline in the footer Row) so isOverflowing can observe maxValue and
-  // trigger recomposition when badges overflow the weight(1f) area.
   val footerScrollState = rememberScrollState()
 
-  // Latch: pathIsMultiLine only ever goes false→true (never resets). This prevents the
-  // layout flip-flop where IP inline narrows the path → wraps → IP below → path widens
-  // → single line → IP inline → repeat. Once wrapping is detected, layout stays stable.
   var pathIsMultiLine by remember { mutableStateOf(false) }
   val hasInfoButton = entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0
   val hasCopyButton = !entry.isPending
@@ -137,165 +89,111 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       .padding(16.dp),
   ) {
     // Row 1: [METHOD] [path] [IP — inline only when path fits] [ⓘ] [copy]
-    // ⓘ and copy always stay in the right corner. Only IP moves below when path wraps.
     Row(
       verticalAlignment = if (pathIsMultiLine) Alignment.Top else Alignment.CenterVertically,
     ) {
       MethodBadge(method = entry.method)
       Spacer(modifier = Modifier.width(8.dp))
-      // Path text — fully visible, no truncation. Latch detects wrap to reposition IP.
       if (searchQuery.isNotEmpty()) {
         val highlighted = remember(entry.path, searchQuery) {
           buildHighlightedString(entry.path, searchQuery, baseColor = OlliteRTOnBackground)
         }
         Text(
           text = highlighted,
-          style = MaterialTheme.typography.bodyMedium,
-          fontFamily = SpaceGroteskFontFamily,
-          fontWeight = FontWeight.Medium,
-          modifier = Modifier.weight(1f),
-          onTextLayout = { if (it.lineCount > 1) pathIsMultiLine = true },
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
+          fontWeight = FontWeight.SemiBold,
+          modifier = Modifier.weight(1f, fill = false),
+          onTextLayout = { result ->
+            if (result.lineCount > 1 && !pathIsMultiLine) pathIsMultiLine = true
+          },
         )
       } else {
         Text(
           text = entry.path,
-          style = MaterialTheme.typography.bodyMedium,
+          style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurface,
-          fontFamily = SpaceGroteskFontFamily,
-          fontWeight = FontWeight.Medium,
-          modifier = Modifier.weight(1f),
-          onTextLayout = { if (it.lineCount > 1) pathIsMultiLine = true },
+          fontWeight = FontWeight.SemiBold,
+          modifier = Modifier.weight(1f, fill = false),
+          onTextLayout = { result ->
+            if (result.lineCount > 1 && !pathIsMultiLine) pathIsMultiLine = true
+          },
         )
       }
-      // IP inline only when path fits on one line
+
       if (!pathIsMultiLine && entry.clientIp != null) {
-        Spacer(modifier = Modifier.width(4.dp))
-        EntryIpPill(entry, searchQuery)
+        Spacer(modifier = Modifier.width(8.dp))
+        EntryIpPill(entry = entry, searchQuery = searchQuery)
       }
-      // Buttons always stay in the top-right corner regardless of path length
-      EntryActionButtons(entry, hasInfoButton, hasCopyButton) { showMetricsDialog = true }
+
+      Spacer(modifier = Modifier.weight(1f))
+      EntryActionButtons(
+        entry = entry,
+        hasInfoButton = hasInfoButton,
+        hasCopyButton = hasCopyButton,
+        onInfoClick = { showMetricsDialog = true },
+      )
     }
 
-    // Row 2: IP right-aligned below the buttons when path wraps to multiple lines
     if (pathIsMultiLine && entry.clientIp != null) {
       Spacer(modifier = Modifier.height(4.dp))
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        EntryIpPill(entry, searchQuery)
-      }
+      EntryIpPill(entry = entry, searchQuery = searchQuery)
     }
 
-    // Request body preview (if present)
+    // Body content: Request, Compacted Prompt, Response
     if (!entry.requestBody.isNullOrBlank()) {
       val formatted = remember(entry.requestBody) { prettyPrintJson(entry.requestBody) }
       val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
-      // Use the original body size (before base64 compaction) when available,
-      // so the badge reflects the true request size, not the smaller compacted version.
-      val requestSize = remember(entry.requestBody, entry.originalRequestBodySize) {
-        val sizeChars = if (entry.originalRequestBodySize > 0) entry.originalRequestBodySize else entry.requestBody.length
-        sizeChars.humanReadableSize()
-      }
+      val requestSize = remember(entry.requestBody) { entry.requestBody.length.humanReadableSize() }
       Spacer(modifier = Modifier.height(10.dp))
       val requestLabel = stringResource(R.string.logs_entry_request_label, requestSize)
-      val toolCallLabel = if (entry.hasToolCalls) stringResource(R.string.logs_badge_tool_call) else null
-      val annotatedRequestLabel = if (toolCallLabel != null) {
-        val base = buildAnnotatedRequestLabel(requestLabel, toolCallLabel, MaterialTheme.colorScheme.onSurfaceVariant, OlliteRTPrimary)
-        if (searchQuery.isNotEmpty()) overlaySearchHighlights(base, searchQuery) else base
+      val annotatedRequestLabel = if (entry.hasToolCalls) {
+        val toolCallText = stringResource(R.string.logs_badge_tool_call)
+        val baseColor = MaterialTheme.colorScheme.onSurfaceVariant
+        val toolCallColor = OlliteRTPrimary
+        remember(requestLabel, toolCallText, baseColor, toolCallColor) {
+          buildAnnotatedRequestLabel(requestLabel, toolCallText, baseColor, toolCallColor)
+        }
       } else null
+
       ExpandableBodySection(
         label = requestLabel,
         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        annotatedLabel = annotatedRequestLabel,
         body = formatted,
         expanded = requestExpanded,
         showToggle = isLong,
         onToggle = { requestExpanded = !requestExpanded },
-        annotatedLabel = annotatedRequestLabel,
         searchQuery = searchQuery,
         wrapText = wrapText,
       )
     }
 
-    // Compacted prompt preview — shown between Request and Response when compaction was applied.
-    // This is the actual prompt that was sent to inference after compaction strategies were applied.
     if (!entry.compactedPrompt.isNullOrBlank()) {
+      val formatted = remember(entry.compactedPrompt) { prettyPrintJson(entry.compactedPrompt) }
+      val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
       val compactedSize = remember(entry.compactedPrompt) { entry.compactedPrompt.length.humanReadableSize() }
-      val isLong = remember(entry.compactedPrompt) { entry.compactedPrompt.length > COLLAPSED_MAX_CHARS || entry.compactedPrompt.count { it == '\n' } > COLLAPSED_MAX_LINES }
-      val badges = remember(entry.compactionDetails) { parseCompactionBadges(entry.compactionDetails) }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
         label = stringResource(R.string.logs_entry_compacted_prompt_label, compactedSize),
-        labelColor = WarningColor,
-        body = entry.compactedPrompt,
+        labelColor = ThinkingColor,
+        body = formatted,
         expanded = compactedExpanded,
         showToggle = isLong,
         onToggle = { compactedExpanded = !compactedExpanded },
         searchQuery = searchQuery,
         wrapText = wrapText,
       )
-      // Strategy badges below the text box, above the Response section
-      if (badges.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-          badges.forEachIndexed { index, (badgeLabel, badgeColor) ->
-            if (index > 0) FooterDot()
-            Text(
-              text = badgeLabel,
-              style = MaterialTheme.typography.labelSmall,
-              color = badgeColor,
-              fontWeight = FontWeight.SemiBold,
-            )
-          }
-        }
-      }
     }
 
-    // Response area: streaming partial text while pending, full JSON when done
-    // NOTE: Compaction is instant (string manipulation before inference), so the pending state
-    // always shows normal generating text. If model-based compaction is added, this should
-    // show CompactingIcon + "Compacting prompt" text while the model summarizes.
-    if (entry.isPending) {
+    if (entry.isCancelled) {
       Spacer(modifier = Modifier.height(10.dp))
-      Text(
-        text = stringResource(R.string.logs_entry_response),
-        style = MaterialTheme.typography.labelSmall,
-        color = OlliteRTPrimary,
-        fontWeight = FontWeight.SemiBold,
-      )
-      Spacer(modifier = Modifier.height(4.dp))
-      PendingResponseSection(
-        entryId = entry.id,
-        partialText = entry.partialText,
-        isGenerating = entry.isGenerating,
-      )
-    } else if (entry.isCancelled) {
-      Spacer(modifier = Modifier.height(10.dp))
-      Column(
+      Box(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(12.dp))
           .background(CancelledColor.copy(alpha = 0.08f))
-          .padding(horizontal = 12.dp, vertical = 14.dp),
+          .padding(12.dp),
       ) {
-        val cancelledDisplay = remember(entry.partialText) {
-          entry.partialText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
-        }
-        if (!cancelledDisplay.isNullOrEmpty()) {
-          Text(
-            text = cancelledDisplay,
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontFamily = SpaceGroteskFontFamily,
-              fontSize = LOG_DETAIL_FONT_SIZE,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Spacer(modifier = Modifier.height(10.dp))
-        }
         Text(
           text = if (entry.cancelledByUser) stringResource(R.string.logs_entry_stopped_by_user)
                  else stringResource(R.string.logs_entry_client_disconnected),
@@ -324,7 +222,6 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       )
     }
 
-    // Show which client-supplied sampler params were ignored
     if (entry.ignoredClientParams != null) {
       Spacer(modifier = Modifier.height(6.dp))
       Text(
@@ -334,9 +231,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       )
     }
 
-    // Footer area: badges (compaction/overflow) are placed inline when they fit,
-    // or on a separate row above when they'd overflow. Measured dynamically via
-    // SubcomposeLayout so the layout scales correctly across phones and tablets.
+    // Footer
     if (entry.isPending) {
       Spacer(modifier = Modifier.height(10.dp))
       val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
@@ -354,19 +249,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
       }
     } else {
       val contextOverflow = entry.errorKind == ErrorKind.CONTEXT_OVERFLOW
-
       Spacer(modifier = Modifier.height(10.dp))
-
-      // Footer: [scrollable badges] ··· [model · time right-aligned]
-      // Status badges are horizontally scrollable so they remain visible at large font scaling.
-      // Context overflow is shown in the StatusBadge as "Context Exceeded" instead of "400 Bad Request".
-      // Compaction badges (Compacted, Truncated, Trimmed) are shown below the
-      // Compacted Prompt text box instead of here.
-      //
-      // Two-branch layout driven by overflow detection (footerScrollState.maxValue > 0):
-      //   Non-overflow: badges scroll in weight(1f) area; model·time pinned to the right.
-      //   Overflow: everything in one wide scrollable row — model·time visible by scrolling right,
-      //             with overflow indicated by partial clipping at the right edge.
       val footerOverflowing = footerScrollState.maxValue > 0
       val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
 
@@ -375,7 +258,6 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
         verticalAlignment = Alignment.CenterVertically,
       ) {
         if (!footerOverflowing) {
-          // Normal: badges scroll within weight(1f), model·time pinned to the right
           Row(
             modifier = Modifier
               .weight(1f)
@@ -393,8 +275,6 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
             maxLines = 1,
           )
         } else {
-          // Overflow: badges + model·time in one scrollable row so everything is reachable.
-          // The right edge is visibly clipped, signalling to the user that content continues.
           Row(
             modifier = Modifier.horizontalScroll(footerScrollState),
             verticalAlignment = Alignment.CenterVertically,
@@ -414,428 +294,7 @@ internal fun LogEntryCard(entry: RequestLogEntry, autoExpand: Boolean = false, s
     }
   }
 
-  // Per-request performance metrics popup
   if (showMetricsDialog) {
     RequestMetricsDialog(entry = entry, onDismiss = { showMetricsDialog = false })
-  }
-}
-
-/**
- * Dialog showing per-request performance metrics for a single log entry.
- * Displays TTFB, decode speed, prefill speed, inter-token latency, token counts,
- * context utilization, and total latency.
- */
-@Composable
-internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit) {
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    title = {
-      Text(
-        text = stringResource(R.string.logs_metrics_title),
-        style = MaterialTheme.typography.titleMedium,
-      )
-    },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (entry.ttfbMs > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_ttfb), stringResource(R.string.logs_metrics_value_ms, entry.ttfbMs))
-        }
-        if (entry.decodeSpeed > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_decode_speed), String.format(Locale.US, "%.1f t/s", entry.decodeSpeed))
-        }
-        if (entry.prefillSpeed > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_prefill_speed), String.format(Locale.US, "%.1f t/s", entry.prefillSpeed))
-        }
-        if (entry.itlMs > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_itl), String.format(Locale.US, "%.1fms", entry.itlMs))
-        }
-        if (entry.latencyMs > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_total_latency), stringResource(R.string.logs_metrics_value_ms, entry.latencyMs))
-        }
-        if (entry.inputTokenEstimate > 0) {
-          val prefix = if (entry.isExactTokenCount) "" else "~"
-          MetricsRow(stringResource(R.string.logs_metrics_input_tokens), "$prefix${entry.inputTokenEstimate}")
-        }
-        if (entry.tokens > 0) {
-          MetricsRow(stringResource(R.string.logs_metrics_output_tokens), "~${entry.tokens}")
-        }
-        if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
-          val utilRatio = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
-          MetricsRow(
-            label = stringResource(R.string.logs_metrics_context_util),
-            value = String.format(Locale.US, "%.1f%%", utilRatio * 100.0),
-            valueColor = contextUtilizationColor(utilRatio),
-            detail = stringResource(R.string.logs_metrics_ctx_detail, entry.inputTokenEstimate, entry.maxContextTokens),
-          )
-        }
-      }
-    },
-    confirmButton = {
-      TextButton(onClick = onDismiss) {
-        Text(stringResource(R.string.logs_metrics_close))
-      }
-    },
-  )
-}
-
-@Composable
-internal fun MetricsRow(
-  label: String,
-  value: String,
-  valueColor: Color = MaterialTheme.colorScheme.onSurface,
-  detail: String? = null,
-) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Column(horizontalAlignment = Alignment.End) {
-      Text(
-        text = value,
-        style = MaterialTheme.typography.bodyMedium,
-        color = valueColor,
-        fontWeight = FontWeight.SemiBold,
-        fontFamily = SpaceGroteskFontFamily,
-      )
-      if (detail != null) {
-        Text(
-          text = detail,
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
-    }
-  }
-}
-
-@Composable
-internal fun ExpandableBodySection(
-  label: String,
-  labelColor: Color,
-  body: String,
-  expanded: Boolean,
-  showToggle: Boolean,
-  onToggle: () -> Unit,
-  /** Optional annotated label — takes precedence over plain [label] when provided. */
-  annotatedLabel: AnnotatedString? = null,
-  /** Active search query — overlays yellow highlight on matches within JSON-highlighted text. */
-  searchQuery: String = "",
-  wrapText: Boolean = true,
-) {
-  if (annotatedLabel != null) {
-    Text(
-      text = annotatedLabel,
-      style = MaterialTheme.typography.labelSmall,
-      fontWeight = FontWeight.SemiBold,
-    )
-  } else if (label.isNotBlank()) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.labelSmall,
-      color = labelColor,
-      fontWeight = FontWeight.SemiBold,
-    )
-  }
-  Spacer(modifier = Modifier.height(4.dp))
-
-  // Collapsed: highlight only the visible prefix (cheap — max ~600 chars).
-  // Expanded: compute full highlight asynchronously to avoid main-thread jank on large bodies
-  // (50KB+ JSON with regex highlighting can take 100-200ms). Show plain text instantly,
-  // then swap in highlighted version when ready.
-  val collapsedHighlighted = remember(body, searchQuery) {
-    val preview = if (body.length > COLLAPSED_MAX_CHARS) body.substring(0, COLLAPSED_MAX_CHARS) else body
-    val jsonStyled = highlightJson(preview)
-    if (searchQuery.isNotEmpty()) overlaySearchHighlights(jsonStyled, searchQuery) else jsonStyled
-  }
-
-  if (expanded) {
-    // For large bodies, compute JSON + search highlighting off the main thread.
-    // Small bodies (<1KB) are fast enough to highlight synchronously.
-    val fullHighlighted by produceState(
-      initialValue = if (body.length <= ASYNC_HIGHLIGHT_THRESHOLD) {
-        val jsonStyled = highlightJson(body)
-        if (searchQuery.isNotEmpty()) overlaySearchHighlights(jsonStyled, searchQuery) else jsonStyled
-      } else {
-        null // show plain text while computing
-      },
-      key1 = body,
-      key2 = searchQuery,
-    ) {
-      if (body.length > ASYNC_HIGHLIGHT_THRESHOLD) {
-        value = withContext(Dispatchers.Default) {
-          val jsonStyled = highlightJson(body)
-          if (searchQuery.isNotEmpty()) overlaySearchHighlights(jsonStyled, searchQuery) else jsonStyled
-        }
-      }
-    }
-    // Expanded: wrap in SelectionContainer so text is selectable
-    SelectionContainer {
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(12.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-          .clearAndSetSemantics { contentDescription = body },
-      ) {
-        Box(
-          modifier = Modifier
-            .padding(12.dp)
-            .then(if (!wrapText) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
-        ) {
-          val highlighted = fullHighlighted
-          if (highlighted != null) {
-            Text(
-              text = highlighted,
-              style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = SpaceGroteskFontFamily,
-                fontSize = LOG_DETAIL_FONT_SIZE,
-                lineHeight = LOG_BODY_LINE_HEIGHT,
-              ),
-            )
-          } else {
-            // Plain text fallback while async highlighting is in progress
-            Text(
-              text = body,
-              style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = SpaceGroteskFontFamily,
-                fontSize = LOG_DETAIL_FONT_SIZE,
-                lineHeight = LOG_BODY_LINE_HEIGHT,
-              ),
-              color = OlliteRTSubtleGrey,
-            )
-          }
-        }
-        if (showToggle) {
-          Icon(
-            imageVector = Icons.Outlined.ExpandLess,
-            contentDescription = stringResource(R.string.logs_body_collapse_cd),
-            tint = labelColor.copy(alpha = 0.7f),
-            modifier = Modifier
-              .align(Alignment.TopEnd)
-              .padding(6.dp)
-              .size(22.dp)
-              .clip(RoundedCornerShape(6.dp))
-              .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.85f))
-              .clickable(onClick = onToggle),
-          )
-        }
-      }
-    }
-  } else {
-    // Collapsed: tapping anywhere expands, no text selection needed
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(12.dp))
-        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-        .clearAndSetSemantics { contentDescription = body }
-        .then(if (showToggle) Modifier.clickable(onClick = onToggle) else Modifier),
-    ) {
-      Box(
-        modifier = Modifier
-          .padding(12.dp)
-          .then(if (!wrapText) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
-      ) {
-        Text(
-          text = collapsedHighlighted,
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = SpaceGroteskFontFamily,
-            fontSize = LOG_DETAIL_FONT_SIZE,
-            lineHeight = LOG_BODY_LINE_HEIGHT,
-          ),
-          maxLines = COLLAPSED_MAX_LINES,
-          overflow = TextOverflow.Ellipsis,
-        )
-      }
-      if (showToggle) {
-        Icon(
-          imageVector = Icons.Outlined.ExpandMore,
-          contentDescription = stringResource(R.string.logs_body_expand_cd),
-          tint = labelColor.copy(alpha = 0.7f),
-          modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(6.dp)
-            .size(22.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.85f)),
-        )
-      }
-    }
-  }
-}
-
-/** The client IP address pill shown in the log entry card header. */
-@Composable
-private fun EntryIpPill(entry: RequestLogEntry, searchQuery: String) {
-  if (entry.clientIp == null) return
-  if (searchQuery.isNotEmpty()) {
-    val highlighted = remember(entry.clientIp, searchQuery) {
-      buildHighlightedString(entry.clientIp, searchQuery, baseColor = OlliteRTOnSurfaceVariant)
-    }
-    Text(
-      text = highlighted,
-      style = MaterialTheme.typography.labelSmall,
-      fontFamily = SpaceGroteskFontFamily,
-      maxLines = 1,
-      modifier = Modifier
-        .clip(RoundedCornerShape(6.dp))
-        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-        .padding(horizontal = 8.dp, vertical = 3.dp),
-    )
-  } else {
-    Text(
-      text = entry.clientIp,
-      style = MaterialTheme.typography.labelSmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      fontFamily = SpaceGroteskFontFamily,
-      maxLines = 1,
-      modifier = Modifier
-        .clip(RoundedCornerShape(6.dp))
-        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-        .padding(horizontal = 8.dp, vertical = 3.dp),
-    )
-  }
-}
-
-/**
- * The ⓘ and copy action buttons shown in the log entry card header.
- * These always stay in the top-right corner regardless of whether the path wraps.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EntryActionButtons(
-  entry: RequestLogEntry,
-  hasInfoButton: Boolean,
-  hasCopyButton: Boolean,
-  onInfoClick: () -> Unit,
-) {
-  val context = LocalContext.current
-  if (hasInfoButton) {
-    Spacer(modifier = Modifier.width(2.dp))
-    TooltipBox(
-      positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-      tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_request_metrics)) } },
-      state = rememberTooltipState(),
-    ) {
-      IconButton(onClick = onInfoClick, modifier = Modifier.size(32.dp)) {
-        Icon(
-          imageVector = Icons.Outlined.Info,
-          contentDescription = stringResource(R.string.logs_tooltip_request_metrics),
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(16.dp),
-        )
-      }
-    }
-  }
-  if (hasCopyButton) {
-    Spacer(modifier = Modifier.width(2.dp))
-    TooltipBox(
-      positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-      tooltip = { PlainTooltip { Text(stringResource(R.string.logs_tooltip_copy_entry)) } },
-      state = rememberTooltipState(),
-    ) {
-      IconButton(
-        onClick = { copyEntryToClipboard(context, entry) },
-        modifier = Modifier.size(32.dp),
-      ) {
-        Icon(
-          imageVector = Icons.Outlined.ContentCopy,
-          contentDescription = stringResource(R.string.logs_tooltip_copy_entry),
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(16.dp),
-        )
-      }
-    }
-  }
-}
-
-/**
- * The badge items that appear in the log entry card footer.
- * Extracted so the same content can be rendered in both the non-overflow (inside weight(1f) row)
- * and overflow (single scrollable row with model·time appended) layout branches.
- */
-@Composable
-private fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
-  StatusBadge(statusCode = entry.statusCode, contextOverflow = contextOverflow, errorKind = entry.errorKind)
-  FooterDot()
-  Text(
-    text = "${entry.latencyMs}ms",
-    style = MaterialTheme.typography.labelSmall,
-    color = MaterialTheme.colorScheme.onSurfaceVariant,
-  )
-  if (entry.isStreaming) {
-    FooterDot()
-    Text(
-      text = stringResource(R.string.logs_badge_sse),
-      style = MaterialTheme.typography.labelSmall,
-      color = OlliteRTPrimary,
-      fontWeight = FontWeight.SemiBold,
-    )
-  }
-  if (entry.hasToolCalls) {
-    FooterDot()
-    Icon(
-      imageVector = Icons.Outlined.Construction,
-      contentDescription = stringResource(R.string.logs_badge_tool_call),
-      tint = OlliteRTPrimary,
-      modifier = Modifier.size(14.dp),
-    )
-  }
-  if (entry.isThinking) {
-    FooterDot()
-    Text(
-      text = stringResource(R.string.logs_badge_thinking),
-      style = MaterialTheme.typography.labelSmall,
-      color = ThinkingColor,
-      fontWeight = FontWeight.SemiBold,
-    )
-  }
-  if (entry.isCancelled) {
-    FooterDot()
-    Text(
-      text = stringResource(R.string.logs_badge_cancelled),
-      style = MaterialTheme.typography.labelSmall,
-      color = CancelledColor,
-      fontWeight = FontWeight.SemiBold,
-    )
-  }
-  // Per-request context utilization (e.g. "~258 / 1024 ctx")
-  if (entry.inputTokenEstimate > 0 && entry.maxContextTokens > 0) {
-    val utilRatio = entry.inputTokenEstimate.toDouble() / entry.maxContextTokens.toDouble()
-    FooterDot()
-    Text(
-      text = stringResource(R.string.logs_badge_ctx_format, if (entry.isExactTokenCount) "" else "~", entry.inputTokenEstimate, entry.maxContextTokens),
-      style = MaterialTheme.typography.labelSmall,
-      color = contextUtilizationColor(utilRatio),
-    )
-  }
-}
-
-@Composable
-private fun contextUtilizationColor(ratio: Double): Color = when {
-  ratio > 0.8 -> MaterialTheme.colorScheme.error
-  ratio > 0.5 -> WarningColor
-  else -> MaterialTheme.colorScheme.onSurfaceVariant
-}
-
-private fun buildAnnotatedRequestLabel(
-  baseLabel: String,
-  toolCallLabel: String,
-  baseColor: Color,
-  toolCallColor: Color,
-): AnnotatedString {
-  return buildAnnotatedString {
-    pushStyle(SpanStyle(color = baseColor))
-    append("$baseLabel · ")
-    pop()
-    pushStyle(SpanStyle(color = toolCallColor))
-    append(toolCallLabel)
-    pop()
   }
 }
