@@ -27,8 +27,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,35 +35,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.UnfoldLessDouble
 import androidx.compose.material.icons.rounded.UnfoldMoreDouble
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -83,24 +68,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.ui.common.Accordions
-import com.ollitert.llm.server.ui.common.MarkdownText
-import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,7 +140,6 @@ fun BenchmarkResultsViewer(
   Scaffold(
     topBar = {
       CenterAlignedTopAppBar(
-        // Title label.
         title = {
           if (!uiState.running) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -202,7 +176,6 @@ fun BenchmarkResultsViewer(
             Spacer(modifier = Modifier.size(48.dp))
           }
         },
-        // The close button.
         actions = {
           if (!uiState.running) {
             IconButton(onClick = onClose) {
@@ -218,18 +191,14 @@ fun BenchmarkResultsViewer(
       AnimatedContent(
         targetState = uiState.running,
         transitionSpec = {
-          // Running.
           if (targetState) {
             scaleIn(initialScale = 0.8f) + fadeIn() togetherWith
               scaleOut(targetScale = 0.8f) + fadeOut()
-          }
-          // Results.
-          else {
+          } else {
             slideInVertically { 40 } + fadeIn() togetherWith slideOutVertically { 40 } + fadeOut()
           }
         },
       ) { running ->
-        // Running in progress.
         if (running) {
           Box(
             modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding()),
@@ -238,22 +207,18 @@ fun BenchmarkResultsViewer(
             Column(
               horizontalAlignment = Alignment.CenterHorizontally,
               verticalArrangement = Arrangement.Center,
-              modifier =
-                Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding()),
+              modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding()),
             ) {
               Column(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
               ) {
-                // Progress spinner.
                 CircularProgressIndicator(strokeWidth = 4.dp, modifier = Modifier.size(36.dp))
-                // Info text.
                 Text(
                   stringResource(R.string.running_benchmark_msg),
                   style = MaterialTheme.typography.titleMedium,
                   color = MaterialTheme.colorScheme.onSurface,
                 )
-                // Progress text.
                 Text(
                   "${uiState.completedRunCount} / ${uiState.totalRunCount}",
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -264,16 +229,13 @@ fun BenchmarkResultsViewer(
           }
         } else {
           Box(
-            modifier =
-              Modifier.fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
-                .background(MaterialTheme.colorScheme.surfaceContainer),
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(top = innerPadding.calculateTopPadding())
+              .background(MaterialTheme.colorScheme.surfaceContainer),
             contentAlignment = Alignment.TopCenter,
           ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-              // Results.
-              //
-              // Empty state.
               if (filteredResults.isEmpty()) {
                 Column(
                   verticalArrangement = Arrangement.Center,
@@ -289,7 +251,6 @@ fun BenchmarkResultsViewer(
                   )
                 }
               } else {
-                // List.
                 LazyColumn(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                   item { Spacer(modifier = Modifier.height(16.dp)) }
                   if (filteredResults.size > 1) {
@@ -324,346 +285,26 @@ fun BenchmarkResultsViewer(
                       }
                     }
                   }
-                  itemsIndexed(items = filteredResults, key = { index, item -> item.id }) {
-                    index,
-                    result ->
-                    // Result card.
+                  itemsIndexed(items = filteredResults, key = { _, item -> item.id }) { index, result ->
                     var cardModifier = Modifier.clip(RoundedCornerShape(24.dp)).fillMaxWidth()
                     if (showLazyListPlacementAnimation) {
                       cardModifier = cardModifier.animateItem()
                     }
-                    result.benchmarkResult.llmResult?.let { llmResult ->
-                      val modelName = llmResult.basicInfo.modelName
-                      val titleSuffix = if (llmResult.basicInfo.speculativeDecoding) " · MTP" else ""
-                      Accordions(
-                        title = "$modelName · ${llmResult.basicInfo.accelerator}$titleSuffix",
-                        subtitle =
-                          SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-                            .format(Date(llmResult.basicInfo.startMs)),
-                        boldTitle = true,
-                        expanded = result.expanded,
-                        onExpandedChange = { viewModel.setExpanded(id = result.id, expanded = it) },
-                        modifier = cardModifier,
-                        titleRowAction = {
-                          // A chip to toggle on/off baseline, used to set the comparison base.
-                          // Only visible when there are >=2 results.
-                          if (filteredResults.size > 1) {
-                            FilterChip(
-                              onClick = { viewModel.setBaseline(id = result.id) },
-                              label = {
-                                Text(
-                                  stringResource(R.string.baseline),
-                                  style = MaterialTheme.typography.labelSmall,
-                                )
-                              },
-                              selected = result.id == uiState.baselineResult?.id,
-                              leadingIcon =
-                                if (result.id == uiState.baselineResult?.id) {
-                                  {
-                                    Icon(
-                                      Icons.Rounded.Check,
-                                      contentDescription = null,
-                                      modifier = Modifier.size(16.dp).offset(x = 2.dp),
-                                    )
-                                  }
-                                } else {
-                                  null
-                                },
-                              modifier = Modifier.height(24.dp),
-                            )
-                          }
-                        },
-                      ) {
-                        Column(
-                          verticalArrangement = Arrangement.spacedBy(8.dp),
-                          modifier = Modifier.padding(bottom = 2.dp),
-                        ) {
-                          // Basic info.
-                          Accordions(
-                            title = stringResource(R.string.basic_info),
-                            bgColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            expanded = result.basicInfoExpanded,
-                            onExpandedChange = {
-                              viewModel.setBasicInfoExpanded(id = result.id, expanded = it)
-                            },
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)),
-                          ) {
-                            Column(
-                              verticalArrangement = Arrangement.spacedBy(8.dp),
-                              modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 4.dp),
-                            ) {
-                              StatRow(label = stringResource(R.string.benchmark_stat_model), value = llmResult.basicInfo.modelName)
-                              StatRow(
-                                label = stringResource(R.string.benchmark_stat_accelerator),
-                                value = llmResult.basicInfo.accelerator,
-                              )
-                              StatRow(
-                                label = stringResource(R.string.benchmark_stat_prefill_tokens),
-                                value = "${llmResult.basicInfo.prefillTokens}",
-                              )
-                              StatRow(
-                                label = stringResource(R.string.benchmark_stat_decode_tokens),
-                                value = "${llmResult.basicInfo.decodeTokens}",
-                              )
-                              StatRow(
-                                label = stringResource(R.string.benchmark_stat_number_of_runs),
-                                value = "${llmResult.basicInfo.numberOfRuns}",
-                              )
-                              if (llmResult.basicInfo.speculativeDecoding) {
-                                StatRow(
-                                  label = stringResource(R.string.benchmark_stat_speculative_decoding),
-                                  value = stringResource(R.string.enabled),
-                                )
-                              }
-                              StatRow(label = stringResource(R.string.benchmark_stat_app_version), value = llmResult.basicInfo.appVersion)
-                            }
-                          }
-
-                          // Stats
-                          val resources = LocalResources.current
-                          Accordions(
-                            title =
-                              "${stringResource(R.string.results)} (${resources.getQuantityString(
-                                R.plurals.runs ,
-                                llmResult.basicInfo.numberOfRuns,
-                                llmResult.basicInfo.numberOfRuns,
-                              )})",
-                            bgColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            expanded = result.statsExpanded,
-                            onExpandedChange = {
-                              viewModel.setStatsExpanded(id = result.id, expanded = it)
-                            },
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)),
-                            titleRowAction = {
-                              if (
-                                (result.benchmarkResult.llmResult?.basicInfo?.numberOfRuns ?: 0) > 1
-                              ) {
-                                var showAggregationDropdown by remember { mutableStateOf(false) }
-                                // Aggregation method.
-                                Box {
-                                  Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier =
-                                      Modifier.clip(RoundedCornerShape(8.dp))
-                                        .clickable { showAggregationDropdown = true }
-                                        .background(
-                                          MaterialTheme.colorScheme.surfaceContainerLowest
-                                        )
-                                        .border(
-                                          width = 1.dp,
-                                          color = MaterialTheme.colorScheme.outlineVariant,
-                                          shape = RoundedCornerShape(8.dp),
-                                        )
-                                        .padding(start = 8.dp, end = 0.dp)
-                                        .height(24.dp),
-                                  ) {
-                                    Text(
-                                      result.aggregation.label,
-                                      color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                      style = MaterialTheme.typography.labelMedium,
-                                    )
-                                    Icon(
-                                      Icons.Rounded.ArrowDropDown,
-                                      modifier = Modifier.size(20.dp),
-                                      contentDescription = null,
-                                    )
-                                  }
-                                  DropdownMenu(
-                                    expanded = showAggregationDropdown,
-                                    onDismissRequest = { showAggregationDropdown = false },
-                                  ) {
-                                    for (aggregation in Aggregation.entries) {
-                                      DropdownMenuItem(
-                                        text = { Text(aggregation.label) },
-                                        onClick = {
-                                          showAggregationDropdown = false
-                                          viewModel.setAggregation(
-                                            id = result.id,
-                                            aggregation = aggregation,
-                                          )
-                                        },
-                                      )
-                                    }
-                                  }
-                                }
-                              }
-                            },
-                            hideTitleRowActionOnCollapse = true,
-                          ) {
-                            Column(
-                              verticalArrangement = Arrangement.spacedBy(8.dp),
-                              modifier = Modifier.padding(start = 6.dp, top = 6.dp),
-                            ) {
-                              val baselineStats =
-                                uiState.baselineResult?.benchmarkResult?.llmResult?.stats
-                              val unitTokensSec = stringResource(R.string.benchmark_unit_tokens_per_sec)
-                              val unitSec = stringResource(R.string.benchmark_unit_sec)
-                              val unitMs = stringResource(R.string.benchmark_unit_ms)
-                              ValueSeriesRow(
-                                label = stringResource(R.string.benchmark_stat_prefill_speed),
-                                valueSeries = llmResult.stats.prefillSpeed,
-                                aggregation = result.aggregation,
-                                unit = unitTokensSec,
-                                baselineValueSeries =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    baselineStats?.prefillSpeed
-                                  } else {
-                                    null
-                                  },
-                                baselineAggregation =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    uiState.baselineResult?.aggregation
-                                  } else {
-                                    null
-                                  },
-                              )
-                              ValueSeriesRow(
-                                label = stringResource(R.string.benchmark_stat_decode_speed),
-                                valueSeries = llmResult.stats.decodeSpeed,
-                                aggregation = result.aggregation,
-                                unit = unitTokensSec,
-                                baselineValueSeries =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    baselineStats?.decodeSpeed
-                                  } else {
-                                    null
-                                  },
-                                baselineAggregation =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    uiState.baselineResult?.aggregation
-                                  } else {
-                                    null
-                                  },
-                              )
-                              ValueSeriesRow(
-                                label = stringResource(R.string.benchmark_stat_time_to_first_token),
-                                valueSeries = llmResult.stats.timeToFirstToken,
-                                aggregation = result.aggregation,
-                                unit = unitSec,
-                                baselineValueSeries =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    baselineStats?.timeToFirstToken
-                                  } else {
-                                    null
-                                  },
-                                baselineAggregation =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    uiState.baselineResult?.aggregation
-                                  } else {
-                                    null
-                                  },
-                                lessIsBetter = true,
-                              )
-                              StatRow(
-                                label = stringResource(R.string.benchmark_stat_first_init_time),
-                                value =
-                                  String.format(
-                                    Locale.US,
-                                    "%.2f",
-                                    llmResult.stats.firstInitTimeMs,
-                                  ),
-                                unit = unitMs,
-                                rawValue = llmResult.stats.firstInitTimeMs,
-                                baselineValue =
-                                  if (result.id != uiState.baselineResult?.id) {
-                                    baselineStats?.firstInitTimeMs
-                                  } else {
-                                    null
-                                  },
-                                lessIsBetter = true,
-                              )
-                              if (llmResult.stats.nonFirstInitTimeMs.valueCount > 1) {
-                                ValueSeriesRow(
-                                  label = stringResource(R.string.benchmark_stat_steady_init_time),
-                                  valueSeries = llmResult.stats.nonFirstInitTimeMs,
-                                  aggregation = result.aggregation,
-                                  unit = unitMs,
-                                  baselineValueSeries =
-                                    if (result.id != uiState.baselineResult?.id) {
-                                      baselineStats?.nonFirstInitTimeMs
-                                    } else {
-                                      null
-                                    },
-                                  baselineAggregation =
-                                    if (result.id != uiState.baselineResult?.id) {
-                                      uiState.baselineResult?.aggregation
-                                    } else {
-                                      null
-                                    },
-                                  lessIsBetter = true,
-                                )
-                              }
-                            }
-                          }
-
-                          // Buttons.
-                          Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End,
-                            modifier = Modifier.fillMaxWidth(),
-                          ) {
-                            // Delete.
-                            OutlinedButton(
-                              onClick = {
-                                benchmarkResultIdToDelete = result.id
-                                showConfirmDeleteDialog = true
-                              },
-                              contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-                            ) {
-                              Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                              ) {
-                                Icon(
-                                  Icons.Rounded.DeleteOutline,
-                                  contentDescription = null,
-                                  modifier = Modifier.size(20.dp),
-                                )
-                                Text(stringResource(R.string.delete))
-                              }
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // Copy
-                            val copyContext = LocalContext.current
-                            Button(
-                              onClick = {
-                                scope.launch {
-                                  val csv =
-                                    getBenchmarkResultCsv(
-                                      llmResult = llmResult,
-                                      aggregation = result.aggregation,
-                                    )
-                                  copyToClipboard(copyContext, "OlliteRT Benchmark Results", csv, formatSuffix = "CSV")
-                                }
-                              },
-                              colors =
-                                ButtonDefaults.buttonColors(
-                                  containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                ),
-                              contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-                            ) {
-                              Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                              ) {
-                                Icon(
-                                  Icons.Rounded.ContentCopy,
-                                  contentDescription = null,
-                                  modifier = Modifier.size(20.dp),
-                                  tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
-                                Text(
-                                  stringResource(R.string.copy),
-                                  color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
+                    BenchmarkResultCard(
+                      result = result,
+                      baselineResult = uiState.baselineResult,
+                      showBaselineToggle = filteredResults.size > 1,
+                      onExpandedChange = { viewModel.setExpanded(id = result.id, expanded = it) },
+                      onBasicInfoExpandedChange = { viewModel.setBasicInfoExpanded(id = result.id, expanded = it) },
+                      onStatsExpandedChange = { viewModel.setStatsExpanded(id = result.id, expanded = it) },
+                      onBaselineToggle = { viewModel.setBaseline(id = result.id) },
+                      onAggregationChange = { viewModel.setAggregation(id = result.id, aggregation = it) },
+                      onDelete = {
+                        benchmarkResultIdToDelete = result.id
+                        showConfirmDeleteDialog = true
+                      },
+                      modifier = cardModifier,
+                    )
                     if (index != filteredResults.size - 1) {
                       Spacer(modifier = Modifier.height(12.dp).animateItem(placementSpec = null))
                     }
@@ -673,17 +314,16 @@ fun BenchmarkResultsViewer(
               }
             }
 
-            // Gradient overlay at the bottom.
             Box(
-              modifier =
-                Modifier.fillMaxWidth()
-                  .height(innerPadding.calculateBottomPadding())
-                  .background(
-                    Brush.verticalGradient(
-                      colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
-                    )
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(innerPadding.calculateBottomPadding())
+                .background(
+                  Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
                   )
-                  .align(Alignment.BottomCenter)
+                )
+                .align(Alignment.BottomCenter)
             )
           }
         }
@@ -692,73 +332,29 @@ fun BenchmarkResultsViewer(
   }
 
   if (showConfirmDeleteDialog) {
-    AlertDialog(
-      onDismissRequest = { showConfirmDeleteDialog = false },
-      title = { Text(stringResource(R.string.delete_benchmark_result_dialog_title)) },
-      text = { Text(stringResource(R.string.delete_benchmark_result_dialog_content)) },
-      confirmButton = {
-        Button(
-          onClick = {
-            showLazyListPlacementAnimation = true
-            showConfirmDeleteDialog = false
-            viewModel.deleteBenchmarkResult(id = benchmarkResultIdToDelete)
-
-            scope.launch {
-              delay(500)
-              showLazyListPlacementAnimation = false
-            }
-          },
-          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-        ) {
-          Text(stringResource(R.string.delete))
+    BenchmarkDeleteConfirmDialog(
+      onConfirm = {
+        showLazyListPlacementAnimation = true
+        showConfirmDeleteDialog = false
+        viewModel.deleteBenchmarkResult(id = benchmarkResultIdToDelete)
+        scope.launch {
+          delay(500)
+          showLazyListPlacementAnimation = false
         }
       },
-      dismissButton = {
-        OutlinedButton(
-          onClick = { showConfirmDeleteDialog = false },
-          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-        ) {
-          Text(stringResource(R.string.cancel))
-        }
-      },
+      onDismiss = { showConfirmDeleteDialog = false },
     )
   }
 
   if (showBenchmarkComparisonHelpBottomSheet) {
-    ModalBottomSheet(
-      onDismissRequest = { showBenchmarkComparisonHelpBottomSheet = false },
+    BenchmarkComparisonHelpBottomSheet(
       sheetState = sheetState,
-      sheetMaxWidth = SHEET_MAX_WIDTH,
-    ) {
-      Column(
-        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-      ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null)
-          Text(
-            stringResource(R.string.benchmark_comparison_help_title),
-            style = MaterialTheme.typography.titleMedium,
-          )
+      onDismiss = {
+        scope.launch {
+          sheetState.hide()
+          showBenchmarkComparisonHelpBottomSheet = false
         }
-        MarkdownText(
-          text = stringResource(R.string.benchmark_comparison_help_content),
-          smallFontSize = true,
-        )
-        OutlinedButton(
-          onClick = {
-            scope.launch {
-              sheetState.hide()
-              showBenchmarkComparisonHelpBottomSheet = false
-            }
-          },
-          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-          modifier = Modifier.align(alignment = Alignment.End),
-        ) {
-          Text(stringResource(R.string.dismiss))
-        }
-      }
-    }
+      },
+    )
   }
 }
-
