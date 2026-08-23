@@ -36,25 +36,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Terminal
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -69,15 +62,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.Accelerator
@@ -90,8 +77,6 @@ import com.ollitert.llm.server.data.configTemperature
 import com.ollitert.llm.server.data.configThinkingEnabled
 import com.ollitert.llm.server.data.configTopK
 import com.ollitert.llm.server.data.configTopP
-import com.ollitert.llm.server.data.llmSupportSpeculativeDecoding
-import com.ollitert.llm.server.data.llmSupportThinking
 import com.ollitert.llm.server.data.maxTokensInt
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
@@ -100,28 +85,24 @@ import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import java.util.Locale
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InferenceSettingsSheet(
   model: Model,
   onDismiss: () -> Unit,
   onApply: (configValues: Map<String, Any>, systemPrompt: String, isReset: Boolean) -> Unit,
-  /** Called when the user taps the edit-defaults pencil button (imported models only). */
   onEditDefaults: (() -> Unit)? = null,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  val configValues = model.configValues
-  val focusManager = LocalFocusManager.current
   val context = LocalContext.current
-
+  val focusManager = LocalFocusManager.current
   val customPromptsEnabled = remember { ServerPrefs.isCustomPromptsEnabled(context) }
-
-  var systemPrompt by remember {
+  var advancedExpanded by remember { mutableStateOf(false) }
+  var systemPrompt by remember(model.prefsKey) {
     mutableStateOf(ServerPrefs.getSystemPrompt(context, model.prefsKey))
   }
-  var advancedExpanded by remember { mutableStateOf(false) }
+
+  val configValues = model.configValues
 
   var temperature by remember {
     mutableFloatStateOf(configValues.configTemperature() ?: 1.0f)
@@ -136,18 +117,12 @@ fun InferenceSettingsSheet(
     mutableFloatStateOf(configValues.configTopP() ?: 0.95f)
   }
   var enableThinking by remember {
-    mutableStateOf(
-      configValues.configThinkingEnabled() ?: false
-    )
+    mutableStateOf(configValues.configThinkingEnabled() ?: false)
   }
   var enableSpeculativeDecoding by remember {
-    mutableStateOf(
-      configValues.configSpeculativeDecodingEnabled() ?: false
-    )
+    mutableStateOf(configValues.configSpeculativeDecodingEnabled() ?: false)
   }
-  // NPU/TPU availability is driven entirely by the model allowlist — there is no runtime API in
-  // LiteRT LM SDK (0.10.0) to detect whether the device actually has an NPU/TPU. If a model's
-  // allowlist entry includes "npu", we show it here; otherwise it stays hidden.
+
   val availableAccelerators = model.accelerators.ifEmpty { listOf(Accelerator.GPU) }
   val gpuAccessible = GpuAvailability.isOpenClAccessible
   var selectedAccelerator by remember {
@@ -163,7 +138,6 @@ fun InferenceSettingsSheet(
   }
   var showGpuInfoDialog by remember { mutableStateOf(false) }
 
-  // Extract per-model min/max limits from NumberSliderConfig objects
   val limits = remember(model) {
     fun range(key: com.ollitert.llm.server.data.ConfigKey): Pair<Float, Float>? {
       val c = model.configs.find { it.key == key }
@@ -181,16 +155,12 @@ fun InferenceSettingsSheet(
   val topKRange = limits.getValue("topK")
   val topPRange = limits.getValue("topP")
 
-  // Build default values map from model's config definitions
   val defaults = remember(model) {
     model.configs.associate { it.key.id to it.defaultValue }
   }
 
   var showResetDialog by remember { mutableStateOf(false) }
 
-  // Track out-of-range errors across all parameter inputs to gate the Apply button.
-  // "above max" errors are detected live during typing; "below min" errors are detected
-  // on Apply and surfaced via forceError flags.
   var tempError by remember { mutableStateOf(false) }
   var maxTokensError by remember { mutableStateOf(false) }
   var topKError by remember { mutableStateOf(false) }
@@ -205,54 +175,24 @@ fun InferenceSettingsSheet(
     GpuUnavailableDialog(onDismiss = { showGpuInfoDialog = false })
   }
 
-  // Reset confirmation dialog
   if (showResetDialog) {
-    AlertDialog(
-      onDismissRequest = { showResetDialog = false },
-      title = { Text(stringResource(R.string.dialog_reset_inference_title)) },
-      text = { Text(stringResource(R.string.dialog_reset_inference_body)) },
-      confirmButton = {
-        Button(onClick = {
-          showResetDialog = false
-          val defTemp = defaults.configTemperature() ?: 1.0f
-          val defMaxTokens = defaults.maxTokensInt() ?: 1024
-          val defTopK = defaults.configTopK() ?: 40
-          val defTopP = defaults.configTopP() ?: 0.95f
-          val defThinking = defaults.configThinkingEnabled() ?: false
-          val defSpecDec = defaults.configSpeculativeDecodingEnabled() ?: false
-          val defaultAcc = defaults[ConfigKeys.ACCELERATOR.id]?.toString() ?: ""
-          val defAccelerator = availableAccelerators.find { it.label.equals(defaultAcc, ignoreCase = true) }
-            ?: availableAccelerators.first()
-          temperature = defTemp
-          maxTokens = defMaxTokens
-          topK = defTopK
-          topP = defTopP
-          enableThinking = defThinking
-          enableSpeculativeDecoding = defSpecDec
-          selectedAccelerator = if (defAccelerator == Accelerator.GPU && !gpuAccessible) {
-            availableAccelerators.find { it == Accelerator.CPU } ?: defAccelerator
-          } else {
-            defAccelerator
-          }
-          systemPrompt = ""
-          val newValues = mutableMapOf<String, Any>()
-          newValues.putAll(configValues)
-          newValues[ConfigKeys.TEMPERATURE.id] = defTemp
-          newValues[ConfigKeys.MAX_TOKENS.id] = defMaxTokens
-          newValues[ConfigKeys.TOPK.id] = defTopK
-          newValues[ConfigKeys.TOPP.id] = defTopP
-          newValues[ConfigKeys.ENABLE_THINKING.id] = defThinking
-          newValues[ConfigKeys.ENABLE_SPECULATIVE_DECODING.id] = defSpecDec
-          newValues[ConfigKeys.ACCELERATOR.id] = defAccelerator.label
-          onApply(newValues, "", true)
-        }) {
-          Text(stringResource(R.string.button_reset))
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = { showResetDialog = false }) {
-          Text(stringResource(R.string.cancel))
-        }
+    InferenceResetConfirmDialog(
+      defaults = defaults,
+      configValues = configValues,
+      availableAccelerators = availableAccelerators,
+      gpuAccessible = gpuAccessible,
+      onDismiss = { showResetDialog = false },
+      onResetConfirmed = { defTemp, defMaxTokens, defTopK, defTopP, defThinking, defSpecDec, effectiveAcc, newValues ->
+        showResetDialog = false
+        temperature = defTemp
+        maxTokens = defMaxTokens
+        topK = defTopK
+        topP = defTopP
+        enableThinking = defThinking
+        enableSpeculativeDecoding = defSpecDec
+        selectedAccelerator = effectiveAcc
+        systemPrompt = ""
+        onApply(newValues, "", true)
       },
     )
   }
@@ -366,172 +306,31 @@ fun InferenceSettingsSheet(
 
       Spacer(modifier = Modifier.height(4.dp))
 
-      // Enable Thinking toggle in a container
-      val supportsThinking = model.llmSupportThinking
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(16.dp))
-          .background(
-            if (supportsThinking) MaterialTheme.colorScheme.surfaceContainerHigh
-            else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
-          )
-          .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        Icon(
-          Icons.Outlined.Psychology,
-          contentDescription = null,
-          tint = if (supportsThinking) OlliteRTPrimary else MaterialTheme.colorScheme.outline,
-          modifier = Modifier.size(24.dp),
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = stringResource(R.string.inference_settings_allow_thinking),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            color = if (supportsThinking) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-          )
-          Text(
-            text = if (supportsThinking) stringResource(R.string.inference_settings_thinking_supported)
-                   else stringResource(R.string.inference_settings_thinking_unsupported),
-            style = MaterialTheme.typography.bodySmall,
-            color = if (supportsThinking) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-          )
-        }
-        Switch(
-          checked = enableThinking && supportsThinking,
-          onCheckedChange = { enableThinking = it },
-          enabled = supportsThinking,
-          colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-        )
-      }
+      // Capability toggles
+      ThinkingToggleCard(
+        model = model,
+        enableThinking = enableThinking,
+        onCheckedChange = { enableThinking = it },
+      )
 
-      // Speculative Decoding (MTP) toggle
-      val supportsSpecDec = model.llmSupportSpeculativeDecoding
-      val specDecEnabled = supportsSpecDec && !model.updatable
-      val specDecConfig = model.configs.find { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
-      if (supportsSpecDec) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-              if (specDecEnabled) MaterialTheme.colorScheme.surfaceContainerHigh
-              else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Icon(
-            Icons.Outlined.Bolt,
-            contentDescription = null,
-            tint = if (specDecEnabled) OlliteRTPrimary else MaterialTheme.colorScheme.outline,
-            modifier = Modifier.size(24.dp),
-          )
-          Spacer(modifier = Modifier.width(12.dp))
-          Column(modifier = Modifier.weight(1f)) {
-            Text(
-              text = stringResource(R.string.inference_settings_spec_dec_label),
-              style = MaterialTheme.typography.bodyLarge,
-              fontWeight = FontWeight.Medium,
-              color = if (specDecEnabled) MaterialTheme.colorScheme.onSurface
-                      else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-            )
-            val subtitle = specDecConfig?.subtitle
-            Text(
-              text = subtitle ?: stringResource(R.string.inference_settings_spec_dec_supported),
-              style = MaterialTheme.typography.bodySmall,
-              color = if (!specDecEnabled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                      else if (subtitle != null) MaterialTheme.colorScheme.error
-                      else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
-          Switch(
-            checked = enableSpeculativeDecoding && specDecEnabled,
-            onCheckedChange = { enableSpeculativeDecoding = it },
-            enabled = specDecEnabled,
-            colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
-          )
-        }
-      }
+      SpeculativeDecodingToggleCard(
+        model = model,
+        enableSpeculativeDecoding = enableSpeculativeDecoding,
+        onCheckedChange = { enableSpeculativeDecoding = it },
+      )
 
-      // Accelerator toggle in a container
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(16.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-          .padding(horizontal = 16.dp, vertical = 14.dp),
-      ) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-            text = stringResource(R.string.inference_settings_accelerator),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-          )
-          AcceleratorToggle(
-            options = availableAccelerators,
-            selected = selectedAccelerator,
-            onSelect = { accelerator ->
-              if (accelerator == Accelerator.GPU && !gpuAccessible) return@AcceleratorToggle
-              selectedAccelerator = accelerator
-            },
-            disabledOptions = if (!gpuAccessible) setOf(Accelerator.GPU) else emptySet(),
-          )
-        }
-        if (availableAccelerators.size == 1) {
-          Spacer(modifier = Modifier.height(6.dp))
-          Text(
-            text = stringResource(
-              R.string.inference_settings_accelerator_only,
-              availableAccelerators.first().label,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        if (!gpuAccessible && availableAccelerators.contains(Accelerator.GPU)) {
-          Spacer(modifier = Modifier.height(8.dp))
-          val captionText = buildAnnotatedString {
-            append(stringResource(R.string.gpu_unavailable_caption))
-            append(" ")
-            withLink(
-              link = LinkAnnotation.Clickable(
-                tag = "learn_more",
-                styles = TextLinkStyles(
-                  style = SpanStyle(
-                    color = MaterialTheme.colorScheme.primary,
-                    textDecoration = TextDecoration.Underline,
-                  ),
-                ),
-                linkInteractionListener = { showGpuInfoDialog = true },
-              ),
-            ) {
-              append(stringResource(R.string.gpu_unavailable_learn_more))
-            }
-          }
-          Text(
-            text = captionText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-      }
+      AcceleratorSelectionCard(
+        availableAccelerators = availableAccelerators,
+        selectedAccelerator = selectedAccelerator,
+        gpuAccessible = gpuAccessible,
+        onSelect = { selectedAccelerator = it },
+        onShowGpuInfo = { showGpuInfoDialog = true },
+      )
 
-      // Advanced section — custom system prompt (gated by Settings toggle)
+      // Advanced section — custom system prompt
       if (customPromptsEnabled) {
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Collapsible header
         Row(
           modifier = Modifier
             .fillMaxWidth()
@@ -574,9 +373,7 @@ fun InferenceSettingsSheet(
           enter = expandVertically(),
           exit = shrinkVertically(),
         ) {
-          Column(
-            modifier = Modifier.padding(top = 12.dp),
-          ) {
+          Column(modifier = Modifier.padding(top = 12.dp)) {
             PromptTextArea(
               label = stringResource(R.string.inference_settings_label_system_prompt),
               hint = stringResource(R.string.inference_settings_system_prompt_description),
@@ -595,13 +392,12 @@ fun InferenceSettingsSheet(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth(),
-        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        textAlign = TextAlign.Center,
       )
 
-      // Apply button — disabled when any parameter is out of valid range
+      // Apply button
       Button(
         onClick = {
-          // Validate all parameters against full range (min and max)
           tempForceError = temperature < tempRange.first || temperature > tempRange.second
           maxTokensForceError = maxTokens < maxTokensRange.first.toInt() || maxTokens > maxTokensRange.second.toInt()
           topKForceError = topK < topKRange.first.toInt() || topK > topKRange.second.toInt()
@@ -609,11 +405,7 @@ fun InferenceSettingsSheet(
           val hasValidationError = tempForceError || maxTokensForceError || topKForceError || topPForceError
             || tempError || maxTokensError || topKError || topPError
           if (hasValidationError) {
-            Toast.makeText(
-              context,
-              outOfRangeMessage,
-              Toast.LENGTH_SHORT,
-            ).show()
+            Toast.makeText(context, outOfRangeMessage, Toast.LENGTH_SHORT).show()
             return@Button
           }
           focusManager.clearFocus()
@@ -644,5 +436,3 @@ fun InferenceSettingsSheet(
     }
   }
 }
-
-
