@@ -344,49 +344,24 @@ class ServerService : Service() {
 
     server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
     inferenceExecutor?.shutdownNow()
-    val executor = Executors.newSingleThreadExecutor()
-    inferenceExecutor = executor
-    val runner = InferenceRunner(
+
+    val pipeline = ServerServicePipelineFactory.createPipeline(
       context = this,
-      executor = executor,
+      port = port,
+      bindHost = bindHost,
+      clientIpAccessPolicy = clientIpAccessPolicy,
+      modelLifecycle = modelLifecycle,
+      json = json,
       inferenceLock = inferenceLock,
+      nextRequestId = { nextRequestId() },
       logEvent = { msg -> logEvent(msg) },
       emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
       buildSystemInstruction = { name -> buildSystemInstruction(name) },
     )
-    inferenceRunner = runner
-    val handlers = EndpointHandlers(
-      context = this,
-      json = json,
-      inferenceRunner = runner,
-      modelLifecycle = modelLifecycle,
-      logEvent = { msg -> logEvent(msg) },
-      nextRequestId = { nextRequestId() },
-    )
-    val audioTranscriptionHandler = AudioTranscriptionHandler(
-      context = this,
-      inferenceRunner = runner,
-      modelLifecycle = modelLifecycle,
-    )
-    val anthropicEndpointHandlers = AnthropicEndpointHandlers(
-      json = json,
-      endpointHandlers = handlers,
-      nextRequestId = { nextRequestId() },
-    )
-    server = KtorServer(
-      port = port,
-      bindHost = bindHost,
-      initialClientIpAccessPolicy = clientIpAccessPolicy,
-      serviceContext = this,
-      endpointHandlers = handlers,
-      modelLifecycle = modelLifecycle,
-      json = json,
-      nextRequestId = { nextRequestId() },
-      emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
-      audioTranscriptionHandler = audioTranscriptionHandler,
-      anthropicEndpointHandlers = anthropicEndpointHandlers,
-      inferenceLock = inferenceLock,
-    )
+    inferenceExecutor = pipeline.executor
+    inferenceRunner = pipeline.runner
+    server = pipeline.server
+
     return try {
       Log.i(
         TAG,
@@ -413,61 +388,15 @@ class ServerService : Service() {
    * Called from [onStartCommand] when [ACTION_RELOAD] is received.
    */
   private fun handleReloadCleanup() {
-    cancelKeepAliveTimer()
-    keepAliveUnloadedModelName = null
-    val previousModelName = defaultModel?.name
-    Log.i(TAG, "Reload requested — cleaning up current model before restart")
-    // Bump generation FIRST so any in-flight load thread sees the stale generation
-    // and cleans up its own Engine when it finishes (see loadGeneration guard below).
-    loadGeneration.incrementAndGet()
-    RequestLogStore.addEvent(
-      "Model restart requested",
-      modelName = previousModelName,
-      category = EventCategory.MODEL,
+    ServerReloadCoordinator.executeReloadCleanup(
+      modelLifecycle = modelLifecycle,
+      loadGeneration = loadGeneration,
+      server = server,
+      loadJob = loadJob,
+      inferenceExecutor = inferenceExecutor,
     )
-    // Let each request owner choose cancellation before using the model-wide native stop
-    // as a fallback for unregistered work such as warmup.
-    RequestLogStore.cancelAllPending()
-    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
-    defaultModel?.let { ServerLlmModelHelper.stopResponse(it) }
-    val previousLoadJob = loadJob
-    previousLoadJob?.cancel()
     loadJob = null
-    val executor = inferenceExecutor
-    executor?.shutdownNow()
     inferenceExecutor = null
-
-    val modelsToCleanUp = linkedSetOf<Model>()
-    synchronized(modelLifecycle.keepAliveLock) {
-      defaultModel?.let(modelsToCleanUp::add)
-      defaultModel = null
-      modelsToCleanUp.addAll(modelCache.values.filter { it.instance != null })
-      modelCache.clear()
-    }
-    previousModelName?.let { modelName ->
-      RequestLogStore.addEvent(
-        "Unloading model: $modelName",
-        modelName = modelName,
-        category = EventCategory.MODEL,
-      )
-    }
-    if (previousLoadJob != null || executor != null || modelsToCleanUp.isNotEmpty() ||
-      modelLifecycle.hasActiveIdleCleanup()
-    ) {
-      ServerCleanupCoordinator.enqueueCleanup("OlliteRT-ReloadCleanup") {
-        modelLifecycle.awaitIdleCleanup()
-        previousLoadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
-        if (executor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
-          Log.w(TAG, "Inference executor did not terminate during reload cleanup")
-        }
-        for (model in modelsToCleanUp) {
-          ServerLlmModelHelper.safeCleanup(model)
-        }
-        System.gc()
-      }
-    }
-    // Reset metrics without emitting "Server stopped" log — we're restarting, not stopping
-    ServerMetrics.onServerStopped()
   }
 
   /**
