@@ -99,6 +99,9 @@ class ServerService : Service() {
 
   private lateinit var modelCatalogMerger: ModelCatalogMerger
 
+  // Model loader helper — encapsulates background model loading, warmup, and failure recovery.
+  private lateinit var modelLoader: ServerModelLoader
+
   override fun onCreate() {
     super.onCreate()
     activeInstance = this
@@ -139,6 +142,23 @@ class ServerService : Service() {
             kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()
           } catch (e: Exception) { Log.w(TAG, "Failed to read imported models from DataStore", e); emptyList() }
         },
+      )
+      modelLoader = ServerModelLoader(
+        context = this,
+        modelLifecycle = modelLifecycle,
+        notificationManager = notificationManager,
+        getInferenceRunner = { inferenceRunner },
+        loadGeneration = loadGeneration,
+        pendingReloadAfterLoad = pendingReloadAfterLoad,
+        onModelPublished = { model ->
+          defaultModel = model
+          modelCache[model.name] = model
+        },
+        onOomRecover = {
+          synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
+          modelCache.clear()
+        },
+        emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
       )
       wakeLockHelper = ServerWakeLockHelper(this)
       NotificationHelper.createChannel(this)
@@ -454,166 +474,14 @@ class ServerService : Service() {
    * Loads a model on a background thread: storage check, cleanup latch wait,
    * warmup/initialize, metrics, notification update.
    *
-   * Called from [serviceScope] (Dispatchers.IO) in [onStartCommand].
-   * Must NOT be called from the main thread — contains blocking I/O and native SDK calls.
+   * Delegated to [ServerModelLoader].
    */
   private fun loadModelOnThread(
     model: Model,
     thisGeneration: Long,
     notifState: LoadNotificationState,
   ) {
-    try {
-      ServerCleanupCoordinator.checkStorageBeforeLoad(this)
-      ServerCleanupCoordinator.awaitPreviousCleanup()
-      modelLifecycle.awaitIdleCleanup()
-
-      val loadStart = SystemClock.elapsedRealtime()
-      initializeOrWarmUp(model)
-
-      // If another model load was initiated while we were warming up, discard this result
-      if (loadGeneration.get() != thisGeneration) {
-        Log.w(TAG, "Warmup for ${model.name} completed but a newer load was initiated — discarding")
-        ServerLlmModelHelper.safeCleanup(model)
-        return
-      }
-      val published = synchronized(modelLifecycle.keepAliveLock) {
-        if (loadGeneration.get() != thisGeneration) {
-          false
-        } else {
-          defaultModel = model
-          modelCache[model.name] = model
-          true
-        }
-      }
-      if (!published) {
-        ServerLlmModelHelper.safeCleanup(model)
-        return
-      }
-      ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
-      ServerMetrics.setActiveAccelerator(
-        model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.id]?.toString()
-      )
-      ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
-      ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)
-      ServerMetrics.onServerRunning(notifState.advertisedHost, notifState.isLoopbackOnly)
-      resetKeepAliveTimer()
-      RequestLogStore.addEvent("Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)", modelName = model.name, category = EventCategory.MODEL)
-      logVerboseModelConfig(model)
-      if (handleQueuedReload(model)) return
-      logActiveSystemPrompt(model)
-      notificationManager.updateToRunning(model, notifState)
-    } catch (t: Throwable) {
-      handleModelLoadFailure(t, model, thisGeneration, notifState)
-    }
-  }
-
-  /** Initializes the model engine, with or without warmup depending on user settings. */
-  private fun initializeOrWarmUp(model: Model) {
-    val eagerVision = ServerPrefs.isEagerVisionInit(this)
-    val supportImage = model.llmSupportImage && eagerVision
-    val supportAudio = model.llmSupportAudio
-    if (ServerPrefs.isWarmupEnabled(this)) {
-      inferenceRunner?.warmUpModel(model)
-    } else {
-      var initErr = ""
-      ServerLlmModelHelper.initialize(
-        context = this,
-        model = model,
-        supportImage = supportImage,
-        supportAudio = supportAudio,
-        onDone = { initErr = it },
-        systemInstruction = buildSystemInstruction(model.prefsKey),
-      )
-      if (initErr.isNotEmpty()) {
-        throw RuntimeException(getString(R.string.error_model_init_failed, initErr))
-      }
-      model.initializedWithVision = supportImage
-      RequestLogStore.addEvent(
-        "Warmup skipped — Model loaded without test inference (disabled in Settings)",
-        modelName = model.name,
-        category = EventCategory.MODEL,
-      )
-    }
-  }
-
-  /** Logs model config dump when verbose debug is enabled. */
-  private fun logVerboseModelConfig(model: Model) {
-    if (!ServerPrefs.isVerboseDebugEnabled(this)) return
-    val sizeMb = String.format(java.util.Locale.US, "%.1f", model.totalBytes / (1024.0 * 1024.0))
-    val debugText = buildString {
-      appendLine("Name: ${model.name}")
-      appendLine("Path: ${model.getPath(this@ServerService)}")
-      appendLine("Size: ${sizeMb}MB (${model.totalBytes} bytes)")
-      appendLine("Capabilities: vision=${model.llmSupportImage}, audio=${model.llmSupportAudio}, thinking=${model.llmSupportThinking}, speculative_decoding=${model.isSpeculativeDecodingEnabled}")
-      if (model.configValues.isNotEmpty()) {
-        appendLine("Config:")
-        model.configValues.forEach { (k, v) -> appendLine("  $k: $v") }
-      }
-    }.trimEnd()
-    RequestLogStore.addEvent("Loaded model configuration", level = LogLevel.DEBUG, modelName = model.name, category = EventCategory.MODEL, body = debugText)
-  }
-
-  /**
-   * Checks for a queued reload (user changed reinit settings while model was loading).
-   * @return true if a reload was triggered and the caller should return immediately.
-   */
-  private fun handleQueuedReload(model: Model): Boolean {
-    val queued = pendingReloadAfterLoad.getAndSet(null) ?: return false
-    if (queued.modelName == model.name) {
-      Log.i(TAG, "Executing queued reload for ${queued.modelName}")
-      RequestLogStore.addEvent("Applying queued settings change — reloading model", modelName = queued.modelName, category = EventCategory.SETTINGS)
-      reload(this, queued.port, queued.modelName, queued.configValues)
-      return true
-    }
-    Log.w(TAG, "Discarding stale queued reload for ${queued.modelName} — loaded model is ${model.name}")
-    return false
-  }
-
-  /** Logs the active system prompt if custom prompts are enabled. */
-  private fun logActiveSystemPrompt(model: Model) {
-    val sysPrompt = if (ServerPrefs.isCustomPromptsEnabled(this))
-      ServerPrefs.getSystemPrompt(this, model.prefsKey) else ""
-    if (sysPrompt.isNotBlank()) {
-      RequestLogStore.addEvent(
-        "System prompt active: \"${sysPrompt.take(LOG_ERROR_PREVIEW_LONG_CHARS)}\"${if (sysPrompt.length > LOG_ERROR_PREVIEW_LONG_CHARS) "…" else ""}",
-        modelName = model.name,
-        category = EventCategory.PROMPT,
-        body = buildJsonObject {
-          put("type", "prompt_active")
-          put("prompt_type", "system_prompt")
-          put("text", sysPrompt)
-        }.toString(),
-      )
-    }
-  }
-
-  /** Handles model load failure: OOM cleanup, error reporting, notification update. */
-  private fun handleModelLoadFailure(
-    t: Throwable,
-    model: Model,
-    thisGeneration: Long,
-    notifState: LoadNotificationState,
-  ) {
-    if (loadGeneration.get() != thisGeneration) {
-      Log.w(TAG, "Warmup for ${model.name} failed but a newer load was initiated — ignoring")
-      ServerLlmModelHelper.safeCleanup(model)
-      return
-    }
-    if (t is OutOfMemoryError) {
-      synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
-      try { ServerLlmModelHelper.cleanUp(model) {} } catch (e: Exception) { Log.w(TAG, "cleanUp() failed during OOM recovery", e) }
-      modelCache.clear()
-      System.gc()
-    }
-    Log.e(TAG, "Failed to load model ${model.name}", t)
-    emitDebugStackTrace(t, "model_load", model.name)
-    pendingReloadAfterLoad.set(null)
-    val msg = t.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS) ?: getString(R.string.error_model_init_unknown)
-    val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
-    ServerMetrics.onServerError(msg)
-    ServerMetrics.incrementErrorCount(category)
-    RequestLogStore.addEvent("Model load failed: $msg", level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
-    notificationManager.updateToLoadFailed(t, model, notifState)
+    modelLoader.loadModelOnThread(model, thisGeneration, notifState)
   }
 
   @Suppress("DEPRECATION") // onTrimMemory deprecated in API 34, but onTrimMemory is still called by the framework
@@ -808,7 +676,7 @@ class ServerService : Service() {
      * Set by [queueReloadAfterLoad] when the user changes reinit-requiring settings
      * while a model is still loading. Consumed in the warmup thread after [onServerRunning].
      */
-    private data class PendingReload(val port: Int, val modelName: String, val configValues: Map<String, Any>?)
+    internal data class PendingReload(val port: Int, val modelName: String, val configValues: Map<String, Any>?)
     /** Atomic to prevent lost updates when the UI thread writes a new reload while the warmup thread reads and clears. */
     private val pendingReloadAfterLoad = java.util.concurrent.atomic.AtomicReference<PendingReload?>(null)
 
