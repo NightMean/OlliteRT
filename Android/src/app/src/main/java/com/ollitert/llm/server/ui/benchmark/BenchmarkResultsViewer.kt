@@ -81,33 +81,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.proto.LlmBenchmarkResult
-import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.ui.common.Accordions
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
-import com.ollitert.llm.server.ui.theme.customColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -769,241 +762,3 @@ fun BenchmarkResultsViewer(
   }
 }
 
-@Composable
-private fun StatRow(
-  label: String,
-  value: String,
-  modifier: Modifier = Modifier,
-  unit: String = "",
-  rawValue: Double? = null,
-  baselineValue: Double? = null,
-  lessIsBetter: Boolean = false,
-) {
-  Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-    // label.
-    Text(
-      label,
-      style = MaterialTheme.typography.labelMedium,
-      color = MaterialTheme.colorScheme.onSurface,
-      modifier = Modifier.weight(0.6f),
-      maxLines = 1,
-      overflow = TextOverflow.MiddleEllipsis,
-    )
-    // Value
-    Column(
-      verticalArrangement = Arrangement.Top,
-      horizontalAlignment = Alignment.Start,
-      modifier = Modifier.weight(0.4f),
-    ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Text(
-          value,
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurface,
-          maxLines = 1,
-          overflow = TextOverflow.MiddleEllipsis,
-        )
-        AnimatedContent(
-          baselineValue,
-          contentAlignment = Alignment.CenterStart,
-          transitionSpec = { fadeIn() togetherWith fadeOut() },
-        ) { curBaselineValue ->
-          if (curBaselineValue != null && rawValue != null) {
-            val doubleValue = rawValue
-            val pct = (doubleValue - curBaselineValue) / curBaselineValue * 100
-            val strPct = String.format(Locale.US, "%.1f", abs(pct))
-            val sign = if (pct >= 0.0) "+" else "-"
-            val betterSign = if (lessIsBetter) "-" else "+"
-            val color =
-              if (sign == betterSign) {
-                MaterialTheme.customColors.successColor
-              } else {
-                MaterialTheme.customColors.errorTextColor
-              }
-            Text("$sign$strPct%", style = MaterialTheme.typography.labelMedium, color = color)
-          }
-        }
-      }
-      if (unit.isNotEmpty()) {
-        Text(
-          unit,
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        )
-      }
-    }
-  }
-}
-
-@Composable
-private fun ValueSeriesRow(
-  label: String,
-  valueSeries: ValueSeries,
-  aggregation: Aggregation,
-  modifier: Modifier = Modifier,
-  unit: String = "",
-  baselineValueSeries: ValueSeries? = null,
-  baselineAggregation: Aggregation? = null,
-  lessIsBetter: Boolean = false,
-) {
-  val value = getAggregationValue(valueSeries = valueSeries, aggregation = aggregation)
-  var baselineValue: Double? = null
-  if (baselineValueSeries != null && baselineAggregation != null) {
-    baselineValue =
-      getAggregationValue(valueSeries = baselineValueSeries, aggregation = baselineAggregation)
-  }
-  var showValueSeriesBottomSheet by remember { mutableStateOf(false) }
-
-  Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-    // label.
-    Text(
-      label,
-      style = MaterialTheme.typography.labelMedium,
-      color = MaterialTheme.colorScheme.onSurface,
-      modifier = Modifier.weight(0.6f),
-      maxLines = 1,
-      overflow = TextOverflow.MiddleEllipsis,
-    )
-    // Value
-    Column(
-      verticalArrangement = Arrangement.Top,
-      horizontalAlignment = Alignment.Start,
-      modifier = Modifier.weight(0.4f),
-    ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        val linkColor = MaterialTheme.customColors.linkColor
-        val isMultipleRuns = valueSeries.valueCount > 1
-        val textColor = if (isMultipleRuns) linkColor else MaterialTheme.colorScheme.onSurface
-        val textModifier =
-          if (isMultipleRuns) {
-            Modifier.drawBehind {
-                val strokeWidth = 2f
-                val y = size.height - strokeWidth
-
-                // Define the dash pattern: 8px line, 8px gap
-                val dashPath = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
-
-                drawLine(
-                  color = linkColor,
-                  start = Offset(0f, y),
-                  end = Offset(size.width, y),
-                  strokeWidth = strokeWidth,
-                  pathEffect = dashPath,
-                )
-              }
-              .clickable { showValueSeriesBottomSheet = true }
-          } else {
-            Modifier
-          }
-        AnimatedContent(value) { curValue ->
-          Text(
-            String.format(Locale.US, "%.2f", curValue),
-            style = MaterialTheme.typography.labelMedium,
-            color = textColor,
-            maxLines = 1,
-            overflow = TextOverflow.MiddleEllipsis,
-            modifier = textModifier,
-          )
-        }
-        AnimatedContent(
-          baselineValue,
-          contentAlignment = Alignment.CenterStart,
-          transitionSpec = { fadeIn() togetherWith fadeOut() },
-        ) { curBaselineValue ->
-          if (curBaselineValue != null && abs(curBaselineValue) > 1e-6) {
-            val pct = (value - curBaselineValue) / curBaselineValue * 100
-            val strPct = String.format(Locale.US, "%.1f", abs(pct))
-            val sign = if (pct >= 0.0) "+" else "-"
-            val betterSign = if (lessIsBetter) "-" else "+"
-            val color =
-              if (sign == betterSign) {
-                MaterialTheme.customColors.successColor
-              } else {
-                MaterialTheme.customColors.errorTextColor
-              }
-            Text("$sign$strPct%", style = MaterialTheme.typography.labelMedium, color = color)
-          }
-        }
-      }
-      if (unit.isNotEmpty()) {
-        Text(
-          unit,
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        )
-      }
-    }
-  }
-
-  if (showValueSeriesBottomSheet) {
-    BenchmarkValueSeriesViewer(
-      title = "$label ($unit)",
-      valueSeries = valueSeries,
-      onDismiss = { showValueSeriesBottomSheet = false },
-    )
-  }
-}
-
-private fun getBenchmarkResultCsv(llmResult: LlmBenchmarkResult, aggregation: Aggregation): String {
-  val basicInfo = llmResult.basicInfo
-  val stats = llmResult.stats
-
-  val header =
-    listOf(
-        "start time (ms)",
-        "end time (ms)",
-        "model name",
-        "accelerator",
-        "speculative decoding",
-        "prefill tokens count",
-        "decode tokens count",
-        "runs count",
-        "app version",
-        "prefill speed (tokens/sec)",
-        "decode speed (tokens/sec)",
-        "time to first token (sec)",
-        "first init time (ms)",
-        "steady init time (ms)",
-      )
-      .joinToString(",")
-
-  val data =
-    listOf(
-        basicInfo.startMs,
-        basicInfo.endMs,
-        basicInfo.modelName,
-        basicInfo.accelerator,
-        basicInfo.speculativeDecoding,
-        basicInfo.prefillTokens,
-        basicInfo.decodeTokens,
-        basicInfo.numberOfRuns,
-        basicInfo.appVersion,
-        getAggregationValue(stats.prefillSpeed, aggregation),
-        getAggregationValue(stats.decodeSpeed, aggregation),
-        getAggregationValue(stats.timeToFirstToken, aggregation),
-        stats.firstInitTimeMs,
-        getAggregationValue(stats.nonFirstInitTimeMs, aggregation),
-      )
-      .joinToString(",")
-
-  return "$header\n$data"
-}
-
-private fun getAggregationValue(valueSeries: ValueSeries, aggregation: Aggregation): Double {
-  return when (aggregation) {
-    Aggregation.AVG -> valueSeries.avg
-    Aggregation.MEDIAN -> valueSeries.medium
-    // Aggregation.P25 -> valueSeries.pct25
-    // Aggregation.P75 -> valueSeries.pct75
-    Aggregation.MIN -> valueSeries.min
-    Aggregation.MAX -> valueSeries.max
-  }
-}
