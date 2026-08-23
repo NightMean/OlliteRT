@@ -90,6 +90,15 @@ class InferenceRunner(
   private val buildSystemInstruction: (modelName: String) -> Contents?,
 ) {
 
+  private val streamingCoordinator = InferenceStreamingCoordinator(
+    context = context,
+    executor = executor,
+    inferenceLock = inferenceLock,
+    logEvent = logEvent,
+    emitDebugStackTrace = emitDebugStackTrace,
+    buildSystemInstruction = buildSystemInstruction,
+  )
+
   private fun reinitIfNeeded(
     model: Model,
     supportImage: Boolean,
@@ -449,306 +458,31 @@ class InferenceRunner(
     schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message> = emptyList(),
     suppressPerModelSystem: Boolean = false,
     enableThinkingOverride: Boolean? = null,
-    // KV-cache reuse: when non-null, send only this user text via Message.user(...)
-    // on the existing Conversation instead of resetting + sending the full rendered
-    // [prompt]. Caller (EndpointHandlers) decides eligibility via decideIncrementalReuse.
     incrementalUserText: String? = null,
     conversationCacheGeneration: Long? = null,
     prepareConversation: (() -> ConversationPreparation)? = null,
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
-  ): HttpResponse {
-    val streamStartMs = SystemClock.elapsedRealtime()
-    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
-    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
-
-    // Pre-validation must happen BEFORE returning HttpResponse.Sse — the caller needs
-    // a JSON error response, not a streaming response that immediately errors.
-    val eagerVision = prefs?.eagerVisionInit ?: ServerPrefs.isEagerVisionInit(context)
-    val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)
-    val supportAudio = model.llmSupportAudio
-
-    // Register cancel callback before any lock so queued requests are immediately cancellable.
-    val cancellationBridge = RequestCancellationBridge()
-    val channelRef = AtomicReference<Channel<StreamEvent>?>(null)
-    val inferenceControl = AtomicReference<InferenceGateway.InferenceControl?>(null)
-    if (logId != null) {
-      RequestLogStore.registerCancellation(logId) {
-        when (cancellationBridge.request()) {
-          CancellationRequestStatus.PENDING,
-          CancellationRequestStatus.ACCEPTED -> {
-            channelRef.get()?.close()
-            true
-          }
-          CancellationRequestStatus.REJECTED -> false
-        }
-      }
-    }
-
-    val enableThinking = if (model.llmSupportThinking) {
-      enableThinkingOverride ?: model.isThinkingEnabled
-    } else {
-      false
-    }
-    val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
-
-    // Read prefs eagerly (before the Ktor coroutine runs) — SharedPreferences reads
-    // should happen on the calling thread, not inside the SSE writer lambda.
-    val streamPreview = prefs?.streamLogsPreview ?: ServerPrefs.isStreamLogsPreview(context)
-    val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
-
-    // Outer Ktor-writer safety timeout: one extra safety buffer beyond the inner
-    // channel-consumption timeout below, so the outer net only fires if the inner
-    // timeout + cleanup fails to unwind. Both derive from the user's configurable
-    // per-endpoint timeout, so raising the setting raises this cap too.
-    val outerTimeoutMs = (timeoutSeconds + 2 * STREAM_OUTER_TIMEOUT_SAFETY_BUFFER_SECONDS) * 1000
-    return HttpResponse.Sse(outerTimeoutMs = outerTimeoutMs) { writer ->
-      val channel = Channel<StreamEvent>(Channel.UNLIMITED)
-      channelRef.set(channel)
-      val state = StreamState(
-        context,
-        model,
-        requestId,
-        endpoint,
-        logId,
-        streamStartMs,
-        keepPartial,
-        inferenceControl,
-        onConversationFinished,
-        onLogEvent = { msg -> logEvent(msg) },
-      )
-
-      // Captured inside the resetConversation lambda (which runs under inferenceLock) so
-      // that concurrent updateConfigValues() writes are visible before we snapshot.
-      var originalConfig: Map<String, Any>? = null
-      val capturedNativeToolCalls = AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>(null)
-      var preparedIncrementalUserText = incrementalUserText
-      var preparedCacheGeneration = conversationCacheGeneration
-      var preparedSystemInstruction: Contents? = null
-
-      // Pre-emit the format's header (e.g. Anthropic `message_start`) as the very
-      // first SSE bytes so the client sees a response before prefill begins. Without
-      // this, on-device prefill (often >30s for multi-KB prompts on Gemma-4-E2B)
-      // exceeds the SDK's idle timeout and the client cancels with zero output.
-      // OAI-shape formats opt out via emitsHeaderEarly=false.
-      if (!format.bufferAllTokens && format.emitsHeaderEarly && !writer.isCancelled) {
-        try {
-          format.emitHeader(writer)
-          state.headerWritten = true
-        } catch (e: Exception) {
-          Log.w(TAG, "Pre-emit header failed for $requestId", e)
-        }
-      }
-
-      // Heartbeat coroutine: while inference is still in prefill (no token observed)
-      // and the writer is alive, emit a format-specific ping every SSE_PING_INTERVAL_MS
-      // so the client's idle-stream timeout doesn't fire. Anthropic's spec defines the
-      // `ping` event explicitly; non-Anthropic formats default to a no-op so this loop
-      // is harmless on every code path. Cancelled as soon as the first token arrives,
-      // the channel closes, or the SSE writer reports cancellation.
-      val heartbeatJob = if (format.emitsHeaderEarly) {
-        CoroutineScope(kotlin.coroutines.coroutineContext).launch {
-          try {
-            while (isActive) {
-              delay(SSE_PING_INTERVAL_MS)
-              if (writer.isCancelled || state.firstTokenMs != 0L || state.inferenceCompleted) break
-              try {
-                format.emitPing(writer)
-              } catch (e: Exception) {
-                Log.w(TAG, "Heartbeat ping failed for $requestId", e)
-                break
-              }
-            }
-          } catch (_: kotlinx.coroutines.CancellationException) {
-            // Normal scope cancel — nothing to do.
-          }
-        }
-      } else null
-
-      // Launch inference on the executor thread. Callbacks send events into the channel
-      // via trySend() — non-blocking from the executor thread's perspective.
-      InferenceGateway.executeStreaming(
-        prompt = prompt,
-        timeoutSeconds = timeoutSeconds,
-        executor = executor,
-        inferenceLock = inferenceLock,
-        resetConversation = {
-          if (cancellationBridge.cancellationWasAccepted()) {
-            throw java.util.concurrent.CancellationException("cancelled_while_queued")
-          }
-          val initErr = reinitIfNeeded(model, supportImage, supportAudio)
-          if (initErr != null) throw RuntimeException("model_init_failed: $initErr")
-          state.markStarted()
-          if (logId != null) RequestLogStore.update(logId) { it.copy(isGenerating = true) }
-          if (configSnapshot != null) {
-            originalConfig = model.configValues
-            model.configValues = configSnapshot
-          }
-          prepareConversation?.invoke()?.let { prepared ->
-            preparedIncrementalUserText = prepared.incrementalUserText
-            preparedCacheGeneration = prepared.cacheGeneration
-            preparedSystemInstruction = prepared.systemInstruction
-          }
-          if (preparedIncrementalUserText != null) {
-            // Reuse the live Conversation: SDK has the prior history in its internal
-            // diff state, and runInference will dispatch via Message.user(text) so
-            // only the new turn is prefilled.
-            Log.i(TAG, "INCREMENTAL_REUSE requestId=$requestId model=${model.name} userTextLen=${preparedIncrementalUserText?.length}")
-          } else {
-            ServerLlmModelHelper.resetConversation(
-              model,
-              supportImage = supportImage,
-              supportAudio = supportAudio,
-              systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
-              tools = schemaInjectionProviders,
-              initialMessages = schemaInjectionMessages,
-              enableConversationConstrainedDecoding = schemaInjectionProviders.isNotEmpty(),
-              conversationCacheGeneration = preparedCacheGeneration,
-            )
-          }
-        },
-        runInference = { input, onPartial, onError ->
-          ServerLlmModelHelper.runInference(
-            model = model,
-            input = input,
-            resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
-            cleanUpListener = {},
-            onError = onError,
-            images = images,
-            audioClips = audioClips,
-            extraContext = extraContext,
-            incrementalUserText = preparedIncrementalUserText,
-            conversationCacheGeneration = preparedCacheGeneration,
-            onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
-              capturedNativeToolCalls.set(calls)
-            } else null,
-          )
-        },
-        cancelInference = { ServerLlmModelHelper.stopResponse(model) },
-        recoverConversation = {
-          if (originalConfig != null && model.instance != null) {
-            model.configValues = originalConfig
-          }
-          ServerLlmModelHelper.resetConversation(
-            model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-            systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
-            tools = schemaInjectionProviders,
-            initialMessages = schemaInjectionMessages,
-            conversationCacheGeneration = preparedCacheGeneration,
-          )
-        },
-        onToken = { partial, done, thought ->
-          channel.trySend(StreamEvent.Token(partial, done, thought))
-        },
-        onError = { error ->
-          channel.trySend(StreamEvent.Error(error))
-        },
-        onInferenceFinished = {
-          if (originalConfig != null && model.instance != null) {
-            model.configValues = originalConfig
-          }
-          state.markMetricsCompleted()
-        },
-        onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },
-        onExecutionReady = { control ->
-          inferenceControl.set(control)
-          cancellationBridge.attach(control)
-          if (cancellationBridge.cancellationWasAccepted()) channel.close()
-        },
-      )
-
-      // Consume events from the channel in the Ktor coroutine context.
-      // The for-loop terminates when the channel is closed (by done, error, or cancellation).
-      // Safety timeout: generous buffer beyond inference timeout to catch gateway bugs that
-      // would otherwise hang this coroutine indefinitely.
-      try {
-        kotlinx.coroutines.withTimeout((timeoutSeconds + STREAM_OUTER_TIMEOUT_SAFETY_BUFFER_SECONDS) * 1000) {
-          for (event in channel) {
-            // Check for client disconnect (Ktor closed the writer)
-            if (writer.isCancelled) {
-              val elapsedMs = state.elapsedMs()
-              Log.i(TAG, "STREAM_DISCONNECT requestId=$requestId endpoint=$endpoint elapsedMs=$elapsedMs " +
-                "firstTokenMs=${state.firstTokenMs} headerWritten=${state.headerWritten} " +
-                "fullText.len=${state.fullText.length} fullThinking.len=${state.fullThinking.length}")
-              inferenceControl.get()?.cancel(InferenceGateway.CancellationReason.CALLER)
-              state.markCompleted()
-              state.logCancellation()
-              format.emitCancellation(writer, state.headerWritten)
-              channel.close()
-              break
-            }
-
-            when (event) {
-              is StreamEvent.Token -> {
-                try {
-                  state.handleToken(event, format, writer, prompt, configSnapshot, prefs, streamPreview, channel, capturedNativeToolCalls)
-                } catch (e: Exception) {
-                  if (logId != null) RequestLogStore.unregisterCancellation(logId)
-                  state.markCompleted()
-                  Log.w(TAG, "Stream write failed for request $requestId", e)
-                  logEvent("request_error id=$requestId endpoint=$endpoint error=stream_write_failed streaming=true")
-                  if (logId != null) {
-                    val errorJson = ResponseRenderer.renderJsonError("stream_write_failed")
-                    RequestLogStore.update(logId) { it.copy(partialText = null, responseBody = errorJson, isPending = false, latencyMs = state.elapsedMs(), level = LogLevel.ERROR) }
-                  }
-                  try { writer.finish() } catch (e2: Exception) { Log.w(TAG, "writer.finish() failed during cleanup", e2) }
-                  channel.close()
-                }
-              }
-
-              is StreamEvent.Error -> {
-                state.handleError(event.error, writer, channel, format)
-              }
-            }
-          }
-        }
-        // Channel closed externally (user tapped Cancel in Logs) — clean up.
-        // Normal completion and error paths call markCompleted() before closing
-        // the channel, so this block only fires for the external-cancel case.
-        if (!state.inferenceCompleted) {
-          state.markCompleted()
-          state.logCancellation()
-          try { format.emitCancellation(writer, state.headerWritten) } catch (e: Exception) { Log.w(TAG, "emitCancellation failed during cleanup", e) }
-        }
-      } catch (_: kotlinx.coroutines.CancellationException) {
-        // Ktor cancelled the coroutine (client disconnect or withTimeout expired) — clean up
-        inferenceControl.get()?.cancel(InferenceGateway.CancellationReason.CALLER)
-        channel.close()
-        if (!state.inferenceCompleted) {
-          // Finalize the log entry (isPending=false, isCancelled, 499) so it doesn't
-          // stay stuck "generating", then emit the format's terminating sequence
-          // (footer + [DONE]/message_stop) so a client still reading the stream gets a
-          // clean close instead of hanging. On a genuine client disconnect the socket is
-          // already dead and the emit throws harmlessly; on a server-side timeout the
-          // socket is alive and the client sees proper closure. The emit runs under
-          // NonCancellable because the surrounding coroutine context is already cancelled
-          // here, which would otherwise make the suspending emit calls throw immediately.
-          state.markCompleted()
-          state.logCancellation()
-          try {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-              format.emitCancellation(writer, state.headerWritten)
-            }
-          } catch (e: Exception) {
-            Log.w(TAG, "emitCancellation failed after stream cancellation for $requestId", e)
-          }
-        } else if (logId != null) {
-          RequestLogStore.unregisterCancellation(logId)
-        }
-      } finally {
-        // Safety net: guarantee isInferring flag is cleared even if an unexpected
-        // exception bypasses normal completion/cancellation paths. markCompleted
-        // flips the local emitting-done flag; markMetricsCompleted decrements
-        // the ServerMetrics counter idempotently so the "processing" pill clears
-        // even when onInferenceFinished was never reached.
-        state.markCompleted()
-        state.markMetricsCompleted()
-        if (state.inferenceStarted) state.finishConversation(isReusable = false)
-        heartbeatJob?.cancel()
-      }
-    }
-  }
+  ): HttpResponse = streamingCoordinator.streamInference(
+    model = model,
+    prompt = prompt,
+    requestId = requestId,
+    endpoint = endpoint,
+    format = format,
+    timeoutSeconds = timeoutSeconds,
+    images = images,
+    audioClips = audioClips,
+    logId = logId,
+    configSnapshot = configSnapshot,
+    prefs = prefs,
+    schemaInjectionProviders = schemaInjectionProviders,
+    schemaInjectionMessages = schemaInjectionMessages,
+    suppressPerModelSystem = suppressPerModelSystem,
+    enableThinkingOverride = enableThinkingOverride,
+    incrementalUserText = incrementalUserText,
+    conversationCacheGeneration = conversationCacheGeneration,
+    prepareConversation = prepareConversation,
+    onConversationFinished = onConversationFinished,
+  )
 
   // ── Cancellation helper ──────────────────────────────────────────────────
 
