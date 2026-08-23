@@ -75,7 +75,6 @@ import javax.inject.Inject
 private const val TAG = "OlliteRT.ModelVM"
 private const val TEST_MODEL_ALLOW_LIST = ""
 
-
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   val error: String = "",
@@ -96,31 +95,15 @@ enum class ModelEmptyReason {
 }
 
 data class ModelManagerUiState(
-  /** Flat list of all models (built-in + imported). */
   val models: List<Model> = listOf(),
-
-  /** A map that tracks the download status of each model, indexed by model name. */
   val modelDownloadStatus: Map<String, ModelDownloadStatus> = mapOf(),
-
-  /** A map that tracks the initialization status of each model, indexed by model name. */
   val modelInitializationStatus: Map<String, ModelInitializationStatus> = mapOf(),
-
-  /** Whether the app is loading and processing the model allowlist. */
   val loadingModelAllowlist: Boolean = true,
-
-  /** The error message when loading the model allowlist. */
   val loadingModelAllowlistError: String = "",
-
-  /** True when every repository is disabled — shows "No repositories enabled" empty state. */
   val allReposDisabled: Boolean = false,
-
-  /** The currently selected model. */
   val selectedModel: Model = EMPTY_MODEL,
-
   val configValuesUpdateTrigger: Long = 0L,
-  // Bumped when storage changes (download complete, model deleted).
   val storageUpdateTrigger: Long = 0L,
-
   val emptyReason: ModelEmptyReason = ModelEmptyReason.NONE,
   val requiredVersion: String? = null,
   val droppedByVersionFilter: Int = 0,
@@ -129,10 +112,6 @@ data class ModelManagerUiState(
 
 /**
  * ViewModel responsible for managing models, their download status, and initialization.
- *
- * This ViewModel handles model-related operations such as downloading, deleting, initializing, and
- * cleaning up models. It also manages the UI state for model management, including the list of
- * models, download statuses, and initialization statuses.
  */
 @HiltViewModel
 open class ModelManagerViewModel
@@ -144,8 +123,6 @@ constructor(
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
-  // Synchronous one-time read — NavHost requires startDestination during first composition.
-  // This is the only acceptable runBlocking survivor in the codebase.
   val onboardingCompleted: Boolean = runBlocking { dataStoreRepository.isOnboardingCompleted() }
 
   private val externalFilesDir = context.getExternalFilesDir(null)
@@ -161,15 +138,13 @@ constructor(
     _showModelRecommendations.value = ServerPrefs.isShowModelRecommendations(context)
   }
 
-  // One-shot error toast events for manual user actions (e.g. Retry on allowlist banner).
-  // Only emits on error — success produces no toast.
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
   val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
 
-  // Extracted managers isolate file, allowlist, and import concerns.
   val fileManager = ModelFileManager(context, externalFilesDir)
   private val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
   private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
+  private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, fileManager)
 
   fun completeOnboarding() {
     viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.setOnboardingCompleted() }
@@ -190,12 +165,9 @@ constructor(
     }
   }
 
-
   fun processModels() {
     val models = uiState.value.models
 
-    // TODO: Remove after 1.0.0 — migrates 0.9.0-beta per-model prefs from model.name to
-    // model.downloadFileName keys. Must run before restoreInferenceConfig.
     val nameToPrefsKey = models
       .filter { !it.imported && it.name != it.downloadFileName }
       .associate { it.name to it.downloadFileName }
@@ -205,8 +177,6 @@ constructor(
 
     for (model in models) {
       model.preProcess()
-      // Restore persisted inference config (temperature, max tokens, etc.) so settings
-      // survive app restarts. Overlays saved values on top of model defaults.
       ModelFactory.restoreInferenceConfig(context, model)
     }
   }
@@ -231,17 +201,13 @@ constructor(
       mgr?.cancel(AllowlistRefreshWorker.modelUpdateNotificationId(model.name))
     }
 
-    // Delete stale model files before starting fresh download.
     deleteModel(model = model)
 
-    // Set IN_PROGRESS after deleteModel (which resets to NOT_DOWNLOADED) so the UI
-    // shows the progress bar immediately.
     setDownloadStatus(
       curModel = model,
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
-    // Start to send download request.
     downloadRepository.downloadModel(
       model = model,
       onStatusUpdated = this::setDownloadStatus,
@@ -253,11 +219,6 @@ constructor(
     deleteModel(model = model)
   }
 
-  /**
-   * Retry a failed download while preserving the existing .tmp file so the
-   * DownloadWorker can resume from the last byte via an HTTP Range request.
-   * Unlike [downloadModel], this does NOT call [deleteModel] beforehand.
-   */
   fun retryDownloadModel(model: Model) {
     setDownloadStatus(
       curModel = model,
@@ -275,15 +236,9 @@ constructor(
   }
 
   fun deleteModel(model: Model) {
-    // Cancel any in-progress download before deleting files — prevents the WorkManager
-    // worker from writing to deleted paths and reporting false success.
     downloadRepository.cancelDownloadModel(model)
-
-    // Clear error state if this model was the one that failed to load.
     ServerMetrics.clearErrorIfModel(model.name)
 
-    // If the downloaded version is stale (updatable), reset to the latest version so
-    // re-downloading picks up the newest file.
     if (model.updatable) {
       model.updatable = false
       model.latestModelFile?.let {
@@ -302,8 +257,6 @@ constructor(
     }
 
     val action = if (model.imported) "Imported model deleted" else "Model deleted"
-    // Log event messages are intentionally English-only — they're diagnostic output for
-    // the Logs tab, not localizable UI strings.
     if (ServerPrefs.isVerboseDebugEnabled(context)) {
       RequestLogStore.addEvent(
         "$action: ${model.name} (${model.sizeInBytes.humanReadableSize()})",
@@ -315,12 +268,7 @@ constructor(
 
     if (model.imported) {
       viewModelScope.launch(Dispatchers.IO) {
-        val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-        val importedModelIndex = importedModels.indexOfFirst { it.fileName == model.name }
-        if (importedModelIndex >= 0) {
-          importedModels.removeAt(importedModelIndex)
-        }
-        dataStoreRepository.saveImportedModels(importedModels = importedModels)
+        importedModelCoordinator.deleteImportedModelRecord(model.name)
       }
     }
     _uiState.update { current ->
@@ -340,13 +288,9 @@ constructor(
     }
   }
 
-  /** Delete model and notify storage change (for user-initiated deletions). */
   fun deleteModelAndRefreshStorage(model: Model) {
     deleteModel(model = model)
     notifyStorageChanged()
-    // Android's filesystem (f2fs/ext4) doesn't reclaim all blocks immediately after
-    // File.delete() — StatFs can lag 10+ seconds for multi-GB files. Re-read storage
-    // at increasing intervals so the bar converges to the true value.
     viewModelScope.launch {
       for (delaySec in listOf(2L, 5L, 10L)) {
         kotlinx.coroutines.delay(delaySec * 1000)
@@ -356,7 +300,6 @@ constructor(
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
-    // Delete downloaded file if status is failed or not_downloaded.
     if (
       status.status == ModelDownloadStatusType.FAILED ||
         status.status == ModelDownloadStatusType.NOT_DOWNLOADED
@@ -386,10 +329,7 @@ constructor(
 
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
-
-    // Create model.
-    val model = ModelFactory.buildImportedModel(info)
-    ModelFactory.restoreInferenceConfig(context, model)
+    val model = importedModelCoordinator.buildAndRestoreImportedModel(info)
 
     val now = System.currentTimeMillis()
     _uiState.update { current ->
@@ -415,127 +355,54 @@ constructor(
     }
 
     viewModelScope.launch(Dispatchers.IO) {
-      val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-      val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
-      if (importedModelIndex >= 0) {
-        Log.d(TAG, "duplicated imported model found in data store. Removing it first")
-        importedModels.removeAt(importedModelIndex)
-      }
-      importedModels.add(info)
-      dataStoreRepository.saveImportedModels(importedModels = importedModels)
-    }
-
-    if (ServerPrefs.isVerboseDebugEnabled(context)) {
-      RequestLogStore.addEvent(
-        "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
-        level = LogLevel.DEBUG,
-        modelName = info.fileName,
-        category = EventCategory.MODEL,
-      )
+      importedModelCoordinator.saveImportedModel(info)
     }
   }
 
-  /**
-   * Updates the stored defaults for an imported model (capabilities, inference params).
-   * Clears any saved inference config overrides so the user starts fresh from the new defaults.
-   * The in-memory Model object is rebuilt and the model list is refreshed.
-   */
   fun updateImportedModelDefaults(updatedInfo: ImportedModel) {
-    Log.d(TAG, "updating imported model defaults: ${updatedInfo.fileName}")
-
     viewModelScope.launch(Dispatchers.IO) {
-      dataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
-    }
-
-    // Clear inference config overrides so saved values don't conflict with new defaults
-    ServerPrefs.clearInferenceConfig(context, updatedInfo.fileName)
-
-    // Rebuild the Model object from updated proto
-    val updatedModel = ModelFactory.buildImportedModel(updatedInfo)
-
-    // Replace the model in the flat list
-    _uiState.update { current ->
-      val updatedModels = current.models.map { m ->
-        if (m.name == updatedInfo.fileName && m.imported) updatedModel else m
+      val updatedModel = importedModelCoordinator.updateDefaults(updatedInfo)
+      _uiState.update { current ->
+        val updatedModels = current.models.map { m ->
+          if (m.name == updatedInfo.fileName && m.imported) updatedModel else m
+        }
+        current.copy(models = updatedModels)
       }
-      current.copy(models = updatedModels)
-    }
-
-    if (ServerPrefs.isVerboseDebugEnabled(context)) {
-      RequestLogStore.addEvent(
-        "Imported model defaults updated: ${updatedInfo.fileName}",
-        level = LogLevel.DEBUG,
-        modelName = updatedInfo.fileName,
-        category = EventCategory.MODEL,
-      )
     }
   }
 
-  /**
-   * Renames an imported model: disk file, DataStore proto entry, and SharedPreferences key.
-   * If only the display name changed (oldFileName == newFileName), updates proto without disk rename.
-   * Returns false if the disk rename could not be completed.
-   */
   fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): Boolean {
     if (oldFileName == newFileName) {
       viewModelScope.launch(Dispatchers.IO) {
-        val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-        val index = importedModels.indexOfFirst { it.fileName == oldFileName }
-        if (index >= 0) {
-          val updated = importedModels[index].toBuilder().setDisplayName(displayName).build()
-          importedModels[index] = updated
-          dataStoreRepository.saveImportedModels(importedModels)
+        val updatedModel = importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName) ?: return@launch
+        _uiState.update { current ->
+          val updatedModels = current.models.map { m ->
+            if (m.imported && m.name == oldFileName) updatedModel else m
+          }
+          current.copy(models = updatedModels)
         }
-        rebuildImportedModelInUiState(oldFileName)
       }
       return true
     }
 
-    if (!fileManager.renameImportedFile(oldFileName, newFileName)) return false
-
     viewModelScope.launch(Dispatchers.IO) {
-      val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-      val index = importedModels.indexOfFirst { it.fileName == oldFileName }
-      if (index >= 0) {
-        val updated = importedModels[index].toBuilder()
-          .setFileName(newFileName)
-          .setDisplayName(displayName)
-          .build()
-        importedModels[index] = updated
-        dataStoreRepository.saveImportedModels(importedModels)
+      val updatedModel = importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName) ?: return@launch
+      _uiState.update { current ->
+        val updatedModels = current.models.map { m ->
+          if (m.imported && m.name == oldFileName) updatedModel else m
+        }
+        current.copy(models = updatedModels)
       }
-
-      ServerPrefs.renameModelPrefsKey(context, oldFileName, newFileName)
-      rebuildImportedModelInUiState(newFileName)
     }
     return true
   }
 
-  private suspend fun rebuildImportedModelInUiState(fileName: String) {
-    val importedModels = dataStoreRepository.readImportedModels()
-    val info = importedModels.firstOrNull { it.fileName == fileName } ?: return
-    val updatedModel = ModelFactory.buildImportedModel(info)
-    ModelFactory.restoreInferenceConfig(context, updatedModel)
-
-    _uiState.update { current ->
-      val updatedModels = current.models.map { m ->
-        if (m.imported && m.name == fileName) updatedModel else m
-      }
-      current.copy(models = updatedModels)
-    }
-  }
-
-  // Resume interrupted downloads with the same optional token configured in Settings.
   private fun processPendingDownloads() {
-    // Cancel all pending downloads for the retrieved models.
     downloadRepository.cancelAll {
       Log.d(TAG, "All workers are cancelled.")
-
       viewModelScope.launch(Dispatchers.Main) {
-        // New and resumed downloads share the same token configured in Settings.
         val configuredToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
         for (model in uiState.value.models) {
-          // Start download for partially downloaded models.
           val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
           if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
             model.accessToken = configuredToken
@@ -570,7 +437,6 @@ constructor(
     viewModelScope.launch(Dispatchers.IO) {
       fileManager.cleanupStaleImportTmpFiles()
       try {
-        // Test allowlist override — development-only path
         val testAllowlist = allowlistLoader.readTestAllowlist()
         if (testAllowlist != null || TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
           val allowlist = if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
@@ -586,16 +452,10 @@ constructor(
           }
         }
 
-        // Migrate legacy single-file cache → per-repo filename
         migrateDiskCacheIfNeeded()
-
-        // Sync Official repo URL in case the app was updated with a new default
         syncOfficialRepoUrl()
 
-        // Fetch fresh data from all enabled repos (network → disk cache).
-        // Failures are per-repo — loadAll() still picks up existing cache as fallback.
         val refreshResult = repositoryManager.refreshAll(allowlistLoader)
-
         val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
         val loadResult = repositoryManager.loadAll(appVersion, allowlistLoader, modelFilter = ::isModelSupportedOnDevice)
 
@@ -621,7 +481,6 @@ constructor(
         }
 
         val models = loadResult.models
-
         val emptyReason = when {
           models.isNotEmpty() -> ModelEmptyReason.NONE
           loadResult.droppedByVersionFilter > 0 -> ModelEmptyReason.VERSION_TOO_OLD
@@ -710,8 +569,6 @@ constructor(
     refreshResult: RefreshResult,
     enabledRepos: List<Repository>,
   ): String {
-    // modelCount == null means the allowlist couldn't be read at all (truly no cache);
-    // modelCount == 0 means the allowlist loaded but all models were filtered out (e.g. version).
     val failedWithNoCache = enabledRepos.filter {
       it.id in refreshResult.failedRepoIds && it.modelCount == null
     }
@@ -805,13 +662,10 @@ constructor(
         ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
     }
 
-    // Load imported models.
     val importedModels = mutableListOf<Model>()
     for (importedModel in dataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
-
-      val model = ModelFactory.buildImportedModel(importedModel)
-      ModelFactory.restoreInferenceConfig(context, model)
+      val model = importedModelCoordinator.buildAndRestoreImportedModel(importedModel)
       importedModels.add(model)
 
       modelDownloadStatus[model.name] =
@@ -830,20 +684,9 @@ constructor(
     )
   }
 
-
-  /**
-   * Retrieves the download status of a model.
-   *
-   * This function determines the download status of a given model by checking if it's fully
-   * downloaded, partially downloaded, or not downloaded at all. It also retrieves the received and
-   * total bytes for partially downloaded models.
-   */
   private fun getModelDownloadStatus(model: Model) = fileManager.getModelDownloadStatus(model)
 
-  // File management — delegated to ModelFileManager
   private fun deleteFileFromExternalFilesDir(fileName: String) = fileManager.deleteFileFromExternalFilesDir(fileName)
   private fun deleteFilesFromImportDir(fileName: String) = fileManager.deleteFilesFromImportDir(fileName)
   private fun deleteDirFromExternalFilesDir(dir: String) = fileManager.deleteDirFromExternalFilesDir(dir)
-
 }
-
