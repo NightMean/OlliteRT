@@ -291,7 +291,7 @@ class AudioTranscriptionHandlerTest {
   fun inferenceErrorReturnsErrorResponse() = runBlocking {
     val wavBytes = buildMinimalWav()
 
-    mockkStatic("com.ollitert.llm.server.service.http.EndpointHandlersKt")
+    mockkStatic("com.ollitert.llm.server.service.http.EndpointUtilsKt")
     every { handleBlockingInferenceError(any(), any(), any()) } returns
       httpInternalError("Model inference failed")
 
