@@ -23,7 +23,8 @@ import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.service.inference.ServerMetrics
+import com.ollitert.llm.server.data.DefaultServerStateRepository
+import com.ollitert.llm.server.data.ServerStateRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -32,50 +33,51 @@ import javax.inject.Inject
 
 /**
  * ViewModel that exposes server state to the UI layer.
- * Reads from [ServerMetrics] singleton and provides start/stop controls.
+ * Reads from [ServerStateRepository] and provides start/stop controls.
  */
 @HiltViewModel
 class ServerViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
+  private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
 ) : ViewModel() {
 
-  val status = ServerMetrics.status
-  val isInferring = ServerMetrics.isInferring
-  val activeModelName = ServerMetrics.activeModelName
-  val activeModelSize = ServerMetrics.activeModelSize
-  val port = ServerMetrics.port
-  val bindAddress = ServerMetrics.bindAddress
-  val isLoopbackOnly = ServerMetrics.isLoopbackOnly
-  val startedAtMs = ServerMetrics.startedAtMs
-  val requestCount = ServerMetrics.requestCount
-  val tokensGenerated = ServerMetrics.tokensGenerated
-  val tokensIn = ServerMetrics.tokensIn
-  val lastLatencyMs = ServerMetrics.lastLatencyMs
-  val peakLatencyMs = ServerMetrics.peakLatencyMs
-  val avgLatencyMs = ServerMetrics.avgLatencyMs
-  val textRequests = ServerMetrics.textRequests
-  val imageRequests = ServerMetrics.imageRequests
-  val audioRequests = ServerMetrics.audioRequests
-  val errorCount = ServerMetrics.errorCount
-  val lastTtfbMs = ServerMetrics.lastTtfbMs
-  val avgTtfbMs = ServerMetrics.avgTtfbMs
-  val lastDecodeSpeed = ServerMetrics.lastDecodeSpeed
-  val peakDecodeSpeed = ServerMetrics.peakDecodeSpeed
-  val lastPrefillSpeed = ServerMetrics.lastPrefillSpeed
-  val lastItlMs = ServerMetrics.lastItlMs
-  val lastContextUtilization = ServerMetrics.lastContextUtilization
-  val activeAccelerator = ServerMetrics.activeAccelerator
-  val thinkingEnabled = ServerMetrics.thinkingEnabled
-  val speculativeDecodingEnabled = ServerMetrics.speculativeDecodingEnabled
-  val modelLoadTimeMs = ServerMetrics.modelLoadTimeMs
-  val isIdleUnloaded = ServerMetrics.isIdleUnloaded
-  val loadingStartedAtMs = ServerMetrics.loadingStartedAtMs
-  val lastError = ServerMetrics.lastError
-  val nativeHeapBytes = ServerMetrics.nativeHeapBytes
-  val appHeapUsedBytes = ServerMetrics.appHeapUsedBytes
-  val appTotalPssBytes = ServerMetrics.appTotalPssBytes
-  val deviceAvailRamBytes = ServerMetrics.deviceAvailRamBytes
-  val deviceTotalRamBytes = ServerMetrics.deviceTotalRamBytes
+  val status = serverStateRepository.status
+  val isInferring = serverStateRepository.isInferring
+  val activeModelName = serverStateRepository.activeModelName
+  val activeModelSize = serverStateRepository.activeModelSize
+  val port = serverStateRepository.port
+  val bindAddress = serverStateRepository.bindAddress
+  val isLoopbackOnly = serverStateRepository.isLoopbackOnly
+  val startedAtMs = serverStateRepository.startedAtMs
+  val requestCount = serverStateRepository.requestCount
+  val tokensGenerated = serverStateRepository.tokensGenerated
+  val tokensIn = serverStateRepository.tokensIn
+  val lastLatencyMs = serverStateRepository.lastLatencyMs
+  val peakLatencyMs = serverStateRepository.peakLatencyMs
+  val avgLatencyMs = serverStateRepository.avgLatencyMs
+  val textRequests = serverStateRepository.textRequests
+  val imageRequests = serverStateRepository.imageRequests
+  val audioRequests = serverStateRepository.audioRequests
+  val errorCount = serverStateRepository.errorCount
+  val lastTtfbMs = serverStateRepository.lastTtfbMs
+  val avgTtfbMs = serverStateRepository.avgTtfbMs
+  val lastDecodeSpeed = serverStateRepository.lastDecodeSpeed
+  val peakDecodeSpeed = serverStateRepository.peakDecodeSpeed
+  val lastPrefillSpeed = serverStateRepository.lastPrefillSpeed
+  val lastItlMs = serverStateRepository.lastItlMs
+  val lastContextUtilization = serverStateRepository.lastContextUtilization
+  val activeAccelerator = serverStateRepository.activeAccelerator
+  val thinkingEnabled = serverStateRepository.thinkingEnabled
+  val speculativeDecodingEnabled = serverStateRepository.speculativeDecodingEnabled
+  val modelLoadTimeMs = serverStateRepository.modelLoadTimeMs
+  val isIdleUnloaded = serverStateRepository.isIdleUnloaded
+  val loadingStartedAtMs = serverStateRepository.loadingStartedAtMs
+  val lastError = serverStateRepository.lastError
+  val nativeHeapBytes = serverStateRepository.nativeHeapBytes
+  val appHeapUsedBytes = serverStateRepository.appHeapUsedBytes
+  val appTotalPssBytes = serverStateRepository.appTotalPssBytes
+  val deviceAvailRamBytes = serverStateRepository.deviceAvailRamBytes
+  val deviceTotalRamBytes = serverStateRepository.deviceTotalRamBytes
 
   /** Debounce guard to prevent duplicate start/stop/reload intents from rapid taps. */
   private var actionInFlight = false

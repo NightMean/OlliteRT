@@ -111,4 +111,10 @@ internal object AppModule {
     )
     return DefaultModelCatalogRepository(merger, dataStoreRepository)
   }
+
+  @Provides
+  @Singleton
+  fun provideServerStateRepository(): com.ollitert.llm.server.data.ServerStateRepository {
+    return com.ollitert.llm.server.data.DefaultServerStateRepository()
+  }
 }
