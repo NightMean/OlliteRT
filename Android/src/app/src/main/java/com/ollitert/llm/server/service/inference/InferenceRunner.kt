@@ -66,12 +66,6 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
-internal data class ConversationPreparation(
-  val incrementalUserText: String?,
-  val cacheGeneration: Long,
-  val systemInstruction: Contents? = null,
-)
-
 /**
  * Executes LLM inference (blocking and streaming) against a loaded model.
  * Handles model re-initialization for vision/audio, token counting, timeout,
@@ -96,45 +90,17 @@ class InferenceRunner(
   private val buildSystemInstruction: (modelName: String) -> Contents?,
 ) {
 
-  /**
-   * Re-initialize the model if needed (null instance or missing vision support).
-   * Must be called inside synchronized(inferenceLock). Returns an error message on failure, or null on success.
-   *
-   * Passes the persisted base config directly to initialize() via configOverrides,
-   * avoiding the previous pattern of temporarily swapping model.configValues which
-   * was visible to unsynchronized readers on Ktor threads.
-   */
   private fun reinitIfNeeded(
     model: Model,
     supportImage: Boolean,
     supportAudio: Boolean,
-  ): String? {
-    val needsReinit = model.instance == null ||
-      (supportImage && !model.initializedWithVision)
-    if (!needsReinit) return null
-
-    if (model.instance != null) {
-      Log.i(TAG, "Re-initializing model for vision/audio support")
-      ServerLlmModelHelper.safeCleanup(model)
-    }
-    val initConfig = ServerPrefs.getInferenceConfig(context, model.prefsKey)
-    var err = ""
-    ServerLlmModelHelper.initialize(
-      context = context,
-      model = model,
-      supportImage = supportImage,
-      supportAudio = supportAudio,
-      onDone = { err = it },
-      systemInstruction = buildSystemInstruction(model.prefsKey),
-      configOverrides = initConfig,
-    )
-    if (err.isNotEmpty()) {
-      model.instance = null
-      return err
-    }
-    model.initializedWithVision = supportImage
-    return null
-  }
+  ): String? = InferenceModelPreparer.reinitIfNeeded(
+    context = context,
+    model = model,
+    supportImage = supportImage,
+    supportAudio = supportAudio,
+    buildSystemInstruction = buildSystemInstruction,
+  )
 
   // ── Blocking inference ───────────────────────────────────────────────────
 
@@ -794,17 +760,17 @@ class InferenceRunner(
     prefs: RequestPrefsSnapshot?,
     logSuffix: String,
     returnMessage: String,
-  ): Pair<String?, String> {
-    val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
-    val partial = if (keepPartial && !result.output.isNullOrEmpty()) result.output else null
-    if (logId != null) {
-      RequestLogStore.update(logId) {
-        it.copy(partialText = partial, isPending = false, isCancelled = true, statusCode = 499, latencyMs = result.totalMs)
-      }
-    }
-    logEvent("request_cancelled id=$requestId endpoint=$endpoint streaming=false $logSuffix outputChars=${result.output?.length ?: 0}")
-    return null to returnMessage
-  }
+  ): Pair<String?, String> = InferenceWarmupHelper.handleCancellation(
+    context = context,
+    result = result,
+    logId = logId,
+    requestId = requestId,
+    endpoint = endpoint,
+    prefs = prefs,
+    logSuffix = logSuffix,
+    returnMessage = returnMessage,
+    logEvent = logEvent,
+  )
 
   // ── Warmup ───────────────────────────────────────────────────────────────
 
@@ -815,21 +781,9 @@ class InferenceRunner(
   // Safe to use runBlocking: only called from OlliteRT-ModelLoad thread, never main thread.
   @WorkerThread
   fun warmUpModel(model: Model) {
-    val startMs = SystemClock.elapsedRealtime()
-    val eagerVision = ServerPrefs.isEagerVisionInit(context)
-    val (result, error) = kotlinx.coroutines.runBlocking {
-      runLlm(model, WARMUP_MESSAGE, "warmup", "warmup", timeoutSeconds = ServerPrefs.getTimeoutWarmup(context), eagerVisionInit = eagerVision)
+    InferenceWarmupHelper.warmUpModel(context, model) { m, p, reqId, ep, timeout, eagerVision ->
+      runLlm(m, p, reqId, ep, timeoutSeconds = timeout, eagerVisionInit = eagerVision)
     }
-    val elapsedMs = SystemClock.elapsedRealtime() - startMs
-    if (error != null && error.startsWith("model_init_failed:")) {
-      throw RuntimeException(error.removePrefix("model_init_failed: "))
-    }
-    val snippet = result?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)?.replace("\n", " ") ?: "no response"
-    RequestLogStore.addEvent(
-      "Sending a warmup message: \"$WARMUP_MESSAGE\" → \"$snippet\" (${elapsedMs}ms)",
-      modelName = model.name,
-      category = EventCategory.MODEL,
-    )
   }
 
   // ── Verbose debug logging ────────────────────────────────────────────────
@@ -847,30 +801,18 @@ class InferenceRunner(
     modelName: String?,
     prefs: RequestPrefsSnapshot? = null,
   ) {
-    if (!(prefs?.verboseDebug ?: ServerPrefs.isVerboseDebugEnabled(context))) return
-    val rt = Runtime.getRuntime()
-    val heapTotalMb = rt.totalMemory() / (1024.0 * 1024.0)
-    val heapFreeMb = rt.freeMemory() / (1024.0 * 1024.0)
-    val nativeAllocMb = android.os.Debug.getNativeHeapAllocatedSize() / (1024.0 * 1024.0)
-    val nativeTotalMb = android.os.Debug.getNativeHeapSize() / (1024.0 * 1024.0)
-    val decodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
-    val prefillSpeed = if (inputTokens > 0 && ttfbMs > 0) inputTokens.toDouble() / (ttfbMs / 1000.0) else 0.0
-
-    val body = buildString {
-      appendLine("Timing: TTFB ${ttfbMs}ms, generation ${generationMs}ms, total ${totalMs}ms")
-      appendLine("Tokens: ${inputTokens} input → ${outputTokens} output")
-      appendLine("Speed: ${String.format(java.util.Locale.US, "%.1f", prefillSpeed)} t/s prefill, ${String.format(java.util.Locale.US, "%.1f", decodeSpeed)} t/s decode")
-      appendLine("Heap: ${String.format(java.util.Locale.US, "%.1f", heapFreeMb)}MB free / ${String.format(java.util.Locale.US, "%.1f", heapTotalMb)}MB total")
-      append("Native: ${String.format(java.util.Locale.US, "%.1f", nativeAllocMb)}MB allocated / ${String.format(java.util.Locale.US, "%.1f", nativeTotalMb)}MB total")
+    if (modelName != null) {
+      InferenceMetricsCollector.logVerboseInferenceDetails(
+        context = context,
+        prefs = prefs,
+        modelName = modelName,
+        inputTokens = inputTokens.toInt(),
+        outputTokens = outputTokens.toInt(),
+        ttfbMs = ttfbMs,
+        generationMs = generationMs,
+        totalMs = totalMs,
+      )
     }
-
-    RequestLogStore.addEvent(
-      "Inference details: ${inputTokens}→${outputTokens} tokens in ${totalMs}ms",
-      level = LogLevel.DEBUG,
-      modelName = modelName,
-      category = EventCategory.SERVER,
-      body = body,
-    )
   }
 
   companion object {
