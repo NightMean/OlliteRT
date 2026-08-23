@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.common.modelitem
+package com.ollitert.llm.server.ui.modelmanager.components
 
 import android.content.Context
 import android.content.Intent

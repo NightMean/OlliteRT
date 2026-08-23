@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.common.modelitem
+package com.ollitert.llm.server.ui.modelmanager.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete

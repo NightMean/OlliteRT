@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.common.modelitem
+package com.ollitert.llm.server.ui.modelmanager.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll

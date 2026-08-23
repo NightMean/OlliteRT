@@ -85,7 +85,7 @@ import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
-import com.ollitert.llm.server.ui.common.modelitem.ModelItem
+import com.ollitert.llm.server.ui.modelmanager.components.ModelItem
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import kotlinx.coroutines.delay
 
