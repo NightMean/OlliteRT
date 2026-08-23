@@ -17,45 +17,20 @@
 package com.ollitert.llm.server.ui.server
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lan
-import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.ViewInAr
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,32 +42,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.util.Locale
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.data.ClientIpPolicyMode
 import com.ollitert.llm.server.data.ServerPrefs
 import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
 import com.ollitert.llm.server.data.formatHostForUrl
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
-import com.ollitert.llm.server.ui.common.TooltipIconButton
-import com.ollitert.llm.server.ui.common.formatModelError
-import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
-import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow
-import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.delay
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatusScreen(
   serverViewModel: ServerViewModel,
@@ -131,7 +95,6 @@ fun StatusScreen(
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
 
   val isStopped = status == ServerStatus.STOPPED
-  val isLoading = status == ServerStatus.LOADING
 
   // Live uptime ticker
   var uptimeSeconds by remember { mutableLongStateOf(0L) }
@@ -146,8 +109,6 @@ fun StatusScreen(
     }
   }
 
-  // Loading elapsed timer — driven by loadingStartedAtMs from ServerMetrics,
-  // so it persists across screen navigation and starts when the model begins loading.
   var loadingElapsedSeconds by remember { mutableLongStateOf(0L) }
   LaunchedEffect(loadingStartedAtMs) {
     if (loadingStartedAtMs > 0) {
@@ -177,620 +138,110 @@ fun StatusScreen(
 
   var showReloadDialog by remember { mutableStateOf(false) }
 
-  // Only show a real endpoint URL when bindAddress is known (server is RUNNING and bound).
-  // During reload/loading, bindAddress is null — show "—" instead of "localhost".
   val endpointUrl = bindAddress?.let { "http://${formatHostForUrl(it)}:$port/v1" }
 
-  // Global average throughput: tokens/sec over entire uptime (includes idle time).
-  // Wrapped in remember to avoid Formatter allocation on every recomposition.
   val avgThroughput = remember(tokensGenerated, uptimeSeconds) {
     if (uptimeSeconds > 0) String.format(Locale.US, "%.1f", tokensGenerated.toDouble() / uptimeSeconds) else "0.0"
   }
 
-  // Centered container with max width for tablets — prevents cards from stretching to 1000dp+
   Box(
     modifier = modifier.fillMaxSize(),
     contentAlignment = Alignment.TopCenter,
   ) {
-  Column(
-    modifier = Modifier
-      .widthIn(max = SCREEN_CONTENT_MAX_WIDTH)
-      .fillMaxWidth()
-      .verticalScroll(rememberScrollState())
-      .padding(horizontal = 20.dp, vertical = 16.dp),
-    verticalArrangement = Arrangement.spacedBy(16.dp),
-  ) {
-    // Server not running banner
-    if (isStopped) {
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(16.dp))
-          .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
-          .padding(16.dp),
-        contentAlignment = Alignment.Center,
-      ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(
-            text = stringResource(R.string.status_server_not_running),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-            text = stringResource(R.string.status_server_not_running_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-      }
-    }
-
-    // Model info card
-    StatusCard {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        // Model icon box
+    Column(
+      modifier = Modifier
+        .widthIn(max = SCREEN_CONTENT_MAX_WIDTH)
+        .fillMaxWidth()
+        .verticalScroll(rememberScrollState())
+        .padding(horizontal = 20.dp, vertical = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+      // Server not running banner
+      if (isStopped) {
         Box(
           modifier = Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
+            .padding(16.dp),
           contentAlignment = Alignment.Center,
         ) {
-          Icon(
-            imageVector = Icons.Outlined.ViewInAr,
-            contentDescription = null,
-            tint = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else OlliteRTPrimary,
-            modifier = Modifier.size(26.dp),
-          )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-              text = if (isStopped) stringResource(R.string.status_no_model_loaded) else (modelName ?: stringResource(R.string.status_model_loading)),
+              text = stringResource(R.string.status_server_not_running),
               style = MaterialTheme.typography.titleMedium,
-              color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-              modifier = Modifier.weight(1f, fill = false),
+              color = MaterialTheme.colorScheme.onSurface,
+              fontWeight = FontWeight.SemiBold,
             )
-            // Accelerator pill (GPU/CPU/NPU) — shown next to model name when running
-            if (!isStopped && !isLoading && activeAccelerator != null) {
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(6.dp))
-                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                  .padding(horizontal = 8.dp, vertical = 3.dp),
-              ) {
-                Text(
-                  text = activeAccelerator ?: "",
-                  style = MaterialTheme.typography.labelSmall,
-                  color = OlliteRTPrimary,
-                  fontWeight = FontWeight.Bold,
-                )
-              }
-            }
-            // Thinking indicator — brain icon shown when thinking mode is enabled
-            if (!isStopped && !isLoading && thinkingEnabled) {
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(6.dp))
-                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                  .padding(horizontal = 6.dp, vertical = 3.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Outlined.Psychology,
-                  contentDescription = stringResource(R.string.status_cd_thinking_enabled),
-                  tint = OlliteRTPrimary,
-                  modifier = Modifier.size(16.dp),
-                )
-              }
-            }
-            if (!isStopped && !isLoading && speculativeDecodingEnabled) {
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(6.dp))
-                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                  .padding(horizontal = 6.dp, vertical = 3.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Outlined.Speed,
-                  contentDescription = stringResource(R.string.status_cd_mtp_enabled),
-                  tint = OlliteRTPrimary,
-                  modifier = Modifier.size(16.dp),
-                )
-              }
-            }
-          }
-          Spacer(modifier = Modifier.height(2.dp))
-          if (status == ServerStatus.ERROR) {
-            val errorText = formatModelError(context, lastError)
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = errorText,
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.error,
-              maxLines = 2,
-            )
-            // Show recovery suggestion below the error if one is available
-            if (!lastError.isNullOrBlank()) {
-              val suggestion = remember(lastError) {
-                val kind = com.ollitert.llm.server.service.http.ErrorSuggestions.classifyFromString(lastError ?: "")
-                com.ollitert.llm.server.service.http.ErrorSuggestions.suggest(kind, context)
-              }
-              if (suggestion != null) {
-                Text(
-                  text = suggestion,
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  maxLines = 3,
-                )
-              }
-            }
-          } else if (isLoading) {
-            Text(
-              text = if (modelSizeBytes > 0) {
-                stringResource(R.string.status_loading_elapsed_with_size, modelSizeBytes.humanReadableSize(), loadingElapsedSeconds)
-              } else {
-                stringResource(R.string.status_loading_elapsed, loadingElapsedSeconds)
-              },
-              style = MaterialTheme.typography.labelSmall,
-              color = OlliteRTPrimary.copy(alpha = 0.7f),
-            )
-          } else if (!isStopped && isIdleUnloaded) {
-            Text(
-              text = stringResource(R.string.status_idle_unloaded),
-              style = MaterialTheme.typography.labelSmall,
-              color = OlliteRTWarningYellow.copy(alpha = 0.8f),
-            )
-          } else if (!isStopped && modelLoadTimeMs > 0) {
-            Text(
-              text = if (modelSizeBytes > 0) {
-                stringResource(R.string.status_loaded_in_with_size, modelSizeBytes.humanReadableSize(), formatLoadTime(modelLoadTimeMs))
-              } else {
-                stringResource(R.string.status_loaded_in, formatLoadTime(modelLoadTimeMs))
-              },
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            )
-          } else if (isStopped) {
-            Text(
-              text = stringResource(R.string.status_start_model_hint),
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            )
-          }
-        }
-        if (!isStopped) {
-          if (isLoading) {
-            Box(
-              modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-              contentAlignment = Alignment.Center,
-            ) {
-              CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
-                color = OlliteRTPrimary,
-                strokeWidth = 2.dp,
-              )
-            }
-          } else {
-            TooltipIconButton(
-              icon = Icons.Outlined.Refresh,
-              tooltip = stringResource(R.string.status_reload_model_tooltip),
-              onClick = { showReloadDialog = true },
-              tint = OlliteRTPrimary,
+              text = stringResource(R.string.status_server_not_running_hint),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
         }
       }
-    }
 
-    // Endpoint card
-    val uriHandler = LocalUriHandler.current
-    StatusCard {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        // LAN icon box
-        Box(
-          modifier = Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-          contentAlignment = Alignment.Center,
-        ) {
-          Icon(
-            imageVector = Icons.Outlined.Lan,
-            contentDescription = null,
-            tint = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else OlliteRTPrimary,
-            modifier = Modifier.size(26.dp),
-          )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = stringResource(R.string.status_active_api_endpoint),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Spacer(modifier = Modifier.height(2.dp))
-          Text(
-            text = endpointUrl ?: stringResource(R.string.status_endpoint_placeholder),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (endpointUrl != null) OlliteRTPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontFamily = SpaceGroteskFontFamily,
-            textDecoration = if (endpointUrl != null) TextDecoration.Underline else TextDecoration.None,
-            modifier = if (endpointUrl != null) Modifier.clickable(
-              onClickLabel = stringResource(R.string.status_open_endpoint),
-            ) { uriHandler.openUri(endpointUrl) } else Modifier,
-          )
-          val corsLabel = when {
-            corsOrigins.isBlank() -> stringResource(R.string.status_cors_disabled)
-            corsOrigins == "*" -> stringResource(R.string.status_cors_all_origins)
-            else -> stringResource(R.string.status_cors_restricted)
-          }
-          val authLabel = if (authOn) stringResource(R.string.status_auth_on) else stringResource(R.string.status_auth_off)
-          Spacer(modifier = Modifier.height(2.dp))
-          Text(
-            text = stringResource(R.string.status_auth_cors, authLabel, corsLabel),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-          )
-          val clientAccessLabel = when (clientIpPolicy.mode) {
-            ClientIpPolicyMode.ALLOW_ALL -> stringResource(R.string.status_client_access_all)
-            ClientIpPolicyMode.ALLOW_ONLY -> stringResource(
-              R.string.status_client_access_allow_only,
-              clientIpPolicy.rulesText.countIpRules(),
-            )
-            ClientIpPolicyMode.BLOCK_LISTED -> stringResource(
-              R.string.status_client_access_block_listed,
-              clientIpPolicy.rulesText.countIpRules(),
-            )
-          }
-          Spacer(modifier = Modifier.height(2.dp))
-          Text(
-            text = stringResource(R.string.status_client_access, clientAccessLabel),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-          )
-          if (endpointUrl != null && isLoopbackOnly) {
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-              text = stringResource(R.string.status_endpoint_loopback_only),
-              style = MaterialTheme.typography.labelSmall,
-              color = OlliteRTWarningYellow.copy(alpha = 0.8f),
-            )
-          }
-        }
-        if (endpointUrl != null) {
-          TooltipIconButton(
-            icon = Icons.Outlined.ContentCopy,
-            tooltip = stringResource(R.string.status_copy_endpoint_tooltip),
-            onClick = { copyToClipboard(context, "OlliteRT Endpoint", endpointUrl) },
-            tint = OlliteRTPrimary,
-          )
-        }
-      }
-    }
-
-    // ── Core metrics (always shown) ──
-    var showMetricsInfoDialog by remember { mutableStateOf(false) }
-    Row(
-      modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Text(
-        text = stringResource(R.string.status_section_metrics),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      // Active model card
+      ActiveModelCard(
+        status = status,
+        modelName = modelName,
+        modelSizeBytes = modelSizeBytes,
+        activeAccelerator = activeAccelerator,
+        thinkingEnabled = thinkingEnabled,
+        speculativeDecodingEnabled = speculativeDecodingEnabled,
+        modelLoadTimeMs = modelLoadTimeMs,
+        isIdleUnloaded = isIdleUnloaded,
+        loadingElapsedSeconds = loadingElapsedSeconds,
+        lastError = lastError,
+        onReloadClick = { showReloadDialog = true },
       )
-      Spacer(modifier = Modifier.weight(1f))
-      TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = { PlainTooltip { Text(stringResource(R.string.status_metrics_info_tooltip)) } },
-        state = rememberTooltipState(),
-      ) {
-        IconButton(onClick = { showMetricsInfoDialog = true }, modifier = Modifier.size(32.dp)) {
-          Icon(
-            imageVector = Icons.Outlined.Info,
-            contentDescription = stringResource(R.string.status_metrics_info_tooltip),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-          )
-        }
-      }
-    }
 
-    if (showMetricsInfoDialog) {
-      AlertDialog(
-        onDismissRequest = { showMetricsInfoDialog = false },
-        title = { Text(stringResource(R.string.status_metrics_info_title)) },
-        text = { Text(stringResource(R.string.status_metrics_info_body)) },
-        confirmButton = {
-          TextButton(onClick = { showMetricsInfoDialog = false }) {
-            Text(stringResource(R.string.ok))
-          }
-        },
+      // Endpoint card
+      ActiveEndpointCard(
+        endpointUrl = endpointUrl,
+        isStopped = isStopped,
+        corsOrigins = corsOrigins,
+        authOn = authOn,
+        clientIpPolicy = clientIpPolicy,
+        isLoopbackOnly = isLoopbackOnly,
+      )
+
+      // Metrics grid
+      StatusMetricsGrid(
+        uptimeSeconds = uptimeSeconds,
+        requestCount = requestCount,
+        tokensIn = tokensIn,
+        tokensGenerated = tokensGenerated,
+        lastDecodeSpeed = lastDecodeSpeed,
+        peakDecodeSpeed = peakDecodeSpeed,
+        lastTtfbMs = lastTtfbMs,
+        avgTtfbMs = avgTtfbMs,
+        errorCount = errorCount,
+        showRequestTypes = showRequestTypes,
+        textRequests = textRequests,
+        imageRequests = imageRequests,
+        audioRequests = audioRequests,
+        showAdvancedMetrics = showAdvancedMetrics,
+        lastPrefillSpeed = lastPrefillSpeed,
+        avgThroughput = avgThroughput,
+        lastItlMs = lastItlMs,
+        lastLatencyMs = lastLatencyMs,
+        avgLatencyMs = avgLatencyMs,
+        peakLatencyMs = peakLatencyMs,
       )
     }
+  }
 
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = stringResource(R.string.status_metric_uptime),
-        value = formatUptime(uptimeSeconds),
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = stringResource(R.string.status_metric_requests),
-        value = requestCount.toString(),
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = stringResource(R.string.status_metric_tokens_in),
-        value = tokensIn.toString(),
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = stringResource(R.string.status_metric_tokens_out),
-        value = tokensGenerated.toString(),
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      val noData = stringResource(R.string.status_value_no_data)
-      MetricCard(
-        label = stringResource(R.string.status_metric_decode_speed),
-        value = remember(lastDecodeSpeed, noData) { if (lastDecodeSpeed > 0) String.format(Locale.US, "%.1f t/s", lastDecodeSpeed) else noData},
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = stringResource(R.string.status_metric_peak_decode),
-        value = remember(peakDecodeSpeed, noData) { if (peakDecodeSpeed > 0) String.format(Locale.US, "%.1f t/s", peakDecodeSpeed) else noData},
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      MetricCard(
-        label = stringResource(R.string.status_metric_last_ttfb),
-        value = if (lastTtfbMs > 0) stringResource(R.string.status_value_ms, lastTtfbMs) else stringResource(R.string.status_value_no_data),
-        modifier = Modifier.weight(1f),
-      )
-      MetricCard(
-        label = stringResource(R.string.status_metric_avg_ttfb),
-        value = if (avgTtfbMs > 0) stringResource(R.string.status_value_ms, avgTtfbMs) else stringResource(R.string.status_value_no_data),
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      val noDataText = stringResource(R.string.status_value_no_data)
-      val successRate = remember(requestCount, errorCount, noDataText) {
-        if (requestCount > 0) String.format(Locale.US, "%.0f%%", ((requestCount - errorCount).toDouble() / requestCount) * 100) else noDataText
-      }
-      MetricCard(
-        label = stringResource(R.string.status_metric_success_rate),
-        value = if (requestCount > 0) stringResource(R.string.status_value_success_rate, successRate, errorCount) else stringResource(R.string.status_value_no_data),
-        modifier = Modifier.weight(1f),
-      )
-    }
-
-    // Request modality breakdown — controlled by its own Settings toggle
-    if (showRequestTypes) {
-      Text(
-        text = stringResource(R.string.status_section_request_types),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
-      )
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        MetricCard(
-          label = stringResource(R.string.status_metric_text),
-          value = textRequests.toString(),
-          modifier = Modifier.weight(1f),
-        )
-        MetricCard(
-          label = stringResource(R.string.status_metric_vision),
-          value = imageRequests.toString(),
-          modifier = Modifier.weight(1f),
-        )
-        MetricCard(
-          label = stringResource(R.string.status_metric_audio),
-          value = audioRequests.toString(),
-          modifier = Modifier.weight(1f),
-        )
-      }
-    }
-
-    // ── Advanced metrics (behind Settings toggle) ──
-    if (showAdvancedMetrics) {
-      Text(
-        text = stringResource(R.string.status_section_advanced),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
-      )
-
-      val advNoData = stringResource(R.string.status_value_no_data)
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        MetricCard(
-          label = stringResource(R.string.status_metric_prefill_speed),
-          value = remember(lastPrefillSpeed, advNoData) { if (lastPrefillSpeed > 0) String.format(Locale.US, "%.1f t/s", lastPrefillSpeed) else advNoData},
-          modifier = Modifier.weight(1f),
-        )
-        MetricCard(
-          label = stringResource(R.string.status_metric_avg_throughput),
-          value = stringResource(R.string.status_value_throughput, avgThroughput),
-          modifier = Modifier.weight(1f),
-        )
-      }
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        MetricCard(
-          label = stringResource(R.string.status_metric_inter_token_latency),
-          value = remember(lastItlMs, advNoData) { if (lastItlMs > 0) String.format(Locale.US, "%.1fms", lastItlMs) else advNoData},
-          modifier = Modifier.weight(1f),
-        )
-        MetricCard(
-          label = stringResource(R.string.status_metric_last_latency),
-          value = if (lastLatencyMs > 0) stringResource(R.string.status_value_ms, lastLatencyMs) else stringResource(R.string.status_value_no_data),
-          modifier = Modifier.weight(1f),
-        )
-      }
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        MetricCard(
-          label = stringResource(R.string.status_metric_avg_latency),
-          value = if (avgLatencyMs > 0) stringResource(R.string.status_value_ms, avgLatencyMs) else stringResource(R.string.status_value_no_data),
-          modifier = Modifier.weight(1f),
-        )
-        MetricCard(
-          label = stringResource(R.string.status_metric_peak_latency),
-          value = if (peakLatencyMs > 0) stringResource(R.string.status_value_ms, peakLatencyMs) else stringResource(R.string.status_value_no_data),
-          modifier = Modifier.weight(1f),
-        )
-      }
-
-    }
-  } // Column
-  } // Box (max-width wrapper)
-
-  // Reload model confirmation dialog
   if (showReloadDialog) {
-    AlertDialog(
-      onDismissRequest = { showReloadDialog = false },
-      title = {
-        Text(
-          text = stringResource(R.string.status_dialog_reload_title),
-          style = MaterialTheme.typography.titleMedium,
-        )
+    ReloadModelConfirmDialog(
+      modelName = modelName,
+      onConfirm = {
+        showReloadDialog = false
+        onReloadModel()
       },
-      text = {
-        Text(
-          text = stringResource(R.string.status_dialog_reload_body, modelName ?: stringResource(R.string.status_model_loading)),
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      },
-      confirmButton = {
-        Button(onClick = {
-          showReloadDialog = false
-          onReloadModel()
-        }) {
-          Text(stringResource(R.string.status_dialog_reload_confirm))
-        }
-      },
-      dismissButton = {
-        Button(
-          onClick = { showReloadDialog = false },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-          ),
-        ) {
-          Text(stringResource(R.string.cancel))
-        }
-      },
+      onDismiss = { showReloadDialog = false },
     )
   }
 }
-
-@Composable
-private fun StatusCard(
-  modifier: Modifier = Modifier,
-  content: @Composable () -> Unit,
-) {
-  Box(
-    modifier = modifier
-      .fillMaxWidth()
-      .clip(RoundedCornerShape(24.dp))
-      .background(MaterialTheme.colorScheme.surfaceContainerLow)
-      .padding(20.dp),
-  ) {
-    content()
-  }
-}
-
-@Composable
-private fun MetricCard(
-  label: String,
-  value: String,
-  modifier: Modifier = Modifier,
-) {
-  Column(
-    modifier = modifier
-      .clip(RoundedCornerShape(24.dp))
-      .background(MaterialTheme.colorScheme.surfaceContainerLow)
-      .padding(16.dp),
-  ) {
-    Text(
-      text = value,
-      style = MaterialTheme.typography.headlineSmall,
-      color = MaterialTheme.colorScheme.onSurface,
-      fontWeight = FontWeight.Bold,
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-    Text(
-      text = label,
-      style = MaterialTheme.typography.labelSmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-  }
-}
-
-private fun formatLoadTime(ms: Long): String {
-  return when {
-    ms < 1000 -> "${ms}ms"
-    ms < 60_000 -> String.format(Locale.US, "%.1fs", ms / 1000.0)
-    else -> String.format(Locale.US, "%dm %ds", ms / 60_000, (ms % 60_000) / 1000)
-  }
-}
-
-private fun formatUptime(totalSeconds: Long): String {
-  val hours = totalSeconds / 3600
-  val minutes = (totalSeconds % 3600) / 60
-  val seconds = totalSeconds % 60
-  return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
-}
-
-private fun String.countIpRules(): Int = split(Regex("[,\\r\\n]+")).count { it.isNotBlank() }
