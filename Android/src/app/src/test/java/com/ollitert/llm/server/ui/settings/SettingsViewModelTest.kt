@@ -26,7 +26,7 @@ import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
 import com.ollitert.llm.server.data.repository.FakePreferencesRepository
-import com.ollitert.llm.server.data.db.RequestLogPersistence
+import com.ollitert.llm.server.data.db.RequestLogRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.service.ServerService
@@ -56,7 +56,7 @@ class SettingsViewModelTest {
 
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
-  private val mockPersistence: RequestLogPersistence = mockk(relaxed = true)
+  private val mockPersistence: RequestLogRepository = mockk(relaxed = true)
   private lateinit var fakePreferences: FakePreferencesRepository
   private lateinit var vm: SettingsViewModel
 

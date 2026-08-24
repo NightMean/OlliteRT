@@ -38,7 +38,7 @@ import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
-import com.ollitert.llm.server.data.db.RequestLogPersistence
+import com.ollitert.llm.server.data.db.RequestLogRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
@@ -71,7 +71,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
-  private val persistence: RequestLogPersistence,
+  private val persistence: RequestLogRepository,
   private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
