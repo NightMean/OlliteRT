@@ -29,10 +29,8 @@ import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.SSE_PING_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.STREAM_OUTER_TIMEOUT_SAFETY_BUFFER_SECONDS
 import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.data.model.isThinkingEnabled
 import com.ollitert.llm.server.data.model.llmSupportAudio
 import com.ollitert.llm.server.data.model.llmSupportImage
-import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.formats.StreamingFormat
 import com.ollitert.llm.server.service.http.HttpResponse
@@ -101,12 +99,35 @@ internal class InferenceStreamingCoordinator(
       }
     }
 
-    val enableThinking = if (model.llmSupportThinking) {
-      enableThinkingOverride ?: model.isThinkingEnabled
-    } else {
-      false
-    }
-    val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
+    val session = ConversationDispatchSession(
+      debugLogTag = TAG,
+      incrementalReuseLabel = "INCREMENTAL_REUSE",
+      model = model,
+      requestId = requestId,
+      images = images,
+      audioClips = audioClips,
+      supportImage = supportImage,
+      supportAudio = supportAudio,
+      enableThinkingOverride = enableThinkingOverride,
+      suppressPerModelSystem = suppressPerModelSystem,
+      buildSystemInstruction = buildSystemInstruction,
+      configSnapshot = configSnapshot,
+      incrementalUserText = incrementalUserText,
+      conversationCacheGeneration = conversationCacheGeneration,
+      prepareConversation = prepareConversation,
+      schemaInjectionProviders = schemaInjectionProviders,
+      schemaInjectionMessages = schemaInjectionMessages,
+      reinitIfNeeded = {
+        InferenceModelPreparer.reinitIfNeeded(
+          context = context,
+          model = model,
+          supportImage = supportImage,
+          supportAudio = supportAudio,
+          buildSystemInstruction = buildSystemInstruction,
+        )
+      },
+      logId = logId,
+    )
 
     val streamPreview = prefs?.streamLogsPreview ?: ServerPrefs.isStreamLogsPreview(context)
     val keepPartial = prefs?.keepPartialResponse ?: ServerPrefs.isKeepPartialResponse(context)
@@ -128,11 +149,7 @@ internal class InferenceStreamingCoordinator(
         onLogEvent = { msg -> logEvent(msg) },
       )
 
-      var originalConfig: Map<String, Any>? = null
-      val capturedNativeToolCalls = AtomicReference<List<com.google.ai.edge.litertlm.ToolCall>?>(null)
-      var preparedIncrementalUserText = incrementalUserText
-      var preparedCacheGeneration = conversationCacheGeneration
-      var preparedSystemInstruction: Contents? = null
+      val capturedNativeToolCalls = session.capturedNativeToolCalls
 
       if (!format.bufferAllTokens && format.emitsHeaderEarly && !writer.isCancelled) {
         try {
@@ -167,75 +184,13 @@ internal class InferenceStreamingCoordinator(
         executor = executor,
         inferenceLock = inferenceLock,
         resetConversation = {
-          if (cancellationBridge.cancellationWasAccepted()) {
-            throw java.util.concurrent.CancellationException("cancelled_while_queued")
-          }
-          val initErr = InferenceModelPreparer.reinitIfNeeded(
-            context = context,
-            model = model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-            buildSystemInstruction = buildSystemInstruction,
-          )
-          if (initErr != null) throw RuntimeException("model_init_failed: $initErr")
-          state.markStarted()
-          if (logId != null) RequestLogStore.update(logId) { it.copy(isGenerating = true) }
-          if (configSnapshot != null) {
-            originalConfig = model.configValues
-            model.configValues = configSnapshot
-          }
-          prepareConversation?.invoke()?.let { prepared ->
-            preparedIncrementalUserText = prepared.incrementalUserText
-            preparedCacheGeneration = prepared.cacheGeneration
-            preparedSystemInstruction = prepared.systemInstruction
-          }
-          if (preparedIncrementalUserText != null) {
-            Log.i(TAG, "INCREMENTAL_REUSE requestId=$requestId model=${model.name} userTextLen=${preparedIncrementalUserText?.length}")
-          } else {
-            ServerLlmModelHelper.resetConversation(
-              model,
-              supportImage = supportImage,
-              supportAudio = supportAudio,
-              systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
-              tools = schemaInjectionProviders,
-              initialMessages = schemaInjectionMessages,
-              enableConversationConstrainedDecoding = schemaInjectionProviders.isNotEmpty(),
-              conversationCacheGeneration = preparedCacheGeneration,
-            )
+          session.resetConversation(cancellationBridge.cancellationWasAccepted()) {
+            state.markStarted()
           }
         },
-        runInference = { input, onPartial, onError ->
-          ServerLlmModelHelper.runInference(
-            model = model,
-            input = input,
-            resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
-            cleanUpListener = {},
-            onError = onError,
-            images = images,
-            audioClips = audioClips,
-            extraContext = extraContext,
-            incrementalUserText = preparedIncrementalUserText,
-            conversationCacheGeneration = preparedCacheGeneration,
-            onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
-              capturedNativeToolCalls.set(calls)
-            } else null,
-          )
-        },
+        runInference = session::runInference,
         cancelInference = { ServerLlmModelHelper.stopResponse(model) },
-        recoverConversation = {
-          if (originalConfig != null && model.instance != null) {
-            model.configValues = originalConfig
-          }
-          ServerLlmModelHelper.resetConversation(
-            model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-            systemInstruction = if (prepareConversation != null) preparedSystemInstruction else if (suppressPerModelSystem) null else buildSystemInstruction(model.prefsKey),
-            tools = schemaInjectionProviders,
-            initialMessages = schemaInjectionMessages,
-            conversationCacheGeneration = preparedCacheGeneration,
-          )
-        },
+        recoverConversation = session::recoverConversation,
         onToken = { partial, done, thought ->
           channel.trySend(StreamEvent.Token(partial, done, thought))
         },
@@ -243,9 +198,7 @@ internal class InferenceStreamingCoordinator(
           channel.trySend(StreamEvent.Error(error))
         },
         onInferenceFinished = {
-          if (originalConfig != null && model.instance != null) {
-            model.configValues = originalConfig
-          }
+          session.restoreOriginalConfigIfLoaded()
           state.markMetricsCompleted()
         },
         onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },
