@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.worker
 
+import com.ollitert.llm.server.common.ServerMetrics
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -32,7 +33,6 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.service.inference.ServerMetrics
 
 internal object UpdateNotificationHelper {
   private const val TAG = "OlliteRT.UpdateNotif"

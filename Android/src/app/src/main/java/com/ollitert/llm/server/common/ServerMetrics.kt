@@ -14,15 +14,8 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service.inference
+package com.ollitert.llm.server.common
 
-import com.ollitert.llm.server.service.*
-import com.ollitert.llm.server.service.http.*
-import com.ollitert.llm.server.service.inference.*
-import com.ollitert.llm.server.service.http.*
-
-import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.common.ServerStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,7 +60,7 @@ object ServerMetrics {
   val activeModelName: StateFlow<String?> = _activeModelName.asStateFlow()
 
   // App-level state — not reset on server stop, only on resetForTesting()
-  private val _port = MutableStateFlow(ServerService.DEFAULT_PORT)
+  private val _port = MutableStateFlow(SERVER_DEFAULT_PORT)
   val port: StateFlow<Int> = _port.asStateFlow()
 
   private val _bindAddress = sessionFlow<String?>(null)
@@ -510,6 +503,6 @@ object ServerMetrics {
     stateMachine.reset()
     _availableUpdateVersion.value = null
     _availableUpdateUrl.value = null
-    _port.value = ServerService.DEFAULT_PORT
+    _port.value = SERVER_DEFAULT_PORT
   }
 }

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service.inference
+package com.ollitert.llm.server.common
 
 import androidx.compose.runtime.Immutable
-import com.ollitert.llm.server.common.ServerStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

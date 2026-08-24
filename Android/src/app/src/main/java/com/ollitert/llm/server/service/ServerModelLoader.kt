@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.ServerMetrics
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -35,7 +36,6 @@ import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.inference.InferenceRunner
 import com.ollitert.llm.server.service.inference.ModelLifecycle
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.serialization.json.buildJsonObject

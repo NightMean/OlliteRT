@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service.http
 
+import com.ollitert.llm.server.common.ServerMetrics
 import android.content.Context
 import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.prefs.ConfigKeys
@@ -38,7 +39,6 @@ import com.ollitert.llm.server.data.model.maxContextTokens
 import com.ollitert.llm.server.runtime.LlmModelInstance
 import com.ollitert.llm.server.service.inference.InferenceRunner
 import com.ollitert.llm.server.service.inference.PromptCompactor
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.service.inference.estimateTokens
 import com.ollitert.llm.server.service.inference.estimateTokensLong
 

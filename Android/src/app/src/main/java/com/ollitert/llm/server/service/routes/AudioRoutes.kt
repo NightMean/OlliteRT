@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service.routes
 
+import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 

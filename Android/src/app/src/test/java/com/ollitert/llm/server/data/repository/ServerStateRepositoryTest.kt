@@ -16,8 +16,8 @@
 
 package com.ollitert.llm.server.data.repository
 
+import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test

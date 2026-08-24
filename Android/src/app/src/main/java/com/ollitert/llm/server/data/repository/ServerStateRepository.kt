@@ -15,12 +15,12 @@
  */
 
 package com.ollitert.llm.server.data.repository
+import com.ollitert.llm.server.common.ServerMetrics
+import com.ollitert.llm.server.common.ServerLifecycleState
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.prefs.isLoopbackOnly
 
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.service.inference.ServerLifecycleState
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -18,7 +18,9 @@
 package com.ollitert.llm.server.data.prefs
 
 // Port validation range (IANA: 0–1023 reserved for well-known services).
-const val DEFAULT_PORT = 8000
+// DEFAULT_PORT aliases the canonical constant in common so lower layers can use it
+// without a data-layer dependency.
+const val DEFAULT_PORT = com.ollitert.llm.server.common.SERVER_DEFAULT_PORT
 const val MIN_VALID_PORT = 1024
 const val MAX_VALID_PORT = 65535
 

@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.settings
 
+import com.ollitert.llm.server.common.ServerMetrics
 import android.content.Context
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.prefs.DEFAULT_PORT
@@ -28,7 +29,6 @@ import com.ollitert.llm.server.data.repository.FakePreferencesRepository
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
 import com.ollitert.llm.server.worker.UpdateCheckWorker

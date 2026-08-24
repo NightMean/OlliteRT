@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service
 
+import com.ollitert.llm.server.common.ServerMetrics
 import android.util.Log
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.Model
@@ -23,7 +24,6 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.http.KtorServer
 import com.ollitert.llm.server.service.inference.ModelLifecycle
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ExecutorService

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service.inference
+package com.ollitert.llm.server.common
 
-import com.ollitert.llm.server.common.ServerStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
