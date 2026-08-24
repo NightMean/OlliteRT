@@ -6,6 +6,7 @@ This document describes OlliteRT's internal architecture for contributors and an
 
 - [High-Level Overview](#high-level-overview)
 - [Package Structure](#package-structure)
+- [Dependency Rules](#dependency-rules)
 - [Key Components](#key-components)
 - [Threading Model](#threading-model)
 - [Persistence](#persistence)
@@ -54,26 +55,51 @@ This document describes OlliteRT's internal architecture for contributors and an
 
 ```
 com.ollitert.llm.server/
-├── common/          # Shared constants, config (ProjectConfig, GitHubConfig)
-├── data/            # Data models, serializers, config keys, repository management
+├── common/          # Logic shared by ≥2 layers (error suggestions, SemVer,
+│                    #   server lifecycle state machine, metrics)
+├── data/            # Persistence layer
+│   ├── repository/  # Repository-facing interfaces + Default implementations
 │   └── db/          # Room database, DAOs, log persistence
-├── di/              # Hilt dependency injection modules
-├── runtime/         # LiteRT SDK bridge (ServerLlmModelHelper)
-├── service/         # HTTP server, request handling, inference
-├── ui/
-│   ├── benchmark/   # Model benchmarking screen
-│   ├── common/      # Shared UI components (model cards, tooltips, chips)
-│   │   └── modelitem/  # Model card composables
+├── di/              # Hilt dependency injection modules + dispatcher qualifiers
+├── runtime/         # LiteRT SDK bridge (ServerLlmModelHelper, GPU probe)
+├── service/         # Foreground service, HTTP server, request handling, inference
+│   └── formats/ http/ inference/ routes/
+├── ui/              # Feature-first presentation layer
+│   ├── benchmark/      # Model benchmarking screen
 │   ├── gettingstarted/ # One-time onboarding screen
-│   ├── modelmanager/   # Models screen + download management
+│   ├── modelmanager/   # Models screen + download management (+ components/)
+│   ├── modelrepos/     # Model Sources screens (list + detail), ViewModel
 │   ├── navigation/     # Bottom nav, app scaffold, routing
-│   ├── repositories/   # Model Sources screens (list + detail), ViewModel
-│   ├── server/         # Status + Settings screens
-│   │   ├── logs/       # Logs screen, event parsing, card rendering
-│   │   └── settings/   # Settings cards, data model, definitions, validators
-│   └── theme/          # Colors, typography, design tokens
+│   ├── server/         # Status screen
+│   │   └── logs/       # Logs screen, event parsing, card rendering
+│   ├── settings/       # Settings cards, coordinators, definitions, validators
+│   ├── theme/          # Colors, typography, design tokens
+│   └── common/         # Shared UI components (dialogs, search bar, tooltips)
 └── worker/          # Background work (downloads, update checks, allowlist refresh)
 ```
+
+## Dependency Rules
+
+These boundaries are enforced by review; violations were removed in a dedicated
+boundary-cleanup pass and should not be reintroduced.
+
+1. **UI → ViewModel → repository interface.** Composables read state and emit
+   callbacks; they never import Room DAOs, DataStore accessors, or storage
+   implementation classes.
+2. **No service/runtime internals in UI.** The only intentional exception is
+   the static `ServerService.start/stop/reload` control surface that ViewModels
+   call to drive the foreground service. Shared logic that both the server and
+   UI need (e.g. `ErrorSuggestions`) lives in `common/`.
+3. **Repository-facing interfaces live in `data/repository/`**, next to their
+   sibling interfaces — never beside their implementations.
+4. **Two preference boundaries with no overlap:** `PreferencesRepository`
+   (SharedPreferences-backed server/inference settings via `ServerPrefs`) and
+   `ProtoDataStoreRepository` (imported models, benchmarks, model sources,
+   onboarding flag).
+5. **No domain/use-case layer by design.** ViewModels consume repositories
+   directly; complex orchestration lives in tested collaborators under
+   `service/inference/`. Large ViewModels delegate to focused feature
+   coordinators (e.g. `LogRetentionCoordinator`, `NetworkPolicyCoordinator`).
 
 ## Key Components
 
@@ -113,7 +139,6 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `AllowlistLoader.kt` | Loads and caches the allowed model list |
 | `NotificationHelper.kt` | Foreground notification building |
 | `BridgeUtils.kt` | Utility functions for ID generation, model normalization, authorization, SSE escaping, and base64 compaction |
-| `ErrorSuggestions.kt` | Maps error types to user-facing recovery suggestions |
 | `TokenEstimation.kt` | Estimates token count from character length |
 | `ServerMetrics.kt` | Singleton metrics accumulator (counters, gauges, timing) |
 | `RequestLogStore.kt` | In-memory log store for the Logs screen |
@@ -143,7 +168,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `RepositoryNameFallback.kt` | Derives human-readable names for model sources when metadata is unavailable |
 | `BoundedHttpFetcher.kt` | Size-limited HTTP fetcher for model source JSON (10 MB cap) |
 | `ServerPrefs.kt` | SharedPreferences accessor for server config and user-provided tokens |
-| `DataStoreRepository.kt` | Interface for persisting app state to Proto DataStore |
+| `ProtoDataStoreRepository.kt` | Interface for persisting structured user data (imported models, benchmarks, model sources, onboarding) to Proto DataStore |
 | `DownloadRepository.kt` | Manages model downloads with progress tracking |
 | `SettingsSerializer.kt` | Proto DataStore serializer for user settings |
 | `BenchmarkResultsSerializer.kt` | Proto DataStore serializer for benchmark results |
@@ -173,8 +198,8 @@ All screens use Jetpack Compose with Material 3. State is managed via `@HiltView
 | Models | `modelmanager/` | Model list, download, import, delete |
 | Status | `server/StatusScreen.kt` | Live metrics dashboard |
 | Logs | `server/LogsScreen.kt` + `server/logs/` | Request/response logs with event parsing |
-| Settings | `server/SettingsScreen.kt`, `SettingsViewModel.kt`, `InferenceSettingsSheet.kt` + `server/settings/` (13 card files, data model, definitions, dialogs, footer, renderers, validators) | Server configuration, per-model inference settings bottom sheet |
-| Model Sources | `repositories/RepositoryListScreen.kt`, `RepositoryDetailScreen.kt`, `RepositoryViewModel.kt` | Model source management — add, remove, enable/disable model sources |
+| Settings | `settings/SettingsScreen.kt`, `SettingsViewModel.kt`, `InferenceSettingsSheet.kt` (in modelmanager) + `settings/` cards, coordinators, definitions, dialogs, renderers, validators | Server configuration, per-model inference settings bottom sheet |
+| Model Sources | `modelrepos/RepositoryListScreen.kt`, `RepositoryDetailScreen.kt`, `RepositoryViewModel.kt` | Model source management — add, remove, enable/disable model sources |
 | Benchmark | `benchmark/` | Model performance benchmarking |
 
 ## Threading Model
