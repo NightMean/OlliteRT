@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.common.getWifiIpAddress
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.prefs.ServerBindMode
 import com.ollitert.llm.server.data.prefs.formatHostForUrl
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
@@ -50,7 +49,7 @@ import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
 internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
-  var haIntegrationEnabled by remember { mutableStateOf(ServerPrefs.isHaIntegrationEnabled(context)) }
+  var haIntegrationEnabled by remember { mutableStateOf(vm.isHaIntegrationEnabled()) }
 
   SettingsCard(
     iconRes = R.drawable.ic_home_assistant,
@@ -63,7 +62,7 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
       checked = haIntegrationEnabled,
       onCheckedChange = {
         haIntegrationEnabled = it
-        ServerPrefs.setHaIntegrationEnabled(context, it)
+        vm.setHaIntegrationEnabled(it)
       },
       searchQuery = vm.searchQuery,
     )
@@ -71,7 +70,7 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
     if (haIntegrationEnabled) {
       SettingDivider()
 
-      val currentPort = vm.portText.toIntOrNull() ?: ServerPrefs.getPort(context)
+      val currentPort = vm.portText.toIntOrNull() ?: vm.portEntry.saved
       val wifiIp = remember { getWifiIpAddress(context) }
       val bindMode = ServerBindMode.fromPreference(vm.serverBindModeEntry.current)
       val currentIp = when (bindMode) {

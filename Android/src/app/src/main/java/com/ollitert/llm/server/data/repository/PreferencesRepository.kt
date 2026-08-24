@@ -112,6 +112,31 @@ interface PreferencesRepository {
   fun getInferenceConfig(modelName: String): Map<String, Any>?
   fun setInferenceConfig(modelName: String, configValues: Map<String, Any>)
   fun clearInferenceConfig(modelName: String)
+  fun isKeepPartialResponse(): Boolean
+  fun setKeepPartialResponse(enabled: Boolean)
+  fun isSttTranscriptionPromptEnabled(): Boolean
+  fun setSttTranscriptionPromptEnabled(enabled: Boolean)
+  fun getSttTranscriptionPromptText(): String
+  fun setSttTranscriptionPromptText(text: String)
+  fun isCrossChannelNotifyEnabled(): Boolean
+  fun setCrossChannelNotifyEnabled(enabled: Boolean)
+  fun getTimeoutChatCompletions(): Long
+  fun setTimeoutChatCompletions(seconds: Long)
+  fun getTimeoutResponses(): Long
+  fun setTimeoutResponses(seconds: Long)
+  fun getTimeoutStreaming(): Long
+  fun setTimeoutStreaming(seconds: Long)
+  fun getTimeoutBlocking(): Long
+  fun setTimeoutBlocking(seconds: Long)
+  fun getTimeoutWarmup(): Long
+  fun setTimeoutWarmup(seconds: Long)
+  fun getTimeoutKeepAliveRecheckSeconds(): Long
+  fun setTimeoutKeepAliveRecheckSeconds(seconds: Long)
+  fun getTimeoutCleanupAwait(): Long
+  fun setTimeoutCleanupAwait(seconds: Long)
+  fun setCachedUpdateInfo(version: String?, tagName: String?, releaseNotes: String?)
+  fun resetToDefaults()
+  fun dumpToLogcat()
   fun renameModelPrefsKey(oldName: String, newName: String)
   fun migratePerModelKeys(nameToPrefsKey: Map<String, String>)
 }
@@ -201,6 +226,32 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setConfirmClearLogs(enabled: Boolean) = ServerPrefs.setConfirmClearLogs(context, enabled)
   override fun isShowModelRecommendations(): Boolean = ServerPrefs.isShowModelRecommendations(context)
   override fun setShowModelRecommendations(enabled: Boolean) = ServerPrefs.setShowModelRecommendations(context, enabled)
+  override fun isKeepPartialResponse(): Boolean = ServerPrefs.isKeepPartialResponse(context)
+  override fun setKeepPartialResponse(enabled: Boolean) = ServerPrefs.setKeepPartialResponse(context, enabled)
+  override fun isSttTranscriptionPromptEnabled(): Boolean = ServerPrefs.isSttTranscriptionPromptEnabled(context)
+  override fun setSttTranscriptionPromptEnabled(enabled: Boolean) = ServerPrefs.setSttTranscriptionPromptEnabled(context, enabled)
+  override fun getSttTranscriptionPromptText(): String = ServerPrefs.getSttTranscriptionPromptText(context)
+  override fun setSttTranscriptionPromptText(text: String) = ServerPrefs.setSttTranscriptionPromptText(context, text)
+  override fun isCrossChannelNotifyEnabled(): Boolean = ServerPrefs.isCrossChannelNotifyEnabled(context)
+  override fun setCrossChannelNotifyEnabled(enabled: Boolean) = ServerPrefs.setCrossChannelNotifyEnabled(context, enabled)
+  override fun getTimeoutChatCompletions(): Long = ServerPrefs.getTimeoutChatCompletions(context)
+  override fun setTimeoutChatCompletions(seconds: Long) = ServerPrefs.setTimeoutChatCompletions(context, seconds)
+  override fun getTimeoutResponses(): Long = ServerPrefs.getTimeoutResponses(context)
+  override fun setTimeoutResponses(seconds: Long) = ServerPrefs.setTimeoutResponses(context, seconds)
+  override fun getTimeoutStreaming(): Long = ServerPrefs.getTimeoutStreaming(context)
+  override fun setTimeoutStreaming(seconds: Long) = ServerPrefs.setTimeoutStreaming(context, seconds)
+  override fun getTimeoutBlocking(): Long = ServerPrefs.getTimeoutBlocking(context)
+  override fun setTimeoutBlocking(seconds: Long) = ServerPrefs.setTimeoutBlocking(context, seconds)
+  override fun getTimeoutWarmup(): Long = ServerPrefs.getTimeoutWarmup(context)
+  override fun setTimeoutWarmup(seconds: Long) = ServerPrefs.setTimeoutWarmup(context, seconds)
+  override fun getTimeoutKeepAliveRecheckSeconds(): Long = ServerPrefs.getTimeoutKeepAliveRecheckSeconds(context)
+  override fun setTimeoutKeepAliveRecheckSeconds(seconds: Long) = ServerPrefs.setTimeoutKeepAliveRecheckSeconds(context, seconds)
+  override fun getTimeoutCleanupAwait(): Long = ServerPrefs.getTimeoutCleanupAwait(context)
+  override fun setTimeoutCleanupAwait(seconds: Long) = ServerPrefs.setTimeoutCleanupAwait(context, seconds)
+  override fun setCachedUpdateInfo(version: String?, tagName: String?, releaseNotes: String?) =
+    ServerPrefs.setCachedUpdateInfo(context, version, tagName, releaseNotes)
+  override fun resetToDefaults() = ServerPrefs.resetToDefaults(context)
+  override fun dumpToLogcat() = ServerPrefs.dumpToLogcat(context)
   override fun getSystemPrompt(modelName: String): String = ServerPrefs.getSystemPrompt(context, modelName)
   override fun setSystemPrompt(modelName: String, prompt: String) = ServerPrefs.setSystemPrompt(context, modelName, prompt)
   override fun getInferenceConfig(modelName: String): Map<String, Any>? = ServerPrefs.getInferenceConfig(context, modelName)

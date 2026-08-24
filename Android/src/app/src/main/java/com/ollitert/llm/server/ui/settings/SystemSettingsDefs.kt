@@ -17,7 +17,6 @@
 package com.ollitert.llm.server.ui.settings
 
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 
 // ─── General Card ───────────────────────────────────────────────────
 
@@ -29,8 +28,8 @@ val KEEP_SCREEN_AWAKE = SettingDef.Toggle(
   default = true,
   resetDefault = false,
   prefsKey = "keep_screen_on",
-  read = { ServerPrefs.isKeepScreenOn(it) },
-  write = { ctx, v -> ServerPrefs.setKeepScreenOn(ctx, v) },
+  read = { it.isKeepScreenOn() },
+  write = { repo, v -> repo.setKeepScreenOn(v) },
 )
 
 val AUTO_EXPAND_LOGS = SettingDef.Toggle(
@@ -40,8 +39,8 @@ val AUTO_EXPAND_LOGS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "auto_expand_logs",
-  read = { ServerPrefs.isAutoExpandLogs(it) },
-  write = { ctx, v -> ServerPrefs.setAutoExpandLogs(ctx, v) },
+  read = { it.isAutoExpandLogs() },
+  write = { repo, v -> repo.setAutoExpandLogs(v) },
 )
 
 val WRAP_LOG_TEXT = SettingDef.Toggle(
@@ -51,8 +50,8 @@ val WRAP_LOG_TEXT = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "wrap_log_text",
-  read = { ServerPrefs.isWrapLogText(it) },
-  write = { ctx, v -> ServerPrefs.setWrapLogText(ctx, v) },
+  read = { it.isWrapLogText() },
+  write = { repo, v -> repo.setWrapLogText(v) },
 )
 
 val STREAM_RESPONSE_PREVIEW = SettingDef.Toggle(
@@ -62,8 +61,8 @@ val STREAM_RESPONSE_PREVIEW = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "stream_logs_preview",
-  read = { ServerPrefs.isStreamLogsPreview(it) },
-  write = { ctx, v -> ServerPrefs.setStreamLogsPreview(ctx, v) },
+  read = { it.isStreamLogsPreview() },
+  write = { repo, v -> repo.setStreamLogsPreview(v) },
 )
 
 val COMPACT_IMAGE_DATA = SettingDef.Toggle(
@@ -73,8 +72,8 @@ val COMPACT_IMAGE_DATA = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "compact_image_data",
-  read = { ServerPrefs.isCompactImageData(it) },
-  write = { ctx, v -> ServerPrefs.setCompactImageData(ctx, v) },
+  read = { it.isCompactImageData() },
+  write = { repo, v -> repo.setCompactImageData(v) },
 )
 
 val RESOLVE_CLIENT_HOSTNAMES = SettingDef.Toggle(
@@ -84,8 +83,8 @@ val RESOLVE_CLIENT_HOSTNAMES = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "resolve_client_hostnames",
-  read = { ServerPrefs.isResolveClientHostnames(it) },
-  write = { ctx, v -> ServerPrefs.setResolveClientHostnames(ctx, v) },
+  read = { it.isResolveClientHostnames() },
+  write = { repo, v -> repo.setResolveClientHostnames(v) },
 )
 
 val HIDE_HEALTH_LOGS = SettingDef.Toggle(
@@ -95,8 +94,8 @@ val HIDE_HEALTH_LOGS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "hide_health_logs",
-  read = { ServerPrefs.isHideHealthLogs(it) },
-  write = { ctx, v -> ServerPrefs.setHideHealthLogs(ctx, v) },
+  read = { it.isHideHealthLogs() },
+  write = { repo, v -> repo.setHideHealthLogs(v) },
 )
 
 val CLEAR_LOGS_ON_STOP = SettingDef.Toggle(
@@ -106,8 +105,8 @@ val CLEAR_LOGS_ON_STOP = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "clear_logs_on_stop",
-  read = { ServerPrefs.isClearLogsOnStop(it) },
-  write = { ctx, v -> ServerPrefs.setClearLogsOnStop(ctx, v) },
+  read = { it.isClearLogsOnStop() },
+  write = { repo, v -> repo.setClearLogsOnStop(v) },
 )
 
 val CONFIRM_CLEAR_LOGS = SettingDef.Toggle(
@@ -117,8 +116,8 @@ val CONFIRM_CLEAR_LOGS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "confirm_clear_logs",
-  read = { ServerPrefs.isConfirmClearLogs(it) },
-  write = { ctx, v -> ServerPrefs.setConfirmClearLogs(ctx, v) },
+  read = { it.isConfirmClearLogs() },
+  write = { repo, v -> repo.setConfirmClearLogs(v) },
 )
 
 val KEEP_PARTIAL_RESPONSE = SettingDef.Toggle(
@@ -128,8 +127,8 @@ val KEEP_PARTIAL_RESPONSE = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = false,
   prefsKey = "keep_partial_response",
-  read = { ServerPrefs.isKeepPartialResponse(it) },
-  write = { ctx, v -> ServerPrefs.setKeepPartialResponse(ctx, v) },
+  read = { it.isKeepPartialResponse() },
+  write = { repo, v -> repo.setKeepPartialResponse(v) },
 )
 
 val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
@@ -139,8 +138,8 @@ val SHOW_MODEL_RECOMMENDATIONS = SettingDef.Toggle(
   card = CardId.GENERAL,
   default = true,
   prefsKey = "show_model_recommendations",
-  read = { ServerPrefs.isShowModelRecommendations(it) },
-  write = { ctx, v -> ServerPrefs.setShowModelRecommendations(ctx, v) },
+  read = { it.isShowModelRecommendations() },
+  write = { repo, v -> repo.setShowModelRecommendations(v) },
 )
 
 // ─── Metrics Card ─────────────────────────────────────────────────
@@ -152,8 +151,8 @@ val NOTIF_REQUEST_COUNT = SettingDef.Toggle(
   card = CardId.METRICS,
   default = false,
   prefsKey = "notif_show_request_count",
-  read = { ServerPrefs.isNotifShowRequestCount(it) },
-  write = { ctx, v -> ServerPrefs.setNotifShowRequestCount(ctx, v) },
+  read = { it.isNotifShowRequestCount() },
+  write = { repo, v -> repo.setNotifShowRequestCount(v) },
 )
 
 val SHOW_REQUEST_TYPES = SettingDef.Toggle(
@@ -163,8 +162,8 @@ val SHOW_REQUEST_TYPES = SettingDef.Toggle(
   card = CardId.METRICS,
   default = false,
   prefsKey = "show_request_types",
-  read = { ServerPrefs.isShowRequestTypes(it) },
-  write = { ctx, v -> ServerPrefs.setShowRequestTypes(ctx, v) },
+  read = { it.isShowRequestTypes() },
+  write = { repo, v -> repo.setShowRequestTypes(v) },
 )
 
 val SHOW_ADVANCED_METRICS = SettingDef.Toggle(
@@ -174,8 +173,8 @@ val SHOW_ADVANCED_METRICS = SettingDef.Toggle(
   card = CardId.METRICS,
   default = false,
   prefsKey = "show_advanced_metrics",
-  read = { ServerPrefs.isShowAdvancedMetrics(it) },
-  write = { ctx, v -> ServerPrefs.setShowAdvancedMetrics(ctx, v) },
+  read = { it.isShowAdvancedMetrics() },
+  write = { repo, v -> repo.setShowAdvancedMetrics(v) },
 )
 
 val FORCE_STREAM_USAGE = SettingDef.Toggle(
@@ -185,8 +184,8 @@ val FORCE_STREAM_USAGE = SettingDef.Toggle(
   card = CardId.METRICS,
   default = true,
   prefsKey = "force_stream_usage",
-  read = { ServerPrefs.isForceStreamUsage(it) },
-  write = { ctx, v -> ServerPrefs.setForceStreamUsage(ctx, v) },
+  read = { it.isForceStreamUsage() },
+  write = { repo, v -> repo.setForceStreamUsage(v) },
 )
 
 // ─── Log Persistence Card ─────────────────────────────────────────
@@ -198,8 +197,8 @@ val LOG_PERSISTENCE_ENABLED = SettingDef.Toggle(
   card = CardId.LOG_PERSISTENCE,
   default = false,
   prefsKey = "log_persistence_enabled",
-  read = { ServerPrefs.isLogPersistenceEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setLogPersistenceEnabled(ctx, v) },
+  read = { it.isLogPersistenceEnabled() },
+  write = { repo, v -> repo.setLogPersistenceEnabled(v) },
 )
 
 val LOG_MAX_ENTRIES = SettingDef.NumericPlain(
@@ -211,8 +210,8 @@ val LOG_MAX_ENTRIES = SettingDef.NumericPlain(
   prefsKey = "log_max_entries",
   min = 0,
   max = 10000,
-  read = { ServerPrefs.getLogMaxEntries(it) },
-  write = { ctx, v -> ServerPrefs.setLogMaxEntries(ctx, v) },
+  read = { it.getLogMaxEntries() },
+  write = { repo, v -> repo.setLogMaxEntries(v) },
 )
 
 val LOG_AUTO_DELETE = SettingDef.NumericWithUnit(
@@ -242,8 +241,8 @@ val LOG_AUTO_DELETE = SettingDef.NumericWithUnit(
   min = 0,
   max = 525600,
   baseUnitLabel = "minutes",
-  read = { ServerPrefs.getLogAutoDeleteMinutes(it) },
-  write = { ctx, v -> ServerPrefs.setLogAutoDeleteMinutes(ctx, v) },
+  read = { it.getLogAutoDeleteMinutes() },
+  write = { repo, v -> repo.setLogAutoDeleteMinutes(v) },
 )
 
 val CLEAR_ALL_LOGS = SettingDef.Custom(
@@ -271,8 +270,8 @@ val AUTO_UPDATE_CHECK = SettingDef.Toggle(
   card = CardId.UPDATES,
   default = true,
   prefsKey = "update_check_enabled",
-  read = { ServerPrefs.isUpdateCheckEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setUpdateCheckEnabled(ctx, v) },
+  read = { it.isUpdateCheckEnabled() },
+  write = { repo, v -> repo.setUpdateCheckEnabled(v) },
 )
 
 val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
@@ -299,8 +298,8 @@ val CHECK_FREQUENCY = SettingDef.NumericWithUnit(
   min = 1,
   max = 720,
   baseUnitLabel = "hours",
-  read = { ServerPrefs.getUpdateCheckIntervalHours(it).toLong() },
-  write = { ctx, v -> ServerPrefs.setUpdateCheckIntervalHours(ctx, v.toInt()) },
+  read = { it.getUpdateCheckIntervalHours().toLong() },
+  write = { repo, v -> repo.setUpdateCheckIntervalHours(v.toInt()) },
 )
 
 val CHECK_FOR_UPDATES = SettingDef.Custom(
@@ -317,8 +316,8 @@ val CROSS_CHANNEL_NOTIFY = SettingDef.Toggle(
   card = CardId.UPDATES,
   default = false,
   prefsKey = "cross_channel_notify_enabled",
-  read = { ServerPrefs.isCrossChannelNotifyEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setCrossChannelNotifyEnabled(ctx, v) },
+  read = { it.isCrossChannelNotifyEnabled() },
+  write = { repo, v -> repo.setCrossChannelNotifyEnabled(v) },
 )
 
 val NOTIFICATION_SETTINGS = SettingDef.Custom(
@@ -337,8 +336,8 @@ val VERBOSE_DEBUG = SettingDef.Toggle(
   card = CardId.DEVELOPER,
   default = false,
   prefsKey = "verbose_debug_enabled",
-  read = { ServerPrefs.isVerboseDebugEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setVerboseDebugEnabled(ctx, v) },
+  read = { it.isVerboseDebugEnabled() },
+  write = { repo, v -> repo.setVerboseDebugEnabled(v) },
 )
 
 val EXPORT_LOGCAT = SettingDef.Custom(

@@ -31,12 +31,13 @@ import com.ollitert.llm.server.data.prefs.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyConfig
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
 import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.service.inference.ServerMetrics
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val persistence: RequestLogPersistence,
   private val dataStoreRepository: DataStoreRepository,
+  private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
@@ -95,22 +97,22 @@ class SettingsViewModel @Inject constructor(
   // Entries are created from the read lambda on each non-Custom SettingDef.
 
   // Bearer has derived state (enabled = token non-blank) — not a SettingDef
-  val bearerEnabledEntry = SettingEntry(ServerPrefs.getBearerToken(context).isNotBlank())
+  val bearerEnabledEntry = SettingEntry(preferencesRepository.getBearerToken().isNotBlank())
 
   private val entryByKey: Map<String, SettingEntry<*>> = buildMap {
     for (def in allSettingDefs) {
       when (def) {
-        is SettingDef.Toggle -> put(def.key, SettingEntry(def.read(context)))
-        is SettingDef.TextInput -> put(def.key, SettingEntry(def.read(context)))
-        is SettingDef.NumericInput -> put(def.key, SettingEntry(def.read(context)))
-        is SettingDef.NumericWithUnit -> put(def.key, SettingEntry(def.read(context)))
-        is SettingDef.NumericPlain -> put(def.key, SettingEntry(def.read(context)))
-        is SettingDef.Dropdown -> put(def.key, SettingEntry(def.read(context)))
+        is SettingDef.Toggle -> put(def.key, SettingEntry(def.read(preferencesRepository)))
+        is SettingDef.TextInput -> put(def.key, SettingEntry(def.read(preferencesRepository)))
+        is SettingDef.NumericInput -> put(def.key, SettingEntry(def.read(preferencesRepository)))
+        is SettingDef.NumericWithUnit -> put(def.key, SettingEntry(def.read(preferencesRepository)))
+        is SettingDef.NumericPlain -> put(def.key, SettingEntry(def.read(preferencesRepository)))
+        is SettingDef.Dropdown -> put(def.key, SettingEntry(def.read(preferencesRepository)))
         is SettingDef.Custom -> {} // no persistence
       }
     }
     // Bearer token is a Custom def but has a manually-managed entry for UI state
-    put("bearer_token", SettingEntry(ServerPrefs.getBearerToken(context)))
+    put("bearer_token", SettingEntry(preferencesRepository.getBearerToken()))
   }
 
   @Suppress("UNCHECKED_CAST")
@@ -337,14 +339,13 @@ class SettingsViewModel @Inject constructor(
     portEntry.update(port)
 
     // ── Persist to SharedPreferences ──
-    val wasLogPersistenceEnabled = ServerPrefs.isLogPersistenceEnabled(context)
-    val oldAutoDeleteMinutes = ServerPrefs.getLogAutoDeleteMinutes(context)
+    val wasLogPersistenceEnabled = preferencesRepository.isLogPersistenceEnabled()
+    val oldAutoDeleteMinutes = preferencesRepository.getLogAutoDeleteMinutes()
     // Bearer token uses effective value (blank when toggle is off)
-    ServerPrefs.setBearerToken(context, effectiveBearerToken)
+    preferencesRepository.setBearerToken(effectiveBearerToken)
     // Persist related network fields atomically so readers never observe a mixed configuration.
-    ServerPrefs.setServerBindConfig(context, bindConfig)
-    ServerPrefs.setClientIpPolicyConfig(
-      context,
+    preferencesRepository.setServerBindConfig(bindConfig)
+    preferencesRepository.setClientIpPolicyConfig(
       policyConfig.copy(rulesText = compiledPolicy.normalizedRulesText),
     )
     // All non-Custom settings: persist via the definition's write lambda
@@ -367,7 +368,7 @@ class SettingsViewModel @Inject constructor(
       val cached = ServerMetrics.availableUpdateVersion.value
       if (cached != null && !UpdateCheckWorker.isOwnChannelTag(cached)) {
         ServerMetrics.setAvailableUpdate(null, null)
-        ServerPrefs.setCachedUpdateInfo(context, null, null, null)
+        preferencesRepository.setCachedUpdateInfo(null, null, null)
       }
     }
 
@@ -377,7 +378,7 @@ class SettingsViewModel @Inject constructor(
     // Write a full settings snapshot to logcat when verbose debug is turned on,
     // so exported debug logs contain the active configuration for diagnosis.
     if (verboseDebugEnabledEntry.current && !verboseDebugEnabledEntry.saved) {
-      ServerPrefs.dumpToLogcat(context)
+      preferencesRepository.dumpToLogcat()
     }
 
     // ── Sync persistence layer ──
@@ -385,9 +386,9 @@ class SettingsViewModel @Inject constructor(
       persistence.persistCurrentEntries()
     }
     persistence.updateMaxEntries()
-    val pruningConfigChanged = ServerPrefs.isLogPersistenceEnabled(context) != wasLogPersistenceEnabled
-        || (ServerPrefs.isLogPersistenceEnabled(context)
-            && ServerPrefs.getLogAutoDeleteMinutes(context) != oldAutoDeleteMinutes)
+    val pruningConfigChanged = preferencesRepository.isLogPersistenceEnabled() != wasLogPersistenceEnabled
+        || (preferencesRepository.isLogPersistenceEnabled()
+            && preferencesRepository.getLogAutoDeleteMinutes() != oldAutoDeleteMinutes)
     if (pruningConfigChanged) {
       persistence.schedulePruning()
     }
@@ -417,12 +418,12 @@ class SettingsViewModel @Inject constructor(
   @Suppress("UNCHECKED_CAST")
   private fun persistViaDefinition(def: SettingDef, entry: SettingEntry<*>) {
     when (def) {
-      is SettingDef.Toggle -> def.write(context, (entry as SettingEntry<Boolean>).current)
-      is SettingDef.TextInput -> def.write(context, (entry as SettingEntry<String>).current)
-      is SettingDef.NumericInput -> def.write(context, (entry as SettingEntry<Int>).current)
-      is SettingDef.NumericWithUnit -> def.write(context, (entry as SettingEntry<Long>).current)
-      is SettingDef.NumericPlain -> def.write(context, (entry as SettingEntry<Int>).current)
-      is SettingDef.Dropdown -> def.write(context, (entry as SettingEntry<String?>).current)
+      is SettingDef.Toggle -> def.write(preferencesRepository, (entry as SettingEntry<Boolean>).current)
+      is SettingDef.TextInput -> def.write(preferencesRepository, (entry as SettingEntry<String>).current)
+      is SettingDef.NumericInput -> def.write(preferencesRepository, (entry as SettingEntry<Int>).current)
+      is SettingDef.NumericWithUnit -> def.write(preferencesRepository, (entry as SettingEntry<Long>).current)
+      is SettingDef.NumericPlain -> def.write(preferencesRepository, (entry as SettingEntry<Int>).current)
+      is SettingDef.Dropdown -> def.write(preferencesRepository, (entry as SettingEntry<String?>).current)
       is SettingDef.Custom -> {}
     }
   }
@@ -541,7 +542,7 @@ class SettingsViewModel @Inject constructor(
   /** Reset all settings to factory defaults using SettingDef metadata. */
   @Suppress("UNCHECKED_CAST")
   fun resetToDefaults() {
-    ServerPrefs.resetToDefaults(context)
+    preferencesRepository.resetToDefaults()
 
     // Reset each entry to its definition's resetDefault (not fresh-install default)
     for (def in allSettingDefs) {
@@ -584,6 +585,16 @@ class SettingsViewModel @Inject constructor(
       }
       refreshRepositoryCounts()
     }
+  }
+
+  fun isHaIntegrationEnabled(): Boolean = preferencesRepository.isHaIntegrationEnabled()
+
+  fun setHaIntegrationEnabled(enabled: Boolean) {
+    preferencesRepository.setHaIntegrationEnabled(enabled)
+  }
+
+  fun syncCrossChannelNotify() {
+    preferencesRepository.setCrossChannelNotifyEnabled(crossChannelNotifyEntry.current)
   }
 
   // ─── Validation ──────────────────────────────────────────────────────────

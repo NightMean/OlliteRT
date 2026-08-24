@@ -24,7 +24,6 @@ import com.ollitert.llm.server.data.prefs.MAX_VALID_PORT
 import com.ollitert.llm.server.data.prefs.MIN_VALID_PORT
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.prefs.resolveHost
 
 // ─── Server Configuration Card ────────────────────────────────────
@@ -36,10 +35,10 @@ val SERVER_BIND_MODE = SettingDef.Dropdown(
   card = CardId.SERVER_CONFIG,
   default = ServerBindMode.ALL_INTERFACES.preferenceValue,
   prefsKey = "server_bind_mode",
-  read = { ServerPrefs.getServerBindConfig(it).mode.preferenceValue },
-  write = { ctx, value ->
-    val current = ServerPrefs.getServerBindConfig(ctx)
-    ServerPrefs.setServerBindConfig(ctx, current.copy(mode = ServerBindMode.fromPreference(value)))
+  read = { it.getServerBindConfig().mode.preferenceValue },
+  write = { repo, value ->
+    val current = repo.getServerBindConfig()
+    repo.setServerBindConfig(current.copy(mode = ServerBindMode.fromPreference(value)))
   },
 )
 
@@ -55,10 +54,10 @@ val CUSTOM_BIND_ADDRESS = SettingDef.TextInput(
       ctx.getString(R.string.validation_bind_address_invalid)
     else null
   },
-  read = { ServerPrefs.getServerBindConfig(it).customAddress },
-  write = { ctx, value ->
-    val current = ServerPrefs.getServerBindConfig(ctx)
-    ServerPrefs.setServerBindConfig(ctx, current.copy(customAddress = value.trim()))
+  read = { it.getServerBindConfig().customAddress },
+  write = { repo, value ->
+    val current = repo.getServerBindConfig()
+    repo.setServerBindConfig(current.copy(customAddress = value.trim()))
   },
 )
 
@@ -71,8 +70,8 @@ val HOST_PORT = SettingDef.NumericInput(
   prefsKey = "port",
   min = MIN_VALID_PORT,
   max = MAX_VALID_PORT,
-  read = { ServerPrefs.getPort(it) },
-  write = { ctx, v -> ServerPrefs.save(ctx, v) },
+  read = { it.getPort() },
+  write = { repo, v -> repo.savePort(v) },
 )
 
 val CLIENT_IP_POLICY_MODE = SettingDef.Dropdown(
@@ -82,10 +81,10 @@ val CLIENT_IP_POLICY_MODE = SettingDef.Dropdown(
   card = CardId.SERVER_CONFIG,
   default = ClientIpPolicyMode.ALLOW_ALL.preferenceValue,
   prefsKey = "client_ip_policy_mode",
-  read = { ServerPrefs.getClientIpPolicyConfig(it).mode.preferenceValue },
-  write = { ctx, value ->
-    val current = ServerPrefs.getClientIpPolicyConfig(ctx)
-    ServerPrefs.setClientIpPolicyConfig(ctx, current.copy(mode = ClientIpPolicyMode.fromPreference(value)))
+  read = { it.getClientIpPolicyConfig().mode.preferenceValue },
+  write = { repo, value ->
+    val current = repo.getClientIpPolicyConfig()
+    repo.setClientIpPolicyConfig(current.copy(mode = ClientIpPolicyMode.fromPreference(value)))
   },
 )
 
@@ -96,10 +95,10 @@ val CLIENT_IP_RULES = SettingDef.TextInput(
   card = CardId.SERVER_CONFIG,
   default = "",
   prefsKey = "client_ip_rules",
-  read = { ServerPrefs.getClientIpPolicyConfig(it).rulesText },
-  write = { ctx, value ->
-    val current = ServerPrefs.getClientIpPolicyConfig(ctx)
-    ServerPrefs.setClientIpPolicyConfig(ctx, current.copy(rulesText = value.trim()))
+  read = { it.getClientIpPolicyConfig().rulesText },
+  write = { repo, value ->
+    val current = repo.getClientIpPolicyConfig()
+    repo.setClientIpPolicyConfig(current.copy(rulesText = value.trim()))
   },
 )
 
@@ -123,8 +122,8 @@ val CORS_ORIGINS = SettingDef.TextInput(
       ctx.getString(R.string.validation_cors_invalid)
     else null
   },
-  read = { ServerPrefs.getCorsAllowedOrigins(it) },
-  write = { ctx, v -> ServerPrefs.setCorsAllowedOrigins(ctx, v) },
+  read = { it.getCorsAllowedOrigins() },
+  write = { repo, v -> repo.setCorsAllowedOrigins(v) },
 )
 
 // ─── Auto-Launch & Behaviour Card ─────────────────────────────────
@@ -137,8 +136,8 @@ val DEFAULT_MODEL = SettingDef.Dropdown(
   default = null,
   resetDefault = "",
   prefsKey = "default_model_name",
-  read = { ServerPrefs.getDefaultModelName(it) },
-  write = { ctx, v -> ServerPrefs.setDefaultModelName(ctx, v) },
+  read = { it.getDefaultModelName() },
+  write = { repo, v -> repo.setDefaultModelName(v) },
 )
 
 val START_ON_BOOT = SettingDef.Toggle(
@@ -148,8 +147,8 @@ val START_ON_BOOT = SettingDef.Toggle(
   card = CardId.AUTO_LAUNCH,
   default = false,
   prefsKey = "auto_start_on_boot",
-  read = { ServerPrefs.isAutoStartOnBoot(it) },
-  write = { ctx, v -> ServerPrefs.setAutoStartOnBoot(ctx, v) },
+  read = { it.isAutoStartOnBoot() },
+  write = { repo, v -> repo.setAutoStartOnBoot(v) },
 )
 
 val KEEP_ALIVE = SettingDef.Toggle(
@@ -159,8 +158,8 @@ val KEEP_ALIVE = SettingDef.Toggle(
   card = CardId.AUTO_LAUNCH,
   default = false,
   prefsKey = "keep_alive_enabled",
-  read = { ServerPrefs.isKeepAliveEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setKeepAliveEnabled(ctx, v) },
+  read = { it.isKeepAliveEnabled() },
+  write = { repo, v -> repo.setKeepAliveEnabled(v) },
 )
 
 val KEEP_ALIVE_TIMEOUT = SettingDef.NumericWithUnit(
@@ -187,8 +186,8 @@ val KEEP_ALIVE_TIMEOUT = SettingDef.NumericWithUnit(
   min = 1,
   max = 7200,
   baseUnitLabel = "minutes",
-  read = { ServerPrefs.getKeepAliveMinutes(it).toLong() },
-  write = { ctx, v -> ServerPrefs.setKeepAliveMinutes(ctx, v.toInt()) },
+  read = { it.getKeepAliveMinutes().toLong() },
+  write = { repo, v -> repo.setKeepAliveMinutes(v.toInt()) },
 )
 
 val DONTKILLMYAPP = SettingDef.Custom(
@@ -224,8 +223,8 @@ val TIMEOUT_CHAT_COMPLETIONS = SettingDef.NumericWithUnit(
   min = 10,
   max = 3600,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutChatCompletions(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutChatCompletions(ctx, v) },
+  read = { it.getTimeoutChatCompletions() },
+  write = { repo, v -> repo.setTimeoutChatCompletions(v) },
 )
 
 val TIMEOUT_RESPONSES = SettingDef.NumericWithUnit(
@@ -252,8 +251,8 @@ val TIMEOUT_RESPONSES = SettingDef.NumericWithUnit(
   min = 10,
   max = 3600,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutResponses(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutResponses(ctx, v) },
+  read = { it.getTimeoutResponses() },
+  write = { repo, v -> repo.setTimeoutResponses(v) },
 )
 
 val TIMEOUT_STREAMING = SettingDef.NumericWithUnit(
@@ -280,8 +279,8 @@ val TIMEOUT_STREAMING = SettingDef.NumericWithUnit(
   min = 10,
   max = 3600,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutStreaming(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutStreaming(ctx, v) },
+  read = { it.getTimeoutStreaming() },
+  write = { repo, v -> repo.setTimeoutStreaming(v) },
 )
 
 val TIMEOUT_BLOCKING = SettingDef.NumericWithUnit(
@@ -308,8 +307,8 @@ val TIMEOUT_BLOCKING = SettingDef.NumericWithUnit(
   min = 10,
   max = 3600,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutBlocking(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutBlocking(ctx, v) },
+  read = { it.getTimeoutBlocking() },
+  write = { repo, v -> repo.setTimeoutBlocking(v) },
 )
 
 val TIMEOUT_WARMUP = SettingDef.NumericWithUnit(
@@ -336,8 +335,8 @@ val TIMEOUT_WARMUP = SettingDef.NumericWithUnit(
   min = 5,
   max = 300,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutWarmup(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutWarmup(ctx, v) },
+  read = { it.getTimeoutWarmup() },
+  write = { repo, v -> repo.setTimeoutWarmup(v) },
 )
 
 val TIMEOUT_KEEP_ALIVE_RECHECK = SettingDef.NumericWithUnit(
@@ -364,8 +363,8 @@ val TIMEOUT_KEEP_ALIVE_RECHECK = SettingDef.NumericWithUnit(
   min = 10,
   max = 300,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutKeepAliveRecheckSeconds(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutKeepAliveRecheckSeconds(ctx, v) },
+  read = { it.getTimeoutKeepAliveRecheckSeconds() },
+  write = { repo, v -> repo.setTimeoutKeepAliveRecheckSeconds(v) },
 )
 
 val TIMEOUT_CLEANUP_AWAIT = SettingDef.NumericWithUnit(
@@ -392,6 +391,6 @@ val TIMEOUT_CLEANUP_AWAIT = SettingDef.NumericWithUnit(
   min = 5,
   max = 120,
   baseUnitLabel = "seconds",
-  read = { ServerPrefs.getTimeoutCleanupAwait(it) },
-  write = { ctx, v -> ServerPrefs.setTimeoutCleanupAwait(ctx, v) },
+  read = { it.getTimeoutCleanupAwait() },
+  write = { repo, v -> repo.setTimeoutCleanupAwait(v) },
 )

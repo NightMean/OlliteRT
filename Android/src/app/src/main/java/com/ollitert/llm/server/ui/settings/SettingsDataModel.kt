@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 
 /**
  * Reactive state holder for a single setting. Tracks both the persisted (saved)
@@ -88,8 +89,8 @@ sealed class SettingDef(
     val resetDefault: Boolean = default,
     val prefsKey: String,
     val requiresRestart: Boolean = false,
-    val read: (Context) -> Boolean,
-    val write: (Context, Boolean) -> Unit,
+    val read: (PreferencesRepository) -> Boolean,
+    val write: (PreferencesRepository, Boolean) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class TextInput(
@@ -102,8 +103,8 @@ sealed class SettingDef(
     val prefsKey: String,
     val isPassword: Boolean = false,
     val validate: ((String, Context) -> String?)? = null,
-    val read: (Context) -> String,
-    val write: (Context, String) -> Unit,
+    val read: (PreferencesRepository) -> String,
+    val write: (PreferencesRepository, String) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class NumericInput(
@@ -116,8 +117,8 @@ sealed class SettingDef(
     val min: Int,
     val max: Int,
     val maxLength: Int = 5,
-    val read: (Context) -> Int,
-    val write: (Context, Int) -> Unit,
+    val read: (PreferencesRepository) -> Int,
+    val write: (PreferencesRepository, Int) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class NumericWithUnit(
@@ -134,8 +135,8 @@ sealed class SettingDef(
     val min: Long,
     val max: Long,
     val baseUnitLabel: String,
-    val read: (Context) -> Long,
-    val write: (Context, Long) -> Unit,
+    val read: (PreferencesRepository) -> Long,
+    val write: (PreferencesRepository, Long) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class NumericPlain(
@@ -147,8 +148,8 @@ sealed class SettingDef(
     val prefsKey: String,
     val min: Int,
     val max: Int,
-    val read: (Context) -> Int,
-    val write: (Context, Int) -> Unit,
+    val read: (PreferencesRepository) -> Int,
+    val write: (PreferencesRepository, Int) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)
 
   class Dropdown(
@@ -159,8 +160,8 @@ sealed class SettingDef(
     val default: String?,
     val resetDefault: String? = default,
     val prefsKey: String,
-    val read: (Context) -> String?,
-    val write: (Context, String?) -> Unit,
+    val read: (PreferencesRepository) -> String?,
+    val write: (PreferencesRepository, String?) -> Unit,
   ) : SettingDef(key, labelRes, descriptionRes, card)
 
   /** Settings with custom renderers (bearer token, HA, action buttons, external links). */

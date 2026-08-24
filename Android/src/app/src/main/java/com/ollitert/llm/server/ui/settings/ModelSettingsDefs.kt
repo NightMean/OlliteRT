@@ -18,7 +18,6 @@ package com.ollitert.llm.server.ui.settings
 
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.prefs.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 
 // ─── Repositories & HF Token ─────────────────────────────────────────
 
@@ -37,8 +36,8 @@ val HF_TOKEN = SettingDef.TextInput(
   default = "",
   prefsKey = "hf_token",
   isPassword = true,
-  read = { ServerPrefs.getHfToken(it) },
-  write = { ctx, v -> ServerPrefs.setHfToken(ctx, v) },
+  read = { it.getHfToken() },
+  write = { repo, v -> repo.setHfToken(v) },
 )
 
 // ─── Model Behaviour Card ─────────────────────────────────────────────
@@ -50,8 +49,8 @@ val CUSTOM_PROMPTS = SettingDef.Toggle(
   card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "custom_prompts_enabled",
-  read = { ServerPrefs.isCustomPromptsEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setCustomPromptsEnabled(ctx, v) },
+  read = { it.isCustomPromptsEnabled() },
+  write = { repo, v -> repo.setCustomPromptsEnabled(v) },
 )
 
 val SCHEMA_INJECTION_TOOL_CALLING = SettingDef.Toggle(
@@ -61,8 +60,8 @@ val SCHEMA_INJECTION_TOOL_CALLING = SettingDef.Toggle(
   card = CardId.MODEL_BEHAVIOUR,
   default = true,
   prefsKey = "schema_injection_tool_calling",
-  read = { ServerPrefs.isSchemaInjectionToolCalling(it) },
-  write = { ctx, v -> ServerPrefs.setSchemaInjectionToolCalling(ctx, v) },
+  read = { it.isSchemaInjectionToolCalling() },
+  write = { repo, v -> repo.setSchemaInjectionToolCalling(v) },
 )
 
 val REJECT_WHEN_BUSY = SettingDef.Toggle(
@@ -72,8 +71,8 @@ val REJECT_WHEN_BUSY = SettingDef.Toggle(
   card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "reject_when_busy",
-  read = { ServerPrefs.isRejectWhenBusy(it) },
-  write = { ctx, v -> ServerPrefs.setRejectWhenBusy(ctx, v) },
+  read = { it.isRejectWhenBusy() },
+  write = { repo, v -> repo.setRejectWhenBusy(v) },
 )
 
 val WARMUP_MESSAGE = SettingDef.Toggle(
@@ -83,8 +82,8 @@ val WARMUP_MESSAGE = SettingDef.Toggle(
   card = CardId.MODEL_BEHAVIOUR,
   default = true,
   prefsKey = "warmup_enabled",
-  read = { ServerPrefs.isWarmupEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setWarmupEnabled(ctx, v) },
+  read = { it.isWarmupEnabled() },
+  write = { repo, v -> repo.setWarmupEnabled(v) },
 )
 
 val PRE_INIT_VISION = SettingDef.Toggle(
@@ -95,8 +94,8 @@ val PRE_INIT_VISION = SettingDef.Toggle(
   default = false,
   prefsKey = "eager_vision_init",
   requiresRestart = true,
-  read = { ServerPrefs.isEagerVisionInit(it) },
-  write = { ctx, v -> ServerPrefs.setEagerVisionInit(ctx, v) },
+  read = { it.isEagerVisionInit() },
+  write = { repo, v -> repo.setEagerVisionInit(v) },
 )
 
 val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
@@ -106,8 +105,8 @@ val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
   card = CardId.MODEL_BEHAVIOUR,
   default = false,
   prefsKey = "ignore_client_sampler_params",
-  read = { ServerPrefs.isIgnoreClientSamplerParams(it) },
-  write = { ctx, v -> ServerPrefs.setIgnoreClientSamplerParams(ctx, v) },
+  read = { it.isIgnoreClientSamplerParams() },
+  write = { repo, v -> repo.setIgnoreClientSamplerParams(v) },
 )
 
 val STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
@@ -117,8 +116,8 @@ val STT_TRANSCRIPTION_PROMPT = SettingDef.Toggle(
   card = CardId.MODEL_BEHAVIOUR,
   default = true,
   prefsKey = "stt_transcription_prompt",
-  read = { ServerPrefs.isSttTranscriptionPromptEnabled(it) },
-  write = { ctx, v -> ServerPrefs.setSttTranscriptionPromptEnabled(ctx, v) },
+  read = { it.isSttTranscriptionPromptEnabled() },
+  write = { repo, v -> repo.setSttTranscriptionPromptEnabled(v) },
 )
 
 val STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
@@ -128,10 +127,10 @@ val STT_TRANSCRIPTION_PROMPT_TEXT = SettingDef.TextInput(
   card = CardId.MODEL_BEHAVIOUR,
   default = DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT,
   prefsKey = "stt_transcription_prompt_text",
-  read = { ServerPrefs.getSttTranscriptionPromptText(it).ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
-  write = { ctx, v ->
-    ServerPrefs.setSttTranscriptionPromptText(
-      ctx, v.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT },
+  read = { it.getSttTranscriptionPromptText().ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT } },
+  write = { repo, v ->
+    repo.setSttTranscriptionPromptText(
+      v.ifBlank { DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT },
     )
   },
 )
@@ -146,8 +145,8 @@ val TRUNCATE_HISTORY = SettingDef.Toggle(
   default = false,
   resetDefault = true,
   prefsKey = "auto_truncate_history",
-  read = { ServerPrefs.isAutoTruncateHistory(it) },
-  write = { ctx, v -> ServerPrefs.setAutoTruncateHistory(ctx, v) },
+  read = { it.isAutoTruncateHistory() },
+  write = { repo, v -> repo.setAutoTruncateHistory(v) },
 )
 
 val TRIM_PROMPT = SettingDef.Toggle(
@@ -157,6 +156,6 @@ val TRIM_PROMPT = SettingDef.Toggle(
   card = CardId.CONTEXT_MANAGEMENT,
   default = false,
   prefsKey = "auto_trim_prompts",
-  read = { ServerPrefs.isAutoTrimPrompts(it) },
-  write = { ctx, v -> ServerPrefs.setAutoTrimPrompts(ctx, v) },
+  read = { it.isAutoTrimPrompts() },
+  write = { repo, v -> repo.setAutoTrimPrompts(v) },
 )

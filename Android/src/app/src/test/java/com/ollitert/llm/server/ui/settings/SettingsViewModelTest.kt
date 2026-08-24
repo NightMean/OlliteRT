@@ -24,8 +24,7 @@ import com.ollitert.llm.server.data.prefs.ClientIpPolicyConfig
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
-import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.ui.settings.STT_TRANSCRIPTION_PROMPT
+import com.ollitert.llm.server.data.repository.FakePreferencesRepository
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.service.inference.ServerMetrics
@@ -50,86 +49,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-// Manual construction (no Hilt test rules) — ServerPrefs/RequestLogStore are mocked objects,
-// and the ViewModel's only Android dep is Context. Hilt DI adds no value for these unit tests.
+// Manual construction (no Hilt test rules) with in-memory FakePreferencesRepository.
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
   private val mockPersistence: RequestLogPersistence = mockk(relaxed = true)
+  private lateinit var fakePreferences: FakePreferencesRepository
   private lateinit var vm: SettingsViewModel
 
   @Before
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
-    mockkObject(ServerPrefs)
     mockkObject(RequestLogStore)
     mockkObject(ServerService)
     mockkObject(ServerMetrics)
     mockkObject(UpdateCheckWorker)
 
-    every { ServerPrefs.getPort(any()) } returns DEFAULT_PORT
-    every { ServerPrefs.getServerBindConfig(any()) } returns ServerBindConfig()
-    every { ServerPrefs.getClientIpPolicyConfig(any()) } returns ClientIpPolicyConfig()
-    every { ServerPrefs.getBearerToken(any()) } returns ""
-    every { ServerPrefs.getHfToken(any()) } returns ""
-    every { ServerPrefs.isKeepScreenOn(any()) } returns true
-    every { ServerPrefs.isAutoStartOnBoot(any()) } returns false
-    every { ServerPrefs.isKeepAliveEnabled(any()) } returns false
-    every { ServerPrefs.getKeepAliveMinutes(any()) } returns 30
-    every { ServerPrefs.isWarmupEnabled(any()) } returns true
-    every { ServerPrefs.isUpdateCheckEnabled(any()) } returns true
-    every { ServerPrefs.getUpdateCheckIntervalHours(any()) } returns 24
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
-    every { ServerPrefs.getLogMaxEntries(any()) } returns 500
-    every { ServerPrefs.getLogAutoDeleteMinutes(any()) } returns 0L
-    every { ServerPrefs.isVerboseDebugEnabled(any()) } returns false
-    every { ServerPrefs.isAutoExpandLogs(any()) } returns false
-    every { ServerPrefs.isStreamLogsPreview(any()) } returns true
-    every { ServerPrefs.isCompactImageData(any()) } returns true
-    every { ServerPrefs.isHideHealthLogs(any()) } returns false
-    every { ServerPrefs.isClearLogsOnStop(any()) } returns false
-    every { ServerPrefs.isConfirmClearLogs(any()) } returns true
-    every { ServerPrefs.isKeepPartialResponse(any()) } returns true
-    every { ServerPrefs.isEagerVisionInit(any()) } returns false
-    every { ServerPrefs.isCustomPromptsEnabled(any()) } returns false
-    every { ServerPrefs.isAutoTruncateHistory(any()) } returns true
-    every { ServerPrefs.isAutoTrimPrompts(any()) } returns false
-    every { ServerPrefs.isIgnoreClientSamplerParams(any()) } returns false
-    every { ServerPrefs.getDefaultModelName(any()) } returns null
-    every { ServerPrefs.getCorsAllowedOrigins(any()) } returns "*"
-    every { ServerPrefs.isShowRequestTypes(any()) } returns false
-    every { ServerPrefs.isShowAdvancedMetrics(any()) } returns false
-    every { ServerPrefs.isSttTranscriptionPromptEnabled(any()) } returns false
-    every { ServerPrefs.getSttTranscriptionPromptText(any()) } returns ""
-    every { ServerPrefs.isNotifShowRequestCount(any()) } returns false
-    every { ServerPrefs.isResolveClientHostnames(any()) } returns false
-    every { ServerPrefs.getTimeoutChatCompletions(any()) } returns 120L
-    every { ServerPrefs.getTimeoutResponses(any()) } returns 90L
-    every { ServerPrefs.getTimeoutStreaming(any()) } returns 90L
-    every { ServerPrefs.getTimeoutBlocking(any()) } returns 30L
-    every { ServerPrefs.getTimeoutWarmup(any()) } returns 10L
-    every { ServerPrefs.getTimeoutKeepAliveRecheckSeconds(any()) } returns 30L
-    every { ServerPrefs.getTimeoutCleanupAwait(any()) } returns 15L
+    fakePreferences = FakePreferencesRepository()
 
     every { ServerService.resetKeepAliveTimer(any()) } returns Unit
     every { ServerService.updateClientIpAccessPolicy(any()) } returns Unit
-
-    every { ServerPrefs.setBearerToken(any(), any()) } returns Unit
-    every { ServerPrefs.save(any(), any()) } returns Unit
-    every { ServerPrefs.setServerBindConfig(any(), any()) } returns Unit
-    every { ServerPrefs.setClientIpPolicyConfig(any(), any()) } returns Unit
-    every { ServerPrefs.setKeepScreenOn(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutChatCompletions(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutResponses(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutStreaming(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutBlocking(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutWarmup(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutKeepAliveRecheckSeconds(any(), any()) } returns Unit
-    every { ServerPrefs.setTimeoutCleanupAwait(any(), any()) } returns Unit
-    every { ServerPrefs.resetToDefaults(any()) } returns Unit
-    every { ServerPrefs.dumpToLogcat(any()) } returns Unit
 
     every { RequestLogStore.entries } returns mockk { every { value } returns emptyList() }
     every { RequestLogStore.addEvent(any(), any(), any(), any(), any()) } returns Unit
@@ -140,7 +81,7 @@ class SettingsViewModelTest {
     every { UpdateCheckWorker.scheduleUpdateCheck(any()) } returns Unit
     every { UpdateCheckWorker.cancelUpdateCheck(any()) } returns Unit
 
-    vm = SettingsViewModel(mockContext, mockPersistence, FakeDataStoreRepository())
+    vm = SettingsViewModel(mockContext, mockPersistence, FakeDataStoreRepository(), fakePreferences, testDispatcher)
   }
 
   @After
@@ -200,11 +141,10 @@ class SettingsViewModelTest {
   fun bearerEnabledWithBlankTokenPersistsBlankToken() {
     vm.bearerEnabledEntry.update(true)
     vm.bearerTokenEntry.update("   ")
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     vm.save(ServerStatus.STOPPED)
     // When enabled with blank token, effectiveBearerToken is the blank string itself,
     // which the server treats as "auth disabled" (isBlank() check in requireAuth).
-    verify(exactly = 1) { ServerPrefs.setBearerToken(mockContext, "   ") }
+    assertEquals("   ", fakePreferences.getBearerToken())
   }
 
   @Test
@@ -310,7 +250,6 @@ class SettingsViewModelTest {
   @Test
   fun saveSuccessWithChangesServerStopped() {
     vm.keepScreenOnEntry.update(false)
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     val result = vm.save(ServerStatus.STOPPED)
     assertTrue(result is SettingsViewModel.SaveResult.Success)
   }
@@ -321,7 +260,7 @@ class SettingsViewModelTest {
     every { ServerMetrics.status } returns mockk { every { value } returns ServerStatus.RUNNING }
     val result = vm.save(ServerStatus.RUNNING)
     assertTrue(result is SettingsViewModel.SaveResult.NeedsRestart)
-    verify(exactly = 1) { ServerPrefs.save(mockContext, 9090) }
+    assertEquals(9090, fakePreferences.getPort())
   }
 
   @Test
@@ -332,9 +271,7 @@ class SettingsViewModelTest {
     val result = vm.save(ServerStatus.RUNNING)
 
     assertTrue(result is SettingsViewModel.SaveResult.NeedsRestart)
-    verify(exactly = 1) {
-      ServerPrefs.setServerBindConfig(mockContext, ServerBindConfig(ServerBindMode.LOOPBACK, ""))
-    }
+    assertEquals(ServerBindMode.LOOPBACK, fakePreferences.getServerBindConfig().mode)
   }
 
   @Test
@@ -356,12 +293,7 @@ class SettingsViewModelTest {
     val result = vm.save(ServerStatus.STOPPED)
 
     assertTrue(result is SettingsViewModel.SaveResult.Success)
-    verify(exactly = 1) {
-      ServerPrefs.setServerBindConfig(
-        mockContext,
-        ServerBindConfig(ServerBindMode.CUSTOM, "192.168.1.50"),
-      )
-    }
+    assertEquals("192.168.1.50", fakePreferences.getServerBindConfig().customAddress)
   }
 
   @Test
@@ -374,12 +306,8 @@ class SettingsViewModelTest {
     val result = vm.save(ServerStatus.RUNNING)
 
     assertTrue(result is SettingsViewModel.SaveResult.Success)
-    verify(exactly = 1) {
-      ServerPrefs.setClientIpPolicyConfig(
-        mockContext,
-        ClientIpPolicyConfig(ClientIpPolicyMode.ALLOW_ONLY, "192.168.1.0/24"),
-      )
-    }
+    assertEquals(ClientIpPolicyMode.ALLOW_ONLY, fakePreferences.getClientIpPolicyConfig().mode)
+    assertEquals("192.168.1.0/24", fakePreferences.getClientIpPolicyConfig().rulesText)
     verify(exactly = 1) { ServerService.updateClientIpAccessPolicy(capture(policySlot)) }
     assertTrue(policySlot.captured.allows("192.168.1.42"))
     assertFalse(policySlot.captured.allows("10.0.0.1"))
@@ -421,14 +349,12 @@ class SettingsViewModelTest {
   fun saveAdvancesBaselines() {
     vm.keepScreenOnEntry.update(false)
     assertTrue(vm.hasUnsavedChanges)
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     vm.save(ServerStatus.STOPPED)
     assertFalse(vm.hasUnsavedChanges)
   }
 
   @Test
   fun saveCallsPersistenceUpdateMaxEntries() {
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     vm.save(ServerStatus.STOPPED)
     verify(exactly = 1) { mockPersistence.updateMaxEntries() }
   }
@@ -436,18 +362,16 @@ class SettingsViewModelTest {
   @Test
   fun savePersistsToggleValueToSharedPreferences() {
     vm.keepScreenOnEntry.update(false)
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     vm.save(ServerStatus.STOPPED)
-    verify(exactly = 1) { ServerPrefs.setKeepScreenOn(mockContext, false) }
+    assertFalse(fakePreferences.isKeepScreenOn())
   }
 
   @Test
   fun savePersistsBearerTokenToSharedPreferences() {
     vm.bearerEnabledEntry.update(true)
     vm.bearerTokenEntry.update("my-secret")
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     vm.save(ServerStatus.STOPPED)
-    verify(exactly = 1) { ServerPrefs.setBearerToken(mockContext, "my-secret") }
+    assertEquals("my-secret", fakePreferences.getBearerToken())
   }
 
   // --- trySave Trim Warning ---
@@ -466,7 +390,6 @@ class SettingsViewModelTest {
   @Test
   fun trySaveSkipsWarningWhenMaxNotChanged() {
     every { RequestLogStore.entries } returns mockk { every { value } returns List(100) { mockk() } }
-    every { ServerPrefs.isLogPersistenceEnabled(any()) } returns false
     val result = vm.trySave(ServerStatus.STOPPED)
     assertTrue(result is SettingsViewModel.SaveResult.Success)
   }
@@ -475,8 +398,11 @@ class SettingsViewModelTest {
 
   @Test
   fun resetToDefaultsCallsPrefsReset() {
+    vm.portText = "9999"
+    vm.save(ServerStatus.STOPPED)
+    assertEquals(9999, fakePreferences.getPort())
     vm.resetToDefaults()
-    verify(exactly = 1) { ServerPrefs.resetToDefaults(mockContext) }
+    assertEquals(DEFAULT_PORT, fakePreferences.getPort())
   }
 
   @Test
