@@ -456,23 +456,24 @@ class SettingsViewModel @Inject constructor(
     }
     if (clientIpRulesEntry.isChanged) {
       changes.add(
-        "Client IP Rules: ${countIpRules(clientIpRulesEntry.saved)} -> " +
-          "${countIpRules(clientIpRulesEntry.current)} rules",
+        "Client IP Rules: ${SettingsChangeLogFormatter.countIpRules(clientIpRulesEntry.saved)} -> " +
+          "${SettingsChangeLogFormatter.countIpRules(clientIpRulesEntry.current)} rules",
       )
     }
 
     // Bearer token: derived state (enabled = token non-blank)
     val bearerWasEnabled = bearerTokenEntry.saved.isNotBlank()
     val bearerIsEnabled = effectiveBearerToken.isNotBlank()
-    if (bearerWasEnabled != bearerIsEnabled)
-      changes.add("Bearer Auth: ${fmtToggle(bearerWasEnabled)} → ${fmtToggle(bearerIsEnabled)}")
+    if (bearerWasEnabled != bearerIsEnabled) {
+      changes.add("Bearer Auth: ${SettingsChangeLogFormatter.fmtToggle(bearerWasEnabled)} → ${SettingsChangeLogFormatter.fmtToggle(bearerIsEnabled)}")
+    }
 
     // All other settings: iterate definitions and format changed entries
     for (def in allSettingDefs) {
       if (def.key in NETWORK_CONFIG_SETTING_KEYS || def.key == "host_port" || def.key == "bearer_token") continue
       val entry = entryByKey[def.key] ?: continue
       if (!entry.isChanged) continue
-      formatChange(def, entry)?.let { changes.add(it) }
+      SettingsChangeLogFormatter.formatChange(context.getString(def.labelRes), def, entry)?.let { changes.add(it) }
     }
 
     if (changes.isNotEmpty()) {
@@ -482,59 +483,6 @@ class SettingsViewModel @Inject constructor(
         body = changes.joinToString("\n"),
       )
     }
-  }
-
-  /** Formats a single setting's old→new change for the log entry. */
-  private fun formatChange(def: SettingDef, entry: SettingEntry<*>): String? {
-    val label = context.getString(def.labelRes)
-    return when (def) {
-      is SettingDef.Toggle -> {
-        @Suppress("UNCHECKED_CAST")
-        val e = entry as SettingEntry<Boolean>
-        "$label: ${fmtToggle(e.saved)} → ${fmtToggle(e.current)}"
-      }
-      is SettingDef.TextInput -> {
-        @Suppress("UNCHECKED_CAST")
-        val e = entry as SettingEntry<String>
-        if (def.isPassword) "$label: changed" // sensitive — don't log value
-        else "$label: ${e.saved.ifBlank { "disabled" }} → ${e.current.ifBlank { "disabled" }}"
-      }
-      is SettingDef.NumericInput -> {
-        @Suppress("UNCHECKED_CAST")
-        val e = entry as SettingEntry<Int>
-        "$label: ${e.saved} → ${e.current}"
-      }
-      is SettingDef.NumericWithUnit -> formatNumericWithUnitChange(def, entry, label)
-      is SettingDef.NumericPlain -> {
-        @Suppress("UNCHECKED_CAST")
-        val e = entry as SettingEntry<Int>
-        "$label: ${e.saved} → ${e.current}"
-      }
-      is SettingDef.Dropdown -> {
-        @Suppress("UNCHECKED_CAST")
-        val e = entry as SettingEntry<String?>
-        "$label: ${e.saved ?: "none"} → ${e.current ?: "none"}"
-      }
-      is SettingDef.Custom -> null
-    }
-  }
-
-  /** Formats NumericWithUnit changes using the definition's unit conversion. */
-  @Suppress("UNCHECKED_CAST")
-  private fun formatNumericWithUnitChange(
-    def: SettingDef.NumericWithUnit,
-    entry: SettingEntry<*>,
-    label: String,
-  ): String {
-    fun fmt(base: Long): String {
-      if (base == 0L) return "disabled"
-      val (value, unit) = def.fromBaseUnit(base)
-      val singular = unit.removeSuffix("s")
-      val display = if (value == 1L) singular else unit
-      return "$value $display"
-    }
-    val e = entry as SettingEntry<Long>
-    return "$label: ${fmt(e.saved)} → ${fmt(e.current)}"
   }
 
   // ─── Reset ───────────────────────────────────────────────────────────────
@@ -667,12 +615,6 @@ class SettingsViewModel @Inject constructor(
       "client_ip_policy_mode",
       "client_ip_rules",
     )
-
-    private fun fmtToggle(enabled: Boolean) = if (enabled) "enabled" else "disabled"
-
-    private fun countIpRules(rulesText: String): Int = rulesText
-      .split(Regex("[,\\r\\n]+"))
-      .count { it.isNotBlank() }
 
     internal fun formatNumericWithUnitRangeError(
       def: SettingDef.NumericWithUnit,
