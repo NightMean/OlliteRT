@@ -218,10 +218,10 @@ object LiteRtEngineFactory {
     val canFallbackToCpu = backendResolution.canFallbackToCpu
     val modelPath = model.getPath(context = context)
 
-    val engineConfig = EngineConfig(
+    fun engineConfigFor(backend: Backend, vision: Backend) = EngineConfig(
       modelPath = modelPath,
-      backend = preferredBackend,
-      visionBackend = if (supportImage) visionBackend else null,
+      backend = backend,
+      visionBackend = if (supportImage) vision else null,
       audioBackend = if (supportAudio) Backend.CPU() else null,
       maxNumTokens = maxTokens,
       cacheDir =
@@ -246,9 +246,114 @@ object LiteRtEngineFactory {
       ModelCapability.SPECULATIVE_DECODING in model.capabilities &&
       specDecUserEnabled
 
+    try {
+      model.instance = initEngineWithConversation(
+        engineConfig = engineConfigFor(preferredBackend, visionBackend),
+        enableSpeculativeDecoding = enableSpeculativeDecoding,
+        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        topK = topK,
+        topP = topP,
+        temperature = temperature,
+        seed = seed,
+        systemInstruction = systemInstruction,
+        tools = tools,
+        initialMessages = initialMessages,
+      )
+      Log.i(TAG, "Engine initialized successfully on ${preferredBackend::class.simpleName} for '${model.name}'" +
+        " (speculative_decoding=$enableSpeculativeDecoding)")
+      RequestLogStore.addEvent(
+        "Engine initialized on ${preferredBackend::class.simpleName}" +
+          if (enableSpeculativeDecoding) " (MTP enabled)" else "",
+        level = LogLevel.INFO,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+    } catch (e: Exception) {
+      Log.e(TAG, "Engine init failed for '${model.name}' with ${preferredBackend::class.simpleName}: " +
+        "[${e::class.simpleName}] ${e.message}", e)
+      RequestLogStore.addEvent(
+        "${preferredBackend::class.simpleName} init failed: [${e::class.simpleName}] ${e.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS)}",
+        level = LogLevel.ERROR,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+
+      // Safety-net: retry with CPU fallback if GPU init failed
+      if (preferredBackend is Backend.GPU && canFallbackToCpu) {
+        Log.w(TAG, "GPU initialization failed, retrying with CPU backend")
+        RequestLogStore.addEvent(
+          "GPU init failed, retrying with CPU: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}",
+          level = LogLevel.WARNING,
+          modelName = model.name,
+          category = EventCategory.MODEL,
+        )
+        try {
+          model.instance = initEngineWithConversation(
+            // CPU fallback also forces the vision backend to CPU — a GPU that just failed
+            // for the main backend is unlikely to succeed for vision either.
+            engineConfig = engineConfigFor(Backend.CPU(), Backend.CPU()),
+            enableSpeculativeDecoding = false,
+            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+            topK = topK,
+            topP = topP,
+            temperature = temperature,
+            seed = seed,
+            systemInstruction = systemInstruction,
+            tools = tools,
+            initialMessages = initialMessages,
+          )
+          Log.i(TAG, "CPU fallback successful for '${model.name}'")
+          RequestLogStore.addEvent(
+            "Model loaded on CPU (GPU unavailable on this device)",
+            level = LogLevel.INFO,
+            modelName = model.name,
+            category = EventCategory.MODEL,
+          )
+          onDone("")
+          return
+        } catch (fallbackEx: Exception) {
+          Log.e(TAG, "CPU fallback also failed for '${model.name}': " +
+            "[${fallbackEx::class.simpleName}] ${fallbackEx.message}", fallbackEx)
+          RequestLogStore.addEvent(
+            "CPU fallback failed: [${fallbackEx::class.simpleName}] ${fallbackEx.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS)}",
+            level = LogLevel.ERROR,
+            modelName = model.name,
+            category = EventCategory.MODEL,
+          )
+        }
+      }
+
+      onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
+      return
+    }
+    onDone("")
+  }
+
+  /**
+   * Builds an [Engine] from [engineConfig], initializes it, and creates the initial
+   * [Conversation]. Shared by the preferred-backend path and the CPU fallback path in
+   * [createAndInitEngine]; callers only decide which backend config to pass and how to
+   * log/report outcomes.
+   *
+   * Owns resource safety for the half-constructed pair: if engine creation, initialization,
+   * or conversation creation throws, the engine is closed and GC is hinted before rethrowing.
+   */
+  @OptIn(ExperimentalApi::class)
+  private fun initEngineWithConversation(
+    engineConfig: EngineConfig,
+    enableSpeculativeDecoding: Boolean,
+    enableConversationConstrainedDecoding: Boolean,
+    topK: Int,
+    topP: Float,
+    temperature: Float,
+    seed: Int,
+    systemInstruction: Contents?,
+    tools: List<ToolProvider>,
+    initialMessages: List<Message>,
+  ): LlmModelInstance {
+    ExperimentalFlags.enableSpeculativeDecoding = enableSpeculativeDecoding
     var engine: Engine? = null
     try {
-      ExperimentalFlags.enableSpeculativeDecoding = enableSpeculativeDecoding
       engine = Engine(engineConfig)
       engine.initialize()
       ExperimentalFlags.enableSpeculativeDecoding = false
@@ -256,7 +361,8 @@ object LiteRtEngineFactory {
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       try {
-        val useSampler = preferredBackend !is Backend.NPU
+        // NPU backends reject custom sampler configs, so only non-NPU gets one.
+        val useSampler = engineConfig.backend !is Backend.NPU
         val conversation = engine.createConversation(
           ConversationConfig(
             samplerConfig =
@@ -276,108 +382,18 @@ object LiteRtEngineFactory {
             automaticToolCalling = false,
           ),
         )
-        model.instance = LlmModelInstance(engine = engine, conversation = conversation)
+        return LlmModelInstance(engine = engine!!, conversation = conversation)
       } finally {
         ExperimentalFlags.enableConversationConstrainedDecoding = false
       }
-      Log.i(TAG, "Engine initialized successfully on ${preferredBackend::class.simpleName} for '${model.name}'" +
-        " (speculative_decoding=$enableSpeculativeDecoding)")
-      RequestLogStore.addEvent(
-        "Engine initialized on ${preferredBackend::class.simpleName}" +
-          if (enableSpeculativeDecoding) " (MTP enabled)" else "",
-        level = LogLevel.INFO,
-        modelName = model.name,
-        category = EventCategory.MODEL,
-      )
     } catch (e: Exception) {
       ExperimentalFlags.enableSpeculativeDecoding = false
-      Log.e(TAG, "Engine init failed for '${model.name}' with ${preferredBackend::class.simpleName}: " +
-        "[${e::class.simpleName}] ${e.message}", e)
-      RequestLogStore.addEvent(
-        "${preferredBackend::class.simpleName} init failed: [${e::class.simpleName}] ${e.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS)}",
-        level = LogLevel.ERROR,
-        modelName = model.name,
-        category = EventCategory.MODEL,
-      )
       try { engine?.close() } catch (closeEx: Exception) {
-        Log.w(TAG, "Engine.close() failed during error cleanup", closeEx)
+        Log.w(TAG, "Engine.close() failed during init cleanup", closeEx)
       }
       System.gc()
-
-      // Safety-net: retry with CPU fallback if GPU init failed
-      if (preferredBackend is Backend.GPU && canFallbackToCpu) {
-        Log.w(TAG, "GPU initialization failed, retrying with CPU backend")
-        RequestLogStore.addEvent(
-          "GPU init failed, retrying with CPU: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}",
-          level = LogLevel.WARNING,
-          modelName = model.name,
-          category = EventCategory.MODEL,
-        )
-        val cpuConfig = EngineConfig(
-          modelPath = modelPath,
-          backend = Backend.CPU(),
-          visionBackend = if (supportImage) Backend.CPU() else null,
-          audioBackend = if (supportAudio) Backend.CPU() else null,
-          maxNumTokens = maxTokens,
-          cacheDir =
-            if (modelPath.startsWith("/data/local/tmp"))
-              context.getExternalFilesDir(null)?.absolutePath
-            else null,
-        )
-        var fallbackEngine: Engine? = null
-        try {
-          fallbackEngine = Engine(cpuConfig)
-          fallbackEngine.initialize()
-          ExperimentalFlags.enableConversationConstrainedDecoding =
-            enableConversationConstrainedDecoding
-          try {
-            val conversation = fallbackEngine.createConversation(
-              ConversationConfig(
-                samplerConfig = SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                  seed = seed,
-                ),
-                systemInstruction = systemInstruction,
-                tools = tools,
-                initialMessages = initialMessages,
-                automaticToolCalling = false,
-              ),
-            )
-            model.instance = LlmModelInstance(engine = fallbackEngine, conversation = conversation)
-          } finally {
-            ExperimentalFlags.enableConversationConstrainedDecoding = false
-          }
-          Log.i(TAG, "CPU fallback successful for '${model.name}'")
-          RequestLogStore.addEvent(
-            "Model loaded on CPU (GPU unavailable on this device)",
-            level = LogLevel.INFO,
-            modelName = model.name,
-            category = EventCategory.MODEL,
-          )
-          onDone("")
-          return
-        } catch (fallbackEx: Exception) {
-          Log.e(TAG, "CPU fallback also failed for '${model.name}': " +
-            "[${fallbackEx::class.simpleName}] ${fallbackEx.message}", fallbackEx)
-          RequestLogStore.addEvent(
-            "CPU fallback failed: [${fallbackEx::class.simpleName}] ${fallbackEx.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS)}",
-            level = LogLevel.ERROR,
-            modelName = model.name,
-            category = EventCategory.MODEL,
-          )
-          try { fallbackEngine?.close() } catch (closeEx: Exception) {
-            Log.w(TAG, "Engine.close() failed during CPU fallback cleanup", closeEx)
-          }
-          System.gc()
-        }
-      }
-
-      onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
-      return
+      throw e
     }
-    onDone("")
   }
 
   @OptIn(ExperimentalApi::class)
