@@ -58,8 +58,12 @@ import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
+import com.ollitert.llm.server.di.DefaultDispatcher
+import com.ollitert.llm.server.di.IoDispatcher
+import com.ollitert.llm.server.di.MainDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -122,6 +126,8 @@ constructor(
   private val lifecycleProvider: OlliteRTLifecycleProvider,
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
+  @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+  @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ViewModel() {
   val onboardingCompleted: Boolean = runBlocking { dataStoreRepository.isOnboardingCompleted() }
 
@@ -147,7 +153,7 @@ constructor(
   private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, fileManager)
 
   fun completeOnboarding() {
-    viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.setOnboardingCompleted() }
+    viewModelScope.launch(ioDispatcher) { dataStoreRepository.setOnboardingCompleted() }
   }
 
   fun getModelByName(name: String): Model? {
@@ -267,7 +273,7 @@ constructor(
     }
 
     if (model.imported) {
-      viewModelScope.launch(Dispatchers.IO) {
+      viewModelScope.launch(ioDispatcher) {
         importedModelCoordinator.deleteImportedModelRecord(model.name)
       }
     }
@@ -354,13 +360,13 @@ constructor(
       )
     }
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       importedModelCoordinator.saveImportedModel(info)
     }
   }
 
   fun updateImportedModelDefaults(updatedInfo: ImportedModel) {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val updatedModel = importedModelCoordinator.updateDefaults(updatedInfo)
       _uiState.update { current ->
         val updatedModels = current.models.map { m ->
@@ -373,7 +379,7 @@ constructor(
 
   fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): Boolean {
     if (oldFileName == newFileName) {
-      viewModelScope.launch(Dispatchers.IO) {
+      viewModelScope.launch(ioDispatcher) {
         val updatedModel = importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName) ?: return@launch
         _uiState.update { current ->
           val updatedModels = current.models.map { m ->
@@ -385,7 +391,7 @@ constructor(
       return true
     }
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val updatedModel = importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName) ?: return@launch
       _uiState.update { current ->
         val updatedModels = current.models.map { m ->
@@ -400,7 +406,7 @@ constructor(
   private fun processPendingDownloads() {
     downloadRepository.cancelAll {
       Log.d(TAG, "All workers are cancelled.")
-      viewModelScope.launch(Dispatchers.Main) {
+      viewModelScope.launch(mainDispatcher) {
         val configuredToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
         for (model in uiState.value.models) {
           val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
@@ -435,7 +441,7 @@ constructor(
       it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "", allReposDisabled = false)
     }
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val result = allowlistLoadCoordinator.loadAllowlist(
         testAllowlistOverride = TEST_MODEL_ALLOW_LIST,
         isManualRetry = isManualRetry,
@@ -491,7 +497,7 @@ constructor(
 
   fun clearLoadModelAllowlistError() {
     processModels()
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       _uiState.update {
         createUiState()
           .copy(
@@ -507,18 +513,18 @@ constructor(
   }
 
   fun importModelListFromUrl(url: String, onResult: (String?) -> Unit) {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val error = importManager.importFromUrl(url)
       if (error == null) loadModelAllowlist()
-      withContext(Dispatchers.Main) { onResult(error) }
+      withContext(mainDispatcher) { onResult(error) }
     }
   }
 
   fun importModelList(uri: Uri, onResult: (String?) -> Unit) {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val error = importManager.importFromUri(uri)
       if (error == null) loadModelAllowlist()
-      withContext(Dispatchers.Main) { onResult(error) }
+      withContext(mainDispatcher) { onResult(error) }
     }
   }
 

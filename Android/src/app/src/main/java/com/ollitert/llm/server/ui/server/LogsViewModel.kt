@@ -25,12 +25,14 @@ import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.repository.RequestLogStoreRepository
+import com.ollitert.llm.server.di.DefaultDispatcher
 import com.ollitert.llm.server.ui.server.logs.LogFilter
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import com.ollitert.llm.server.ui.server.logs.matchesFilter
 import com.ollitert.llm.server.ui.server.logs.toggle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -49,6 +51,7 @@ class LogsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val requestLogStoreRepository: RequestLogStoreRepository = DefaultRequestLogStoreRepository(),
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
+  @param:DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
   val entries: StateFlow<List<RequestLogEntry>> = requestLogStoreRepository.entries
@@ -94,7 +97,7 @@ class LogsViewModel @Inject constructor(
         allEntries.filter { it.matchesFilter(currentFilter, context) }
       }
     }
-  }.flowOn(Dispatchers.Default)
+  }.flowOn(defaultDispatcher)
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   val autoExpand: Boolean get() = preferencesRepository.isAutoExpandLogs()

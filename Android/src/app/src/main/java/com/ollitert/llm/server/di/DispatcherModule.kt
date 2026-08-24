@@ -28,6 +28,14 @@ import javax.inject.Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class IoDispatcher
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DefaultDispatcher
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MainDispatcher
+
 // Hilt module for injecting coroutine dispatchers — enables test doubles
 // (e.g. TestDispatcher) without touching production coroutine call sites.
 @Module
@@ -36,4 +44,12 @@ object DispatcherModule {
   @IoDispatcher
   @Provides
   fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+  @DefaultDispatcher
+  @Provides
+  fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
+
+  @MainDispatcher
+  @Provides
+  fun provideMainDispatcher(): CoroutineDispatcher = Dispatchers.Main
 }

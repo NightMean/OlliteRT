@@ -47,10 +47,12 @@ import com.ollitert.llm.server.ui.settings.SettingDef
 import com.ollitert.llm.server.ui.settings.SettingEntry
 import com.ollitert.llm.server.ui.settings.allCardDefs
 import com.ollitert.llm.server.ui.settings.allSettingDefs
+import com.ollitert.llm.server.di.IoDispatcher
 import com.ollitert.llm.server.ui.settings.settingDefsByKey
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -68,6 +70,7 @@ class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val persistence: RequestLogPersistence,
   private val dataStoreRepository: DataStoreRepository,
+  @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
   var repoCount: Int by mutableIntStateOf(0)
@@ -80,7 +83,7 @@ class SettingsViewModel @Inject constructor(
   }
 
   fun refreshRepositoryCounts() {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       val repos = dataStoreRepository.readRepositories()
       repoCount = repos.size
       enabledRepoCount = repos.count { it.enabled }
@@ -569,7 +572,7 @@ class SettingsViewModel @Inject constructor(
     UpdateCheckWorker.scheduleUpdateCheck(context)
     ServerService.updateClientIpAccessPolicy(ClientIpAccessPolicy.ALLOW_ALL)
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       dataStoreRepository.resetRepositories()
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {

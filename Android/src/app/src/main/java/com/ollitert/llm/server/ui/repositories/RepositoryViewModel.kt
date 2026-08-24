@@ -35,8 +35,10 @@ import com.ollitert.llm.server.data.model.repoCacheFilename
 import com.ollitert.llm.server.data.allowlist.deriveRepositoryName
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
+import com.ollitert.llm.server.di.IoDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -77,6 +79,7 @@ sealed class AddRepoResult {
 class RepositoryViewModel @Inject constructor(
   private val dataStoreRepository: DataStoreRepository,
   @param:ApplicationContext private val context: Context,
+  @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
   private val allowlistLoader = ModelAllowlistLoader(context, context.getExternalFilesDir(null))
@@ -85,7 +88,7 @@ class RepositoryViewModel @Inject constructor(
   val uiState: StateFlow<RepositoryUiState> = _uiState.asStateFlow()
 
   fun loadRepositories() {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       _uiState.update { it.copy(isLoading = true) }
       try {
         val repos = dataStoreRepository.readRepositories()
@@ -136,7 +139,7 @@ class RepositoryViewModel @Inject constructor(
         selectedRepo = state.selectedRepo?.let { if (it.id == id) it.copy(enabled = enabled) else it },
       )
     }
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       dataStoreRepository.toggleRepositoryEnabled(id, enabled)
       loadRepositories()
     }
@@ -151,7 +154,7 @@ class RepositoryViewModel @Inject constructor(
   }
 
   fun deleteRepo(id: String) {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       dataStoreRepository.removeRepository(id)
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {
@@ -162,7 +165,7 @@ class RepositoryViewModel @Inject constructor(
   }
 
   fun loadRepoDetail(repoId: String) {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(ioDispatcher) {
       _uiState.update { it.copy(isLoading = true) }
       val repos = try {
         dataStoreRepository.readRepositories()
@@ -218,7 +221,7 @@ class RepositoryViewModel @Inject constructor(
   fun addRepository(url: String, onResult: (AddRepoResult) -> Unit) {
     viewModelScope.launch {
       _uiState.update { it.copy(isAdding = true, addDialogError = null) }
-      val result = withContext(Dispatchers.IO) { addRepositoryInternal(url) }
+      val result = withContext(ioDispatcher) { addRepositoryInternal(url) }
       _uiState.update {
         it.copy(
           isAdding = false,
@@ -298,7 +301,7 @@ class RepositoryViewModel @Inject constructor(
   fun addRepositoryFromFile(uri: Uri, onResult: (AddRepoResult) -> Unit) {
     viewModelScope.launch {
       _uiState.update { it.copy(isAdding = true, addDialogError = null) }
-      val error = withContext(Dispatchers.IO) { importManager.importFromUri(uri) }
+      val error = withContext(ioDispatcher) { importManager.importFromUri(uri) }
       _uiState.update { it.copy(isAdding = false) }
       if (error != null) {
         onResult(AddRepoResult.Error(error))
