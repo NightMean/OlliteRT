@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.repositories
+package com.ollitert.llm.server.ui.modelrepos
 
 import android.app.Activity
 import android.content.Intent

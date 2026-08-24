@@ -66,9 +66,9 @@ import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.LogsScreen
 import com.ollitert.llm.server.ui.server.ServerViewModel
-import com.ollitert.llm.server.ui.repositories.RepositoryDetailScreen
-import com.ollitert.llm.server.ui.repositories.RepositoryListScreen
-import com.ollitert.llm.server.ui.repositories.RepositoryViewModel
+import com.ollitert.llm.server.ui.modelrepos.RepositoryDetailScreen
+import com.ollitert.llm.server.ui.modelrepos.RepositoryListScreen
+import com.ollitert.llm.server.ui.modelrepos.RepositoryViewModel
 import com.ollitert.llm.server.ui.settings.SettingsScreen
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.server.StatusScreen

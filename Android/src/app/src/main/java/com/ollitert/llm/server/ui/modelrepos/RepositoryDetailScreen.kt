@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.repositories
+package com.ollitert.llm.server.ui.modelrepos
 
 import androidx.activity.compose.BackHandler
 import android.content.Intent
