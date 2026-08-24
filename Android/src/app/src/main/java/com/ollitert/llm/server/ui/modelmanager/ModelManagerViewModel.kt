@@ -63,6 +63,7 @@ import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import com.ollitert.llm.server.di.DefaultDispatcher
 import com.ollitert.llm.server.di.IoDispatcher
 import com.ollitert.llm.server.di.MainDispatcher
+import com.ollitert.llm.server.runtime.GpuAvailability
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -157,6 +158,18 @@ constructor(
 
   fun completeOnboarding() {
     viewModelScope.launch(ioDispatcher) { ProtoDataStoreRepository.setOnboardingCompleted() }
+  }
+
+  /**
+   * True when onboarding should warn that GPU acceleration is unavailable.
+   * The warning shows once per device unless the user re-enables it from Settings.
+   */
+  fun shouldShowGpuUnavailableDialog(): Boolean =
+    !GpuAvailability.isOpenClAccessible && !preferencesRepository.isGpuUnavailableDialogShown()
+
+  /** Persists the user's acknowledgment of the GPU-unavailable warning. */
+  fun onGpuUnavailableDialogConfirmed() {
+    preferencesRepository.setGpuUnavailableDialogShown(true)
   }
 
   fun getModelByName(name: String): Model? {

@@ -71,21 +71,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BenchmarkResultsViewer(
   initialModelName: String,
-  viewModel: BenchmarkViewModel,
+  uiState: BenchmarkUiState,
   onClose: () -> Unit,
+  onClearBaseline: () -> Unit,
+  isComparisonHelpSeen: suspend () -> Boolean,
+  onComparisonHelpSeen: suspend () -> Unit,
+  onExpandAll: () -> Unit,
+  onCollapseAll: () -> Unit,
+  onResultExpandedChange: (id: String, expanded: Boolean) -> Unit,
+  onBasicInfoExpandedChange: (id: String, expanded: Boolean) -> Unit,
+  onStatsExpandedChange: (id: String, expanded: Boolean) -> Unit,
+  onBaselineToggle: (id: String) -> Unit,
+  onAggregationChange: (id: String, aggregation: Aggregation) -> Unit,
+  onDeleteBenchmarkResult: (id: String) -> Unit,
 ) {
   val scope = rememberCoroutineScope()
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
   var showLazyListPlacementAnimation by remember { mutableStateOf(false) }
   var showBenchmarkComparisonHelpBottomSheet by remember { mutableStateOf(false) }
@@ -117,16 +127,14 @@ fun BenchmarkResultsViewer(
   }
 
   // Reset baseline when model selection is changed.
-  LaunchedEffect(selectedModelName) { viewModel.clearBaseline() }
+  LaunchedEffect(selectedModelName) { onClearBaseline() }
 
   // Show "benchmark comparison help" bottom sheet when there are multiple results available.
   LaunchedEffect(filteredResults.size) {
-    if (
-      filteredResults.size > 1 && !viewModel.ProtoDataStoreRepository.getHasSeenBenchmarkComparisonHelp()
-    ) {
+    if (filteredResults.size > 1 && !isComparisonHelpSeen()) {
       delay(500)
       showBenchmarkComparisonHelpBottomSheet = true
-      viewModel.ProtoDataStoreRepository.setHasSeenBenchmarkComparisonHelp(true)
+      onComparisonHelpSeen()
     }
   }
 
@@ -261,7 +269,7 @@ fun BenchmarkResultsViewer(
                         modifier = Modifier.padding(bottom = 16.dp),
                       ) {
                         OutlinedButton(
-                          onClick = { viewModel.expandAll() },
+                          onClick = { onExpandAll() },
                           contentPadding = SMALL_BUTTON_CONTENT_PADDING,
                         ) {
                           Icon(
@@ -272,7 +280,7 @@ fun BenchmarkResultsViewer(
                           Text(stringResource(R.string.expand_all))
                         }
                         OutlinedButton(
-                          onClick = { viewModel.collapseAll() },
+                          onClick = { onCollapseAll() },
                           contentPadding = SMALL_BUTTON_CONTENT_PADDING,
                         ) {
                           Icon(
@@ -294,11 +302,11 @@ fun BenchmarkResultsViewer(
                       result = result,
                       baselineResult = uiState.baselineResult,
                       showBaselineToggle = filteredResults.size > 1,
-                      onExpandedChange = { viewModel.setExpanded(id = result.id, expanded = it) },
-                      onBasicInfoExpandedChange = { viewModel.setBasicInfoExpanded(id = result.id, expanded = it) },
-                      onStatsExpandedChange = { viewModel.setStatsExpanded(id = result.id, expanded = it) },
-                      onBaselineToggle = { viewModel.setBaseline(id = result.id) },
-                      onAggregationChange = { viewModel.setAggregation(id = result.id, aggregation = it) },
+                      onExpandedChange = { onResultExpandedChange(result.id, it) },
+                      onBasicInfoExpandedChange = { onBasicInfoExpandedChange(result.id, it) },
+                      onStatsExpandedChange = { onStatsExpandedChange(result.id, it) },
+                      onBaselineToggle = { onBaselineToggle(result.id) },
+                      onAggregationChange = { onAggregationChange(result.id, it) },
                       onDelete = {
                         benchmarkResultIdToDelete = result.id
                         showConfirmDeleteDialog = true
@@ -336,7 +344,7 @@ fun BenchmarkResultsViewer(
       onConfirm = {
         showLazyListPlacementAnimation = true
         showConfirmDeleteDialog = false
-        viewModel.deleteBenchmarkResult(id = benchmarkResultIdToDelete)
+        onDeleteBenchmarkResult(benchmarkResultIdToDelete)
         scope.launch {
           delay(500)
           showLazyListPlacementAnimation = false

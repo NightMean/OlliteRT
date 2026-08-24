@@ -300,8 +300,21 @@ fun BenchmarkScreen(
     ) {
       BenchmarkResultsViewer(
         initialModelName = selectedModelName,
-        viewModel = viewModel,
+        uiState = uiState,
         onClose = { viewModel.setShowResultsViewer(showResultsViewer = false) },
+        onClearBaseline = { viewModel.clearBaseline() },
+        isComparisonHelpSeen = { viewModel.isComparisonHelpSeen() },
+        onComparisonHelpSeen = { viewModel.markComparisonHelpSeen() },
+        onExpandAll = { viewModel.expandAll() },
+        onCollapseAll = { viewModel.collapseAll() },
+        onResultExpandedChange = { id, expanded -> viewModel.setExpanded(id = id, expanded = expanded) },
+        onBasicInfoExpandedChange = { id, expanded ->
+          viewModel.setBasicInfoExpanded(id = id, expanded = expanded)
+        },
+        onStatsExpandedChange = { id, expanded -> viewModel.setStatsExpanded(id = id, expanded = expanded) },
+        onBaselineToggle = { id -> viewModel.setBaseline(id = id) },
+        onAggregationChange = { id, aggregation -> viewModel.setAggregation(id = id, aggregation = aggregation) },
+        onDeleteBenchmarkResult = { id -> viewModel.deleteBenchmarkResult(id = id) },
       )
     }
   }

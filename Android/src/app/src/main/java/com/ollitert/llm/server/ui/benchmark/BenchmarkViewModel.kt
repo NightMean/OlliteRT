@@ -334,6 +334,15 @@ constructor(
     }
   }
 
+  /** Whether the one-time "benchmark comparison help" sheet was already shown. */
+  suspend fun isComparisonHelpSeen(): Boolean =
+    ProtoDataStoreRepository.getHasSeenBenchmarkComparisonHelp()
+
+  /** Marks the one-time "benchmark comparison help" sheet as shown. */
+  suspend fun markComparisonHelpSeen() {
+    ProtoDataStoreRepository.setHasSeenBenchmarkComparisonHelp(true)
+  }
+
   fun setBaseline(id: String) {
     if (id == uiState.value.baselineResult?.id) {
       clearBaseline()

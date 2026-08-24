@@ -390,6 +390,8 @@ fun OlliteRTNavHost(
             popUpTo<OlliteRTRoute.GettingStarted> { inclusive = true }
           }
         },
+        shouldShowGpuDialog = { modelManagerViewModel.shouldShowGpuUnavailableDialog() },
+        onGpuDialogConfirm = { modelManagerViewModel.onGpuUnavailableDialogConfirmed() },
       )
     }
 
