@@ -17,7 +17,7 @@
 package com.ollitert.llm.server.data.allowlist
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.model.repoCacheFilename
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 
 import android.content.Context
 import android.net.Uri
@@ -37,7 +37,7 @@ private const val TAG = "OlliteRT.ListImport"
  */
 class ModelListImportManager(
   private val context: Context,
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val allowlistLoader: AllowlistLoader,
 ) {
 
@@ -129,7 +129,7 @@ class ModelListImportManager(
     val repoName = allowlist.sourceName.ifEmpty {
       context.getString(R.string.import_model_list_default_name)
     }
-    dataStoreRepository.addRepository(
+    ProtoDataStoreRepository.addRepository(
       Repository(
         id = repoId,
         url = repoUrl,

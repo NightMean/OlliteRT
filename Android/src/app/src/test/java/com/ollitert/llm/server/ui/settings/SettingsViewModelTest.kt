@@ -30,7 +30,7 @@ import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.service.ServerService
-import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
+import com.ollitert.llm.server.data.repository.FakeProtoDataStoreRepository
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import io.mockk.every
 import io.mockk.mockk
@@ -82,7 +82,7 @@ class SettingsViewModelTest {
     every { UpdateCheckWorker.scheduleUpdateCheck(any()) } returns Unit
     every { UpdateCheckWorker.cancelUpdateCheck(any()) } returns Unit
 
-    vm = SettingsViewModel(mockContext, mockPersistence, FakeDataStoreRepository(), fakePreferences, DefaultServerStateRepository(), testDispatcher)
+    vm = SettingsViewModel(mockContext, mockPersistence, FakeProtoDataStoreRepository(), fakePreferences, DefaultServerStateRepository(), testDispatcher)
   }
 
   @After

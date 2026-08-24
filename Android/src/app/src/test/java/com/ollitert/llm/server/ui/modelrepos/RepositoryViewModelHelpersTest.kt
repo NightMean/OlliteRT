@@ -18,7 +18,7 @@ package com.ollitert.llm.server.ui.modelrepos
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
+import com.ollitert.llm.server.data.repository.FakeProtoDataStoreRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -49,7 +49,7 @@ class RepositoryViewModelHelpersTest {
     every { Log.e(any(), any(), any()) } returns 0
     val mockContext: Context = mockk(relaxed = true)
     every { mockContext.getExternalFilesDir(null) } returns java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp")
-    vm = RepositoryViewModel(dataStoreRepository = FakeDataStoreRepository(), context = mockContext)
+    vm = RepositoryViewModel(ProtoDataStoreRepository = FakeProtoDataStoreRepository(), context = mockContext)
   }
 
   @After

@@ -28,7 +28,7 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.cleanUpLiteRtErrorMessage
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.repository.withStableBenchmarkId
 import com.ollitert.llm.server.di.IoDispatcher
@@ -89,14 +89,14 @@ class BenchmarkViewModel
 @Inject
 constructor(
   @param:ApplicationContext private val appContext: Context,
-  val dataStoreRepository: DataStoreRepository,
+  val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
   val uiState = _uiState.asStateFlow()
   private val persistenceWriter = BenchmarkPersistenceWriter(
-    repository = dataStoreRepository,
+    repository = ProtoDataStoreRepository,
     scope = viewModelScope,
     dispatcher = ioDispatcher,
   ) { operation, error ->
@@ -105,7 +105,7 @@ constructor(
 
   init {
     viewModelScope.launch(ioDispatcher) {
-      val storedResults = dataStoreRepository.getAllBenchmarkResults()
+      val storedResults = ProtoDataStoreRepository.getAllBenchmarkResults()
       Log.d(TAG, "Loaded ${storedResults.size} benchmark results")
       setBenchmarkResults(results = storedResults)
       collapseAll()

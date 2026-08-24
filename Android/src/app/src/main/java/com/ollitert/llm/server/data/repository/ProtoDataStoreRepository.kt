@@ -29,7 +29,15 @@ import java.util.UUID
 internal fun BenchmarkResult.withStableBenchmarkId(): BenchmarkResult =
   if (id.isBlank()) toBuilder().setId(UUID.randomUUID().toString()).build() else this
 
-interface DataStoreRepository {
+/**
+ * Repository for structured user data persisted in Proto DataStore:
+ * imported models, benchmark results, model sources, and the onboarding flag.
+ *
+ * Distinct from [PreferencesRepository], which wraps the SharedPreferences-backed
+ * static ServerPrefs used for server and inference settings. The two boundaries
+ * intentionally do not overlap.
+ */
+interface ProtoDataStoreRepository {
   suspend fun saveImportedModels(importedModels: List<ImportedModel>)
   suspend fun readImportedModels(): List<ImportedModel>
   suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel)
@@ -54,10 +62,10 @@ interface DataStoreRepository {
   suspend fun resetRepositories()
 }
 
-class DefaultDataStoreRepository(
+class DefaultProtoDataStoreRepository(
   private val dataStore: DataStore<Settings>,
   private val benchmarkResultsDataStore: DataStore<BenchmarkResults>,
-) : DataStoreRepository {
+) : ProtoDataStoreRepository {
 
   override suspend fun saveImportedModels(importedModels: List<ImportedModel>) {
     dataStore.updateData { settings ->

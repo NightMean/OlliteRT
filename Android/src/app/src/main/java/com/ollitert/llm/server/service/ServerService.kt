@@ -57,7 +57,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -73,7 +73,7 @@ import java.util.concurrent.atomic.AtomicLong
 @AndroidEntryPoint
 class ServerService : Service() {
 
-  @Inject lateinit var dataStoreRepository: DataStoreRepository
+  @Inject lateinit var ProtoDataStoreRepository: ProtoDataStoreRepository
   @Inject lateinit var preferencesRepository: PreferencesRepository
   @Inject lateinit var serverStateRepository: ServerStateRepository
 
@@ -117,7 +117,7 @@ class ServerService : Service() {
     super.onCreate()
     activeInstance = this
     try {
-      val dataStoreRepo = if (::dataStoreRepository.isInitialized) dataStoreRepository else null
+      val dataStoreRepo = if (::ProtoDataStoreRepository.isInitialized) ProtoDataStoreRepository else null
       modelCatalogMerger = ModelCatalogMerger(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,

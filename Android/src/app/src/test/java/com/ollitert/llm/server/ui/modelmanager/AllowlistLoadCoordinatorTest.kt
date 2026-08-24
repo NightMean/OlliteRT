@@ -19,7 +19,7 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.AllowedModel
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.allowlist.DefaultConfig
 import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
@@ -37,7 +37,7 @@ import org.junit.Test
 class AllowlistLoadCoordinatorTest {
 
   private lateinit var context: Context
-  private lateinit var dataStoreRepository: DataStoreRepository
+  private lateinit var ProtoDataStoreRepository: ProtoDataStoreRepository
   private lateinit var repositoryManager: RepositoryManager
   private lateinit var modelStorageRepository: ModelStorageRepository
   private lateinit var importManager: ModelListImportManager
@@ -46,7 +46,7 @@ class AllowlistLoadCoordinatorTest {
   @Before
   fun setUp() {
     context = mockk(relaxed = true)
-    dataStoreRepository = mockk(relaxed = true)
+    ProtoDataStoreRepository = mockk(relaxed = true)
     repositoryManager = mockk(relaxed = true)
     modelStorageRepository = mockk(relaxed = true)
     importManager = mockk(relaxed = true)
@@ -59,7 +59,7 @@ class AllowlistLoadCoordinatorTest {
 
     coordinator = AllowlistLoadCoordinator(
       context = context,
-      dataStoreRepository = dataStoreRepository,
+      ProtoDataStoreRepository = ProtoDataStoreRepository,
       repositoryManager = repositoryManager,
       modelStorageRepository = modelStorageRepository,
       importManager = importManager,

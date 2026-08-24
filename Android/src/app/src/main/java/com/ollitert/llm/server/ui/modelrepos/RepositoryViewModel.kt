@@ -24,7 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.allowlist.FetchResult
 import com.ollitert.llm.server.data.allowlist.fetchBoundedResult
 import com.ollitert.llm.server.data.allowlist.ModelAllowlist
@@ -78,13 +78,13 @@ sealed class AddRepoResult {
 
 @HiltViewModel
 class RepositoryViewModel @Inject constructor(
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   @param:ApplicationContext private val context: Context,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
-  private val importManager = ModelListImportManager(context, dataStoreRepository, modelStorageRepository)
+  private val importManager = ModelListImportManager(context, ProtoDataStoreRepository, modelStorageRepository)
   private val _uiState = MutableStateFlow(RepositoryUiState())
   val uiState: StateFlow<RepositoryUiState> = _uiState.asStateFlow()
 
@@ -92,7 +92,7 @@ class RepositoryViewModel @Inject constructor(
     viewModelScope.launch(ioDispatcher) {
       _uiState.update { it.copy(isLoading = true) }
       try {
-        val repos = dataStoreRepository.readRepositories()
+        val repos = ProtoDataStoreRepository.readRepositories()
         val enriched = repos.map { repo -> enrichRepo(repo) }
         val userRepoCount = enriched.count { !it.isBuiltIn }
         _uiState.update { it.copy(
@@ -141,7 +141,7 @@ class RepositoryViewModel @Inject constructor(
       )
     }
     viewModelScope.launch(ioDispatcher) {
-      dataStoreRepository.toggleRepositoryEnabled(id, enabled)
+      ProtoDataStoreRepository.toggleRepositoryEnabled(id, enabled)
       loadRepositories()
     }
   }
@@ -156,7 +156,7 @@ class RepositoryViewModel @Inject constructor(
 
   fun deleteRepo(id: String) {
     viewModelScope.launch(ioDispatcher) {
-      dataStoreRepository.removeRepository(id)
+      ProtoDataStoreRepository.removeRepository(id)
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {
         java.io.File(dir, repoCacheFilename(id)).delete()
@@ -169,7 +169,7 @@ class RepositoryViewModel @Inject constructor(
     viewModelScope.launch(ioDispatcher) {
       _uiState.update { it.copy(isLoading = true) }
       val repos = try {
-        dataStoreRepository.readRepositories()
+        ProtoDataStoreRepository.readRepositories()
       } catch (e: Exception) {
         Log.e(TAG, "Failed to read repositories for detail", e)
         _uiState.update { it.copy(isLoading = false) }
@@ -234,7 +234,7 @@ class RepositoryViewModel @Inject constructor(
   }
 
   private suspend fun addRepositoryInternal(url: String): AddRepoResult {
-    val existingRepos = dataStoreRepository.readRepositories()
+    val existingRepos = ProtoDataStoreRepository.readRepositories()
 
     val normalizedUrl = url.trim().trimEnd('/')
 
@@ -294,7 +294,7 @@ class RepositoryViewModel @Inject constructor(
       iconUrl = allowlist.sourceIconUrl,
       modelCount = allowlist.models.size,
     )
-    dataStoreRepository.addRepository(newRepo)
+    ProtoDataStoreRepository.addRepository(newRepo)
     loadRepositories()
     return AddRepoResult.Success
   }

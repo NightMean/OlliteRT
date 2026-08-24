@@ -23,7 +23,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.allowlist.AllowedModel
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
 import com.ollitert.llm.server.data.allowlist.LoadResult
@@ -67,7 +67,7 @@ data class AllowlistLoadResult(
  */
 class AllowlistLoadCoordinator(
   private val context: Context,
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val repositoryManager: RepositoryManager,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val importManager: ModelListImportManager,
@@ -241,10 +241,10 @@ class AllowlistLoadCoordinator(
 
   suspend fun syncOfficialRepoUrl() {
     try {
-      val repos = dataStoreRepository.readRepositories()
+      val repos = ProtoDataStoreRepository.readRepositories()
       val official = repos.find { it.isBuiltIn }
       if (official != null && official.url != GitHubConfig.ALLOWLIST_URL) {
-        dataStoreRepository.updateRepository(official.copy(url = GitHubConfig.ALLOWLIST_URL))
+        ProtoDataStoreRepository.updateRepository(official.copy(url = GitHubConfig.ALLOWLIST_URL))
       }
     } catch (e: Exception) {
       Log.w(TAG, "Failed to sync Official repo URL", e)

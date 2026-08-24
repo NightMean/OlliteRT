@@ -30,7 +30,7 @@ import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyConfig
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.model.EventCategory
@@ -72,7 +72,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val persistence: RequestLogPersistence,
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -93,7 +93,7 @@ class SettingsViewModel @Inject constructor(
 
   fun refreshRepositoryCounts() {
     viewModelScope.launch(ioDispatcher) {
-      val repos = dataStoreRepository.readRepositories()
+      val repos = ProtoDataStoreRepository.readRepositories()
       repoCount = repos.size
       enabledRepoCount = repos.count { it.enabled }
     }
@@ -532,7 +532,7 @@ class SettingsViewModel @Inject constructor(
     ServerService.updateClientIpAccessPolicy(ClientIpAccessPolicy.ALLOW_ALL)
 
     viewModelScope.launch(ioDispatcher) {
-      dataStoreRepository.resetRepositories()
+      ProtoDataStoreRepository.resetRepositories()
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {
         // Delete only custom repo caches; keep the built-in official allowlist which ships with the APK.

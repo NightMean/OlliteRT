@@ -34,7 +34,7 @@ import androidx.work.WorkerParameters
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.fetchBounded
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.allowlist.MAX_MODELS_PER_REPO
 import com.ollitert.llm.server.data.allowlist.MAX_REPO_ERROR_LENGTH
@@ -63,7 +63,7 @@ import java.util.concurrent.TimeUnit
 class AllowlistRefreshWorker @AssistedInject constructor(
   @Assisted appContext: Context,
   @Assisted workerParams: WorkerParameters,
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(appContext),
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -75,7 +75,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       return Result.success()
     }
 
-    val repos = dataStoreRepository.readRepositories()
+    val repos = ProtoDataStoreRepository.readRepositories()
     val allUpdatableModels = mutableListOf<UpdatableInfo>()
     val nonUpdatableDownloaded = mutableListOf<String>()
     val seenModelIds = mutableSetOf<String>()
@@ -109,7 +109,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
         if (allowlist.contentVersion <= minVersion) {
           Log.d(TAG, "Repo '${repo.id}': v${allowlist.contentVersion} <= min v$minVersion — skipping")
           if (repo.lastError.isNotEmpty()) {
-            dataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
+            ProtoDataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
           }
           continue
         }
@@ -119,7 +119,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
           Log.w(TAG, "Disk cache write failed for '${repo.id}' — skipping DataStore update")
           continue
         }
-        dataStoreRepository.updateRepository(
+        ProtoDataStoreRepository.updateRepository(
           repo.copy(
             contentVersion = allowlist.contentVersion,
             lastRefreshMs = System.currentTimeMillis(),
@@ -149,7 +149,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       } catch (e: Exception) {
         Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
         failedRepoCount++
-        dataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
+        ProtoDataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
     }
 

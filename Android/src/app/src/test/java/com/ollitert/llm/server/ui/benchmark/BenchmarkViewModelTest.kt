@@ -18,7 +18,7 @@ package com.ollitert.llm.server.ui.benchmark
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
+import com.ollitert.llm.server.data.repository.FakeProtoDataStoreRepository
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
@@ -46,13 +46,13 @@ import org.junit.Test
 class BenchmarkViewModelTest {
 
   private val testDispatcher = StandardTestDispatcher()
-  private lateinit var fakeRepo: FakeDataStoreRepository
+  private lateinit var fakeRepo: FakeProtoDataStoreRepository
   private lateinit var vm: BenchmarkViewModel
 
   @Before
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
-    fakeRepo = FakeDataStoreRepository()
+    fakeRepo = FakeProtoDataStoreRepository()
     mockkStatic(Log::class)
     every { Log.d(any(), any()) } returns 0
     every { Log.e(any(), any()) } returns 0
@@ -69,7 +69,7 @@ class BenchmarkViewModelTest {
   private fun createVm() {
     vm = BenchmarkViewModel(
       appContext = mockk<Context>(relaxed = true),
-      dataStoreRepository = fakeRepo,
+      ProtoDataStoreRepository = fakeRepo,
       ioDispatcher = testDispatcher,
     )
   }

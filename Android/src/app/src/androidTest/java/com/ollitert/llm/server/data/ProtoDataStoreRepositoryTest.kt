@@ -37,9 +37,9 @@ import org.junit.runner.RunWith
 import java.io.File
 
 @RunWith(AndroidJUnit4::class)
-class DataStoreRepositoryTest {
+class ProtoDataStoreRepositoryTest {
 
-  private lateinit var repo: DefaultDataStoreRepository
+  private lateinit var repo: DefaultProtoDataStoreRepository
   private lateinit var testDir: File
   private lateinit var testScope: TestScope
 
@@ -60,7 +60,7 @@ class DataStoreRepositoryTest {
       scope = testScope.backgroundScope,
     ) { File(testDir, "test_benchmarks.pb") }
 
-    repo = DefaultDataStoreRepository(settingsStore, benchmarkStore)
+    repo = DefaultProtoDataStoreRepository(settingsStore, benchmarkStore)
   }
 
   @After

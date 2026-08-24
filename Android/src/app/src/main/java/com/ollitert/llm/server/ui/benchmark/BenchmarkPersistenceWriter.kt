@@ -10,7 +10,7 @@
 
 package com.ollitert.llm.server.ui.benchmark
 
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -22,14 +22,14 @@ import kotlinx.coroutines.launch
 
 /** Executes benchmark persistence mutations in UI submission order. */
 internal class BenchmarkPersistenceWriter(
-  private val repository: DataStoreRepository,
+  private val repository: ProtoDataStoreRepository,
   scope: CoroutineScope,
   dispatcher: CoroutineDispatcher = Dispatchers.IO,
   private val onFailure: (operation: String, error: Throwable) -> Unit,
 ) {
   private data class Operation(
     val description: String,
-    val execute: suspend DataStoreRepository.() -> Unit,
+    val execute: suspend ProtoDataStoreRepository.() -> Unit,
   )
 
   private val operations = Channel<Operation>(Channel.UNLIMITED)
@@ -48,7 +48,7 @@ internal class BenchmarkPersistenceWriter(
     }
   }
 
-  fun enqueue(description: String, operation: suspend DataStoreRepository.() -> Unit) {
+  fun enqueue(description: String, operation: suspend ProtoDataStoreRepository.() -> Unit) {
     val result = operations.trySend(Operation(description, operation))
     if (result.isFailure) {
       onFailure(

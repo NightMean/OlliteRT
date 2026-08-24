@@ -122,11 +122,11 @@ fun BenchmarkResultsViewer(
   // Show "benchmark comparison help" bottom sheet when there are multiple results available.
   LaunchedEffect(filteredResults.size) {
     if (
-      filteredResults.size > 1 && !viewModel.dataStoreRepository.getHasSeenBenchmarkComparisonHelp()
+      filteredResults.size > 1 && !viewModel.ProtoDataStoreRepository.getHasSeenBenchmarkComparisonHelp()
     ) {
       delay(500)
       showBenchmarkComparisonHelpBottomSheet = true
-      viewModel.dataStoreRepository.setHasSeenBenchmarkComparisonHelp(true)
+      viewModel.ProtoDataStoreRepository.setHasSeenBenchmarkComparisonHelp(true)
     }
   }
 

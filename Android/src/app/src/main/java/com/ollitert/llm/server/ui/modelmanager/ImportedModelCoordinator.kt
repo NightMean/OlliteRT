@@ -19,7 +19,7 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.model.EventCategory
@@ -40,7 +40,7 @@ private const val TAG = "OlliteRT.ImportedModelCoord"
  */
 class ImportedModelCoordinator(
   private val context: Context,
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
@@ -51,14 +51,14 @@ class ImportedModelCoordinator(
   }
 
   suspend fun saveImportedModel(info: ImportedModel) {
-    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
     val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
     if (importedModelIndex >= 0) {
       Log.d(TAG, "Duplicated imported model found in data store. Removing old entry first")
       importedModels.removeAt(importedModelIndex)
     }
     importedModels.add(info)
-    dataStoreRepository.saveImportedModels(importedModels = importedModels)
+    ProtoDataStoreRepository.saveImportedModels(importedModels = importedModels)
 
     if (preferencesRepository.isVerboseDebugEnabled()) {
       RequestLogStore.addEvent(
@@ -72,7 +72,7 @@ class ImportedModelCoordinator(
 
   suspend fun updateDefaults(updatedInfo: ImportedModel): Model {
     Log.d(TAG, "Updating imported model defaults: ${updatedInfo.fileName}")
-    dataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
+    ProtoDataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
     preferencesRepository.clearInferenceConfig(updatedInfo.fileName)
 
     val updatedModel = ModelFactory.buildImportedModel(updatedInfo)
@@ -89,21 +89,21 @@ class ImportedModelCoordinator(
   }
 
   suspend fun deleteImportedModelRecord(modelName: String) {
-    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
     val importedModelIndex = importedModels.indexOfFirst { it.fileName == modelName }
     if (importedModelIndex >= 0) {
       importedModels.removeAt(importedModelIndex)
     }
-    dataStoreRepository.saveImportedModels(importedModels = importedModels)
+    ProtoDataStoreRepository.saveImportedModels(importedModels = importedModels)
   }
 
   suspend fun renameOnlyDisplayName(oldFileName: String, displayName: String): Model? {
-    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
     val index = importedModels.indexOfFirst { it.fileName == oldFileName }
     if (index >= 0) {
       val updated = importedModels[index].toBuilder().setDisplayName(displayName).build()
       importedModels[index] = updated
-      dataStoreRepository.saveImportedModels(importedModels)
+      ProtoDataStoreRepository.saveImportedModels(importedModels)
       return buildAndRestoreImportedModel(updated)
     }
     return null
@@ -112,7 +112,7 @@ class ImportedModelCoordinator(
   suspend fun renameFileAndRecord(oldFileName: String, newFileName: String, displayName: String): Model? {
     if (!modelStorageRepository.renameImportedFile(oldFileName, newFileName)) return null
 
-    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
     val index = importedModels.indexOfFirst { it.fileName == oldFileName }
     var resultModel: Model? = null
     if (index >= 0) {
@@ -121,7 +121,7 @@ class ImportedModelCoordinator(
         .setDisplayName(displayName)
         .build()
       importedModels[index] = updated
-      dataStoreRepository.saveImportedModels(importedModels)
+      ProtoDataStoreRepository.saveImportedModels(importedModels)
       resultModel = buildAndRestoreImportedModel(updated)
     }
 

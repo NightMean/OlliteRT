@@ -15,7 +15,7 @@
  */
 
 package com.ollitert.llm.server.data.allowlist
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 
 import com.ollitert.llm.server.proto.ImportedModel
 import io.mockk.coEvery
@@ -34,7 +34,7 @@ class ModelCatalogRepositoryTest {
   val tempFolder = TemporaryFolder()
 
   private lateinit var modelCatalogMerger: ModelCatalogMerger
-  private lateinit var dataStoreRepository: DataStoreRepository
+  private lateinit var ProtoDataStoreRepository: ProtoDataStoreRepository
   private lateinit var repository: DefaultModelCatalogRepository
 
   private val sampleAllowedModel = AllowedModel(
@@ -49,8 +49,8 @@ class ModelCatalogRepositoryTest {
   @Before
   fun setUp() {
     modelCatalogMerger = mockk(relaxed = true)
-    dataStoreRepository = mockk(relaxed = true)
-    repository = DefaultModelCatalogRepository(modelCatalogMerger, dataStoreRepository)
+    ProtoDataStoreRepository = mockk(relaxed = true)
+    repository = DefaultModelCatalogRepository(modelCatalogMerger, ProtoDataStoreRepository)
   }
 
   @Test
@@ -75,9 +75,9 @@ class ModelCatalogRepositoryTest {
   }
 
   @Test
-  fun `getImportedModels delegates to dataStoreRepository`() = runTest {
+  fun `getImportedModels delegates to ProtoDataStoreRepository`() = runTest {
     val importedList = listOf(ImportedModel.newBuilder().setFileName("custom.litertlm").build())
-    coEvery { dataStoreRepository.readImportedModels() } returns importedList
+    coEvery { ProtoDataStoreRepository.readImportedModels() } returns importedList
 
     val result = repository.getImportedModels()
     assertEquals(importedList, result)

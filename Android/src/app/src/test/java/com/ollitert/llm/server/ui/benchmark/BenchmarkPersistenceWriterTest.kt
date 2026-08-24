@@ -10,7 +10,7 @@
 
 package com.ollitert.llm.server.ui.benchmark
 
-import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
+import com.ollitert.llm.server.data.repository.FakeProtoDataStoreRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -20,7 +20,7 @@ class BenchmarkPersistenceWriterTest {
 
   @Test
   fun operationsCompleteInSubmissionOrder() = runTest {
-    val repository = FakeDataStoreRepository()
+    val repository = FakeProtoDataStoreRepository()
     val firstStarted = CompletableDeferred<Unit>()
     val releaseFirst = CompletableDeferred<Unit>()
     val completed = mutableListOf<String>()

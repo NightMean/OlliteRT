@@ -18,7 +18,7 @@ package com.ollitert.llm.server.data.allowlist
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 
 import android.content.Context
 import android.util.Log
@@ -45,7 +45,7 @@ data class LoadResult(
 
 @Singleton
 class RepositoryManager @Inject constructor(
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
 ) {
 
@@ -55,7 +55,7 @@ class RepositoryManager @Inject constructor(
     ignoreDisabled: Boolean = false,
     modelFilter: (AllowedModel) -> Boolean = { true },
   ): LoadResult = withContext(Dispatchers.IO) {
-    var repoEntries = dataStoreRepository.readRepositories()
+    var repoEntries = ProtoDataStoreRepository.readRepositories()
       .sortedByDescending { it.isBuiltIn }
 
     if (repoEntries.isEmpty()) {
@@ -68,7 +68,7 @@ class RepositoryManager @Inject constructor(
         Log.e(TAG, "Failed to seed Official repo", e)
         return@withContext LoadResult(models = emptyList(), repositories = emptyList())
       }
-      repoEntries = dataStoreRepository.readRepositories()
+      repoEntries = ProtoDataStoreRepository.readRepositories()
         .sortedByDescending { it.isBuiltIn }
       if (repoEntries.isEmpty()) {
         Log.e(TAG, "Seeding succeeded but repo list is still empty")
@@ -164,7 +164,7 @@ class RepositoryManager @Inject constructor(
   }
 
   private suspend fun seedOfficialRepo(legacyContentVersion: Int = 0) {
-    dataStoreRepository.seedRepositoryIfAbsent(
+    ProtoDataStoreRepository.seedRepositoryIfAbsent(
       Repository(
         id = OFFICIAL_REPO_ID,
         url = com.ollitert.llm.server.common.GitHubConfig.ALLOWLIST_URL,
@@ -178,7 +178,7 @@ class RepositoryManager @Inject constructor(
   }
 
   suspend fun refreshAll(allowlistLoader: AllowlistLoader): RefreshResult = withContext(Dispatchers.IO) {
-    val repos = dataStoreRepository.readRepositories()
+    val repos = ProtoDataStoreRepository.readRepositories()
     val failedIds = mutableSetOf<String>()
     for (repo in repos) {
       if (!repo.enabled || repo.url.isBlank()) continue
@@ -206,7 +206,7 @@ class RepositoryManager @Inject constructor(
         if (allowlist.contentVersion <= minVersion) {
           Log.d(TAG, "Repo '${repo.id}': fetched v${allowlist.contentVersion} <= min v$minVersion — skipping")
           if (repo.lastError.isNotEmpty()) {
-            dataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
+            ProtoDataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
           }
           continue
         }
@@ -217,7 +217,7 @@ class RepositoryManager @Inject constructor(
           failedIds.add(repo.id)
           continue
         }
-        dataStoreRepository.updateRepository(
+        ProtoDataStoreRepository.updateRepository(
           repo.copy(
             contentVersion = allowlist.contentVersion,
             lastRefreshMs = System.currentTimeMillis(),
@@ -230,7 +230,7 @@ class RepositoryManager @Inject constructor(
       } catch (e: Exception) {
         Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
         failedIds.add(repo.id)
-        dataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
+        ProtoDataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
     }
     RefreshResult(failedRepoIds = failedIds)

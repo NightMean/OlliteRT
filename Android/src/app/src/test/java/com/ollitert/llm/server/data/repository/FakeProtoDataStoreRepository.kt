@@ -21,7 +21,7 @@ import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.ImportedModel
 
-class FakeDataStoreRepository : DataStoreRepository {
+class FakeProtoDataStoreRepository : ProtoDataStoreRepository {
 
   private val repos = mutableListOf<Repository>()
 

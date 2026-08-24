@@ -17,7 +17,7 @@
 package com.ollitert.llm.server.data.allowlist
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.Repository
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 
 import com.ollitert.llm.server.proto.ImportedModel
 import java.io.File
@@ -45,7 +45,7 @@ interface ModelCatalogRepository {
 
 class DefaultModelCatalogRepository(
   private val modelCatalogMerger: ModelCatalogMerger,
-  private val dataStoreRepository: DataStoreRepository,
+  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
 ) : ModelCatalogRepository {
   override fun loadAllowedModels(): List<AllowedModel> = modelCatalogMerger.load()
 
@@ -54,7 +54,7 @@ class DefaultModelCatalogRepository(
   }
 
   override suspend fun getImportedModels(): List<ImportedModel> {
-    return dataStoreRepository.readImportedModels()
+    return ProtoDataStoreRepository.readImportedModels()
   }
 
   override fun getAllowlistContentVersion(): Int = modelCatalogMerger.lastContentVersion

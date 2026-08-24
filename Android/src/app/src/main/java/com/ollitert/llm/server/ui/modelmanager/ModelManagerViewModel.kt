@@ -30,7 +30,7 @@ import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.data.allowlist.AllowedModel
-import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.model.EMPTY_MODEL
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
@@ -124,7 +124,7 @@ open class ModelManagerViewModel
 @Inject
 constructor(
   private val downloadRepository: DownloadRepository,
-  val dataStoreRepository: DataStoreRepository,
+  val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val lifecycleProvider: OlliteRTLifecycleProvider,
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
@@ -134,7 +134,7 @@ constructor(
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ViewModel() {
-  val onboardingCompleted: Boolean = runBlocking { dataStoreRepository.isOnboardingCompleted() }
+  val onboardingCompleted: Boolean = runBlocking { ProtoDataStoreRepository.isOnboardingCompleted() }
 
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
@@ -152,11 +152,11 @@ constructor(
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
   val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
 
-  private val importManager = ModelListImportManager(context, dataStoreRepository, modelStorageRepository)
-  private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, modelStorageRepository, preferencesRepository)
+  private val importManager = ModelListImportManager(context, ProtoDataStoreRepository, modelStorageRepository)
+  private val importedModelCoordinator = ImportedModelCoordinator(context, ProtoDataStoreRepository, modelStorageRepository, preferencesRepository)
 
   fun completeOnboarding() {
-    viewModelScope.launch(ioDispatcher) { dataStoreRepository.setOnboardingCompleted() }
+    viewModelScope.launch(ioDispatcher) { ProtoDataStoreRepository.setOnboardingCompleted() }
   }
 
   fun getModelByName(name: String): Model? {
@@ -435,7 +435,7 @@ constructor(
 
   private val allowlistLoadCoordinator = AllowlistLoadCoordinator(
     context = context,
-    dataStoreRepository = dataStoreRepository,
+    ProtoDataStoreRepository = ProtoDataStoreRepository,
     repositoryManager = repositoryManager,
     modelStorageRepository = modelStorageRepository,
     importManager = importManager,
@@ -554,7 +554,7 @@ constructor(
     }
 
     val importedModels = mutableListOf<Model>()
-    for (importedModel in dataStoreRepository.readImportedModels()) {
+    for (importedModel in ProtoDataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
       val model = importedModelCoordinator.buildAndRestoreImportedModel(importedModel)
       importedModels.add(model)

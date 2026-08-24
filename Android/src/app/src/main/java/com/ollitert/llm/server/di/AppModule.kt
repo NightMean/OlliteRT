@@ -25,8 +25,8 @@ import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.prefs.BenchmarkResultsSerializer
-import com.ollitert.llm.server.data.repository.DataStoreRepository
-import com.ollitert.llm.server.data.repository.DefaultDataStoreRepository
+import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
+import com.ollitert.llm.server.data.repository.DefaultProtoDataStoreRepository
 import com.ollitert.llm.server.data.allowlist.DefaultModelCatalogRepository
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
@@ -84,11 +84,11 @@ internal object AppModule {
 
   @Provides
   @Singleton
-  fun provideDataStoreRepository(
+  fun provideProtoDataStoreRepository(
     dataStore: DataStore<Settings>,
     benchmarkResultsStore: DataStore<BenchmarkResults>,
-  ): DataStoreRepository {
-    return DefaultDataStoreRepository(
+  ): ProtoDataStoreRepository {
+    return DefaultProtoDataStoreRepository(
       dataStore,
       benchmarkResultsStore,
     )
@@ -98,7 +98,7 @@ internal object AppModule {
   @Singleton
   fun provideModelCatalogRepository(
     @ApplicationContext context: Context,
-    dataStoreRepository: DataStoreRepository,
+    ProtoDataStoreRepository: ProtoDataStoreRepository,
   ): ModelCatalogRepository {
     val merger = ModelCatalogMerger(
       externalFilesDir = context.getExternalFilesDir(null),
@@ -109,7 +109,7 @@ internal object AppModule {
         } catch (_: Exception) { null }
       },
     )
-    return DefaultModelCatalogRepository(merger, dataStoreRepository)
+    return DefaultModelCatalogRepository(merger, ProtoDataStoreRepository)
   }
 
   @Provides

@@ -47,13 +47,13 @@ private class InMemoryDataStore<T>(initialValue: T) : DataStore<T> {
   }
 }
 
-class DataStoreRepositoryTest {
+class ProtoDataStoreRepositoryTest {
 
-  private lateinit var repository: DefaultDataStoreRepository
+  private lateinit var repository: DefaultProtoDataStoreRepository
 
   @Before
   fun setUp() {
-    repository = DefaultDataStoreRepository(
+    repository = DefaultProtoDataStoreRepository(
       dataStore = InMemoryDataStore(Settings.getDefaultInstance()),
       benchmarkResultsDataStore = InMemoryDataStore(BenchmarkResults.getDefaultInstance()),
     )
@@ -89,7 +89,7 @@ class DataStoreRepositoryTest {
 
   @Test
   fun legacyBenchmarkResultsReceiveStableIdsOnRead() = runTest {
-    val freshRepo = DefaultDataStoreRepository(
+    val freshRepo = DefaultProtoDataStoreRepository(
       dataStore = InMemoryDataStore(Settings.getDefaultInstance()),
       benchmarkResultsDataStore = InMemoryDataStore(
         BenchmarkResults.newBuilder().addResult(BenchmarkResult.newBuilder().build()).build()
@@ -105,7 +105,7 @@ class DataStoreRepositoryTest {
 
   @Test
   fun readsSeededSnapshotsBeforeAnyCollectorStarts() = runTest {
-    val freshRepo = DefaultDataStoreRepository(
+    val freshRepo = DefaultProtoDataStoreRepository(
       dataStore = InMemoryDataStore(
         Settings.newBuilder().setIsTosAccepted(true).build()
       ),
