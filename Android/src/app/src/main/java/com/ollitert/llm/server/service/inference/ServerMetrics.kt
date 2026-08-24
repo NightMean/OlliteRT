@@ -51,6 +51,9 @@ object ServerMetrics {
     return atomic
   }
 
+  private val stateMachine = ServerLifecycleStateMachine()
+  val lifecycleState: StateFlow<ServerLifecycleState> = stateMachine.state
+
   private val _status = sessionFlow(ServerStatus.STOPPED)
   val status: StateFlow<ServerStatus> = _status.asStateFlow()
 
@@ -276,43 +279,59 @@ object ServerMetrics {
   private val _deviceTotalRamBytes = sessionFlow(0L)
   val deviceTotalRamBytes: StateFlow<Long> = _deviceTotalRamBytes.asStateFlow()
 
+  private fun applyLifecycleState(state: ServerLifecycleState) {
+    _status.value = state.status
+    when (state) {
+      is ServerLifecycleState.Stopped -> {
+        // Clear session flows
+      }
+      is ServerLifecycleState.Starting -> {
+        _port.value = state.port
+        _activeModelName.value = state.modelName
+        _loadingStartedAtMs.value = state.loadingStartedAtMs
+        _lastError.value = null
+      }
+      is ServerLifecycleState.Running -> {
+        _port.value = state.port
+        _activeModelName.value = state.modelName
+        _bindAddress.value = state.bindAddress
+        _isLoopbackOnly.value = state.isLoopbackOnly
+        _startedAtMs.value = state.startedAtMs
+        _modelCreatedAtEpoch.value = state.startedAtMs / 1000
+        _loadingStartedAtMs.value = 0L
+        _lastError.value = null
+        _isIdleUnloaded.value = state.isIdleUnloaded
+      }
+      is ServerLifecycleState.Error -> {
+        _startedAtMs.value = 0L
+        _loadingStartedAtMs.value = 0L
+        _lastError.value = state.message
+      }
+    }
+  }
+
   fun onServerStarting(port: Int, modelName: String?) {
-    _status.value = ServerStatus.LOADING
-    _port.value = port
-    _activeModelName.value = modelName
-    _loadingStartedAtMs.value = System.currentTimeMillis()
-    _lastError.value = null
+    applyLifecycleState(stateMachine.process(ServerLifecycleEvent.StartRequested(port, modelName)))
   }
 
   fun onServerRunning(bindAddress: String?, isLoopbackOnly: Boolean = bindAddress == null) {
-    _status.value = ServerStatus.RUNNING
-    // The service derives reachability from the configured listener plus current network state.
-    // A loopback listener stays local even when Wi-Fi has an address; an all-interface listener
-    // without Wi-Fi temporarily advertises localhost until the next start.
-    _isLoopbackOnly.value = isLoopbackOnly
-    _bindAddress.value = bindAddress ?: "localhost"
-    _startedAtMs.value = System.currentTimeMillis()
-    _modelCreatedAtEpoch.value = System.currentTimeMillis() / 1000
-    _loadingStartedAtMs.value = 0L
-    _lastError.value = null
-    _isIdleUnloaded.value = false
+    applyLifecycleState(stateMachine.process(ServerLifecycleEvent.RunningEntered(bindAddress, isLoopbackOnly)))
   }
 
   fun onServerStopped() {
+    stateMachine.process(ServerLifecycleEvent.StopRequested)
     _inferringCount.set(0)
     sessionAtomicResets.forEach { it() }
     sessionFlowResets.forEach { it() }
   }
 
   fun onServerError(message: String? = null) {
-    _status.value = ServerStatus.ERROR
-    _startedAtMs.value = 0L
-    _loadingStartedAtMs.value = 0L
-    _lastError.value = message
+    applyLifecycleState(stateMachine.process(ServerLifecycleEvent.ErrorOccurred(message)))
   }
 
   fun clearErrorIfModel(modelName: String) {
-    if (_status.value == ServerStatus.ERROR && _activeModelName.value == modelName) {
+    val next = stateMachine.process(ServerLifecycleEvent.ClearErrorIfModel(modelName))
+    if (next is ServerLifecycleState.Stopped) {
       _status.value = ServerStatus.STOPPED
       _lastError.value = null
       _activeModelName.value = null
@@ -439,20 +458,26 @@ object ServerMetrics {
   fun onInferenceStarted() {
     _inferringCount.incrementAndGet()
     _isInferring.value = true
+    stateMachine.process(ServerLifecycleEvent.InferenceStarted)
   }
 
   fun onInferenceCompleted() {
     val count = _inferringCount.decrementAndGet().coerceAtLeast(0)
     if (count == 0) _inferringCount.set(0)
     _isInferring.value = count > 0
+    if (count == 0) {
+      stateMachine.process(ServerLifecycleEvent.InferenceCompleted)
+    }
   }
 
   fun onModelIdleUnloaded() {
     _isIdleUnloaded.value = true
+    stateMachine.process(ServerLifecycleEvent.ModelIdleUnloaded)
   }
 
   fun onModelReloadedFromIdle() {
     _isIdleUnloaded.value = false
+    stateMachine.process(ServerLifecycleEvent.ModelReloadedFromIdle)
   }
 
   /**
@@ -482,6 +507,7 @@ object ServerMetrics {
    */
   fun resetForTesting() {
     onServerStopped()
+    stateMachine.reset()
     _availableUpdateVersion.value = null
     _availableUpdateUrl.value = null
     _port.value = ServerService.DEFAULT_PORT

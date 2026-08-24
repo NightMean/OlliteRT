@@ -19,6 +19,7 @@ import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.prefs.isLoopbackOnly
 
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.service.inference.ServerLifecycleState
 import com.ollitert.llm.server.service.inference.ServerMetrics
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -30,6 +31,7 @@ import javax.inject.Singleton
  */
 interface ServerStateRepository {
   val status: StateFlow<ServerStatus>
+  val lifecycleState: StateFlow<ServerLifecycleState>
   val isInferring: StateFlow<Boolean>
   val activeModelName: StateFlow<String?>
   val activeModelSize: StateFlow<Long>
@@ -74,6 +76,7 @@ interface ServerStateRepository {
 @Singleton
 class DefaultServerStateRepository @Inject constructor() : ServerStateRepository {
   override val status: StateFlow<ServerStatus> get() = ServerMetrics.status
+  override val lifecycleState: StateFlow<ServerLifecycleState> get() = ServerMetrics.lifecycleState
   override val isInferring: StateFlow<Boolean> get() = ServerMetrics.isInferring
   override val activeModelName: StateFlow<String?> get() = ServerMetrics.activeModelName
   override val activeModelSize: StateFlow<Long> get() = ServerMetrics.activeModelSize
