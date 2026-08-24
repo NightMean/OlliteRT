@@ -123,4 +123,12 @@ internal object AppModule {
   fun provideRequestLogStoreRepository(): com.ollitert.llm.server.data.repository.RequestLogStoreRepository {
     return com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository()
   }
+
+  @Provides
+  @Singleton
+  fun providePreferencesRepository(
+    @ApplicationContext context: Context,
+  ): com.ollitert.llm.server.data.repository.PreferencesRepository {
+    return com.ollitert.llm.server.data.repository.DefaultPreferencesRepository(context)
+  }
 }

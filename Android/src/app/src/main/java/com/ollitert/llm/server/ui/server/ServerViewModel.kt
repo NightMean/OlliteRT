@@ -19,12 +19,13 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.prefs.ACTION_IN_FLIGHT_DEBOUNCE_MS
-import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.prefs.ACTION_IN_FLIGHT_DEBOUNCE_MS
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
+import com.ollitert.llm.server.service.ServerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -39,6 +40,7 @@ import javax.inject.Inject
 class ServerViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
+  private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) : ViewModel() {
 
   val status = serverStateRepository.status
@@ -82,7 +84,7 @@ class ServerViewModel @Inject constructor(
   /** Debounce guard to prevent duplicate start/stop/reload intents from rapid taps. */
   private var actionInFlight = false
 
-  fun startServer(port: Int = ServerPrefs.getPort(context), modelName: String? = null, source: String? = null) {
+  fun startServer(port: Int = preferencesRepository.getPort(), modelName: String? = null, source: String? = null) {
     if (actionInFlight) return
     setActionInFlight()
     ServerService.start(context, port, modelName, source = source)
@@ -94,7 +96,7 @@ class ServerViewModel @Inject constructor(
     ServerService.stop(context)
   }
 
-  fun reloadServer(port: Int = ServerPrefs.getPort(context)) {
+  fun reloadServer(port: Int = preferencesRepository.getPort()) {
     if (actionInFlight) return
     setActionInFlight()
     val currentModel = activeModelName.value
@@ -116,7 +118,7 @@ class ServerViewModel @Inject constructor(
    * intent with the new model name, which cleans up the old model and starts the new one.
    * This avoids the stop + start race condition where the debounce guard drops the start.
    */
-  fun switchModel(modelName: String, port: Int = ServerPrefs.getPort(context)) {
+  fun switchModel(modelName: String, port: Int = preferencesRepository.getPort()) {
     if (actionInFlight) return
     setActionInFlight()
     ServerService.reload(context, port, modelName)

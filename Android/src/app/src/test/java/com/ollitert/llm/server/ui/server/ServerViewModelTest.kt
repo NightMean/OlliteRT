@@ -18,7 +18,7 @@ package com.ollitert.llm.server.ui.server
 
 import android.content.Context
 import com.ollitert.llm.server.data.prefs.ACTION_IN_FLIGHT_DEBOUNCE_MS
-import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.FakePreferencesRepository
 import com.ollitert.llm.server.service.ServerService
 import io.mockk.every
 import io.mockk.mockk
@@ -38,24 +38,24 @@ import org.junit.Before
 import org.junit.Test
 
 // Manual construction (no Hilt test rules) — these are pure unit tests that mock the
-// companion-object service layer. Hilt DI adds no value since the only injected dep is Context.
+// companion-object service layer.
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerViewModelTest {
 
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
+  private lateinit var fakePrefs: FakePreferencesRepository
   private lateinit var vm: ServerViewModel
 
   @Before
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
     mockkObject(ServerService)
-    mockkObject(ServerPrefs)
     every { ServerService.start(any(), any(), any(), source = any()) } returns true
     every { ServerService.stop(any()) } returns Unit
     every { ServerService.reload(any(), any(), any(), any()) } returns true
-    every { ServerPrefs.getPort(any()) } returns 8000
-    vm = ServerViewModel(mockContext)
+    fakePrefs = FakePreferencesRepository().apply { savePort(8000) }
+    vm = ServerViewModel(mockContext, preferencesRepository = fakePrefs)
   }
 
   @After
@@ -75,7 +75,7 @@ class ServerViewModelTest {
 
   @Test
   fun startServerUsesDefaultPort() = runTest(testDispatcher) {
-    every { ServerPrefs.getPort(mockContext) } returns 4000
+    fakePrefs.savePort(4000)
     vm.startServer()
     advanceUntilIdle()
     verify { ServerService.start(mockContext, 4000, null, source = null) }

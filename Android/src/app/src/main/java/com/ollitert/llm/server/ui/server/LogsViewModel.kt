@@ -21,8 +21,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
-import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.repository.RequestLogStoreRepository
 import com.ollitert.llm.server.ui.server.logs.LogFilter
 import com.ollitert.llm.server.ui.server.logs.StatusRange
@@ -47,6 +48,7 @@ import javax.inject.Inject
 class LogsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val requestLogStoreRepository: RequestLogStoreRepository = DefaultRequestLogStoreRepository(),
+  private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) : ViewModel() {
 
   val entries: StateFlow<List<RequestLogEntry>> = requestLogStoreRepository.entries
@@ -95,8 +97,8 @@ class LogsViewModel @Inject constructor(
   }.flowOn(Dispatchers.Default)
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-  val autoExpand: Boolean get() = ServerPrefs.isAutoExpandLogs(context)
-  val wrapLogText: Boolean get() = ServerPrefs.isWrapLogText(context)
+  val autoExpand: Boolean get() = preferencesRepository.isAutoExpandLogs()
+  val wrapLogText: Boolean get() = preferencesRepository.isWrapLogText()
 
   fun setSearchDraft(query: String) {
     _searchDraft.value = query

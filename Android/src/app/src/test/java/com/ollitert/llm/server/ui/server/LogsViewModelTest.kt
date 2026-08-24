@@ -19,7 +19,9 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository
+import com.ollitert.llm.server.data.repository.FakePreferencesRepository
 import com.ollitert.llm.server.data.repository.FakeRequestLogStoreRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.RequestLogStoreRepository
@@ -46,13 +48,15 @@ class LogsViewModelTest {
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
   private lateinit var fakeRepository: FakeRequestLogStoreRepository
+  private lateinit var fakePrefs: FakePreferencesRepository
   private lateinit var vm: LogsViewModel
 
   @Before
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
     fakeRepository = FakeRequestLogStoreRepository()
-    vm = LogsViewModel(mockContext, fakeRepository)
+    fakePrefs = FakePreferencesRepository()
+    vm = LogsViewModel(mockContext, fakeRepository, fakePrefs)
   }
 
   @After
