@@ -417,16 +417,17 @@ constructor(
     }
   }
 
-  private fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {
-    val accelerators = allowedModel.defaultConfig.accelerators
-      ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
-      ?: emptyList()
-    if (accelerators.size == 1 && accelerators[0] == "npu") {
-      val supported = allowedModel.socToModelFiles?.containsKey(SOC) == true
-      if (!supported) Log.d(TAG, "Ignoring model '${allowedModel.name}' because it's NPU-only and not supported on SOC: $SOC")
-      return supported
-    }
-    return true
+  private val allowlistLoadCoordinator = AllowlistLoadCoordinator(
+    context = context,
+    dataStoreRepository = dataStoreRepository,
+    repositoryManager = repositoryManager,
+    allowlistLoader = allowlistLoader,
+    fileManager = fileManager,
+    importManager = importManager,
+  )
+
+  fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {
+    return allowlistLoadCoordinator.isModelSupportedOnDevice(allowedModel)
   }
 
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
@@ -435,182 +436,56 @@ constructor(
     }
 
     viewModelScope.launch(Dispatchers.IO) {
-      fileManager.cleanupStaleImportTmpFiles()
-      try {
-        val testAllowlist = allowlistLoader.readTestAllowlist()
-        if (testAllowlist != null || TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
-          val allowlist = if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
-            try { ModelAllowlistJson.decode(TEST_MODEL_ALLOW_LIST) } catch (e: Exception) {
-              Log.e(TAG, "Failed to parse local test json", e)
-              null
-            }
-          } else testAllowlist
+      val result = allowlistLoadCoordinator.loadAllowlist(
+        testAllowlistOverride = TEST_MODEL_ALLOW_LIST,
+        isManualRetry = isManualRetry,
+        onToastError = { msg -> _toastErrorChannel.trySend(msg) },
+      )
 
-          if (allowlist != null) {
-            loadFromAllowlist(allowlist)
-            return@launch
-          }
-        }
-
-        migrateDiskCacheIfNeeded()
-        syncOfficialRepoUrl()
-
-        val refreshResult = repositoryManager.refreshAll(allowlistLoader)
-        val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
-        val loadResult = repositoryManager.loadAll(appVersion, allowlistLoader, modelFilter = ::isModelSupportedOnDevice)
-
-        if (handleAllReposDisabled(loadResult, appVersion)) return@launch
-
-        val enabledRepos = loadResult.repositories.filter { it.enabled }
-        val errorMessage = computeRefreshErrorMessage(refreshResult, enabledRepos)
-        logRepoRefreshFailures(enabledRepos, refreshResult)
-
-        if (errorMessage.isNotEmpty() && isManualRetry) {
-          _toastErrorChannel.trySend(context.getString(R.string.error_model_server_unreachable))
-        }
-
-        val hasOfflineRepos = enabledRepos.any { it.id in refreshResult.failedRepoIds && it.modelCount == null }
-        if (loadResult.models.isEmpty() && hasOfflineRepos) {
-          _uiState.update {
-            it.copy(
-              loadingModelAllowlist = false,
-              loadingModelAllowlistError = context.getString(R.string.error_all_repos_offline),
-            )
-          }
-          return@launch
-        }
-
-        val models = loadResult.models
-        val emptyReason = when {
-          models.isNotEmpty() -> ModelEmptyReason.NONE
-          loadResult.droppedByVersionFilter > 0 -> ModelEmptyReason.VERSION_TOO_OLD
-          !hasOfflineRepos && enabledRepos.isNotEmpty() -> ModelEmptyReason.UNKNOWN
-          else -> ModelEmptyReason.NONE
-        }
-
-        if (ServerPrefs.isVerboseDebugEnabled(context)) {
-          RequestLogStore.addEvent(
-            "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
-            level = LogLevel.DEBUG,
-            category = EventCategory.MODEL,
+      if (result.allReposDisabled) {
+        _uiState.update {
+          it.copy(
+            loadingModelAllowlist = false,
+            allReposDisabled = true,
+            models = result.models,
+            modelDownloadStatus = result.disabledReposStatusMap,
           )
         }
+        return@launch
+      }
 
-        _uiState.update { it.copy(models = models) }
-        processModels()
+      if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
+        _uiState.update {
+          it.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = result.errorMessage,
+          )
+        }
+        return@launch
+      }
+
+      _uiState.update { it.copy(models = result.models) }
+      processModels()
+
+      if (result.isRawAllowlist) {
+        _uiState.update {
+          createUiState().copy(loadingModelAllowlist = false)
+        }
+      } else {
         _uiState.update {
           createUiState()
             .copy(
               loadingModelAllowlist = false,
-              loadingModelAllowlistError = errorMessage,
-              emptyReason = emptyReason,
-              requiredVersion = loadResult.lowestRequiredVersion,
-              droppedByVersionFilter = loadResult.droppedByVersionFilter,
-              totalBeforeFilters = loadResult.totalBeforeVersionFilter,
+              loadingModelAllowlistError = result.errorMessage,
+              emptyReason = result.emptyReason,
+              requiredVersion = result.requiredVersion,
+              droppedByVersionFilter = result.droppedByVersionFilter,
+              totalBeforeFilters = result.totalBeforeFilters,
             )
         }
-        notifyStorageChanged()
-        processPendingDownloads()
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to load model allowlist", e)
-        _uiState.update {
-          it.copy(
-            loadingModelAllowlist = false,
-            loadingModelAllowlistError = context.getString(R.string.error_model_list_load_failed_detail, e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS) ?: context.getString(R.string.error_unknown)),
-          )
-        }
       }
-    }
-  }
-
-  private suspend fun loadFromAllowlist(allowlist: ModelAllowlist) {
-    val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
-    val models = allowlist.models
-      .filter(::isModelSupportedOnDevice)
-      .map { it.toModel(appVersion = appVersion) }
-
-    _uiState.update { it.copy(models = models) }
-    processModels()
-    _uiState.update {
-      createUiState().copy(loadingModelAllowlist = false)
-    }
-    processPendingDownloads()
-  }
-
-  private suspend fun handleAllReposDisabled(loadResult: LoadResult, appVersion: SemVer?): Boolean {
-    val allDisabled = loadResult.repositories.isNotEmpty() &&
-      loadResult.repositories.all { !it.enabled }
-    if (!allDisabled) return false
-
-    val allModelsResult = repositoryManager.loadAll(
-      appVersion, allowlistLoader, ignoreDisabled = true, modelFilter = ::isModelSupportedOnDevice,
-    )
-    _uiState.update {
-      val statusMap = it.modelDownloadStatus.toMutableMap()
-      for (model in allModelsResult.models) {
-        if (model.name !in statusMap) {
-          statusMap[model.name] = getModelDownloadStatus(model = model)
-        }
-      }
-      val downloadedOnly = allModelsResult.models.filter { model ->
-        statusMap[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
-      }
-      it.copy(
-        loadingModelAllowlist = false,
-        allReposDisabled = true,
-        models = downloadedOnly,
-        modelDownloadStatus = statusMap.toMap(),
-      )
-    }
-    return true
-  }
-
-  private fun computeRefreshErrorMessage(
-    refreshResult: RefreshResult,
-    enabledRepos: List<Repository>,
-  ): String {
-    val failedWithNoCache = enabledRepos.filter {
-      it.id in refreshResult.failedRepoIds && it.modelCount == null
-    }
-    val failedWithCache = enabledRepos.filter {
-      it.id in refreshResult.failedRepoIds && it.modelCount != null && it.modelCount > 0
-    }
-    return when {
-      refreshResult.failedRepoIds.isEmpty() -> ""
-      failedWithNoCache.size == enabledRepos.size ->
-        context.getString(R.string.error_all_repos_offline)
-      failedWithNoCache.isNotEmpty() ->
-        context.getString(R.string.error_some_repos_unavailable, failedWithNoCache.size, enabledRepos.size)
-      failedWithCache.isNotEmpty() ->
-        context.getString(R.string.error_showing_cached_list)
-      else -> ""
-    }
-  }
-
-  private fun logRepoRefreshFailures(enabledRepos: List<Repository>, refreshResult: RefreshResult) {
-    if (!ServerPrefs.isVerboseDebugEnabled(context)) return
-    for (repo in enabledRepos) {
-      if (repo.id in refreshResult.failedRepoIds) {
-        val name = repo.name.ifEmpty { repo.id }
-        val detail = repo.lastError.ifEmpty { "unreachable" }
-        RequestLogStore.addEvent(
-          "Model source refresh failed: $name ($detail)",
-          level = LogLevel.DEBUG,
-          category = EventCategory.UPDATE,
-        )
-      }
-    }
-  }
-
-  private suspend fun syncOfficialRepoUrl() {
-    try {
-      val repos = dataStoreRepository.readRepositories()
-      val official = repos.find { it.isBuiltIn }
-      if (official != null && official.url != GitHubConfig.ALLOWLIST_URL) {
-        dataStoreRepository.updateRepository(official.copy(url = GitHubConfig.ALLOWLIST_URL))
-      }
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to sync Official repo URL", e)
+      notifyStorageChanged()
+      processPendingDownloads()
     }
   }
 
