@@ -21,11 +21,9 @@ import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.*
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
-import com.ollitert.llm.server.service.http.*
 
 import android.content.Context
 import android.os.SystemClock
-import android.util.Base64
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -69,6 +67,8 @@ class ModelLifecycle(
   /** Reads imported models from DataStore. Provided by the service via Hilt EntryPoint. */
   private val readImportedModels: () -> List<ImportedModel> = { emptyList() },
 ) {
+
+  private val payloadDecoder = MultimodalPayloadDecoder(context) { defaultModel?.name }
 
   companion object {
     private const val TAG = "OlliteRT.Lifecycle"
@@ -502,51 +502,16 @@ class ModelLifecycle(
 
   /**
    * Decodes base64 image data URIs from chat messages into raw byte arrays for multimodal
-   * inference. The LiteRT SDK's Content.ImageBytes accepts raw bytes and detects the format
-   * (JPEG, PNG, WebP) from magic bytes in the native layer — no Bitmap intermediate needed.
-   * Expected format: `data:image/jpeg;base64,/9j/4AAQ...`
+   * inference. Delegates to [MultimodalPayloadDecoder] — kept as a delegate so existing
+   * handler wiring keeps compiling.
    */
-  fun decodeImageDataUris(messages: List<ChatMessage>): List<ByteArray> {
-    val uris = PromptBuilder.extractImageDataUris(messages)
-    return uris.mapNotNull { uri ->
-      try {
-        val base64Data = if (uri.contains(",")) uri.substringAfter(",") else uri
-        Base64.decode(base64Data, Base64.DEFAULT)
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to decode image data URI", e)
-        RequestLogStore.addEvent(
-          "Failed to decode image: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS) ?: context.getString(R.string.error_unknown)}",
-          level = LogLevel.ERROR,
-          modelName = defaultModel?.name,
-          category = EventCategory.SERVER,
-        )
-        null
-      }
-    }
-  }
+  fun decodeImageDataUris(messages: List<ChatMessage>): List<ByteArray> =
+    payloadDecoder.decodeImageDataUris(messages)
 
   /**
-   * Decodes base64 audio data strings from `input_audio` content parts into raw byte arrays,
-   * then ensures each clip is mono PCM (required by the LiteRT audio API).
-   * Silently drops any clip that fails to decode or preprocess — same error-resilience
-   * pattern used by [decodeImageDataUris].
+   * Decodes base64 audio data strings from `input_audio` content parts into raw byte arrays.
+   * Delegates to [MultimodalPayloadDecoder].
    */
-  fun decodeAudioData(dataStrings: List<String>): List<ByteArray> {
-    return dataStrings.mapNotNull { base64Data ->
-      try {
-        val bytes = Base64.decode(base64Data, Base64.DEFAULT)
-        val format = AudioPreprocessor.detectFormat(bytes)
-        AudioPreprocessor.ensureMono(bytes, format)
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to decode audio data", e)
-        RequestLogStore.addEvent(
-          "Failed to decode audio: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS) ?: context.getString(R.string.error_unknown)}",
-          level = LogLevel.ERROR,
-          modelName = defaultModel?.name,
-          category = EventCategory.SERVER,
-        )
-        null
-      }
-    }
-  }
+  fun decodeAudioData(dataStrings: List<String>): List<ByteArray> =
+    payloadDecoder.decodeAudioData(dataStrings)
 }
