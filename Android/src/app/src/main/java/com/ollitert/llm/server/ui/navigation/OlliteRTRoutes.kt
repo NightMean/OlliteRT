@@ -16,19 +16,34 @@
 
 package com.ollitert.llm.server.ui.navigation
 
-import android.net.Uri
+import kotlinx.serialization.Serializable
 
-/** Navigation route constants for the OlliteRT app. */
-object OlliteRTRoutes {
-  const val GETTING_STARTED = "getting_started"
-  const val MODELS = "models"
-  const val STATUS = "status"
-  const val LOGS = "logs"
-  const val SETTINGS = "settings"
-  const val BENCHMARK = "benchmark/{modelName}"
-  const val REPOSITORIES = "repositories"
-  const val REPOSITORY_DETAIL = "repository/{repoId}"
+/**
+ * Compile-time type-safe navigation routes for the OlliteRT app.
+ */
+sealed interface OlliteRTRoute {
 
-  fun benchmark(modelName: String) = "benchmark/${Uri.encode(modelName)}"
-  fun repositoryDetail(repoId: String) = "repository/${Uri.encode(repoId)}"
+  @Serializable
+  data object GettingStarted : OlliteRTRoute
+
+  @Serializable
+  data object Models : OlliteRTRoute
+
+  @Serializable
+  data object Status : OlliteRTRoute
+
+  @Serializable
+  data object Logs : OlliteRTRoute
+
+  @Serializable
+  data object Settings : OlliteRTRoute
+
+  @Serializable
+  data class Benchmark(val modelName: String) : OlliteRTRoute
+
+  @Serializable
+  data object Repositories : OlliteRTRoute
+
+  @Serializable
+  data class RepositoryDetail(val repoId: String) : OlliteRTRoute
 }

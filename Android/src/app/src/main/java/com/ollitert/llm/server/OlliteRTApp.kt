@@ -51,11 +51,12 @@ import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar
 import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
-import com.ollitert.llm.server.ui.navigation.OlliteRTRoutes
 import com.ollitert.llm.server.ui.navigation.OlliteRTTab
 import com.ollitert.llm.server.ui.navigation.OlliteRTTopBar
 import com.ollitert.llm.server.ui.server.ServerViewModel
 import kotlinx.coroutines.flow.map
+import androidx.navigation.NavDestination.Companion.hasRoute
+import com.ollitert.llm.server.ui.navigation.OlliteRTRoute
 
 /** Root composable for the OlliteRT app. */
 @Composable
@@ -67,19 +68,19 @@ fun OlliteRTApp(
   navController: NavHostController = rememberNavController(),
 ) {
   val backStackEntry by navController.currentBackStackEntryAsState()
-  val currentRoute = backStackEntry?.destination?.route
+  val currentDestination = backStackEntry?.destination
 
-  val startDestination = if (modelManagerViewModel.onboardingCompleted) {
-    OlliteRTRoutes.MODELS
+  val startDestination: OlliteRTRoute = if (modelManagerViewModel.onboardingCompleted) {
+    OlliteRTRoute.Models
   } else {
-    OlliteRTRoutes.GETTING_STARTED
+    OlliteRTRoute.GettingStarted
   }
 
   // Auto-load default model on app launch (if configured and server isn't already running).
   // Reads status snapshot once — no ongoing collection that would recompose the root.
   val context = LocalContext.current
   LaunchedEffect(Unit) {
-    if (startDestination == OlliteRTRoutes.MODELS) {
+    if (startDestination == OlliteRTRoute.Models) {
       val defaultModel = ServerPrefs.getDefaultModelName(context)
       if (!defaultModel.isNullOrBlank() && serverViewModel.status.value == ServerStatus.STOPPED) {
         serverViewModel.startServer(modelName = defaultModel, source = ServerService.SOURCE_LAUNCH)
@@ -251,20 +252,19 @@ fun OlliteRTApp(
   }
 
   // Top bar trailing content (e.g. save button on Settings, info on Repositories).
-  // Reset on route change so outgoing screen's onDispose doesn't race with incoming screen's setup.
+  // Reset on destination change so outgoing screen's onDispose doesn't race with incoming screen's setup.
   var topBarTrailingContent: (@Composable () -> Unit)? by remember { mutableStateOf(null) }
-  LaunchedEffect(currentRoute) { topBarTrailingContent = null }
+  LaunchedEffect(currentDestination) { topBarTrailingContent = null }
 
-  // Determine which screens show the bottom nav and top bar
-  val showNav = currentRoute in listOf(
-    OlliteRTRoutes.MODELS,
-    OlliteRTRoutes.STATUS,
-    OlliteRTRoutes.LOGS,
-  )
-  val showTopBar = currentRoute != null && currentRoute !in listOf(
-    OlliteRTRoutes.GETTING_STARTED,
-    OlliteRTRoutes.BENCHMARK,
-  )
+  // Determine which screens show the bottom nav and top bar using type-safe routes
+  val isModels = currentDestination?.hasRoute<OlliteRTRoute.Models>() == true
+  val isStatus = currentDestination?.hasRoute<OlliteRTRoute.Status>() == true
+  val isLogs = currentDestination?.hasRoute<OlliteRTRoute.Logs>() == true
+  val isGettingStarted = currentDestination?.hasRoute<OlliteRTRoute.GettingStarted>() == true
+  val isBenchmark = currentDestination?.hasRoute<OlliteRTRoute.Benchmark>() == true
+
+  val showNav = isModels || isStatus || isLogs
+  val showTopBar = currentDestination != null && !isGettingStarted && !isBenchmark
 
   // Shared tab navigation lambda
   val onTabSelected: (OlliteRTTab) -> Unit = { tab ->
@@ -286,7 +286,7 @@ fun OlliteRTApp(
           serverStatus = serverStatus,
           isInferring = isInferring,
           onSettingsClick = {
-            navController.navigate(OlliteRTRoutes.SETTINGS) {
+            navController.navigate(OlliteRTRoute.Settings) {
               launchSingleTop = true
             }
           },
@@ -313,7 +313,7 @@ fun OlliteRTApp(
           modelManagerViewModel.uiState.map { it.storageUpdateTrigger }
         }.collectAsStateWithLifecycle(initialValue = 0L)
         OlliteRTBottomNavBar(
-          currentRoute = currentRoute,
+          currentDestination = currentDestination,
           onTabSelected = onTabSelected,
           storageUpdateTrigger = storageTrigger,
         )

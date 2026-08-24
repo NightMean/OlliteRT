@@ -81,21 +81,24 @@ import com.ollitert.llm.server.ui.theme.OlliteRTSurfaceContainerLowest
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.delay
 
-enum class OlliteRTTab(val labelResId: Int, val icon: ImageVector, val route: String) {
-  Models(R.string.nav_tab_models, Icons.Outlined.ViewInAr, OlliteRTRoutes.MODELS),
-  Status(R.string.nav_tab_status, Icons.Outlined.Analytics, OlliteRTRoutes.STATUS),
-  Logs(R.string.nav_tab_logs, Icons.Outlined.Terminal, OlliteRTRoutes.LOGS),
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+
+enum class OlliteRTTab(val labelResId: Int, val icon: ImageVector, val route: OlliteRTRoute) {
+  Models(R.string.nav_tab_models, Icons.Outlined.ViewInAr, OlliteRTRoute.Models),
+  Status(R.string.nav_tab_status, Icons.Outlined.Analytics, OlliteRTRoute.Status),
+  Logs(R.string.nav_tab_logs, Icons.Outlined.Terminal, OlliteRTRoute.Logs),
 }
 
 @Composable
 fun OlliteRTBottomNavBar(
-  currentRoute: String?,
+  currentDestination: NavDestination?,
   onTabSelected: (OlliteRTTab) -> Unit,
   modifier: Modifier = Modifier,
   storageUpdateTrigger: Long = 0L,
 ) {
-  val showStorageBar = currentRoute == OlliteRTRoutes.MODELS
-  val showMemoryBar = currentRoute == OlliteRTRoutes.STATUS
+  val showStorageBar = currentDestination?.hasRoute<OlliteRTRoute.Models>() == true
+  val showMemoryBar = currentDestination?.hasRoute<OlliteRTRoute.Status>() == true
 
   Column(
     modifier = modifier
@@ -126,7 +129,11 @@ fun OlliteRTBottomNavBar(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       OlliteRTTab.entries.forEach { tab ->
-        val selected = currentRoute == tab.route
+        val selected = when (tab) {
+          OlliteRTTab.Models -> currentDestination?.hasRoute<OlliteRTRoute.Models>() == true
+          OlliteRTTab.Status -> currentDestination?.hasRoute<OlliteRTRoute.Status>() == true
+          OlliteRTTab.Logs -> currentDestination?.hasRoute<OlliteRTRoute.Logs>() == true
+        }
         OlliteRTNavItem(
           tab = tab,
           selected = selected,

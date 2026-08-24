@@ -48,10 +48,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
+import androidx.navigation.toRoute
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.prefs.ServerPrefs
@@ -109,7 +108,7 @@ fun OlliteRTNavHost(
   modelManagerViewModel: ModelManagerViewModel,
   serverViewModel: ServerViewModel,
   modifier: Modifier = Modifier,
-  startDestination: String = OlliteRTRoutes.MODELS,
+  startDestination: OlliteRTRoute = OlliteRTRoute.Models,
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -199,7 +198,7 @@ fun OlliteRTNavHost(
     exitTransition = { fadeOut(tween(200)) },
   ) {
     // Models tab (main screen, ModelManagerScreen)
-    composable(OlliteRTRoutes.MODELS) { backStackEntry ->
+    composable<OlliteRTRoute.Models> { backStackEntry ->
       val reposChanged = backStackEntry.savedStateHandle
         .getStateFlow("reposChanged", false)
         .collectAsStateWithLifecycle()
@@ -228,7 +227,7 @@ fun OlliteRTNavHost(
           }
         },
         onBenchmarkClicked = { model ->
-          navController.navigate(OlliteRTRoutes.benchmark(model.name)) { launchSingleTop = true }
+          navController.navigate(OlliteRTRoute.Benchmark(model.name)) { launchSingleTop = true }
         },
         serverStatus = serverStatus,
         activeModelName = activeModelName,
@@ -240,13 +239,13 @@ fun OlliteRTNavHost(
           manualStartPending = true
           serverViewModel.switchModel(modelName)
         },
-        onNavigateToSettings = { navController.navigate(OlliteRTRoutes.SETTINGS) { launchSingleTop = true } },
-        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) { launchSingleTop = true } },
+        onNavigateToSettings = { navController.navigate(OlliteRTRoute.Settings) { launchSingleTop = true } },
+        onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
       )
     }
 
     // Status tab
-    composable(OlliteRTRoutes.STATUS) {
+    composable<OlliteRTRoute.Status> {
       StatusScreen(
         serverViewModel = serverViewModel,
         onReloadModel = {
@@ -257,13 +256,12 @@ fun OlliteRTNavHost(
     }
 
     // Logs tab
-    composable(OlliteRTRoutes.LOGS) {
+    composable<OlliteRTRoute.Logs> {
       LogsScreen()
     }
 
     // Settings screen
-    composable(
-      OlliteRTRoutes.SETTINGS,
+    composable<OlliteRTRoute.Settings>(
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) { settingsBackStackEntry ->
@@ -296,21 +294,20 @@ fun OlliteRTNavHost(
         },
         onStopServer = { serverViewModel.stopServer() },
         onNavigateToModels = {
-          navController.navigate(OlliteRTRoutes.MODELS) {
+          navController.navigate(OlliteRTRoute.Models) {
             launchSingleTop = true
-            popUpTo(OlliteRTRoutes.SETTINGS) { inclusive = true }
+            popUpTo<OlliteRTRoute.Settings> { inclusive = true }
           }
         },
         downloadedModelNames = downloadedModelNames,
         onSetTopBarTrailingContent = onSetTopBarTrailingContent,
         onSettingsSaved = { modelManagerViewModel.refreshShowModelRecommendations() },
-        onNavigateToRepositories = { navController.navigate(OlliteRTRoutes.REPOSITORIES) { launchSingleTop = true } },
+        onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
       )
     }
 
     // Repository list
-    composable(
-      OlliteRTRoutes.REPOSITORIES,
+    composable<OlliteRTRoute.Repositories>(
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) { repoListBackStackEntry ->
@@ -348,7 +345,7 @@ fun OlliteRTNavHost(
           navController.popBackStack()
         },
         onRepoClick = { repoId ->
-          navController.navigate(OlliteRTRoutes.repositoryDetail(repoId)) { launchSingleTop = true }
+          navController.navigate(OlliteRTRoute.RepositoryDetail(repoId)) { launchSingleTop = true }
         },
         downloadedModelRepoIds = downloadedModelRepoIds,
         downloadingModelRepoIds = downloadingModelRepoIds,
@@ -360,13 +357,12 @@ fun OlliteRTNavHost(
     }
 
     // Repository detail
-    composable(
-      route = OlliteRTRoutes.REPOSITORY_DETAIL,
-      arguments = listOf(navArgument("repoId") { type = NavType.StringType }),
+    composable<OlliteRTRoute.RepositoryDetail>(
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) { detailBackStackEntry ->
-      val repoId = detailBackStackEntry.arguments?.getString("repoId") ?: return@composable
+      val args = detailBackStackEntry.toRoute<OlliteRTRoute.RepositoryDetail>()
+      val repoId = args.repoId
       val detailViewModel: RepositoryViewModel = hiltViewModel()
       val detailModelManagerState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
       val detailDownloadingRepoIds by remember {
@@ -388,25 +384,24 @@ fun OlliteRTNavHost(
     }
 
     // Getting Started (onboarding)
-    composable(OlliteRTRoutes.GETTING_STARTED) {
+    composable<OlliteRTRoute.GettingStarted> {
       GettingStartedScreen(
         onGetStartedClick = {
           modelManagerViewModel.completeOnboarding()
-          navController.navigate(OlliteRTRoutes.MODELS) {
-            popUpTo(OlliteRTRoutes.GETTING_STARTED) { inclusive = true }
+          navController.navigate(OlliteRTRoute.Models) {
+            popUpTo<OlliteRTRoute.GettingStarted> { inclusive = true }
           }
         },
       )
     }
 
-    // Benchmark screen (existing)
-    composable(
-      route = OlliteRTRoutes.BENCHMARK,
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+    // Benchmark screen
+    composable<OlliteRTRoute.Benchmark>(
       enterTransition = { slideInLeft() },
       exitTransition = { slideOutRight() },
     ) { backStackEntry ->
-      val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
+      val args = backStackEntry.toRoute<OlliteRTRoute.Benchmark>()
+      val modelName = args.modelName
       modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
         BenchmarkScreen(
           initialModel = model,
@@ -424,7 +419,7 @@ fun OlliteRTNavHost(
     intent.data = null
     Log.d(TAG, "deep link: $data")
     if (data.toString() == "com.ollitert.llm.server://global_model_manager") {
-      navController.navigate(OlliteRTRoutes.MODELS) { launchSingleTop = true }
+      navController.navigate(OlliteRTRoute.Models) { launchSingleTop = true }
     }
   }
 }
