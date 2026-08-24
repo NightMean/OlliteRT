@@ -89,6 +89,7 @@ class SettingsViewModelTest {
       fakePreferences,
       DefaultServerStateRepository(),
       LogRetentionCoordinator(mockPersistence, fakePreferences),
+      NetworkPolicyCoordinator(mockContext),
       testDispatcher,
     )
   }
