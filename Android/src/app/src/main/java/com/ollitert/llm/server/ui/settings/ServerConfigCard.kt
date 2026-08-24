@@ -64,7 +64,6 @@ import com.ollitert.llm.server.data.prefs.ClientIpPolicyCompileResult
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyConfig
 import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
 import com.ollitert.llm.server.data.prefs.ServerBindMode
-import com.ollitert.llm.server.service.inference.BridgeUtils
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.common.MultilineTextInputDialog
@@ -269,7 +268,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
         onCheckedChange = { enabled ->
           vm.bearerEnabledEntry.update(enabled)
           if (enabled && vm.bearerTokenEntry.current.isBlank()) {
-            vm.bearerTokenEntry.update(BridgeUtils.generateBearerToken())
+            vm.bearerTokenEntry.update(vm.generateBearerToken())
           }
         },
         searchQuery = vm.searchQuery,
@@ -311,7 +310,7 @@ internal fun ServerConfigCard(vm: SettingsViewModel, context: Context) {
             icon = Icons.Outlined.Refresh,
             tooltip = stringResource(R.string.settings_bearer_regenerate_tooltip),
             onClick = {
-              vm.bearerTokenEntry.update(BridgeUtils.generateBearerToken())
+              vm.bearerTokenEntry.update(vm.generateBearerToken())
               Toast.makeText(context, tokenRegeneratedText, Toast.LENGTH_SHORT).show()
             },
           )

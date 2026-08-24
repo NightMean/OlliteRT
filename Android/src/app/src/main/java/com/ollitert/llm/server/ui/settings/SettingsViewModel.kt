@@ -43,6 +43,7 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
 import com.ollitert.llm.server.service.ServerService
+import com.ollitert.llm.server.service.inference.BridgeUtils
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.settings.CardId
 import com.ollitert.llm.server.ui.settings.SettingDef
@@ -268,6 +269,9 @@ class SettingsViewModel @Inject constructor(
   }
 
   fun settingDescriptionOverride(key: String): Int? = null
+
+  /** Generates a new random bearer token for the server config UI. */
+  fun generateBearerToken(): String = BridgeUtils.generateBearerToken()
 
   // ─── Change Detection ────────────────────────────────────────────────────
 
