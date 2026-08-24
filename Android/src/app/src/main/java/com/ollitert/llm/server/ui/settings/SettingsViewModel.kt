@@ -75,6 +75,8 @@ class SettingsViewModel @Inject constructor(
   private val ProtoDataStoreRepository: ProtoDataStoreRepository,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
+  private val logRetention: LogRetentionCoordinator =
+    LogRetentionCoordinator(persistence, preferencesRepository),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
@@ -302,7 +304,7 @@ class SettingsViewModel @Inject constructor(
   /** Wrapper that warns if saving would trim existing logs. */
   fun trySave(serverStatus: ServerStatus): SaveResult {
     val currentCount = RequestLogStore.entries.value.size
-    if (logMaxEntriesEntry.current < currentCount && logMaxEntriesEntry.isChanged) {
+    if (logRetention.wouldTrimLogs(logMaxEntriesEntry.current, logMaxEntriesEntry.isChanged)) {
       return SaveResult.NeedsTrimConfirmation(currentCount, logMaxEntriesEntry.current)
     }
     return save(serverStatus)
@@ -349,8 +351,7 @@ class SettingsViewModel @Inject constructor(
     portEntry.update(port)
 
     // ── Persist to SharedPreferences ──
-    val wasLogPersistenceEnabled = preferencesRepository.isLogPersistenceEnabled()
-    val oldAutoDeleteMinutes = preferencesRepository.getLogAutoDeleteMinutes()
+    val retentionSnapshot = logRetention.snapshotPruningPrefs()
     // Bearer token uses effective value (blank when toggle is off)
     preferencesRepository.setBearerToken(effectiveBearerToken)
     // Persist related network fields atomically so readers never observe a mixed configuration.
@@ -392,16 +393,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     // ── Sync persistence layer ──
-    if (logPersistenceEnabledEntry.current && !logPersistenceEnabledEntry.saved) {
-      persistence.persistCurrentEntries()
-    }
-    persistence.updateMaxEntries()
-    val pruningConfigChanged = preferencesRepository.isLogPersistenceEnabled() != wasLogPersistenceEnabled
-        || (preferencesRepository.isLogPersistenceEnabled()
-            && preferencesRepository.getLogAutoDeleteMinutes() != oldAutoDeleteMinutes)
-    if (pruningConfigChanged) {
-      persistence.schedulePruning()
-    }
+    logRetention.syncAfterSave(logPersistenceEnabledEntry.current, retentionSnapshot)
 
     // ── Advance saved baselines ──
     portEntry.apply()
@@ -493,8 +485,7 @@ class SettingsViewModel @Inject constructor(
 
   /** Clear all persisted logs (in-memory + database). */
   fun clearPersistedLogs() {
-    RequestLogStore.clear()
-    persistence.clearPersistedLogs()
+    logRetention.clearAllLogs()
   }
 
   /** Reset all settings to factory defaults using SettingDef metadata. */
@@ -525,9 +516,7 @@ class SettingsViewModel @Inject constructor(
     validationErrors.clear()
 
     // Side effects
-    persistence.updateMaxEntries()
-    persistence.schedulePruning()
-    persistence.clearPersistedLogs()
+    logRetention.syncAfterReset()
     UpdateCheckWorker.scheduleUpdateCheck(context)
     ServerService.updateClientIpAccessPolicy(ClientIpAccessPolicy.ALLOW_ALL)
 

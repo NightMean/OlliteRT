@@ -82,7 +82,15 @@ class SettingsViewModelTest {
     every { UpdateCheckWorker.scheduleUpdateCheck(any()) } returns Unit
     every { UpdateCheckWorker.cancelUpdateCheck(any()) } returns Unit
 
-    vm = SettingsViewModel(mockContext, mockPersistence, FakeProtoDataStoreRepository(), fakePreferences, DefaultServerStateRepository(), testDispatcher)
+    vm = SettingsViewModel(
+      mockContext,
+      mockPersistence,
+      FakeProtoDataStoreRepository(),
+      fakePreferences,
+      DefaultServerStateRepository(),
+      LogRetentionCoordinator(mockPersistence, fakePreferences),
+      testDispatcher,
+    )
   }
 
   @After
