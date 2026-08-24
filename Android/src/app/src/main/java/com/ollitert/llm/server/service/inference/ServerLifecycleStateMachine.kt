@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service.inference
 
+import androidx.compose.runtime.Immutable
 import com.ollitert.llm.server.common.ServerStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * Deterministic finite states modeling the server runtime lifecycle.
  */
+@Immutable
 sealed interface ServerLifecycleState {
 
   data object Stopped : ServerLifecycleState

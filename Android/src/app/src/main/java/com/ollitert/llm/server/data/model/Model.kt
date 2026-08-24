@@ -25,6 +25,8 @@ import com.ollitert.llm.server.data.prefs.convertValueToTargetType
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 
 import android.content.Context
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.File
@@ -41,11 +43,13 @@ enum class ModelCapability {
 
 /** A previous version of a model file, used to detect updatable models on disk. */
 @Serializable
+@Immutable
 data class ModelFile(
   @SerialName("fileName") val fileName: String,
   @SerialName("commitHash") val commitHash: String,
 )
 
+@Immutable
 data class ModelDataFile(
   val url: String,
   val downloadFileName: String,
@@ -62,6 +66,7 @@ enum class RuntimeType {
 }
 
 /** A model available for serving. */
+@Stable
 data class Model(
   /**
    * The name of the model.

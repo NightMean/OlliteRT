@@ -15,12 +15,14 @@
  */
 
 package com.ollitert.llm.server.data.model
+import androidx.compose.runtime.Immutable
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_CACHE_PREFIX
 
 import com.ollitert.llm.server.proto.RepositoryEntry as RepositoryEntryProto
 
 fun repoCacheFilename(id: String): String = "${MODEL_ALLOWLIST_CACHE_PREFIX}$id.json"
 
+@Immutable
 data class Repository(
   val id: String,
   val url: String,

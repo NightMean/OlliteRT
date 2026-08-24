@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.data.model
 
+import androidx.compose.runtime.Immutable
 import com.ollitert.llm.server.common.ErrorCategory
 
 enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
@@ -47,6 +48,7 @@ enum class ErrorKind(val category: ErrorCategory) {
 /**
  * A single API request/response pair displayed in the Logs screen and persisted in Room.
  */
+@Immutable
 data class RequestLogEntry(
   val id: String,
   val timestamp: Long = System.currentTimeMillis(),

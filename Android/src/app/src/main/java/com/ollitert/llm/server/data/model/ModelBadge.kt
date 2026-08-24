@@ -16,11 +16,18 @@
 
 package com.ollitert.llm.server.data.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 sealed class ModelBadge(val key: String) {
+  @Immutable
   data object BestOverall : ModelBadge("best_overall")
+  @Immutable
   data object New : ModelBadge("new")
+  @Immutable
   data object Fastest : ModelBadge("fastest")
 
+  @Immutable
   class Other(key: String) : ModelBadge(key) {
     val displayLabel: String = key
       .split("_")

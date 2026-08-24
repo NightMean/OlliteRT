@@ -20,6 +20,8 @@ import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.model.Model
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import com.ollitert.llm.server.R
 import kotlin.math.abs
 
@@ -31,6 +33,7 @@ enum class ValueType {
   BOOLEAN,
 }
 
+@Immutable
 data class ConfigKey(val id: String, val label: String, @param:StringRes val labelResId: Int)
 
 object ConfigKeys {
@@ -99,6 +102,7 @@ fun Map<String, Any>.configSpeculativeDecodingEnabled(): Boolean? =
  * @param needReinitialization Indicates whether the model needs to be reinitialized after changing
  *   this config.
  */
+@Stable
 open class Config(
   open val key: ConfigKey,
   open val defaultValue: Any,

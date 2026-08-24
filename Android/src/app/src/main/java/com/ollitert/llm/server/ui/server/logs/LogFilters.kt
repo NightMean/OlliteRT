@@ -18,6 +18,7 @@ package com.ollitert.llm.server.ui.server.logs
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -48,6 +49,7 @@ enum class StatusRange(val label: String, val range: IntRange) {
  * (instant, <5ms for 1000 entries). Text search is triggered on Enter, not per-keystroke.
  * Body search always included (runs async on [Dispatchers.Default]).
  */
+@Immutable
 data class LogFilter(
   val query: String = "",
   val methods: Set<String> = emptySet(),
