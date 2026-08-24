@@ -81,7 +81,6 @@ import com.ollitert.llm.server.common.isWifiConnected
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.common.ErrorAlertDialog
 import com.ollitert.llm.server.ui.common.LoadingBlockingOverlay
@@ -196,7 +195,7 @@ fun DownloadAndTryButton(
     ) {
       Log.d(TAG, "User closes the browser tab. Verifying access before downloading.")
       scope.launch(Dispatchers.IO) {
-        val token = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
+        val token = configuredHfTokenOrNull(modelManagerViewModel.getHfToken())
         val urlResult = modelManagerViewModel.getModelUrlResponse(model = model, accessToken = token)
         withContext(Dispatchers.Main) {
           if (urlResult is ModelUrlResult.Success && urlResult.code == HttpURLConnection.HTTP_OK) {
@@ -244,7 +243,7 @@ fun DownloadAndTryButton(
           }
           Log.d(TAG, "Model '${model.name}' needs auth.")
 
-          val storedHfToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
+          val storedHfToken = configuredHfTokenOrNull(modelManagerViewModel.getHfToken())
           if (storedHfToken != null) {
             Log.d(TAG, "Trying stored HF token from Settings...")
             val hfResult = modelManagerViewModel.getModelUrlResponse(
@@ -602,7 +601,7 @@ fun DownloadAndTryButton(
 
   if (showWifiWarning) {
     WifiWarningAlert(
-      port = ServerPrefs.getPort(context),
+      port = modelManagerViewModel.getPort(),
       onStartAnyway = {
         showWifiWarning = false
         onClicked()

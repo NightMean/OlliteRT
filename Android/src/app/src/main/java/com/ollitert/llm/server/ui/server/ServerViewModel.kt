@@ -124,6 +124,19 @@ class ServerViewModel @Inject constructor(
     ServerService.reload(context, port, modelName)
   }
 
+  fun getBearerToken(): String = preferencesRepository.getBearerToken()
+  fun getCorsAllowedOrigins(): String = preferencesRepository.getCorsAllowedOrigins()
+  fun getClientIpPolicyConfig() = preferencesRepository.getClientIpPolicyConfig()
+  fun isShowRequestTypes(): Boolean = preferencesRepository.isShowRequestTypes()
+  fun isShowAdvancedMetrics(): Boolean = preferencesRepository.isShowAdvancedMetrics()
+
+  fun shouldShowEngagementPrompt(): Boolean = preferencesRepository.shouldShowEngagementPrompt()
+  fun incrementEngagementPromptShowCount() = preferencesRepository.incrementEngagementPromptShowCount()
+  fun setEngagementPromptPermanentlyDismissed() = preferencesRepository.setEngagementPromptPermanentlyDismissed()
+  fun isGpuUnavailableServerStartDismissed(): Boolean = preferencesRepository.isGpuUnavailableServerStartDismissed()
+  fun setGpuUnavailableServerStartDismissed(dismissed: Boolean) = preferencesRepository.setGpuUnavailableServerStartDismissed(dismissed)
+  fun incrementManualStartCount() = preferencesRepository.incrementManualStartCount()
+
   private fun setActionInFlight() {
     actionInFlight = true
     viewModelScope.launch {
@@ -131,5 +144,4 @@ class ServerViewModel @Inject constructor(
       actionInFlight = false
     }
   }
-
 }

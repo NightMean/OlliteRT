@@ -193,6 +193,13 @@ constructor(
     _uiState.update { it.copy(configValuesUpdateTrigger = System.currentTimeMillis()) }
   }
 
+  fun getSystemPrompt(prefsKey: String): String = preferencesRepository.getSystemPrompt(prefsKey)
+  fun setSystemPrompt(prefsKey: String, prompt: String) = preferencesRepository.setSystemPrompt(prefsKey, prompt)
+  fun isCustomPromptsEnabled(): Boolean = preferencesRepository.isCustomPromptsEnabled()
+  fun setInferenceConfig(prefsKey: String, configValues: Map<String, Any>) = preferencesRepository.setInferenceConfig(prefsKey, configValues)
+  fun getPort(): Int = preferencesRepository.getPort()
+  fun getHfToken(): String = preferencesRepository.getHfToken()
+
   private fun notifyStorageChanged() {
     _uiState.update { it.copy(storageUpdateTrigger = System.currentTimeMillis()) }
   }
@@ -432,6 +439,7 @@ constructor(
     allowlistLoader = allowlistLoader,
     fileManager = fileManager,
     importManager = importManager,
+    preferencesRepository = preferencesRepository,
   )
 
   fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {

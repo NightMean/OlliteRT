@@ -86,7 +86,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.LogLevel
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
@@ -262,7 +261,7 @@ fun LogsScreen(
               onClick = {
                 if (entries.any { it.isPending }) {
                   viewModel.setShowClearActiveDialog(true)
-                } else if (ServerPrefs.isConfirmClearLogs(context)) {
+                } else if (viewModel.isConfirmClearLogs) {
                   viewModel.setShowClearConfirmDialog(true)
                 } else {
                   viewModel.clearLogs()

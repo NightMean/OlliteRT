@@ -102,6 +102,7 @@ class LogsViewModel @Inject constructor(
 
   val autoExpand: Boolean get() = preferencesRepository.isAutoExpandLogs()
   val wrapLogText: Boolean get() = preferencesRepository.isWrapLogText()
+  val isConfirmClearLogs: Boolean get() = preferencesRepository.isConfirmClearLogs()
 
   fun setSearchDraft(query: String) {
     _searchDraft.value = query

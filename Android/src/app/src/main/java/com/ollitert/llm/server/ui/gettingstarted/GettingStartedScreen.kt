@@ -75,7 +75,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue
@@ -88,6 +89,7 @@ import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 fun GettingStartedScreen(
   onGetStartedClick: () -> Unit,
   modifier: Modifier = Modifier,
+  preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(LocalContext.current),
 ) {
   val scrollState = rememberScrollState()
   val context = LocalContext.current
@@ -97,7 +99,7 @@ fun GettingStartedScreen(
   var showGpuDialog by remember { mutableStateOf(false) }
 
   fun proceedOrShowGpuDialog() {
-    if (!GpuAvailability.isOpenClAccessible && !ServerPrefs.isGpuUnavailableDialogShown(context)) {
+    if (!GpuAvailability.isOpenClAccessible && !preferencesRepository.isGpuUnavailableDialogShown()) {
       showGpuDialog = true
     } else {
       onGetStartedClick()
@@ -141,7 +143,7 @@ fun GettingStartedScreen(
     GpuUnavailableDialog(
       onDismiss = {
         showGpuDialog = false
-        ServerPrefs.setGpuUnavailableDialogShown(context, true)
+        preferencesRepository.setGpuUnavailableDialogShown(true)
         onGetStartedClick()
       },
     )

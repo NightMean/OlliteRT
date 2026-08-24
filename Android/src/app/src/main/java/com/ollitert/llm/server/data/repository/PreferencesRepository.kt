@@ -134,6 +134,15 @@ interface PreferencesRepository {
   fun setTimeoutKeepAliveRecheckSeconds(seconds: Long)
   fun getTimeoutCleanupAwait(): Long
   fun setTimeoutCleanupAwait(seconds: Long)
+  fun shouldShowEngagementPrompt(): Boolean
+  fun incrementEngagementPromptShowCount(): Int
+  fun setEngagementPromptPermanentlyDismissed()
+  fun isGpuUnavailableDialogShown(): Boolean
+  fun setGpuUnavailableDialogShown(shown: Boolean)
+  fun isGpuUnavailableServerStartDismissed(): Boolean
+  fun setGpuUnavailableServerStartDismissed(dismissed: Boolean)
+  fun getManualStartCount(): Int
+  fun incrementManualStartCount(): Int
   fun setCachedUpdateInfo(version: String?, tagName: String?, releaseNotes: String?)
   fun resetToDefaults()
   fun dumpToLogcat()
@@ -248,6 +257,15 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setTimeoutKeepAliveRecheckSeconds(seconds: Long) = ServerPrefs.setTimeoutKeepAliveRecheckSeconds(context, seconds)
   override fun getTimeoutCleanupAwait(): Long = ServerPrefs.getTimeoutCleanupAwait(context)
   override fun setTimeoutCleanupAwait(seconds: Long) = ServerPrefs.setTimeoutCleanupAwait(context, seconds)
+  override fun shouldShowEngagementPrompt(): Boolean = ServerPrefs.shouldShowEngagementPrompt(context)
+  override fun incrementEngagementPromptShowCount(): Int = ServerPrefs.incrementEngagementPromptShowCount(context)
+  override fun setEngagementPromptPermanentlyDismissed() = ServerPrefs.setEngagementPromptPermanentlyDismissed(context)
+  override fun isGpuUnavailableDialogShown(): Boolean = ServerPrefs.isGpuUnavailableDialogShown(context)
+  override fun setGpuUnavailableDialogShown(shown: Boolean) = ServerPrefs.setGpuUnavailableDialogShown(context, shown)
+  override fun isGpuUnavailableServerStartDismissed(): Boolean = ServerPrefs.isGpuUnavailableServerStartDismissed(context)
+  override fun setGpuUnavailableServerStartDismissed(dismissed: Boolean) = ServerPrefs.setGpuUnavailableServerStartDismissed(context, dismissed)
+  override fun getManualStartCount(): Int = ServerPrefs.getManualStartCount(context)
+  override fun incrementManualStartCount(): Int = ServerPrefs.incrementManualStartCount(context)
   override fun setCachedUpdateInfo(version: String?, tagName: String?, releaseNotes: String?) =
     ServerPrefs.setCachedUpdateInfo(context, version, tagName, releaseNotes)
   override fun resetToDefaults() = ServerPrefs.resetToDefaults(context)

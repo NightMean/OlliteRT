@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
@@ -242,14 +241,16 @@ fun ModelItem(
     val configDisplayLabels = model.configs.associate { it.key.id to stringResource(it.key.labelResId) }
     InferenceSettingsSheet(
       model = model,
+      customPromptsEnabled = modelManagerViewModel.isCustomPromptsEnabled(),
+      initialSystemPrompt = modelManagerViewModel.getSystemPrompt(model.prefsKey),
       onDismiss = { showInferenceSettings = false },
       onEditDefaults = if (model.imported) {
         { showEditDefaults = true }
       } else null,
       onApply = { newConfigValues, systemPrompt, isReset ->
         // Persist system prompt for this model
-        val oldSystemPrompt = ServerPrefs.getSystemPrompt(context, model.prefsKey)
-        ServerPrefs.setSystemPrompt(context, model.prefsKey, systemPrompt)
+        val oldSystemPrompt = modelManagerViewModel.getSystemPrompt(model.prefsKey)
+        modelManagerViewModel.setSystemPrompt(model.prefsKey, systemPrompt)
         val promptsChanged = systemPrompt != oldSystemPrompt
 
         // Detect changed configs and whether reinitialization is needed.
@@ -281,7 +282,7 @@ fun ModelItem(
         val prevConfigValues = model.configValues
         model.configValues = newConfigValues.toMap()
         // Persist inference config so it survives app restarts
-        ServerPrefs.setInferenceConfig(context, model.prefsKey, newConfigValues)
+        modelManagerViewModel.setInferenceConfig(model.prefsKey, newConfigValues)
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
         // Log config changes and trigger model reload if needed.
@@ -342,7 +343,7 @@ fun ModelItem(
             body = eventBody.toString(),
           )
           if (needReinitialization) {
-            val port = ServerPrefs.getPort(context)
+            val port = modelManagerViewModel.getPort()
             if (isLoading) {
               ServerService.queueReloadAfterLoad(port, model.name, newConfigValues)
               Toast.makeText(context, settingsSavedReloadPendingText, Toast.LENGTH_SHORT).show()

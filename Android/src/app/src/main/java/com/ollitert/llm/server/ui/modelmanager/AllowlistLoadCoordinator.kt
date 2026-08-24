@@ -41,7 +41,8 @@ import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.SOC
-import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 
 private const val TAG = "OlliteRT.AllowlistCoord"
 
@@ -71,6 +72,7 @@ class AllowlistLoadCoordinator(
   private val allowlistLoader: ModelAllowlistLoader,
   private val fileManager: ModelFileManager,
   private val importManager: ModelListImportManager,
+  private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
 
   fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {
@@ -146,7 +148,7 @@ class AllowlistLoadCoordinator(
         else -> ModelEmptyReason.NONE
       }
 
-      if (ServerPrefs.isVerboseDebugEnabled(context)) {
+      if (preferencesRepository.isVerboseDebugEnabled()) {
         RequestLogStore.addEvent(
           "Model list loaded (${models.size} ${if (models.size == 1) "model" else "models"} from ${enabledRepos.size} ${if (enabledRepos.size == 1) "repo" else "repos"})",
           level = LogLevel.DEBUG,
@@ -224,7 +226,7 @@ class AllowlistLoadCoordinator(
   }
 
   fun logRepoRefreshFailures(enabledRepos: List<Repository>, refreshResult: RefreshResult) {
-    if (!ServerPrefs.isVerboseDebugEnabled(context)) return
+    if (!preferencesRepository.isVerboseDebugEnabled()) return
     for (repo in enabledRepos) {
       if (repo.id in refreshResult.failedRepoIds) {
         val name = repo.name.ifEmpty { repo.id }

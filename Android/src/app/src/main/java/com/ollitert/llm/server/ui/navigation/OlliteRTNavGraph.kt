@@ -53,7 +53,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollitert.llm.server.ui.common.DonateDialog
 import com.ollitert.llm.server.ui.common.EngagementPromptDialog
@@ -142,8 +141,8 @@ fun OlliteRTNavHost(
   LaunchedEffect(engagementServerStatus) {
     if (engagementServerStatus == ServerStatus.RUNNING && manualStartPending) {
       manualStartPending = false
-      if (ServerPrefs.shouldShowEngagementPrompt(context)) {
-        ServerPrefs.incrementEngagementPromptShowCount(context)
+      if (serverViewModel.shouldShowEngagementPrompt()) {
+        serverViewModel.incrementEngagementPromptShowCount()
         showEngagementPrompt = true
       }
     } else if (engagementServerStatus == ServerStatus.ERROR || engagementServerStatus == ServerStatus.STOPPED) {
@@ -160,13 +159,13 @@ fun OlliteRTNavHost(
       },
       onStarOnGitHub = {
         showEngagementPrompt = false
-        ServerPrefs.setEngagementPromptPermanentlyDismissed(context)
+        serverViewModel.setEngagementPromptPermanentlyDismissed()
         uriHandler.openUri(GitHubConfig.REPO_URL)
       },
       onDismiss = { permanentlyDismiss ->
         showEngagementPrompt = false
         if (permanentlyDismiss) {
-          ServerPrefs.setEngagementPromptPermanentlyDismissed(context)
+          serverViewModel.setEngagementPromptPermanentlyDismissed()
         }
       },
     )
@@ -184,7 +183,7 @@ fun OlliteRTNavHost(
       showDontShowAgain = true,
       onDontShowAgainChecked = { checked ->
         if (checked) {
-          ServerPrefs.setGpuUnavailableServerStartDismissed(context, true)
+          serverViewModel.setGpuUnavailableServerStartDismissed(true)
         }
       },
     )
@@ -208,7 +207,6 @@ fun OlliteRTNavHost(
           backStackEntry.savedStateHandle["reposChanged"] = false
         }
       }
-      val modelsContext = LocalContext.current
       val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
@@ -218,11 +216,11 @@ fun OlliteRTNavHost(
         onModelSelected = { model ->
           // Track manual server starts for the engagement prompt (counter lives in prefs,
           // observer lives at NavHost level so it fires regardless of which screen is active)
-          ServerPrefs.incrementManualStartCount(modelsContext)
+          serverViewModel.incrementManualStartCount()
           manualStartPending = true
           serverViewModel.startServer(modelName = model.name)
           if (!GpuAvailability.isOpenClAccessible &&
-              !ServerPrefs.isGpuUnavailableServerStartDismissed(modelsContext)) {
+              !serverViewModel.isGpuUnavailableServerStartDismissed()) {
             showGpuServerStartDialog = true
           }
         },
@@ -235,7 +233,7 @@ fun OlliteRTNavHost(
         onStopServer = { serverViewModel.stopServer() },
         onSwitchModel = { modelName ->
           // Track model switches the same way as fresh starts for the engagement prompt
-          ServerPrefs.incrementManualStartCount(modelsContext)
+          serverViewModel.incrementManualStartCount()
           manualStartPending = true
           serverViewModel.switchModel(modelName)
         },

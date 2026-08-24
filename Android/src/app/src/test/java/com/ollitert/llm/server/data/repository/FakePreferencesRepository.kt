@@ -232,7 +232,30 @@ class FakePreferencesRepository : PreferencesRepository {
     _timeoutWarmup = 10L
     _timeoutKeepAliveRecheckSeconds = 30L
     _timeoutCleanupAwait = 15L
+    _engagementPromptShowCount = 0
+    _engagementPromptPermanentlyDismissed = false
+    _gpuUnavailableDialogShown = false
+    _gpuUnavailableServerStartDismissed = false
+    _manualStartCount = 0
   }
+
+  private var _engagementPromptShowCount: Int = 0
+  private var _engagementPromptPermanentlyDismissed: Boolean = false
+  private var _gpuUnavailableDialogShown: Boolean = false
+  private var _gpuUnavailableServerStartDismissed: Boolean = false
+  private var _manualStartCount: Int = 0
+
+  override fun shouldShowEngagementPrompt(): Boolean =
+    !_engagementPromptPermanentlyDismissed && _engagementPromptShowCount < 3
+  override fun incrementEngagementPromptShowCount(): Int = ++_engagementPromptShowCount
+  override fun setEngagementPromptPermanentlyDismissed() { _engagementPromptPermanentlyDismissed = true }
+  override fun isGpuUnavailableDialogShown(): Boolean = _gpuUnavailableDialogShown
+  override fun setGpuUnavailableDialogShown(shown: Boolean) { _gpuUnavailableDialogShown = shown }
+  override fun isGpuUnavailableServerStartDismissed(): Boolean = _gpuUnavailableServerStartDismissed
+  override fun setGpuUnavailableServerStartDismissed(dismissed: Boolean) { _gpuUnavailableServerStartDismissed = dismissed }
+  override fun getManualStartCount(): Int = _manualStartCount
+  override fun incrementManualStartCount(): Int = ++_manualStartCount
+
   override fun dumpToLogcat() {}
   override fun getSystemPrompt(modelName: String): String = _systemPrompts[modelName] ?: ""
   override fun setSystemPrompt(modelName: String, prompt: String) { _systemPrompts[modelName] = prompt }

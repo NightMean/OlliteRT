@@ -66,6 +66,7 @@ class AllowlistLoadCoordinatorTest {
       allowlistLoader = allowlistLoader,
       fileManager = fileManager,
       importManager = importManager,
+      preferencesRepository = com.ollitert.llm.server.data.repository.FakePreferencesRepository(),
     )
   }
 

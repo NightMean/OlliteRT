@@ -71,7 +71,6 @@ import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.prefs.ConfigKeys
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.prefs.NumberSliderConfig
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configThinkingEnabled
@@ -89,6 +88,8 @@ import java.util.Locale
 @Composable
 fun InferenceSettingsSheet(
   model: Model,
+  customPromptsEnabled: Boolean = false,
+  initialSystemPrompt: String = "",
   onDismiss: () -> Unit,
   onApply: (configValues: Map<String, Any>, systemPrompt: String, isReset: Boolean) -> Unit,
   onEditDefaults: (() -> Unit)? = null,
@@ -96,10 +97,9 @@ fun InferenceSettingsSheet(
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val context = LocalContext.current
   val focusManager = LocalFocusManager.current
-  val customPromptsEnabled = remember { ServerPrefs.isCustomPromptsEnabled(context) }
   var advancedExpanded by remember { mutableStateOf(false) }
-  var systemPrompt by remember(model.prefsKey) {
-    mutableStateOf(ServerPrefs.getSystemPrompt(context, model.prefsKey))
+  var systemPrompt by remember(model.prefsKey, initialSystemPrompt) {
+    mutableStateOf(initialSystemPrompt)
   }
 
   val configValues = model.configValues

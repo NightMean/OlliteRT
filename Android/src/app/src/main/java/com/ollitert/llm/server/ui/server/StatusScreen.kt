@@ -50,7 +50,6 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.prefs.UI_TIMER_TICK_MS
 import com.ollitert.llm.server.data.prefs.formatHostForUrl
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
@@ -123,17 +122,17 @@ fun StatusScreen(
 
   val context = LocalContext.current
 
-  var authOn by remember { mutableStateOf(ServerPrefs.getBearerToken(context).isNotBlank()) }
-  var corsOrigins by remember { mutableStateOf(ServerPrefs.getCorsAllowedOrigins(context)) }
-  var clientIpPolicy by remember { mutableStateOf(ServerPrefs.getClientIpPolicyConfig(context)) }
-  var showRequestTypes by remember { mutableStateOf(ServerPrefs.isShowRequestTypes(context)) }
-  var showAdvancedMetrics by remember { mutableStateOf(ServerPrefs.isShowAdvancedMetrics(context)) }
+  var authOn by remember { mutableStateOf(serverViewModel.getBearerToken().isNotBlank()) }
+  var corsOrigins by remember { mutableStateOf(serverViewModel.getCorsAllowedOrigins()) }
+  var clientIpPolicy by remember { mutableStateOf(serverViewModel.getClientIpPolicyConfig()) }
+  var showRequestTypes by remember { mutableStateOf(serverViewModel.isShowRequestTypes()) }
+  var showAdvancedMetrics by remember { mutableStateOf(serverViewModel.isShowAdvancedMetrics()) }
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-    authOn = ServerPrefs.getBearerToken(context).isNotBlank()
-    corsOrigins = ServerPrefs.getCorsAllowedOrigins(context)
-    clientIpPolicy = ServerPrefs.getClientIpPolicyConfig(context)
-    showRequestTypes = ServerPrefs.isShowRequestTypes(context)
-    showAdvancedMetrics = ServerPrefs.isShowAdvancedMetrics(context)
+    authOn = serverViewModel.getBearerToken().isNotBlank()
+    corsOrigins = serverViewModel.getCorsAllowedOrigins()
+    clientIpPolicy = serverViewModel.getClientIpPolicyConfig()
+    showRequestTypes = serverViewModel.isShowRequestTypes()
+    showAdvancedMetrics = serverViewModel.isShowAdvancedMetrics()
   }
 
   var showReloadDialog by remember { mutableStateOf(false) }
