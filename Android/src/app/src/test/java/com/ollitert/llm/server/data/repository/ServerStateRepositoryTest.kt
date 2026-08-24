@@ -55,4 +55,27 @@ class ServerStateRepositoryTest {
     assertEquals(15L, repository.tokensGenerated.value)
     assertEquals(5L, repository.tokensIn.value)
   }
+
+  @Test
+  fun setAvailableUpdateExposedThroughRepository() {
+    assertEquals(null, repository.availableUpdateVersion.value)
+    assertEquals(null, repository.availableUpdateUrl.value)
+    repository.setAvailableUpdate("v2.0.0", "https://example.com/v2.0.0")
+    assertEquals("v2.0.0", repository.availableUpdateVersion.value)
+    assertEquals("https://example.com/v2.0.0", repository.availableUpdateUrl.value)
+    repository.setAvailableUpdate(null, null)
+    assertEquals(null, repository.availableUpdateVersion.value)
+    assertEquals(null, repository.availableUpdateUrl.value)
+  }
+
+  @Test
+  fun clearErrorIfModelDelegatesToServerMetrics() {
+    // Put metrics into error state for a named model, then clear it via the repository
+    ServerMetrics.onServerStarting(8000, "gemma-2b")
+    ServerMetrics.onServerError("OOM")
+    assertEquals(ServerStatus.ERROR, repository.status.value)
+    repository.clearErrorIfModel("gemma-2b")
+    assertEquals(ServerStatus.STOPPED, repository.status.value)
+    assertEquals(null, repository.lastError.value)
+  }
 }

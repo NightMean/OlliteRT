@@ -73,7 +73,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.service.inference.ServerMetrics
+import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
 import com.ollitert.llm.server.ui.modelmanager.components.SYSTEM_RESERVED_STORAGE_IN_BYTES
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
@@ -218,10 +219,10 @@ private fun StorageBar(storageUpdateTrigger: Long = 0L) {
  * models via mmap(), so only the actively-used pages consume RAM (a 2.7 GB model file
  * may only use ~1 GB depending on device memory pressure and inference patterns).
  *
- * Also pushes snapshots to [ServerMetrics] so Prometheus /metrics can expose them.
+ * Also pushes snapshots to [ServerStateRepository] so Prometheus /metrics can expose them.
  */
 @Composable
-private fun MemoryBar() {
+private fun MemoryBar(serverStateRepository: ServerStateRepository = DefaultServerStateRepository()) {
   val context = LocalContext.current
 
   // Device RAM + app PSS polled every 3 seconds
@@ -256,9 +257,9 @@ private fun MemoryBar() {
           val pssKb = android.os.Debug.getPss()
           appPssBytes = pssKb * 1024L
 
-          // Push to ServerMetrics for Prometheus /metrics exposure
+          // Push to ServerStateRepository for Prometheus /metrics exposure
           val rt = Runtime.getRuntime()
-          ServerMetrics.updateMemorySnapshot(
+          serverStateRepository.updateMemorySnapshot(
             nativeHeapBytes = android.os.Debug.getNativeHeapAllocatedSize(),
             appHeapUsedBytes = rt.totalMemory() - rt.freeMemory(),
             appTotalPssBytes = appPssBytes,

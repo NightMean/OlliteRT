@@ -37,7 +37,9 @@ import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkStats
 import com.ollitert.llm.server.proto.ValueSeries
-import com.ollitert.llm.server.service.inference.ServerMetrics
+import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
+
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -88,6 +90,7 @@ class BenchmarkViewModel
 constructor(
   @param:ApplicationContext private val appContext: Context,
   val dataStoreRepository: DataStoreRepository,
+  private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
@@ -126,7 +129,7 @@ constructor(
     runCount: Int,
     speculativeDecoding: Boolean = false,
   ) {
-    val serverActive = ServerMetrics.status.value.let { it == ServerStatus.RUNNING || it == ServerStatus.LOADING }
+    val serverActive = serverStateRepository.status.value.let { it == ServerStatus.RUNNING || it == ServerStatus.LOADING }
     if (serverActive) {
       _uiState.update { it.copy(serverConflictWarning = true) }
       return

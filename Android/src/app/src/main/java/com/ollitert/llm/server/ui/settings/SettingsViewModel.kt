@@ -40,7 +40,8 @@ import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.data.repository.RequestLogStore
-import com.ollitert.llm.server.service.inference.ServerMetrics
+import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
 import com.ollitert.llm.server.ui.settings.CardId
@@ -72,8 +73,13 @@ class SettingsViewModel @Inject constructor(
   private val persistence: RequestLogPersistence,
   private val dataStoreRepository: DataStoreRepository,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
+  private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
+
+  val availableUpdateVersion = serverStateRepository.availableUpdateVersion
+  val availableUpdateUrl = serverStateRepository.availableUpdateUrl
+  val activeModelName = serverStateRepository.activeModelName
 
   var repoCount: Int by mutableIntStateOf(0)
     private set
@@ -365,9 +371,9 @@ class SettingsViewModel @Inject constructor(
       else UpdateCheckWorker.cancelUpdateCheck(context)
     }
     if (!crossChannelNotifyEntry.current) {
-      val cached = ServerMetrics.availableUpdateVersion.value
+      val cached = serverStateRepository.availableUpdateVersion.value
       if (cached != null && !UpdateCheckWorker.isOwnChannelTag(cached)) {
-        ServerMetrics.setAvailableUpdate(null, null)
+        serverStateRepository.setAvailableUpdate(null, null)
         preferencesRepository.setCachedUpdateInfo(null, null, null)
       }
     }
@@ -405,7 +411,7 @@ class SettingsViewModel @Inject constructor(
 
     // Re-check live server status before triggering restart — the server may have crashed
     // or stopped between when the user opened Settings and when they pressed Save.
-    val liveStatus = ServerMetrics.status.value
+    val liveStatus = serverStateRepository.status.value
     val isStillActive = liveStatus == ServerStatus.RUNNING || liveStatus == ServerStatus.LOADING
     return if (needsRestart && isServerActive && isStillActive) {
       SaveResult.NeedsRestart(keepScreenOn = keepScreenOnEntry.current)

@@ -68,6 +68,18 @@ interface ServerStateRepository {
   val appTotalPssBytes: StateFlow<Long>
   val deviceAvailRamBytes: StateFlow<Long>
   val deviceTotalRamBytes: StateFlow<Long>
+  val availableUpdateVersion: StateFlow<String?>
+  val availableUpdateUrl: StateFlow<String?>
+
+  fun setAvailableUpdate(version: String?, url: String?)
+  fun clearErrorIfModel(modelName: String)
+  fun updateMemorySnapshot(
+    nativeHeapBytes: Long,
+    appHeapUsedBytes: Long,
+    appTotalPssBytes: Long,
+    deviceAvailRamBytes: Long,
+    deviceTotalRamBytes: Long,
+  )
 }
 
 /**
@@ -113,4 +125,22 @@ class DefaultServerStateRepository @Inject constructor() : ServerStateRepository
   override val appTotalPssBytes: StateFlow<Long> get() = ServerMetrics.appTotalPssBytes
   override val deviceAvailRamBytes: StateFlow<Long> get() = ServerMetrics.deviceAvailRamBytes
   override val deviceTotalRamBytes: StateFlow<Long> get() = ServerMetrics.deviceTotalRamBytes
+  override val availableUpdateVersion: StateFlow<String?> get() = ServerMetrics.availableUpdateVersion
+  override val availableUpdateUrl: StateFlow<String?> get() = ServerMetrics.availableUpdateUrl
+
+  override fun setAvailableUpdate(version: String?, url: String?) = ServerMetrics.setAvailableUpdate(version, url)
+  override fun clearErrorIfModel(modelName: String) = ServerMetrics.clearErrorIfModel(modelName)
+  override fun updateMemorySnapshot(
+    nativeHeapBytes: Long,
+    appHeapUsedBytes: Long,
+    appTotalPssBytes: Long,
+    deviceAvailRamBytes: Long,
+    deviceTotalRamBytes: Long,
+  ) = ServerMetrics.updateMemorySnapshot(
+    nativeHeapBytes,
+    appHeapUsedBytes,
+    appTotalPssBytes,
+    deviceAvailRamBytes,
+    deviceTotalRamBytes,
+  )
 }

@@ -54,7 +54,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkManager
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
@@ -177,8 +176,8 @@ internal fun UpdatesCard(vm: SettingsViewModel, context: Context) {
         SettingDivider()
       }
 
-      val availableVersion by ServerMetrics.availableUpdateVersion.collectAsStateWithLifecycle()
-      val availableUrl by ServerMetrics.availableUpdateUrl.collectAsStateWithLifecycle()
+      val availableVersion by vm.availableUpdateVersion.collectAsStateWithLifecycle()
+      val availableUrl by vm.availableUpdateUrl.collectAsStateWithLifecycle()
       val hasUpdate = availableVersion != null
 
       var checkWorkId by remember { mutableStateOf<java.util.UUID?>(null) }

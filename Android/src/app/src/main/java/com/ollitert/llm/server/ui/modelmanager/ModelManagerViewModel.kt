@@ -57,7 +57,8 @@ import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.data.repository.RequestLogStore
-import com.ollitert.llm.server.service.inference.ServerMetrics
+import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import com.ollitert.llm.server.di.DefaultDispatcher
 import com.ollitert.llm.server.di.IoDispatcher
@@ -128,6 +129,7 @@ constructor(
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
+  private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ViewModel() {
@@ -252,7 +254,7 @@ constructor(
 
   fun deleteModel(model: Model) {
     downloadRepository.cancelDownloadModel(model)
-    ServerMetrics.clearErrorIfModel(model.name)
+    serverStateRepository.clearErrorIfModel(model.name)
 
     if (model.updatable) {
       model.updatable = false

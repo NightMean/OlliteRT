@@ -56,7 +56,7 @@ import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.service.inference.ServerMetrics
+
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.worker.UpdateCheckWorker
@@ -103,7 +103,7 @@ internal fun ColumnScope.SettingsFooter(vm: SettingsViewModel, context: Context)
       modifier = Modifier
         .clip(RoundedCornerShape(8.dp))
         .clickable {
-          val activeModel = ServerMetrics.activeModelName.value ?: "None"
+          val activeModel = vm.activeModelName.value ?: "None"
           val deviceInfo = listOf(
             "- App version: OlliteRT v${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_HASH}) [${BuildConfig.CHANNEL}]",
             "- Device: ${Build.MANUFACTURER} ${Build.MODEL}",
