@@ -90,6 +90,8 @@ import com.ollitert.llm.server.ui.common.checkNotificationPermissionAndStartDown
 import com.ollitert.llm.server.ui.common.isMemoryLow
 import com.ollitert.llm.server.ui.common.isMemoryWarningSuppressed
 import com.ollitert.llm.server.ui.common.suppressMemoryWarning
+import com.ollitert.llm.server.ui.modelmanager.DownloadGateCoordinator
+import com.ollitert.llm.server.ui.modelmanager.DownloadGateOutcome
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
 import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
@@ -155,6 +157,7 @@ fun DownloadAndTryButton(
   var showWifiWarning by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
+  val downloadGate = remember { DownloadGateCoordinator.forViewModel(modelManagerViewModel) }
 
   val isFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
   val needToDownloadFirst =
@@ -214,84 +217,34 @@ fun DownloadAndTryButton(
     scope.launch(Dispatchers.IO) {
       if (needToDownloadFirst) {
         downloadStarted = true
+        // Optimistic flag so the progress row shows "Checking access…" during probes.
         if (model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)) {
           checkingToken = true
-          Log.d(TAG, "Model '${model.name}' is from HuggingFace. Checking if auth is required")
-          val firstResult = modelManagerViewModel.getModelUrlResponse(model = model)
-          when (firstResult) {
-            is ModelUrlResult.Error -> {
-              checkingToken = false
-              downloadStarted = false
-              Log.e(TAG, "Network error: ${firstResult.message}")
-              showErrorDialog = true
-              return@launch
-            }
-            is ModelUrlResult.Success -> {
-              if (firstResult.code == HttpURLConnection.HTTP_OK) {
-                Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading...")
-                withContext(Dispatchers.Main) { startDownload(null) }
-                return@launch
-              }
-              if (firstResult.code == HttpURLConnection.HTTP_NOT_FOUND) {
-                Log.d(TAG, "Model '${model.name}' returned 404 — model not found.")
-                checkingToken = false
-                downloadStarted = false
-                showModelNotFoundDialog = true
-                return@launch
-              }
-            }
+        }
+        when (val outcome = downloadGate.resolveDownloadAccess(model)) {
+          is DownloadGateOutcome.StartDownload -> {
+            withContext(Dispatchers.Main) { startDownload(outcome.accessToken) }
           }
-          Log.d(TAG, "Model '${model.name}' needs auth.")
-
-          val storedHfToken = configuredHfTokenOrNull(modelManagerViewModel.getHfToken())
-          if (storedHfToken != null) {
-            Log.d(TAG, "Trying stored HF token from Settings...")
-            val hfResult = modelManagerViewModel.getModelUrlResponse(
-              model = model,
-              accessToken = storedHfToken,
-            )
-            when (hfResult) {
-              is ModelUrlResult.Error -> {
-                Log.e(TAG, "Network error checking HF token: ${hfResult.message}")
-                checkingToken = false
-                downloadStarted = false
-                showErrorDialog = true
-                return@launch
-              }
-              is ModelUrlResult.Success -> {
-                if (hfResult.code == HttpURLConnection.HTTP_OK) {
-                  Log.d(TAG, "Stored HF token works. Start downloading...")
-                  withContext(Dispatchers.Main) { startDownload(storedHfToken) }
-                  return@launch
-                } else if (hfResult.code == HttpURLConnection.HTTP_NOT_FOUND) {
-                  Log.d(TAG, "Model '${model.name}' returned 404 with token — model not found.")
-                  checkingToken = false
-                  downloadStarted = false
-                  showModelNotFoundDialog = true
-                  return@launch
-                } else if (hfResult.code == HttpURLConnection.HTTP_FORBIDDEN) {
-                  Log.d(TAG, "Model needs license agreement. Opening agreement page...")
-                  checkingToken = false
-                  showAgreementAckSheet = true
-                  return@launch
-                }
-                Log.d(TAG, "Stored HF token is invalid (response=${hfResult.code}).")
-              }
-            }
+          is DownloadGateOutcome.NetworkError -> {
+            Log.e(TAG, "Network error while checking access: ${outcome.message}")
             checkingToken = false
             downloadStarted = false
-            hfTokenDialogReason = HfTokenDialogReason.INVALID
-            return@launch
-          } else {
-            Log.d(TAG, "No HF token stored. Prompting user to set one in Settings.")
+            showErrorDialog = true
+          }
+          DownloadGateOutcome.ModelNotFound -> {
             checkingToken = false
             downloadStarted = false
-            hfTokenDialogReason = HfTokenDialogReason.MISSING
-            return@launch
+            showModelNotFoundDialog = true
           }
-        } else {
-          Log.d(TAG, "Model '${model.name}' is not from HuggingFace. Start downloading...")
-          withContext(Dispatchers.Main) { startDownload(null) }
+          DownloadGateOutcome.NeedsAgreement -> {
+            checkingToken = false
+            showAgreementAckSheet = true
+          }
+          is DownloadGateOutcome.NeedsHfToken -> {
+            checkingToken = false
+            downloadStarted = false
+            hfTokenDialogReason = outcome.reason
+          }
         }
       } else {
         withContext(Dispatchers.Main) {
