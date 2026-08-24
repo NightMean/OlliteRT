@@ -28,6 +28,7 @@ import com.ollitert.llm.server.data.prefs.createLlmChatConfigs
 import android.content.Context
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.common.SemVer
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.proto.ImportedModel
 import java.io.File
 
@@ -107,12 +108,11 @@ object ModelFactory {
   }
 
   /**
-   * Restores persisted inference config (temperature, topK, etc.) from SharedPreferences
-   * onto a model. Called after building a model to apply user-customized settings that
-   * survive app/service restarts.
+   * Applies persisted inference config (temperature, topK, etc.) onto a model.
+   * Pure domain logic operating on model configuration structures without direct Android dependencies.
    */
-  fun restoreInferenceConfig(context: Context, model: Model) {
-    val savedConfig = ServerPrefs.getInferenceConfig(context, model.prefsKey) ?: return
+  fun applyInferenceConfig(model: Model, savedConfig: Map<String, Any>?) {
+    if (savedConfig == null) return
     val restored = model.configValues.toMutableMap()
     for ((key, savedValue) in savedConfig) {
       if (key in restored) {
@@ -125,6 +125,23 @@ object ModelFactory {
       }
     }
     model.configValues = restored.toMap()
+  }
+
+  /**
+   * Restores persisted inference config (temperature, topK, etc.) from [PreferencesRepository]
+   * onto a model. Preferred overload avoiding direct [Context] access in business layers.
+   */
+  fun restoreInferenceConfig(preferencesRepository: PreferencesRepository, model: Model) {
+    applyInferenceConfig(model, preferencesRepository.getInferenceConfig(model.prefsKey))
+  }
+
+  /**
+   * Restores persisted inference config (temperature, topK, etc.) from SharedPreferences
+   * onto a model. Called after building a model to apply user-customized settings that
+   * survive app/service restarts.
+   */
+  fun restoreInferenceConfig(context: Context, model: Model) {
+    applyInferenceConfig(model, ServerPrefs.getInferenceConfig(context, model.prefsKey))
   }
 
   /**

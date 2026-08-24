@@ -50,10 +50,11 @@ import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import com.ollitert.llm.server.data.prefs.SOC
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.allowlist.ModelFactory
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.service.inference.ServerMetrics
@@ -126,6 +127,7 @@ constructor(
   private val lifecycleProvider: OlliteRTLifecycleProvider,
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
+  private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ViewModel() {
@@ -136,12 +138,12 @@ constructor(
   val uiState = _uiState.asStateFlow()
 
   private val _showModelRecommendations = MutableStateFlow(
-    ServerPrefs.isShowModelRecommendations(context)
+    preferencesRepository.isShowModelRecommendations()
   )
   val showModelRecommendations: StateFlow<Boolean> = _showModelRecommendations.asStateFlow()
 
   fun refreshShowModelRecommendations() {
-    _showModelRecommendations.value = ServerPrefs.isShowModelRecommendations(context)
+    _showModelRecommendations.value = preferencesRepository.isShowModelRecommendations()
   }
 
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
@@ -150,7 +152,7 @@ constructor(
   val fileManager = ModelFileManager(context, externalFilesDir)
   private val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
   private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
-  private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, fileManager)
+  private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, fileManager, preferencesRepository)
 
   fun completeOnboarding() {
     viewModelScope.launch(ioDispatcher) { dataStoreRepository.setOnboardingCompleted() }
@@ -178,12 +180,12 @@ constructor(
       .filter { !it.imported && it.name != it.downloadFileName }
       .associate { it.name to it.downloadFileName }
     if (nameToPrefsKey.isNotEmpty()) {
-      ServerPrefs.migratePerModelKeys(context, nameToPrefsKey)
+      preferencesRepository.migratePerModelKeys(nameToPrefsKey)
     }
 
     for (model in models) {
       model.preProcess()
-      ModelFactory.restoreInferenceConfig(context, model)
+      ModelFactory.restoreInferenceConfig(preferencesRepository, model)
     }
   }
 
@@ -263,7 +265,7 @@ constructor(
     }
 
     val action = if (model.imported) "Imported model deleted" else "Model deleted"
-    if (ServerPrefs.isVerboseDebugEnabled(context)) {
+    if (preferencesRepository.isVerboseDebugEnabled()) {
       RequestLogStore.addEvent(
         "$action: ${model.name} (${model.sizeInBytes.humanReadableSize()})",
         level = LogLevel.DEBUG,
@@ -407,7 +409,7 @@ constructor(
     downloadRepository.cancelAll {
       Log.d(TAG, "All workers are cancelled.")
       viewModelScope.launch(mainDispatcher) {
-        val configuredToken = configuredHfTokenOrNull(ServerPrefs.getHfToken(context))
+        val configuredToken = configuredHfTokenOrNull(preferencesRepository.getHfToken())
         for (model in uiState.value.models) {
           val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
           if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {

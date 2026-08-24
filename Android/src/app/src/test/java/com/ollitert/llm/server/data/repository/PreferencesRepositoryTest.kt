@@ -60,4 +60,35 @@ class PreferencesRepositoryTest {
     repository.setLogAutoDeleteMinutes(1440L)
     assertEquals(1440L, repository.getLogAutoDeleteMinutes())
   }
+
+  @Test
+  fun systemPromptGetAndSet() {
+    assertEquals("", repository.getSystemPrompt("gemma-2b"))
+    repository.setSystemPrompt("gemma-2b", "You are a helpful assistant.")
+    assertEquals("You are a helpful assistant.", repository.getSystemPrompt("gemma-2b"))
+  }
+
+  @Test
+  fun inferenceConfigLifecycle() {
+    assertEquals(null, repository.getInferenceConfig("gemma-2b"))
+    val config = mapOf<String, Any>("temperature" to 0.7, "max_tokens" to 1024)
+    repository.setInferenceConfig("gemma-2b", config)
+    assertEquals(config, repository.getInferenceConfig("gemma-2b"))
+
+    repository.renameModelPrefsKey("gemma-2b", "gemma-2b-it")
+    assertEquals(null, repository.getInferenceConfig("gemma-2b"))
+    assertEquals(config, repository.getInferenceConfig("gemma-2b-it"))
+
+    repository.clearInferenceConfig("gemma-2b-it")
+    assertEquals(null, repository.getInferenceConfig("gemma-2b-it"))
+  }
+
+  @Test
+  fun migratePerModelKeys() {
+    val config = mapOf<String, Any>("top_p" to 0.95)
+    repository.setInferenceConfig("old_name", config)
+    repository.migratePerModelKeys(mapOf("old_name" to "new_name"))
+    assertEquals(null, repository.getInferenceConfig("old_name"))
+    assertEquals(config, repository.getInferenceConfig("new_name"))
+  }
 }

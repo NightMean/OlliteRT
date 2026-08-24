@@ -107,6 +107,13 @@ interface PreferencesRepository {
   fun setConfirmClearLogs(enabled: Boolean)
   fun isShowModelRecommendations(): Boolean
   fun setShowModelRecommendations(enabled: Boolean)
+  fun getSystemPrompt(modelName: String): String
+  fun setSystemPrompt(modelName: String, prompt: String)
+  fun getInferenceConfig(modelName: String): Map<String, Any>?
+  fun setInferenceConfig(modelName: String, configValues: Map<String, Any>)
+  fun clearInferenceConfig(modelName: String)
+  fun renameModelPrefsKey(oldName: String, newName: String)
+  fun migratePerModelKeys(nameToPrefsKey: Map<String, String>)
 }
 
 /**
@@ -194,4 +201,11 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setConfirmClearLogs(enabled: Boolean) = ServerPrefs.setConfirmClearLogs(context, enabled)
   override fun isShowModelRecommendations(): Boolean = ServerPrefs.isShowModelRecommendations(context)
   override fun setShowModelRecommendations(enabled: Boolean) = ServerPrefs.setShowModelRecommendations(context, enabled)
+  override fun getSystemPrompt(modelName: String): String = ServerPrefs.getSystemPrompt(context, modelName)
+  override fun setSystemPrompt(modelName: String, prompt: String) = ServerPrefs.setSystemPrompt(context, modelName, prompt)
+  override fun getInferenceConfig(modelName: String): Map<String, Any>? = ServerPrefs.getInferenceConfig(context, modelName)
+  override fun setInferenceConfig(modelName: String, configValues: Map<String, Any>) = ServerPrefs.setInferenceConfig(context, modelName, configValues)
+  override fun clearInferenceConfig(modelName: String) = ServerPrefs.clearInferenceConfig(context, modelName)
+  override fun renameModelPrefsKey(oldName: String, newName: String) = ServerPrefs.renameModelPrefsKey(context, oldName, newName)
+  override fun migratePerModelKeys(nameToPrefsKey: Map<String, String>) = ServerPrefs.migratePerModelKeys(context, nameToPrefsKey)
 }

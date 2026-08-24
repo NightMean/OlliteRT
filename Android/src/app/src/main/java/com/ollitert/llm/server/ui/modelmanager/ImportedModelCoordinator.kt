@@ -20,13 +20,14 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelFactory
 import com.ollitert.llm.server.data.storage.ModelFileManager
 import com.ollitert.llm.server.data.repository.RequestLogStore
-import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.proto.ImportedModel
 
 private const val TAG = "OlliteRT.ImportedModelCoord"
@@ -40,10 +41,11 @@ class ImportedModelCoordinator(
   private val context: Context,
   private val dataStoreRepository: DataStoreRepository,
   private val fileManager: ModelFileManager,
+  private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
   fun buildAndRestoreImportedModel(info: ImportedModel): Model {
     val model = ModelFactory.buildImportedModel(info)
-    ModelFactory.restoreInferenceConfig(context, model)
+    ModelFactory.restoreInferenceConfig(preferencesRepository, model)
     return model
   }
 
@@ -57,7 +59,7 @@ class ImportedModelCoordinator(
     importedModels.add(info)
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
 
-    if (ServerPrefs.isVerboseDebugEnabled(context)) {
+    if (preferencesRepository.isVerboseDebugEnabled()) {
       RequestLogStore.addEvent(
         "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
         level = LogLevel.DEBUG,
@@ -70,11 +72,11 @@ class ImportedModelCoordinator(
   suspend fun updateDefaults(updatedInfo: ImportedModel): Model {
     Log.d(TAG, "Updating imported model defaults: ${updatedInfo.fileName}")
     dataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
-    ServerPrefs.clearInferenceConfig(context, updatedInfo.fileName)
+    preferencesRepository.clearInferenceConfig(updatedInfo.fileName)
 
     val updatedModel = ModelFactory.buildImportedModel(updatedInfo)
 
-    if (ServerPrefs.isVerboseDebugEnabled(context)) {
+    if (preferencesRepository.isVerboseDebugEnabled()) {
       RequestLogStore.addEvent(
         "Imported model defaults updated: ${updatedInfo.fileName}",
         level = LogLevel.DEBUG,
@@ -122,7 +124,7 @@ class ImportedModelCoordinator(
       resultModel = buildAndRestoreImportedModel(updated)
     }
 
-    ServerPrefs.renameModelPrefsKey(context, oldFileName, newFileName)
+    preferencesRepository.renameModelPrefsKey(oldFileName, newFileName)
     return resultModel
   }
 }

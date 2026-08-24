@@ -65,6 +65,9 @@ class FakePreferencesRepository : PreferencesRepository {
   private var _confirmClearLogs: Boolean = true
   private var _showModelRecommendations: Boolean = true
 
+  private val _systemPrompts = mutableMapOf<String, String>()
+  private val _inferenceConfigs = mutableMapOf<String, Map<String, Any>>()
+
   override fun getPort(): Int = _port
   override fun savePort(port: Int) { this._port = port }
   override fun getServerBindConfig(): ServerBindConfig = _serverBindConfig
@@ -143,4 +146,23 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setConfirmClearLogs(enabled: Boolean) { this._confirmClearLogs = enabled }
   override fun isShowModelRecommendations(): Boolean = _showModelRecommendations
   override fun setShowModelRecommendations(enabled: Boolean) { this._showModelRecommendations = enabled }
+  override fun getSystemPrompt(modelName: String): String = _systemPrompts[modelName] ?: ""
+  override fun setSystemPrompt(modelName: String, prompt: String) { _systemPrompts[modelName] = prompt }
+  override fun getInferenceConfig(modelName: String): Map<String, Any>? = _inferenceConfigs[modelName]
+  override fun setInferenceConfig(modelName: String, configValues: Map<String, Any>) { _inferenceConfigs[modelName] = configValues }
+  override fun clearInferenceConfig(modelName: String) { _inferenceConfigs.remove(modelName) }
+  override fun renameModelPrefsKey(oldName: String, newName: String) {
+    _inferenceConfigs.remove(oldName)?.let { _inferenceConfigs[newName] = it }
+    _systemPrompts.remove(oldName)?.let { _systemPrompts[newName] = it }
+  }
+  override fun migratePerModelKeys(nameToPrefsKey: Map<String, String>) {
+    for ((oldKey, newKey) in nameToPrefsKey) {
+      if (oldKey in _inferenceConfigs && newKey !in _inferenceConfigs) {
+        _inferenceConfigs.remove(oldKey)?.let { _inferenceConfigs[newKey] = it }
+      }
+      if (oldKey in _systemPrompts && newKey !in _systemPrompts) {
+        _systemPrompts.remove(oldKey)?.let { _systemPrompts[newKey] = it }
+      }
+    }
+  }
 }
