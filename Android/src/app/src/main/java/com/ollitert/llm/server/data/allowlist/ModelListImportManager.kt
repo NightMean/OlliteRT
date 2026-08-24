@@ -38,7 +38,7 @@ private const val TAG = "OlliteRT.ListImport"
 class ModelListImportManager(
   private val context: Context,
   private val dataStoreRepository: DataStoreRepository,
-  private val allowlistLoader: ModelAllowlistLoader,
+  private val allowlistLoader: AllowlistLoader,
 ) {
 
   /**

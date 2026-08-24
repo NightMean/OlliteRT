@@ -31,10 +31,10 @@ import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelAllowlist
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
-import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
+import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
-import com.ollitert.llm.server.data.storage.ModelFileManager
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.model.Repository
@@ -69,8 +69,7 @@ class AllowlistLoadCoordinator(
   private val context: Context,
   private val dataStoreRepository: DataStoreRepository,
   private val repositoryManager: RepositoryManager,
-  private val allowlistLoader: ModelAllowlistLoader,
-  private val fileManager: ModelFileManager,
+  private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val importManager: ModelListImportManager,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
@@ -92,9 +91,9 @@ class AllowlistLoadCoordinator(
     isManualRetry: Boolean = false,
     onToastError: (String) -> Unit = {},
   ): AllowlistLoadResult {
-    fileManager.cleanupStaleImportTmpFiles()
+    modelStorageRepository.cleanupStaleImportTmpFiles()
     try {
-      val testAllowlist = allowlistLoader.readTestAllowlist()
+      val testAllowlist = modelStorageRepository.readTestAllowlist()
       if (testAllowlist != null || testAllowlistOverride.isNotEmpty()) {
         val allowlist = if (testAllowlistOverride.isNotEmpty()) {
           try {
@@ -115,9 +114,9 @@ class AllowlistLoadCoordinator(
       importManager.migrateDiskCacheIfNeeded()
       syncOfficialRepoUrl()
 
-      val refreshResult = repositoryManager.refreshAll(allowlistLoader)
+      val refreshResult = repositoryManager.refreshAll(modelStorageRepository)
       val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
-      val loadResult = repositoryManager.loadAll(appVersion, allowlistLoader, modelFilter = ::isModelSupportedOnDevice)
+      val loadResult = repositoryManager.loadAll(appVersion, modelStorageRepository, modelFilter = ::isModelSupportedOnDevice)
 
       val disabledResult = checkAllReposDisabled(loadResult, appVersion)
       if (disabledResult != null) {
@@ -187,11 +186,11 @@ class AllowlistLoadCoordinator(
     if (!allDisabled) return null
 
     val allModelsResult = repositoryManager.loadAll(
-      appVersion, allowlistLoader, ignoreDisabled = true, modelFilter = ::isModelSupportedOnDevice,
+      appVersion, modelStorageRepository, ignoreDisabled = true, modelFilter = ::isModelSupportedOnDevice,
     )
     val statusMap = mutableMapOf<String, ModelDownloadStatus>()
     for (model in allModelsResult.models) {
-      statusMap[model.name] = fileManager.getModelDownloadStatus(model)
+      statusMap[model.name] = modelStorageRepository.getModelDownloadStatus(model)
     }
     val downloadedOnly = allModelsResult.models.filter { model ->
       statusMap[model.name]?.status == ModelDownloadStatusType.SUCCEEDED

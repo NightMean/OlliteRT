@@ -21,8 +21,8 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.AllowedModel
 import com.ollitert.llm.server.data.repository.DataStoreRepository
 import com.ollitert.llm.server.data.allowlist.DefaultConfig
-import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
-import com.ollitert.llm.server.data.storage.ModelFileManager
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
+import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.model.Repository
@@ -39,8 +39,7 @@ class AllowlistLoadCoordinatorTest {
   private lateinit var context: Context
   private lateinit var dataStoreRepository: DataStoreRepository
   private lateinit var repositoryManager: RepositoryManager
-  private lateinit var allowlistLoader: ModelAllowlistLoader
-  private lateinit var fileManager: ModelFileManager
+  private lateinit var modelStorageRepository: ModelStorageRepository
   private lateinit var importManager: ModelListImportManager
   private lateinit var coordinator: AllowlistLoadCoordinator
 
@@ -49,8 +48,7 @@ class AllowlistLoadCoordinatorTest {
     context = mockk(relaxed = true)
     dataStoreRepository = mockk(relaxed = true)
     repositoryManager = mockk(relaxed = true)
-    allowlistLoader = mockk(relaxed = true)
-    fileManager = mockk(relaxed = true)
+    modelStorageRepository = mockk(relaxed = true)
     importManager = mockk(relaxed = true)
 
     every { context.getString(R.string.error_all_repos_offline) } returns "All repositories are offline"
@@ -63,8 +61,7 @@ class AllowlistLoadCoordinatorTest {
       context = context,
       dataStoreRepository = dataStoreRepository,
       repositoryManager = repositoryManager,
-      allowlistLoader = allowlistLoader,
-      fileManager = fileManager,
+      modelStorageRepository = modelStorageRepository,
       importManager = importManager,
       preferencesRepository = com.ollitert.llm.server.data.repository.FakePreferencesRepository(),
     )

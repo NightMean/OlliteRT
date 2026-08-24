@@ -33,7 +33,8 @@ import com.ollitert.llm.server.data.allowlist.REPO_LIMIT_WARNING_THRESHOLD
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.model.repoCacheFilename
 import com.ollitert.llm.server.data.allowlist.deriveRepositoryName
-import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
+import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.di.IoDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -79,11 +80,11 @@ sealed class AddRepoResult {
 class RepositoryViewModel @Inject constructor(
   private val dataStoreRepository: DataStoreRepository,
   @param:ApplicationContext private val context: Context,
+  private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
-  private val allowlistLoader = ModelAllowlistLoader(context, context.getExternalFilesDir(null))
-  private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
+  private val importManager = ModelListImportManager(context, dataStoreRepository, modelStorageRepository)
   private val _uiState = MutableStateFlow(RepositoryUiState())
   val uiState: StateFlow<RepositoryUiState> = _uiState.asStateFlow()
 
@@ -122,10 +123,10 @@ class RepositoryViewModel @Inject constructor(
   }
 
   private fun readAllowlistForRepo(repo: Repository): ModelAllowlist? {
-    var allowlist = allowlistLoader.readFromDiskCache(repo.cacheFilename)
-      ?: if (repo.isBuiltIn) allowlistLoader.readFromAssets() else null
+    var allowlist = modelStorageRepository.readFromDiskCache(repo.cacheFilename)
+      ?: if (repo.isBuiltIn) modelStorageRepository.readFromAssets() else null
     if (repo.isBuiltIn && allowlist != null) {
-      val bundled = allowlistLoader.readFromAssets()
+      val bundled = modelStorageRepository.readFromAssets()
       if (bundled != null && bundled.contentVersion > allowlist.contentVersion) {
         allowlist = bundled
       }
@@ -274,8 +275,8 @@ class RepositoryViewModel @Inject constructor(
     }
 
     val repoId = UUID.randomUUID().toString()
-    allowlistLoader.saveToDisk(body, repoCacheFilename(repoId))
-    if (allowlistLoader.readFromDiskCache(repoCacheFilename(repoId)) == null) {
+    modelStorageRepository.saveToDisk(body, repoCacheFilename(repoId))
+    if (modelStorageRepository.readFromDiskCache(repoCacheFilename(repoId)) == null) {
       return AddRepoResult.Error(context.getString(R.string.repo_error_save_failed))
     }
 

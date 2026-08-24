@@ -41,10 +41,8 @@ import com.ollitert.llm.server.data.allowlist.LoadResult
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelAllowlist
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
-import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
-import com.ollitert.llm.server.data.storage.ModelFileManager
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.model.Repository
@@ -53,6 +51,8 @@ import com.ollitert.llm.server.data.prefs.SOC
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.allowlist.ModelFactory
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
+import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.proto.ImportedModel
@@ -130,6 +130,7 @@ constructor(
   @param:ApplicationContext private val context: Context,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
+  private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ViewModel() {
@@ -151,10 +152,8 @@ constructor(
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
   val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
 
-  val fileManager = ModelFileManager(context, externalFilesDir)
-  private val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
-  private val importManager = ModelListImportManager(context, dataStoreRepository, allowlistLoader)
-  private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, fileManager, preferencesRepository)
+  private val importManager = ModelListImportManager(context, dataStoreRepository, modelStorageRepository)
+  private val importedModelCoordinator = ImportedModelCoordinator(context, dataStoreRepository, modelStorageRepository, preferencesRepository)
 
   fun completeOnboarding() {
     viewModelScope.launch(ioDispatcher) { dataStoreRepository.setOnboardingCompleted() }
@@ -438,8 +437,7 @@ constructor(
     context = context,
     dataStoreRepository = dataStoreRepository,
     repositoryManager = repositoryManager,
-    allowlistLoader = allowlistLoader,
-    fileManager = fileManager,
+    modelStorageRepository = modelStorageRepository,
     importManager = importManager,
     preferencesRepository = preferencesRepository,
   )
@@ -577,9 +575,9 @@ constructor(
     )
   }
 
-  private fun getModelDownloadStatus(model: Model) = fileManager.getModelDownloadStatus(model)
+  private fun getModelDownloadStatus(model: Model) = modelStorageRepository.getModelDownloadStatus(model)
 
-  private fun deleteFileFromExternalFilesDir(fileName: String) = fileManager.deleteFileFromExternalFilesDir(fileName)
-  private fun deleteFilesFromImportDir(fileName: String) = fileManager.deleteFilesFromImportDir(fileName)
-  private fun deleteDirFromExternalFilesDir(dir: String) = fileManager.deleteDirFromExternalFilesDir(dir)
+  private fun deleteFileFromExternalFilesDir(fileName: String) = modelStorageRepository.deleteFileFromExternalFilesDir(fileName)
+  private fun deleteFilesFromImportDir(fileName: String) = modelStorageRepository.deleteFilesFromImportDir(fileName)
+  private fun deleteDirFromExternalFilesDir(dir: String) = modelStorageRepository.deleteDirFromExternalFilesDir(dir)
 }

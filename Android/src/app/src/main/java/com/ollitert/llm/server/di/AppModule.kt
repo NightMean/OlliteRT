@@ -131,4 +131,12 @@ internal object AppModule {
   ): com.ollitert.llm.server.data.repository.PreferencesRepository {
     return com.ollitert.llm.server.data.repository.DefaultPreferencesRepository(context)
   }
+
+  @Provides
+  @Singleton
+  fun provideModelStorageRepository(
+    @ApplicationContext context: Context,
+  ): com.ollitert.llm.server.data.repository.ModelStorageRepository {
+    return com.ollitert.llm.server.data.repository.DefaultModelStorageRepository(context)
+  }
 }

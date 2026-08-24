@@ -26,7 +26,8 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelFactory
-import com.ollitert.llm.server.data.storage.ModelFileManager
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
+import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.proto.ImportedModel
 
@@ -40,7 +41,7 @@ private const val TAG = "OlliteRT.ImportedModelCoord"
 class ImportedModelCoordinator(
   private val context: Context,
   private val dataStoreRepository: DataStoreRepository,
-  private val fileManager: ModelFileManager,
+  private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
   fun buildAndRestoreImportedModel(info: ImportedModel): Model {
@@ -109,7 +110,7 @@ class ImportedModelCoordinator(
   }
 
   suspend fun renameFileAndRecord(oldFileName: String, newFileName: String, displayName: String): Model? {
-    if (!fileManager.renameImportedFile(oldFileName, newFileName)) return null
+    if (!modelStorageRepository.renameImportedFile(oldFileName, newFileName)) return null
 
     val importedModels = dataStoreRepository.readImportedModels().toMutableList()
     val index = importedModels.indexOfFirst { it.fileName == oldFileName }

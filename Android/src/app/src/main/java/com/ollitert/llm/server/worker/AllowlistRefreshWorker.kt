@@ -43,8 +43,8 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
 import com.ollitert.llm.server.data.repository.RequestLogStore
-import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
-import com.ollitert.llm.server.data.storage.ModelFileManager
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
+import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import androidx.hilt.work.HiltWorker
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -64,19 +64,18 @@ class AllowlistRefreshWorker @AssistedInject constructor(
   @Assisted appContext: Context,
   @Assisted workerParams: WorkerParameters,
   private val dataStoreRepository: DataStoreRepository,
+  private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(appContext),
 ) : CoroutineWorker(appContext, workerParams) {
 
   override suspend fun doWork(): Result {
     val context = applicationContext
-    val externalFilesDir = context.getExternalFilesDir(null)
+    val externalFilesDir = modelStorageRepository.getExternalFilesDir()
     if (externalFilesDir == null) {
       Log.w(TAG, "External files dir unavailable — skipping")
       return Result.success()
     }
 
     val repos = dataStoreRepository.readRepositories()
-    val allowlistLoader = ModelAllowlistLoader(context, externalFilesDir)
-    val fileManager = ModelFileManager(context, externalFilesDir)
     val allUpdatableModels = mutableListOf<UpdatableInfo>()
     val nonUpdatableDownloaded = mutableListOf<String>()
     val seenModelIds = mutableSetOf<String>()
@@ -102,7 +101,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
 
         var minVersion = repo.contentVersion
         if (repo.isBuiltIn) {
-          val bundled = allowlistLoader.readFromAssets()
+          val bundled = modelStorageRepository.readFromAssets()
           if (bundled != null && bundled.contentVersion > minVersion) {
             minVersion = bundled.contentVersion
           }
@@ -115,8 +114,8 @@ class AllowlistRefreshWorker @AssistedInject constructor(
           continue
         }
 
-        allowlistLoader.saveToDisk(rawJson, repo.cacheFilename)
-        if (allowlistLoader.readFromDiskCache(repo.cacheFilename) == null) {
+        modelStorageRepository.saveToDisk(rawJson, repo.cacheFilename)
+        if (modelStorageRepository.readFromDiskCache(repo.cacheFilename) == null) {
           Log.w(TAG, "Disk cache write failed for '${repo.id}' — skipping DataStore update")
           continue
         }
@@ -133,7 +132,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
           if (allowedModel.modelId in seenModelIds) continue
           seenModelIds.add(allowedModel.modelId)
           val model = allowedModel.toModel()
-          if (fileManager.isModelDownloaded(model)) {
+          if (modelStorageRepository.isModelDownloaded(model)) {
             if (model.updatable) {
               allUpdatableModels.add(UpdatableInfo(
                 name = model.name,

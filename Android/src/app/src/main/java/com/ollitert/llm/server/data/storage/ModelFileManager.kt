@@ -70,7 +70,7 @@ class ModelFileManager(
   fun deleteFilesFromImportDir(fileName: String) {
     val dir = context.getExternalFilesDir(null) ?: return
 
-    val prefixAbsolutePath = "${dir.absolutePath}${File.separator}$fileName"
+    val prefixAbsolutePath = File(dir, fileName).absolutePath
     val filesToDelete =
       File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
         File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath, ignoreCase = true)
