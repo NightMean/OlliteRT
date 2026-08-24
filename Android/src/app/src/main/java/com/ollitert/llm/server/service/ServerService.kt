@@ -56,6 +56,11 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.PreferencesRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -64,7 +69,12 @@ import java.util.concurrent.atomic.AtomicLong
  * Foreground service exposing an OpenAI-compatible HTTP API for local LLM inference.
  * See [RouteResolver] for the full endpoint table.
  */
+@AndroidEntryPoint
 class ServerService : Service() {
+
+  @Inject lateinit var dataStoreRepository: DataStoreRepository
+  @Inject lateinit var preferencesRepository: PreferencesRepository
+  @Inject lateinit var serverStateRepository: ServerStateRepository
 
   private var server: KtorServer? = null
   private var inferenceRunner: InferenceRunner? = null
@@ -106,18 +116,7 @@ class ServerService : Service() {
     super.onCreate()
     activeInstance = this
     try {
-      // Access DataStoreRepository via Hilt EntryPoint so imported models can be resolved
-      // when starting the server. The DataStore singleton is managed by Hilt; creating a
-      // second instance would corrupt the protobuf file.
-      val dataStoreRepo = try {
-        val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-          applicationContext, OlliteRTApplication.DataStoreEntryPoint::class.java
-        )
-        entryPoint.dataStoreRepository()
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to access DataStoreRepository — imported models won't be loadable", e)
-        null
-      }
+      val dataStoreRepo = if (::dataStoreRepository.isInitialized) dataStoreRepository else null
       modelCatalogMerger = ModelCatalogMerger(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,

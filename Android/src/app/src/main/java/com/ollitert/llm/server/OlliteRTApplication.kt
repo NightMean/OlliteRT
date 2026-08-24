@@ -61,13 +61,6 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     fun requestLogPersistence(): RequestLogPersistence
   }
 
-  /** Entry point for accessing [DataStoreRepository] from non-Hilt components (e.g. Service). */
-  @EntryPoint
-  @InstallIn(SingletonComponent::class)
-  interface DataStoreEntryPoint {
-    fun dataStoreRepository(): DataStoreRepository
-  }
-
   @EarlyEntryPoint
   @InstallIn(SingletonComponent::class)
   interface WorkerFactoryEntryPoint {
