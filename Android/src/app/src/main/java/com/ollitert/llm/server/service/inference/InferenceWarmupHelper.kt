@@ -19,13 +19,13 @@ package com.ollitert.llm.server.service.inference
 import android.content.Context
 import android.os.SystemClock
 import androidx.annotation.WorkerThread
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_SHORT_CHARS
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.WARMUP_MESSAGE
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.WARMUP_MESSAGE
 
 /**
  * Handles warmup inference routines and request cancellation state reporting.

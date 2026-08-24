@@ -46,7 +46,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.navigation.OlliteRTBottomNavBar

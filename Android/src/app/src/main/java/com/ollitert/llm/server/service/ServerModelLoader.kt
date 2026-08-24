@@ -21,17 +21,17 @@ import android.os.SystemClock
 import android.util.Log
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.isSpeculativeDecodingEnabled
-import com.ollitert.llm.server.data.isThinkingEnabled
-import com.ollitert.llm.server.data.llmSupportAudio
-import com.ollitert.llm.server.data.llmSupportImage
-import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_LONG_CHARS
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
+import com.ollitert.llm.server.data.model.isThinkingEnabled
+import com.ollitert.llm.server.data.model.llmSupportAudio
+import com.ollitert.llm.server.data.model.llmSupportImage
+import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.inference.InferenceRunner
 import com.ollitert.llm.server.service.inference.ModelLifecycle
@@ -99,7 +99,7 @@ internal class ServerModelLoader(
       }
       ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
       ServerMetrics.setActiveAccelerator(
-        model.configValues[com.ollitert.llm.server.data.ConfigKeys.ACCELERATOR.id]?.toString()
+        model.configValues[com.ollitert.llm.server.data.prefs.ConfigKeys.ACCELERATOR.id]?.toString()
       )
       ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
       ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)

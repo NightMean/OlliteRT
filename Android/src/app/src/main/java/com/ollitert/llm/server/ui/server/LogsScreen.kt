@@ -85,9 +85,9 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton

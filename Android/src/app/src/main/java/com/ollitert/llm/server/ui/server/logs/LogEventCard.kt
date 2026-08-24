@@ -61,9 +61,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.service.http.ErrorSuggestions
 import com.ollitert.llm.server.ui.server.EventColor
 import com.ollitert.llm.server.ui.server.WarningColor

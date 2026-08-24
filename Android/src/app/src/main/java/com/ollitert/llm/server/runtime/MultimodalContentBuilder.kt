@@ -19,7 +19,7 @@ package com.ollitert.llm.server.runtime
 
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
-import com.ollitert.llm.server.data.IMAGE_PLACEHOLDER
+import com.ollitert.llm.server.data.prefs.IMAGE_PLACEHOLDER
 
 object MultimodalContentBuilder {
 

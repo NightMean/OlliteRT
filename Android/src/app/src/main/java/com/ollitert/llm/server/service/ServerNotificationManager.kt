@@ -29,13 +29,13 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.formatHostForUrl
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_LONG_CHARS
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.formatHostForUrl
 
 /** Notification intents and URL metadata passed to the model load thread. */
 data class LoadNotificationState(

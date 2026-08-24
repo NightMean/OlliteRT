@@ -15,13 +15,14 @@
  */
 
 package com.ollitert.llm.server.data.db
+import com.ollitert.llm.server.data.model.maxContextTokens
 
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals

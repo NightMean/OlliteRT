@@ -23,10 +23,10 @@ import com.ollitert.llm.server.service.inference.*
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.data.ClientIpAccessPolicy
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.routes.audioRoutes
 import com.ollitert.llm.server.service.routes.chatRoutes
 import com.ollitert.llm.server.service.routes.managementRoutes

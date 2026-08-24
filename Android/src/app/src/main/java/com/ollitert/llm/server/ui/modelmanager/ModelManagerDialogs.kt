@@ -66,7 +66,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.ui.common.ErrorAlertDialog
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH

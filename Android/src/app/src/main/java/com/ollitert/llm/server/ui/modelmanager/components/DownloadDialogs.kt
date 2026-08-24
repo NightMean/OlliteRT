@@ -48,9 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.bytesToGb
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.bytesToGb
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 private val SHEET_MAX_WIDTH = 480.dp

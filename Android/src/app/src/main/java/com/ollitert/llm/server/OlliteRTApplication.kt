@@ -25,9 +25,9 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.cleanupStaleImportTmpFiles
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.storage.cleanupStaleImportTmpFiles
 import com.ollitert.llm.server.data.db.RequestLogPersistence
 import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import com.ollitert.llm.server.worker.UpdateCheckWorker

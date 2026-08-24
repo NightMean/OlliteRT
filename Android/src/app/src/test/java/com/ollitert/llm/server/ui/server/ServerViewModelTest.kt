@@ -17,8 +17,8 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
-import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ACTION_IN_FLIGHT_DEBOUNCE_MS
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.ServerService
 import io.mockk.every
 import io.mockk.mockk

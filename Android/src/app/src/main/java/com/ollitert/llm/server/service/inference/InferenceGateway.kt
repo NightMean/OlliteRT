@@ -22,8 +22,8 @@ import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.http.*
 
 import android.util.Log
-import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
-import com.ollitert.llm.server.data.STREAMING_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.prefs.BLOCKING_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.prefs.STREAMING_TIMEOUT_SECONDS
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible

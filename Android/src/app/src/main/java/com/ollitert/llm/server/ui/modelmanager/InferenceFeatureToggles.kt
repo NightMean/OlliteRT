@@ -48,10 +48,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Accelerator
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.llmSupportSpeculativeDecoding
-import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.model.Accelerator
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.llmSupportSpeculativeDecoding
+import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
@@ -116,7 +116,7 @@ internal fun SpeculativeDecodingToggleCard(
   if (!supportsSpecDec) return
 
   val specDecEnabled = !model.updatable
-  val specDecConfig = model.configs.find { it.key == com.ollitert.llm.server.data.ConfigKeys.ENABLE_SPECULATIVE_DECODING }
+  val specDecConfig = model.configs.find { it.key == com.ollitert.llm.server.data.prefs.ConfigKeys.ENABLE_SPECULATIVE_DECODING }
 
   Row(
     modifier = modifier

@@ -59,11 +59,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.data.ClientIpAccessPolicy
-import com.ollitert.llm.server.data.ClientIpPolicyCompileResult
-import com.ollitert.llm.server.data.ClientIpPolicyConfig
-import com.ollitert.llm.server.data.ClientIpPolicyMode
-import com.ollitert.llm.server.data.ServerBindMode
+import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.prefs.ClientIpPolicyCompileResult
+import com.ollitert.llm.server.data.prefs.ClientIpPolicyConfig
+import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
+import com.ollitert.llm.server.data.prefs.ServerBindMode
 import com.ollitert.llm.server.service.inference.BridgeUtils
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.highlightSearchMatches

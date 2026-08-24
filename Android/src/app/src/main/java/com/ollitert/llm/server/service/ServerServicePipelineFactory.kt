@@ -18,7 +18,7 @@ package com.ollitert.llm.server.service
 
 import android.content.Context
 import com.google.ai.edge.litertlm.Contents
-import com.ollitert.llm.server.data.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
 import com.ollitert.llm.server.service.http.AnthropicEndpointHandlers
 import com.ollitert.llm.server.service.http.EndpointHandlers
 import com.ollitert.llm.server.service.http.KtorServer

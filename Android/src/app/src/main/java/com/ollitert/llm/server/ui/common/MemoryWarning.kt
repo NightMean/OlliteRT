@@ -49,8 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.bytesToGb
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.bytesToGb
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 private const val TAG = "OlliteRT.MemWarn"

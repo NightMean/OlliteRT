@@ -18,15 +18,15 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import android.content.Context
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.AllowedModel
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.DefaultConfig
-import com.ollitert.llm.server.data.ModelAllowlistLoader
-import com.ollitert.llm.server.data.ModelFileManager
-import com.ollitert.llm.server.data.ModelListImportManager
-import com.ollitert.llm.server.data.RefreshResult
-import com.ollitert.llm.server.data.Repository
-import com.ollitert.llm.server.data.RepositoryManager
+import com.ollitert.llm.server.data.allowlist.AllowedModel
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.allowlist.DefaultConfig
+import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
+import com.ollitert.llm.server.data.storage.ModelFileManager
+import com.ollitert.llm.server.data.allowlist.ModelListImportManager
+import com.ollitert.llm.server.data.allowlist.RefreshResult
+import com.ollitert.llm.server.data.model.Repository
+import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals

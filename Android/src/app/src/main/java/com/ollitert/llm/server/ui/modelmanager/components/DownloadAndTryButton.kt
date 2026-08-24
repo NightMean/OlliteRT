@@ -78,11 +78,11 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.isWifiConnected
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelDownloadStatus
-import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.common.ErrorAlertDialog
 import com.ollitert.llm.server.ui.common.LoadingBlockingOverlay
 import com.ollitert.llm.server.ui.common.MemoryWarningAlert
@@ -92,8 +92,8 @@ import com.ollitert.llm.server.ui.common.isMemoryLow
 import com.ollitert.llm.server.ui.common.isMemoryWarningSuppressed
 import com.ollitert.llm.server.ui.common.suppressMemoryWarning
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
-import com.ollitert.llm.server.data.ModelUrlResult
-import com.ollitert.llm.server.data.configuredHfTokenOrNull
+import com.ollitert.llm.server.data.allowlist.ModelUrlResult
+import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

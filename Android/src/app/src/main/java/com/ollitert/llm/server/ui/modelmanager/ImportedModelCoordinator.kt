@@ -19,14 +19,14 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelFactory
-import com.ollitert.llm.server.data.ModelFileManager
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.allowlist.ModelFactory
+import com.ollitert.llm.server.data.storage.ModelFileManager
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.proto.ImportedModel
 
 private const val TAG = "OlliteRT.ImportedModelCoord"

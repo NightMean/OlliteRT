@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.runtime
 
-import com.ollitert.llm.server.data.IMAGE_PLACEHOLDER
+import com.ollitert.llm.server.data.prefs.IMAGE_PLACEHOLDER
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test

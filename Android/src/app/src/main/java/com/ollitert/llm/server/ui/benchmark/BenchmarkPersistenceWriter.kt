@@ -10,7 +10,7 @@
 
 package com.ollitert.llm.server.ui.benchmark
 
-import com.ollitert.llm.server.data.DataStoreRepository
+import com.ollitert.llm.server.data.repository.DataStoreRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher

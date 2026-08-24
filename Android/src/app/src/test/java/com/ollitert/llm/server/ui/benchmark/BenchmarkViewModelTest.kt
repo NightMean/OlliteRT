@@ -18,7 +18,7 @@ package com.ollitert.llm.server.ui.benchmark
 
 import android.content.Context
 import android.util.Log
-import com.ollitert.llm.server.data.FakeDataStoreRepository
+import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult

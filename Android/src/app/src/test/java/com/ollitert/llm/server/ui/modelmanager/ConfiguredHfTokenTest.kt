@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
-import com.ollitert.llm.server.data.configuredHfTokenOrNull
+import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

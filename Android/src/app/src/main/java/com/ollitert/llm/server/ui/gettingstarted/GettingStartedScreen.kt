@@ -75,7 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.ui.theme.OlliteRTDeepBlue

@@ -19,12 +19,12 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.ACTION_IN_FLIGHT_DEBOUNCE_MS
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ACTION_IN_FLIGHT_DEBOUNCE_MS
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.DefaultServerStateRepository
-import com.ollitert.llm.server.data.ServerStateRepository
+import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay

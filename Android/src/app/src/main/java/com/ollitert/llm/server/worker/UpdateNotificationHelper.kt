@@ -28,10 +28,10 @@ import androidx.core.net.toUri
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.inference.ServerMetrics
 
 internal object UpdateNotificationHelper {

@@ -15,6 +15,7 @@
  */
 
 package com.ollitert.llm.server.data.db
+import com.ollitert.llm.server.data.model.maxContextTokens
 
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4

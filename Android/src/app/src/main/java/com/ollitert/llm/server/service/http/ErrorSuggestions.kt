@@ -23,7 +23,7 @@ import com.ollitert.llm.server.service.inference.*
 
 import android.content.Context
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.model.ErrorKind
 
 /**
  * Maps [ErrorKind] values to actionable recovery suggestions for the user.

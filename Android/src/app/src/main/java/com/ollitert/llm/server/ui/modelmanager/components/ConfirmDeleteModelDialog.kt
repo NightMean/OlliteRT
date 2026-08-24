@@ -24,7 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.model.Model
 
 /** Composable function to display a confirmation dialog for deleting a model. */
 @Composable

@@ -54,7 +54,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.IMPORTS_DIR
+import com.ollitert.llm.server.data.model.IMPORTS_DIR
 import com.ollitert.llm.server.proto.ImportedModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

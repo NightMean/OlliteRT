@@ -50,9 +50,9 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.UI_TIMER_TICK_MS
-import com.ollitert.llm.server.data.formatHostForUrl
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.UI_TIMER_TICK_MS
+import com.ollitert.llm.server.data.prefs.formatHostForUrl
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import kotlinx.coroutines.delay
 import java.util.Locale

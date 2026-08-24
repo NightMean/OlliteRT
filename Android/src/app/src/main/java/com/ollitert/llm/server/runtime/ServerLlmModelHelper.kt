@@ -26,10 +26,10 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.ToolProvider
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_SHORT_CHARS
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import kotlinx.coroutines.CoroutineScope
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap

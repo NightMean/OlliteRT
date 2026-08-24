@@ -20,10 +20,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.RequestLogStore
 
 /**
  * Records which update version the user dismissed by swiping the notification away.

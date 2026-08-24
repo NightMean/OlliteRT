@@ -90,7 +90,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Repository
+import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.UrlInputDialog

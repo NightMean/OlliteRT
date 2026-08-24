@@ -23,14 +23,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Accelerator
-import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.configSpeculativeDecodingEnabled
-import com.ollitert.llm.server.data.configTemperature
-import com.ollitert.llm.server.data.configThinkingEnabled
-import com.ollitert.llm.server.data.configTopK
-import com.ollitert.llm.server.data.configTopP
-import com.ollitert.llm.server.data.maxTokensInt
+import com.ollitert.llm.server.data.model.Accelerator
+import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
+import com.ollitert.llm.server.data.prefs.configTemperature
+import com.ollitert.llm.server.data.prefs.configThinkingEnabled
+import com.ollitert.llm.server.data.prefs.configTopK
+import com.ollitert.llm.server.data.prefs.configTopP
+import com.ollitert.llm.server.data.prefs.maxTokensInt
 
 @Composable
 internal fun InferenceResetConfirmDialog(

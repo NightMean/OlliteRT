@@ -49,7 +49,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.ui.server.CancelledColor
 import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.theme.OlliteRTOnSurfaceVariant

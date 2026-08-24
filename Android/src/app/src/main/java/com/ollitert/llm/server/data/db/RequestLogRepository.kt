@@ -15,6 +15,7 @@
  */
 
 package com.ollitert.llm.server.data.db
+import com.ollitert.llm.server.data.model.Repository
 
 /**
  * Repository interface for request logging persistence, history synchronization,

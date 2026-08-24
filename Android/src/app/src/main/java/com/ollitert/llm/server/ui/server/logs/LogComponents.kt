@@ -69,7 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.theme.OlliteRTCancelledAmber
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow

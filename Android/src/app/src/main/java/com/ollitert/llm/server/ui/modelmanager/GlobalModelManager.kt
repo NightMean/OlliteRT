@@ -76,11 +76,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.OFFICIAL_REPO_ID
-import com.ollitert.llm.server.data.RuntimeType
-import com.ollitert.llm.server.data.UNKNOWN_REPO_LABEL
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.allowlist.OFFICIAL_REPO_ID
+import com.ollitert.llm.server.data.model.RuntimeType
+import com.ollitert.llm.server.data.allowlist.UNKNOWN_REPO_LABEL
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard

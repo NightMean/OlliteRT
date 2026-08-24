@@ -32,7 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.ui.server.WarningColor
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import java.util.Locale

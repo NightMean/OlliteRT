@@ -67,17 +67,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Accelerator
-import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.NumberSliderConfig
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.configSpeculativeDecodingEnabled
-import com.ollitert.llm.server.data.configTemperature
-import com.ollitert.llm.server.data.configThinkingEnabled
-import com.ollitert.llm.server.data.configTopK
-import com.ollitert.llm.server.data.configTopP
-import com.ollitert.llm.server.data.maxTokensInt
+import com.ollitert.llm.server.data.model.Accelerator
+import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.NumberSliderConfig
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
+import com.ollitert.llm.server.data.prefs.configTemperature
+import com.ollitert.llm.server.data.prefs.configThinkingEnabled
+import com.ollitert.llm.server.data.prefs.configTopK
+import com.ollitert.llm.server.data.prefs.configTopP
+import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
@@ -139,7 +139,7 @@ fun InferenceSettingsSheet(
   var showGpuInfoDialog by remember { mutableStateOf(false) }
 
   val limits = remember(model) {
-    fun range(key: com.ollitert.llm.server.data.ConfigKey): Pair<Float, Float>? {
+    fun range(key: com.ollitert.llm.server.data.prefs.ConfigKey): Pair<Float, Float>? {
       val c = model.configs.find { it.key == key }
       return if (c is NumberSliderConfig) c.sliderMin to c.sliderMax else null
     }

@@ -42,9 +42,9 @@ import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.common.getWifiIpAddress
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.ServerBindMode
-import com.ollitert.llm.server.data.formatHostForUrl
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ServerBindMode
+import com.ollitert.llm.server.data.prefs.formatHostForUrl
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 

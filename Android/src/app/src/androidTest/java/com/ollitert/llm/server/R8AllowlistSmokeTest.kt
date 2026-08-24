@@ -18,7 +18,7 @@ package com.ollitert.llm.server
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.ollitert.llm.server.data.ModelAllowlistJson
+import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test

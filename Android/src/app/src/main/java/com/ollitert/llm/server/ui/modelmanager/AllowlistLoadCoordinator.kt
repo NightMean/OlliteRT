@@ -22,26 +22,26 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.data.AllowedModel
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_SHORT_CHARS
-import com.ollitert.llm.server.data.LoadResult
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelAllowlist
-import com.ollitert.llm.server.data.ModelAllowlistJson
-import com.ollitert.llm.server.data.ModelAllowlistLoader
-import com.ollitert.llm.server.data.ModelDownloadStatus
-import com.ollitert.llm.server.data.ModelDownloadStatusType
-import com.ollitert.llm.server.data.ModelFileManager
-import com.ollitert.llm.server.data.ModelListImportManager
-import com.ollitert.llm.server.data.RefreshResult
-import com.ollitert.llm.server.data.Repository
-import com.ollitert.llm.server.data.RepositoryManager
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.SOC
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.allowlist.AllowedModel
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
+import com.ollitert.llm.server.data.allowlist.LoadResult
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.allowlist.ModelAllowlist
+import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
+import com.ollitert.llm.server.data.allowlist.ModelAllowlistLoader
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.storage.ModelFileManager
+import com.ollitert.llm.server.data.allowlist.ModelListImportManager
+import com.ollitert.llm.server.data.allowlist.RefreshResult
+import com.ollitert.llm.server.data.model.Repository
+import com.ollitert.llm.server.data.allowlist.RepositoryManager
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.SOC
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 
 private const val TAG = "OlliteRT.AllowlistCoord"
 

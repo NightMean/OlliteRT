@@ -15,10 +15,11 @@
  */
 
 package com.ollitert.llm.server.data.db
+import com.ollitert.llm.server.data.model.Model
 
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.After

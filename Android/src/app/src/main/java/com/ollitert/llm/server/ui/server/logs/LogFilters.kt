@@ -25,8 +25,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.ui.theme.OlliteRTSearchHighlight
 
 internal val SearchHighlightColor = OlliteRTSearchHighlight.copy(alpha = 0.35f)

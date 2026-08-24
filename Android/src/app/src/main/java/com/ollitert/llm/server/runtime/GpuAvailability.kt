@@ -19,9 +19,9 @@ package com.ollitert.llm.server.runtime
 
 import android.os.Build
 import android.util.Log
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import java.io.File
 
 private const val TAG = "OlliteRT.GpuAvailability"

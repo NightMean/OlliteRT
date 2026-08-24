@@ -10,7 +10,7 @@
 
 package com.ollitert.llm.server.ui.benchmark
 
-import com.ollitert.llm.server.data.FakeDataStoreRepository
+import com.ollitert.llm.server.data.repository.FakeDataStoreRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

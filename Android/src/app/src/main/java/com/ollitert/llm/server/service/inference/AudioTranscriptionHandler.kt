@@ -24,13 +24,13 @@ import com.ollitert.llm.server.service.http.*
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.llmSupportAudio
+import com.ollitert.llm.server.data.prefs.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.llmSupportAudio
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 

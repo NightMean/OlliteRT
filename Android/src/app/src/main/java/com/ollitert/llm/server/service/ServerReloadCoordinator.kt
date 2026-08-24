@@ -17,9 +17,9 @@
 package com.ollitert.llm.server.service
 
 import android.util.Log
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.http.KtorServer
 import com.ollitert.llm.server.service.inference.ModelLifecycle

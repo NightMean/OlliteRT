@@ -24,7 +24,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.EventCategory
+import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.ui.theme.OlliteRTForcedPurple
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTOnBackground

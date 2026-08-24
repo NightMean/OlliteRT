@@ -24,15 +24,15 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.BuildConfig
-import com.ollitert.llm.server.data.BenchmarkResultsSerializer
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.DefaultDataStoreRepository
-import com.ollitert.llm.server.data.DefaultModelCatalogRepository
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.ModelCatalogMerger
-import com.ollitert.llm.server.data.ModelCatalogRepository
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.SettingsSerializer
+import com.ollitert.llm.server.data.prefs.BenchmarkResultsSerializer
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.repository.DefaultDataStoreRepository
+import com.ollitert.llm.server.data.allowlist.DefaultModelCatalogRepository
+import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
+import com.ollitert.llm.server.data.allowlist.ModelCatalogRepository
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.SettingsSerializer
 import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.Settings
 import dagger.Module
@@ -114,7 +114,7 @@ internal object AppModule {
 
   @Provides
   @Singleton
-  fun provideServerStateRepository(): com.ollitert.llm.server.data.ServerStateRepository {
-    return com.ollitert.llm.server.data.DefaultServerStateRepository()
+  fun provideServerStateRepository(): com.ollitert.llm.server.data.repository.ServerStateRepository {
+    return com.ollitert.llm.server.data.repository.DefaultServerStateRepository()
   }
 }

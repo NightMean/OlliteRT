@@ -37,7 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.ModelBadge
+import com.ollitert.llm.server.data.model.ModelBadge
 import com.ollitert.llm.server.ui.theme.OlliteRTBadgeFastest
 import com.ollitert.llm.server.ui.theme.OlliteRTBadgeNew
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningText

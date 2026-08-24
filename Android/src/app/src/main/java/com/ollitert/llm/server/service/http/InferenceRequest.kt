@@ -21,8 +21,8 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.inference.*
 
-import com.ollitert.llm.server.data.BLOCKING_TIMEOUT_SECONDS
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.prefs.BLOCKING_TIMEOUT_SECONDS
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 
 data class InferenceRequest(
   val prompt: String,

@@ -33,9 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelDownloadStatus
-import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.theme.OlliteRTFailedDownloadRed
 import com.ollitert.llm.server.ui.theme.customColors
 

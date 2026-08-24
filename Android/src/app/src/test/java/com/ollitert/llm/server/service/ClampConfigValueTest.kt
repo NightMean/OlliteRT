@@ -19,14 +19,14 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
-import com.ollitert.llm.server.data.MAX_MAX_TOKENS
-import com.ollitert.llm.server.data.MAX_TEMPERATURE
-import com.ollitert.llm.server.data.MAX_TOPK
-import com.ollitert.llm.server.data.MAX_TOPP
-import com.ollitert.llm.server.data.MIN_MAX_TOKENS
-import com.ollitert.llm.server.data.MIN_TEMPERATURE
-import com.ollitert.llm.server.data.MIN_TOPK
-import com.ollitert.llm.server.data.MIN_TOPP
+import com.ollitert.llm.server.data.prefs.MAX_MAX_TOKENS
+import com.ollitert.llm.server.data.prefs.MAX_TEMPERATURE
+import com.ollitert.llm.server.data.prefs.MAX_TOPK
+import com.ollitert.llm.server.data.prefs.MAX_TOPP
+import com.ollitert.llm.server.data.prefs.MIN_MAX_TOKENS
+import com.ollitert.llm.server.data.prefs.MIN_TEMPERATURE
+import com.ollitert.llm.server.data.prefs.MIN_TOPK
+import com.ollitert.llm.server.data.prefs.MIN_TOPP
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

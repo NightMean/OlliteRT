@@ -17,9 +17,9 @@
 package com.ollitert.llm.server.ui.server
 
 import android.content.Context
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import io.mockk.mockk
 import io.mockk.unmockkAll

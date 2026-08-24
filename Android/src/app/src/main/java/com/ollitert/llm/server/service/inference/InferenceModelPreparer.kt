@@ -19,8 +19,8 @@ package com.ollitert.llm.server.service.inference
 import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litertlm.Contents
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 
 internal data class ConversationPreparation(

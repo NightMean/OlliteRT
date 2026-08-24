@@ -22,7 +22,7 @@ import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.http.*
 
 import android.util.Log
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_SHORT_CHARS
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

@@ -17,8 +17,8 @@
 package com.ollitert.llm.server.ui.settings
 
 import android.content.Context
-import com.ollitert.llm.server.data.MAX_VALID_PORT
-import com.ollitert.llm.server.data.MIN_VALID_PORT
+import com.ollitert.llm.server.data.prefs.MAX_VALID_PORT
+import com.ollitert.llm.server.data.prefs.MIN_VALID_PORT
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals

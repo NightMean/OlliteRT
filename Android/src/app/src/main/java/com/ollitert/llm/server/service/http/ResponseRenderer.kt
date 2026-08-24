@@ -21,7 +21,7 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.inference.*
 
-import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.model.ErrorKind
 
 object ResponseRenderer {
   // Strips non-slug chars from error messages to generate OpenAI-compatible error type slugs

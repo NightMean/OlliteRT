@@ -15,15 +15,16 @@
  */
 
 package com.ollitert.llm.server.data.db
+import com.ollitert.llm.server.data.model.maxContextTokens
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.ollitert.llm.server.data.ErrorKind
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.ErrorKind
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 

@@ -53,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkManager
 import com.ollitert.llm.server.BuildConfig
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.service.inference.ServerMetrics
 import com.ollitert.llm.server.ui.common.TooltipIconButton

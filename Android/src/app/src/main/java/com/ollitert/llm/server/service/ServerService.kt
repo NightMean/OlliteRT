@@ -30,21 +30,21 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory
-import com.ollitert.llm.server.data.ClientIpAccessPolicy
-import com.ollitert.llm.server.data.DATASTORE_READ_TIMEOUT_MS
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.MODEL_ALLOWLIST_FILENAME
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelCatalogMerger
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.isSpeculativeDecodingEnabled
-import com.ollitert.llm.server.data.isThinkingEnabled
-import com.ollitert.llm.server.data.llmSupportAudio
-import com.ollitert.llm.server.data.llmSupportImage
-import com.ollitert.llm.server.data.llmSupportThinking
+import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
+import com.ollitert.llm.server.data.prefs.DATASTORE_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_LONG_CHARS
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
+import com.ollitert.llm.server.data.model.isThinkingEnabled
+import com.ollitert.llm.server.data.model.llmSupportAudio
+import com.ollitert.llm.server.data.model.llmSupportImage
+import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -565,7 +565,7 @@ class ServerService : Service() {
     const val EXTRA_START_SOURCE = "extra_start_source"
     const val SOURCE_BOOT = "boot"
     const val SOURCE_LAUNCH = "launch"
-    const val DEFAULT_PORT = com.ollitert.llm.server.data.DEFAULT_PORT
+    const val DEFAULT_PORT = com.ollitert.llm.server.data.prefs.DEFAULT_PORT
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"

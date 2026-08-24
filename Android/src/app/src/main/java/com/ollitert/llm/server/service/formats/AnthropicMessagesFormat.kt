@@ -20,7 +20,7 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
 import android.util.Log
-import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.model.ErrorKind
 
 private const val TAG = "OlliteRT.Inference"
 

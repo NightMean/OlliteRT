@@ -44,9 +44,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelDownloadStatus
-import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.common.ClickableLink
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.common.humanReadableSize

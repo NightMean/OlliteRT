@@ -18,12 +18,12 @@
 package com.ollitert.llm.server.service.inference
 
 import android.content.Context
-import com.ollitert.llm.server.data.ErrorKind
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.model.ErrorKind
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.http.ErrorSuggestions
 
 /**

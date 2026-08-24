@@ -24,7 +24,7 @@ import androidx.core.content.FileProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json

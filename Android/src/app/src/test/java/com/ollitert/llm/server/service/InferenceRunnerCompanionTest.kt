@@ -19,7 +19,7 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
-import com.ollitert.llm.server.data.ErrorKind
+import com.ollitert.llm.server.data.model.ErrorKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

@@ -18,8 +18,8 @@ package com.ollitert.llm.server.worker
 
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.common.SemVer
-import com.ollitert.llm.server.data.HTTP_CONNECT_TIMEOUT_MS
-import com.ollitert.llm.server.data.HTTP_READ_TIMEOUT_MS
+import com.ollitert.llm.server.data.prefs.HTTP_CONNECT_TIMEOUT_MS
+import com.ollitert.llm.server.data.prefs.HTTP_READ_TIMEOUT_MS
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray

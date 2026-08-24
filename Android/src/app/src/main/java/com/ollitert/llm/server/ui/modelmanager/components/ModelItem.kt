@@ -49,12 +49,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.EventCategory
-import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.service.ServerService
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -260,10 +260,10 @@ fun ModelItem(
         for (config in model.configs) {
           val key = config.key.id
           val oldValue = model.configValues[key]?.let {
-            com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+            com.ollitert.llm.server.data.prefs.convertValueToTargetType(it, config.valueType)
           }
           val newValue = newConfigValues[key]?.let {
-            com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+            com.ollitert.llm.server.data.prefs.convertValueToTargetType(it, config.valueType)
           }
           if (oldValue != newValue) {
             changes.add("${configDisplayLabels[config.key.id] ?: config.key.label}: $oldValue → $newValue")
@@ -302,10 +302,10 @@ fun ModelItem(
               for (config in model.configs) {
                 val key = config.key.id
                 val oldValue = prevConfigValues[key]?.let {
-                  com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+                  com.ollitert.llm.server.data.prefs.convertValueToTargetType(it, config.valueType)
                 }
                 val newValue = newConfigValues[key]?.let {
-                  com.ollitert.llm.server.data.convertValueToTargetType(it, config.valueType)
+                  com.ollitert.llm.server.data.prefs.convertValueToTargetType(it, config.valueType)
                 }
                 if (oldValue != newValue) {
                   add(buildJsonObject {

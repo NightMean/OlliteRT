@@ -22,10 +22,10 @@ import com.ollitert.llm.server.service.inference.*
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelCapability
-import com.ollitert.llm.server.data.RequestLogStore
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelCapability
+import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk

@@ -73,7 +73,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Accelerator
+import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 import java.util.Locale

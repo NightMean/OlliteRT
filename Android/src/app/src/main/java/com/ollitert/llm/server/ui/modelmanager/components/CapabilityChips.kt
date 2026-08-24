@@ -32,8 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelCapability
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelCapability
 import com.ollitert.llm.server.ui.common.highlightSearchMatches
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 

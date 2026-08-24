@@ -21,7 +21,7 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.http.*
 
-import com.ollitert.llm.server.data.CHARS_PER_TOKEN_ESTIMATE
+import com.ollitert.llm.server.data.prefs.CHARS_PER_TOKEN_ESTIMATE
 
 /** Rough token estimate based on [CHARS_PER_TOKEN_ESTIMATE]. */
 fun estimateTokens(text: String): Int =

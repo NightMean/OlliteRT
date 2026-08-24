@@ -17,8 +17,8 @@
 package com.ollitert.llm.server.ui.settings
 
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.DEFAULT_STT_TRANSCRIPTION_PROMPT_TEXT
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 
 // ─── Repositories & HF Token ─────────────────────────────────────────
 

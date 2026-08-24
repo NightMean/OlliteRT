@@ -54,7 +54,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollitert.llm.server.ui.common.DonateDialog
 import com.ollitert.llm.server.ui.common.EngagementPromptDialog
@@ -62,9 +62,9 @@ import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollitert.llm.server.ui.modelmanager.GlobalModelManager
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelDownloadStatus
-import com.ollitert.llm.server.data.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.server.LogsScreen
 import com.ollitert.llm.server.ui.server.ServerViewModel

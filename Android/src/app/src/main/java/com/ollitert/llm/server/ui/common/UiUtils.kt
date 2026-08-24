@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.Model
+import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 
 // ── Shared UI dimension constants ──────────────────────────────────────────────

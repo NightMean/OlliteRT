@@ -20,8 +20,8 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
 import android.content.Context
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.ModelCatalogMerger
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

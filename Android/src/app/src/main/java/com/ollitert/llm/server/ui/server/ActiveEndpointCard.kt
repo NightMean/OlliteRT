@@ -45,8 +45,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
-import com.ollitert.llm.server.data.ClientIpPolicyConfig
-import com.ollitert.llm.server.data.ClientIpPolicyMode
+import com.ollitert.llm.server.data.prefs.ClientIpPolicyConfig
+import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningYellow

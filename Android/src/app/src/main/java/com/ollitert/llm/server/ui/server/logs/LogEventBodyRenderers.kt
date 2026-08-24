@@ -57,8 +57,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.LOG_ERROR_PREVIEW_LONG_CHARS
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_LONG_CHARS
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.ui.common.buildTrackableUrlAnnotatedString
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400

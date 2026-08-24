@@ -23,9 +23,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.MAX_VALID_PORT
-import com.ollitert.llm.server.data.MIN_VALID_PORT
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.MAX_VALID_PORT
+import com.ollitert.llm.server.data.prefs.MIN_VALID_PORT
 
 /**
  * Starts the LLM server on device boot if the user has enabled auto-start

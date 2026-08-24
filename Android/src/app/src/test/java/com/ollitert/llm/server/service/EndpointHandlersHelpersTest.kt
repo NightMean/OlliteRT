@@ -19,10 +19,10 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
-import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.RequestPrefsSnapshot
-import com.ollitert.llm.server.data.SAMPLER_SEED_CONFIG_KEY
+import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
+import com.ollitert.llm.server.data.prefs.SAMPLER_SEED_CONFIG_KEY
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

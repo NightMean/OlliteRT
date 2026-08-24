@@ -56,14 +56,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.BooleanSwitchConfig
-import com.ollitert.llm.server.data.Config
-import com.ollitert.llm.server.data.ConfigKeys
-import com.ollitert.llm.server.data.EditableTextConfig
-import com.ollitert.llm.server.data.LabelConfig
-import com.ollitert.llm.server.data.NumberSliderConfig
-import com.ollitert.llm.server.data.SegmentedButtonConfig
-import com.ollitert.llm.server.data.ValueType
+import com.ollitert.llm.server.data.prefs.BooleanSwitchConfig
+import com.ollitert.llm.server.data.prefs.Config
+import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.prefs.EditableTextConfig
+import com.ollitert.llm.server.data.prefs.LabelConfig
+import com.ollitert.llm.server.data.prefs.NumberSliderConfig
+import com.ollitert.llm.server.data.prefs.SegmentedButtonConfig
+import com.ollitert.llm.server.data.prefs.ValueType
 import java.util.Locale
 
 /** Composable function to display a list of config editor rows. */

@@ -17,15 +17,15 @@
 package com.ollitert.llm.server.ui.settings
 
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.BindAddressResult
-import com.ollitert.llm.server.data.ClientIpPolicyMode
-import com.ollitert.llm.server.data.DEFAULT_PORT
-import com.ollitert.llm.server.data.MAX_VALID_PORT
-import com.ollitert.llm.server.data.MIN_VALID_PORT
-import com.ollitert.llm.server.data.ServerBindConfig
-import com.ollitert.llm.server.data.ServerBindMode
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.resolveHost
+import com.ollitert.llm.server.data.prefs.BindAddressResult
+import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
+import com.ollitert.llm.server.data.prefs.DEFAULT_PORT
+import com.ollitert.llm.server.data.prefs.MAX_VALID_PORT
+import com.ollitert.llm.server.data.prefs.MIN_VALID_PORT
+import com.ollitert.llm.server.data.prefs.ServerBindConfig
+import com.ollitert.llm.server.data.prefs.ServerBindMode
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.resolveHost
 
 // ─── Server Configuration Card ────────────────────────────────────
 

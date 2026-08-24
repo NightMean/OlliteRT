@@ -19,10 +19,10 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
-import com.ollitert.llm.server.data.ServerPrefs
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
+import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.server.logs.LogFilter
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import com.ollitert.llm.server.ui.server.logs.matchesFilter

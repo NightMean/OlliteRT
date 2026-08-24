@@ -21,7 +21,7 @@ import com.ollitert.llm.server.service.inference.*
 
 import android.util.Log
 import com.ollitert.llm.server.service.http.KtorServer
-import com.ollitert.llm.server.data.RequestLogStore
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import io.ktor.server.application.call
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.post

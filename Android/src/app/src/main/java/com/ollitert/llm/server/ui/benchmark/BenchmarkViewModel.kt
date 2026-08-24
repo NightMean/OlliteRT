@@ -28,9 +28,9 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.cleanUpLiteRtErrorMessage
 import com.ollitert.llm.server.common.ServerStatus
-import com.ollitert.llm.server.data.DataStoreRepository
-import com.ollitert.llm.server.data.Model
-import com.ollitert.llm.server.data.withStableBenchmarkId
+import com.ollitert.llm.server.data.repository.DataStoreRepository
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.repository.withStableBenchmarkId
 import com.ollitert.llm.server.di.IoDispatcher
 import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo

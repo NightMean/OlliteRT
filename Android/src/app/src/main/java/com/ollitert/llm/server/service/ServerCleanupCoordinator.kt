@@ -21,8 +21,8 @@ import android.os.Environment
 import android.os.StatFs
 import android.util.Log
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.MIN_STORAGE_FOR_MODEL_INIT_BYTES
-import com.ollitert.llm.server.data.bytesToMb
+import com.ollitert.llm.server.data.prefs.MIN_STORAGE_FOR_MODEL_INIT_BYTES
+import com.ollitert.llm.server.data.prefs.bytesToMb
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 

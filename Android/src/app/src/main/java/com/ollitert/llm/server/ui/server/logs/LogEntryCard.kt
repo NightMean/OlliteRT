@@ -44,9 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.ErrorKind
-import com.ollitert.llm.server.data.LogLevel
-import com.ollitert.llm.server.data.RequestLogEntry
+import com.ollitert.llm.server.data.model.ErrorKind
+import com.ollitert.llm.server.data.model.LogLevel
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.ui.server.CancelledColor
 import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.server.WarningColor

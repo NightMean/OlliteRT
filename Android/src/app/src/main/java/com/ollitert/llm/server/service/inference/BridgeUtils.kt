@@ -22,7 +22,7 @@ import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.http.*
 
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.BASE64_COMPACT_THRESHOLD_CHARS
+import com.ollitert.llm.server.data.prefs.BASE64_COMPACT_THRESHOLD_CHARS
 
 object BridgeUtils {
   private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")

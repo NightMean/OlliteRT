@@ -22,8 +22,8 @@ import com.ollitert.llm.server.service.inference.*
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.ollitert.llm.server.data.MIN_VALID_PORT
-import com.ollitert.llm.server.data.ServerPrefs
+import com.ollitert.llm.server.data.prefs.MIN_VALID_PORT
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
