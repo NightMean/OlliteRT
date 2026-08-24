@@ -22,7 +22,8 @@ import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository
+import com.ollitert.llm.server.data.repository.RequestLogStoreRepository
 import com.ollitert.llm.server.ui.server.logs.LogFilter
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import com.ollitert.llm.server.ui.server.logs.matchesFilter
@@ -45,9 +46,10 @@ import javax.inject.Inject
 @HiltViewModel
 class LogsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
+  private val requestLogStoreRepository: RequestLogStoreRepository = DefaultRequestLogStoreRepository(),
 ) : ViewModel() {
 
-  val entries: StateFlow<List<RequestLogEntry>> = RequestLogStore.entries
+  val entries: StateFlow<List<RequestLogEntry>> = requestLogStoreRepository.entries
 
   private val _filter = MutableStateFlow(LogFilter())
   val filter: StateFlow<LogFilter> = _filter.asStateFlow()
@@ -143,11 +145,11 @@ class LogsViewModel @Inject constructor(
   }
 
   fun clearLogs() {
-    RequestLogStore.clear()
+    requestLogStoreRepository.clear()
     _showClearConfirmDialog.value = false
   }
 
   fun cancelRequest(entryId: String) {
-    RequestLogStore.cancelRequest(entryId)
+    requestLogStoreRepository.cancelRequest(entryId)
   }
 }

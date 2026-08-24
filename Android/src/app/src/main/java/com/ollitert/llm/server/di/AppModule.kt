@@ -117,4 +117,10 @@ internal object AppModule {
   fun provideServerStateRepository(): com.ollitert.llm.server.data.repository.ServerStateRepository {
     return com.ollitert.llm.server.data.repository.DefaultServerStateRepository()
   }
+
+  @Provides
+  @Singleton
+  fun provideRequestLogStoreRepository(): com.ollitert.llm.server.data.repository.RequestLogStoreRepository {
+    return com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository()
+  }
 }

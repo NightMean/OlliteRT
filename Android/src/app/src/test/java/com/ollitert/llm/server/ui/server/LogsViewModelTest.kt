@@ -19,7 +19,10 @@ package com.ollitert.llm.server.ui.server
 import android.content.Context
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
+import com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository
+import com.ollitert.llm.server.data.repository.FakeRequestLogStoreRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.repository.RequestLogStoreRepository
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import io.mockk.mockk
 import io.mockk.unmockkAll
@@ -42,18 +45,18 @@ class LogsViewModelTest {
 
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
+  private lateinit var fakeRepository: FakeRequestLogStoreRepository
   private lateinit var vm: LogsViewModel
 
   @Before
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
-    RequestLogStore.clear()
-    vm = LogsViewModel(mockContext)
+    fakeRepository = FakeRequestLogStoreRepository()
+    vm = LogsViewModel(mockContext, fakeRepository)
   }
 
   @After
   fun tearDown() {
-    RequestLogStore.clear()
     Dispatchers.resetMain()
     unmockkAll()
   }
@@ -113,13 +116,21 @@ class LogsViewModelTest {
 
   @Test
   fun clearLogs_emptiesStoreAndDismissesConfirmDialog() {
-    RequestLogStore.addEvent("test event")
-    assertEquals(1, RequestLogStore.entries.value.size)
+    fakeRepository.addEvent("test event")
+    assertEquals(1, fakeRepository.entries.value.size)
 
     vm.setShowClearConfirmDialog(true)
     vm.clearLogs()
 
-    assertEquals(0, RequestLogStore.entries.value.size)
+    assertEquals(0, fakeRepository.entries.value.size)
     assertFalse(vm.showClearConfirmDialog.value)
+  }
+
+  @Test
+  fun cancelRequest_delegatesToRepository() {
+    val entry = RequestLogEntry(id = "req-123", method = "POST", path = "/v1/chat/completions", isPending = true)
+    fakeRepository.add(entry)
+    vm.cancelRequest("req-123")
+    assertTrue(fakeRepository.cancelledRequestIds.contains("req-123"))
   }
 }
