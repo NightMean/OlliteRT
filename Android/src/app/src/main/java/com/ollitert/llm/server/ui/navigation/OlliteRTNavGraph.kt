@@ -61,7 +61,7 @@ import com.ollitert.llm.server.ui.common.EngagementPromptDialog
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.gettingstarted.GettingStartedScreen
-import com.ollitert.llm.server.ui.modelmanager.GlobalModelManager
+import com.ollitert.llm.server.ui.modelmanager.ModelManagerScreen
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
@@ -198,7 +198,7 @@ fun OlliteRTNavHost(
     enterTransition = { fadeIn(tween(200)) },
     exitTransition = { fadeOut(tween(200)) },
   ) {
-    // Models tab (main screen, reusing GlobalModelManager)
+    // Models tab (main screen, ModelManagerScreen)
     composable(OlliteRTRoutes.MODELS) { backStackEntry ->
       val reposChanged = backStackEntry.savedStateHandle
         .getStateFlow("reposChanged", false)
@@ -213,7 +213,7 @@ fun OlliteRTNavHost(
       val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
-      GlobalModelManager(
+      ModelManagerScreen(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
         onModelSelected = { model ->

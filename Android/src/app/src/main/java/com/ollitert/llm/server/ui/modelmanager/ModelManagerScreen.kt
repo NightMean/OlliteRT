@@ -93,7 +93,7 @@ private const val TAG = "OlliteRT.ModelMgr"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GlobalModelManager(
+fun ModelManagerScreen(
   viewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   onModelSelected: (Model) -> Unit,
