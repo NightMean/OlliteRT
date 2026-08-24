@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.data.db
+package com.ollitert.llm.server.data.repository
 
 import io.mockk.mockk
 import io.mockk.verify

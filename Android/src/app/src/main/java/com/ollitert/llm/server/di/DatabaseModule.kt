@@ -20,6 +20,7 @@ import android.content.Context
 import androidx.room.Room
 import com.ollitert.llm.server.data.db.OlliteDatabase
 import com.ollitert.llm.server.data.db.RequestLogDao
+import com.ollitert.llm.server.data.repository.RequestLogRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -46,5 +47,5 @@ object DatabaseModule {
   @Singleton
   fun provideRequestLogRepository(
     persistence: com.ollitert.llm.server.data.db.RequestLogPersistence,
-  ): com.ollitert.llm.server.data.db.RequestLogRepository = persistence
+  ): RequestLogRepository = persistence
 }

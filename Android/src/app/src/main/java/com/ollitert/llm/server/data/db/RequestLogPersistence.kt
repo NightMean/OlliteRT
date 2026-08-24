@@ -24,6 +24,7 @@ import com.ollitert.llm.server.data.prefs.MAX_PRUNE_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.MIN_PRUNE_INTERVAL_MS
 import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.repository.RequestLogRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope

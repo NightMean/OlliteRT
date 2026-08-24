@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.data.db
-import com.ollitert.llm.server.data.model.Repository
+package com.ollitert.llm.server.data.repository
 
 /**
  * Repository interface for request logging persistence, history synchronization,

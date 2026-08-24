@@ -26,7 +26,7 @@ import com.ollitert.llm.server.data.prefs.ClientIpPolicyMode
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
 import com.ollitert.llm.server.data.repository.FakePreferencesRepository
-import com.ollitert.llm.server.data.db.RequestLogRepository
+import com.ollitert.llm.server.data.repository.RequestLogRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.service.ServerService

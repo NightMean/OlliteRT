@@ -38,7 +38,7 @@ import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_CACHE_PREFIX
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_OFFICIAL_FILENAME
 import com.ollitert.llm.server.data.prefs.ServerBindConfig
 import com.ollitert.llm.server.data.prefs.ServerBindMode
-import com.ollitert.llm.server.data.db.RequestLogRepository
+import com.ollitert.llm.server.data.repository.RequestLogRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
