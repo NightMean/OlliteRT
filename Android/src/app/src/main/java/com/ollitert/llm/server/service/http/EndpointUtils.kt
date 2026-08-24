@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service.http
 
+import com.ollitert.llm.server.common.ErrorSuggestions
 import com.ollitert.llm.server.common.ServerMetrics
 import android.content.Context
 import com.ollitert.llm.server.data.model.Accelerator

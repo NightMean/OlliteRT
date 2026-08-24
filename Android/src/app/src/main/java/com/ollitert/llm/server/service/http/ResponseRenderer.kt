@@ -21,6 +21,7 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.inference.*
 
+import com.ollitert.llm.server.common.ErrorSuggestions
 import com.ollitert.llm.server.data.model.ErrorKind
 
 object ResponseRenderer {

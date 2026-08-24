@@ -29,8 +29,8 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.data.prefs.maxTokensLong
+import com.ollitert.llm.server.common.ErrorSuggestions
 import com.ollitert.llm.server.service.formats.StreamingFormat
-import com.ollitert.llm.server.service.http.ErrorSuggestions
 import com.ollitert.llm.server.service.http.ResponseRenderer
 import com.ollitert.llm.server.service.http.SseWriter
 import kotlinx.coroutines.channels.Channel

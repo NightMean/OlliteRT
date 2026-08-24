@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.service
-
-import com.ollitert.llm.server.service.http.*
-import com.ollitert.llm.server.service.inference.*
+package com.ollitert.llm.server.common
 
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorCategory

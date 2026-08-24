@@ -50,9 +50,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.ErrorSuggestions
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.service.http.ErrorSuggestions
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.formatModelError
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
