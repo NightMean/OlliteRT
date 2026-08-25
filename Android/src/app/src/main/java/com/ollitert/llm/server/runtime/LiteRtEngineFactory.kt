@@ -222,7 +222,13 @@ object LiteRtEngineFactory {
       modelPath = modelPath,
       backend = backend,
       visionBackend = if (supportImage) vision else null,
-      audioBackend = if (supportAudio) Backend.CPU() else null,
+      // GPU audio acceleration is opt-in (Settings → Model Behaviour): the
+      // executor may be unsupported on some devices, so CPU stays the default.
+      audioBackend = when {
+        !supportAudio -> null
+        ServerPrefs.isAudioGpuAccelerationEnabled(context) -> Backend.GPU()
+        else -> Backend.CPU()
+      },
       maxNumTokens = maxTokens,
       cacheDir =
         if (modelPath.startsWith("/data/local/tmp"))

@@ -38,6 +38,7 @@ private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
 private const val KEY_SHOW_MODEL_RECOMMENDATIONS = "show_model_recommendations"
 private const val KEY_WARMUP_ENABLED = "warmup_enabled"
 private const val KEY_EAGER_VISION_INIT = "eager_vision_init"
+private const val KEY_AUDIO_GPU_ACCELERATION = "audio_gpu_acceleration"
 private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
 private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
 private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
@@ -128,6 +129,7 @@ object ServerPrefs {
   // Model Config
   private val WARMUP_ENABLED = BoolPref(KEY_WARMUP_ENABLED, true)
   private val EAGER_VISION_INIT = BoolPref(KEY_EAGER_VISION_INIT, false)
+  private val AUDIO_GPU_ACCELERATION = BoolPref(KEY_AUDIO_GPU_ACCELERATION, false)
   private val CUSTOM_PROMPTS_ENABLED = BoolPref(KEY_CUSTOM_PROMPTS_ENABLED, false)
   private val AUTO_TRUNCATE_HISTORY = BoolPref(KEY_AUTO_TRUNCATE_HISTORY, false)
   private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
@@ -227,6 +229,8 @@ object ServerPrefs {
 
   fun isEagerVisionInit(context: Context): Boolean = get(context, EAGER_VISION_INIT)
   fun setEagerVisionInit(context: Context, enabled: Boolean) = set(context, EAGER_VISION_INIT, enabled)
+  fun isAudioGpuAccelerationEnabled(context: Context): Boolean = get(context, AUDIO_GPU_ACCELERATION)
+  fun setAudioGpuAccelerationEnabled(context: Context, enabled: Boolean) = set(context, AUDIO_GPU_ACCELERATION, enabled)
 
   fun isCustomPromptsEnabled(context: Context): Boolean = get(context, CUSTOM_PROMPTS_ENABLED)
   fun setCustomPromptsEnabled(context: Context, enabled: Boolean) = set(context, CUSTOM_PROMPTS_ENABLED, enabled)

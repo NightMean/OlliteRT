@@ -422,6 +422,8 @@
   <string name="settings_warmup_message_desc" translatable="false">Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup</string>
   <string name="settings_pre_init_vision" translatable="false">Pre-initialize Vision</string>
   <string name="settings_pre_init_vision_desc" translatable="false">Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start</string>
+  <string name="settings_audio_gpu" translatable="false">GPU Audio Acceleration</string>
+  <string name="settings_audio_gpu_desc" translatable="false">Run the audio executor on the GPU instead of the CPU for faster speech transcription on supported devices. Requires a model reload to apply; falls back to CPU automatically if unsupported</string>
   <string name="settings_custom_prompts" translatable="false">Custom System Prompt</string>
   <string name="settings_custom_prompts_desc" translatable="false">Enable per-model system prompt field in Inference Settings. The system prompt is prepended to every conversation as an instruction to the model</string>
   <string name="settings_truncate_history" translatable="false">Truncate Conversation History</string>

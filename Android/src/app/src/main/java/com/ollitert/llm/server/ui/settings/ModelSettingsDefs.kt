@@ -98,6 +98,18 @@ val PRE_INIT_VISION = SettingDef.Toggle(
   write = { repo, v -> repo.setEagerVisionInit(v) },
 )
 
+val AUDIO_GPU_ACCELERATION = SettingDef.Toggle(
+  key = "audio_gpu_acceleration",
+  labelRes = R.string.settings_audio_gpu,
+  descriptionRes = R.string.settings_audio_gpu_desc,
+  card = CardId.MODEL_BEHAVIOUR,
+  default = false,
+  prefsKey = "audio_gpu_acceleration",
+  requiresRestart = true,
+  read = { it.isAudioGpuAcceleration() },
+  write = { repo, v -> repo.setAudioGpuAcceleration(v) },
+)
+
 val IGNORE_CLIENT_PARAMS = SettingDef.Toggle(
   key = "ignore_client_params",
   labelRes = R.string.settings_ignore_client_params,

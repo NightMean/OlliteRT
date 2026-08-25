@@ -207,6 +207,8 @@ interface PreferencesRepository {
   fun setWarmupEnabled(enabled: Boolean)
   fun isEagerVisionInit(): Boolean
   fun setEagerVisionInit(enabled: Boolean)
+  fun isAudioGpuAcceleration(): Boolean
+  fun setAudioGpuAcceleration(enabled: Boolean)
   fun isIgnoreClientSamplerParams(): Boolean
   fun setIgnoreClientSamplerParams(enabled: Boolean)
   fun isForceStreamUsage(): Boolean
@@ -335,6 +337,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setWarmupEnabled(enabled: Boolean) = ServerPrefs.setWarmupEnabled(context, enabled)
   override fun isEagerVisionInit(): Boolean = ServerPrefs.isEagerVisionInit(context)
   override fun setEagerVisionInit(enabled: Boolean) = ServerPrefs.setEagerVisionInit(context, enabled)
+  override fun isAudioGpuAcceleration(): Boolean = ServerPrefs.isAudioGpuAccelerationEnabled(context)
+  override fun setAudioGpuAcceleration(enabled: Boolean) = ServerPrefs.setAudioGpuAccelerationEnabled(context, enabled)
   override fun isIgnoreClientSamplerParams(): Boolean = ServerPrefs.isIgnoreClientSamplerParams(context)
   override fun setIgnoreClientSamplerParams(enabled: Boolean) = ServerPrefs.setIgnoreClientSamplerParams(context, enabled)
   override fun isForceStreamUsage(): Boolean = ServerPrefs.isForceStreamUsage(context)
