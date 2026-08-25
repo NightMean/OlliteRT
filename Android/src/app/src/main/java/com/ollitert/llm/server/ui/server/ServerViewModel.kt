@@ -84,6 +84,21 @@ class ServerViewModel @Inject constructor(
   /** Debounce guard to prevent duplicate start/stop/reload intents from rapid taps. */
   private var actionInFlight = false
 
+  /**
+   * True once launch auto-start was attempted in this process. ViewModels survive
+   * configuration changes (rotation) but not process death, so this suppresses the
+   * auto-start effect on recreation — without it, rotating the phone while the
+   * server is deliberately stopped would silently restart the server — while still
+   * allowing a genuine cold launch to auto-start.
+   */
+  var hasAttemptedLaunchAutoStart: Boolean = false
+    private set
+
+  /** Marks launch auto-start as attempted — see [hasAttemptedLaunchAutoStart]. */
+  fun markLaunchAutoStartAttempted() {
+    hasAttemptedLaunchAutoStart = true
+  }
+
   fun startServer(port: Int = preferencesRepository.getPort(), modelName: String? = null, source: String? = null) {
     if (actionInFlight) return
     setActionInFlight()

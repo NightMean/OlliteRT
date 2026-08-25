@@ -78,8 +78,12 @@ fun OlliteRTApp(
 
   // Auto-load default model on app launch (if configured and server isn't already running).
   // Reads status snapshot once — no ongoing collection that would recompose the root.
+  // Guarded by a ViewModel flag: LaunchedEffect(Unit) re-runs on every configuration
+  // change (rotation), which would restart a server the user deliberately stopped.
   val context = LocalContext.current
   LaunchedEffect(Unit) {
+    if (serverViewModel.hasAttemptedLaunchAutoStart) return@LaunchedEffect
+    serverViewModel.markLaunchAutoStartAttempted()
     if (startDestination == OlliteRTRoute.Models) {
       val defaultModel = ServerPrefs.getDefaultModelName(context)
       if (!defaultModel.isNullOrBlank() && serverViewModel.status.value == ServerStatus.STOPPED) {
