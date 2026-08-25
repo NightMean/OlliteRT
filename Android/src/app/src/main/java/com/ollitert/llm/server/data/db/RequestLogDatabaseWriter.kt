@@ -40,7 +40,11 @@ internal class RequestLogDatabaseWriter(
     val execute: suspend RequestLogDao.() -> Unit,
   )
 
-  private val operations = Channel<QueuedOperation>(capacity = Channel.UNLIMITED)
+  // Bounded on purpose: if Room stalls (disk pressure on an aging device), each
+  // queued closure captures a full entity with complete bodies. An unbounded
+  // queue would grow invisibly until an OOM that looks unrelated.
+  private val operations = Channel<QueuedOperation>(capacity = MAX_QUEUED_OPERATIONS)
+  private val droppedCount = java.util.concurrent.atomic.AtomicLong()
 
   init {
     scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -58,11 +62,27 @@ internal class RequestLogDatabaseWriter(
   }
 
   fun enqueue(description: String, operation: suspend RequestLogDao.() -> Unit) {
-    val result = operations.trySend(QueuedOperation(description, operation))
+    var result = operations.trySend(QueuedOperation(description, operation))
+    if (result.isFailure && !operations.isClosedForSend) {
+      // Queue full — the consumer is stalled. Drop the OLDEST queued operation so
+      // heap stays bounded; these are diagnostic log writes, where shedding old
+      // entries beats unbounded growth. A dropped insert is self-healing: its
+      // terminal update upserts the row anyway.
+      operations.tryReceive().getOrNull()?.let { droppedCount.incrementAndGet() }
+      result = operations.trySend(QueuedOperation(description, operation))
+    }
     if (result.isFailure) {
       onFailure(
         description,
         result.exceptionOrNull() ?: IllegalStateException("Request-log database queue is unavailable"),
+      )
+      return
+    }
+    val totalDropped = droppedCount.get()
+    if (totalDropped > 0 && totalDropped % DROP_WARN_EVERY == 1L) {
+      onFailure(
+        "request-log database queue overflow",
+        IllegalStateException("$totalDropped operation(s) dropped — database writes are stalled"),
       )
     }
   }
@@ -72,5 +92,13 @@ internal class RequestLogDatabaseWriter(
     val reachedBarrier = CompletableDeferred<Unit>()
     operations.send(QueuedOperation("await idle") { reachedBarrier.complete(Unit) })
     reachedBarrier.await()
+  }
+
+  /** Test-only visibility into how many queued operations were shed. */
+  internal fun droppedCountForTest(): Long = droppedCount.get()
+
+  companion object {
+    internal const val MAX_QUEUED_OPERATIONS = 500
+    private const val DROP_WARN_EVERY = 50L
   }
 }

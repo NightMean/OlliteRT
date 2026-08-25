@@ -121,4 +121,40 @@ class RequestLogDatabaseWriterTest {
     assertEquals(listOf("broken"), failures)
     assertEquals(setOf("survivor"), dao.rows.keys)
   }
+
+  @Test
+  fun fullQueueDropsOldestInsteadOfGrowingUnbounded() = runTest {
+    val dao = FakeDao()
+    val firstWriteStarted = CompletableDeferred<Unit>()
+    val releaseFirstWrite = CompletableDeferred<Unit>()
+    dao.beforeUpsert = { entity ->
+      if (entity.id == "blocker") {
+        firstWriteStarted.complete(Unit)
+        releaseFirstWrite.await()
+      }
+    }
+    val overflowWarnings = mutableListOf<Throwable>()
+    val writer = RequestLogDatabaseWriter(dao, backgroundScope) { _, error -> overflowWarnings += error }
+
+    // Block the consumer so the queue fills up.
+    val blocker = RequestLogEntity.fromEntry(
+      RequestLogEntry(id = "blocker", method = "GET", path = "/blocked")
+    )
+    writer.enqueue("blocking write") { upsert(blocker) }
+    firstWriteStarted.await()
+
+    // Overfill: capacity + a few extra. The oldest queued ops get dropped.
+    for (i in 0 until RequestLogDatabaseWriter.MAX_QUEUED_OPERATIONS + 5) {
+      writer.enqueue("overflow $i") {
+        upsert(RequestLogEntity.fromEntry(RequestLogEntry(id = "e$i", method = "GET", path = "/$i")))
+      }
+    }
+
+    // Each enqueue beyond capacity sheds exactly one oldest operation.
+    assertEquals(5L, writer.droppedCountForTest())
+
+    releaseFirstWrite.complete(Unit)
+    writer.awaitIdle()
+    assertTrue(overflowWarnings.isNotEmpty())
+  }
 }
