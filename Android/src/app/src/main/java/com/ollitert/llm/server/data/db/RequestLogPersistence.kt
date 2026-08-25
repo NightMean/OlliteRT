@@ -19,9 +19,10 @@ package com.ollitert.llm.server.data.db
 import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.prefs.DEFAULT_IN_MEMORY_LOG_CAP
-import com.ollitert.llm.server.data.prefs.HARD_MAX_IN_MEMORY_ENTRIES
+import com.ollitert.llm.server.data.prefs.HARD_MAX_PERSISTED_LOG_ENTRIES
 import com.ollitert.llm.server.data.prefs.MAX_PRUNE_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.MIN_PRUNE_INTERVAL_MS
+import com.ollitert.llm.server.data.prefs.STARTUP_LOAD_MAX_ENTRIES
 import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.repository.RequestLogRepository
@@ -138,7 +139,7 @@ class RequestLogPersistence @Inject constructor(
 
   override fun loadFromDb() {
     val maxEntries = ServerPrefs.getLogMaxEntries(context)
-    val dbLimit = if (maxEntries == 0) HARD_MAX_IN_MEMORY_ENTRIES else maxEntries
+    val dbLimit = startupLoadLimit(maxEntries)
     databaseWriter.enqueue("load persisted entries") {
       val entities = getRecent(dbLimit)
       if (entities.isNotEmpty()) {
@@ -159,10 +160,9 @@ class RequestLogPersistence @Inject constructor(
         RequestLogStore.removeOlderThan(cutoffMs)
       }
 
-      // Count-based pruning — 0 means no limit (keep all).
-      if (maxCount > 0) {
-        pruneToCount(maxCount)
-      }
+      // Count-based pruning — user limit, or the absolute DB cap when the user
+      // disabled limits entirely ("0 = keep all" must not mean "grow forever").
+      pruneToCount(effectivePruneCount(maxCount))
     }
   }
 
@@ -201,5 +201,17 @@ class RequestLogPersistence @Inject constructor(
   companion object {
     private const val TAG = "OlliteRT.LogPersist"
     private const val DEFAULT_IN_MEMORY_CAP = DEFAULT_IN_MEMORY_LOG_CAP
+
+    /**
+     * Entries loaded into RAM at startup. The "no limit" setting (0) previously
+     * loaded up to [HARD_MAX_IN_MEMORY_ENTRIES] full-body rows at launch — a heap
+     * spike racing model load on low-RAM devices.
+     */
+    internal fun startupLoadLimit(maxEntries: Int): Int =
+      if (maxEntries == 0) STARTUP_LOAD_MAX_ENTRIES else maxEntries
+
+    /** User count limit, or the absolute DB cap when the user disabled limits (0). */
+    internal fun effectivePruneCount(maxCount: Int): Int =
+      if (maxCount > 0) maxCount else HARD_MAX_PERSISTED_LOG_ENTRIES
   }
 }

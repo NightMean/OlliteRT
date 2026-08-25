@@ -33,6 +33,18 @@ const val HARD_MAX_IN_MEMORY_ENTRIES = 10_000
 const val MIN_PRUNE_INTERVAL_MS = 60_000L             // 1 minute
 const val MAX_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
 
+// Absolute upper bound on persisted log rows regardless of user settings — with
+// full prompt/response bodies per row, an uncapped DB grows without bound when
+// the user disables both retention limits, eventually exhausting storage on a
+// device left unattended for months.
+const val HARD_MAX_PERSISTED_LOG_ENTRIES = 20_000
+
+// Cap on entries loaded into RAM at startup. Full request/response bodies are tens
+// of KB each; materializing thousands at launch (the "no limit" case) spikes heap
+// while the model is also loading. The DB keeps everything — only the in-memory
+// snapshot is bounded.
+const val STARTUP_LOAD_MAX_ENTRIES = 1_000
+
 // Error-message preview lengths for log events. Short used for headline/single-line
 // log entries (toasts, single-line cards); long used for body-level entries
 // (multi-line cards, init failures) where more context aids diagnosis.

@@ -19,6 +19,8 @@ import com.ollitert.llm.server.data.model.Model
 
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
+import com.ollitert.llm.server.data.prefs.HARD_MAX_PERSISTED_LOG_ENTRIES
+import com.ollitert.llm.server.data.prefs.STARTUP_LOAD_MAX_ENTRIES
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -275,6 +277,27 @@ class RequestLogPersistenceTest {
     assertEquals(1, fakeDao.rows.size)
     assertTrue("recent entry should survive", fakeDao.rows.containsKey("recent"))
     assertFalse("expired entry should be pruned", fakeDao.rows.containsKey("expired"))
+  }
+
+  // --- Bound helpers (startup load cap + absolute DB cap) ---
+
+  @Test
+  fun startupLoadLimitBoundsUnlimitedSetting() {
+    // "No limit" (0) must not materialize the full 10k-row snapshot at launch.
+    assertEquals(
+      STARTUP_LOAD_MAX_ENTRIES,
+      RequestLogPersistence.startupLoadLimit(0),
+    )
+    assertEquals(500, RequestLogPersistence.startupLoadLimit(500))
+  }
+
+  @Test
+  fun effectivePruneCountAppliesAbsoluteCapWhenUnlimited() {
+    assertEquals(
+      HARD_MAX_PERSISTED_LOG_ENTRIES,
+      RequestLogPersistence.effectivePruneCount(0),
+    )
+    assertEquals(250, RequestLogPersistence.effectivePruneCount(250))
   }
 
   // --- loadEntries round-trip ---
