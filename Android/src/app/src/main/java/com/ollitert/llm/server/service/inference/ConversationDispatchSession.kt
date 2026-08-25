@@ -69,6 +69,8 @@ internal class ConversationDispatchSession(
   // OpenAI frequency/presence penalties applied natively for this session.
   private val frequencyPenalty: Double? = null,
   private val presencePenalty: Double? = null,
+  // Per-turn output token cap applied natively for this session.
+  private val maxOutputToken: Int? = null,
 ) {
   /**
    * Per-request thinking override resolved against model capability. Forced-on requests
@@ -161,6 +163,7 @@ internal class ConversationDispatchSession(
       responseFormatSchema = responseFormatSchema,
       thinkingConfig = sdkThinkingConfig,
       repetitionPenaltyConfig = sdkRepetitionPenaltyConfig,
+      maxOutputToken = maxOutputToken,
     )
   }
 

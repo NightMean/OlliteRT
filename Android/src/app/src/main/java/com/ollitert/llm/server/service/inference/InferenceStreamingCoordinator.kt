@@ -80,6 +80,7 @@ internal class InferenceStreamingCoordinator(
     thinkingBudgetTokens: Int? = null,
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
+    maxOutputToken: Int? = null,
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -137,6 +138,7 @@ internal class InferenceStreamingCoordinator(
       thinkingBudgetTokens = thinkingBudgetTokens,
       frequencyPenalty = frequencyPenalty,
       presencePenalty = presencePenalty,
+      maxOutputToken = maxOutputToken,
     )
 
     val streamPreview = prefs?.streamLogsPreview ?: ServerPrefs.isStreamLogsPreview(context)

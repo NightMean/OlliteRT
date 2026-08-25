@@ -271,6 +271,7 @@ internal class ChatCompletionsHandler(
           thinkingBudgetTokens = thinkingBudgetTokens,
           frequencyPenalty = frequencyPenalty,
           presencePenalty = presencePenalty,
+        maxOutputToken = effectiveMaxTokens,
           requestModelId = requestedId,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
@@ -298,6 +299,7 @@ internal class ChatCompletionsHandler(
           thinkingBudgetTokens = thinkingBudgetTokens,
           frequencyPenalty = frequencyPenalty,
           presencePenalty = presencePenalty,
+        maxOutputToken = effectiveMaxTokens,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
           responseFormatSchema = responseFormatSchema,
@@ -326,6 +328,7 @@ internal class ChatCompletionsHandler(
         thinkingBudgetTokens = thinkingBudgetTokens,
         frequencyPenalty = frequencyPenalty,
         presencePenalty = presencePenalty,
+        maxOutputToken = effectiveMaxTokens,
         prepareConversation = prepareConversation,
         responseFormatSchema = responseFormatSchema,
       )

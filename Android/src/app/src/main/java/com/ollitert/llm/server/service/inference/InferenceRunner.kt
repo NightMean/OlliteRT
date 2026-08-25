@@ -166,6 +166,7 @@ class InferenceRunner(
     thinkingBudgetTokens: Int? = null,
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
+    maxOutputToken: Int? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -208,6 +209,7 @@ class InferenceRunner(
       thinkingBudgetTokens = thinkingBudgetTokens,
       frequencyPenalty = frequencyPenalty,
       presencePenalty = presencePenalty,
+      maxOutputToken = maxOutputToken,
     )
 
     val result = InferenceGateway.execute(
@@ -331,10 +333,11 @@ class InferenceRunner(
     thinkingBudgetTokens: Int? = null,
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
+    maxOutputToken: Int? = null,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage, hasSchemaInjection = schemaInjectionProviders.isNotEmpty())
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished, responseFormatSchema, thinkingBudgetTokens, frequencyPenalty, presencePenalty)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished, responseFormatSchema, thinkingBudgetTokens, frequencyPenalty, presencePenalty, maxOutputToken)
   }
 
   // ── Streaming inference: /v1/completions ───────────────────────────────
@@ -384,6 +387,7 @@ class InferenceRunner(
     thinkingBudgetTokens: Int? = null,
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
+    maxOutputToken: Int? = null,
   ): HttpResponse {
     val format = AnthropicMessagesFormat(
       modelName = model.name,
@@ -404,6 +408,7 @@ class InferenceRunner(
       thinkingBudgetTokens = thinkingBudgetTokens,
       frequencyPenalty = frequencyPenalty,
       presencePenalty = presencePenalty,
+      maxOutputToken = maxOutputToken,
     )
   }
 
@@ -433,6 +438,7 @@ class InferenceRunner(
     thinkingBudgetTokens: Int? = null,
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
+    maxOutputToken: Int? = null,
   ): HttpResponse = streamingCoordinator.streamInference(
     model = model,
     prompt = prompt,

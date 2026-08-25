@@ -230,6 +230,9 @@ object ServerLlmModelHelper {
     thinkingConfig: com.google.ai.edge.litertlm.ThinkingConfig? = null,
     // When non-null, applies native repetition/presence/frequency penalties.
     repetitionPenaltyConfig: com.google.ai.edge.litertlm.RepetitionPenaltyConfig? = null,
+    // Per-turn output token cap applied natively on top of the engine-level
+    // maxNumTokens so client max_tokens requests are honored exactly.
+    maxOutputToken: Int? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -272,6 +275,7 @@ object ServerLlmModelHelper {
           }
         },
         extraContext ?: emptyMap(),
+        maxOutputToken = maxOutputToken,
         repetitionPenaltyConfig = repetitionPenaltyConfig,
         thinkingConfig = thinkingConfig,
         responseFormat = sdkResponseFormat,
@@ -311,6 +315,7 @@ object ServerLlmModelHelper {
         }
       },
       extraContext ?: emptyMap(),
+      maxOutputToken = maxOutputToken,
       repetitionPenaltyConfig = repetitionPenaltyConfig,
       thinkingConfig = thinkingConfig,
       responseFormat = sdkResponseFormat,
