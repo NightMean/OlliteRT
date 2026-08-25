@@ -383,6 +383,62 @@ class ModelLifecycle(
     return model
   }
 
+  /**
+   * Finds any downloaded model other than [excludeName] whose files resolve on disk.
+   *
+   * Self-healing fallback for auto-start paths: when the configured default model
+   * has been deleted or renamed, boot/launch auto-start would otherwise fail and
+   * leave the server down until a human intervenes — the exact failure mode of a
+   * phone left in a drawer for weeks. Returns null when nothing usable exists.
+   */
+  fun pickFallbackModel(excludeName: String?): Model? {
+    val externalDir = context.getExternalFilesDir(null) ?: return null
+    val importsDir = File(externalDir, IMPORTS_DIR)
+
+    fun resolvesToDisk(model: Model): Boolean = try {
+      File(model.getPath(context)).exists()
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to resolve path for fallback candidate '${model.name}'", e)
+      false
+    }
+
+    // Same precedence as pickModelByName: allowlist entries first, then imported models.
+    for (entry in modelCatalogMerger.load()) {
+      if (entry.name.equals(excludeName, ignoreCase = true)) continue
+      val candidate = try {
+        ModelFactory.buildAllowedModel(entry, importsDir).also { it.preProcess() }
+      } catch (e: Exception) {
+        Log.w(TAG, "Skipping allowlist entry '${entry.name}' in fallback scan", e)
+        continue
+      }
+      resolveOnDiskVersion(candidate, externalDir)
+      if (resolvesToDisk(candidate)) {
+        ModelFactory.restoreInferenceConfig(context, candidate)
+        return candidate
+      }
+    }
+    val importedModels = try {
+      readImportedModels()
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to read imported models during fallback scan", e)
+      emptyList()
+    }
+    for (info in importedModels) {
+      if (info.fileName.equals(excludeName, ignoreCase = true)) continue
+      val candidate = try {
+        ModelFactory.buildImportedModel(info)
+      } catch (e: Exception) {
+        Log.w(TAG, "Skipping imported model '${info.fileName}' in fallback scan", e)
+        continue
+      }
+      if (resolvesToDisk(candidate)) {
+        ModelFactory.restoreInferenceConfig(context, candidate)
+        return candidate
+      }
+    }
+    return null
+  }
+
   private fun resolveOnDiskVersion(model: Model, externalDir: File) {
     if (model.localModelFilePathOverride.isNotEmpty()) return
     val currentPath = File(externalDir, "${model.normalizedName}/${model.version}/${model.downloadFileName}")

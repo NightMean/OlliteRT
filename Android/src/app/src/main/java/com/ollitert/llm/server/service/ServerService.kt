@@ -251,7 +251,20 @@ class ServerService : Service() {
     val thisGeneration = loadGeneration.incrementAndGet()
     loadJob?.cancel()
     loadJob = serviceScope.launch {
-      val model = pickModelByName(requestedModelName)
+      var model = pickModelByName(requestedModelName)
+      if (model == null) {
+        // Auto-start sources resolve the model from prefs, which can go stale when
+        // the model was deleted or renamed. Self-heal by falling back to any other
+        // downloaded model instead of leaving the server down until manual action.
+        if (isAutoStartSource(startSource)) {
+          model = pickFallbackModel(excludeName = requestedModelName)
+          if (model != null) {
+            val msg = "Default model '$requestedModelName' not found — falling back to '${model.name}'"
+            Log.w(TAG, msg)
+            RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = model.name, category = EventCategory.MODEL)
+          }
+        }
+      }
       if (model == null) {
         val sourcePrefix = when (startSource) {
           SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
@@ -276,7 +289,18 @@ class ServerService : Service() {
         model.configValues = overrides.toMap()
         Log.i(TAG, "Applied ${overrides.size} config overrides from reload caller")
       }
-      // Verify model files actually exist on disk.
+      // Verify model files actually exist on disk. Same stale-pref self-heal as
+      // above: the registry entry resolved but its files are gone (e.g. cleared
+      // manually) — fall back for auto-start sources before failing.
+      if (!File(model.getPath(context = this@ServerService)).exists() && isAutoStartSource(startSource)) {
+        val fallback = pickFallbackModel(excludeName = requestedModelName)
+        if (fallback != null) {
+          val msg = "Model files missing for '$requestedModelName' — falling back to '${fallback.name}'"
+          Log.w(TAG, msg)
+          RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = fallback.name, category = EventCategory.MODEL)
+          model = fallback
+        }
+      }
       val modelPath = model.getPath(context = this@ServerService)
       if (!File(modelPath).exists()) {
         val sourcePrefix = when (startSource) {
@@ -519,6 +543,11 @@ class ServerService : Service() {
 
   // Model lifecycle methods — delegated to ModelLifecycle.kt
   private fun pickModelByName(name: String) = modelLifecycle.pickModelByName(name)
+  private fun pickFallbackModel(excludeName: String) = modelLifecycle.pickFallbackModel(excludeName)
+
+  /** Boot and launch auto-start resolve the model from prefs, which can go stale. */
+  private fun isAutoStartSource(source: String?) = source == SOURCE_BOOT || source == SOURCE_LAUNCH
+
   private fun cancelKeepAliveTimer() = modelLifecycle.cancelKeepAliveTimer()
   private fun resetKeepAliveTimer() = modelLifecycle.resetKeepAliveTimer()
   private fun buildSystemInstruction(modelPrefsKey: String) = modelLifecycle.buildSystemInstruction(modelPrefsKey)
