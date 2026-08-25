@@ -40,10 +40,17 @@ class KtorSseWriterImpl(
   override var isCancelled: Boolean = false
     private set
 
+  // Serializes SSE frame writes. The streaming heartbeat coroutine can emit ping
+  // events concurrently with token deltas from the consume loop — without this
+  // lock two coroutines could interleave partial frames on the shared Writer.
+  private val writeLock = Any()
+
   override suspend fun emit(text: String) {
     try {
-      writer.write(text)
-      writer.flush()
+      synchronized(writeLock) {
+        writer.write(text)
+        writer.flush()
+      }
     } catch (e: IOException) {
       Log.d(TAG, "SSE write failed (client disconnect): ${e.javaClass.simpleName}")
       isCancelled = true

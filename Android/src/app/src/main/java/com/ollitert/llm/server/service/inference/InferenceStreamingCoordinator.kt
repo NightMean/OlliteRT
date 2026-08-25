@@ -36,6 +36,7 @@ import com.ollitert.llm.server.service.formats.StreamingFormat
 import com.ollitert.llm.server.service.http.HttpResponse
 import com.ollitert.llm.server.service.http.ResponseRenderer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -160,23 +161,33 @@ internal class InferenceStreamingCoordinator(
         }
       }
 
-      val heartbeatJob = if (format.emitsHeaderEarly) {
-        CoroutineScope(kotlin.coroutines.coroutineContext).launch {
-          try {
-            while (isActive) {
-              delay(SSE_PING_INTERVAL_MS)
-              if (writer.isCancelled || state.firstTokenMs != 0L || state.inferenceCompleted) break
-              try {
-                format.emitPing(writer)
-              } catch (e: Exception) {
-                Log.w(TAG, "Heartbeat ping failed for $requestId", e)
-                break
-              }
-            }
-          } catch (_: kotlinx.coroutines.CancellationException) {
-          }
-        }
+      // Dedicated scope for the heartbeat: this lambda always runs inside
+      // withContext(NonCancellable) (see respondHttpResponse), so a child of the
+      // ambient coroutine context would ignore HTTP-call cancellation and only die
+      // via the explicit cancel in the finally below. An owned SupervisorJob makes
+      // that ownership explicit and cancels everything in one call.
+      val heartbeatScope = if (format.emitsHeaderEarly) {
+        CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
       } else null
+      val heartbeatJob = heartbeatScope?.launch {
+        try {
+          while (isActive) {
+            delay(SSE_PING_INTERVAL_MS)
+            // Run until inference completes, not just until the first token — every
+            // ping write is also a liveness probe that detects half-open client
+            // connections during long generations. Ping events between deltas are
+            // spec-legal for Anthropic; other formats never start a heartbeat.
+            if (writer.isCancelled || state.inferenceCompleted) break
+            try {
+              format.emitPing(writer)
+            } catch (e: Exception) {
+              Log.w(TAG, "Heartbeat ping failed for $requestId", e)
+              break
+            }
+          }
+        } catch (_: kotlinx.coroutines.CancellationException) {
+        }
+      }
 
       InferenceGateway.executeStreaming(
         prompt = prompt,
@@ -275,6 +286,7 @@ internal class InferenceStreamingCoordinator(
         state.markMetricsCompleted()
         if (state.inferenceStarted) state.finishConversation(isReusable = false)
         heartbeatJob?.cancel()
+        heartbeatScope?.cancel()
       }
     }
   }
