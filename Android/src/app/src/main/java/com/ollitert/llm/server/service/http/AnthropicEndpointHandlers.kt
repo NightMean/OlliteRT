@@ -33,8 +33,10 @@ import kotlinx.serialization.json.Json
  * request log, and re-shapes the OAI response to the Anthropic envelope before it
  * reaches the captured-response sink.
  *
- * Streaming is wired in subsequent phases — for now `stream:true` requests are
- * rejected with a 400 so the failure mode is explicit instead of returning OAI SSE.
+ * Streaming requests (`stream:true`) reuse the same pipeline: pre-stream failures
+ * come back as JSON and are re-shaped into Anthropic error envelopes below, while
+ * successful streams dispatch to `streamMessagesLlm` and emit Anthropic SSE events
+ * directly.
  */
 class AnthropicEndpointHandlers(
   private val json: Json,
@@ -104,13 +106,13 @@ class AnthropicEndpointHandlers(
     )
 
     return when (response) {
-      is HttpResponse.Json -> {
-        // Non-streaming or error path. 200 bodies need re-shape; non-200 bodies that
-        // already came from runChatCompletion may be OAI-shaped errors — re-shape
-        // those into Anthropic envelopes here.
-        if (anthropicReq.stream == true) response  // selectModel error before stream — OAI shape acceptable
-        else reshapeJsonResponse(response, anthropicReq.model ?: "local", requestId, matchedStopRef[0])
-      }
+      is HttpResponse.Json ->
+        // Non-streaming success AND pre-stream failures both land here. Success
+        // bodies are re-shaped OAI chat responses; non-200 bodies are OAI-shaped
+        // errors from runChatCompletion (model selection, validation, busy server)
+        // that must be converted even when the client asked for streaming —
+        // Anthropic SDKs reject the OpenAI envelope on /v1/messages.
+        reshapeAnthropicJsonResponse(json, response, anthropicReq.model ?: "local", requestId, matchedStopRef[0])
       // SSE responses already carry Anthropic-shaped events because runChatCompletion
       // dispatched to streamMessagesLlm when useAnthropicStream was true.
       else -> response
@@ -171,55 +173,58 @@ class AnthropicEndpointHandlers(
     captureResponse(responseJson)
     return httpOkJson(responseJson)
   }
+}
 
-  /**
-   * Re-shape the OAI [HttpResponse.Json] returned by [EndpointHandlers.runChatCompletion]
-   * into the Anthropic envelope. Error responses (status != 200) are converted to the
-   * Anthropic error shape; success bodies go through the message converter.
-   */
-  private fun reshapeJsonResponse(
-    response: HttpResponse.Json,
-    requestedModelId: String,
-    requestId: String,
-    matchedStopSequence: String?,
-  ): HttpResponse.Json {
-    if (response.statusCode == 200) {
-      val body = try {
-        AnthropicConverter.toAnthropicResponse(
-          json = json,
-          oaiResponseBody = response.body,
-          requestedModelId = requestedModelId,
-          requestId = requestId,
-          matchedStopSequence = matchedStopSequence,
-        )
-      } catch (e: AnthropicConversionError) {
-        return httpAnthropicError(500, e.errorType, e.message)
-      } catch (e: Exception) {
-        return httpAnthropicError(
-          500,
-          "api_error",
-          "Failed to re-shape upstream response: ${e.message ?: e.javaClass.simpleName}",
-        )
-      }
-      return response.copy(body = body)
+/**
+ * Pure re-shaper for OAI JSON bodies on /v1/messages — success bodies become
+ * Anthropic message envelopes, non-200 OAI error envelopes become Anthropic error
+ * envelopes. Top-level and internal so the protocol contract is unit-testable
+ * without Android dependencies ([AnthropicEndpointHandlers] needs a Context-backed
+ * [EndpointHandlers]).
+ */
+internal fun reshapeAnthropicJsonResponse(
+  json: Json,
+  response: HttpResponse.Json,
+  requestedModelId: String,
+  requestId: String,
+  matchedStopSequence: String?,
+): HttpResponse.Json {
+  if (response.statusCode == 200) {
+    val body = try {
+      AnthropicConverter.toAnthropicResponse(
+        json = json,
+        oaiResponseBody = response.body,
+        requestedModelId = requestedModelId,
+        requestId = requestId,
+        matchedStopSequence = matchedStopSequence,
+      )
+    } catch (e: AnthropicConversionError) {
+      return httpAnthropicError(500, e.errorType, e.message)
+    } catch (e: Exception) {
+      return httpAnthropicError(
+        500,
+        "api_error",
+        "Failed to re-shape upstream response: ${e.message ?: e.javaClass.simpleName}",
+      )
     }
-    // Map OAI error envelope → Anthropic. Best-effort message extraction.
-    val message = try {
-      val obj = json.parseToJsonElement(response.body)
-      val errObj = (obj as? kotlinx.serialization.json.JsonObject)?.get("error")
-      (errObj as? kotlinx.serialization.json.JsonObject)?.get("message")?.toString()?.removeSurrounding("\"")
-        ?: response.body
-    } catch (_: Exception) {
-      response.body
-    }
-    val errorType = when (response.statusCode) {
-      400 -> "invalid_request_error"
-      401 -> "authentication_error"
-      404 -> "not_found_error"
-      413 -> "request_too_large"
-      503 -> "overloaded_error"
-      else -> "api_error"
-    }
-    return httpAnthropicError(response.statusCode, errorType, message)
+    return response.copy(body = body)
   }
+  // Map OAI error envelope → Anthropic. Best-effort message extraction.
+  val message = try {
+    val obj = json.parseToJsonElement(response.body)
+    val errObj = (obj as? kotlinx.serialization.json.JsonObject)?.get("error")
+    (errObj as? kotlinx.serialization.json.JsonObject)?.get("message")?.toString()?.removeSurrounding("\"")
+      ?: response.body
+  } catch (_: Exception) {
+    response.body
+  }
+  val errorType = when (response.statusCode) {
+    400 -> "invalid_request_error"
+    401 -> "authentication_error"
+    404 -> "not_found_error"
+    413 -> "request_too_large"
+    503 -> "overloaded_error"
+    else -> "api_error"
+  }
+  return httpAnthropicError(response.statusCode, errorType, message)
 }
