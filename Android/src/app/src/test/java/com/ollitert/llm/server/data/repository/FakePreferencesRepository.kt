@@ -136,6 +136,9 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setWarmupEnabled(enabled: Boolean) { this._warmupEnabled = enabled }
   override fun isEagerVisionInit(): Boolean = _eagerVisionInit
   override fun setEagerVisionInit(enabled: Boolean) { this._eagerVisionInit = enabled }
+  private var _audioGpuAcceleration: Boolean = false
+  override fun isAudioGpuAcceleration(): Boolean = _audioGpuAcceleration
+  override fun setAudioGpuAcceleration(enabled: Boolean) { this._audioGpuAcceleration = enabled }
   override fun isIgnoreClientSamplerParams(): Boolean = _ignoreClientSamplerParams
   override fun setIgnoreClientSamplerParams(enabled: Boolean) { this._ignoreClientSamplerParams = enabled }
   override fun isForceStreamUsage(): Boolean = _forceStreamUsage
