@@ -56,7 +56,7 @@ import com.ollitert.llm.server.data.prefs.bytesToMb
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
 import java.io.File
 import kotlin.random.Random
-
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 private const val TAG = "OlliteRT.EngineFactory"
 
 internal fun Map<String, Any>?.samplerSeedOrRandom(): Int =

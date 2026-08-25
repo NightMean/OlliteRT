@@ -57,7 +57,7 @@ import com.ollitert.llm.server.worker.AllowlistRefreshWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
+import com.ollitert.llm.server.data.prefs.isKeepScreenOn
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 

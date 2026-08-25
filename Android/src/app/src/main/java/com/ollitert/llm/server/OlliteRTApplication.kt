@@ -45,7 +45,7 @@ import okhttp3.ResponseBody.Companion.asResponseBody
 import okio.Buffer
 import okio.ForwardingSource
 import okio.buffer
-
+import com.ollitert.llm.server.data.prefs.isUpdateCheckEnabled
 private const val TAG = "OlliteRT.App"
 
 @HiltAndroidApp

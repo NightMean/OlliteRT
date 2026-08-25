@@ -19,7 +19,11 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
+import com.ollitert.llm.server.data.prefs.isClearLogsOnStop
 
+import com.ollitert.llm.server.data.prefs.isNotifShowRequestCount
+
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 import android.app.Service
 import android.content.ComponentCallbacks2
 import android.content.Context

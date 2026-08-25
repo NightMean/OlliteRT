@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 /**
  * Handles background model loading orchestration: storage verification, idle/cleanup latching,
  * engine initialization / warmup, metrics publishing, configuration logging, and failure handling.

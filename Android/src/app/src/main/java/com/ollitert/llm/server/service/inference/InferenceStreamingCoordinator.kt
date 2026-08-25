@@ -43,7 +43,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicReference
-
+import com.ollitert.llm.server.data.prefs.isStreamLogsPreview
 private const val TAG = "OlliteRT.InferenceStream"
 
 internal class InferenceStreamingCoordinator(

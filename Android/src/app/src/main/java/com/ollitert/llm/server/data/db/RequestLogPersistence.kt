@@ -37,7 +37,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.ollitert.llm.server.data.prefs.getLogAutoDeleteMinutes
 
+import com.ollitert.llm.server.data.prefs.getLogMaxEntries
+
+import com.ollitert.llm.server.data.prefs.isLogPersistenceEnabled
 /**
  * Write-behind persistence bridge between [RequestLogStore] (in-memory) and Room.
  *

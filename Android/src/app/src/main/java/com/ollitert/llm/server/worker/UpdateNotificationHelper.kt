@@ -33,7 +33,13 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.clearUpdateState
 
+import com.ollitert.llm.server.data.prefs.getCachedLatestVersion
+
+import com.ollitert.llm.server.data.prefs.getCachedReleaseHtmlUrl
+
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 internal object UpdateNotificationHelper {
   private const val TAG = "OlliteRT.UpdateNotif"
   const val UPDATE_CHANNEL_ID = "ollitert-app-update"

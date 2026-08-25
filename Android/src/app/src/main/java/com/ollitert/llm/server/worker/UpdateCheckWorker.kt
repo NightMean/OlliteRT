@@ -43,7 +43,35 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
+import com.ollitert.llm.server.data.prefs.getCachedCrossChannelVersion
 
+import com.ollitert.llm.server.data.prefs.getCachedLatestVersion
+
+import com.ollitert.llm.server.data.prefs.getCachedReleaseETag
+
+import com.ollitert.llm.server.data.prefs.getCachedReleaseHtmlUrl
+
+import com.ollitert.llm.server.data.prefs.getLastDismissedCrossChannelVersion
+
+import com.ollitert.llm.server.data.prefs.getLastDismissedUpdateVersion
+
+import com.ollitert.llm.server.data.prefs.getUpdateCheckConsecutiveFailures
+
+import com.ollitert.llm.server.data.prefs.getUpdateCheckIntervalHours
+
+import com.ollitert.llm.server.data.prefs.isCrossChannelNotifyEnabled
+
+import com.ollitert.llm.server.data.prefs.isUpdateCheckEnabled
+
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
+
+import com.ollitert.llm.server.data.prefs.setCachedCrossChannelVersion
+
+import com.ollitert.llm.server.data.prefs.setCachedUpdateInfo
+
+import com.ollitert.llm.server.data.prefs.setUpdateCheckConsecutiveFailures
+
+import com.ollitert.llm.server.data.prefs.setUpdateCheckEnabled
 /**
  * Background WorkManager worker that checks GitHub Releases for newer versions.
  * Runs periodically (default: every 24 hours) with network + battery constraints.

@@ -25,7 +25,7 @@ import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.ServerPrefs
-
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 /**
  * Handles LLM error classification, token extraction, and verbose inference metrics logging.
  */

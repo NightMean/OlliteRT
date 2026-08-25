@@ -23,7 +23,129 @@ import com.ollitert.llm.server.data.prefs.ServerPrefs
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.ollitert.llm.server.data.prefs.getLogAutoDeleteMinutes
 
+import com.ollitert.llm.server.data.prefs.getLogMaxEntries
+
+import com.ollitert.llm.server.data.prefs.getManualStartCount
+
+import com.ollitert.llm.server.data.prefs.getSttTranscriptionPromptText
+
+import com.ollitert.llm.server.data.prefs.getUpdateCheckIntervalHours
+
+import com.ollitert.llm.server.data.prefs.incrementEngagementPromptShowCount
+
+import com.ollitert.llm.server.data.prefs.incrementManualStartCount
+
+import com.ollitert.llm.server.data.prefs.isAutoExpandLogs
+
+import com.ollitert.llm.server.data.prefs.isAutoStartOnBoot
+
+import com.ollitert.llm.server.data.prefs.isClearLogsOnStop
+
+import com.ollitert.llm.server.data.prefs.isCompactImageData
+
+import com.ollitert.llm.server.data.prefs.isConfirmClearLogs
+
+import com.ollitert.llm.server.data.prefs.isCrossChannelNotifyEnabled
+
+import com.ollitert.llm.server.data.prefs.isForceStreamUsage
+
+import com.ollitert.llm.server.data.prefs.isGpuUnavailableDialogShown
+
+import com.ollitert.llm.server.data.prefs.isGpuUnavailableServerStartDismissed
+
+import com.ollitert.llm.server.data.prefs.isHaIntegrationEnabled
+
+import com.ollitert.llm.server.data.prefs.isHideHealthLogs
+
+import com.ollitert.llm.server.data.prefs.isIgnoreClientSamplerParams
+
+import com.ollitert.llm.server.data.prefs.isKeepScreenOn
+
+import com.ollitert.llm.server.data.prefs.isLogPersistenceEnabled
+
+import com.ollitert.llm.server.data.prefs.isNotifShowRequestCount
+
+import com.ollitert.llm.server.data.prefs.isRejectWhenBusy
+
+import com.ollitert.llm.server.data.prefs.isResolveClientHostnames
+
+import com.ollitert.llm.server.data.prefs.isShowAdvancedMetrics
+
+import com.ollitert.llm.server.data.prefs.isShowRequestTypes
+
+import com.ollitert.llm.server.data.prefs.isStreamLogsPreview
+
+import com.ollitert.llm.server.data.prefs.isSttTranscriptionPromptEnabled
+
+import com.ollitert.llm.server.data.prefs.isUpdateCheckEnabled
+
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
+
+import com.ollitert.llm.server.data.prefs.isWrapLogText
+
+import com.ollitert.llm.server.data.prefs.setAutoExpandLogs
+
+import com.ollitert.llm.server.data.prefs.setAutoStartOnBoot
+
+import com.ollitert.llm.server.data.prefs.setCachedUpdateInfo
+
+import com.ollitert.llm.server.data.prefs.setClearLogsOnStop
+
+import com.ollitert.llm.server.data.prefs.setCompactImageData
+
+import com.ollitert.llm.server.data.prefs.setConfirmClearLogs
+
+import com.ollitert.llm.server.data.prefs.setCrossChannelNotifyEnabled
+
+import com.ollitert.llm.server.data.prefs.setEngagementPromptPermanentlyDismissed
+
+import com.ollitert.llm.server.data.prefs.setForceStreamUsage
+
+import com.ollitert.llm.server.data.prefs.setGpuUnavailableDialogShown
+
+import com.ollitert.llm.server.data.prefs.setGpuUnavailableServerStartDismissed
+
+import com.ollitert.llm.server.data.prefs.setHaIntegrationEnabled
+
+import com.ollitert.llm.server.data.prefs.setHideHealthLogs
+
+import com.ollitert.llm.server.data.prefs.setIgnoreClientSamplerParams
+
+import com.ollitert.llm.server.data.prefs.setKeepScreenOn
+
+import com.ollitert.llm.server.data.prefs.setLogAutoDeleteMinutes
+
+import com.ollitert.llm.server.data.prefs.setLogMaxEntries
+
+import com.ollitert.llm.server.data.prefs.setLogPersistenceEnabled
+
+import com.ollitert.llm.server.data.prefs.setNotifShowRequestCount
+
+import com.ollitert.llm.server.data.prefs.setRejectWhenBusy
+
+import com.ollitert.llm.server.data.prefs.setResolveClientHostnames
+
+import com.ollitert.llm.server.data.prefs.setShowAdvancedMetrics
+
+import com.ollitert.llm.server.data.prefs.setShowRequestTypes
+
+import com.ollitert.llm.server.data.prefs.setStreamLogsPreview
+
+import com.ollitert.llm.server.data.prefs.setSttTranscriptionPromptEnabled
+
+import com.ollitert.llm.server.data.prefs.setSttTranscriptionPromptText
+
+import com.ollitert.llm.server.data.prefs.setUpdateCheckEnabled
+
+import com.ollitert.llm.server.data.prefs.setUpdateCheckIntervalHours
+
+import com.ollitert.llm.server.data.prefs.setVerboseDebugEnabled
+
+import com.ollitert.llm.server.data.prefs.setWrapLogText
+
+import com.ollitert.llm.server.data.prefs.shouldShowEngagementPrompt
 /**
  * Repository interface exposing application and server preferences to consumers.
  * Decouples ViewModels, workers, and services from direct static references to [ServerPrefs].

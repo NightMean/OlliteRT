@@ -24,7 +24,11 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 
+import com.ollitert.llm.server.data.prefs.setLastDismissedCrossChannelVersion
+
+import com.ollitert.llm.server.data.prefs.setLastDismissedUpdateVersion
 /**
  * Records which update version the user dismissed by swiping the notification away.
  * Prevents re-posting the same notification on the next WorkManager cycle.

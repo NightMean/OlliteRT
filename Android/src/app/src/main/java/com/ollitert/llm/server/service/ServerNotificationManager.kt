@@ -19,7 +19,7 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
-
+import com.ollitert.llm.server.data.prefs.isNotifShowRequestCount
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service

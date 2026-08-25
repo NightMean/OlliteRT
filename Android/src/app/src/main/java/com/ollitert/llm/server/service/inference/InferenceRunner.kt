@@ -22,7 +22,7 @@ import com.ollitert.llm.server.service.*
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.http.*
-
+import com.ollitert.llm.server.data.prefs.isVerboseDebugEnabled
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
