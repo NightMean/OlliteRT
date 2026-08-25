@@ -89,6 +89,8 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.server.logs.ClearActiveLogsDialog
+import com.ollitert.llm.server.ui.server.logs.ClearLogsConfirmDialog
 import com.ollitert.llm.server.ui.server.logs.InternalEventCard
 import com.ollitert.llm.server.ui.server.logs.LogEntryCard
 import com.ollitert.llm.server.ui.server.logs.SegmentItem
@@ -132,103 +134,13 @@ fun LogsScreen(
 
   // Clear logs confirmation dialog
   if (showClearConfirmDialog) {
-    val totalCount = entries.size
-    val filteredCount = displayedEntries.size
-    val isFiltered = filter.isActive && filteredCount != totalCount
-    AlertDialog(
-      onDismissRequest = { viewModel.setShowClearConfirmDialog(false) },
-      title = {
-        Text(
-          text = stringResource(R.string.logs_dialog_clear_title),
-          style = MaterialTheme.typography.titleMedium,
-        )
-      },
-      text = {
-        Text(
-          text = if (isFiltered) {
-            stringResource(R.string.logs_dialog_clear_body_filtered, totalCount, filteredCount)
-          } else {
-            stringResource(R.string.logs_dialog_clear_body, totalCount)
-          },
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      },
-      confirmButton = {
-        Button(
-          onClick = {
-            viewModel.clearLogs()
-            viewModel.clearAllFilters()
-          },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error,
-          ),
-        ) {
-          Text(stringResource(R.string.logs_dialog_clear_confirm))
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = { viewModel.setShowClearConfirmDialog(false) }) {
-          Text(stringResource(R.string.logs_dialog_clear_cancel))
-        }
-      },
-    )
+    ClearLogsConfirmDialog(viewModel, entries, displayedEntries, filter)
   }
 
   // Clear logs with active generation dialog (Cancel | Yes | Stop)
   if (showClearActiveDialog) {
-    val pendingCount = entries.count { it.isPending }
-    AlertDialog(
-      onDismissRequest = { viewModel.setShowClearActiveDialog(false) },
-      title = {
-        Text(
-          text = stringResource(R.string.logs_dialog_clear_active_title),
-          style = MaterialTheme.typography.titleMedium,
-        )
-      },
-      text = {
-        Text(
-          text = pluralStringResource(R.plurals.logs_dialog_clear_active_body, pendingCount, pendingCount),
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      },
-      confirmButton = {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          TextButton(
-            onClick = {
-              viewModel.clearLogs()
-              viewModel.clearAllFilters()
-              viewModel.setShowClearActiveDialog(false)
-            },
-          ) {
-            Text(stringResource(R.string.logs_dialog_clear_active_clear))
-          }
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-              onClick = {
-                RequestLogStore.cancelAllPending()
-                viewModel.clearLogs()
-                viewModel.clearAllFilters()
-                viewModel.setShowClearActiveDialog(false)
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-              ),
-            ) {
-              Text(stringResource(R.string.logs_dialog_clear_active_stop))
-            }
-            TextButton(onClick = { viewModel.setShowClearActiveDialog(false) }) {
-              Text(stringResource(R.string.logs_dialog_clear_cancel))
-            }
-          }
-        }
-      },
-    )
+    ClearActiveLogsDialog(viewModel, entries)
   }
-
   // Centered container with max width for tablets
   Box(
     modifier = modifier.fillMaxSize(),
