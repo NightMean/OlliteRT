@@ -143,6 +143,33 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
       Log.e(TAG, "Failed to migrate STT prefs keys", e)
     }
 
+    // Migrate legacy per-model prefs keys (system_prompt_<name> /
+    // inference_config_<name>) before anything reads them. This previously ran
+    // only when the Models screen opened, so a device that rebooted after an app
+    // update silently used default per-model settings (empty system prompt!) for
+    // auto-started inference until someone opened the Models screen once.
+    try {
+      val merger = com.ollitert.llm.server.data.allowlist.ModelCatalogMerger(
+        externalFilesDir = getExternalFilesDir(null),
+        appVersionName = BuildConfig.VERSION_NAME,
+        assetReader = {
+          try {
+            assets.open(com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME)
+              .bufferedReader().use { it.readText() }
+          } catch (_: Exception) { null }
+        },
+      )
+      val nameToPrefsKey = merger.load()
+        .map { it.toModel(appVersion = com.ollitert.llm.server.common.SemVer.parse(BuildConfig.VERSION_NAME)) }
+        .filter { it.name != it.downloadFileName }
+        .associate { it.name to it.downloadFileName }
+      if (nameToPrefsKey.isNotEmpty()) {
+        ServerPrefs.migratePerModelKeys(this, nameToPrefsKey)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to migrate per-model prefs keys", e)
+    }
+
     // Create notification channels (safe to call on every start — no-ops if they exist).
     // Wrapped in try-catch: corrupted NotificationManager can throw, and this was the only
     // pair of calls in onCreate() not already protected.
