@@ -386,7 +386,9 @@ private suspend fun withRequestLoggingBody(
       val busyResponse = httpServiceUnavailable(
         "Server is busy processing another request. Disable \"Reject Requests When Busy\" in settings to queue instead.",
       )
-      requestBodySnapshot = body
+      // Apply the same image-compaction as captureBody — the raw body can hold
+      // multi-MB base64 payloads that must not sit in the log ring verbatim.
+      requestBodySnapshot = if (prefs.compactImageData) BridgeUtils.compactBase64DataUris(body) else body
       finalizeLogEntry(logId, startMs, busyResponse, requestBodySnapshot, responseBodySnapshot, defaultModel?.name)
       call.response.headers.append("x-request-id", logId)
       call.respondHttpResponse(busyResponse)
