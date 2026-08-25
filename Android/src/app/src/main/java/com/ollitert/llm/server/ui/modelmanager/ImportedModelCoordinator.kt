@@ -50,6 +50,12 @@ class ImportedModelCoordinator(
     return model
   }
 
+  /** True when the imported model's file still exists in the imports directory. */
+  fun importedFileExists(info: ImportedModel): Boolean {
+    val externalDir = context.getExternalFilesDir(null) ?: return false
+    return java.io.File(externalDir, com.ollitert.llm.server.data.model.IMPORTS_DIR + "/" + info.fileName).exists()
+  }
+
   suspend fun saveImportedModel(info: ImportedModel) {
     val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
     val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }

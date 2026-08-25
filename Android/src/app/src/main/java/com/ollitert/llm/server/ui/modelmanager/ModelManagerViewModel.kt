@@ -586,6 +586,14 @@ constructor(
     val importedModels = mutableListOf<Model>()
     for (importedModel in ProtoDataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
+      // Reconcile registry with disk: a process death between file deletion and
+      // record removal (or manual deletion via MTP/another app) leaves ghost
+      // entries that report SUCCEEDED and fail opaquely at init. Purge them.
+      if (!importedModelCoordinator.importedFileExists(importedModel)) {
+        Log.w(TAG, "Imported model '${importedModel.fileName}' missing on disk — purging orphaned registry entry")
+        importedModelCoordinator.deleteImportedModelRecord(importedModel.fileName)
+        continue
+      }
       val model = importedModelCoordinator.buildAndRestoreImportedModel(importedModel)
       importedModels.add(model)
 
