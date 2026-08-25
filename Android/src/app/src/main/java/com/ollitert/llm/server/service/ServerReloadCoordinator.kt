@@ -36,6 +36,41 @@ import java.util.concurrent.atomic.AtomicLong
 object ServerReloadCoordinator {
   private const val TAG = "OlliteRT.ReloadCoordinator"
 
+  /** Hard cap for waiting on Ktor teardown before continuing without it. */
+  internal const val SERVER_STOP_JOIN_TIMEOUT_MS = 2_000L
+
+  /**
+   * Stops the embedded Ktor server without blocking the caller's thread for an
+   * unbounded time. `engine.stop()` tears down connections synchronously and can
+   * stall while LAN clients hold open requests; reload/start/destroy run on the
+   * main looper, so the stop runs on a worker thread and the caller waits with a
+   * hard cap. Ordering still holds in the normal case (the replacement server
+   * rebinds the same port immediately after); if the cap expires, the subsequent
+   * bind surfaces a port-in-use error through the existing failure path instead
+   * of wedging the main thread into ANR territory.
+   */
+  fun stopKtorServerBounded(server: KtorServer?) {
+    if (server == null) return
+    val stopped = java.util.concurrent.CountDownLatch(1)
+    Thread {
+      try {
+        server.stop(gracePeriodMillis = 0, timeoutMillis = 0)
+      } catch (e: Exception) {
+        Log.w(TAG, "Ktor server stop failed", e)
+      } finally {
+        stopped.countDown()
+      }
+    }.apply {
+      name = "OlliteRT-KtorStop"
+      isDaemon = true
+      start()
+    }
+    val stoppedInTime = stopped.await(SERVER_STOP_JOIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+    if (!stoppedInTime) {
+      Log.w(TAG, "Ktor stop exceeded ${SERVER_STOP_JOIN_TIMEOUT_MS}ms — continuing reload")
+    }
+  }
+
   fun executeReloadCleanup(
     modelLifecycle: ModelLifecycle,
     loadGeneration: AtomicLong,
@@ -56,7 +91,7 @@ object ServerReloadCoordinator {
       category = EventCategory.MODEL,
     )
     RequestLogStore.cancelAllPending()
-    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
+    stopKtorServerBounded(server)
     modelLifecycle.defaultModel?.let { ServerLlmModelHelper.stopResponse(it) }
     loadJob?.cancel()
     inferenceExecutor?.shutdownNow()

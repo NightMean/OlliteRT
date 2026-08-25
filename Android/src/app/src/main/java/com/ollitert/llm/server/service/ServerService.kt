@@ -366,7 +366,7 @@ class ServerService : Service() {
       return false
     }
 
-    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
+    ServerReloadCoordinator.stopKtorServerBounded(server)
     inferenceExecutor?.shutdownNow()
 
     val pipeline = ServerServicePipelineFactory.createPipeline(
@@ -474,7 +474,7 @@ class ServerService : Service() {
     loadJob = null
     // Signal request-scoped controls first so native done callbacks cannot win success.
     RequestLogStore.cancelAllPending()
-    server?.stop(gracePeriodMillis = 0, timeoutMillis = 0)
+    ServerReloadCoordinator.stopKtorServerBounded(server)
     // Cancel any in-flight inference so the native JNI call returns quickly.
     // Without this, shutdownNow() only calls Thread.interrupt() which has no
     // effect on blocking native code — the 5s await can expire with the thread
