@@ -133,7 +133,8 @@ internal fun probeModelUrl(
     connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
     connection.readTimeout = HTTP_READ_TIMEOUT_MS
     connection.instanceFollowRedirects = false
-    if (accessToken != null) {
+    // Scope the credential to huggingface.co — the probe URL can point anywhere.
+    if (accessToken != null && isHuggingFaceUrl(modelUrl)) {
       connection.setRequestProperty("Authorization", "Bearer $accessToken")
     }
     connection.connect()
@@ -172,6 +173,21 @@ internal fun probeModelUrl(
 /** Normalizes the single configured Hugging Face token used by downloads and resumed work. */
 internal fun configuredHfTokenOrNull(rawToken: String): String? =
   rawToken.trim().takeIf { it.isNotEmpty() }
+
+/**
+ * True when it is safe to attach the user's Hugging Face bearer token to requests
+ * for [url]. Allowlist entries and user-added repos can declare arbitrary download
+ * URLs — a hostile repo operator must never receive the credential, so the token
+ * is scoped to huggingface.co (and subdomains) only.
+ */
+internal fun isHuggingFaceUrl(url: String): Boolean {
+  val host = try {
+    URL(url).host.lowercase()
+  } catch (_: Exception) {
+    return false
+  }
+  return host == "huggingface.co" || host.endsWith(".huggingface.co")
+}
 
 private fun defaultOpenConnection(url: String): HttpURLConnection =
   URL(url).openConnection() as HttpURLConnection

@@ -37,6 +37,7 @@ import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
+import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.data.storage.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
@@ -180,7 +181,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
             connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
             try {
-              if (accessToken != null) {
+              // Scope the credential to huggingface.co — download URLs can point
+              // to third-party hosts declared by user-added repos.
+              if (accessToken != null && isHuggingFaceUrl(file.url)) {
                 Log.d(TAG, "Using access token: configured (redacted)")
                 connection.setRequestProperty("Authorization", "Bearer $accessToken")
               }

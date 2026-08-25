@@ -17,8 +17,11 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
+import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfiguredHfTokenTest {
@@ -31,5 +34,21 @@ class ConfiguredHfTokenTest {
   @Test
   fun configuredTokenIsTrimmedForDownloadsAndResumes() {
     assertEquals("hf_example", configuredHfTokenOrNull("  hf_example  "))
+  }
+
+  // ── isHuggingFaceUrl (token scoping) ──────────────────────────────────────
+
+  @Test
+  fun huggingFaceHostsAndSubdomainsAreAllowed() {
+    assertTrue(isHuggingFaceUrl("https://huggingface.co/repo/file.litertlm"))
+    assertTrue(isHuggingFaceUrl("https://cdn-lfs.huggingface.co/repo/file.litertlm"))
+  }
+
+  @Test
+  fun lookalikeAndThirdPartyHostsAreRejected() {
+    assertFalse(isHuggingFaceUrl("https://not-huggingface.co/repo/file.litertlm"))
+    assertFalse(isHuggingFaceUrl("https://huggingface.co.evil.example/repo/file.litertlm"))
+    assertFalse(isHuggingFaceUrl("https://example.com/model.litertlm"))
+    assertFalse(isHuggingFaceUrl("https://"))
   }
 }
