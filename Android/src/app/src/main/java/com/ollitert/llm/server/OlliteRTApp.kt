@@ -119,6 +119,13 @@ fun OlliteRTApp(
   }
 
   if (showErrorDialog) {
+    // Match Status-screen error rendering: classify the message and attach the
+    // actionable recovery suggestion — this dialog is often the first (and only)
+    // surface a "check occasionally" user sees after an unattended failure.
+    val errorSuggestion = remember(errorDialogMessage) {
+      val kind = com.ollitert.llm.server.common.ErrorSuggestions.classifyFromString(errorDialogMessage)
+      com.ollitert.llm.server.common.ErrorSuggestions.suggest(kind, context)
+    }
     AlertDialog(
       onDismissRequest = { showErrorDialog = false },
       shape = RoundedCornerShape(32.dp),
@@ -132,11 +139,33 @@ fun OlliteRTApp(
         )
       },
       text = {
-        Text(
-          text = errorDialogMessage,
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurface,
-        )
+        Column {
+          Text(
+            text = errorDialogMessage,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          if (errorSuggestion != null) {
+            Text(
+              text = errorSuggestion,
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(top = 8.dp),
+            )
+          }
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = {
+          showErrorDialog = false
+          navController.navigate(OlliteRTTab.Logs.route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+          }
+        }) {
+          Text(stringResource(R.string.view_logs))
+        }
       },
       confirmButton = {
         Button(

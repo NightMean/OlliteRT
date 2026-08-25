@@ -1020,6 +1020,7 @@
 
   <!-- OlliteRTApp: server error dialog -->
   <string name="dialog_server_error_title">Server Error</string>
+  <string name="view_logs">View logs</string>
 
   <!-- InferenceSettingsSheet: edit field content description -->
   <string name="cd_edit_field">Edit %1$s</string>
