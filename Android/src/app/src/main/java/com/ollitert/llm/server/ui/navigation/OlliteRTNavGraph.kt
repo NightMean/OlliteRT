@@ -402,7 +402,12 @@ fun OlliteRTNavHost(
     ) { backStackEntry ->
       val args = backStackEntry.toRoute<OlliteRTRoute.Benchmark>()
       val modelName = args.modelName
-      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
+      // Collect the model list as snapshot state: after process death the route is
+      // restored before the ViewModel finishes loading, and a plain uiState.value
+      // read here would create no recomposition trigger — leaving the screen blank
+      // forever even once the models arrive.
+      val uiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+      uiState.models.find { it.name == modelName }?.let { model ->
         BenchmarkScreen(
           initialModel = model,
           modelManagerViewModel = modelManagerViewModel,
@@ -412,11 +417,12 @@ fun OlliteRTNavHost(
     }
   }
 
-  // Handle incoming deep links
-  val intent = androidx.activity.compose.LocalActivity.current?.intent
-  val data = intent?.data
-  if (data != null) {
-    intent.data = null
+  // Handle incoming deep links. Must run as a side effect, not in composition —
+  // the composable body can execute many times per frame batch.
+  val activity = androidx.activity.compose.LocalActivity.current
+  LaunchedEffect(activity) {
+    val data = activity?.intent?.data ?: return@LaunchedEffect
+    activity.intent.data = null
     Log.d(TAG, "deep link: $data")
     if (data.toString() == "com.ollitert.llm.server://global_model_manager") {
       navController.navigate(OlliteRTRoute.Models) { launchSingleTop = true }
