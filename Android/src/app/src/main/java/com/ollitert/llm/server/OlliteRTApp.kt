@@ -54,6 +54,8 @@ import com.ollitert.llm.server.ui.navigation.OlliteRTNavHost
 import com.ollitert.llm.server.ui.navigation.OlliteRTTab
 import com.ollitert.llm.server.ui.navigation.OlliteRTTopBar
 import com.ollitert.llm.server.ui.server.ServerViewModel
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import androidx.navigation.NavDestination.Companion.hasRoute
 import com.ollitert.llm.server.ui.navigation.OlliteRTRoute
@@ -70,7 +72,10 @@ fun OlliteRTApp(
   val backStackEntry by navController.currentBackStackEntryAsState()
   val currentDestination = backStackEntry?.destination
 
-  val startDestination: OlliteRTRoute = if (modelManagerViewModel.onboardingCompleted) {
+  // Onboarding flag loads asynchronously from DataStore — wait for it before
+  // choosing the start destination so first-run users never skip onboarding.
+  val onboardingCompleted by modelManagerViewModel.onboardingCompleted.collectAsStateWithLifecycle()
+  val startDestination: OlliteRTRoute = if (onboardingCompleted == true) {
     OlliteRTRoute.Models
   } else {
     OlliteRTRoute.GettingStarted
@@ -78,19 +83,24 @@ fun OlliteRTApp(
 
   // Auto-load default model on app launch (if configured and server isn't already running).
   // Reads status snapshot once — no ongoing collection that would recompose the root.
-  // Guarded by a ViewModel flag: LaunchedEffect(Unit) re-runs on every configuration
-  // change (rotation), which would restart a server the user deliberately stopped.
+  // Guarded by a ViewModel flag: LaunchedEffect re-runs would restart a server the
+  // user deliberately stopped (e.g. after rotation).
   val context = LocalContext.current
   LaunchedEffect(Unit) {
     if (serverViewModel.hasAttemptedLaunchAutoStart) return@LaunchedEffect
     serverViewModel.markLaunchAutoStartAttempted()
-    if (startDestination == OlliteRTRoute.Models) {
+    val onboarded = modelManagerViewModel.onboardingCompleted.filterNotNull().first()
+    if (onboarded) {
       val defaultModel = ServerPrefs.getDefaultModelName(context)
       if (!defaultModel.isNullOrBlank() && serverViewModel.status.value == ServerStatus.STOPPED) {
         serverViewModel.startServer(modelName = defaultModel, source = ServerService.SOURCE_LAUNCH)
       }
     }
   }
+
+  // Flag still loading from disk — render nothing for the first frames instead of
+  // guessing wrong and trapping users in (or skipping past) onboarding.
+  if (onboardingCompleted == null) return
 
   // ── Server error dialog ──────────────────────────────────────────────────
   // Collected here because the dialog must overlay all screens. These flows only

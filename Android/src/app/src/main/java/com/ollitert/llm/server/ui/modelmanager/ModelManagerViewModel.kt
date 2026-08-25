@@ -135,7 +135,12 @@ constructor(
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ViewModel() {
-  val onboardingCompleted: Boolean = runBlocking { ProtoDataStoreRepository.isOnboardingCompleted() }
+  // Onboarding flag loads asynchronously — a runBlocking DataStore read here would
+  // block ViewModel construction (main thread) on disk I/O. Null means "still
+  // loading"; the nav graph waits for a concrete value before picking the
+  // start destination so first-run users never skip onboarding.
+  private val _onboardingCompleted = MutableStateFlow<Boolean?>(null)
+  val onboardingCompleted: StateFlow<Boolean?> = _onboardingCompleted.asStateFlow()
 
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
@@ -152,6 +157,18 @@ constructor(
 
   private val _toastErrorChannel = Channel<String>(Channel.BUFFERED)
   val toastErrorEvents = _toastErrorChannel.receiveAsFlow()
+
+  init {
+    viewModelScope.launch(ioDispatcher) {
+      _onboardingCompleted.value = try {
+        ProtoDataStoreRepository.isOnboardingCompleted()
+      } catch (e: Exception) {
+        // Degrade to completed — failing closed would trap returning users in onboarding.
+        Log.w(TAG, "Failed to read onboarding flag, defaulting to completed", e)
+        true
+      }
+    }
+  }
 
   private val importManager = ModelListImportManager(context, ProtoDataStoreRepository, modelStorageRepository)
   private val importedModelCoordinator = ImportedModelCoordinator(context, ProtoDataStoreRepository, modelStorageRepository, preferencesRepository)
