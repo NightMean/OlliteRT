@@ -66,6 +66,9 @@ internal class ConversationDispatchSession(
   // Reasoning token budget override (Anthropic thinking.budget_tokens). Implies
   // thinking enabled for this turn via the native ThinkingConfig channel.
   private val thinkingBudgetTokens: Int? = null,
+  // OpenAI frequency/presence penalties applied natively for this session.
+  private val frequencyPenalty: Double? = null,
+  private val presencePenalty: Double? = null,
 ) {
   /**
    * Per-request thinking override resolved against model capability. Forced-on requests
@@ -157,6 +160,7 @@ internal class ConversationDispatchSession(
       } else null,
       responseFormatSchema = responseFormatSchema,
       thinkingConfig = sdkThinkingConfig,
+      repetitionPenaltyConfig = sdkRepetitionPenaltyConfig,
     )
   }
 
@@ -168,6 +172,17 @@ internal class ConversationDispatchSession(
   private val sdkThinkingConfig: com.google.ai.edge.litertlm.ThinkingConfig?
     get() = thinkingBudgetTokens?.let {
       com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = true, thinkingTokenBudget = it)
+    }
+
+  /** Native repetition penalties; null when the request carries neither penalty. */
+  private val sdkRepetitionPenaltyConfig: com.google.ai.edge.litertlm.RepetitionPenaltyConfig?
+    get() = if (frequencyPenalty == null && presencePenalty == null) {
+      null
+    } else {
+      com.google.ai.edge.litertlm.RepetitionPenaltyConfig(
+        frequencyPenalty = frequencyPenalty?.toFloat(),
+        presencePenalty = presencePenalty?.toFloat(),
+      )
     }
 
   /** Best-effort conversation recovery after a failed request; runs under the inference lock. */

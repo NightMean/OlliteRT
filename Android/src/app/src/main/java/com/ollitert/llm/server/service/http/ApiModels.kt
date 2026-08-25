@@ -377,8 +377,7 @@ object ChatContentSerializer : KSerializer<ChatContent> {
    */
   fun constrainedJsonSchema(): String? {
     if (type != "json_schema") return null
-    val schema = json_schema?.schema ?: return null
-    val obj = schema as? JsonObject ?: return null
+    val obj = json_schema?.schema ?: return null
     return if (obj.isEmpty()) null else obj.toString()
   }
 }
@@ -426,8 +425,8 @@ object StopDeserializer : KSerializer<List<String>> {
   @Serializable(with = StopDeserializer::class)
   val stop: List<String> = emptyList(),
   val seed: Int? = null,
-  val frequency_penalty: Double? = null,   // Accepted, silently ignored (LiteRT limitation)
-  val presence_penalty: Double? = null,    // Accepted, silently ignored (LiteRT limitation)
+  val frequency_penalty: Double? = null,   // Honored via native RepetitionPenaltyConfig
+  val presence_penalty: Double? = null,    // Honored via native RepetitionPenaltyConfig
   val response_format: ResponseFormat? = null,
   val tools: List<ToolSpec>? = null,
   val tool_choice: JsonElement? = null,    // String ("auto"/"none"/"required") or Object {"type":"function","function":{"name":"..."}}

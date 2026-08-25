@@ -78,6 +78,8 @@ internal class InferenceStreamingCoordinator(
     // Non-null = natively constrain the response to this JSON schema (constrained decoding).
     responseFormatSchema: String? = null,
     thinkingBudgetTokens: Int? = null,
+    frequencyPenalty: Double? = null,
+    presencePenalty: Double? = null,
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -133,6 +135,8 @@ internal class InferenceStreamingCoordinator(
       logId = logId,
       responseFormatSchema = responseFormatSchema,
       thinkingBudgetTokens = thinkingBudgetTokens,
+      frequencyPenalty = frequencyPenalty,
+      presencePenalty = presencePenalty,
     )
 
     val streamPreview = prefs?.streamLogsPreview ?: ServerPrefs.isStreamLogsPreview(context)

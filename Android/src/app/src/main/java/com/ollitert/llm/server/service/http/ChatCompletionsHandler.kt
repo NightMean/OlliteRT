@@ -88,6 +88,9 @@ internal class ChatCompletionsHandler(
     // Reasoning token budget override (Anthropic thinking.budget_tokens) applied
     // via the native thinking channel. Implies thinking enabled for this turn.
     thinkingBudgetTokens: Int? = null,
+    // OpenAI frequency/presence penalties, already gated and clamped by the caller.
+    frequencyPenalty: Double? = null,
+    presencePenalty: Double? = null,
   ): HttpResponse {
     val requestId = nextRequestId()
     validateNParam(req.n)?.let { (param, msg) ->
@@ -139,6 +142,11 @@ internal class ChatCompletionsHandler(
     // (engine enforces valid JSON) — the prompt hint is skipped for them since it
     // would only fight the grammar constraint.
     val responseFormatSchema = req.response_format?.constrainedJsonSchema()
+    // OpenAI penalties → native RepetitionPenaltyConfig. Honors the "ignore client
+    // sampler params" setting; clamped to the OpenAI spec range [-2, 2].
+    val clientPenaltiesActive = !prefs.ignoreClientSamplerParams
+    val frequencyPenalty = req.frequency_penalty?.coerceIn(-2.0, 2.0)?.takeIf { clientPenaltiesActive && it != 0.0 }
+    val presencePenalty = req.presence_penalty?.coerceIn(-2.0, 2.0)?.takeIf { clientPenaltiesActive && it != 0.0 }
     // Apply response_format JSON mode prompt injection
     val prompt = if (useSchemaInjection) {
       InferenceRunner.applyResponseFormat(SchemaInjectionBridge.buildLastUserInput(req.messages), req.response_format)
@@ -261,6 +269,8 @@ internal class ChatCompletionsHandler(
           suppressPerModelSystem = suppressPerModelSystem,
           enableThinkingOverride = enableThinkingOverride,
           thinkingBudgetTokens = thinkingBudgetTokens,
+          frequencyPenalty = frequencyPenalty,
+          presencePenalty = presencePenalty,
           requestModelId = requestedId,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
@@ -286,6 +296,8 @@ internal class ChatCompletionsHandler(
           suppressPerModelSystem = suppressPerModelSystem,
           enableThinkingOverride = enableThinkingOverride,
           thinkingBudgetTokens = thinkingBudgetTokens,
+          frequencyPenalty = frequencyPenalty,
+          presencePenalty = presencePenalty,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
           responseFormatSchema = responseFormatSchema,
@@ -312,6 +324,8 @@ internal class ChatCompletionsHandler(
         suppressPerModelSystem = suppressPerModelSystem,
         enableThinkingOverride = enableThinkingOverride,
         thinkingBudgetTokens = thinkingBudgetTokens,
+        frequencyPenalty = frequencyPenalty,
+        presencePenalty = presencePenalty,
         prepareConversation = prepareConversation,
         responseFormatSchema = responseFormatSchema,
       )

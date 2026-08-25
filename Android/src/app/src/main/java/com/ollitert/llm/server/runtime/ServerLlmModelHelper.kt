@@ -228,6 +228,8 @@ object ServerLlmModelHelper {
     // When non-null, natively controls the thinking channel for this turn
     // (enable flag + reasoning token budget).
     thinkingConfig: com.google.ai.edge.litertlm.ThinkingConfig? = null,
+    // When non-null, applies native repetition/presence/frequency penalties.
+    repetitionPenaltyConfig: com.google.ai.edge.litertlm.RepetitionPenaltyConfig? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -270,6 +272,7 @@ object ServerLlmModelHelper {
           }
         },
         extraContext ?: emptyMap(),
+        repetitionPenaltyConfig = repetitionPenaltyConfig,
         thinkingConfig = thinkingConfig,
         responseFormat = sdkResponseFormat,
       )
@@ -308,6 +311,7 @@ object ServerLlmModelHelper {
         }
       },
       extraContext ?: emptyMap(),
+      repetitionPenaltyConfig = repetitionPenaltyConfig,
       thinkingConfig = thinkingConfig,
       responseFormat = sdkResponseFormat,
     )
