@@ -226,4 +226,21 @@ class RouteResolverTest {
     assertNotNull(msg)
     assertTrue("Message should explain speech synthesis is not supported", msg!!.contains("speech"))
   }
+
+  // ── Anthropic path classification (error-envelope selection) ──────────────
+
+  @Test
+  fun anthropicApiPathMatchesMessagesEndpoints() {
+    assertTrue(RouteResolver.isAnthropicApiPath("/v1/messages"))
+    assertTrue(RouteResolver.isAnthropicApiPath("/v1/messages/count_tokens"))
+    assertTrue(RouteResolver.isAnthropicApiPath("/v1/messages?beta=true"))
+  }
+
+  @Test
+  fun anthropicApiPathRejectsOtherEndpoints() {
+    assertFalse(RouteResolver.isAnthropicApiPath("/v1/chat/completions"))
+    assertFalse(RouteResolver.isAnthropicApiPath("/v1/models"))
+    assertFalse(RouteResolver.isAnthropicApiPath("/v1/messageships"))
+    assertFalse(RouteResolver.isAnthropicApiPath("/health"))
+  }
 }

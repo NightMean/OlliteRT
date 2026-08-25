@@ -118,7 +118,15 @@ suspend fun requireAuth(call: ApplicationCall, serviceContext: Context): Boolean
   if (BridgeUtils.isBearerAuthorized(expected, header)) return true
   val apiKey = call.request.headers["x-api-key"] ?: ""
   if (BridgeUtils.isApiKeyAuthorized(expected, apiKey)) return true
-  call.respondHttpResponse(httpUnauthorized("unauthorized"))
+  // /v1/messages* must fail with the Anthropic envelope — Anthropic SDKs reject
+  // the OpenAI error shape (see RouteResolver.isAnthropicApiPath).
+  call.respondHttpResponse(
+    if (RouteResolver.isAnthropicApiPath(call.request.uri)) {
+      httpAnthropicError(401, "authentication_error", "unauthorized")
+    } else {
+      httpUnauthorized("unauthorized")
+    },
+  )
   return false
 }
 
@@ -147,7 +155,13 @@ fun Application.configureClientIpAccess(
     if (policy.get().allows(remoteAddress)) return@intercept
 
     val logId = nextLogId()
-    val response = httpJsonError(403, "client_ip_not_allowed")
+    // /v1/messages* must fail with the Anthropic envelope — Anthropic SDKs reject
+    // the OpenAI error shape (see RouteResolver.isAnthropicApiPath).
+    val response = if (RouteResolver.isAnthropicApiPath(applicationCall.request.uri)) {
+      httpAnthropicError(403, "permission_error", "client_ip_not_allowed")
+    } else {
+      httpJsonError(403, "client_ip_not_allowed")
+    }
     RequestLogStore.add(
       RequestLogEntry(
         id = logId,

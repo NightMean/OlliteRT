@@ -95,6 +95,19 @@ object RouteResolver {
   }
 
   /**
+   * True when the request targets an Anthropic-protocol endpoint (/v1/messages*).
+   *
+   * Pre-routing rejection layers (auth failure, IP-block) have no parsed body to
+   * tell protocols apart, so they classify by path and pick the matching error
+   * envelope: Anthropic SDKs reject the OpenAI `{error:{...}}` shape — they only
+   * parse `{type:"error", error:{...}}`.
+   */
+  fun isAnthropicApiPath(rawUri: String): Boolean {
+    val uri = rawUri.substringBefore("?")
+    return uri == "/v1/messages" || uri.startsWith("/v1/messages/")
+  }
+
+  /**
    * Returns a descriptive error message for known OpenAI endpoints that this server
    * cannot support, or null if the URI is not a recognized unsupported endpoint.
    */
