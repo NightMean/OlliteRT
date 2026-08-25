@@ -365,6 +365,10 @@ object LiteRtEngineFactory {
         val useSampler = engineConfig.backend !is Backend.NPU
         val conversation = engine.createConversation(
           ConversationConfig(
+            // Flag only gates whether per-message ResponseFormat is permitted —
+            // it has no effect unless a request actually passes one. Always-on
+            // so json_schema requests can use native constrained decoding.
+            enableResponseFormat = true,
             samplerConfig =
               if (useSampler) {
                 SamplerConfig(

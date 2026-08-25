@@ -75,6 +75,8 @@ internal class InferenceStreamingCoordinator(
     conversationCacheGeneration: Long? = null,
     prepareConversation: (() -> ConversationPreparation)? = null,
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
+    // Non-null = natively constrain the response to this JSON schema (constrained decoding).
+    responseFormatSchema: String? = null,
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -128,6 +130,7 @@ internal class InferenceStreamingCoordinator(
         )
       },
       logId = logId,
+      responseFormatSchema = responseFormatSchema,
     )
 
     val streamPreview = prefs?.streamLogsPreview ?: ServerPrefs.isStreamLogsPreview(context)

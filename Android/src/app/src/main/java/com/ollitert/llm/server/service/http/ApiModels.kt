@@ -33,6 +33,7 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -357,8 +358,36 @@ object ChatContentSerializer : KSerializer<ChatContent> {
   val include_usage: Boolean = false,
 )
 
+/**
+ * OpenAI `response_format` object.
+ *
+ * `json_schema` requests carry a schema used for native constrained decoding
+ * (LiteRT-LM `ResponseFormat`): the engine enforces valid JSON matching the
+ * schema, and the prompt-hint injection is skipped because it would only fight
+ * the constraint.
+ */
 @Serializable data class ResponseFormat(
   val type: String = "text", // "text", "json_object", or "json_schema"
+  val json_schema: JsonSchemaConfig? = null,
+) {
+  /**
+   * The JSON-schema string for constrained decoding, or null when this request
+   * cannot be engine-constrained: non-json_schema type, missing wrapper/schema,
+   * or a non-object schema payload.
+   */
+  fun constrainedJsonSchema(): String? {
+    if (type != "json_schema") return null
+    val schema = json_schema?.schema ?: return null
+    val obj = schema as? JsonObject ?: return null
+    return if (obj.isEmpty()) null else obj.toString()
+  }
+}
+
+/** OpenAI `json_schema` wrapper object: `{ "name": "...", "schema": { ... } }`. */
+@Serializable data class JsonSchemaConfig(
+  val name: String? = null,
+  val description: String? = null,
+  val schema: JsonObject? = null,
 )
 
 /**

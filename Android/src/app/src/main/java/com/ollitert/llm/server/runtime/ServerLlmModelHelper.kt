@@ -221,6 +221,10 @@ object ServerLlmModelHelper {
     onNativeToolCalls: ((List<com.google.ai.edge.litertlm.ToolCall>) -> Unit)? = null,
     incrementalUserText: String? = null,
     conversationCacheGeneration: Long? = null,
+    // When non-null, the response is natively constrained to this JSON schema
+    // (LiteRT-LM ResponseFormat) — requires enableResponseFormat=true on the
+    // conversation config, which createConversation always sets.
+    responseFormatSchema: String? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -230,6 +234,9 @@ object ServerLlmModelHelper {
 
     cleanUpListeners.putIfAbsent(model.name, cleanUpListener)
     val conversation = instance.conversation
+    val sdkResponseFormat = responseFormatSchema?.let {
+      com.google.ai.edge.litertlm.ResponseFormat.json(it)
+    }
 
     // Incremental path: send just the new user turn as a Message.user
     if (incrementalUserText != null) {
@@ -260,6 +267,7 @@ object ServerLlmModelHelper {
           }
         },
         extraContext ?: emptyMap(),
+        responseFormat = sdkResponseFormat,
       )
       return
     }
@@ -296,6 +304,7 @@ object ServerLlmModelHelper {
         }
       },
       extraContext ?: emptyMap(),
+      responseFormat = sdkResponseFormat,
     )
   }
 }

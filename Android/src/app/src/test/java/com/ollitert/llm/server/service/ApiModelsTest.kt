@@ -523,4 +523,39 @@ class ApiModelsTest {
     assertNotNull(deserialized.tool_calls)
     assertEquals(1, deserialized.tool_calls!!.size)
   }
+
+  // ── response_format: json_schema constrained decoding ────────────────────
+
+  @Test
+  fun jsonSchemaResponseFormatExtractsSchemaString() {
+    val input = """{"model":"m","messages":[{"role":"user","content":"hi"}],"response_format":{
+      "type":"json_schema","json_schema":{"name":"out","strict":true,
+      "schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    val schema = req.response_format!!.constrainedJsonSchema()
+    assertNotNull(schema)
+    assertTrue(schema!!.contains("\"city\""))
+    assertTrue(schema.startsWith("{"))
+  }
+
+  @Test
+  fun jsonObjectResponseTypeIsNotConstrained() {
+    val input = """{"model":"m","messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertNull(req.response_format!!.constrainedJsonSchema())
+  }
+
+  @Test
+  fun jsonSchemaWithoutSchemaObjectIsNotConstrained() {
+    val input = """{"model":"m","messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_schema"}}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertNull(req.response_format!!.constrainedJsonSchema())
+  }
+
+  @Test
+  fun missingResponseFormatIsNotConstrained() {
+    val input = """{"model":"m","messages":[{"role":"user","content":"hi"}]}"""
+    val req = json.decodeFromString<ChatRequest>(input)
+    assertNull(req.response_format)
+  }
 }

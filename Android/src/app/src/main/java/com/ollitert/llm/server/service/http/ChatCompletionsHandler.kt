@@ -132,6 +132,10 @@ internal class ChatCompletionsHandler(
 
     logCompactionResult(compactionResult, requestId, endpoint, logId, maxContext, logEvent, compactionLogUpdater(logId))
 
+    // json_schema requests with an actual schema use native constrained decoding
+    // (engine enforces valid JSON) — the prompt hint is skipped for them since it
+    // would only fight the grammar constraint.
+    val responseFormatSchema = req.response_format?.constrainedJsonSchema()
     // Apply response_format JSON mode prompt injection
     val prompt = if (useSchemaInjection) {
       InferenceRunner.applyResponseFormat(SchemaInjectionBridge.buildLastUserInput(req.messages), req.response_format)
@@ -279,6 +283,7 @@ internal class ChatCompletionsHandler(
           enableThinkingOverride = enableThinkingOverride,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
+          responseFormatSchema = responseFormatSchema,
         )
       }
     } else {
@@ -302,6 +307,7 @@ internal class ChatCompletionsHandler(
         suppressPerModelSystem = suppressPerModelSystem,
         enableThinkingOverride = enableThinkingOverride,
         prepareConversation = prepareConversation,
+        responseFormatSchema = responseFormatSchema,
       )
       if (rawText == null) {
         cachePublication.finish(isConversationReusable = false)

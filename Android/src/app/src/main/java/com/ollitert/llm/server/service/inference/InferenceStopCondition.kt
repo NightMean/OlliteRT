@@ -47,9 +47,14 @@ object InferenceStopCondition {
 
   /**
    * Injects a JSON mode instruction into the prompt when response_format is requested.
+   *
+   * `json_schema` requests carrying an actual schema are enforced by native
+   * constrained decoding in the engine ([ResponseFormat.constrainedJsonSchema]) —
+   * no prompt hint there, it would only fight the grammar constraint.
    */
   fun applyResponseFormat(prompt: String, responseFormat: ResponseFormat?): String {
     if (responseFormat == null || responseFormat.type == "text") return prompt
+    if (responseFormat.constrainedJsonSchema() != null) return prompt
     val instruction = when (responseFormat.type) {
       "json_object" -> "Respond with valid JSON only. Do not include any text, explanation, or markdown outside the JSON object.\n\n"
       "json_schema" -> "Respond with valid JSON only. Output only the JSON object, nothing else.\n\n"

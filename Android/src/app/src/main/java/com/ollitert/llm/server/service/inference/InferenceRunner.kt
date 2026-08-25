@@ -161,6 +161,8 @@ class InferenceRunner(
     incrementalUserText: String? = null,
     conversationCacheGeneration: Long? = null,
     prepareConversation: (() -> ConversationPreparation)? = null,
+    // Non-null = natively constrain the response to this JSON schema (constrained decoding).
+    responseFormatSchema: String? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -199,6 +201,7 @@ class InferenceRunner(
       schemaInjectionMessages = schemaInjectionMessages,
       reinitIfNeeded = { reinitIfNeeded(model, supportImage, supportAudio) },
       logId = logId,
+      responseFormatSchema = responseFormatSchema,
     )
 
     val result = InferenceGateway.execute(
@@ -317,10 +320,12 @@ class InferenceRunner(
     conversationCacheGeneration: Long? = null,
     prepareConversation: (() -> ConversationPreparation)? = null,
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
+    // Non-null = natively constrain the response to this JSON schema (constrained decoding).
+    responseFormatSchema: String? = null,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage, hasSchemaInjection = schemaInjectionProviders.isNotEmpty())
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished, responseFormatSchema)
   }
 
   // ── Streaming inference: /v1/completions ───────────────────────────────
@@ -408,6 +413,7 @@ class InferenceRunner(
     conversationCacheGeneration: Long? = null,
     prepareConversation: (() -> ConversationPreparation)? = null,
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
+    responseFormatSchema: String? = null,
   ): HttpResponse = streamingCoordinator.streamInference(
     model = model,
     prompt = prompt,
@@ -428,6 +434,7 @@ class InferenceRunner(
     conversationCacheGeneration = conversationCacheGeneration,
     prepareConversation = prepareConversation,
     onConversationFinished = onConversationFinished,
+    responseFormatSchema = responseFormatSchema,
   )
 
   // ── Cancellation helper ──────────────────────────────────────────────────

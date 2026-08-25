@@ -61,6 +61,8 @@ internal class ConversationDispatchSession(
   private val schemaInjectionMessages: List<com.google.ai.edge.litertlm.Message>,
   private val reinitIfNeeded: () -> String?,
   private val logId: String?,
+  // Non-null = natively constrain the response to this JSON schema for this session.
+  private val responseFormatSchema: String? = null,
 ) {
   /**
    * Per-request thinking override resolved against model capability. Forced-on requests
@@ -150,6 +152,7 @@ internal class ConversationDispatchSession(
       onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
         capturedNativeToolCalls.set(calls)
       } else null,
+      responseFormatSchema = responseFormatSchema,
     )
   }
 
