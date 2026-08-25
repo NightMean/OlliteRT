@@ -237,12 +237,20 @@ object RequestLogStore {
     pendingCancellations.clear()
     callbacks.forEach { it.invoke() }
 
-    // Finalize all still-pending entries in the list.
+    // Finalize all still-pending entries in the list and persist the terminal state —
+    // without the callback, the DB keeps isPending=true rows forever (the startup
+    // clamp only patches them cosmetically in memory on next launch).
+    val cancelled = mutableListOf<RequestLogEntry>()
     _entries.update { current ->
       current.map { entry ->
-        if (entry.isPending) entry.copy(isPending = false, isCancelled = true, statusCode = 499) else entry
+        if (entry.isPending) {
+          val updated = entry.copy(isPending = false, isCancelled = true, statusCode = 499)
+          cancelled += updated
+          updated
+        } else entry
       }
     }
+    cancelled.forEach { persistenceCallback?.onEntryUpdated(it, isTerminal = true) }
   }
 
   fun clear() {

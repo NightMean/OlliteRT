@@ -72,6 +72,27 @@ class RequestLogStoreTest {
   }
 
   @Test
+  fun cancelAllPendingPersistsTerminalStateForPendingEntries() {
+    val cb = TestCallback()
+    RequestLogStore.setPersistenceCallback(cb)
+    RequestLogStore.add(entry("done"))
+    RequestLogStore.add(entry("flying", isPending = true))
+
+    RequestLogStore.cancelAllPending()
+
+    // The still-pending entry must reach persistence as a terminal cancellation —
+    // otherwise the DB row stays isPending=true forever.
+    val persisted = cb.updated.filter { it.first.id == "flying" }
+    assertEquals(1, persisted.size)
+    assertTrue(persisted.single().second)
+    assertFalse(persisted.single().first.isPending)
+    assertTrue(persisted.single().first.isCancelled)
+    assertEquals(499, persisted.single().first.statusCode)
+    // The already-terminal entry must not be re-persisted.
+    assertTrue(cb.updated.none { it.first.id == "done" })
+  }
+
+  @Test
   fun addRespectsMaxEntries() {
     RequestLogStore.setMaxEntries(3)
     RequestLogStore.add(entry("1"))
