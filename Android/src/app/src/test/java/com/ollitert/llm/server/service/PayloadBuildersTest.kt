@@ -20,6 +20,9 @@ import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -360,5 +363,35 @@ class PayloadBuildersTest {
     val serialized = json.encodeToString(ResponsesResponse.serializer(), resp)
     assertTrue("should contain function_call type", serialized.contains("\"type\":\"function_call\""))
     assertTrue("should contain call_id", serialized.contains("\"call_id\":\"c1\""))
+  }
+
+  // ── buildAnthropicModelsListJson() ────────────────────────────────────────
+
+  @Test
+  fun anthropicModelsListWithModelHasApiShape() {
+    val body = PayloadBuilders.buildAnthropicModelsListJson("gemma-4-e2b", 1_750_000_000L)
+    val obj = json.parseToJsonElement(body).jsonObject
+    assertEquals("gemma-4-e2b", obj["first_id"]!!.jsonPrimitive.content)
+    assertEquals("gemma-4-e2b", obj["last_id"]!!.jsonPrimitive.content)
+    assertEquals(false, obj["has_more"]!!.jsonPrimitive.content.toBooleanStrict())
+    val data = obj["data"] as kotlinx.serialization.json.JsonArray
+    assertEquals(1, data.size)
+    val model = data[0].jsonObject
+    assertEquals("model", model["type"]!!.jsonPrimitive.content)
+    assertEquals("gemma-4-e2b", model["id"]!!.jsonPrimitive.content)
+    assertEquals("gemma-4-e2b", model["display_name"]!!.jsonPrimitive.content)
+    // Instant.toString() renders ISO-8601 with a trailing Z.
+    assertEquals("2025-06-15T15:06:40Z", model["created_at"]!!.jsonPrimitive.content)
+  }
+
+  @Test
+  fun anthropicModelsListWithoutModelIsEmpty() {
+    val body = PayloadBuilders.buildAnthropicModelsListJson(null, 0L)
+    val obj = json.parseToJsonElement(body).jsonObject
+    assertEquals(0, (obj["data"] as kotlinx.serialization.json.JsonArray).size)
+    // Explicit JSON nulls on the wire — a missing key parses as JsonNull, not Kotlin null.
+    assertEquals(JsonNull, obj["first_id"])
+    assertEquals(JsonNull, obj["last_id"])
+    assertEquals(false, obj["has_more"]!!.jsonPrimitive.content.toBooleanStrict())
   }
 }

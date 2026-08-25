@@ -221,7 +221,14 @@ class KtorServer(
   internal suspend fun handleModelsList(call: ApplicationCall) {
     if (!requireAuth(call)) return
     withGetLogging(call) {
-      val body = PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+      // GET /v1/models serves both protocols on one path. Anthropic SDKs always
+      // send anthropic-version and reject the OpenAI envelope, so classify on
+      // that header; OpenAI clients never send it.
+      val body = if (call.request.headers["anthropic-version"] != null) {
+        PayloadBuilders.anthropicModelsList(defaultModel, keepAliveUnloadedModelName)
+      } else {
+        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+      }
       httpOkJson(body)
     }
   }

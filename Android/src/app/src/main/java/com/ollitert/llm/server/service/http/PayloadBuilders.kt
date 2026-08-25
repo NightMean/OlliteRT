@@ -290,6 +290,39 @@ object PayloadBuilders {
     return json.encodeToString(LlmHttpModelList(data = listOf(activeModel.toModelItem())))
   }
 
+  /**
+   * Builds the JSON response for GET /v1/models when the client speaks the Anthropic
+   * protocol (detected via the `anthropic-version` header — the path is shared with
+   * OpenAI clients). Same single-model reporting rule as [modelsList]: active model,
+   * else idle-unloaded model name, else an empty list.
+   */
+  fun anthropicModelsList(activeModel: Model?, idleUnloadedModelName: String?): String {
+    val modelId = activeModel?.name ?: idleUnloadedModelName
+    return buildAnthropicModelsListJson(modelId, ServerMetrics.modelCreatedAtEpoch.value)
+  }
+
+  /**
+   * Pure JSON assembly for the Anthropic models list — split out from
+   * [anthropicModelsList] so it stays unit-testable on the JVM without Android
+   * dependencies. Shape mirrors GET /v1/models on api.anthropic.com.
+   */
+  internal fun buildAnthropicModelsListJson(modelId: String?, createdAtEpochSeconds: Long): String {
+    val escapedId = BridgeUtils.escapeSseText(modelId.orEmpty())
+    val dataJson = if (modelId != null) {
+      // Instant.toString() renders ISO-8601 with a trailing Z, matching the API.
+      val createdAt = java.time.Instant.ofEpochSecond(createdAtEpochSeconds).toString()
+      """[{"type":"model","id":"$escapedId","display_name":"$escapedId","created_at":"$createdAt"}]"""
+    } else {
+      "[]"
+    }
+    val firstLastJson = if (modelId != null) {
+      """"first_id":"$escapedId","last_id":"$escapedId""""
+    } else {
+      """"first_id":null,"last_id":null"""
+    }
+    return """{"data":$dataJson,$firstLastJson,"has_more":false}"""
+  }
+
   // ── Response factories ────────────────────────────────────────────────────
   // Token counts in all response builders below are **estimates** via estimateTokens().
   // LiteRT LM SDK has no standalone tokenizer API — see Usage class doc for details.
