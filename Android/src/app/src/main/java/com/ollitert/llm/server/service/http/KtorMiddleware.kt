@@ -346,7 +346,21 @@ private suspend fun withRequestLoggingBody(
 
   val response: HttpResponse = try {
     val contentLength = call.request.headers["Content-Length"]?.toLongOrNull()
-    if (contentLength != null && contentLength > MAX_FILE_SIZE_BYTES) {
+    if (contentLength == null) {
+      // Chunked transfer-encoding (or a missing length) cannot be bounded before
+      // receiveText() materializes the whole body as a String — on a low-RAM
+      // device that is an OOM/model-eviction DoS. Fail loud instead.
+      val noLengthResponse = httpJsonError(
+        413,
+        "Request must declare Content-Length. Chunked transfer-encoding is not supported by this server.",
+      )
+      requestBodySnapshot = "[No Content-Length declared]"
+      finalizeLogEntry(logId, startMs, noLengthResponse, requestBodySnapshot, responseBodySnapshot, defaultModel?.name)
+      call.response.headers.append("x-request-id", logId)
+      call.respondHttpResponse(noLengthResponse)
+      return
+    }
+    if (contentLength > MAX_FILE_SIZE_BYTES) {
       val tooLargeResponse = httpPayloadTooLarge("Request body too large (${contentLength / 1_000_000}MB). Maximum: ${MAX_FILE_SIZE_BYTES / 1_000_000}MB.")
       requestBodySnapshot = "[Content-Length exceeded: $contentLength]"
       finalizeLogEntry(logId, startMs, tooLargeResponse, requestBodySnapshot, responseBodySnapshot, defaultModel?.name)
