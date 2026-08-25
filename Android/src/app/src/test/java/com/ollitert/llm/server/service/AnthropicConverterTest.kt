@@ -326,8 +326,24 @@ class AnthropicConverterTest {
     assertEquals(2, content.size)
     assertEquals("thinking", content[0].jsonObject["type"]!!.jsonPrimitive.content)
     assertEquals("reason", content[0].jsonObject["thinking"]!!.jsonPrimitive.content)
+    // Strict SDK parsers reject thinking blocks with missing/empty signatures —
+    // the server must emit an opaque local digest, never "".
+    val signature = content[0].jsonObject["signature"]!!.jsonPrimitive.content
+    assertTrue("Signature must be non-empty", signature.isNotEmpty())
     assertEquals("text", content[1].jsonObject["type"]!!.jsonPrimitive.content)
     assertEquals("answer", content[1].jsonObject["text"]!!.jsonPrimitive.content)
+  }
+
+  @Test
+  fun localThinkingSignatureIsDeterministicAndInputSensitive() {
+    assertEquals(
+      AnthropicConverter.localThinkingSignature("abc"),
+      AnthropicConverter.localThinkingSignature("abc"),
+    )
+    assertTrue(
+      AnthropicConverter.localThinkingSignature("abc") !=
+        AnthropicConverter.localThinkingSignature("abd"),
+    )
   }
 
   @Test

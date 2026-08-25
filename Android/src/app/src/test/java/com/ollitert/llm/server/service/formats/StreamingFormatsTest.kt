@@ -221,6 +221,33 @@ class StreamingFormatsTest {
   }
 
   @Test
+  fun anthropicMessagesFormat_emitsSignatureDeltaBeforeClosingThinkingBlock() = runBlocking {
+    val (sw, writer) = createWriter()
+    val format = AnthropicMessagesFormat(
+      modelName = "claude-3-opus",
+      requestModelId = "claude-3-opus-20240229",
+      stopSequences = null,
+      tools = null,
+      hasSchemaInjection = false,
+    )
+
+    format.emitHeader(writer)
+    format.emitThinkingDelta(writer, "<think>Let me reason")
+    // Closing the thinking block directly (e.g. cancellation path).
+    format.emitThinkingClose(writer)
+
+    val output = sw.toString()
+    val startIdx = output.indexOf("content_block_start")
+    val sigIdx = output.indexOf("\"type\":\"signature_delta\"")
+    val stopIdx = output.indexOf("content_block_stop")
+    assertTrue(output.contains("signature_delta"))
+    assertTrue("signature_delta must follow content_block_start", sigIdx > startIdx)
+    assertTrue("signature_delta must precede content_block_stop", sigIdx in 0 until stopIdx)
+    val signature = Regex("""\"signature\":\"([^\"]+)\"""").find(output)?.groupValues?.get(1)
+    assertTrue("Signature must be non-empty", !signature.isNullOrEmpty())
+  }
+
+  @Test
   fun anthropicMessagesFormat_emitErrorFormat() = runBlocking {
     val (sw, writer) = createWriter()
     val format = AnthropicMessagesFormat(

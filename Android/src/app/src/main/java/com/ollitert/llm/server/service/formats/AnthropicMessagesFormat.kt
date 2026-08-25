@@ -54,6 +54,10 @@ internal class AnthropicMessagesFormat(
   private var currentBlockOpen = false
   private var currentBlockKind: String? = null  // "thinking" | "text" | "tool_use"
 
+  // Accumulated thinking text for the open block — feeds the signature emitted in
+  // the signature_delta event that must precede content_block_stop for a thinking block.
+  private val thinkingBuffer = StringBuilder()
+
   private var sseEventCount = 0
   private var firstEmitNanos = 0L
   private val createdNanos = System.nanoTime()
@@ -99,6 +103,17 @@ internal class AnthropicMessagesFormat(
 
   private suspend fun closeCurrentBlock(writer: SseWriter) {
     if (!currentBlockOpen) return
+    // Spec event order for a thinking block: thinking_delta events → one
+    // signature_delta → content_block_stop. The signature is a local opaque digest
+    // (see AnthropicConverter.localThinkingSignature) — clients replay it verbatim;
+    // this server drops echoed thinking blocks so it is never verified.
+    if (currentBlockKind == "thinking") {
+      val signature = AnthropicConverter.localThinkingSignature(thinkingBuffer.toString())
+      thinkingBuffer.clear()
+      val sigPayload =
+        """{"type":"content_block_delta","index":$currentBlockIndex,"delta":{"type":"signature_delta","signature":"${BridgeUtils.escapeSseText(signature)}"}}"""
+      emitSse(writer, "content_block_delta", sigPayload)
+    }
     val payload = """{"type":"content_block_stop","index":$currentBlockIndex}"""
     emitSse(writer, "content_block_stop", payload)
     currentBlockOpen = false
@@ -111,6 +126,7 @@ internal class AnthropicMessagesFormat(
     val cleaned = text.removePrefix("<think>")
     if (cleaned.isEmpty()) return
     openBlockIfNeeded(writer, "thinking")
+    thinkingBuffer.append(cleaned)
     val esc = BridgeUtils.escapeSseText(cleaned)
     val payload = """{"type":"content_block_delta","index":$currentBlockIndex,"delta":{"type":"thinking_delta","thinking":"$esc"}}"""
     emitSse(writer, "content_block_delta", payload)
@@ -225,6 +241,7 @@ internal class AnthropicMessagesFormat(
     if (bufferAllTokens) {
       if (fullThinking.isNotEmpty()) {
         openBlockIfNeeded(writer, "thinking")
+        thinkingBuffer.append(fullThinking)
         val esc = BridgeUtils.escapeSseText(fullThinking)
         val payload = """{"type":"content_block_delta","index":$currentBlockIndex,"delta":{"type":"thinking_delta","thinking":"$esc"}}"""
         emitSse(writer, "content_block_delta", payload)

@@ -289,6 +289,22 @@ object AnthropicConverter {
   // ── Response side ───────────────────────────────────────────────────────────
 
   /**
+   * Deterministic opaque signature for locally-generated thinking blocks.
+   *
+   * Real `signature` values are cryptographic tokens minted by Anthropic's servers;
+   * the on-device runtime has no equivalent. We emit a stable local digest instead of
+   * an empty string because strict SDK parsers reject thinking blocks with missing or
+   * empty signatures. Clients treat the value as opaque (they replay it verbatim), and
+   * this server drops echoed thinking blocks on input, so it never needs verification.
+   */
+  fun localThinkingSignature(thinkingText: String): String {
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+      .digest("ollitert-thinking:".toByteArray(Charsets.UTF_8) + thinkingText.toByteArray(Charsets.UTF_8))
+    return java.util.Base64.getEncoder().encodeToString(digest)
+  }
+
+
+  /**
    * Re-shape a serialized OpenAI [ChatResponse] body into an Anthropic
    * [AnthropicMessagesResponse] body.
    *
@@ -343,7 +359,7 @@ object AnthropicConverter {
         add(buildJsonObject {
           put("type", "thinking")
           put("thinking", thinkingText)
-          put("signature", "")
+          put("signature", localThinkingSignature(thinkingText))
         })
       }
       if (visibleText.isNotEmpty()) {
