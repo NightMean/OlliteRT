@@ -54,6 +54,7 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.storage.KEY_MODEL_URL
 import com.ollitert.llm.server.data.prefs.MIN_STORAGE_FOR_MODEL_INIT_BYTES
+import com.ollitert.llm.server.data.storage.TMP_EXTRACT_EXT
 import com.ollitert.llm.server.data.storage.TMP_FILE_EXT
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -310,42 +311,59 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                   externalFilesDir,
                   listOf(modelDir, version, unzippedDir).joinToString(File.separator),
                 )
-              if (!destDir.exists()) {
-                destDir.mkdirs()
-              }
+              // Extract into a sibling temp dir and rename into place only on
+              // success. A process death mid-unzip then cannot leave a partial
+              // directory that ModelFileManager would mistake for a fully
+              // downloaded model ("phantom downloaded" state with no repair).
+              // Any pre-existing dir is stale by definition here — the zip was
+              // just downloaded fresh.
+              val tmpExtractDir = File("${destDir.absolutePath}.$TMP_EXTRACT_EXT")
+              if (tmpExtractDir.exists()) tmpExtractDir.deleteRecursively()
+              if (destDir.exists()) destDir.deleteRecursively()
+              tmpExtractDir.mkdirs()
 
               // Unzip.
               val unzipBuffer = ByteArray(DOWNLOAD_UNZIP_BUFFER_SIZE)
               val zipFilePath =
                 "${externalFilesDir}${File.separator}$modelDir${File.separator}$version${File.separator}${fileName}"
-              ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath))).use { zipIn ->
-              var zipEntry: ZipEntry? = zipIn.nextEntry
+              try {
+                ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath))).use { zipIn ->
+                var zipEntry: ZipEntry? = zipIn.nextEntry
 
-              while (zipEntry != null) {
-                val destFile = File(destDir, zipEntry.name).canonicalFile
-                if (!destFile.path.startsWith(destDir.canonicalPath + File.separator)) {
-                  throw SecurityException("Zip entry outside target dir: ${zipEntry.name}")
-                }
-                val filePath = destFile.path
+                while (zipEntry != null) {
+                  val destFile = File(tmpExtractDir, zipEntry.name).canonicalFile
+                  if (!destFile.path.startsWith(tmpExtractDir.canonicalPath + File.separator)) {
+                    throw SecurityException("Zip entry outside target dir: ${zipEntry.name}")
+                  }
+                  val filePath = destFile.path
 
-                // Extract files.
-                if (!zipEntry.isDirectory) {
-                  FileOutputStream(filePath).use { curBos ->
-                    var len: Int
-                    while (zipIn.read(unzipBuffer).also { len = it } > 0) {
-                      curBos.write(unzipBuffer, 0, len)
+                  // Extract files.
+                  if (!zipEntry.isDirectory) {
+                    FileOutputStream(filePath).use { curBos ->
+                      var len: Int
+                      while (zipIn.read(unzipBuffer).also { len = it } > 0) {
+                        curBos.write(unzipBuffer, 0, len)
+                      }
                     }
                   }
+                  // Create dir.
+                  else {
+                    val dir = File(filePath)
+                    dir.mkdirs()
+                  }
+
+                  zipIn.closeEntry()
+                  zipEntry = zipIn.nextEntry
                 }
-                // Create dir.
-                else {
-                  val dir = File(filePath)
-                  dir.mkdirs()
                 }
 
-                zipIn.closeEntry()
-                zipEntry = zipIn.nextEntry
-              }
+                // Commit: rename is same-volume and effectively atomic.
+                if (!tmpExtractDir.renameTo(destDir)) {
+                  throw IOException("Failed to finalize extracted model directory: ${destDir.absolutePath}")
+                }
+              } finally {
+                // No-op on success (renamed away); cleans partial extraction on failure.
+                if (tmpExtractDir.exists()) tmpExtractDir.deleteRecursively()
               }
 
               // Delete the original file.

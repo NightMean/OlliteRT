@@ -37,6 +37,11 @@ const val KEY_MODEL_START_UNZIPPING = "KEY_MODEL_START_UNZIPPING"
 // The extension of the tmp download files.
 const val TMP_FILE_EXT = "olliterttmp"
 
+// Suffix of the sibling temp directory used during zip extraction. The extracted
+// tree is renamed into its final name only after a complete, successful unzip, so
+// an interrupted extraction can never be mistaken for a downloaded model.
+const val TMP_EXTRACT_EXT = "ollitertextract"
+
 // Download progress reporting.
 const val DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS = 200L
 const val DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE = 5
