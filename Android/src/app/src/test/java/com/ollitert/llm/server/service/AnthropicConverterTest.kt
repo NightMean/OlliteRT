@@ -373,6 +373,25 @@ class AnthropicConverterTest {
   }
 
   @Test
+  fun malformedToolArgumentsArePreservedUnderRawKey() {
+    // Unparseable arguments must not be silently coerced to {} — the client would
+    // invoke the tool with empty input and fail without knowing why.
+    val oai = """{"id":"x","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{city: Paris}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"""
+    val content = reshape(oai)["content"] as kotlinx.serialization.json.JsonArray
+    val toolBlock = content.single { it.jsonObject["type"]!!.jsonPrimitive.content == "tool_use" }.jsonObject
+    assertEquals("{city: Paris}", toolBlock["input"]!!.jsonObject["_raw"]!!.jsonPrimitive.content)
+  }
+
+  @Test
+  fun nonObjectToolArgumentsArePreservedUnderRawKey() {
+    // Valid JSON but not an object (Anthropic requires input to be an object).
+    val oai = """{"id":"x","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"[1,2,3]"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"""
+    val content = reshape(oai)["content"] as kotlinx.serialization.json.JsonArray
+    val toolBlock = content.single { it.jsonObject["type"]!!.jsonPrimitive.content == "tool_use" }.jsonObject
+    assertEquals("[1,2,3]", toolBlock["input"]!!.jsonObject["_raw"]!!.jsonPrimitive.content)
+  }
+
+  @Test
   fun splitThinkingHandlesNoTags() {
     val (thinking, rest) = AnthropicConverter.splitThinkingAndText("plain")
     assertEquals("", thinking)

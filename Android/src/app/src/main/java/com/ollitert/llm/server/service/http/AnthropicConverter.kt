@@ -426,13 +426,22 @@ object AnthropicConverter {
     return thinking to rest
   }
 
-  private fun parseArgumentsAsJson(json: Json, raw: String): JsonElement {
+  /**
+   * Tool_use blocks require `input` to be a JSON object. When the model emits
+   * malformed or non-object arguments we must not silently drop them — clients
+   * would invoke the tool with empty input and fail opaquely. Preserve the raw
+   * text under a reserved `_raw` key so the caller can see what the model
+   * actually produced (and retry / re-parse on their side).
+   */
+  internal fun parseArgumentsAsJson(json: Json, raw: String): JsonElement {
     if (raw.isBlank()) return JsonObject(emptyMap())
-    return try {
+    val parsed = try {
       json.parseToJsonElement(raw)
     } catch (_: Exception) {
-      JsonObject(emptyMap())
+      null
     }
+    return parsed as? JsonObject
+      ?: buildJsonObject { put("_raw", raw) }
   }
 
   private fun mapStopReason(oaiFinish: String, stopSequenceTriggered: Boolean): String = when {
