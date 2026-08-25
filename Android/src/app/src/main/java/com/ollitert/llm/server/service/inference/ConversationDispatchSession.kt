@@ -21,6 +21,7 @@ import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.isThinkingEnabled
 import com.ollitert.llm.server.data.model.llmSupportThinking
+import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import java.util.concurrent.atomic.AtomicReference
@@ -168,13 +169,20 @@ internal class ConversationDispatchSession(
   }
 
   /**
-   * Native per-turn thinking channel config. Only set when the request carries an
-   * explicit token budget — without one, thinking keeps using the enable_thinking
-   * template variable so existing model behavior is unchanged.
+   * Native per-turn thinking channel config.
+   *
+   * Precedence: an explicit request budget (Anthropic budget_tokens) wins; otherwise
+   * the model's configured per-model budget applies when thinking is enabled; with
+   * neither, thinking keeps using the enable_thinking template variable so existing
+   * model behavior is unchanged.
    */
   private val sdkThinkingConfig: com.google.ai.edge.litertlm.ThinkingConfig?
-    get() = thinkingBudgetTokens?.let {
-      com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = true, thinkingTokenBudget = it)
+    get() = when {
+      thinkingBudgetTokens != null ->
+        com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = true, thinkingTokenBudget = thinkingBudgetTokens)
+      enableThinking -> model.configValues.thinkingBudgetTokens()?.takeIf { it > 0 }
+        ?.let { com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = true, thinkingTokenBudget = it) }
+      else -> null
     }
 
   /** Native repetition penalties; null when the request carries neither penalty. */

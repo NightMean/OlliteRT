@@ -68,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.Accelerator
+import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.data.prefs.ConfigKeys
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.prefs.NumberSliderConfig
@@ -77,12 +78,18 @@ import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
 import com.ollitert.llm.server.data.prefs.maxTokensInt
+import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import java.util.Locale
+
+/** Default reasoning token budget applied when the user enables thinking. */
+private const val DEFAULT_THINKING_BUDGET_TOKENS = 1024
+/** Lower bound of the thinking budget slider — below this, reasoning is rarely coherent. */
+private const val MIN_THINKING_BUDGET_TOKENS = 128
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,6 +125,9 @@ fun InferenceSettingsSheet(
   }
   var enableThinking by remember {
     mutableStateOf(configValues.configThinkingEnabled() ?: false)
+  }
+  var thinkingBudget by remember {
+    mutableIntStateOf(configValues.thinkingBudgetTokens() ?: DEFAULT_THINKING_BUDGET_TOKENS)
   }
   var enableSpeculativeDecoding by remember {
     mutableStateOf(configValues.configSpeculativeDecodingEnabled() ?: false)
@@ -192,7 +202,14 @@ fun InferenceSettingsSheet(
         enableSpeculativeDecoding = defSpecDec
         selectedAccelerator = effectiveAcc
         systemPrompt = ""
-        onApply(newValues, "", true)
+        thinkingBudget = DEFAULT_THINKING_BUDGET_TOKENS
+        val updatedValues = newValues.toMutableMap()
+        if (defThinking) {
+          updatedValues[ConfigKeys.THINKING_BUDGET.id] = DEFAULT_THINKING_BUDGET_TOKENS
+        } else {
+          updatedValues.remove(ConfigKeys.THINKING_BUDGET.id)
+        }
+        onApply(updatedValues, "", true)
       },
     )
   }
@@ -313,6 +330,15 @@ fun InferenceSettingsSheet(
         onCheckedChange = { enableThinking = it },
       )
 
+      // Budget row appears only while thinking is enabled for a thinking-capable model.
+      if (model.llmSupportThinking && enableThinking) {
+        ThinkingBudgetCard(
+          budgetTokens = thinkingBudget,
+          maxTokens = maxTokensRange.second.toInt(),
+          onValueChange = { thinkingBudget = it },
+        )
+      }
+
       SpeculativeDecodingToggleCard(
         model = model,
         enableSpeculativeDecoding = enableSpeculativeDecoding,
@@ -416,6 +442,14 @@ fun InferenceSettingsSheet(
           newValues[ConfigKeys.TOPK.id] = topK
           newValues[ConfigKeys.TOPP.id] = topP
           newValues[ConfigKeys.ENABLE_THINKING.id] = enableThinking
+          if (model.llmSupportThinking && enableThinking) {
+            // Clamp defensively — the slider can't leave the range but typed values can.
+            val clampedBudget = thinkingBudget.coerceIn(MIN_THINKING_BUDGET_TOKENS, maxTokensRange.second.toInt())
+            newValues[ConfigKeys.THINKING_BUDGET.id] = clampedBudget
+            thinkingBudget = clampedBudget
+          } else {
+            newValues.remove(ConfigKeys.THINKING_BUDGET.id)
+          }
           newValues[ConfigKeys.ENABLE_SPECULATIVE_DECODING.id] = enableSpeculativeDecoding
           newValues[ConfigKeys.ACCELERATOR.id] = selectedAccelerator.label
           onApply(newValues, systemPrompt, false)

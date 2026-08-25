@@ -51,6 +51,7 @@ object ConfigKeys {
   val SUPPORT_TOOLS = ConfigKey("support_tools", "Support tools", R.string.config_label_support_tools)
   val SUPPORT_SPECULATIVE_DECODING = ConfigKey("support_speculative_decoding", "Support speculative decoding", R.string.config_label_support_speculative_decoding)
   val ENABLE_THINKING = ConfigKey("enable_thinking", "Enable thinking", R.string.config_label_enable_thinking)
+  val THINKING_BUDGET = ConfigKey("thinking_budget", "Thinking budget", R.string.config_label_thinking_budget)
   val ENABLE_SPECULATIVE_DECODING = ConfigKey("enable_speculative_decoding", "Speculative decoding", R.string.config_label_enable_speculative_decoding)
   val ACCELERATOR = ConfigKey("accelerator", "Accelerator", R.string.config_label_accelerator)
   val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "Vision accelerator", R.string.config_label_vision_accelerator)
@@ -88,6 +89,14 @@ fun Map<String, Any>.configTopP(): Float? =
 /** Read [ConfigKeys.ENABLE_THINKING] as [Boolean], or null if absent/non-boolean. */
 fun Map<String, Any>.configThinkingEnabled(): Boolean? =
   this[ConfigKeys.ENABLE_THINKING.id] as? Boolean
+
+/** Read [ConfigKeys.THINKING_BUDGET] as [Int], or null if absent/non-numeric. */
+fun Map<String, Any>.thinkingBudgetTokens(): Int? =
+  (this[ConfigKeys.THINKING_BUDGET.id] as? Number)?.toInt()
+
+/** Bounds for [ConfigKeys.THINKING_BUDGET] across UI and API surfaces. */
+const val MIN_THINKING_BUDGET_TOKENS = 128
+const val MAX_THINKING_BUDGET_TOKENS = 32_000
 
 /** Read [ConfigKeys.ENABLE_SPECULATIVE_DECODING] as [Boolean], or null if absent/non-boolean. */
 fun Map<String, Any>.configSpeculativeDecodingEnabled(): Boolean? =

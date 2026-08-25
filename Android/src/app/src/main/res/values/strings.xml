@@ -963,6 +963,9 @@
   <string name="config_label_support_tools" translatable="false">Support\ntools</string>
   <string name="config_label_support_speculative_decoding" translatable="false">Support\nMTP</string>
   <string name="config_label_enable_thinking" translatable="false">Enable thinking</string>
+  <string name="config_label_thinking_budget" translatable="false">Thinking budget</string>
+  <string name="inference_settings_thinking_budget_tokens" translatable="false">%d tokens</string>
+  <string name="inference_settings_thinking_budget_hint" translatable="false">Reasoning token budget (min 128)</string>
   <string name="config_label_enable_speculative_decoding" translatable="false">Speculative decoding</string>
   <string name="config_hint_requires_model_update" translatable="false">Requires model update to take effect</string>
   <string name="config_label_accelerator" translatable="false">Accelerator</string>

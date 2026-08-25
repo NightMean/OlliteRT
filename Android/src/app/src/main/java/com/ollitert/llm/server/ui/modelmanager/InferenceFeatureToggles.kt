@@ -31,6 +31,8 @@ import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -39,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -101,6 +104,93 @@ internal fun ThinkingToggleCard(
       onCheckedChange = onCheckedChange,
       enabled = supportsThinking,
       colors = SwitchDefaults.colors(checkedTrackColor = OlliteRTPrimary),
+    )
+  }
+}
+
+// Slider travel is logarithmic over MIN..MAX: equal thumb movement feels like an
+// equal *ratio* change (128 → 250 → 500 → 1k …), so no dead zone at the top end.
+// Raw positions round to 2 significant digits for readable values; the text box
+// still accepts exact numbers.
+private const val BUDGET_SLIDER_MIN = 128f
+
+/** Slider position (0..1) → budget value, rounded to 2 significant digits. */
+internal fun thinkingBudgetFromPosition(position: Float, min: Int, max: Int): Int {
+  val clamped = position.coerceIn(0f, 1f)
+  val lo = min.coerceAtLeast(1)
+  val hi = max.coerceAtLeast(lo + 1)
+  // Endpoints stay exact — 2-sig-digit rounding would otherwise shift them (128→130).
+  if (clamped == 0f) return lo
+  if (clamped == 1f) return hi
+  val ratio = hi.toDouble() / lo
+  val raw = lo * Math.pow(ratio, clamped.toDouble())
+  val magnitude = Math.pow(10.0, Math.floor(Math.log10(raw)) - 1.0)
+  val rounded = (Math.round(raw / magnitude) * magnitude).toInt()
+  return rounded.coerceIn(lo, hi)
+}
+
+/** Budget value → slider position (0..1); inverse of [thinkingBudgetFromPosition]. */
+internal fun thinkingBudgetToPosition(value: Float, min: Int, max: Int): Float {
+  val lo = min.coerceAtLeast(1)
+  val hi = max.coerceAtLeast(lo + 1)
+  val clamped = value.coerceIn(lo.toFloat(), hi.toFloat())
+  return (Math.log(clamped.toDouble() / lo) / Math.log(hi.toDouble() / lo)).toFloat().coerceIn(0f, 1f)
+}
+
+@Composable
+internal fun ThinkingBudgetCard(
+  budgetTokens: Int,
+  maxTokens: Int,
+  onValueChange: (Int) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val sliderMin = BUDGET_SLIDER_MIN.toInt()
+  val sliderMax = maxTokens.coerceAtLeast(sliderMin + 1)
+  Column(
+    modifier = modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(16.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+      .padding(horizontal = 16.dp, vertical = 14.dp),
+  ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Icon(
+        Icons.Outlined.Psychology,
+        contentDescription = null,
+        tint = OlliteRTPrimary,
+        modifier = Modifier.size(20.dp),
+      )
+      Spacer(modifier = Modifier.width(10.dp))
+      Text(
+        text = stringResource(R.string.config_label_thinking_budget),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.weight(1f),
+      )
+      Text(
+        text = stringResource(R.string.inference_settings_thinking_budget_tokens, budgetTokens),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    Spacer(modifier = Modifier.height(4.dp))
+    Slider(
+      value = thinkingBudgetToPosition(budgetTokens.toFloat(), sliderMin, sliderMax),
+      onValueChange = { onValueChange(thinkingBudgetFromPosition(it, sliderMin, sliderMax)) },
+      valueRange = 0f..1f,
+      colors = SliderDefaults.colors(thumbColor = OlliteRTPrimary, activeTrackColor = OlliteRTPrimary),
+    )
+    ParameterInputBox(
+      label = stringResource(R.string.inference_settings_thinking_budget_hint),
+      value = budgetTokens.toString(),
+      onValueChange = { onValueChange(it.toInt()) },
+      min = sliderMin.toFloat(),
+      max = sliderMax.toFloat(),
+      isFloat = false,
+      keyboardType = KeyboardType.Number,
+      containerColor = MaterialTheme.colorScheme.surface,
+      showBorder = true,
     )
   }
 }

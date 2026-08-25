@@ -90,6 +90,12 @@ internal fun ParameterInputBox(
   modifier: Modifier = Modifier,
   forceError: Boolean = false,
   onErrorStateChange: (Boolean) -> Unit = {},
+  // Override the field fill when the box sits on a same-colored card — without
+  // contrast the field boundary disappears into its container.
+  containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+  // Draws a subtle outline so the field reads as an input inside a same-colored
+  // card. Off by default: standalone boxes on the sheet already stand out.
+  showBorder: Boolean = false,
 ) {
   val focusRequester = remember { FocusRequester() }
   val focusManager = LocalFocusManager.current
@@ -173,9 +179,10 @@ internal fun ParameterInputBox(
         .clip(RoundedCornerShape(12.dp))
         .then(
           if (showError) Modifier.border(1.5.dp, errorColor, RoundedCornerShape(12.dp))
+          else if (showBorder) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
           else Modifier
         )
-        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        .background(containerColor)
         .clickable { focusRequester.requestFocus() }
         .padding(horizontal = 14.dp, vertical = 14.dp),
       verticalAlignment = Alignment.CenterVertically,

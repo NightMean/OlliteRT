@@ -149,6 +149,28 @@ class ConfigHelpersTest {
     assertNull(map.configThinkingEnabled())
   }
 
+  // ── thinkingBudgetTokens ────────────────────────────────────────────────
+
+  @Test
+  fun thinkingBudgetTokensFromInt() {
+    assertEquals(1024, mapOf(ConfigKeys.THINKING_BUDGET.id to 1024).thinkingBudgetTokens())
+  }
+
+  @Test
+  fun thinkingBudgetTokensFromLong() {
+    assertEquals(512, mapOf(ConfigKeys.THINKING_BUDGET.id to 512L).thinkingBudgetTokens())
+  }
+
+  @Test
+  fun thinkingBudgetTokensMissingReturnsNull() {
+    assertNull(emptyMap<String, Any>().thinkingBudgetTokens())
+  }
+
+  @Test
+  fun thinkingBudgetTokensNonNumericReturnsNull() {
+    assertNull(mapOf(ConfigKeys.THINKING_BUDGET.id to "lots").thinkingBudgetTokens())
+  }
+
   // ── Model.isThinkingEnabled ─────────────────────────────────────────────
 
   @Test
