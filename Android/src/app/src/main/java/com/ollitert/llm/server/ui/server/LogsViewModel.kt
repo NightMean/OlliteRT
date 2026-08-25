@@ -65,9 +65,6 @@ class LogsViewModel @Inject constructor(
   private val _searchBarVisible = MutableStateFlow(false)
   val searchBarVisible: StateFlow<Boolean> = _searchBarVisible.asStateFlow()
 
-  private val _isSearching = MutableStateFlow(false)
-  val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
-
   private val _showClearConfirmDialog = MutableStateFlow(false)
   val showClearConfirmDialog: StateFlow<Boolean> = _showClearConfirmDialog.asStateFlow()
 
@@ -84,13 +81,9 @@ class LogsViewModel @Inject constructor(
         lastCommittedQuery = currentFilter.query
         searchSnapshot = allEntries
       }
-      _isSearching.value = true
-      val filtered = searchSnapshot.filter { it.matchesFilter(currentFilter, context) }
-      _isSearching.value = false
-      filtered
+      searchSnapshot.filter { it.matchesFilter(currentFilter, context) }
     } else {
       lastCommittedQuery = ""
-      _isSearching.value = false
       if (!currentFilter.isActive) {
         allEntries
       } else {

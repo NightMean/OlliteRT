@@ -588,7 +588,6 @@
   </plurals>
 
   <!-- LogsScreen: Result count banner -->
-  <string name="logs_searching" translatable="false">Searching…</string>
   <string name="logs_showing_count" translatable="false">Showing %1$d of %2$d</string>
   <string name="logs_clear_filters" translatable="false">Clear filters</string>
 

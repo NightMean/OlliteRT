@@ -54,7 +54,6 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -123,7 +122,6 @@ fun LogsScreen(
   val filter by viewModel.filter.collectAsStateWithLifecycle()
   val searchDraft by viewModel.searchDraft.collectAsStateWithLifecycle()
   val searchBarVisible by viewModel.searchBarVisible.collectAsStateWithLifecycle()
-  val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
   val showClearConfirmDialog by viewModel.showClearConfirmDialog.collectAsStateWithLifecycle()
   val showClearActiveDialog by viewModel.showClearActiveDialog.collectAsStateWithLifecycle()
 
@@ -409,24 +407,11 @@ fun LogsScreen(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          if (isSearching) {
-            CircularProgressIndicator(
-              modifier = Modifier.size(14.dp),
-              strokeWidth = 2.dp,
-              color = OlliteRTPrimary,
-            )
-            Text(
-              text = stringResource(R.string.logs_searching),
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          } else {
-            Text(
-              text = stringResource(R.string.logs_showing_count, displayedEntries.size, entries.size),
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
+          Text(
+            text = stringResource(R.string.logs_showing_count, displayedEntries.size, entries.size),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
           Spacer(modifier = Modifier.weight(1f))
           TextButton(
             onClick = { viewModel.clearAllFilters() },
