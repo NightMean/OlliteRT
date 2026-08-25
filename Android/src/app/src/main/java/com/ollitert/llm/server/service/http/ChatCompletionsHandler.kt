@@ -85,6 +85,9 @@ internal class ChatCompletionsHandler(
     useAnthropicStream: Boolean = false,
     // Per-request thinking override (null falls back to model.isThinkingEnabled).
     enableThinkingOverride: Boolean? = null,
+    // Reasoning token budget override (Anthropic thinking.budget_tokens) applied
+    // via the native thinking channel. Implies thinking enabled for this turn.
+    thinkingBudgetTokens: Int? = null,
   ): HttpResponse {
     val requestId = nextRequestId()
     validateNParam(req.n)?.let { (param, msg) ->
@@ -257,6 +260,7 @@ internal class ChatCompletionsHandler(
           schemaInjectionMessages = schemaInjectionMessages,
           suppressPerModelSystem = suppressPerModelSystem,
           enableThinkingOverride = enableThinkingOverride,
+          thinkingBudgetTokens = thinkingBudgetTokens,
           requestModelId = requestedId,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
@@ -281,6 +285,7 @@ internal class ChatCompletionsHandler(
           schemaInjectionMessages = schemaInjectionMessages,
           suppressPerModelSystem = suppressPerModelSystem,
           enableThinkingOverride = enableThinkingOverride,
+          thinkingBudgetTokens = thinkingBudgetTokens,
           prepareConversation = prepareConversation,
           onConversationFinished = cachePublication::finish,
           responseFormatSchema = responseFormatSchema,
@@ -306,6 +311,7 @@ internal class ChatCompletionsHandler(
         } else null,
         suppressPerModelSystem = suppressPerModelSystem,
         enableThinkingOverride = enableThinkingOverride,
+        thinkingBudgetTokens = thinkingBudgetTokens,
         prepareConversation = prepareConversation,
         responseFormatSchema = responseFormatSchema,
       )

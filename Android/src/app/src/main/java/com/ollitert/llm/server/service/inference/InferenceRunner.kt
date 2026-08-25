@@ -163,6 +163,7 @@ class InferenceRunner(
     prepareConversation: (() -> ConversationPreparation)? = null,
     // Non-null = natively constrain the response to this JSON schema (constrained decoding).
     responseFormatSchema: String? = null,
+    thinkingBudgetTokens: Int? = null,
   ): Pair<String?, String?> {
     // Track input tokens (rough estimate: ~4 chars per token)
     ServerMetrics.addTokensIn(estimateTokensLong(prompt))
@@ -202,6 +203,7 @@ class InferenceRunner(
       reinitIfNeeded = { reinitIfNeeded(model, supportImage, supportAudio) },
       logId = logId,
       responseFormatSchema = responseFormatSchema,
+      thinkingBudgetTokens = thinkingBudgetTokens,
     )
 
     val result = InferenceGateway.execute(
@@ -322,10 +324,11 @@ class InferenceRunner(
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
     // Non-null = natively constrain the response to this JSON schema (constrained decoding).
     responseFormatSchema: String? = null,
+    thinkingBudgetTokens: Int? = null,
   ): HttpResponse {
     val now = BridgeUtils.epochSeconds()
     val format = ChatCompletionsFormat(model.name, now, stopSequences, tools, json, includeUsage, hasSchemaInjection = schemaInjectionProviders.isNotEmpty())
-    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished, responseFormatSchema)
+    return streamInference(model, prompt, requestId, endpoint, format, timeoutSeconds, images, audioClips, logId, configSnapshot, prefs, schemaInjectionProviders, schemaInjectionMessages, suppressPerModelSystem, enableThinkingOverride, incrementalUserText, conversationCacheGeneration, prepareConversation, onConversationFinished, responseFormatSchema, thinkingBudgetTokens)
   }
 
   // ── Streaming inference: /v1/completions ───────────────────────────────
@@ -372,6 +375,7 @@ class InferenceRunner(
     conversationCacheGeneration: Long? = null,
     prepareConversation: (() -> ConversationPreparation)? = null,
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
+    thinkingBudgetTokens: Int? = null,
   ): HttpResponse {
     val format = AnthropicMessagesFormat(
       modelName = model.name,
@@ -388,6 +392,8 @@ class InferenceRunner(
       conversationCacheGeneration,
       prepareConversation,
       onConversationFinished,
+      responseFormatSchema = null, // Anthropic /v1/messages has no response_format concept
+      thinkingBudgetTokens = thinkingBudgetTokens,
     )
   }
 
@@ -414,6 +420,7 @@ class InferenceRunner(
     prepareConversation: (() -> ConversationPreparation)? = null,
     onConversationFinished: (Boolean, String?) -> Unit = { _, _ -> },
     responseFormatSchema: String? = null,
+    thinkingBudgetTokens: Int? = null,
   ): HttpResponse = streamingCoordinator.streamInference(
     model = model,
     prompt = prompt,

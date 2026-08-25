@@ -103,6 +103,7 @@ class AnthropicEndpointHandlers(
       endpoint = "/v1/messages",
       useAnthropicStream = anthropicReq.stream == true,
       enableThinkingOverride = resolveThinkingOverride(anthropicReq.thinking),
+      thinkingBudgetTokens = resolveThinkingBudget(anthropicReq.thinking),
     )
 
     return when (response) {
@@ -129,6 +130,15 @@ class AnthropicEndpointHandlers(
     "enabled" -> true
     "disabled" -> false
     else -> null
+  }
+
+  /**
+   * Extract the reasoning token budget for the native thinking channel. A budget
+   * implies enabled thinking for this turn; null keeps model-default behavior.
+   */
+  private fun resolveThinkingBudget(config: AnthropicThinkingConfig?): Int? {
+    if (config?.budget_tokens == null) return null
+    return config.budget_tokens.takeIf { it > 0 }
   }
 
   /**

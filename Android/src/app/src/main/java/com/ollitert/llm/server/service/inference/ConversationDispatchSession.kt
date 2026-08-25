@@ -63,6 +63,9 @@ internal class ConversationDispatchSession(
   private val logId: String?,
   // Non-null = natively constrain the response to this JSON schema for this session.
   private val responseFormatSchema: String? = null,
+  // Reasoning token budget override (Anthropic thinking.budget_tokens). Implies
+  // thinking enabled for this turn via the native ThinkingConfig channel.
+  private val thinkingBudgetTokens: Int? = null,
 ) {
   /**
    * Per-request thinking override resolved against model capability. Forced-on requests
@@ -153,8 +156,19 @@ internal class ConversationDispatchSession(
         capturedNativeToolCalls.set(calls)
       } else null,
       responseFormatSchema = responseFormatSchema,
+      thinkingConfig = sdkThinkingConfig,
     )
   }
+
+  /**
+   * Native per-turn thinking channel config. Only set when the request carries an
+   * explicit token budget — without one, thinking keeps using the enable_thinking
+   * template variable so existing model behavior is unchanged.
+   */
+  private val sdkThinkingConfig: com.google.ai.edge.litertlm.ThinkingConfig?
+    get() = thinkingBudgetTokens?.let {
+      com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = true, thinkingTokenBudget = it)
+    }
 
   /** Best-effort conversation recovery after a failed request; runs under the inference lock. */
   fun recoverConversation() {

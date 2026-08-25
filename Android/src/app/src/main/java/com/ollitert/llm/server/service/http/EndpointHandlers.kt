@@ -122,6 +122,7 @@ class EndpointHandlers(
     endpoint: String = "/v1/chat/completions",
     useAnthropicStream: Boolean = false,
     enableThinkingOverride: Boolean? = null,
+    thinkingBudgetTokens: Int? = null,
   ): HttpResponse = chatCompletionsHandler.runChatCompletion(
     req = req,
     captureResponse = captureResponse,
@@ -132,6 +133,7 @@ class EndpointHandlers(
     endpoint = endpoint,
     useAnthropicStream = useAnthropicStream,
     enableThinkingOverride = enableThinkingOverride,
+    thinkingBudgetTokens = thinkingBudgetTokens,
   )
 
   // ── /v1/completions ──────────────────────────────────────────────────────

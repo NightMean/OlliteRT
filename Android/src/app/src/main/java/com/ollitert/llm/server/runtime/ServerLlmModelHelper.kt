@@ -225,6 +225,9 @@ object ServerLlmModelHelper {
     // (LiteRT-LM ResponseFormat) — requires enableResponseFormat=true on the
     // conversation config, which createConversation always sets.
     responseFormatSchema: String? = null,
+    // When non-null, natively controls the thinking channel for this turn
+    // (enable flag + reasoning token budget).
+    thinkingConfig: com.google.ai.edge.litertlm.ThinkingConfig? = null,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -267,6 +270,7 @@ object ServerLlmModelHelper {
           }
         },
         extraContext ?: emptyMap(),
+        thinkingConfig = thinkingConfig,
         responseFormat = sdkResponseFormat,
       )
       return
@@ -304,6 +308,7 @@ object ServerLlmModelHelper {
         }
       },
       extraContext ?: emptyMap(),
+      thinkingConfig = thinkingConfig,
       responseFormat = sdkResponseFormat,
     )
   }
