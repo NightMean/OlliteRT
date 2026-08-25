@@ -36,6 +36,7 @@ import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
 import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.data.prefs.maxTokensInt
+import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -196,12 +197,13 @@ class ServerControlHandler(
       val reqTopK = parseConfigInt(obj, "top_k")
       val reqTopP = parseConfigDouble(obj, "top_p")
       val reqThinking = parseConfigBool(obj, "thinking_enabled")
+      val reqThinkingBudget = parseConfigInt(obj, "thinking_budget")
       val updated: Map<String, Any>
       val configChanges: MutableList<String>
       if (model != null) {
         synchronized(inferenceLock) {
           val result = mergeInferenceConfig(
-            model.configValues, model, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking,
+            model.configValues, model, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking, reqThinkingBudget,
           )
           updated = result.first
           configChanges = result.second
@@ -210,7 +212,7 @@ class ServerControlHandler(
       } else {
         val base = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
         val result = mergeInferenceConfig(
-          base, null, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking,
+          base, null, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking, reqThinkingBudget,
         )
         updated = result.first
         configChanges = result.second
@@ -248,6 +250,7 @@ class ServerControlHandler(
     reqTopK: Int?,
     reqTopP: Double?,
     reqThinking: Boolean?,
+    reqThinkingBudget: Int? = null,
   ): Pair<Map<String, Any>, MutableList<String>> {
     val updated = currentConfig.toMutableMap()
     val changes = mutableListOf<String>()
@@ -282,6 +285,26 @@ class ServerControlHandler(
         ServerMetrics.setThinkingEnabled(v)
         changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
+    }
+    reqThinkingBudget?.let { raw ->
+      // Budget applies to thinking-capable models and is honored per turn with
+      // no reload; 0 clears the override back to unlimited/template behavior.
+      if (raw == 0) {
+        val old = currentConfig.thinkingBudgetTokens()
+        if (old != null) {
+          updated.remove(ConfigKeys.THINKING_BUDGET.id)
+          changes.add("Thinking Budget: $old → unset")
+        }
+      } else if (model == null || model.llmSupportThinking) {
+        val clamped = raw.coerceIn(
+          com.ollitert.llm.server.data.prefs.MIN_THINKING_BUDGET_TOKENS,
+          com.ollitert.llm.server.data.prefs.MAX_THINKING_BUDGET_TOKENS,
+        ).let { it }
+        val old = currentConfig.thinkingBudgetTokens()
+        updated[ConfigKeys.THINKING_BUDGET.id] = clamped
+        changes.add("Thinking Budget: ${old ?: "unset"} → $clamped")
+      }
+      Unit
     }
     return updated.toMap() to changes
   }

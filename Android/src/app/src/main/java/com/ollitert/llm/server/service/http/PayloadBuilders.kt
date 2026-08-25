@@ -32,6 +32,7 @@ import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.prefs.configThinkingEnabled
+import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
 import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
@@ -234,6 +235,7 @@ object PayloadBuilders {
       put("top_k", JsonPrimitive(inferenceConfig.configTopK() ?: 0))
       put("top_p", JsonPrimitive(inferenceConfig.configTopP()?.toDouble() ?: 0.0))
       put("thinking_enabled", JsonPrimitive(inferenceConfig.configThinkingEnabled() ?: false))
+      put("thinking_budget", JsonPrimitive(inferenceConfig.thinkingBudgetTokens() ?: 0))
       put("speculative_decoding_enabled", JsonPrimitive(inferenceConfig.configSpeculativeDecodingEnabled() ?: false))
       put("auto_truncate_history", JsonPrimitive(ServerPrefs.isAutoTruncateHistory(context)))
       put("auto_trim_prompts", JsonPrimitive(ServerPrefs.isAutoTrimPrompts(context)))

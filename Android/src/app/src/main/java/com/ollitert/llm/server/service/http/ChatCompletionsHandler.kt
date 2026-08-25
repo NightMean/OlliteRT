@@ -164,7 +164,11 @@ internal class ChatCompletionsHandler(
       modelLifecycle.decodeAudioData(audioData)
     } else emptyList()
 
-    logEvent("request_start id=$requestId endpoint=$endpoint bodyLength=$bodyLength promptChars=${prompt.length} images=${images.size} audio=${audioClips.size} model=$requestedId resolved=${model.name}")
+    val effectiveThinkingBudget = thinkingBudgetTokens
+      ?: model.configValues.thinkingBudgetTokens()?.takeIf { enableThinkingOverride != false && model.isThinkingEnabled }
+
+    logEvent("request_start id=$requestId endpoint=$endpoint bodyLength=$bodyLength promptChars=${prompt.length} images=${images.size} audio=${audioClips.size} model=$requestedId resolved=${model.name}" +
+      (effectiveThinkingBudget?.let { " thinkBudget=$it" } ?: ""))
 
     if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=$endpoint")
