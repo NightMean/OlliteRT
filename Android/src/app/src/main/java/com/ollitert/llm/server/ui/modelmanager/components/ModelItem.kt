@@ -63,6 +63,8 @@ import com.ollitert.llm.server.ui.common.formatModelError
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 import com.ollitert.llm.server.ui.modelmanager.InferenceSettingsSheet
 import com.ollitert.llm.server.ui.theme.customColors
+import com.ollitert.llm.server.service.queueReloadAfterLoad
+import com.ollitert.llm.server.service.reload
 
 /**
  * Composable function to display a model item in the model manager list.

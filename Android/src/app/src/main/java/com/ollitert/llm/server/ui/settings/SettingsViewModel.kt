@@ -56,6 +56,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.ollitert.llm.server.service.resetKeepAliveTimer
+import com.ollitert.llm.server.service.updateClientIpAccessPolicy
 
 /**
  * ViewModel for the Settings screen. Owns all settings state, validation,

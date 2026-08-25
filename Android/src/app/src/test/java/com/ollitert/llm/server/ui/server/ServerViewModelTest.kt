@@ -23,6 +23,8 @@ import com.ollitert.llm.server.service.ServerService
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +38,9 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import com.ollitert.llm.server.service.reload
+import com.ollitert.llm.server.service.start
+import com.ollitert.llm.server.service.stop
 
 // Manual construction (no Hilt test rules) — these are pure unit tests that mock the
 // companion-object service layer.
@@ -51,6 +56,7 @@ class ServerViewModelTest {
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
     mockkObject(ServerService)
+    mockkStatic("com.ollitert.llm.server.service.ServerServiceIntentsKt")
     every { ServerService.start(any(), any(), any(), source = any()) } returns true
     every { ServerService.stop(any()) } returns Unit
     every { ServerService.reload(any(), any(), any(), any()) } returns true

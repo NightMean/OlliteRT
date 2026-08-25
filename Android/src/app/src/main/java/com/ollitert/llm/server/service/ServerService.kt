@@ -81,7 +81,7 @@ class ServerService : Service() {
   @Inject lateinit var preferencesRepository: PreferencesRepository
   @Inject lateinit var serverStateRepository: ServerStateRepository
 
-  private var server: KtorServer? = null
+  internal var server: KtorServer? = null
   private var inferenceRunner: InferenceRunner? = null
   private var inferenceExecutor: java.util.concurrent.ExecutorService? = null
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -90,7 +90,7 @@ class ServerService : Service() {
   private val loadGeneration = AtomicLong(0)
   /** Shared lock for serializing inference and config writes — passed to InferenceRunner and Server.
    *  Must always be acquired AFTER keepAliveLock (in ModelLifecycle), never before it. */
-  private val inferenceLock = Any()
+  internal val inferenceLock = Any()
   private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var loadJob: Job? = null
 
@@ -591,7 +591,7 @@ class ServerService : Service() {
   }
 
   companion object {
-    private const val TAG = "OlliteRT.Service"
+    internal const val TAG = "OlliteRT.Service"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
     /** Optional: identifies what triggered the start (e.g. "boot", "launch") for better error messages. */
@@ -603,35 +603,16 @@ class ServerService : Service() {
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
 
-    fun start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, source: String? = null): Boolean {
-      val intent = Intent(context, ServerService::class.java).apply {
-        putExtra(EXTRA_PORT, port)
-        if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
-        if (source != null) putExtra(EXTRA_START_SOURCE, source)
-      }
-      return try {
-        context.startForegroundService(intent)
-        true
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to start service", e)
-        false
-      }
-    }
 
-    fun stop(context: Context) {
-      try {
-        context.stopService(Intent(context, ServerService::class.java))
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to stop service", e)
-      }
-    }
+
+
 
     /**
      * Pending config values to apply after the next reload creates a fresh model.
      * Set by [reload] before sending the intent, consumed in [onStartCommand].
      * Uses AtomicReference to prevent race conditions when two rapid reloads overwrite each other.
      */
-    private val pendingConfigOverrides = java.util.concurrent.atomic.AtomicReference<Map<String, Any>?>(null)
+    internal val pendingConfigOverrides = java.util.concurrent.atomic.AtomicReference<Map<String, Any>?>(null)
 
     /**
      * Queued reload request to execute after the current model finishes loading.
@@ -640,31 +621,15 @@ class ServerService : Service() {
      */
     internal data class PendingReload(val port: Int, val modelName: String, val configValues: Map<String, Any>?)
     /** Atomic to prevent lost updates when the UI thread writes a new reload while the warmup thread reads and clears. */
-    private val pendingReloadAfterLoad = java.util.concurrent.atomic.AtomicReference<PendingReload?>(null)
+    internal val pendingReloadAfterLoad = java.util.concurrent.atomic.AtomicReference<PendingReload?>(null)
 
     /**
      * Queue a reload to execute automatically after the current model finishes loading.
      * If the model is not currently loading, this is a no-op — use [reload] instead.
      */
-    fun queueReloadAfterLoad(port: Int, modelName: String, configValues: Map<String, Any>?) {
-      pendingReloadAfterLoad.set(PendingReload(port, modelName, configValues))
-    }
 
-    fun reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null): Boolean {
-      pendingConfigOverrides.set(configValues)
-      val intent = Intent(context, ServerService::class.java).apply {
-        action = ACTION_RELOAD
-        putExtra(EXTRA_PORT, port)
-        if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
-      }
-      return try {
-        context.startForegroundService(intent)
-        true
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to reload service", e)
-        false
-      }
-    }
+
+
 
     /**
      * Tell the running service to re-read keep_alive prefs and reschedule (or cancel) the
@@ -672,31 +637,22 @@ class ServerService : Service() {
      * Uses [Context.startService] (not startForegroundService) because the service is already
      * in the foreground — this just delivers the intent without triggering a new foreground start.
      */
-    fun resetKeepAliveTimer(context: Context) {
-      try {
-        context.startService(
-          Intent(context, ServerService::class.java).apply { action = ACTION_RESET_KEEP_ALIVE }
-        )
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to reset keep-alive timer — service may not be running", e)
-      }
-    }
+
 
     /** Applies validated client admission rules without restarting the listener or model. */
-    fun updateClientIpAccessPolicy(policy: ClientIpAccessPolicy) {
-      activeInstance?.server?.updateClientIpAccessPolicy(policy)
-    }
+
 
     /**
      * Update config values on the running service's model without reloading.
      * Used for non-reinitialization config changes (temperature, topK, topP, etc.).
      */
     @Volatile
-    private var activeInstance: ServerService? = null
+    internal var activeInstance: ServerService? = null
+
 
     fun updateConfigValues(configValues: Map<String, Any>) {
       // TOCTOU: activeInstance may become null between this read and the synchronized block
-      // if onDestroy runs concurrently. Consequence is benign — defaultModel will be null
+      // if onDestroy runs concurrently. Consequence is benign - defaultModel will be null
       // inside the lock, so the ?.let is a no-op. Not worth adding a second lock layer for.
       val instance = activeInstance ?: return
       synchronized(instance.inferenceLock) {

@@ -31,6 +31,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.ollitert.llm.server.service.queueReloadAfterLoad
+import com.ollitert.llm.server.service.reload
+import com.ollitert.llm.server.service.start
+import com.ollitert.llm.server.service.stop
 
 /**
  * ViewModel that exposes server state to the UI layer.

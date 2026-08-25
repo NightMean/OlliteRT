@@ -50,11 +50,15 @@ class BootReceiverTest {
 
     mockkObject(ServerPrefs)
     mockkObject(ServerService)
+    mockkStatic("com.ollitert.llm.server.service.ServerServiceIntentsKt")
+    mockkStatic("com.ollitert.llm.server.data.prefs.ServerPrefsLifecycleKt")
     every { ServerService.start(any(), any(), any(), source = any()) } returns true
   }
 
   @After
   fun tearDown() {
+    unmockkStatic("com.ollitert.llm.server.data.prefs.ServerPrefsLifecycleKt")
+    unmockkStatic("com.ollitert.llm.server.service.ServerServiceIntentsKt")
     unmockkObject(ServerService)
     unmockkObject(ServerPrefs)
     unmockkStatic(Log::class)

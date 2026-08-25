@@ -34,6 +34,8 @@ import com.ollitert.llm.server.data.repository.FakeProtoDataStoreRepository
 import com.ollitert.llm.server.worker.UpdateCheckWorker
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.unmockkAll
@@ -49,6 +51,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.ollitert.llm.server.service.resetKeepAliveTimer
+import com.ollitert.llm.server.service.updateClientIpAccessPolicy
 
 // Manual construction (no Hilt test rules) with in-memory FakePreferencesRepository.
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -65,6 +69,7 @@ class SettingsViewModelTest {
     Dispatchers.setMain(testDispatcher)
     mockkObject(RequestLogStore)
     mockkObject(ServerService)
+    mockkStatic("com.ollitert.llm.server.service.ServerServiceIntentsKt")
     mockkObject(ServerMetrics)
     mockkObject(UpdateCheckWorker)
 
