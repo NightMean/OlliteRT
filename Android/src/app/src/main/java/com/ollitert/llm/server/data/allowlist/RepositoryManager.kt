@@ -31,8 +31,17 @@ import javax.inject.Singleton
 
 private const val TAG = "OlliteRT.RepoManager"
 
+/** One repo whose fetch, version guard, and disk write all succeeded. */
+data class RefreshedRepo(
+  val repoId: String,
+  val allowlist: ModelAllowlist,
+)
+
 data class RefreshResult(
   val failedRepoIds: Set<String>,
+  /** Successfully refreshed repos in processing order; consumers (e.g. the
+   *  update-notification worker) analyze these instead of re-fetching. */
+  val refreshed: List<RefreshedRepo> = emptyList(),
 )
 
 data class LoadResult(
@@ -180,6 +189,7 @@ class RepositoryManager @Inject constructor(
   suspend fun refreshAll(allowlistLoader: AllowlistLoader): RefreshResult = withContext(Dispatchers.IO) {
     val repos = protoDataStoreRepository.readRepositories()
     val failedIds = mutableSetOf<String>()
+    val refreshed = mutableListOf<RefreshedRepo>()
     for (repo in repos) {
       if (!repo.enabled || repo.url.isBlank()) continue
       try {
@@ -225,6 +235,7 @@ class RepositoryManager @Inject constructor(
           )
         )
         Log.d(TAG, "Repo '${repo.id}' refreshed: v${allowlist.contentVersion}")
+        refreshed.add(RefreshedRepo(repo.id, allowlist))
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
@@ -233,7 +244,7 @@ class RepositoryManager @Inject constructor(
         protoDataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
     }
-    RefreshResult(failedRepoIds = failedIds)
+    RefreshResult(failedRepoIds = failedIds, refreshed = refreshed)
   }
 
   private fun fetchBoundedJson(url: String): String? =

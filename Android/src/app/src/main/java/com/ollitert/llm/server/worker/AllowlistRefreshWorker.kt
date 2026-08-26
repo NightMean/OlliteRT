@@ -33,21 +33,17 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.allowlist.fetchBounded
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.allowlist.MAX_MODELS_PER_REPO
-import com.ollitert.llm.server.data.allowlist.MAX_REPO_ERROR_LENGTH
-import com.ollitert.llm.server.data.allowlist.UNKNOWN_ERROR_FALLBACK
+import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
-import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import androidx.hilt.work.HiltWorker
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -64,6 +60,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
   @Assisted workerParams: WorkerParameters,
   private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val modelStorageRepository: ModelStorageRepository,
+  private val repositoryManager: RepositoryManager,
 ) : CoroutineWorker(appContext, workerParams) {
 
   override suspend fun doWork(): Result {
@@ -74,86 +71,39 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       return Result.success()
     }
 
+    // Shared refresh pipeline (fetch → decode → version guard → disk write →
+    // DataStore update). The worker only adds what is worker-specific:
+    // retry-on-total-failure and the model-update notification analysis.
     val repos = protoDataStoreRepository.readRepositories()
+    val enabledRepos = repos.filter { it.enabled && it.url.isNotBlank() }
+    val refreshResult = repositoryManager.refreshAll(modelStorageRepository)
+
     val allUpdatableModels = mutableListOf<UpdatableInfo>()
     val nonUpdatableDownloaded = mutableListOf<String>()
     val seenModelIds = mutableSetOf<String>()
-    var enabledRepoCount = 0
-    var failedRepoCount = 0
 
-    for (repo in repos) {
-      if (!repo.enabled || repo.url.isBlank()) continue
-      enabledRepoCount++
-      try {
-        val rawJson = fetchBounded(repo.url, userAgent = "OlliteRT-AllowlistRefresh")
-        if (rawJson == null) {
-          Log.w(TAG, "Repo '${repo.id}': fetch returned null (timeout or oversized response)")
-          failedRepoCount++
-          continue
-        }
-
-        val allowlist = ModelAllowlistJson.decode(rawJson)
-        if (allowlist.models.isEmpty()) {
-          Log.w(TAG, "Repo '${repo.id}': fetched allowlist is empty — skipping")
-          continue
-        }
-
-        var minVersion = repo.contentVersion
-        if (repo.isBuiltIn) {
-          val bundled = modelStorageRepository.readFromAssets()
-          if (bundled != null && bundled.contentVersion > minVersion) {
-            minVersion = bundled.contentVersion
+    for (refreshed in refreshResult.refreshed) {
+      for (allowedModel in refreshed.allowlist.models.take(MAX_MODELS_PER_REPO)) {
+        if (allowedModel.modelId in seenModelIds) continue
+        seenModelIds.add(allowedModel.modelId)
+        val model = allowedModel.toModel()
+        if (modelStorageRepository.isModelDownloaded(model)) {
+          if (model.updatable) {
+            allUpdatableModels.add(UpdatableInfo(
+              name = model.name,
+              displayName = model.displayName.ifEmpty { model.name },
+              latestVersion = allowedModel.commitHash,
+            ))
+          } else {
+            nonUpdatableDownloaded.add(model.name)
           }
         }
-        if (allowlist.contentVersion <= minVersion) {
-          Log.d(TAG, "Repo '${repo.id}': v${allowlist.contentVersion} <= min v$minVersion — skipping")
-          if (repo.lastError.isNotEmpty()) {
-            protoDataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
-          }
-          continue
-        }
-
-        modelStorageRepository.saveToDisk(rawJson, repo.cacheFilename)
-        if (modelStorageRepository.readFromDiskCache(repo.cacheFilename) == null) {
-          Log.w(TAG, "Disk cache write failed for '${repo.id}' — skipping DataStore update")
-          continue
-        }
-        protoDataStoreRepository.updateRepository(
-          repo.copy(
-            contentVersion = allowlist.contentVersion,
-            lastRefreshMs = System.currentTimeMillis(),
-            lastError = "",
-          )
-        )
-        Log.d(TAG, "Repo '${repo.id}' refreshed: v${allowlist.contentVersion}")
-
-        for (allowedModel in allowlist.models.take(MAX_MODELS_PER_REPO)) {
-          if (allowedModel.modelId in seenModelIds) continue
-          seenModelIds.add(allowedModel.modelId)
-          val model = allowedModel.toModel()
-          if (modelStorageRepository.isModelDownloaded(model)) {
-            if (model.updatable) {
-              allUpdatableModels.add(UpdatableInfo(
-                name = model.name,
-                displayName = model.displayName.ifEmpty { model.name },
-                latestVersion = allowedModel.commitHash,
-              ))
-            } else {
-              nonUpdatableDownloaded.add(model.name)
-            }
-          }
-        }
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
-        failedRepoCount++
-        protoDataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
     }
 
-    if (enabledRepoCount > 0 && failedRepoCount == enabledRepoCount) {
-      Log.w(TAG, "All $enabledRepoCount enabled repos failed — requesting retry")
+    val failedRepoCount = enabledRepos.count { it.id in refreshResult.failedRepoIds }
+    if (enabledRepos.isNotEmpty() && failedRepoCount == enabledRepos.size) {
+      Log.w(TAG, "All ${enabledRepos.size} enabled repos failed — requesting retry")
       return Result.retry()
     }
 
