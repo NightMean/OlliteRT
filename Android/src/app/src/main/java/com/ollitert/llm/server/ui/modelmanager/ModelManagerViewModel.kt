@@ -246,11 +246,14 @@ constructor(
   /** Model name -> last download-start timestamp (single-flight for double taps). */
   private val recentDownloadStartsMs = mutableMapOf<String, Long>()
 
+  /** Injectable for JVM tests; open so test subclasses can pin time. */
+  protected open fun nowMs(): Long = android.os.SystemClock.elapsedRealtime()
+
   fun downloadModel(model: Model) {
     // Single-flight: a second tap during the start window is a duplicate, not
     // a retry. Legitimate retries after a visible failure arrive later than
     // the debounce window.
-    val now = android.os.SystemClock.elapsedRealtime()
+    val now = nowMs()
     synchronized(recentDownloadStartsMs) {
       recentDownloadStartsMs.entries.removeAll { now - it.value > DOWNLOAD_START_DEBOUNCE_MS }
       val last = recentDownloadStartsMs[model.name]
@@ -494,10 +497,11 @@ constructor(
     return allowlistLoadCoordinator.isModelSupportedOnDevice(allowedModel)
   }
 
-  /** Active allowlist load; a new load supersedes (cancels) any previous one so
-   *  pull-to-refresh, retry, and navigation-triggered reloads cannot interleave
-   *  and land their final uiState updates out of order. */
+  /** Active allowlist load; a new load supersedes (cancels + generation-gates)
+   *  any previous one so pull-to-refresh, retry, and navigation-triggered
+   *  reloads cannot interleave or land their uiState updates out of order. */
   private var allowlistLoadJob: kotlinx.coroutines.Job? = null
+  private var allowlistLoadGeneration = 0
 
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
     _uiState.update {
@@ -505,11 +509,20 @@ constructor(
     }
 
     allowlistLoadJob?.cancel()
+    val generation = ++allowlistLoadGeneration
     allowlistLoadJob = viewModelScope.launch(ioDispatcher) {
       val result = allowlistLoadCoordinator.loadAllowlist(
         isManualRetry = isManualRetry,
         onToastError = { msg -> _toastErrorChannel.trySend(msg) },
       )
+      // Cancellation is not a fence: a superseded load past its last
+      // suspension point can still run to completion. Every state write below
+      // is therefore gated on this generation so a stale load can never land
+      // its results after a newer one.
+      if (generation != allowlistLoadGeneration) {
+        Log.d(TAG, "Allowlist load superseded (gen $generation) — discarding result")
+        return@launch
+      }
 
       if (result.allReposDisabled) {
         _uiState.update {
@@ -553,6 +566,7 @@ constructor(
             )
         }
       }
+      if (generation != allowlistLoadGeneration) return@launch
       notifyStorageChanged()
       processPendingDownloads()
     }
