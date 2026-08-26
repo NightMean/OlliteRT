@@ -168,8 +168,13 @@ fun DownloadAndTryButton(
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val failedWithProgress =
     isFailed && downloadStatus.receivedBytes > 0L && downloadStatus.totalBytes > 0L
-  if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
-    downloadStarted = false
+  // Reset the optimistic "download started" flag once the store confirms the
+  // model is back to NOT_DOWNLOADED (e.g. after deletion). This must run as an
+  // effect — writing snapshot state during composition can loop invalidation.
+  LaunchedEffect(downloadStatus?.status, checkingToken) {
+    if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
+      downloadStarted = false
+    }
   }
   val showDownloadProgress =
     !downloadSucceeded &&
