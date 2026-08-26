@@ -126,7 +126,15 @@ data class AllowedModel(
     }
   }
 
-  fun toModel(appVersion: SemVer? = null, repositoryName: String = "", repositoryId: String = ""): Model {
+  fun toModel(
+    appVersion: SemVer? = null,
+    repositoryName: String = "",
+    repositoryId: String = "",
+    // Injectable for JVM tests, where Build.SOC_MODEL is unavailable.
+    // Null keeps the lazy DeviceUtils lookup — it must only be evaluated when
+    // an SoC map is actually present.
+    soc: String? = null,
+  ): Model {
     // Construct HF download url.
     var version = commitHash
     var downloadedFileName = modelFile
@@ -136,14 +144,21 @@ data class AllowedModel(
 
     // Handle per-soc model files.
     if (socToModelFiles?.isNotEmpty() == true) {
-      socToModelFiles.get(SOC)?.let { info ->
+      socToModelFiles.get(soc ?: SOC)?.let { info ->
         Log.d(TAG, "Found soc-specific model files for model $name: $info")
-        version = info.commitHash ?: "-"
-        downloadedFileName = info.modelFile ?: "-"
-        downloadUrl =
-          info.url
-            ?: "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
-        sizeInBytes = info.sizeInBytes ?: -1
+        // Per-field fallback: allowlist SoC entries may be partial. Missing
+        // fields must inherit the model's base file metadata — sentinel values
+        // here ("-", negative sizes, null-interpolated URLs) used to leak into
+        // download paths and progress denominators.
+        version = info.commitHash ?: version
+        downloadedFileName = info.modelFile ?: downloadedFileName
+        val socUrl = info.url ?: when {
+          info.commitHash != null && info.modelFile != null ->
+            "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
+          else -> null
+        }
+        downloadUrl = socUrl ?: downloadUrl
+        sizeInBytes = info.sizeInBytes ?: sizeInBytes
       }
     }
 

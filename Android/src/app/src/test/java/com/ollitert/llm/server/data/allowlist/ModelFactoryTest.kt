@@ -53,4 +53,49 @@ class ModelFactoryTest {
       defaultConfig = DefaultConfig(),
     )
   }
+
+  @Test
+  fun partialSocEntryFallsBackToBaseFileMetadata() {
+    // A SoC entry that only pins the commitHash must not produce sentinel
+    // values ("-", negative sizes, null-interpolated URLs) for the rest.
+    val model =
+      allowedModel(name = "Gemma3-1B-IT").copy(
+        commitHash = "basehash",
+        socToModelFiles = mapOf(
+          "test-soc" to SocModelFile(modelFile = null, url = null, commitHash = "sochash", sizeInBytes = null),
+        ),
+      ).toModel(soc = "test-soc")
+
+    assertEquals("sochash", model.version)
+    assertEquals("Gemma3-1B-IT.litertlm", model.downloadFileName)
+    assertEquals(
+      "https://huggingface.co/google/Gemma3-1B-IT/resolve/basehash/Gemma3-1B-IT.litertlm?download=true",
+      model.url,
+    )
+    assertEquals(1L, model.sizeInBytes)
+  }
+
+  @Test
+  fun fullSocEntryOverridesAllFileFields() {
+    val model =
+      allowedModel(name = "Gemma3-1B-IT").copy(
+        commitHash = "basehash",
+        socToModelFiles = mapOf(
+          "test-soc" to SocModelFile(
+            modelFile = "soc.litertlm",
+            url = null,
+            commitHash = "sochash",
+            sizeInBytes = 99L,
+          ),
+        ),
+      ).toModel(soc = "test-soc")
+
+    assertEquals("sochash", model.version)
+    assertEquals("soc.litertlm", model.downloadFileName)
+    assertEquals(
+      "https://huggingface.co/google/Gemma3-1B-IT/resolve/sochash/soc.litertlm?download=true",
+      model.url,
+    )
+    assertEquals(99L, model.sizeInBytes)
+  }
 }
