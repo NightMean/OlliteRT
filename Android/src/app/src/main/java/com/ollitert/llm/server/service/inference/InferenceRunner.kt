@@ -519,8 +519,6 @@ class InferenceRunner(
   companion object {
     private const val TAG = "OlliteRT.Inference"
 
-    private fun buildCombinedText(fullText: CharSequence, fullThinking: CharSequence): String =
-      InferenceStreamingLoop.buildCombinedText(fullText, fullThinking)
 
     /**
      * Truncates model output at the first occurrence of any stop sequence.

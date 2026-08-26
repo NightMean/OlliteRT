@@ -308,7 +308,7 @@ internal class StreamState(
     )
 
     if (logId != null) {
-      val combinedText = InferenceStreamingLoop.buildCombinedText(fullText, fullThinking)
+      val combinedText = StreamingFormat.buildCombinedText(fullText, fullThinking)
       val responseJson = format.buildLogResponseJson(combinedText, prompt.length, promptTokens, completionTokens, ttfbMs, totalLatencyMs, parsedToolCalls)
       val generationMs = totalLatencyMs - ttfbMs
       val reqDecodeSpeed = if (outputTokens > 0 && generationMs > 0) outputTokens.toDouble() / (generationMs / 1000.0) else 0.0
@@ -380,9 +380,4 @@ internal class StreamState(
  */
 object InferenceStreamingLoop {
 
-  /**
-   * Combines visible output and thinking text into a final formatted string.
-   */
-  fun buildCombinedText(fullText: CharSequence, fullThinking: CharSequence): String =
-    if (fullThinking.isNotEmpty()) "<think>${fullThinking}</think>${fullText}" else fullText.toString()
 }
