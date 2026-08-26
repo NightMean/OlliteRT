@@ -54,6 +54,15 @@ mapping.txt
 
 # Environment / secrets
 *.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+tokens.json
+service-account*.json
+application_default_credentials.json
+firebase-adminsdk-*.json
 
 # Google Services (Firebase, APIs)
 google-services.json
