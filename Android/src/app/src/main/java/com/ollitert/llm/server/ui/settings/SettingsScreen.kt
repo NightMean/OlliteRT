@@ -101,29 +101,9 @@ fun SettingsScreen(
 
   val settingsSavedText = stringResource(R.string.toast_settings_saved)
 
-  val performSave: () -> Unit = {
-    val result = vm.trySave(serverStatus)
-    when (result) {
-      is SettingsViewModel.SaveResult.Success -> {
-        val window = (context as? android.app.Activity)?.window
-        if (vm.keepScreenOnEntry.current) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
-        onSettingsSaved()
-      }
-      is SettingsViewModel.SaveResult.NeedsRestart -> {
-        val window = (context as? android.app.Activity)?.window
-        if (result.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        vm.showRestartDialog = true
-        onSettingsSaved()
-      }
-      is SettingsViewModel.SaveResult.ValidationError -> Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
-      is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> vm.showTrimLogsDialog = true
-    }
-  }
-  val forceSave: () -> Unit = {
-    val result = vm.save(serverStatus)
+  // Shared result handling for both save paths; they differ only in how the
+  // save is invoked (validated vs forced) and in trim-confirmation handling.
+  val handleSaveResult: (SettingsViewModel.SaveResult) -> Unit = { result ->
     when (result) {
       is SettingsViewModel.SaveResult.Success -> {
         val window = (context as? android.app.Activity)?.window
@@ -143,6 +123,14 @@ fun SettingsScreen(
       is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> {}
     }
   }
+
+  val performSave: () -> Unit = {
+    when (val result = vm.trySave(serverStatus)) {
+      is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> vm.showTrimLogsDialog = true
+      else -> handleSaveResult(result)
+    }
+  }
+  val forceSave: () -> Unit = { handleSaveResult(vm.save(serverStatus)) }
 
   BackHandler(enabled = vm.hasUnsavedChanges) { vm.showDiscardDialog = true }
   val currentSave by rememberUpdatedState(performSave)
