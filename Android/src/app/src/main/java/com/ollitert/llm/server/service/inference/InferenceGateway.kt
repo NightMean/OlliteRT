@@ -48,6 +48,14 @@ typealias InferenceFn = (
 
 private const val TAG = "OlliteRT.Gateway"
 
+/**
+ * Upper bound on the post-cancellation settlement wait in [InferenceGateway.execute].
+ * The client is already gone at that point; if a hung native `cancelProcess()` keeps
+ * settlement pending beyond this, the caller returns a terminal error instead of
+ * blocking its coroutine (and the inference lock queue behind it) forever.
+ */
+private const val POST_CANCEL_SETTLEMENT_TIMEOUT_MS = 10_000L
+
 private fun reportGatewayFailure(
   onCaughtThrowable: ((Throwable) -> Unit)?,
   message: String,
@@ -203,6 +211,10 @@ object InferenceGateway {
     fun awaitSettlement() {
       settledSignal.await()
     }
+
+    /** Timed variant — returns false when settlement did not finish within [timeoutMs]. */
+    fun awaitSettlement(timeoutMs: Long): Boolean =
+      settledSignal.await(timeoutMs, TimeUnit.MILLISECONDS)
 
     fun acceptsCallbacks(): Boolean = synchronized(stateLock) { outcome == null }
 
@@ -398,10 +410,13 @@ object InferenceGateway {
       }
     } catch (_: InterruptedException) {
       execution.cancel(CancellationReason.CALLER)
-      execution.awaitSettlement()
+      awaitPostCancelSettlement(execution)
     } catch (_: CancellationException) {
       execution.cancel(CancellationReason.CALLER)
-      execution.awaitSettlement()
+      // Deliberately not a suspend call: the coroutine is already cancelled here,
+      // so any withContext/suspend entry would rethrow CancellationException and
+      // skip the settlement wait entirely.
+      awaitPostCancelSettlement(execution)
     }
     val totalMs = elapsedMs() - startMs
     val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
@@ -425,5 +440,23 @@ object InferenceGateway {
       totalMs = totalMs,
       ttfbMs = firstTokenMs ?: -1,
     )
+  }
+
+  /**
+   * Bounded settlement wait for the post-cancellation path. Without the bound, a
+   * native `cancelProcess()` that never returns would pin this coroutine — and
+   * every queued request behind the inference lock — indefinitely, even though
+   * the client has already disconnected. On timeout we proceed with the already
+   * recorded Cancelled outcome; late settlement is harmless because terminal
+   * arbitration in [RequestExecution] ignores it.
+   *
+   * Blocking (non-suspending) by design: both call sites run inside a catch block
+   * of an already-cancelled coroutine, where suspend calls throw on entry.
+   */
+  private fun awaitPostCancelSettlement(execution: RequestExecution) {
+    val settled = execution.awaitSettlement(POST_CANCEL_SETTLEMENT_TIMEOUT_MS)
+    if (!settled) {
+      Log.w(TAG, "Inference settlement did not finish within ${POST_CANCEL_SETTLEMENT_TIMEOUT_MS}ms of cancellation")
+    }
   }
 }

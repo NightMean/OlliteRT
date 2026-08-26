@@ -66,13 +66,19 @@ internal class StreamState(
 ) {
   val fullText = StringBuilder()
   val fullThinking = StringBuilder()
-  var headerWritten = false
+  // @Volatile: written by the consumer coroutine (markCompleted) and read from the
+  // heartbeat coroutine's polling loop, which lives on a different dispatcher.
+  @Volatile var headerWritten = false
   var thinkingTagOpened = false
   var lastLogUpdateMs = 0L
   var firstTokenMs = 0L
   private val inferenceStartedFlag = AtomicBoolean(false)
   val inferenceStarted: Boolean get() = inferenceStartedFlag.get()
-  var inferenceCompleted = false
+
+  // @Volatile: written by the consumer coroutine and polled by the heartbeat
+  // coroutine to stop sending pings. Visibility only — worst case without it is
+  // one extra ping after completion.
+  @Volatile var inferenceCompleted = false
 
   // True once ServerMetrics.onInferenceCompleted has been called for this request.
   // Tracked separately from inferenceCompleted because the metric decrement and the
