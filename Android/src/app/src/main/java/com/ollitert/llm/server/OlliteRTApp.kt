@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -110,12 +111,28 @@ fun OlliteRTApp(
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
+  // Signature of the error the user already dismissed. Saveable so rotation
+  // does not replay the dialog; a NEW error (different message or status
+  // transition) produces a different signature and shows again. Process death
+  // intentionally re-shows the dialog for a still-ERROR server — the user
+  // should know serving is down.
+  var dismissedErrorSignature by rememberSaveable { mutableStateOf<String?>(null) }
+  val errorSignature = "$serverStatus:$lastError"
 
-  LaunchedEffect(serverStatus, lastError) {
-    if (serverStatus == ServerStatus.ERROR && !lastError.isNullOrBlank()) {
+  LaunchedEffect(errorSignature) {
+    if (
+      serverStatus == ServerStatus.ERROR &&
+      !lastError.isNullOrBlank() &&
+      dismissedErrorSignature != errorSignature
+    ) {
       errorDialogMessage = lastError ?: ""
       showErrorDialog = true
     }
+  }
+
+  fun dismissErrorDialog() {
+    showErrorDialog = false
+    dismissedErrorSignature = errorSignature
   }
 
   if (showErrorDialog) {
@@ -127,7 +144,7 @@ fun OlliteRTApp(
       com.ollitert.llm.server.common.ErrorSuggestions.suggest(kind, context)
     }
     AlertDialog(
-      onDismissRequest = { showErrorDialog = false },
+      onDismissRequest = { dismissErrorDialog() },
       shape = RoundedCornerShape(32.dp),
       containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
       title = {
@@ -157,7 +174,7 @@ fun OlliteRTApp(
       },
       dismissButton = {
         TextButton(onClick = {
-          showErrorDialog = false
+          dismissErrorDialog()
           navController.navigate(OlliteRTTab.Logs.route) {
             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
             launchSingleTop = true
@@ -169,7 +186,7 @@ fun OlliteRTApp(
       },
       confirmButton = {
         Button(
-          onClick = { showErrorDialog = false },
+          onClick = { dismissErrorDialog() },
           shape = RoundedCornerShape(50),
           colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.error,
