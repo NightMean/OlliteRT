@@ -124,10 +124,14 @@ class RequestLogPersistence @Inject constructor(
    * Persist all current in-memory entries to the DB.
    * Called when the user enables persistence for the first time —
    * syncs the existing session's logs so they survive the next restart.
+   *
+   * Entity conversion (extras JSON serialization for potentially thousands of
+   * full-body entries) happens on the writer's background thread, not the
+   * caller's (UI) thread.
    */
   override fun persistCurrentEntries() {
-    val entities = RequestLogStore.entries.value.map { RequestLogEntity.fromEntry(it) }
     databaseWriter.enqueue("persist current entries") {
+      val entities = RequestLogStore.entries.value.map { RequestLogEntity.fromEntry(it) }
       upsertAll(entities)
     }
   }
