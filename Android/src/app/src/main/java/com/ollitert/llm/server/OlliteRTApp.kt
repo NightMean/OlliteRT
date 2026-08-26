@@ -112,28 +112,28 @@ fun OlliteRTApp(
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
-  // Signature of the error the user already dismissed. Saveable so rotation
-  // does not replay the dialog; a NEW error (different message or status
-  // transition) produces a different signature and shows again. Process death
-  // intentionally re-shows the dialog for a still-ERROR server — the user
-  // should know serving is down.
+  // A dismissal survives recreation during the same uninterrupted error, but
+  // recovery clears it so a later identical failure is reported again.
   var dismissedErrorSignature by rememberSaveable { mutableStateOf<String?>(null) }
-  val errorSignature = "$serverStatus:$lastError"
+  val errorDialogDecision = ServerErrorDialogPolicy.reconcile(
+    status = serverStatus,
+    message = lastError,
+    dismissedSignature = dismissedErrorSignature,
+  )
 
-  LaunchedEffect(errorSignature) {
-    if (
-      serverStatus == ServerStatus.ERROR &&
-      !lastError.isNullOrBlank() &&
-      dismissedErrorSignature != errorSignature
-    ) {
-      errorDialogMessage = lastError ?: ""
+  LaunchedEffect(errorDialogDecision.activeSignature) {
+    dismissedErrorSignature = errorDialogDecision.dismissedSignature
+    if (errorDialogDecision.shouldShow) {
+      errorDialogMessage = lastError.orEmpty()
       showErrorDialog = true
+    } else if (errorDialogDecision.activeSignature == null) {
+      showErrorDialog = false
     }
   }
 
   fun dismissErrorDialog() {
     showErrorDialog = false
-    dismissedErrorSignature = errorSignature
+    dismissedErrorSignature = errorDialogDecision.activeSignature
   }
 
   if (showErrorDialog) {
