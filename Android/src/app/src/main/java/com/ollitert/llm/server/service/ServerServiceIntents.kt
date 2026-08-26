@@ -56,20 +56,21 @@ fun ServerService.Companion.queueReloadAfterLoad(port: Int, modelName: String, c
     }
 
 fun ServerService.Companion.reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null): Boolean {
-      // Bind overrides to the model name they target so the consumer can discard
-      // them if a superseding load (or stale-prefs fallback) resolves differently.
-      pendingConfigOverrides.set(
-        if (configValues != null) ServerService.Companion.PendingConfigOverrides(modelName, configValues) else null
-      )
+      // The request ID is the ownership key. Each delivered intent can consume only
+      // its own overrides, even if several reloads are queued before onStartCommand.
+      val overrideRequestId =
+        configValues?.let { reloadConfigOverrideRegistry.register(modelName, it) }
       val intent = Intent(context, ServerService::class.java).apply {
         action = ACTION_RELOAD
         putExtra(EXTRA_PORT, port)
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
+        if (overrideRequestId != null) putExtra(EXTRA_CONFIG_OVERRIDE_REQUEST_ID, overrideRequestId)
       }
       return try {
         context.startForegroundService(intent)
         true
       } catch (e: Exception) {
+        reloadConfigOverrideRegistry.discard(overrideRequestId)
         Log.e(TAG, "Failed to reload service", e)
         false
       }

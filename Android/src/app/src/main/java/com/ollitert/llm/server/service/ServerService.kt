@@ -208,6 +208,11 @@ class ServerService : Service() {
     notificationManager.startForegroundPlaceholder(this)
     acquireWakeLocks()
 
+    // Claim request-scoped config before launching asynchronous model resolution.
+    // A later reload cannot overwrite or consume this intent's values.
+    val reloadConfigOverrides =
+      reloadConfigOverrideRegistry.take(intent.getStringExtra(EXTRA_CONFIG_OVERRIDE_REQUEST_ID))
+
     // Handle reload action: clean up current model first, then proceed with normal start.
     // Unlike a full stop, reload emits "Model restart requested" + "Unloading model" instead
     // of "Server stopped", because the server will immediately start again.
@@ -280,31 +285,8 @@ class ServerService : Service() {
         ServerMetrics.onServerError(msg)
         ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
         RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.MODEL)
-        pendingConfigOverrides.set(null)
         stopSelf()
         return@launch
-      }
-      // Apply pending config overrides from the reload caller (e.g. InferenceSettingsSheet).
-      // configValues is written from 3 paths: here (initial load overrides),
-      // updateConfigValues() (runtime settings change), and reload() which triggers this path again.
-      // All paths are serialized via @Synchronized companion methods or the load coroutine.
-      // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
-      //
-      // Deliberately placed AFTER stale-prefs fallback resolution: overrides must
-      // bind to the model that actually loads, not to a pre-fallback candidate.
-      // A mismatch means the override belongs to a different (superseded or
-      // failed) load request and is discarded rather than misapplied.
-      pendingConfigOverrides.getAndSet(null)?.let { pending ->
-        if (pending.modelName == null || pending.modelName == model.name) {
-          model.configValues = pending.values.toMap()
-          Log.i(TAG, "Applied ${pending.values.size} config override(s) from reload caller")
-        } else {
-          Log.w(
-            TAG,
-            "Discarded ${pending.values.size} stale config override(s) for " +
-              "'${pending.modelName}' — this load resolved to '${model.name}'",
-          )
-        }
       }
       // Verify model files actually exist on disk. Same stale-pref self-heal as
       // above: the registry entry resolved but its files are gone (e.g. cleared
@@ -332,6 +314,20 @@ class ServerService : Service() {
         RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
         stopSelf()
         return@launch
+      }
+
+      // Apply only after every fallback decision so settings cannot leak from the
+      // requested model into a different model selected during recovery.
+      reloadConfigOverrides?.let { overrides ->
+        if (applyReloadConfigOverrides(model, overrides)) {
+          Log.i(TAG, "Applied ${overrides.values.size} config override(s) from reload caller")
+        } else {
+          Log.w(
+            TAG,
+            "Discarded ${overrides.values.size} config override(s) for " +
+              "'${overrides.modelName}' — this load resolved to '${model.name}'",
+          )
+        }
       }
 
       ServerMetrics.onServerStarting(port, model.name)
@@ -607,6 +603,7 @@ class ServerService : Service() {
     internal const val TAG = "OlliteRT.Service"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
+    internal const val EXTRA_CONFIG_OVERRIDE_REQUEST_ID = "extra_config_override_request_id"
     /** Optional: identifies what triggered the start (e.g. "boot", "launch") for better error messages. */
     const val EXTRA_START_SOURCE = "extra_start_source"
     const val SOURCE_BOOT = "boot"
@@ -616,24 +613,7 @@ class ServerService : Service() {
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
 
-
-
-
-
-    /**
-     * Pending config values to apply after the next reload creates a fresh model.
-     * Set by [reload] before sending the intent, consumed in [onStartCommand].
-     *
-     * The overrides are bound to the model name they were meant for. A bare map
-     * here could be consumed by the *wrong* load: cancellation of an in-flight
-     * load job only takes effect at suspension points, so a rapid reload-A →
-     * reload-B can interleave such that job A consumes B's overrides (and B's
-     * job consumes nothing). The consumer therefore matches the override against
-     * the finally-resolved model and discards mismatches.
-     */
-    internal data class PendingConfigOverrides(val modelName: String?, val values: Map<String, Any>)
-    internal val pendingConfigOverrides =
-      java.util.concurrent.atomic.AtomicReference<PendingConfigOverrides?>(null)
+    internal val reloadConfigOverrideRegistry = ReloadConfigOverrideRegistry()
 
     /**
      * Queued reload request to execute after the current model finishes loading.
