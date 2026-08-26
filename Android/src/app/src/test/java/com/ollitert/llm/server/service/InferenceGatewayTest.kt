@@ -674,6 +674,60 @@ class InferenceGatewayTest {
     }
   }
 
+  @Test
+  fun cancellationSettlementTimeoutQuarantinesRuntimeUntilLateSettlement() = runBlocking {
+    val threadPool = Executors.newSingleThreadExecutor()
+    val runtimeHealth = InferenceRuntimeHealth()
+    val inferenceStarted = CountDownLatch(1)
+    val cancelEntered = CountDownLatch(1)
+    val releaseCancel = CountDownLatch(1)
+    var cancelledResult: InferenceResult? = null
+    try {
+      val cancelledJob = launch(Dispatchers.Default) {
+        cancelledResult = InferenceGateway.execute(
+          prompt = "hung-cancel",
+          timeoutSeconds = 30,
+          executor = threadPool,
+          inferenceLock = lock,
+          resetConversation = {},
+          runInference = { _, _, _ -> inferenceStarted.countDown() },
+          cancelInference = {
+            cancelEntered.countDown()
+            releaseCancel.await()
+          },
+          elapsedMs = { tick() },
+          runtimeHealth = runtimeHealth,
+          postCancelSettlementTimeoutMs = 50,
+        )
+      }
+      assertTrue(inferenceStarted.await(5, TimeUnit.SECONDS))
+      cancelledJob.cancel()
+      assertTrue(cancelEntered.await(5, TimeUnit.SECONDS))
+      cancelledJob.join()
+
+      assertEquals("client_disconnected", cancelledResult?.error)
+      assertTrue(runtimeHealth.isQuarantined())
+      val rejected = InferenceGateway.execute(
+        prompt = "must-not-queue",
+        executor = directExecutor,
+        inferenceLock = lock,
+        resetConversation = {},
+        runInference = { _, onPartial, _ -> onPartial("unsafe", true, null) },
+        cancelInference = {},
+        elapsedMs = { tick() },
+        runtimeHealth = runtimeHealth,
+      )
+      assertEquals(INFERENCE_RUNTIME_QUARANTINED_ERROR, rejected.error)
+
+      releaseCancel.countDown()
+      threadPool.submit {}.get(5, TimeUnit.SECONDS)
+      assertTrue(!runtimeHealth.isQuarantined())
+    } finally {
+      releaseCancel.countDown()
+      threadPool.shutdownNow()
+    }
+  }
+
   // ── onInferenceFinished tests ───────────────────────────────────────────
 
   @Test

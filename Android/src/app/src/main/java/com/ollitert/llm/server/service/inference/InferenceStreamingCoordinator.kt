@@ -53,6 +53,7 @@ internal class InferenceStreamingCoordinator(
   private val logEvent: (String) -> Unit,
   private val emitDebugStackTrace: (Throwable, source: String, modelName: String?) -> Unit,
   private val buildSystemInstruction: (modelName: String) -> Contents?,
+  private val runtimeHealth: InferenceRuntimeHealth,
 ) {
 
   fun streamInference(
@@ -229,6 +230,7 @@ internal class InferenceStreamingCoordinator(
           cancellationBridge.attach(control)
           if (cancellationBridge.cancellationWasAccepted()) channel.close()
         },
+        runtimeHealth = runtimeHealth,
       )
 
       try {

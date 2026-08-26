@@ -30,6 +30,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 data class InferenceResult(
@@ -72,6 +73,11 @@ private fun reportGatewayFailure(
 
 object InferenceGateway {
 
+  private val cancellationSettlementMonitor =
+    Executors.newSingleThreadScheduledExecutor { task ->
+      Thread(task, "OlliteRT-CancelSettlement").apply { isDaemon = true }
+    }
+
   internal enum class CancellationReason {
     CALLER,
     EXTERNAL,
@@ -105,6 +111,7 @@ object InferenceGateway {
   /** Owns native-dispatch and terminal-state decisions for one request. */
   private class RequestExecution(
     private val cancelNative: () -> Unit,
+    private val onNativeCancellationStarting: (RequestExecution) -> Unit,
   ) : InferenceControl {
     private val stateLock = Any()
     private val terminalSignal = CountDownLatch(1)
@@ -185,6 +192,7 @@ object InferenceGateway {
         }
       }
       if (shouldCancelNative) {
+        onNativeCancellationStarting(this)
         try {
           cancelNative()
         } catch (t: Throwable) {
@@ -215,6 +223,8 @@ object InferenceGateway {
     /** Timed variant — returns false when settlement did not finish within [timeoutMs]. */
     fun awaitSettlement(timeoutMs: Long): Boolean =
       settledSignal.await(timeoutMs, TimeUnit.MILLISECONDS)
+
+    fun isSettled(): Boolean = settledSignal.count == 0L
 
     fun acceptsCallbacks(): Boolean = synchronized(stateLock) { outcome == null }
 
@@ -251,13 +261,28 @@ object InferenceGateway {
     onInferenceFinished: () -> Unit = {},
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
     onExecutionReady: ((InferenceControl) -> Unit)? = null,
+    runtimeHealth: InferenceRuntimeHealth = InferenceRuntimeHealth(),
+    postCancelSettlementTimeoutMs: Long = POST_CANCEL_SETTLEMENT_TIMEOUT_MS,
   ) {
-    val execution = RequestExecution(cancelNative = cancelInference)
+    val runtimeOwner = Any()
+    if (!runtimeHealth.tryAdmit(runtimeOwner)) {
+      onError(INFERENCE_RUNTIME_QUARANTINED_ERROR)
+      return
+    }
+    val execution = RequestExecution(
+      cancelNative = cancelInference,
+      onNativeCancellationStarting = { pendingExecution ->
+        monitorSettlement(pendingExecution, runtimeHealth, runtimeOwner, postCancelSettlementTimeoutMs)
+      },
+    )
     onExecutionReady?.invoke(execution)
     try {
       executor.execute {
         synchronized(inferenceLock) {
-          if (!execution.beginPreparation()) return@synchronized
+          if (!execution.beginPreparation()) {
+            runtimeHealth.markSettled(runtimeOwner)
+            return@synchronized
+          }
           val terminal = try {
             resetConversation()
             execution.dispatch {
@@ -305,6 +330,7 @@ object InferenceGateway {
                 reportGatewayFailure(onCaughtThrowable, "Streaming settlement step failed", t)
               },
             )
+            runtimeHealth.markSettled(runtimeOwner)
           }
         }
       }
@@ -323,6 +349,7 @@ object InferenceGateway {
             reportGatewayFailure(onCaughtThrowable, "Streaming rejection settlement failed", failure)
           },
         )
+        runtimeHealth.markSettled(runtimeOwner)
       }
     }
   }
@@ -344,18 +371,38 @@ object InferenceGateway {
     elapsedMs: () -> Long,
     onCaughtThrowable: ((Throwable) -> Unit)? = null,
     onExecutionReady: ((InferenceControl) -> Unit)? = null,
+    runtimeHealth: InferenceRuntimeHealth = InferenceRuntimeHealth(),
+    postCancelSettlementTimeoutMs: Long = POST_CANCEL_SETTLEMENT_TIMEOUT_MS,
   ): InferenceResult {
     val sb = StringBuilder()
     val thinkingSb = StringBuilder()
     val startMs = elapsedMs()
     var firstTokenMs: Long? = null
-    val execution = RequestExecution(cancelNative = cancelInference)
+    val runtimeOwner = Any()
+    if (!runtimeHealth.tryAdmit(runtimeOwner)) {
+      return InferenceResult(
+        output = null,
+        thinking = null,
+        error = INFERENCE_RUNTIME_QUARANTINED_ERROR,
+        totalMs = elapsedMs() - startMs,
+        ttfbMs = -1,
+      )
+    }
+    val execution = RequestExecution(
+      cancelNative = cancelInference,
+      onNativeCancellationStarting = { pendingExecution ->
+        monitorSettlement(pendingExecution, runtimeHealth, runtimeOwner, postCancelSettlementTimeoutMs)
+      },
+    )
     onExecutionReady?.invoke(execution)
 
     try {
       executor.execute {
         synchronized(inferenceLock) {
-          if (!execution.beginPreparation()) return@synchronized
+          if (!execution.beginPreparation()) {
+            runtimeHealth.markSettled(runtimeOwner)
+            return@synchronized
+          }
           try {
             resetConversation()
             execution.dispatch {
@@ -389,6 +436,7 @@ object InferenceGateway {
                 reportGatewayFailure(onCaughtThrowable, "Inference settlement step failed", t)
               },
             )
+            runtimeHealth.markSettled(runtimeOwner)
           }
         }
       }
@@ -402,6 +450,7 @@ object InferenceGateway {
           reportGatewayFailure(onCaughtThrowable, "Blocking rejection settlement failed", failure)
         },
       )
+      runtimeHealth.markSettled(runtimeOwner)
     }
 
     try {
@@ -410,14 +459,25 @@ object InferenceGateway {
       }
     } catch (_: InterruptedException) {
       execution.cancel(CancellationReason.CALLER)
-      awaitPostCancelSettlement(execution)
+      awaitPostCancelSettlement(
+        execution,
+        runtimeHealth,
+        runtimeOwner,
+        postCancelSettlementTimeoutMs,
+      )
     } catch (_: CancellationException) {
       execution.cancel(CancellationReason.CALLER)
       // Deliberately not a suspend call: the coroutine is already cancelled here,
       // so any withContext/suspend entry would rethrow CancellationException and
       // skip the settlement wait entirely.
-      awaitPostCancelSettlement(execution)
+      awaitPostCancelSettlement(
+        execution,
+        runtimeHealth,
+        runtimeOwner,
+        postCancelSettlementTimeoutMs,
+      )
     }
+    if (execution.isSettled()) runtimeHealth.markSettled(runtimeOwner)
     val totalMs = elapsedMs() - startMs
     val thinkingResult = thinkingSb.toString().takeIf { it.isNotEmpty() }
     val finalError = when (val outcome = execution.awaitTerminal(0)) {
@@ -453,10 +513,33 @@ object InferenceGateway {
    * Blocking (non-suspending) by design: both call sites run inside a catch block
    * of an already-cancelled coroutine, where suspend calls throw on entry.
    */
-  private fun awaitPostCancelSettlement(execution: RequestExecution) {
-    val settled = execution.awaitSettlement(POST_CANCEL_SETTLEMENT_TIMEOUT_MS)
+  private fun awaitPostCancelSettlement(
+    execution: RequestExecution,
+    runtimeHealth: InferenceRuntimeHealth,
+    runtimeOwner: Any,
+    timeoutMs: Long,
+  ) {
+    val settled = execution.awaitSettlement(timeoutMs)
     if (!settled) {
-      Log.w(TAG, "Inference settlement did not finish within ${POST_CANCEL_SETTLEMENT_TIMEOUT_MS}ms of cancellation")
+      runtimeHealth.quarantine(runtimeOwner)
+      Log.w(TAG, "Inference runtime quarantined after settlement exceeded ${timeoutMs}ms")
     }
+  }
+
+  private fun monitorSettlement(
+    execution: RequestExecution,
+    runtimeHealth: InferenceRuntimeHealth,
+    runtimeOwner: Any,
+    timeoutMs: Long,
+  ) {
+    cancellationSettlementMonitor.schedule(
+      {
+        if (!execution.isSettled() && runtimeHealth.quarantine(runtimeOwner)) {
+          Log.w(TAG, "Inference runtime quarantined after native cancellation exceeded ${timeoutMs}ms")
+        }
+      },
+      timeoutMs,
+      TimeUnit.MILLISECONDS,
+    )
   }
 }

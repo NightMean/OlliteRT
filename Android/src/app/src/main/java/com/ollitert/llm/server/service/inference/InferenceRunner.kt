@@ -88,6 +88,8 @@ class InferenceRunner(
   private val buildSystemInstruction: (modelName: String) -> Contents?,
 ) {
 
+  private val runtimeHealth = InferenceRuntimeHealth()
+
   private val streamingCoordinator = InferenceStreamingCoordinator(
     context = context,
     executor = executor,
@@ -95,6 +97,7 @@ class InferenceRunner(
     logEvent = logEvent,
     emitDebugStackTrace = emitDebugStackTrace,
     buildSystemInstruction = buildSystemInstruction,
+    runtimeHealth = runtimeHealth,
   )
 
   private fun reinitIfNeeded(
@@ -218,6 +221,7 @@ class InferenceRunner(
       elapsedMs = { SystemClock.elapsedRealtime() },
       onCaughtThrowable = { t -> emitDebugStackTrace(t, "execute", model.name) },
       onExecutionReady = cancellationBridge::attach,
+      runtimeHealth = runtimeHealth,
     )
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
 
