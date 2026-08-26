@@ -276,7 +276,12 @@ fun OlliteRTNavHost(
         }
       }
       val settingsServerStatus by serverViewModel.status.collectAsStateWithLifecycle()
-      val downloadedModelNames = modelManagerViewModel.getAllDownloadedModels().map { it.name }
+      // Keyed on the collected uiState so the (sorting + filtering) rebuild only
+      // happens when model data actually changes, not on every recomposition.
+      val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+      val downloadedModelNames = remember(modelManagerUiState) {
+        modelManagerViewModel.getAllDownloadedModels().map { it.name }
+      }
       val toastReloadPending = stringResource(R.string.toast_settings_saved_reload_pending)
       val toastRestarting = stringResource(R.string.toast_server_restarting)
       SettingsScreen(

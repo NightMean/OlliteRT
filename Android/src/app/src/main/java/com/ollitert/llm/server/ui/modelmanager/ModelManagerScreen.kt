@@ -607,11 +607,17 @@ fun ModelManagerScreen(
     )
   }
 
+  // Name lookups for dialog validation — derived once per model-list change
+  // instead of rebuilding sets on every recomposition.
+  val importedModelNames = remember(importedModels) { importedModels.map { it.name }.toSet() }
+  val allowlistModelNames =
+    remember(uiState.models) { uiState.models.filter { !it.imported }.map { it.name }.toSet() }
+
   ModelManagerDialogs(
     state = dialogState,
     viewModel = viewModel,
-    importedModelNames = importedModels.map { it.name }.toSet(),
-    allowlistModelNames = uiState.models.filter { !it.imported }.map { it.name }.toSet(),
+    importedModelNames = importedModelNames,
+    allowlistModelNames = allowlistModelNames,
     snackbarHostState = snackbarHostState,
     serverStatus = serverStatus,
     activeModelName = activeModelName,
