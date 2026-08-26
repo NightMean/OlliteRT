@@ -243,6 +243,49 @@ class ModelLifecycle(
   internal fun hasActiveIdleCleanup(): Boolean = (idleCleanupFinished?.count ?: 0) > 0
 
   /**
+   * Emergency unload after an OutOfMemoryError on the serving path.
+   *
+   * Restores the invariant that all [defaultModel] writes hold [keepAliveLock] —
+   * this must never be done by mutating the field directly from an HTTP coroutine.
+   * The state transition mirrors the idle unload: null the reference, record the
+   * unloaded marker so the next admitted request auto-reloads via
+   * [reloadModelFromIdle], and publish the cleanup latch so a concurrent reloader
+   * waits for `Engine.close()` instead of racing it.
+   *
+   * If an inference is still running on this engine the whole operation is skipped:
+   * closing the engine underneath a live request would crash the process, while
+   * dropping only the reference would leave a half-torn-down engine that no path
+   * ever cleans up. The running request finishes normally and the ordinary
+   * lifecycle (keep-alive timeout / next load) owns teardown from there.
+   */
+  fun emergencyUnloadOnOom() {
+    synchronized(keepAliveLock) {
+      if (isDestroyed) return
+      val model = defaultModel ?: return
+      if (ServerMetrics.isInferring.value) {
+        Log.w(TAG, "OOM: inference still active on ${model.name}; skipping emergency unload")
+        return
+      }
+      Log.w(TAG, "OOM: emergency-unloading model ${model.name}")
+      keepAliveUnloadedRef.set(model.name to model.prefsKey)
+      defaultModel = null
+      modelCache.remove(model.name, model)
+      ServerMetrics.onModelIdleUnloaded()
+      val cleanupFinished = CountDownLatch(1)
+      idleCleanupFinished = cleanupFinished
+      // Native teardown outside the lock (Engine.close can take seconds); a
+      // concurrent reloader blocks via awaitIdleCleanup() until it completes.
+      lifecycleScope.launch {
+        try {
+          ServerLlmModelHelper.safeCleanup(model)
+        } finally {
+          cleanupFinished.countDown()
+        }
+      }
+    }
+  }
+
+  /**
    * Reset the keep-alive idle timer. Called after each inference completes.
    * If keep_alive is enabled, schedules a model unload after the configured idle duration.
    */

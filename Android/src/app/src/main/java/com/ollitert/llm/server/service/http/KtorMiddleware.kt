@@ -36,7 +36,6 @@ import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.ServerPrefs
-import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -420,8 +419,10 @@ private suspend fun withRequestLoggingBody(
     throw kotlinx.coroutines.CancellationException("Client disconnected")
   } catch (t: Throwable) {
     if (t is OutOfMemoryError) {
-      defaultModel?.let { ServerLlmModelHelper.safeCleanup(it) }
-      modelLifecycle.defaultModel = null
+      // Route through ModelLifecycle: the previous direct `defaultModel = null`
+      // write from this coroutine bypassed keepAliveLock and could close the
+      // engine underneath a concurrently inferring request.
+      modelLifecycle.emergencyUnloadOnOom()
       ServerMetrics.onServerError(t.message ?: "Out of memory")
     }
     val errorCategory = if (t is OutOfMemoryError) ErrorCategory.INFERENCE else ErrorCategory.SYSTEM
