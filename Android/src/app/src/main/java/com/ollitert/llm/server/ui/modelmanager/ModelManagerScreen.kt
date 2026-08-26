@@ -60,6 +60,8 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,14 +135,17 @@ fun ModelManagerScreen(
   // after the user grants permissions in system settings and returns to the app.
   val permissionState = rememberModelManagerPermissionState(context)
 
-  // Search, filter, and sort state
-  var searchQuery by remember { mutableStateOf("") }
-  var activeFilter by remember { mutableStateOf(ModelFilter.ALL) }
-  var activeCapabilities by remember { mutableStateOf(emptySet<CapabilityFilter>()) }
-  var showMoreFilters by remember { mutableStateOf(false) }
-  var activeSort by remember { mutableStateOf(ModelSort.DEFAULT) }
-  var sortAscending by remember { mutableStateOf(true) }
-  var showSortDropdown by remember { mutableStateOf(false) }
+  // Search, filter, and sort state — rememberSaveable so the user's filters
+  // survive rotation and process death (they represent explicit intent).
+  var searchQuery by rememberSaveable { mutableStateOf("") }
+  var activeFilter by rememberSaveable { mutableStateOf(ModelFilter.ALL) }
+  var activeCapabilities by rememberSaveable(stateSaver = capabilitySetSaver) {
+    mutableStateOf(emptySet<CapabilityFilter>())
+  }
+  var showMoreFilters by rememberSaveable { mutableStateOf(false) }
+  var activeSort by rememberSaveable { mutableStateOf(ModelSort.DEFAULT) }
+  var sortAscending by rememberSaveable { mutableStateOf(true) }
+  var showSortDropdown by rememberSaveable { mutableStateOf(false) }
   val focusManager = LocalFocusManager.current
 
   // Derive model lists reactively from uiState — any change to the flat model list or download
@@ -635,3 +640,12 @@ private fun modelMatchesCapabilityFilters(model: Model, caps: Set<CapabilityFilt
   if (caps.isEmpty()) return true
   return caps.all { it.capability in model.capabilities }
 }
+
+/** Persists capability-filter selections across rotation and process death. */
+private val capabilitySetSaver =
+  listSaver<Set<CapabilityFilter>, String>(
+    save = { set -> set.map { filter -> filter.name } },
+    restore = { saved ->
+      saved.mapNotNull { name -> CapabilityFilter.entries.firstOrNull { it.name == name } }.toSet()
+    },
+  )
