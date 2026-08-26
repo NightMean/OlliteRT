@@ -66,6 +66,32 @@ import javax.inject.Singleton
 private const val TAG = "OlliteRT.DownloadRepo"
 private const val MODEL_NAME_TAG = "modelName"
 
+/** Serializes the stable worker-input contract for one model download. */
+internal fun buildDownloadRequestData(model: Model): Data {
+  val builder =
+    Data.Builder()
+      .putString(KEY_MODEL_NAME, model.name)
+      .putString(KEY_MODEL_URL, model.url)
+      .putString(KEY_MODEL_COMMIT_HASH, model.version)
+      .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
+      .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
+      .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
+      .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
+      // Model.preProcess() defines totalBytes as the main file plus every extra file.
+      .putLong(KEY_MODEL_TOTAL_BYTES, model.totalBytes)
+
+  if (model.extraDataFiles.isNotEmpty()) {
+    builder
+      .putString(KEY_MODEL_EXTRA_DATA_URLS, model.extraDataFiles.joinToString(",") { it.url })
+      .putString(
+        KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
+        model.extraDataFiles.joinToString(",") { it.downloadFileName },
+      )
+  }
+  model.accessToken?.let { builder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, it) }
+  return builder.build()
+}
+
 /**
  * Repository for managing model downloads using WorkManager.
  *
@@ -84,32 +110,7 @@ class DownloadRepository @Inject constructor(
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
-    // Create input data.
-    val builder = Data.Builder()
-    val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
-    val inputDataBuilder =
-      builder
-        .putString(KEY_MODEL_NAME, model.name)
-        .putString(KEY_MODEL_URL, model.url)
-        .putString(KEY_MODEL_COMMIT_HASH, model.version)
-        .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
-        .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
-        .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
-        .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
-        .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
-
-    if (model.extraDataFiles.isNotEmpty()) {
-      inputDataBuilder
-        .putString(KEY_MODEL_EXTRA_DATA_URLS, model.extraDataFiles.joinToString(",") { it.url })
-        .putString(
-          KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
-          model.extraDataFiles.joinToString(",") { it.downloadFileName },
-        )
-    }
-    if (model.accessToken != null) {
-      inputDataBuilder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.accessToken)
-    }
-    val inputData = inputDataBuilder.build()
+    val inputData = buildDownloadRequestData(model)
 
     // Create worker request.
     val downloadWorkRequest =
@@ -163,11 +164,10 @@ class DownloadRepository @Inject constructor(
     // Carry last RUNNING progress into FAILED so the UI can show "failed at 47%"
     // and offer a Retry that resumes from the existing .tmp instead of starting over.
     var lastReceivedBytes = 0L
-    // Must match the worker's cumulative numerator: receivedBytes accumulates the
-    // main file AND extra data files, so the denominator includes them too —
-    // otherwise progress can exceed 100% for multi-file models.
-    val totalBytesWithExtras = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
-    var lastTotalBytes = totalBytesWithExtras
+    // Must match the worker's cumulative numerator. Model.totalBytes already includes
+    // both the main file and every extra data file.
+    val totalDownloadBytes = model.totalBytes
+    var lastTotalBytes = totalDownloadBytes
     observer = androidx.lifecycle.Observer { workInfo ->
       if (workInfo != null) {
         when (workInfo.state) {
@@ -183,12 +183,12 @@ class DownloadRepository @Inject constructor(
             if (!startUnzipping) {
               if (receivedBytes != 0L) {
                 lastReceivedBytes = receivedBytes
-                lastTotalBytes = totalBytesWithExtras
+                lastTotalBytes = totalDownloadBytes
                 onStatusUpdated(
                   model,
                   ModelDownloadStatus(
                     status = ModelDownloadStatusType.IN_PROGRESS,
-                    totalBytes = totalBytesWithExtras,
+                    totalBytes = totalDownloadBytes,
                     receivedBytes = receivedBytes,
                     bytesPerSecond = downloadRate,
                   ),
