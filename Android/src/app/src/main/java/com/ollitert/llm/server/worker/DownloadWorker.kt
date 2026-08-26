@@ -295,13 +295,18 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               connection.disconnect()
             }
 
-            // Rename the tmp file to the original file name by removing the tmp file ext.
-            val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")
+            // Finalize the tmp file under its real name. An unchecked rename
+            // failure here previously produced Result.success() with no final
+            // file on disk — a "phantom downloaded" model. Fail loudly instead;
+            // the .tmp is kept so a retry can resume.
+            val originalFilePath = outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT")
             val originalFile = File(originalFilePath)
-            if (originalFile.exists()) {
-              originalFile.delete()
+            if (originalFile.exists() && !originalFile.delete()) {
+              throw IOException("Failed to replace existing file before finalize: ${originalFile.absolutePath}")
             }
-            outputTmpFile.renameTo(originalFile)
+            if (!outputTmpFile.renameTo(originalFile)) {
+              throw IOException("Failed to finalize downloaded file: ${originalFile.absolutePath}")
+            }
             Log.d(TAG, "Download done")
 
             // Unzip if the downloaded file is a zip.
