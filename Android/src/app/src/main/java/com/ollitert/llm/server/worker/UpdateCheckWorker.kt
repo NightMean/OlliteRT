@@ -470,9 +470,14 @@ class UpdateCheckWorker @AssistedInject constructor(
         .setInitialDelay(1, TimeUnit.HOURS)
         .build()
 
+      // UPDATE (not REPLACE): this runs on every app open, and REPLACE resets the
+      // periodic timer each time — on a frequently used device background checks
+      // would be postponed indefinitely. UPDATE applies constraint/interval
+      // changes (e.g. after the user edits the interval setting) while keeping
+      // the original next-run schedule.
       WorkManager.getInstance(context).enqueueUniquePeriodicWork(
         WORK_NAME,
-        ExistingPeriodicWorkPolicy.REPLACE,
+        ExistingPeriodicWorkPolicy.UPDATE,
         request,
       )
     }
