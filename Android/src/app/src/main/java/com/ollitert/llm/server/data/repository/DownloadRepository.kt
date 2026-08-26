@@ -172,7 +172,11 @@ class DownloadRepository @Inject constructor(
     // Carry last RUNNING progress into FAILED so the UI can show "failed at 47%"
     // and offer a Retry that resumes from the existing .tmp instead of starting over.
     var lastReceivedBytes = 0L
-    var lastTotalBytes = model.totalBytes
+    // Must match the worker's cumulative numerator: receivedBytes accumulates the
+    // main file AND extra data files, so the denominator includes them too —
+    // otherwise progress can exceed 100% for multi-file models.
+    val totalBytesWithExtras = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
+    var lastTotalBytes = totalBytesWithExtras
     observer = androidx.lifecycle.Observer { workInfo ->
       if (workInfo != null) {
         when (workInfo.state) {
@@ -190,12 +194,12 @@ class DownloadRepository @Inject constructor(
             if (!startUnzipping) {
               if (receivedBytes != 0L) {
                 lastReceivedBytes = receivedBytes
-                lastTotalBytes = model.totalBytes
+                lastTotalBytes = totalBytesWithExtras
                 onStatusUpdated(
                   model,
                   ModelDownloadStatus(
                     status = ModelDownloadStatusType.IN_PROGRESS,
-                    totalBytes = model.totalBytes,
+                    totalBytes = totalBytesWithExtras,
                     receivedBytes = receivedBytes,
                     bytesPerSecond = downloadRate,
                   ),
