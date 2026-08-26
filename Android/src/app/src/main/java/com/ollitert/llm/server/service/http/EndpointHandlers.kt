@@ -112,7 +112,7 @@ class EndpointHandlers(
    * convert its request to ChatRequest and reuse the entire prompt-compaction →
    * inference → response-shaping flow without duplicating logic.
    */
-  suspend fun runChatCompletion(
+  internal suspend fun runChatCompletion(
     req: ChatRequest,
     captureResponse: (String) -> Unit = {},
     logId: String? = null,
@@ -123,8 +123,7 @@ class EndpointHandlers(
     useAnthropicStream: Boolean = false,
     enableThinkingOverride: Boolean? = null,
     thinkingBudgetTokens: Int? = null,
-    matchedStopSequenceSink: (String?) -> Unit = {},
-  ): HttpResponse = chatCompletionsHandler.runChatCompletion(
+  ): ChatCompletionExecution = chatCompletionsHandler.runChatCompletion(
     req = req,
     captureResponse = captureResponse,
     logId = logId,
@@ -135,7 +134,6 @@ class EndpointHandlers(
     useAnthropicStream = useAnthropicStream,
     enableThinkingOverride = enableThinkingOverride,
     thinkingBudgetTokens = thinkingBudgetTokens,
-    matchedStopSequenceSink = matchedStopSequenceSink,
   )
 
   // ── /v1/completions ──────────────────────────────────────────────────────

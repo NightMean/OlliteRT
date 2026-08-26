@@ -21,6 +21,10 @@ import com.ollitert.llm.server.service.http.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -92,6 +96,78 @@ class AnthropicEndpointReshapeTest {
     )
     assertEquals(200, resp.statusCode)
     val root = json.parseToJsonElement(resp.body).jsonObject
+    assertEquals("stop_sequence", root["stop_reason"]!!.jsonPrimitive.content)
+    assertEquals("END", root["stop_sequence"]!!.jsonPrimitive.content)
+  }
+
+  @Test
+  fun messagesThinkingBudgetReachesChatPipeline() = runTest {
+    val endpointHandlers = mockk<EndpointHandlers>(relaxed = true)
+    coEvery {
+      endpointHandlers.runChatCompletion(
+        req = any(),
+        captureResponse = any(),
+        logId = any(),
+        prefs = any(),
+        suppressPerModelSystem = any(),
+        bodyLength = any(),
+        endpoint = any(),
+        useAnthropicStream = any(),
+        enableThinkingOverride = any(),
+        thinkingBudgetTokens = any(),
+      )
+    } returns ChatCompletionExecution(httpBadRequest("test"))
+    val handler = AnthropicEndpointHandlers(json, endpointHandlers) { "request-1" }
+
+    handler.handleMessages(
+      body = """{"model":"local","max_tokens":64,"messages":[{"role":"user","content":"hello"}],"thinking":{"type":"enabled","budget_tokens":1024}}""",
+    )
+
+    coVerify(exactly = 1) {
+      endpointHandlers.runChatCompletion(
+        req = any(),
+        captureResponse = any(),
+        logId = null,
+        prefs = any(),
+        suppressPerModelSystem = false,
+        bodyLength = any(),
+        endpoint = "/v1/messages",
+        useAnthropicStream = false,
+        enableThinkingOverride = true,
+        thinkingBudgetTokens = 1024,
+      )
+    }
+  }
+
+  @Test
+  fun messagesUsesCompletionStopMetadataForWireAndCapturedResponse() = runTest {
+    val endpointHandlers = mockk<EndpointHandlers>()
+    val oai =
+      """{"id":"chatcmpl-1","model":"resolved","choices":[{"index":0,"message":{"role":"assistant","content":"hello "},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}"""
+    coEvery {
+      endpointHandlers.runChatCompletion(
+        req = any(),
+        captureResponse = any(),
+        logId = any(),
+        prefs = any(),
+        suppressPerModelSystem = any(),
+        bodyLength = any(),
+        endpoint = any(),
+        useAnthropicStream = any(),
+        enableThinkingOverride = any(),
+        thinkingBudgetTokens = any(),
+      )
+    } returns ChatCompletionExecution(HttpResponse.Json(200, oai), matchedStopSequence = "END")
+    val handler = AnthropicEndpointHandlers(json, endpointHandlers) { "request-1" }
+    var captured = ""
+
+    val response = handler.handleMessages(
+      body = """{"model":"local","max_tokens":64,"messages":[{"role":"user","content":"hello"}],"stop_sequences":["END"]}""",
+      captureResponse = { captured = it },
+    ) as HttpResponse.Json
+
+    assertEquals(response.body, captured)
+    val root = json.parseToJsonElement(response.body).jsonObject
     assertEquals("stop_sequence", root["stop_reason"]!!.jsonPrimitive.content)
     assertEquals("END", root["stop_sequence"]!!.jsonPrimitive.content)
   }

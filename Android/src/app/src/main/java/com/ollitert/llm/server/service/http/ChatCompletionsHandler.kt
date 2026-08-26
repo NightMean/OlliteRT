@@ -30,6 +30,12 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+/** Result of the shared chat pipeline, including protocol-neutral completion metadata. */
+internal data class ChatCompletionExecution(
+  val response: HttpResponse,
+  val matchedStopSequence: String? = null,
+)
+
 internal class ChatCompletionsHandler(
   private val context: Context,
   private val json: Json,
@@ -60,7 +66,7 @@ internal class ChatCompletionsHandler(
       suppressPerModelSystem = false,
       bodyLength = body.length,
       endpoint = "/v1/chat/completions",
-    )
+    ).response
   }
 
   /**
@@ -91,24 +97,20 @@ internal class ChatCompletionsHandler(
     // OpenAI frequency/presence penalties, already gated and clamped by the caller.
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
-    // Invoked with the stop string that truncated the completion (null when none
-    // matched) before the response is captured, so protocol re-shapers that run
-    // inside captureResponse (Anthropic /v1/messages) can observe it in time.
-    matchedStopSequenceSink: (String?) -> Unit = {},
-  ): HttpResponse {
+  ): ChatCompletionExecution {
     val requestId = nextRequestId()
     validateNParam(req.n)?.let { (param, msg) ->
       logEvent("request_rejected id=$requestId endpoint=$endpoint param=$param value=${req.n}")
-      return httpBadRequest(msg)
+      return ChatCompletionExecution(httpBadRequest(msg))
     }
     val toolChoiceStr = PromptBuilder.resolveToolChoice(req.tool_choice)
     if (req.tools.isNullOrEmpty() && toolChoiceStr == "required") {
-      return httpBadRequest("tool_choice required but tools empty")
+      return ChatCompletionExecution(httpBadRequest("tool_choice required but tools empty"))
     }
     val requestedId = BridgeUtils.resolveRequestedModelId(req.model)
     val model = when (val sel = modelLifecycle.selectModel(req.model)) {
       is ModelLifecycle.ModelSelection.Ok -> sel.model
-      is ModelLifecycle.ModelSelection.Error -> return sel.toHttpResponse()
+      is ModelLifecycle.ModelSelection.Error -> return ChatCompletionExecution(sel.toHttpResponse())
     }
     // Build prompt with progressive compaction if context window is exceeded.
     // Two independent toggles: "Truncate History" (drop older messages) and
@@ -176,7 +178,9 @@ internal class ChatCompletionsHandler(
 
     if (prompt.isBlank() && images.isEmpty() && audioClips.isEmpty()) {
       logEvent("request_empty id=$requestId endpoint=$endpoint")
-      return emptyChatResponse(model.name, stream = req.stream == true, logId = logId)
+      return ChatCompletionExecution(
+        emptyChatResponse(model.name, stream = req.stream == true, logId = logId)
+      )
     }
 
     // KV-cache reuse detection. LiteRT's Conversation API renders the prompt
@@ -259,58 +263,62 @@ internal class ChatCompletionsHandler(
     }
     return if (req.stream == true) {
       if (useAnthropicStream) {
-        inferenceRunner.streamMessagesLlm(
-          model = model,
-          prompt = prompt,
-          requestId = requestId,
-          endpoint = endpoint,
-          timeoutSeconds = ServerPrefs.getTimeoutChatCompletions(context),
-          images = images,
-          audioClips = audioClips,
-          logId = logId,
-          stopSequences = stopSeqs,
-          tools = if (hasTools) tools else null,
-          configSnapshot = sampler,
-          prefs = prefs,
-          schemaInjectionProviders = schemaInjectionProviders,
-          schemaInjectionMessages = schemaInjectionMessages,
-          suppressPerModelSystem = suppressPerModelSystem,
-          enableThinkingOverride = enableThinkingOverride,
-          thinkingBudgetTokens = thinkingBudgetTokens,
-          frequencyPenalty = frequencyPenalty,
-          presencePenalty = presencePenalty,
-        maxOutputToken = effectiveMaxTokens,
-          requestModelId = requestedId,
-          prepareConversation = prepareConversation,
-          onConversationFinished = cachePublication::finish,
+        ChatCompletionExecution(
+          response = inferenceRunner.streamMessagesLlm(
+            model = model,
+            prompt = prompt,
+            requestId = requestId,
+            endpoint = endpoint,
+            timeoutSeconds = ServerPrefs.getTimeoutChatCompletions(context),
+            images = images,
+            audioClips = audioClips,
+            logId = logId,
+            stopSequences = stopSeqs,
+            tools = if (hasTools) tools else null,
+            configSnapshot = sampler,
+            prefs = prefs,
+            schemaInjectionProviders = schemaInjectionProviders,
+            schemaInjectionMessages = schemaInjectionMessages,
+            suppressPerModelSystem = suppressPerModelSystem,
+            enableThinkingOverride = enableThinkingOverride,
+            thinkingBudgetTokens = thinkingBudgetTokens,
+            frequencyPenalty = frequencyPenalty,
+            presencePenalty = presencePenalty,
+            maxOutputToken = effectiveMaxTokens,
+            requestModelId = requestedId,
+            prepareConversation = prepareConversation,
+            onConversationFinished = cachePublication::finish,
+          )
         )
       } else {
-        inferenceRunner.streamChatLlm(
-          model = model,
-          prompt = prompt,
-          requestId = requestId,
-          endpoint = endpoint,
-          timeoutSeconds = ServerPrefs.getTimeoutChatCompletions(context),
-          images = images,
-          audioClips = audioClips,
-          logId = logId,
-          includeUsage = includeUsage,
-          stopSequences = stopSeqs,
-          tools = if (hasTools) tools else null,
-          configSnapshot = sampler,
-          json = json,
-          prefs = prefs,
-          schemaInjectionProviders = schemaInjectionProviders,
-          schemaInjectionMessages = schemaInjectionMessages,
-          suppressPerModelSystem = suppressPerModelSystem,
-          enableThinkingOverride = enableThinkingOverride,
-          thinkingBudgetTokens = thinkingBudgetTokens,
-          frequencyPenalty = frequencyPenalty,
-          presencePenalty = presencePenalty,
-        maxOutputToken = effectiveMaxTokens,
-          prepareConversation = prepareConversation,
-          onConversationFinished = cachePublication::finish,
-          responseFormatSchema = responseFormatSchema,
+        ChatCompletionExecution(
+          response = inferenceRunner.streamChatLlm(
+            model = model,
+            prompt = prompt,
+            requestId = requestId,
+            endpoint = endpoint,
+            timeoutSeconds = ServerPrefs.getTimeoutChatCompletions(context),
+            images = images,
+            audioClips = audioClips,
+            logId = logId,
+            includeUsage = includeUsage,
+            stopSequences = stopSeqs,
+            tools = if (hasTools) tools else null,
+            configSnapshot = sampler,
+            json = json,
+            prefs = prefs,
+            schemaInjectionProviders = schemaInjectionProviders,
+            schemaInjectionMessages = schemaInjectionMessages,
+            suppressPerModelSystem = suppressPerModelSystem,
+            enableThinkingOverride = enableThinkingOverride,
+            thinkingBudgetTokens = thinkingBudgetTokens,
+            frequencyPenalty = frequencyPenalty,
+            presencePenalty = presencePenalty,
+            maxOutputToken = effectiveMaxTokens,
+            prepareConversation = prepareConversation,
+            onConversationFinished = cachePublication::finish,
+            responseFormatSchema = responseFormatSchema,
+          )
         )
       }
     } else {
@@ -342,10 +350,10 @@ internal class ChatCompletionsHandler(
       )
       if (rawText == null) {
         cachePublication.finish(isConversationReusable = false)
-        return handleBlockingInferenceError(llmError, logId, context)
+        return ChatCompletionExecution(handleBlockingInferenceError(llmError, logId, context))
       }
       val (text, stopSequenceTriggered, matchedStopSequence) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
-      matchedStopSequenceSink(matchedStopSequence.takeIf { stopSequenceTriggered })
+      val completionStopSequence = matchedStopSequence.takeIf { stopSequenceTriggered }
 
       val promptTokens = estimateTokens(prompt)
 
@@ -372,7 +380,7 @@ internal class ChatCompletionsHandler(
               text
             },
           )
-          return httpOkJson(responseJson)
+          return ChatCompletionExecution(httpOkJson(responseJson), completionStopSequence)
         }
       }
 
@@ -398,7 +406,7 @@ internal class ChatCompletionsHandler(
           text
         },
       )
-      httpOkJson(responseJson)
+      ChatCompletionExecution(httpOkJson(responseJson), completionStopSequence)
     }
   }
 

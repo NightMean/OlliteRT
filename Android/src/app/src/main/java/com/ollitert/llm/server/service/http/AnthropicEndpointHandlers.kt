@@ -67,38 +67,8 @@ class AnthropicEndpointHandlers(
     ServerMetrics.incrementMessagesRequests()
 
     val requestId = nextRequestId()
-    // Filled by the matchedStopSequenceSink callback just before the core pipeline
-    // captures the response, so both the log adapter and the final reshape below
-    // observe the same stop string (null when no stop sequence truncated the output).
-    val matchedStopRef = arrayOf<String?>(null)
-    val anthropicAdapter: (String) -> Unit = { oaiBody ->
-      val translated = try {
-        AnthropicConverter.toAnthropicResponse(
-          json = json,
-          oaiResponseBody = oaiBody,
-          requestedModelId = anthropicReq.model ?: "local",
-          requestId = requestId,
-          matchedStopSequence = matchedStopRef[0],
-        )
-      } catch (e: AnthropicConversionError) {
-        // Fall back to a synthetic Anthropic error envelope so the captured log
-        // and the wire response stay consistent.
-        ResponseRenderer.renderAnthropicError(e.errorType, e.message)
-      } catch (e: Exception) {
-        // Unexpected reshape failure (kotlinx.serialization type mismatch, etc.).
-        // Surface the message so the failure mode is visible in the logs and to
-        // the client instead of bubbling out of the handler as a generic 500.
-        ResponseRenderer.renderAnthropicError(
-          "api_error",
-          "Failed to re-shape upstream response: ${e.message ?: e.javaClass.simpleName}",
-        )
-      }
-      captureResponse(translated)
-    }
-
-    val response = endpointHandlers.runChatCompletion(
+    val execution = endpointHandlers.runChatCompletion(
       req = convertedReq,
-      captureResponse = anthropicAdapter,
       logId = logId,
       prefs = prefs,
       suppressPerModelSystem = anthropicReq.system != null,
@@ -106,17 +76,26 @@ class AnthropicEndpointHandlers(
       endpoint = "/v1/messages",
       useAnthropicStream = anthropicReq.stream == true,
       enableThinkingOverride = resolveThinkingOverride(anthropicReq.thinking),
-      matchedStopSequenceSink = { matchedStopRef[0] = it },
+      thinkingBudgetTokens = resolveThinkingBudget(anthropicReq.thinking),
     )
 
-    return when (response) {
-      is HttpResponse.Json ->
+    return when (val response = execution.response) {
+      is HttpResponse.Json -> {
         // Non-streaming success AND pre-stream failures both land here. Success
         // bodies are re-shaped OAI chat responses; non-200 bodies are OAI-shaped
         // errors from runChatCompletion (model selection, validation, busy server)
         // that must be converted even when the client asked for streaming —
         // Anthropic SDKs reject the OpenAI envelope on /v1/messages.
-        reshapeAnthropicJsonResponse(json, response, anthropicReq.model ?: "local", requestId, matchedStopRef[0])
+        val reshaped = reshapeAnthropicJsonResponse(
+          json,
+          response,
+          anthropicReq.model ?: "local",
+          requestId,
+          execution.matchedStopSequence,
+        )
+        captureResponse(reshaped.body)
+        reshaped
+      }
       // SSE responses already carry Anthropic-shaped events because runChatCompletion
       // dispatched to streamMessagesLlm when useAnthropicStream was true.
       else -> response
