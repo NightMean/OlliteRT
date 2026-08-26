@@ -247,7 +247,8 @@ class SettingsViewModel @Inject constructor(
   }
 
   /** Whether a setting is interactive (not disabled by a parent dependency).
-   *  Keys must match SettingDef.key values. Update settingAlpha() in tandem. */
+   *  Keys must match SettingDef.key values. Single source of truth for both
+   *  enablement and the dimmed-alpha rendering below. */
   fun isSettingEnabled(key: String): Boolean = when (key) {
     "custom_bind_address" -> ServerBindMode.fromPreference(serverBindModeEntry.current) == ServerBindMode.CUSTOM
     "client_ip_rules" -> ClientIpPolicyMode.fromPreference(clientIpPolicyModeEntry.current) != ClientIpPolicyMode.ALLOW_ALL
@@ -259,16 +260,10 @@ class SettingsViewModel @Inject constructor(
     else -> true
   }
 
-  /** Alpha for settings that dim when their parent is disabled.
-   *  Must stay in sync with isSettingEnabled() above. */
-  fun settingAlpha(key: String): Float = when (key) {
-    "custom_bind_address" -> if (isSettingEnabled(key)) 1f else 0.4f
-    "client_ip_rules" -> if (isSettingEnabled(key)) 1f else 0.4f
-    "start_on_boot" -> if (defaultModelEntry.current != null) 1f else 0.4f
-    "keep_alive_timeout" -> if (keepAliveEnabledEntry.current) 1f else 0.4f
-    "log_max_entries", "log_auto_delete", "clear_all_logs" -> if (logPersistenceEnabledEntry.current) 1f else 0.4f
-    else -> 1f
-  }
+  /** Alpha for settings that dim when their parent dependency is disabled.
+   *  Deliberately derived from [isSettingEnabled] so the dependency rules
+   *  cannot drift between the enabled flag and the visual state. */
+  fun settingAlpha(key: String): Float = if (isSettingEnabled(key)) 1f else 0.4f
 
   /** Generates a new random bearer token for the server config UI. */
   fun generateBearerToken(): String = BridgeUtils.generateBearerToken()
