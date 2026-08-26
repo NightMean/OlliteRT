@@ -90,6 +90,18 @@ object PromptCompactor {
 
     val strategies = mutableListOf<String>()
     var currentMessages = messages
+    // Prompt for the fully-truncated "system + last 1 non-system message" list,
+    // set once strategy 1 exhausts the search without fitting. Reused by the
+    // trim/best-effort paths instead of rebuilding the identical string.
+    var tailPrompt: String? = null
+
+    /** Single place choosing the builder so all compaction variants stay consistent. */
+    fun buildPrompt(msgs: List<ChatMessage>): String =
+      if (hasTools) {
+        PromptBuilder.buildToolAwarePrompt(msgs, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
+      } else {
+        PromptBuilder.buildChatPrompt(msgs, chatTemplate, interleaveImagePlaceholders)
+      }
 
     // --- Strategy 1: Conversation history truncation ---
     // Keep system/developer messages at their original positions + last N non-system messages
@@ -98,33 +110,43 @@ object PromptCompactor {
       val nonSystemMsgs = messages.filter { it.role != "system" && it.role != "developer" }
 
       if (nonSystemMsgs.size > 1) {
-        // Try progressively fewer non-system messages until the prompt fits
-        for (keep in (nonSystemMsgs.size - 1) downTo 1) {
-          val truncatedMsgs = systemMsgs + nonSystemMsgs.takeLast(keep)
-          val candidate = if (hasTools) {
-            PromptBuilder.buildToolAwarePrompt(truncatedMsgs, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
-          } else {
-            PromptBuilder.buildChatPrompt(truncatedMsgs, chatTemplate, interleaveImagePlaceholders)
-          }
+        // Binary search for the largest keep-count whose prompt fits — the
+        // "fits" predicate is monotone in keep (fewer kept messages can only
+        // shorten the prompt), so this finds the same point as a descending
+        // linear scan while building O(log n) candidates instead of O(n).
+        // The naive version rebuilt every candidate from scratch each step:
+        // O(messages²) total string building on oversized prompts.
+        var fitKeep = -1
+        var fitCandidate: String? = null
+        var lo = 1
+        var hi = nonSystemMsgs.size - 1
+        while (lo <= hi) {
+          val mid = (lo + hi) / 2
+          val candidate = buildPrompt(systemMsgs + nonSystemMsgs.takeLast(mid))
           if (estimateTokens(candidate) <= maxContext) {
-            val dropped = nonSystemMsgs.size - keep
-            strategies.add("truncated:-$dropped msgs")
-            return CompactionResult(candidate, true, strategies)
+            fitKeep = mid
+            fitCandidate = candidate
+            lo = mid + 1
+          } else {
+            hi = mid - 1
           }
+        }
+        if (fitKeep > 0) {
+          strategies.add("truncated:-${nonSystemMsgs.size - fitKeep} msgs")
+          return CompactionResult(fitCandidate!!, true, strategies)
         }
         // Even keeping just 1 non-system message didn't fit — continue with truncated list
         currentMessages = systemMsgs + nonSystemMsgs.takeLast(1)
+        tailPrompt = buildPrompt(currentMessages)
         strategies.add("truncated:-${nonSystemMsgs.size - 1} msgs")
       }
     }
 
     // --- Strategy 2: Prompt trimming ---
     if (trimPrompts) {
-      val currentPrompt = if (hasTools) {
-        PromptBuilder.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
-      } else {
-        PromptBuilder.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
-      }
+      // If strategy 1 ran, currentMessages changed and its prompt is tailPrompt;
+      // otherwise nothing changed and the already-built fullPrompt is still exact.
+      val currentPrompt = tailPrompt ?: fullPrompt
 
       val maxChars = maxContext * 4
       if (currentPrompt.length > maxChars) {
@@ -136,11 +158,7 @@ object PromptCompactor {
     }
 
     // Compaction strategies exhausted or not enabled — return best effort
-    val bestPrompt = if (hasTools) {
-      PromptBuilder.buildToolAwarePrompt(currentMessages, tools, toolChoice, chatTemplate, interleaveImagePlaceholders = interleaveImagePlaceholders)
-    } else {
-      PromptBuilder.buildChatPrompt(currentMessages, chatTemplate, interleaveImagePlaceholders)
-    }
+    val bestPrompt = tailPrompt ?: fullPrompt
     return CompactionResult(bestPrompt, strategies.isNotEmpty(), strategies)
   }
 
@@ -177,6 +195,7 @@ object PromptCompactor {
     }
 
     val strategies = mutableListOf<String>()
+    var tailPrompt: String? = null
 
     // Strategy 1: Conversation history truncation
     if (truncateHistory) {
@@ -184,40 +203,40 @@ object PromptCompactor {
       val nonSystemMsgs = messages.filter { it.role != "system" && it.role != "developer" }
 
       if (nonSystemMsgs.size > 1) {
-        for (keep in (nonSystemMsgs.size - 1) downTo 1) {
-          val truncatedMsgs = systemMsgs + nonSystemMsgs.takeLast(keep)
-          val candidate = PromptBuilder.buildConversationPrompt(truncatedMsgs, chatTemplate)
+        // Binary search, mirroring compactChatPrompt: monotone fits-predicate,
+        // O(log n) candidate builds instead of a descending O(n) rebuild loop.
+        var fitKeep = -1
+        var fitCandidate: String? = null
+        var lo = 1
+        var hi = nonSystemMsgs.size - 1
+        while (lo <= hi) {
+          val mid = (lo + hi) / 2
+          val candidate = PromptBuilder.buildConversationPrompt(systemMsgs + nonSystemMsgs.takeLast(mid), chatTemplate)
           if (estimateTokens(candidate) <= maxContext) {
-            val dropped = nonSystemMsgs.size - keep
-            strategies.add("truncated:-$dropped msgs")
-            return CompactionResult(candidate, true, strategies)
+            fitKeep = mid
+            fitCandidate = candidate
+            lo = mid + 1
+          } else {
+            hi = mid - 1
           }
         }
+        if (fitKeep > 0) {
+          strategies.add("truncated:-${nonSystemMsgs.size - fitKeep} msgs")
+          return CompactionResult(fitCandidate!!, true, strategies)
+        }
         strategies.add("truncated:-${nonSystemMsgs.size - 1} msgs")
+        tailPrompt = PromptBuilder.buildConversationPrompt(systemMsgs + nonSystemMsgs.takeLast(1), chatTemplate)
       }
     }
 
     // Strategy 2: Prompt trimming (last resort)
     if (trimPrompts) {
-      val minPrompt = if (truncateHistory && messages.size > 1) {
-        val systemMsgs = messages.filter { it.role == "system" || it.role == "developer" }
-        val nonSystemMsgs = messages.filter { it.role != "system" && it.role != "developer" }
-        PromptBuilder.buildConversationPrompt(systemMsgs + nonSystemMsgs.takeLast(1), chatTemplate)
-      } else {
-        fullPrompt
-      }
+      val minPrompt = tailPrompt ?: fullPrompt
       return trimPrompt(minPrompt, maxContext, strategies)
     }
 
     // No more strategies — return best effort with whatever truncation was done
-    val bestPrompt = if (strategies.isNotEmpty()) {
-      val systemMsgs = messages.filter { it.role == "system" || it.role == "developer" }
-      val nonSystemMsgs = messages.filter { it.role != "system" && it.role != "developer" }
-      PromptBuilder.buildConversationPrompt(systemMsgs + nonSystemMsgs.takeLast(1), chatTemplate)
-    } else {
-      fullPrompt
-    }
-    return CompactionResult(bestPrompt, strategies.isNotEmpty(), strategies)
+    return CompactionResult(tailPrompt ?: fullPrompt, strategies.isNotEmpty(), strategies)
   }
 
   /**
