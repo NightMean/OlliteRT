@@ -69,14 +69,8 @@ class ModelCatalogMerger(
 
     // Migrate legacy single-file cache to per-repo naming.
     // Must run here too — service may start before the ViewModel.
+    migrateLegacyAllowlistCache(externalFilesDir)
     val officialFile = File(externalFilesDir, MODEL_ALLOWLIST_OFFICIAL_FILENAME)
-    val legacyFile = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
-    if (!officialFile.exists() && legacyFile.exists()) {
-      if (!legacyFile.renameTo(officialFile)) {
-        legacyFile.copyTo(officialFile, overwrite = true)
-        legacyFile.delete()
-      }
-    }
 
     val allModels = mutableListOf<AllowedModel>()
     var bestContentVersion = 0

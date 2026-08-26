@@ -93,15 +93,7 @@ class ModelListImportManager(
    */
   fun migrateDiskCacheIfNeeded() {
     val dir = context.getExternalFilesDir(null) ?: return
-    val officialFile = File(dir, MODEL_ALLOWLIST_OFFICIAL_FILENAME)
-    val legacyFile = File(dir, MODEL_ALLOWLIST_FILENAME)
-    if (!officialFile.exists() && legacyFile.exists()) {
-      if (legacyFile.renameTo(officialFile)) {
-        Log.d(TAG, "Migrated disk cache: $MODEL_ALLOWLIST_FILENAME → $MODEL_ALLOWLIST_OFFICIAL_FILENAME")
-      } else {
-        Log.e(TAG, "Failed to migrate disk cache")
-      }
-    }
+    migrateLegacyAllowlistCache(dir)
   }
 
   private suspend fun validateAndSave(body: String, repoUrl: String): String? {
@@ -146,5 +138,37 @@ class ModelListImportManager(
     )
     Log.d(TAG, "Imported model list as repo '$repoName' ($repoId) with ${allowlist.models.size} models")
     return null
+  }
+}
+
+
+/**
+ * Migrate the legacy single-file allowlist cache to per-repo naming.
+ *
+ * Single shared implementation - the two previous copies had already drifted:
+ * one gave up on a failed rename, the other fell back to copy+delete. This
+ * version keeps the copy+delete fallback (handles locked targets and
+ * cross-volume renames). Safe to call repeatedly: no-ops when already migrated
+ * or when there is nothing to migrate.
+ *
+ * @return true when a migration was performed, false when not needed or failed.
+ */
+internal fun migrateLegacyAllowlistCache(externalFilesDir: File): Boolean {
+  val officialFile = File(externalFilesDir, MODEL_ALLOWLIST_OFFICIAL_FILENAME)
+  val legacyFile = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
+  if (officialFile.exists() || !legacyFile.exists()) return false
+  if (legacyFile.renameTo(officialFile)) {
+    Log.d(TAG, "Migrated disk cache: $MODEL_ALLOWLIST_FILENAME -> $MODEL_ALLOWLIST_OFFICIAL_FILENAME")
+    return true
+  }
+  Log.w(TAG, "Legacy cache rename failed - falling back to copy+delete")
+  return try {
+    legacyFile.copyTo(officialFile, overwrite = true)
+    legacyFile.delete()
+    Log.d(TAG, "Migrated disk cache via copy+delete")
+    true
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to migrate legacy allowlist cache", e)
+    false
   }
 }
