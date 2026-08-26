@@ -123,6 +123,7 @@ class EndpointHandlers(
     useAnthropicStream: Boolean = false,
     enableThinkingOverride: Boolean? = null,
     thinkingBudgetTokens: Int? = null,
+    matchedStopSequenceSink: (String?) -> Unit = {},
   ): HttpResponse = chatCompletionsHandler.runChatCompletion(
     req = req,
     captureResponse = captureResponse,
@@ -134,6 +135,7 @@ class EndpointHandlers(
     useAnthropicStream = useAnthropicStream,
     enableThinkingOverride = enableThinkingOverride,
     thinkingBudgetTokens = thinkingBudgetTokens,
+    matchedStopSequenceSink = matchedStopSequenceSink,
   )
 
   // ── /v1/completions ──────────────────────────────────────────────────────

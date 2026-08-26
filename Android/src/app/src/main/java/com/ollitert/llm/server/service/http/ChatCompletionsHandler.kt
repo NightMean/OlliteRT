@@ -91,6 +91,10 @@ internal class ChatCompletionsHandler(
     // OpenAI frequency/presence penalties, already gated and clamped by the caller.
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
+    // Invoked with the stop string that truncated the completion (null when none
+    // matched) before the response is captured, so protocol re-shapers that run
+    // inside captureResponse (Anthropic /v1/messages) can observe it in time.
+    matchedStopSequenceSink: (String?) -> Unit = {},
   ): HttpResponse {
     val requestId = nextRequestId()
     validateNParam(req.n)?.let { (param, msg) ->
@@ -340,7 +344,8 @@ internal class ChatCompletionsHandler(
         cachePublication.finish(isConversationReusable = false)
         return handleBlockingInferenceError(llmError, logId, context)
       }
-      val (text, stopSequenceTriggered, _) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
+      val (text, stopSequenceTriggered, matchedStopSequence) = InferenceRunner.applyStopSequences(rawText, stopSeqs)
+      matchedStopSequenceSink(matchedStopSequence.takeIf { stopSequenceTriggered })
 
       val promptTokens = estimateTokens(prompt)
 

@@ -78,4 +78,21 @@ class AnthropicEndpointReshapeTest {
     assertEquals("message", root["type"]!!.jsonPrimitive.content)
     assertEquals("end_turn", root["stop_reason"]!!.jsonPrimitive.content)
   }
+
+  @Test
+  fun matchedStopSequenceYieldsStopSequenceReasonAndEcho() {
+    val oai =
+      """{"id":"chatcmpl-1","model":"resolved","choices":[{"index":0,"message":{"role":"assistant","content":"hello "},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}"""
+    val resp = reshapeAnthropicJsonResponse(
+      json = json,
+      response = HttpResponse.Json(200, oai),
+      requestedModelId = "requested-model",
+      requestId = "abc",
+      matchedStopSequence = "END",
+    )
+    assertEquals(200, resp.statusCode)
+    val root = json.parseToJsonElement(resp.body).jsonObject
+    assertEquals("stop_sequence", root["stop_reason"]!!.jsonPrimitive.content)
+    assertEquals("END", root["stop_sequence"]!!.jsonPrimitive.content)
+  }
 }

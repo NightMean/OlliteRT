@@ -67,6 +67,9 @@ class AnthropicEndpointHandlers(
     ServerMetrics.incrementMessagesRequests()
 
     val requestId = nextRequestId()
+    // Filled by the matchedStopSequenceSink callback just before the core pipeline
+    // captures the response, so both the log adapter and the final reshape below
+    // observe the same stop string (null when no stop sequence truncated the output).
     val matchedStopRef = arrayOf<String?>(null)
     val anthropicAdapter: (String) -> Unit = { oaiBody ->
       val translated = try {
@@ -103,7 +106,7 @@ class AnthropicEndpointHandlers(
       endpoint = "/v1/messages",
       useAnthropicStream = anthropicReq.stream == true,
       enableThinkingOverride = resolveThinkingOverride(anthropicReq.thinking),
-      thinkingBudgetTokens = resolveThinkingBudget(anthropicReq.thinking),
+      matchedStopSequenceSink = { matchedStopRef[0] = it },
     )
 
     return when (response) {
