@@ -16,83 +16,13 @@
 
 package com.ollitert.llm.server.service.http
 
-import com.ollitert.llm.server.service.*
-import com.ollitert.llm.server.service.http.*
-import com.ollitert.llm.server.service.inference.*
-import com.ollitert.llm.server.service.inference.*
-
-enum class LlmHttpRouteHandler {
-  PING,
-  HEALTH,
-  SERVER_INFO,
-  VERSION,
-  METRICS,
-  MODELS,
-  MODEL_DETAIL,
-  GENERATE,
-  COMPLETIONS,
-  CHAT_COMPLETIONS,
-  RESPONSES,
-  MESSAGES,
-  MESSAGES_COUNT_TOKENS,
-  SERVER_STOP,
-  SERVER_RELOAD,
-  SERVER_THINKING,
-  SERVER_CONFIG,
-  AUDIO_TRANSCRIPTION,
-  // TODO: Add SERVER_MODEL_SWITCH when multi-model support is implemented.
-  // Would accept { "model": "model-name" } to switch the active model via API,
-  // enabling HA automations like "switch to the small model at night to save battery".
-  // Blocked until the server decouples model lifecycle from server lifecycle and
-  // exposes all downloaded models.
-}
-
-data class Route(
-  val handler: LlmHttpRouteHandler,
-  val requiresAuth: Boolean,
-)
-
+/**
+ * Path-classification helpers for the serving middleware. Actual routing is
+ * declared with the Ktor routing DSL in `service/routes/`; these helpers exist
+ * for the pre-routing layers that only see a raw path (no parsed body) and must
+ * still tell protocols/endpoints apart.
+ */
 object RouteResolver {
-  fun isSupportedMethod(method: String): Boolean {
-    return method == "GET" || method == "POST" || method == "OPTIONS" || method == "HEAD"
-  }
-
-  fun resolve(method: String, rawUri: String): Route? {
-    val normalized = rawUri.replace("//", "/")
-    val uri = if (normalized.length > 1 && normalized.endsWith("/")) normalized.dropLast(1) else normalized
-    return when (method) {
-      "GET" ->
-        when {
-          uri == "/ping" -> Route(handler = LlmHttpRouteHandler.PING, requiresAuth = false)
-          uri == "/health" || uri == "/v1/health" -> Route(handler = LlmHttpRouteHandler.HEALTH, requiresAuth = false)
-          uri == "/" || uri == "/v1" -> Route(handler = LlmHttpRouteHandler.SERVER_INFO, requiresAuth = false)
-          uri == "/api/version" -> Route(handler = LlmHttpRouteHandler.VERSION, requiresAuth = false)
-          uri == "/metrics" -> Route(handler = LlmHttpRouteHandler.METRICS, requiresAuth = false)
-          uri == "/v1/models" || uri == "/debug/models" ->
-            Route(handler = LlmHttpRouteHandler.MODELS, requiresAuth = true)
-          uri.startsWith("/v1/models/") -> Route(handler = LlmHttpRouteHandler.MODEL_DETAIL, requiresAuth = true)
-          else -> null
-        }
-      "POST" ->
-        when (uri) {
-          "/generate" -> Route(handler = LlmHttpRouteHandler.GENERATE, requiresAuth = true)
-          "/v1/completions" -> Route(handler = LlmHttpRouteHandler.COMPLETIONS, requiresAuth = true)
-          "/v1/chat/completions" ->
-            Route(handler = LlmHttpRouteHandler.CHAT_COMPLETIONS, requiresAuth = true)
-          "/v1/responses" -> Route(handler = LlmHttpRouteHandler.RESPONSES, requiresAuth = true)
-          "/v1/messages" -> Route(handler = LlmHttpRouteHandler.MESSAGES, requiresAuth = true)
-          "/v1/messages/count_tokens" -> Route(handler = LlmHttpRouteHandler.MESSAGES_COUNT_TOKENS, requiresAuth = true)
-          "/v1/server/stop" -> Route(handler = LlmHttpRouteHandler.SERVER_STOP, requiresAuth = true)
-          "/v1/server/reload" -> Route(handler = LlmHttpRouteHandler.SERVER_RELOAD, requiresAuth = true)
-          "/v1/server/thinking" -> Route(handler = LlmHttpRouteHandler.SERVER_THINKING, requiresAuth = true)
-          "/v1/server/config" -> Route(handler = LlmHttpRouteHandler.SERVER_CONFIG, requiresAuth = true)
-          "/v1/audio/transcriptions" ->
-            Route(handler = LlmHttpRouteHandler.AUDIO_TRANSCRIPTION, requiresAuth = true)
-          else -> null
-        }
-      else -> null
-    }
-  }
 
   /**
    * True when the request targets an Anthropic-protocol endpoint (/v1/messages*).
