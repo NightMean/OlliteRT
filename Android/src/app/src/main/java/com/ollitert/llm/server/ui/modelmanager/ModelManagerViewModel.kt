@@ -494,12 +494,18 @@ constructor(
     return allowlistLoadCoordinator.isModelSupportedOnDevice(allowedModel)
   }
 
+  /** Active allowlist load; a new load supersedes (cancels) any previous one so
+   *  pull-to-refresh, retry, and navigation-triggered reloads cannot interleave
+   *  and land their final uiState updates out of order. */
+  private var allowlistLoadJob: kotlinx.coroutines.Job? = null
+
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
     _uiState.update {
       it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "", allReposDisabled = false)
     }
 
-    viewModelScope.launch(ioDispatcher) {
+    allowlistLoadJob?.cancel()
+    allowlistLoadJob = viewModelScope.launch(ioDispatcher) {
       val result = allowlistLoadCoordinator.loadAllowlist(
         isManualRetry = isManualRetry,
         onToastError = { msg -> _toastErrorChannel.trySend(msg) },
