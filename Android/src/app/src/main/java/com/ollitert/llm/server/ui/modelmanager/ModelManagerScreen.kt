@@ -89,7 +89,6 @@ import com.ollitert.llm.server.ui.modelmanager.components.ModelItem
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import kotlinx.coroutines.delay
 
-private const val TAG = "OlliteRT.ModelMgr"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

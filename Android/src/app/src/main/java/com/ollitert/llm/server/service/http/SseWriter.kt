@@ -19,7 +19,6 @@ package com.ollitert.llm.server.service.http
 import com.ollitert.llm.server.service.*
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
-import com.ollitert.llm.server.service.inference.*
 
 interface SseWriter {
   val isCancelled: Boolean

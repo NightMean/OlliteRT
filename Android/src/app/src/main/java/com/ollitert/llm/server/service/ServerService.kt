@@ -625,25 +625,6 @@ class ServerService : Service() {
     internal val pendingReloadAfterLoad = java.util.concurrent.atomic.AtomicReference<PendingReload?>(null)
 
     /**
-     * Queue a reload to execute automatically after the current model finishes loading.
-     * If the model is not currently loading, this is a no-op — use [reload] instead.
-     */
-
-
-
-
-    /**
-     * Tell the running service to re-read keep_alive prefs and reschedule (or cancel) the
-     * idle-unload timer. Called from SettingsScreen after saving keep_alive changes.
-     * Uses [Context.startService] (not startForegroundService) because the service is already
-     * in the foreground — this just delivers the intent without triggering a new foreground start.
-     */
-
-
-    /** Applies validated client admission rules without restarting the listener or model. */
-
-
-    /**
      * Update config values on the running service's model without reloading.
      * Used for non-reinitialization config changes (temperature, topK, topP, etc.).
      */

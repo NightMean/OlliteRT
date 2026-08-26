@@ -32,6 +32,7 @@ import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_FOREGROUND_UPDATE_INTERVAL_MS
@@ -488,7 +489,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val content = applicationContext.getString(R.string.download_notif_progress, progress)
 
     val intent =
-      Intent(applicationContext, Class.forName("com.ollitert.llm.server.MainActivity")).apply {
+      Intent(applicationContext, MainActivity::class.java).apply {
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
       }
     val pendingIntent =
