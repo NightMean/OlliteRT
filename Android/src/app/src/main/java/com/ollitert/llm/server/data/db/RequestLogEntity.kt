@@ -30,6 +30,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 private const val TAG = "OlliteRT.LogEntity"
+private const val MAX_DIAGNOSTIC_ID_CHARS = 80
+private val DIAGNOSTIC_CONTROL_CHARS = Regex("[\\p{Cc}\\p{Cf}]")
+
+/** Entry ids are useful correlation keys, but must stay bounded and single-line. */
+private fun diagnosticEntryId(id: String): String =
+  DIAGNOSTIC_CONTROL_CHARS.replace(id, "?").take(MAX_DIAGNOSTIC_ID_CHARS)
 
 /**
  * Room entity for persisted request logs.
@@ -99,15 +105,30 @@ data class RequestLogEntity(
     // failure here permanently erases the request/response bodies with no
     // trace. Log once per affected row (bounded by row count) and keep the
     // identity columns intact so the entry still appears in the list.
+    val safeEntryId = diagnosticEntryId(id)
     val ext = try {
       json.decodeFromString<ExtrasJson>(extras)
     } catch (e: Exception) {
-      Log.w(TAG, "Corrupt extras JSON for log entry $id (${extras.length} chars) — dropping bodies", e)
+      // Serialization exception messages often echo the malformed JSON. Log
+      // only allowlisted metadata so request/response bodies and credentials
+      // can never escape through the diagnostic path.
+      Log.w(
+        TAG,
+        "Corrupt extras JSON for log entry $safeEntryId " +
+          "(${extras.length} chars; ${e::class.java.simpleName}) — dropping bodies",
+      )
       ExtrasJson()
     }
     fun <T : Enum<T>> parseEnum(name: String, values: Array<T>, fallback: T): T =
       values.firstOrNull { it.name == name } ?: run {
-        Log.w(TAG, "Unknown ${fallback::class.java.simpleName} '$name' in log entry $id — using ${fallback.name}")
+        // The raw persisted value is external data and may contain secrets or
+        // log-injection characters. Its length is sufficient to diagnose a
+        // corrupt/forward-version row without persisting its content.
+        Log.w(
+          TAG,
+          "Unknown ${fallback::class.java.simpleName} value (${name.length} chars) " +
+            "in log entry $safeEntryId — using ${fallback.name}",
+        )
         fallback
       }
     return RequestLogEntry(
@@ -144,7 +165,10 @@ data class RequestLogEntity(
         try {
           ErrorKind.valueOf(kind)
         } catch (_: Exception) {
-          Log.w(TAG, "Unknown ErrorKind '$kind' in log entry $id — clearing")
+          Log.w(
+            TAG,
+            "Unknown ErrorKind value (${kind.length} chars) in log entry $safeEntryId — clearing",
+          )
           null
         }
       },

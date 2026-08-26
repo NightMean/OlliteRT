@@ -15,12 +15,16 @@
  */
 
 package com.ollitert.llm.server.data.db
+import android.util.Log
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.maxContextTokens
 
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -275,6 +279,45 @@ class RequestLogEntityTest {
   }
 
   @Test
+  fun corruptExtrasDiagnosticsDoNotExposePayloadOrThrowable() {
+    val secretMarker = "private-token-value"
+    val loggedMessages = mutableListOf<String>()
+    var loggedThrowable: Throwable? = null
+    mockkStatic(Log::class)
+    every { Log.w(any(), any<String>()) } answers {
+      loggedMessages += secondArg<String>()
+      0
+    }
+    every { Log.w(any(), any<String>(), any<Throwable>()) } answers {
+      loggedMessages += secondArg<String>()
+      loggedThrowable = thirdArg<Throwable>()
+      0
+    }
+    try {
+      RequestLogEntity(
+        id = "sensitive-corruption",
+        timestamp = 0,
+        method = "POST",
+        path = "/test",
+        statusCode = 200,
+        level = "INFO",
+        modelName = null,
+        eventCategory = "GENERAL",
+        latencyMs = 0,
+        isStreaming = false,
+        inputTokenEstimate = 0,
+        maxContextTokens = 0,
+        extras = """{"requestBody":"$secretMarker","broken": }""",
+      ).toEntry()
+
+      assertNull("serialization throwable must not reach Android logging", loggedThrowable)
+      assertFalse(loggedMessages.any { secretMarker in it })
+    } finally {
+      unmockkStatic(Log::class)
+    }
+  }
+
+  @Test
   fun invalidLevelEnumFallsBackToInfo() {
     val entity = RequestLogEntity(
       id = "bad-enum",
@@ -293,6 +336,39 @@ class RequestLogEntityTest {
     )
     val restored = entity.toEntry()
     assertEquals(LogLevel.INFO, restored.level)
+  }
+
+  @Test
+  fun unknownEnumDiagnosticDoesNotExposePersistedValue() {
+    val secretMarker = "private-enum-token"
+    val loggedMessages = mutableListOf<String>()
+    mockkStatic(Log::class)
+    every { Log.w(any(), any<String>()) } answers {
+      loggedMessages += secondArg<String>()
+      0
+    }
+    try {
+      val restored = RequestLogEntity(
+        id = "bad-enum",
+        timestamp = 0,
+        method = "GET",
+        path = "/test",
+        statusCode = 200,
+        level = secretMarker,
+        modelName = null,
+        eventCategory = "GENERAL",
+        latencyMs = 0,
+        isStreaming = false,
+        inputTokenEstimate = 0,
+        maxContextTokens = 0,
+        extras = "{}",
+      ).toEntry()
+
+      assertEquals(LogLevel.INFO, restored.level)
+      assertFalse(loggedMessages.any { secretMarker in it })
+    } finally {
+      unmockkStatic(Log::class)
+    }
   }
 
   @Test
