@@ -65,6 +65,11 @@ internal fun Map<String, Any>?.samplerSeedOrRandom(): Int =
 
 object LiteRtEngineFactory {
 
+  private data class ExperimentalFlagState(
+    val isSpeculativeDecodingEnabled: Boolean?,
+    val isConversationConstrainedDecodingEnabled: Boolean,
+  )
+
   /**
    * Serializes every mutation of the process-global [ExperimentalFlags] statics.
    *
@@ -75,7 +80,36 @@ object LiteRtEngineFactory {
    * `enableSpeculativeDecoding` / `enableConversationConstrainedDecoding` around
    * concurrent create calls can hand one of them the wrong native configuration.
    */
-  private val nativeFlagLock = Any()
+  private val nativeFlagScope = RestoredGlobalStateScope<ExperimentalFlagState>()
+
+  @OptIn(ExperimentalApi::class)
+  private fun captureExperimentalFlags(): ExperimentalFlagState {
+    return ExperimentalFlagState(
+      isSpeculativeDecodingEnabled = ExperimentalFlags.enableSpeculativeDecoding,
+      isConversationConstrainedDecodingEnabled =
+        ExperimentalFlags.enableConversationConstrainedDecoding,
+    )
+  }
+
+  @OptIn(ExperimentalApi::class)
+  private fun restoreExperimentalFlags(state: ExperimentalFlagState) {
+    ExperimentalFlags.enableSpeculativeDecoding = state.isSpeculativeDecodingEnabled
+    ExperimentalFlags.enableConversationConstrainedDecoding =
+      state.isConversationConstrainedDecodingEnabled
+  }
+
+  /** Runs one native benchmark under the same flag ownership as engine construction. */
+  @OptIn(ExperimentalApi::class)
+  internal fun <Value> withSpeculativeDecodingFlag(
+    isEnabled: Boolean,
+    action: () -> Value,
+  ): Value = nativeFlagScope.run(
+    capture = ::captureExperimentalFlags,
+    restore = ::restoreExperimentalFlags,
+  ) {
+    ExperimentalFlags.enableSpeculativeDecoding = isEnabled
+    action()
+  }
 
 
   /** Validates model file integrity and preflight storage before native engine instantiation. */
@@ -369,53 +403,52 @@ object LiteRtEngineFactory {
     systemInstruction: Contents?,
     tools: List<ToolProvider>,
     initialMessages: List<Message>,
-  ): LlmModelInstance = synchronized(nativeFlagLock) {
+  ): LlmModelInstance = nativeFlagScope.run(
+    capture = ::captureExperimentalFlags,
+    restore = ::restoreExperimentalFlags,
+  ) {
     ExperimentalFlags.enableSpeculativeDecoding = enableSpeculativeDecoding
     var engine: Engine? = null
     try {
-      engine = Engine(engineConfig)
-      engine.initialize()
+      val initializedEngine = Engine(engineConfig)
+      engine = initializedEngine
+      initializedEngine.initialize()
       ExperimentalFlags.enableSpeculativeDecoding = false
 
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
-      try {
-        // NPU backends reject custom sampler configs, so only non-NPU gets one.
-        val useSampler = engineConfig.backend !is Backend.NPU
-        val conversation = engine.createConversation(
-          ConversationConfig(
-            // Flag only gates whether per-message ResponseFormat is permitted —
-            // it has no effect unless a request actually passes one. Always-on
-            // so json_schema requests can use native constrained decoding.
-            enableResponseFormat = true,
-            samplerConfig =
-              if (useSampler) {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                  seed = seed,
-                )
-              } else {
-                null
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
-            initialMessages = initialMessages,
-            automaticToolCalling = false,
-          ),
-        )
-        return LlmModelInstance(engine = engine!!, conversation = conversation)
-      } finally {
-        ExperimentalFlags.enableConversationConstrainedDecoding = false
-      }
-    } catch (e: Exception) {
-      ExperimentalFlags.enableSpeculativeDecoding = false
+      // NPU backends reject custom sampler configs, so only non-NPU gets one.
+      val useSampler = engineConfig.backend !is Backend.NPU
+      val conversation = initializedEngine.createConversation(
+        ConversationConfig(
+          // Flag only gates whether per-message ResponseFormat is permitted —
+          // it has no effect unless a request actually passes one. Always-on
+          // so json_schema requests can use native constrained decoding.
+          enableResponseFormat = true,
+          samplerConfig =
+            if (useSampler) {
+              SamplerConfig(
+                topK = topK,
+                topP = topP.toDouble(),
+                temperature = temperature.toDouble(),
+                seed = seed,
+              )
+            } else {
+              null
+            },
+          systemInstruction = systemInstruction,
+          tools = tools,
+          initialMessages = initialMessages,
+          automaticToolCalling = false,
+        ),
+      )
+      LlmModelInstance(engine = initializedEngine, conversation = conversation)
+    } catch (failure: Throwable) {
       try { engine?.close() } catch (closeEx: Exception) {
         Log.w(TAG, "Engine.close() failed during init cleanup", closeEx)
       }
       System.gc()
-      throw e
+      throw failure
     }
   }
 
@@ -439,37 +472,36 @@ object LiteRtEngineFactory {
         key = ConfigKeys.ACCELERATOR,
         defaultValue = Accelerator.GPU.label,
       )
-    return synchronized(nativeFlagLock) {
+    return nativeFlagScope.run(
+      capture = ::captureExperimentalFlags,
+      restore = ::restoreExperimentalFlags,
+    ) {
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
-      try {
-        val isNpuBackend = accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label
-        engine.createConversation(
-          ConversationConfig(
-            // Flag only gates whether per-message ResponseFormat is permitted —
-            // it has no effect unless a request actually passes one. Always-on
-            // so json_schema requests can use native constrained decoding.
-            enableResponseFormat = true,
-            samplerConfig =
-              if (!isNpuBackend) {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                  seed = seed,
-                )
-              } else {
-                null
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
-            initialMessages = initialMessages,
-            automaticToolCalling = false,
-          )
+      val isNpuBackend = accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label
+      engine.createConversation(
+        ConversationConfig(
+          // Flag only gates whether per-message ResponseFormat is permitted —
+          // it has no effect unless a request actually passes one. Always-on
+          // so json_schema requests can use native constrained decoding.
+          enableResponseFormat = true,
+          samplerConfig =
+            if (!isNpuBackend) {
+              SamplerConfig(
+                topK = topK,
+                topP = topP.toDouble(),
+                temperature = temperature.toDouble(),
+                seed = seed,
+              )
+            } else {
+              null
+            },
+          systemInstruction = systemInstruction,
+          tools = tools,
+          initialMessages = initialMessages,
+          automaticToolCalling = false,
         )
-      } finally {
-        ExperimentalFlags.enableConversationConstrainedDecoding = false
-      }
+      )
     }
   }
 }

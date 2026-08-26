@@ -22,7 +22,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ExperimentalApi
-import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.benchmark
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
@@ -36,6 +35,7 @@ import com.ollitert.llm.server.proto.BenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkBasicInfo
 import com.ollitert.llm.server.proto.LlmBenchmarkResult
 import com.ollitert.llm.server.proto.LlmBenchmarkStats
+import com.ollitert.llm.server.runtime.LiteRtEngineFactory
 import com.ollitert.llm.server.proto.ValueSeries
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
@@ -152,7 +152,6 @@ constructor(
       Log.d(TAG, "Running benchmark: ${parts.joinToString("\n")}")
 
       try {
-      ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
       val startMs = System.currentTimeMillis()
       val prefillSpeeds = mutableListOf<Double>()
       val decodeSpeeds = mutableListOf<Double>()
@@ -181,13 +180,15 @@ constructor(
       for (i in 0 until runCount) {
         Log.d(TAG, "Start running #$i...")
         val benchmarkInfo =
-          benchmark(
-            modelPath = modelPath,
-            backend = backend,
-            prefillTokens = prefillTokens,
-            decodeTokens = decodeTokens,
-            cacheDir = cacheDirPath,
-          )
+          LiteRtEngineFactory.withSpeculativeDecodingFlag(speculativeDecoding) {
+            benchmark(
+              modelPath = modelPath,
+              backend = backend,
+              prefillTokens = prefillTokens,
+              decodeTokens = decodeTokens,
+              cacheDir = cacheDirPath,
+            )
+          }
         Log.d(TAG, "Done #$i")
 
         val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
@@ -254,7 +255,6 @@ constructor(
         }
         _uiState.update { it.copy(errorMessage = userMsg) }
       } finally {
-        ExperimentalFlags.enableSpeculativeDecoding = false
         setRunning(running = false)
       }
     }
