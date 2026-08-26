@@ -216,79 +216,89 @@ class UpdateCheckWorker @AssistedInject constructor(
     }
   }
 
-  private fun fetchFromReleasesList(context: Context): ReleaseInfo? {
-    val url = "${GitHubConfig.API_BASE}/releases?per_page=10"
-    val response = GitHubReleaseClient.fetchGitHub(url, etag = null)
-    return when (response) {
-      is GitHubResponse.NotModified -> null
-      is GitHubResponse.Success -> {
-        cachedReleasesJson = response.body
-        GitHubReleaseClient.findBestRelease(response.body, GitHubReleaseClient.DEV_TAG_PATTERN)
-      }
-      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
-    }
-  }
+  private fun fetchFromReleasesList(context: Context): ReleaseInfo? =
+    fetchChannelRelease(
+      context = context,
+      endpoint = "releases?per_page=10",
+      tagPattern = GitHubReleaseClient.DEV_TAG_PATTERN,
+      // Cross-channel analysis runs on every check — conditional requests would
+      // starve it of the body it needs, so no ETag here.
+      useEtag = false,
+      cacheReleasesJson = true,
+      persistCache = false,
+    )
 
-  private fun fetchLatestStable(context: Context): ReleaseInfo? {
-    val url = "${GitHubConfig.API_BASE}/releases/latest"
-    val cachedETag = ServerPrefs.getCachedReleaseETag(context)
+  private fun fetchLatestStable(context: Context): ReleaseInfo? =
+    fetchChannelRelease(
+      context = context,
+      endpoint = "releases/latest",
+      tagPattern = null,
+      useEtag = true,
+      cacheReleasesJson = false,
+      persistCache = true,
+    )
+
+  private fun fetchLatestBetaOrStable(context: Context): ReleaseInfo? =
+    fetchChannelRelease(
+      context = context,
+      endpoint = "releases?per_page=10",
+      tagPattern = GitHubReleaseClient.BETA_TAG_PATTERN,
+      useEtag = true,
+      cacheReleasesJson = true,
+      persistCache = true,
+    )
+
+  private fun fetchLatestAny(context: Context): ReleaseInfo? =
+    fetchChannelRelease(
+      context = context,
+      endpoint = "releases?per_page=10",
+      tagPattern = GitHubReleaseClient.DEV_TAG_PATTERN,
+      useEtag = true,
+      cacheReleasesJson = true,
+      persistCache = true,
+    )
+
+  /**
+   * Shared channel-fetch pipeline. The four per-channel variants differ only in
+   * endpoint, tag filter, and whether ETag caching / release-body caching /
+   * persisted update-info apply — this helper encodes those axes once.
+   *
+   * `tagPattern == null` means the single-release `/releases/latest` shape;
+   * otherwise the releases list is filtered by pattern.
+   */
+  private fun fetchChannelRelease(
+    context: Context,
+    endpoint: String,
+    tagPattern: Regex?,
+    useEtag: Boolean,
+    cacheReleasesJson: Boolean,
+    persistCache: Boolean,
+  ): ReleaseInfo? {
+    val url = "${GitHubConfig.API_BASE}/$endpoint"
+    val cachedETag = if (useEtag) ServerPrefs.getCachedReleaseETag(context) else null
     val response = GitHubReleaseClient.fetchGitHub(url, cachedETag)
 
     return when (response) {
       is GitHubResponse.NotModified -> {
+        // Only reachable when an ETag was sent; fall back to persisted state.
+        if (!useEtag) return null
         val cachedVersion = ServerPrefs.getCachedLatestVersion(context) ?: return null
         val cachedUrl = ServerPrefs.getCachedReleaseHtmlUrl(context) ?: return null
         ReleaseInfo(cachedVersion, cachedUrl, cachedETag)
       }
       is GitHubResponse.Success -> {
-        val release = GitHubReleaseClient.parseRelease(response.body, response.etag)
-        release?.also {
-          ServerPrefs.setCachedUpdateInfo(context, it.tagName, it.htmlUrl, it.etag)
+        if (cacheReleasesJson) cachedReleasesJson = response.body
+        val release = if (tagPattern != null) {
+          GitHubReleaseClient.findBestRelease(response.body, tagPattern)
+        } else {
+          GitHubReleaseClient.parseRelease(response.body, response.etag)
         }
-      }
-      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
-    }
-  }
-
-  private fun fetchLatestBetaOrStable(context: Context): ReleaseInfo? {
-    val url = "${GitHubConfig.API_BASE}/releases?per_page=10"
-    val cachedETag = ServerPrefs.getCachedReleaseETag(context)
-    val response = GitHubReleaseClient.fetchGitHub(url, cachedETag)
-
-    return when (response) {
-      is GitHubResponse.NotModified -> {
-        val cachedVersion = ServerPrefs.getCachedLatestVersion(context) ?: return null
-        val cachedUrl = ServerPrefs.getCachedReleaseHtmlUrl(context) ?: return null
-        ReleaseInfo(cachedVersion, cachedUrl, cachedETag)
-      }
-      is GitHubResponse.Success -> {
-        cachedReleasesJson = response.body
-        val release = GitHubReleaseClient.findBestRelease(response.body, GitHubReleaseClient.BETA_TAG_PATTERN)
-        release?.also {
-          ServerPrefs.setCachedUpdateInfo(context, it.tagName, it.htmlUrl, response.etag)
+        if (persistCache) {
+          release?.also {
+            ServerPrefs.setCachedUpdateInfo(context, it.tagName, it.htmlUrl, response.etag)
+          }
         }
-      }
-      is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
-    }
-  }
-
-  private fun fetchLatestAny(context: Context): ReleaseInfo? {
-    val url = "${GitHubConfig.API_BASE}/releases?per_page=10"
-    val cachedETag = ServerPrefs.getCachedReleaseETag(context)
-    val response = GitHubReleaseClient.fetchGitHub(url, cachedETag)
-
-    return when (response) {
-      is GitHubResponse.NotModified -> {
-        val cachedVersion = ServerPrefs.getCachedLatestVersion(context) ?: return null
-        val cachedUrl = ServerPrefs.getCachedReleaseHtmlUrl(context) ?: return null
-        ReleaseInfo(cachedVersion, cachedUrl, cachedETag)
-      }
-      is GitHubResponse.Success -> {
-        cachedReleasesJson = response.body
-        val release = GitHubReleaseClient.findBestRelease(response.body, GitHubReleaseClient.DEV_TAG_PATTERN)
-        release?.also {
-          ServerPrefs.setCachedUpdateInfo(context, it.tagName, it.htmlUrl, response.etag)
-        }
+        release
       }
       is GitHubResponse.Error -> throw UpdateCheckException(response.code, url)
     }
