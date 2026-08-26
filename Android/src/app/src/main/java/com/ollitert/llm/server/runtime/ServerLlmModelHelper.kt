@@ -83,6 +83,14 @@ object ServerLlmModelHelper {
   fun invalidateCachedTurns(modelName: String) =
     ConversationCacheTracker.invalidateCachedTurns(modelName)
 
+  /**
+   * Initialize the native engine for [model].
+   *
+   * CONTRACT: [onDone] is invoked SYNCHRONOUSLY before this function returns —
+   * callers may capture the error string in a local `var` set inside the
+   * callback and read it immediately after the call. Do not make the callback
+   * asynchronous without migrating every caller to a suspending/result API.
+   */
   @OptIn(ExperimentalApi::class)
   fun initialize(
     context: Context,

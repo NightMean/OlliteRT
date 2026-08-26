@@ -25,10 +25,6 @@ import androidx.core.content.edit
 private const val PREFS_NAME = "llm_http_prefs"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// § Server Config — port, CORS, bearer token
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
 // § Model Config — default model, inference config, system prompts, recommendations
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -46,10 +42,6 @@ private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
 private const val KEY_SCHEMA_INJECTION_TOOL_CALLING = "schema_injection_tool_calling"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// § UI Preferences — keep screen on, log display, stream preview, metrics
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
 // § Keep Alive — auto-unload model after idle timeout to free RAM
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -57,10 +49,6 @@ private const val KEY_KEEP_ALIVE_ENABLED = "keep_alive_enabled"
 private const val KEY_KEEP_ALIVE_MINUTES = "keep_alive_minutes"
 private const val DEFAULT_KEEP_ALIVE_ENABLED = false
 private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
-
-// ═══════════════════════════════════════════════════════════════════════════
-// § Boot & Lifecycle — auto start on boot, clear logs on stop
-// ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
 // § Model Update Detection — allowlist version, ignored updates
@@ -116,7 +104,6 @@ object ServerPrefs {
 
   internal fun prefs(context: Context): android.content.SharedPreferences =
     cachedPrefs ?: context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).also { cachedPrefs = it }
-
 
   internal fun <T> get(context: Context, pref: Pref<T>): T = pref.read(prefs(context))
 

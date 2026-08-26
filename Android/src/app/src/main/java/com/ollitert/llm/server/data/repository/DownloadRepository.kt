@@ -222,7 +222,7 @@ class DownloadRepository @Inject constructor(
               var status = ModelDownloadStatusType.FAILED
               val errorMessage = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
               Log.d(
-                "repo",
+                TAG,
                 "worker %s FAILED or CANCELLED: %s".format(workerId.toString(), errorMessage),
               )
               if (workInfo.state == WorkInfo.State.CANCELLED) {

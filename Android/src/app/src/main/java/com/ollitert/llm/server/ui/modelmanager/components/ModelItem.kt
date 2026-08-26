@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.EventCategory
@@ -215,7 +216,7 @@ fun ModelItem(
     }
     val loadedInfo = existingInfo
     if (loadedInfo != null) {
-      com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog(
+      EditImportedModelDialog(
         existingModel = loadedInfo,
         isCurrentlyActive = activeModelName == model.name && serverStatus != ServerStatus.STOPPED,
         existingImportedModelNames = modelManagerUiState.models.filter { it.imported }.map { it.name }.toSet(),

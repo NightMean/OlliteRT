@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.ollitert.llm.server.common.ErrorSuggestions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -140,8 +141,8 @@ fun OlliteRTApp(
     // actionable recovery suggestion — this dialog is often the first (and only)
     // surface a "check occasionally" user sees after an unattended failure.
     val errorSuggestion = remember(errorDialogMessage) {
-      val kind = com.ollitert.llm.server.common.ErrorSuggestions.classifyFromString(errorDialogMessage)
-      com.ollitert.llm.server.common.ErrorSuggestions.suggest(kind, context)
+      val kind = ErrorSuggestions.classifyFromString(errorDialogMessage)
+      ErrorSuggestions.suggest(kind, context)
     }
     AlertDialog(
       onDismissRequest = { dismissErrorDialog() },

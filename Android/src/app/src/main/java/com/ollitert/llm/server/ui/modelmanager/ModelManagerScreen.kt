@@ -528,7 +528,7 @@ fun ModelManagerScreen(
                 modifier = Modifier.padding(horizontal = 32.dp),
               )
               Spacer(modifier = Modifier.height(16.dp))
-              androidx.compose.material3.Button(
+              Button(
                 onClick = {
                   viewModel.clearLoadModelAllowlistError()
                   viewModel.loadModelAllowlist()

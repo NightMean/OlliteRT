@@ -22,7 +22,7 @@ import com.ollitert.llm.server.service.inference.*
 import android.util.Log
 import com.ollitert.llm.server.data.model.ErrorKind
 
-private const val TAG = "OlliteRT.Inference"
+private const val TAG = "OlliteRT.AnthropicFormat"
 
 /**
  * Anthropic Messages SSE event sequence:
