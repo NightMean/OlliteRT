@@ -44,5 +44,9 @@ const val TMP_EXTRACT_EXT = "ollitertextract"
 
 // Download progress reporting.
 const val DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS = 200L
+
+// Foreground notification refresh interval — setForeground re-posts the
+// notification, so it is throttled well below the data-progress cadence.
+const val DOWNLOAD_FOREGROUND_UPDATE_INTERVAL_MS = 5_000L
 const val DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE = 5
 const val DOWNLOAD_UNZIP_BUFFER_SIZE = 65536

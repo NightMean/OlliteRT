@@ -34,6 +34,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
+import com.ollitert.llm.server.data.storage.DOWNLOAD_FOREGROUND_UPDATE_INTERVAL_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
@@ -246,10 +247,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               connection.inputStream.use { inputStream ->
               FileOutputStream(outputTmpFile, appendMode).use { outputStream ->
 
-              val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-              var bytesRead: Int
-              var lastSetProgressTs: Long = 0
-              var deltaBytes = 0L
+               val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+               var bytesRead: Int
+               var lastSetProgressTs: Long = 0
+               var lastForegroundUpdateTs: Long = 0
+               var deltaBytes = 0L
               while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                 outputStream.write(buffer, 0, bytesRead)
                 downloadedBytes += bytesRead
@@ -279,12 +281,19 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                       .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
                       .build()
                   )
-                  setForeground(
-                    createForegroundInfo(
-                      progress = if (totalBytes > 0) (downloadedBytes * 100 / totalBytes).toInt() else 0,
-                      modelName = modelName,
+                  // setForeground re-posts the foreground notification; doing it on
+                  // every progress tick (~200ms) churns the notification for no
+                  // benefit. The worker is already in foreground state — refresh
+                  // the visible progress far less often.
+                  if (curTs - lastForegroundUpdateTs > DOWNLOAD_FOREGROUND_UPDATE_INTERVAL_MS) {
+                    lastForegroundUpdateTs = curTs
+                    setForeground(
+                      createForegroundInfo(
+                        progress = if (totalBytes > 0) (downloadedBytes * 100 / totalBytes).toInt() else 0,
+                        modelName = modelName,
+                      )
                     )
-                  )
+                  }
                   Log.d(TAG, "downloadedBytes: $downloadedBytes")
                   lastSetProgressTs = curTs
                 }
