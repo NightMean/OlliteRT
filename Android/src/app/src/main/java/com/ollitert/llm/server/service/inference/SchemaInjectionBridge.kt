@@ -68,10 +68,6 @@ private const val TAG = "OlliteRT.SchemaInjectionBridge"
  */
 object SchemaInjectionBridge {
 
-  // Flip to true once the SDK fixes Content.ToolResponse, then delete the
-  // workaround path in buildLastUserInput().
-  const val NATIVE_TOOL_RESPONSE_WORKS = false
-
   private val json = Json { ignoreUnknownKeys = true }
 
   // See the file-level KDoc for the LiteRT-LM #2418 known issue. Until the
@@ -155,7 +151,9 @@ object SchemaInjectionBridge {
     if (msgs.isEmpty()) return ""
     val last = msgs.last()
 
-    if (last.role != "tool" || NATIVE_TOOL_RESPONSE_WORKS) {
+    // Native tool-response messages are not yet reliable in the LiteRT SDK, so
+    // trailing tool results are re-rendered into a plain-text instruction block.
+    if (last.role != "tool") {
       return last.content.text
     }
 

@@ -270,8 +270,6 @@ class SettingsViewModel @Inject constructor(
     else -> 1f
   }
 
-  fun settingDescriptionOverride(key: String): Int? = null
-
   /** Generates a new random bearer token for the server config UI. */
   fun generateBearerToken(): String = BridgeUtils.generateBearerToken()
 

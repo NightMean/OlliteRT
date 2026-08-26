@@ -80,7 +80,6 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val TAG = "OlliteRT.ModelVM"
-private const val TEST_MODEL_ALLOW_LIST = ""
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
@@ -483,7 +482,6 @@ constructor(
 
     viewModelScope.launch(ioDispatcher) {
       val result = allowlistLoadCoordinator.loadAllowlist(
-        testAllowlistOverride = TEST_MODEL_ALLOW_LIST,
         isManualRetry = isManualRetry,
         onToastError = { msg -> _toastErrorChannel.trySend(msg) },
       )
@@ -567,8 +565,6 @@ constructor(
       withContext(mainDispatcher) { onResult(error) }
     }
   }
-
-  private fun migrateDiskCacheIfNeeded() = importManager.migrateDiskCacheIfNeeded()
 
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState()

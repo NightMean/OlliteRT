@@ -96,16 +96,3 @@ fun httpAnthropicError(statusCode: Int, errorType: String, message: String): Htt
     body = ResponseRenderer.renderAnthropicError(errorType, message),
     extraHeaders = if (statusCode == 401) mapOf("WWW-Authenticate" to "Bearer") else emptyMap(),
   )
-
-/** Re-shape a [ModelLifecycle.ModelSelection.Error] into the Anthropic envelope. */
-fun ModelLifecycle.ModelSelection.Error.toAnthropicHttpResponse(): HttpResponse.Json {
-  val errorType = when (statusCode) {
-    404 -> "not_found_error"
-    503 -> "overloaded_error"
-    else -> "api_error"
-  }
-  val base = httpAnthropicError(statusCode, errorType, message)
-  return retryAfterSeconds?.let {
-    base.copy(extraHeaders = base.extraHeaders + ("Retry-After" to it.toString()))
-  } ?: base
-}

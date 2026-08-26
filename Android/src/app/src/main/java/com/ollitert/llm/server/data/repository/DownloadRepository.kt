@@ -79,15 +79,6 @@ class DownloadRepository @Inject constructor(
   private val lifecycleProvider: OlliteRTLifecycleProvider,
 ) {
   private val workManager = WorkManager.getInstance(context)
-  /**
-   * Stores the start time of a model download.
-   *
-   * We use SharedPreferences to persist the download start times. This ensures that the data is
-   * still available after the app restarts. The key is the model name and the value is the download
-   * start time in milliseconds.
-   */
-  private val downloadStartTimeSharedPreferences =
-    context.getSharedPreferences("download_start_time_ms", Context.MODE_PRIVATE)
 
   fun downloadModel(
     model: Model,
@@ -181,9 +172,7 @@ class DownloadRepository @Inject constructor(
       if (workInfo != null) {
         when (workInfo.state) {
           WorkInfo.State.ENQUEUED -> {
-            downloadStartTimeSharedPreferences.edit {
-              putLong(model.name, System.currentTimeMillis())
-            }
+            // No-op: state is tracked via WorkInfo; kept for exhaustive when().
           }
 
           WorkInfo.State.RUNNING -> {
@@ -222,7 +211,6 @@ class DownloadRepository @Inject constructor(
                 text = context.getString(R.string.notification_content_success).format(model.name),
                 isSuccess = true,
               )
-              downloadStartTimeSharedPreferences.edit { remove(model.name) }
             } finally {
               observer?.let { liveData.removeObserver(it) }
             }
@@ -255,7 +243,6 @@ class DownloadRepository @Inject constructor(
                   totalBytes = if (status == ModelDownloadStatusType.FAILED) lastTotalBytes else 0L,
                 ),
               )
-              downloadStartTimeSharedPreferences.edit { remove(model.name) }
             } finally {
               observer?.let { liveData.removeObserver(it) }
             }
