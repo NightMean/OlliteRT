@@ -30,6 +30,12 @@ const val ACTION_IN_FLIGHT_DEBOUNCE_MS = 1000L
 // Log persistence pruning intervals.
 const val DEFAULT_IN_MEMORY_LOG_CAP = 100
 const val HARD_MAX_IN_MEMORY_ENTRIES = 10_000
+
+// Ceiling on the summed request+response body characters retained in memory.
+// Full-body entries are tens of KB each; without a byte budget, 10k entries
+// can pin hundreds of MB. When exceeded, oldest entries are shed regardless
+// of the count cap.
+const val HARD_MAX_RETAINED_LOG_BODY_CHARS = 32L * 1024 * 1024
 const val MIN_PRUNE_INTERVAL_MS = 60_000L             // 1 minute
 const val MAX_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
 

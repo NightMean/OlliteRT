@@ -162,9 +162,58 @@ class RequestLogStoreTest {
     assertFalse("live pending entry must not be clamped to cancelled", live.isCancelled)
   }
 
+  // --- Retained-body byte budget ---
+
+  private fun bigBodyEntry(id: String, chars: Int, bodyInResponse: Boolean = false) =
+    entry(id).copy(
+      requestBody = if (bodyInResponse) null else "a".repeat(chars),
+      responseBody = if (bodyInResponse) "b".repeat(chars) else null,
+    )
+
   @Test
-  fun loadEntriesClampsStalePendingEntriesToCancelled() {
-    val loaded = listOf(
+  fun bodyBudgetShedsOldestEntries() {
+    RequestLogStore.bodyBudgetChars = 50_000L
+    RequestLogStore.add(bigBodyEntry("e1", 20_000))
+    RequestLogStore.add(bigBodyEntry("e2", 20_000))
+    // Total now 60k > budget: oldest entry is shed even though the count cap
+    // would still allow all three.
+    RequestLogStore.add(bigBodyEntry("e3", 20_000))
+    // Newest first: e1 shed.
+    assertEquals(listOf("e3", "e2"), RequestLogStore.entries.value.map { it.id })
+  }
+
+  @Test
+  fun bodyBudgetAlwaysKeepsNewestEntry() {
+    RequestLogStore.bodyBudgetChars = 100L
+    RequestLogStore.add(bigBodyEntry("huge", 5_000))
+    val entries = RequestLogStore.entries.value
+    assertEquals(listOf("huge"), entries.map { it.id })
+  }
+
+  @Test
+  fun growingBodyViaUpdateShedsOldest() {
+    RequestLogStore.bodyBudgetChars = 45_000L
+    RequestLogStore.add(bigBodyEntry("e1", 20_000))
+    RequestLogStore.add(bigBodyEntry("e2", 20_000, bodyInResponse = true))
+    // e2's response grows at finalize time: total 60k > 45k → shed e1.
+    RequestLogStore.update("e2") { it.copy(responseBody = "b".repeat(40_000)) }
+    assertEquals(listOf("e2"), RequestLogStore.entries.value.map { it.id })
+  }
+
+  @Test
+  fun loadEntriesAlsoEnforcesBodyBudget() {
+    RequestLogStore.bodyBudgetChars = 25_000L
+    RequestLogStore.loadEntries(listOf(
+      bigBodyEntry("db-1", 15_000),
+      bigBodyEntry("db-2", 15_000),
+      bigBodyEntry("db-3", 15_000),
+    ))
+    // 45k total vs 25k budget requires shedding two oldest entries.
+    assertEquals(listOf("db-1"), RequestLogStore.entries.value.map { it.id })
+  }
+
+  @Test
+  fun loadEntriesClampsStalePendingEntriesToCancelled() {    val loaded = listOf(
       entry("ok", isPending = false),
       entry("stuck", isPending = true),
       entry("already-cancelled", isPending = false, isCancelled = true),

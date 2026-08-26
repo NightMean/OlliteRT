@@ -19,6 +19,7 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.data.prefs.HARD_MAX_IN_MEMORY_ENTRIES
+import com.ollitert.llm.server.data.prefs.HARD_MAX_RETAINED_LOG_BODY_CHARS
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +48,9 @@ object RequestLogStore {
    */
   @Volatile var maxEntries: Int = DEFAULT_MAX_ENTRIES
     private set
+
+  /** Retained-body budget in chars; mutable for tests via [resetForTesting]. */
+  @Volatile internal var bodyBudgetChars: Long = HARD_MAX_RETAINED_LOG_BODY_CHARS
 
   /**
    * Actual in-memory cap accounting for [HARD_MAX_IN_MEMORY_ENTRIES] ceiling.
@@ -149,7 +153,7 @@ object RequestLogStore {
         addAll(current)
         val cap = effectiveMaxEntries
         if (size > cap) removeAt(lastIndex)
-      }
+      }.enforceBodyBudget(bodyBudgetChars)
     }
     persistenceCallback?.onEntryAdded(entry)
   }
@@ -182,7 +186,7 @@ object RequestLogStore {
       val transformed = transform(found)
       oldEntry = found
       newEntry = transformed
-      current.toMutableList().also { it[index] = transformed }
+      current.toMutableList().also { it[index] = transformed }.enforceBodyBudget(bodyBudgetChars)
     }
 
     val old = oldEntry ?: return
@@ -309,6 +313,7 @@ object RequestLogStore {
       (persistedOnly + current)
         .sortedByDescending { it.timestamp }
         .take(effectiveMaxEntries)
+        .enforceBodyBudget(bodyBudgetChars)
     }
   }
 
@@ -374,6 +379,32 @@ object RequestLogStore {
     pendingCancellations.clear()
     persistenceCallback = null
     maxEntries = DEFAULT_MAX_ENTRIES
+    bodyBudgetChars = HARD_MAX_RETAINED_LOG_BODY_CHARS
     idCounter.set(0)
   }
+}
+
+
+/** Memory cost proxy for one retained entry: its stored body payloads. */
+private fun RequestLogEntry.bodyChars(): Long =
+  (requestBody?.length ?: 0).toLong() + (responseBody?.length ?: 0).toLong()
+
+/**
+ * Shed oldest entries until the summed body payload fits
+ * [HARD_MAX_RETAINED_LOG_BODY_CHARS]. The newest entry is always kept even if
+ * it alone exceeds the budget. Pure function of the input list.
+ */
+private fun List<RequestLogEntry>.enforceBodyBudget(budgetChars: Long): List<RequestLogEntry> {
+  val total = sumOf { it.bodyChars() }
+  val excess = total - budgetChars
+  if (excess <= 0) return this
+  var acc = 0L
+  var cut = size
+  while (cut > 0 && acc < excess) {
+    cut--
+    acc += this[cut].bodyChars()
+  }
+  // Always retain the newest entry.
+  if (cut == 0) return listOf(first())
+  return subList(0, cut).toList()
 }
