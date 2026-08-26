@@ -151,27 +151,24 @@ internal class StreamState(
 
   fun elapsedMs(): Long = SystemClock.elapsedRealtime() - streamStartMs
 
+  // Incremental stop-sequence scanner state — see [InferenceStopCondition.IncrementalStopMatcher].
+  // Re-scanning (and copying) the full generated text on every token is O(n²)
+  // cumulative; this keeps per-token work proportional to the new characters only.
+  private var stopMatcher: InferenceStopCondition.IncrementalStopMatcher? = null
+
   private fun checkStopSequence(stopSequences: List<String>?) {
     if (stopSequences.isNullOrEmpty() || stopSequenceTriggered) return
+    val matcher =
+      stopMatcher ?: InferenceStopCondition.IncrementalStopMatcher(stopSequences).also { stopMatcher = it }
+    val match = matcher.findNewMatch(fullText) ?: return
     val currentText = fullText.toString()
-    var earliest = currentText.length
-    var matched: String? = null
-    for (stop in stopSequences) {
-      val idx = currentText.indexOf(stop)
-      if (idx in 0 until earliest) {
-        earliest = idx
-        matched = stop
-      }
-    }
-    if (earliest < currentText.length) {
-      fullText.clear()
-      fullText.append(currentText.substring(0, earliest))
-      stopSequenceTriggered = true
-      matchedStopSequence = matched
-      // The protocol response is successful, but native generation and its partial
-      // Conversation must settle before another request can use the model.
-      inferenceControl.get()?.stopSuccessfully()
-    }
+    fullText.clear()
+    fullText.append(currentText.substring(0, match.index))
+    stopSequenceTriggered = true
+    matchedStopSequence = match.sequence
+    // The protocol response is successful, but native generation and its partial
+    // Conversation must settle before another request can use the model.
+    inferenceControl.get()?.stopSuccessfully()
   }
 
   private suspend fun emitThinkingContent(

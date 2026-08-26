@@ -45,6 +45,57 @@ object InferenceStopCondition {
     else Triple(text, false, null)
   }
 
+  /** A stop-sequence match found by [IncrementalStopMatcher]. */
+  data class Match(val index: Int, val sequence: String)
+
+  /**
+   * Incremental earliest-match scanner for streaming token feeds.
+   *
+   * The naive approach — `fullText.toString()` + full scan on every token — is
+   * O(total length) per token: for a 4k-token output this copies hundreds of MB
+   * cumulatively. Instead, track how far the buffer has already been proven free
+   * of matches and only scan a small window around each append. Any match
+   * starting before that window was fully contained in the previous buffer and
+   * would have been reported then; a match straddling the boundary can start at
+   * most `maxStopLength - 1` characters back.
+   *
+   * Semantics match [applyStopSequences]: across multiple stops, the earliest
+   * index wins (ties resolved by list order).
+   */
+  class IncrementalStopMatcher(stopSequences: List<String>) {
+    private val stops = stopSequences.filter { it.isNotEmpty() }
+    private val maxStopLength = stops.maxOfOrNull { it.length } ?: 0
+
+    /** Exclusive end of the region already scanned with no match found. */
+    private var scannedUpTo = 0
+
+    /**
+     * Scan [text] for newly completed stop-sequence matches.
+     * Returns null when no new complete match exists yet; the caller should
+     * keep appending and call again with the grown buffer. Once non-null, the
+     * matcher is spent — truncate at [Match.index] and stop feeding.
+     */
+    fun findNewMatch(text: CharSequence): Match? {
+      if (stops.isEmpty() || maxStopLength == 0) return null
+      val scanFrom = (scannedUpTo - (maxStopLength - 1)).coerceAtLeast(0)
+      var earliest = Int.MAX_VALUE
+      var matched: String? = null
+      for (stop in stops) {
+        val idx = text.indexOf(stop, scanFrom)
+        if (idx in 0 until earliest) {
+          earliest = idx
+          matched = stop
+        }
+      }
+      return if (matched != null) {
+        Match(earliest, matched)
+      } else {
+        scannedUpTo = text.length
+        null
+      }
+    }
+  }
+
   /**
    * Injects a JSON mode instruction into the prompt when response_format is requested.
    *
