@@ -282,18 +282,33 @@ object RequestLogStore {
 
   /**
    * Bulk-load entries from the database on startup.
-   * Replaces the current in-memory list without triggering persistence callbacks
-   * (the data is already in the DB).
+   * Merges the persisted rows into the current in-memory list without triggering
+   * persistence callbacks (the data is already in the DB).
    *
-   * Any entry with [RequestLogEntry.isPending] = true is stale — the inference that
+   * **Why merge instead of replace:** the load runs asynchronously after service
+   * start, and events/requests recorded in between ("Server starting", autostart
+   * model loads) would be silently wiped by a wholesale replace.
+   *
+   * Conflict rule: on an id present in both lists the in-memory version wins — it
+   * is always at least as fresh as any DB snapshot, because memory is updated
+   * synchronously while persistence is queued behind [RequestLogDatabaseWriter].
+   * This also protects a request that went live mid-load from being clobbered by
+   * its own stale pending row.
+   *
+   * Any loaded entry with [RequestLogEntry.isPending] = true is stale — the inference that
    * was generating died with the old process. These are clamped to cancelled state
    * so the card shows "Cancelled" instead of staying stuck on "Generating..." forever.
    */
   fun loadEntries(entries: List<RequestLogEntry>) {
-    _entries.update {
-      entries.map { entry ->
-        if (entry.isPending) entry.copy(isPending = false, isCancelled = true, statusCode = 499) else entry
-      }
+    val clamped = entries.map { entry ->
+      if (entry.isPending) entry.copy(isPending = false, isCancelled = true, statusCode = 499) else entry
+    }
+    _entries.update { current ->
+      val currentIds = current.mapTo(HashSet()) { it.id }
+      val persistedOnly = clamped.filterNot { it.id in currentIds }
+      (persistedOnly + current)
+        .sortedByDescending { it.timestamp }
+        .take(effectiveMaxEntries)
     }
   }
 

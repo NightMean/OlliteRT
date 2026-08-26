@@ -42,13 +42,19 @@ class RequestLogStoreTest {
     override fun onEntriesCleared() { clearCount++ }
   }
 
-  private fun entry(id: String, isPending: Boolean = false, isCancelled: Boolean = false) =
+  private fun entry(
+    id: String,
+    isPending: Boolean = false,
+    isCancelled: Boolean = false,
+    timestamp: Long = System.currentTimeMillis(),
+  ) =
     RequestLogEntry(
       id = id,
       method = "POST",
       path = "/v1/chat/completions",
       isPending = isPending,
       isCancelled = isCancelled,
+      timestamp = timestamp,
     )
 
   @Before
@@ -129,12 +135,31 @@ class RequestLogStoreTest {
   }
 
   @Test
-  fun loadEntriesReplacesCurrentList() {
-    RequestLogStore.add(entry("old"))
-    val loaded = listOf(entry("db-1"), entry("db-2"), entry("db-3"))
+  fun loadEntriesMergesPersistedEntriesNewestFirst() {
+    val base = 1_000_000L
+    RequestLogStore.add(entry("runtime-event", timestamp = base + 30))
+    val loaded = listOf(
+      entry("db-new", timestamp = base + 20),
+      entry("db-old", timestamp = base + 10),
+    )
     RequestLogStore.loadEntries(loaded)
-    assertEquals(3, RequestLogStore.entries.value.size)
-    assertEquals("db-1", RequestLogStore.entries.value[0].id)
+    assertEquals(
+      "runtime entry and both DB entries survive, ordered newest first",
+      listOf("runtime-event", "db-new", "db-old"),
+      RequestLogStore.entries.value.map { it.id },
+    )
+  }
+
+  @Test
+  fun loadEntriesKeepsLiveEntryWhenItsStaleRowAlsoLoads() {
+    val base = 1_000_000L
+    // A request that went live after startup; the async load then returns its
+    // own still-pending DB row. The live in-memory version must win untouched.
+    RequestLogStore.add(entry("live", isPending = true, timestamp = base + 30))
+    RequestLogStore.loadEntries(listOf(entry("live", isPending = true, timestamp = base + 5)))
+    val live = RequestLogStore.entries.value.single()
+    assertTrue("live pending entry must stay pending", live.isPending)
+    assertFalse("live pending entry must not be clamped to cancelled", live.isCancelled)
   }
 
   @Test
