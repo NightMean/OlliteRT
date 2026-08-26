@@ -56,7 +56,11 @@ fun ServerService.Companion.queueReloadAfterLoad(port: Int, modelName: String, c
     }
 
 fun ServerService.Companion.reload(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, configValues: Map<String, Any>? = null): Boolean {
-      pendingConfigOverrides.set(configValues)
+      // Bind overrides to the model name they target so the consumer can discard
+      // them if a superseding load (or stale-prefs fallback) resolves differently.
+      pendingConfigOverrides.set(
+        if (configValues != null) ServerService.Companion.PendingConfigOverrides(modelName, configValues) else null
+      )
       val intent = Intent(context, ServerService::class.java).apply {
         action = ACTION_RELOAD
         putExtra(EXTRA_PORT, port)

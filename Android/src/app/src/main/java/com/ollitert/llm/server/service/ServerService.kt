@@ -289,9 +289,22 @@ class ServerService : Service() {
       // updateConfigValues() (runtime settings change), and reload() which triggers this path again.
       // All paths are serialized via @Synchronized companion methods or the load coroutine.
       // getAndSet(null) is atomic — prevents a concurrent reload's write from being lost.
-      pendingConfigOverrides.getAndSet(null)?.let { overrides ->
-        model.configValues = overrides.toMap()
-        Log.i(TAG, "Applied ${overrides.size} config overrides from reload caller")
+      //
+      // Deliberately placed AFTER stale-prefs fallback resolution: overrides must
+      // bind to the model that actually loads, not to a pre-fallback candidate.
+      // A mismatch means the override belongs to a different (superseded or
+      // failed) load request and is discarded rather than misapplied.
+      pendingConfigOverrides.getAndSet(null)?.let { pending ->
+        if (pending.modelName == null || pending.modelName == model.name) {
+          model.configValues = pending.values.toMap()
+          Log.i(TAG, "Applied ${pending.values.size} config override(s) from reload caller")
+        } else {
+          Log.w(
+            TAG,
+            "Discarded ${pending.values.size} stale config override(s) for " +
+              "'${pending.modelName}' — this load resolved to '${model.name}'",
+          )
+        }
       }
       // Verify model files actually exist on disk. Same stale-pref self-heal as
       // above: the registry entry resolved but its files are gone (e.g. cleared
@@ -610,9 +623,17 @@ class ServerService : Service() {
     /**
      * Pending config values to apply after the next reload creates a fresh model.
      * Set by [reload] before sending the intent, consumed in [onStartCommand].
-     * Uses AtomicReference to prevent race conditions when two rapid reloads overwrite each other.
+     *
+     * The overrides are bound to the model name they were meant for. A bare map
+     * here could be consumed by the *wrong* load: cancellation of an in-flight
+     * load job only takes effect at suspension points, so a rapid reload-A →
+     * reload-B can interleave such that job A consumes B's overrides (and B's
+     * job consumes nothing). The consumer therefore matches the override against
+     * the finally-resolved model and discards mismatches.
      */
-    internal val pendingConfigOverrides = java.util.concurrent.atomic.AtomicReference<Map<String, Any>?>(null)
+    internal data class PendingConfigOverrides(val modelName: String?, val values: Map<String, Any>)
+    internal val pendingConfigOverrides =
+      java.util.concurrent.atomic.AtomicReference<PendingConfigOverrides?>(null)
 
     /**
      * Queued reload request to execute after the current model finishes loading.
