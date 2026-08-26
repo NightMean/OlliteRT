@@ -185,44 +185,38 @@ fun ModelManagerScreen(
   // Filtered and sorted models
   val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels) {
     derivedStateOf {
-      builtInModels.filter { model ->
-        val matchesSearch = matchesSearchQuery(buildModelSearchableText(model), searchQuery)
-        val matchesFilter = when (activeFilter) {
-          ModelFilter.ALL -> true
-          ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
-          ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
-          ModelFilter.IMPORTED -> false // built-in models are hidden when Imported filter is active
-        }
-        val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
-        matchesSearch && matchesFilter && matchesCaps
-      }.let { filtered ->
-        when (activeSort) {
-          ModelSort.DEFAULT -> filtered // preserve original order
-          ModelSort.ALPHABETICAL -> if (sortAscending) filtered.sortedBy { it.displayName.ifEmpty { it.name }.lowercase() }
-            else filtered.sortedByDescending { it.displayName.ifEmpty { it.name }.lowercase() }
-          ModelSort.SIZE -> if (sortAscending) filtered.sortedBy { it.totalBytes }
-            else filtered.sortedByDescending { it.totalBytes }
-        }
-      }
+      filterAndSortModels(
+        models = builtInModels,
+        searchQuery = searchQuery,
+        matchesFilter = { model ->
+          // Built-in models are hidden when Imported filter is active
+          when (activeFilter) {
+            ModelFilter.ALL -> true
+            ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
+            ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
+            ModelFilter.IMPORTED -> false
+          }
+        },
+        activeCapabilities = activeCapabilities,
+        activeSort = activeSort,
+        sortAscending = sortAscending,
+      )
     }
   }
 
   val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels) {
     derivedStateOf {
-      importedModels.filter { model ->
-        val matchesSearch = matchesSearchQuery(buildModelSearchableText(model), searchQuery)
-        val matchesCaps = modelMatchesCapabilityFilters(model, activeCapabilities)
-        // Imported models are always downloaded — hide only for "Available" filter
-        activeFilter != ModelFilter.AVAILABLE && matchesSearch && matchesCaps
-      }.let { filtered ->
-        when (activeSort) {
-          ModelSort.DEFAULT -> filtered
-          ModelSort.ALPHABETICAL -> if (sortAscending) filtered.sortedBy { it.displayName.ifEmpty { it.name }.lowercase() }
-            else filtered.sortedByDescending { it.displayName.ifEmpty { it.name }.lowercase() }
-          ModelSort.SIZE -> if (sortAscending) filtered.sortedBy { it.totalBytes }
-            else filtered.sortedByDescending { it.totalBytes }
-        }
-      }
+      filterAndSortModels(
+        models = importedModels,
+        searchQuery = searchQuery,
+        matchesFilter = {
+          // Imported models are always downloaded — hide only for "Available" filter
+          activeFilter != ModelFilter.AVAILABLE
+        },
+        activeCapabilities = activeCapabilities,
+        activeSort = activeSort,
+        sortAscending = sortAscending,
+      )
     }
   }
 
@@ -655,3 +649,30 @@ private val capabilitySetSaver =
       saved.mapNotNull { name -> CapabilityFilter.entries.firstOrNull { it.name == name } }.toSet()
     },
   )
+
+/** Shared search + capability-filter + sort pipeline for built-in and imported model lists. */
+private fun filterAndSortModels(
+  models: List<Model>,
+  searchQuery: String,
+  matchesFilter: (Model) -> Boolean,
+  activeCapabilities: Set<CapabilityFilter>,
+  activeSort: ModelSort,
+  sortAscending: Boolean,
+): List<Model> =
+  models
+    .filter { model ->
+      matchesSearchQuery(buildModelSearchableText(model), searchQuery) &&
+        matchesFilter(model) &&
+        modelMatchesCapabilityFilters(model, activeCapabilities)
+    }
+    .let { filtered ->
+      when (activeSort) {
+        ModelSort.DEFAULT -> filtered // preserve original order
+        ModelSort.ALPHABETICAL ->
+          if (sortAscending) filtered.sortedBy { it.displayName.ifEmpty { it.name }.lowercase() }
+          else filtered.sortedByDescending { it.displayName.ifEmpty { it.name }.lowercase() }
+        ModelSort.SIZE ->
+          if (sortAscending) filtered.sortedBy { it.totalBytes }
+          else filtered.sortedByDescending { it.totalBytes }
+      }
+    }
