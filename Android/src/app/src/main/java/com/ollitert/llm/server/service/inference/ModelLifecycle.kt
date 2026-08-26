@@ -334,6 +334,38 @@ class ModelLifecycle(
   // ── Model reload from idle ─────────────────────────────────────────────────
 
   /**
+   * Initialize the LiteRT engine for [model] using persisted settings: vision
+   * support follows the eager-vision pref, audio follows model capability, and
+   * the system instruction is built from the model's stored prompt.
+   *
+   * Returns the engine error message ("" on success). On success also sets
+   * [Model.initializedWithVision] to match the requested capability.
+   *
+   * Shared by the initial load path (ServerModelLoader) and keep-alive
+   * reload-from-idle so capability resolution cannot drift between them.
+   * Deliberately distinct from [InferenceModelPreparer.reinitIfNeeded], which
+   * serves request-scoped vision/audio upgrades with config overrides.
+   */
+  fun initializeEngine(model: Model): String {
+    val eagerVision = ServerPrefs.isEagerVisionInit(context)
+    val supportImage = model.llmSupportImage && eagerVision
+    val supportAudio = model.llmSupportAudio
+    var initErr = ""
+    ServerLlmModelHelper.initialize(
+      context = context,
+      model = model,
+      supportImage = supportImage,
+      supportAudio = supportAudio,
+      onDone = { initErr = it },
+      systemInstruction = buildSystemInstruction(model.prefsKey),
+    )
+    if (initErr.isEmpty()) {
+      model.initializedWithVision = supportImage
+    }
+    return initErr
+  }
+
+  /**
    * Reload the model after it was unloaded due to keep_alive idle timeout.
    * Blocks the calling thread (request handler thread) until the model is ready.
    * Returns the loaded model, or null if reload fails.
@@ -368,18 +400,7 @@ class ModelLifecycle(
       }
 
       val loadStart = SystemClock.elapsedRealtime()
-      val eagerVision = ServerPrefs.isEagerVisionInit(context)
-      val supportImage = model.llmSupportImage && eagerVision
-      val supportAudio = model.llmSupportAudio
-      var initErr = ""
-      ServerLlmModelHelper.initialize(
-        context = context,
-        model = model,
-        supportImage = supportImage,
-        supportAudio = supportAudio,
-        onDone = { initErr = it },
-        systemInstruction = buildSystemInstruction(model.prefsKey),
-      )
+      val initErr = initializeEngine(model)
       if (initErr.isNotEmpty()) {
         Log.e(TAG, "Keep-alive: model reload failed: $initErr")
         RequestLogStore.addEvent(
@@ -393,7 +414,6 @@ class ModelLifecycle(
         ServerMetrics.onModelReloadedFromIdle()
         return null
       }
-      model.initializedWithVision = supportImage
       defaultModel = model
       modelCache[model.name] = model
       keepAliveUnloadedRef.set(null to null)

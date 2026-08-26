@@ -19,13 +19,11 @@ package com.ollitert.llm.server.service
 import com.ollitert.llm.server.common.ServerMetrics
 import android.util.Log
 import com.ollitert.llm.server.data.model.EventCategory
-import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.http.KtorServer
 import com.ollitert.llm.server.service.inference.ModelLifecycle
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -96,13 +94,6 @@ object ServerReloadCoordinator {
     loadJob?.cancel()
     inferenceExecutor?.shutdownNow()
 
-    val modelsToCleanUp = linkedSetOf<Model>()
-    synchronized(modelLifecycle.keepAliveLock) {
-      modelLifecycle.defaultModel?.let(modelsToCleanUp::add)
-      modelLifecycle.defaultModel = null
-      modelsToCleanUp.addAll(modelLifecycle.modelCache.values.filter { it.instance != null })
-      modelLifecycle.modelCache.clear()
-    }
     previousModelName?.let { modelName ->
       RequestLogStore.addEvent(
         "Unloading model: $modelName",
@@ -110,21 +101,13 @@ object ServerReloadCoordinator {
         category = EventCategory.MODEL,
       )
     }
-    if (loadJob != null || inferenceExecutor != null || modelsToCleanUp.isNotEmpty() ||
-      modelLifecycle.hasActiveIdleCleanup()
-    ) {
-      ServerCleanupCoordinator.enqueueCleanup("OlliteRT-ReloadCleanup") {
-        modelLifecycle.awaitIdleCleanup()
-        loadJob?.let { job -> runBlocking { job.join() } }
-        if (inferenceExecutor?.awaitTermination(15, TimeUnit.SECONDS) == false) {
-          Log.w(TAG, "Inference executor did not terminate during reload cleanup")
-        }
-        for (model in modelsToCleanUp) {
-          ServerLlmModelHelper.safeCleanup(model)
-        }
-        System.gc()
-      }
-    }
+    // Shared with onDestroy so the two teardown paths cannot drift.
+    ServerCleanupCoordinator.collectAndEnqueueModelCleanup(
+      modelLifecycle = modelLifecycle,
+      loadJob = loadJob,
+      inferenceExecutor = inferenceExecutor,
+      source = "ReloadCleanup",
+    )
     ServerMetrics.onServerStopped()
   }
 }

@@ -113,4 +113,46 @@ internal object ServerCleanupCoordinator {
       }
     }
   }
+
+  /**
+   * Shared teardown sequence for service destruction and reload: collect the
+   * loaded/cached models under [ModelLifecycle.keepAliveLock], clear lifecycle
+   * references, and enqueue a chained background cleanup that waits for idle
+   * cleanup, the in-flight load job, and executor termination before closing
+   * native engines. Previously duplicated in `ServerService.onDestroy` and
+   * `ServerReloadCoordinator.executeReloadCleanup` — and already drifted in
+   * cancelAllPending ordering — so both paths now share this single sequence.
+   *
+   * @param source label used in thread name / diagnostics.
+   */
+  fun collectAndEnqueueModelCleanup(
+    modelLifecycle: com.ollitert.llm.server.service.inference.ModelLifecycle,
+    loadJob: kotlinx.coroutines.Job?,
+    inferenceExecutor: java.util.concurrent.ExecutorService?,
+    source: String,
+  ) {
+    val modelsToCleanUp = linkedSetOf<com.ollitert.llm.server.data.model.Model>()
+    synchronized(modelLifecycle.keepAliveLock) {
+      modelLifecycle.defaultModel?.let(modelsToCleanUp::add)
+      modelLifecycle.defaultModel = null
+      modelsToCleanUp.addAll(modelLifecycle.modelCache.values.filter { it.instance != null })
+      modelLifecycle.modelCache.clear()
+    }
+    if (
+      loadJob != null || inferenceExecutor != null || modelsToCleanUp.isNotEmpty() ||
+      modelLifecycle.hasActiveIdleCleanup()
+    ) {
+      enqueueCleanup("OlliteRT-$source") {
+        modelLifecycle.awaitIdleCleanup()
+        loadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
+        if (inferenceExecutor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
+          Log.w(TAG, "Inference executor did not terminate during $source")
+        }
+        for (model in modelsToCleanUp) {
+          com.ollitert.llm.server.runtime.ServerLlmModelHelper.safeCleanup(model)
+        }
+        System.gc()
+      }
+    }
+  }
 }

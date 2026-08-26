@@ -159,8 +159,12 @@ class ServerService : Service() {
           modelCache[model.name] = model
         },
         onOomRecover = {
-          synchronized(modelLifecycle.keepAliveLock) { defaultModel = null }
-          modelCache.clear()
+          // Both lifecycle references must be cleared under keepAliveLock —
+          // an unlocked cache clear raced idle/emergency unload paths.
+          synchronized(modelLifecycle.keepAliveLock) {
+            defaultModel = null
+            modelCache.clear()
+          }
         },
         emitDebugStackTrace = { t, src, name -> emitDebugStackTrace(t, src, name) },
       )
@@ -498,33 +502,14 @@ class ServerService : Service() {
     inferenceExecutor = null
     val modelName = defaultModel?.name
 
-    // Collect models that need native cleanup (Engine + Conversation close).
-    // These operations can take seconds for multi-GB models and must NOT run on the main
-    // thread — doing so causes an ANR ("Input dispatching timed out") when the user taps
-    // Stop Server, because onDestroy runs on the main thread.
-    val modelsToCleanUp = linkedSetOf<Model>()
-    synchronized(modelLifecycle.keepAliveLock) {
-      defaultModel?.let(modelsToCleanUp::add)
-      defaultModel = null
-      modelsToCleanUp.addAll(modelCache.values.filter { it.instance != null })
-      modelCache.clear()
-    }
-
-    if (previousLoadJob != null || executor != null || modelsToCleanUp.isNotEmpty() ||
-      modelLifecycle.hasActiveIdleCleanup()
-    ) {
-      ServerCleanupCoordinator.enqueueCleanup("OlliteRT-ModelCleanup") {
-        modelLifecycle.awaitIdleCleanup()
-        previousLoadJob?.let { job -> kotlinx.coroutines.runBlocking { job.join() } }
-        if (executor?.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS) == false) {
-          Log.w(TAG, "Inference executor did not terminate during destroy cleanup")
-        }
-        for (model in modelsToCleanUp) {
-          ServerLlmModelHelper.safeCleanup(model)
-        }
-        System.gc()
-      }
-    }
+    // Collect models needing native cleanup and enqueue the chained teardown
+    // off the main thread — shared with the reload path so both stay in sync.
+    ServerCleanupCoordinator.collectAndEnqueueModelCleanup(
+      modelLifecycle = modelLifecycle,
+      loadJob = previousLoadJob,
+      inferenceExecutor = executor,
+      source = "ModelCleanup",
+    )
 
     notificationManager.clear()
     pendingReloadAfterLoad.set(null)

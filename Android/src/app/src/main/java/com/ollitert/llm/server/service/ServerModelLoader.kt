@@ -121,25 +121,13 @@ internal class ServerModelLoader(
 
   /** Initializes the model engine, with or without warmup depending on user settings. */
   private fun initializeOrWarmUp(model: Model) {
-    val eagerVision = ServerPrefs.isEagerVisionInit(context)
-    val supportImage = model.llmSupportImage && eagerVision
-    val supportAudio = model.llmSupportAudio
     if (ServerPrefs.isWarmupEnabled(context)) {
       getInferenceRunner()?.warmUpModel(model)
     } else {
-      var initErr = ""
-      ServerLlmModelHelper.initialize(
-        context = context,
-        model = model,
-        supportImage = supportImage,
-        supportAudio = supportAudio,
-        onDone = { initErr = it },
-        systemInstruction = modelLifecycle.buildSystemInstruction(model.prefsKey),
-      )
+      val initErr = modelLifecycle.initializeEngine(model)
       if (initErr.isNotEmpty()) {
         throw RuntimeException(context.getString(R.string.error_model_init_failed, initErr))
       }
-      model.initializedWithVision = supportImage
       RequestLogStore.addEvent(
         "Warmup skipped — Model loaded without test inference (disabled in Settings)",
         modelName = model.name,
