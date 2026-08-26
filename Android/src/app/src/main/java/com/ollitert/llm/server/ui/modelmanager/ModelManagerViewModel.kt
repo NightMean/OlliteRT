@@ -79,11 +79,6 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val TAG = "OlliteRT.ModelVM"
-
-/** Minimum spacing between download starts for the same model — absorbs the
- *  double-tap window before WorkManager reports the first IN_PROGRESS state. */
-private const val DOWNLOAD_START_DEBOUNCE_MS = 2_000L
-
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   val error: String = "",
@@ -243,25 +238,13 @@ constructor(
     }
   }
 
-  /** Model name -> last download-start timestamp (single-flight for double taps). */
-  private val recentDownloadStartsMs = mutableMapOf<String, Long>()
-
-  /** Injectable for JVM tests; open so test subclasses can pin time. */
-  protected open fun nowMs(): Long = android.os.SystemClock.elapsedRealtime()
+  /** Shared by initial and retry commands until WorkManager reports a terminal state. */
+  private val downloadStartGate = DownloadStartGate()
 
   fun downloadModel(model: Model) {
-    // Single-flight: a second tap during the start window is a duplicate, not
-    // a retry. Legitimate retries after a visible failure arrive later than
-    // the debounce window.
-    val now = nowMs()
-    synchronized(recentDownloadStartsMs) {
-      recentDownloadStartsMs.entries.removeAll { now - it.value > DOWNLOAD_START_DEBOUNCE_MS }
-      val last = recentDownloadStartsMs[model.name]
-      if (last != null && now - last < DOWNLOAD_START_DEBOUNCE_MS) {
-        Log.d(TAG, "Ignoring duplicate download tap for '${model.name}' (debounce)")
-        return
-      }
-      recentDownloadStartsMs[model.name] = now
+    if (!downloadStartGate.tryAcquire(model.name)) {
+      Log.d(TAG, "Ignoring duplicate download start for '${model.name}'")
+      return
     }
     if (model.updatable) {
       val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
@@ -275,26 +258,41 @@ constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
-    downloadRepository.downloadModel(
-      model = model,
-      onStatusUpdated = this::setDownloadStatus,
-    )
+    try {
+      downloadRepository.downloadModel(
+        model = model,
+        onStatusUpdated = this::setDownloadStatus,
+      )
+    } catch (failure: Throwable) {
+      downloadStartGate.release(model.name)
+      throw failure
+    }
   }
 
   fun cancelDownloadModel(model: Model) {
+    downloadStartGate.release(model.name)
     downloadRepository.cancelDownloadModel(model)
     deleteModel(model = model)
   }
 
   fun retryDownloadModel(model: Model) {
+    if (!downloadStartGate.tryAcquire(model.name)) {
+      Log.d(TAG, "Ignoring duplicate retry for '${model.name}'")
+      return
+    }
     setDownloadStatus(
       curModel = model,
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
-    downloadRepository.downloadModel(
-      model = model,
-      onStatusUpdated = this::setDownloadStatus,
-    )
+    try {
+      downloadRepository.downloadModel(
+        model = model,
+        onStatusUpdated = this::setDownloadStatus,
+      )
+    } catch (failure: Throwable) {
+      downloadStartGate.release(model.name)
+      throw failure
+    }
   }
 
   fun cancelModelDownloadByName(modelName: String) {
@@ -356,6 +354,7 @@ constructor(
   }
 
   fun deleteModelAndRefreshStorage(model: Model) {
+    downloadStartGate.release(model.name)
     deleteModel(model = model)
     notifyStorageChanged()
     viewModelScope.launch {
@@ -367,6 +366,13 @@ constructor(
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
+    if (
+      status.status == ModelDownloadStatusType.SUCCEEDED ||
+        status.status == ModelDownloadStatusType.FAILED ||
+        status.status == ModelDownloadStatusType.NOT_DOWNLOADED
+    ) {
+      downloadStartGate.release(curModel.name)
+    }
     if (
       status.status == ModelDownloadStatusType.FAILED ||
         status.status == ModelDownloadStatusType.NOT_DOWNLOADED
