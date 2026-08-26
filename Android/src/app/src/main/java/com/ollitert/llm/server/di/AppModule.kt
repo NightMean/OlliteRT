@@ -98,7 +98,7 @@ internal object AppModule {
   @Singleton
   fun provideModelCatalogRepository(
     @ApplicationContext context: Context,
-    ProtoDataStoreRepository: ProtoDataStoreRepository,
+    protoDataStoreRepository: ProtoDataStoreRepository,
   ): ModelCatalogRepository {
     val merger = ModelCatalogMerger(
       externalFilesDir = context.getExternalFilesDir(null),
@@ -109,7 +109,7 @@ internal object AppModule {
         } catch (_: Exception) { null }
       },
     )
-    return DefaultModelCatalogRepository(merger, ProtoDataStoreRepository)
+    return DefaultModelCatalogRepository(merger, protoDataStoreRepository)
   }
 
   @Provides

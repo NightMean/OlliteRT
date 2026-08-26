@@ -69,7 +69,7 @@ class BenchmarkViewModelTest {
   private fun createVm() {
     vm = BenchmarkViewModel(
       appContext = mockk<Context>(relaxed = true),
-      ProtoDataStoreRepository = fakeRepo,
+      protoDataStoreRepository = fakeRepo,
       ioDispatcher = testDispatcher,
     )
   }

@@ -37,7 +37,7 @@ import org.junit.Test
 class AllowlistLoadCoordinatorTest {
 
   private lateinit var context: Context
-  private lateinit var ProtoDataStoreRepository: ProtoDataStoreRepository
+  private lateinit var protoDataStoreRepository: ProtoDataStoreRepository
   private lateinit var repositoryManager: RepositoryManager
   private lateinit var modelStorageRepository: ModelStorageRepository
   private lateinit var importManager: ModelListImportManager
@@ -46,7 +46,7 @@ class AllowlistLoadCoordinatorTest {
   @Before
   fun setUp() {
     context = mockk(relaxed = true)
-    ProtoDataStoreRepository = mockk(relaxed = true)
+    protoDataStoreRepository = mockk(relaxed = true)
     repositoryManager = mockk(relaxed = true)
     modelStorageRepository = mockk(relaxed = true)
     importManager = mockk(relaxed = true)
@@ -59,7 +59,7 @@ class AllowlistLoadCoordinatorTest {
 
     coordinator = AllowlistLoadCoordinator(
       context = context,
-      ProtoDataStoreRepository = ProtoDataStoreRepository,
+      protoDataStoreRepository = protoDataStoreRepository,
       repositoryManager = repositoryManager,
       modelStorageRepository = modelStorageRepository,
       importManager = importManager,

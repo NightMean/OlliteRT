@@ -89,14 +89,14 @@ class BenchmarkViewModel
 @Inject
 constructor(
   @param:ApplicationContext private val appContext: Context,
-  val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  val protoDataStoreRepository: ProtoDataStoreRepository,
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
   val uiState = _uiState.asStateFlow()
   private val persistenceWriter = BenchmarkPersistenceWriter(
-    repository = ProtoDataStoreRepository,
+    repository = protoDataStoreRepository,
     scope = viewModelScope,
     dispatcher = ioDispatcher,
   ) { operation, error ->
@@ -105,7 +105,7 @@ constructor(
 
   init {
     viewModelScope.launch(ioDispatcher) {
-      val storedResults = ProtoDataStoreRepository.getAllBenchmarkResults()
+      val storedResults = protoDataStoreRepository.getAllBenchmarkResults()
       Log.d(TAG, "Loaded ${storedResults.size} benchmark results")
       setBenchmarkResults(results = storedResults)
       collapseAll()
@@ -336,11 +336,11 @@ constructor(
 
   /** Whether the one-time "benchmark comparison help" sheet was already shown. */
   suspend fun isComparisonHelpSeen(): Boolean =
-    ProtoDataStoreRepository.getHasSeenBenchmarkComparisonHelp()
+    protoDataStoreRepository.getHasSeenBenchmarkComparisonHelp()
 
   /** Marks the one-time "benchmark comparison help" sheet as shown. */
   suspend fun markComparisonHelpSeen() {
-    ProtoDataStoreRepository.setHasSeenBenchmarkComparisonHelp(true)
+    protoDataStoreRepository.setHasSeenBenchmarkComparisonHelp(true)
   }
 
   fun setBaseline(id: String) {

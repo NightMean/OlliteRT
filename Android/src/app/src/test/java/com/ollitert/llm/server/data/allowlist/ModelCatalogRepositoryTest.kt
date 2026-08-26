@@ -34,7 +34,7 @@ class ModelCatalogRepositoryTest {
   val tempFolder = TemporaryFolder()
 
   private lateinit var modelCatalogMerger: ModelCatalogMerger
-  private lateinit var ProtoDataStoreRepository: ProtoDataStoreRepository
+  private lateinit var protoDataStoreRepository: ProtoDataStoreRepository
   private lateinit var repository: DefaultModelCatalogRepository
 
   private val sampleAllowedModel = AllowedModel(
@@ -49,8 +49,8 @@ class ModelCatalogRepositoryTest {
   @Before
   fun setUp() {
     modelCatalogMerger = mockk(relaxed = true)
-    ProtoDataStoreRepository = mockk(relaxed = true)
-    repository = DefaultModelCatalogRepository(modelCatalogMerger, ProtoDataStoreRepository)
+    protoDataStoreRepository = mockk(relaxed = true)
+    repository = DefaultModelCatalogRepository(modelCatalogMerger, protoDataStoreRepository)
   }
 
   @Test
@@ -77,7 +77,7 @@ class ModelCatalogRepositoryTest {
   @Test
   fun `getImportedModels delegates to ProtoDataStoreRepository`() = runTest {
     val importedList = listOf(ImportedModel.newBuilder().setFileName("custom.litertlm").build())
-    coEvery { ProtoDataStoreRepository.readImportedModels() } returns importedList
+    coEvery { protoDataStoreRepository.readImportedModels() } returns importedList
 
     val result = repository.getImportedModels()
     assertEquals(importedList, result)

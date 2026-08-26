@@ -67,7 +67,7 @@ data class AllowlistLoadResult(
  */
 class AllowlistLoadCoordinator(
   private val context: Context,
-  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val repositoryManager: RepositoryManager,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val importManager: ModelListImportManager,
@@ -241,10 +241,10 @@ class AllowlistLoadCoordinator(
 
   suspend fun syncOfficialRepoUrl() {
     try {
-      val repos = ProtoDataStoreRepository.readRepositories()
+      val repos = protoDataStoreRepository.readRepositories()
       val official = repos.find { it.isBuiltIn }
       if (official != null && official.url != GitHubConfig.ALLOWLIST_URL) {
-        ProtoDataStoreRepository.updateRepository(official.copy(url = GitHubConfig.ALLOWLIST_URL))
+        protoDataStoreRepository.updateRepository(official.copy(url = GitHubConfig.ALLOWLIST_URL))
       }
     } catch (e: Exception) {
       Log.w(TAG, "Failed to sync Official repo URL", e)

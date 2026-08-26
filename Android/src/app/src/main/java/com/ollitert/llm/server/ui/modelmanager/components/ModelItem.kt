@@ -210,7 +210,7 @@ fun ModelItem(
   if (showEditDefaults && model.imported) {
     var existingInfo by remember { mutableStateOf<com.ollitert.llm.server.proto.ImportedModel?>(null) }
     LaunchedEffect(model.name) {
-      existingInfo = modelManagerViewModel.ProtoDataStoreRepository.readImportedModels()
+      existingInfo = modelManagerViewModel.protoDataStoreRepository.readImportedModels()
         .firstOrNull { it.fileName == model.name }
     }
     val loadedInfo = existingInfo

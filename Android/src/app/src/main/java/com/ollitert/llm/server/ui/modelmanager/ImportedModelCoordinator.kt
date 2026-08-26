@@ -40,7 +40,7 @@ private const val TAG = "OlliteRT.ImportedModelCoord"
  */
 class ImportedModelCoordinator(
   private val context: Context,
-  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
@@ -57,14 +57,14 @@ class ImportedModelCoordinator(
   }
 
   suspend fun saveImportedModel(info: ImportedModel) {
-    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = protoDataStoreRepository.readImportedModels().toMutableList()
     val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
     if (importedModelIndex >= 0) {
       Log.d(TAG, "Duplicated imported model found in data store. Removing old entry first")
       importedModels.removeAt(importedModelIndex)
     }
     importedModels.add(info)
-    ProtoDataStoreRepository.saveImportedModels(importedModels = importedModels)
+    protoDataStoreRepository.saveImportedModels(importedModels = importedModels)
 
     if (preferencesRepository.isVerboseDebugEnabled()) {
       RequestLogStore.addEvent(
@@ -78,7 +78,7 @@ class ImportedModelCoordinator(
 
   suspend fun updateDefaults(updatedInfo: ImportedModel): Model {
     Log.d(TAG, "Updating imported model defaults: ${updatedInfo.fileName}")
-    ProtoDataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
+    protoDataStoreRepository.updateImportedModel(updatedInfo.fileName, updatedInfo)
     preferencesRepository.clearInferenceConfig(updatedInfo.fileName)
 
     val updatedModel = ModelFactory.buildImportedModel(updatedInfo)
@@ -95,21 +95,21 @@ class ImportedModelCoordinator(
   }
 
   suspend fun deleteImportedModelRecord(modelName: String) {
-    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = protoDataStoreRepository.readImportedModels().toMutableList()
     val importedModelIndex = importedModels.indexOfFirst { it.fileName == modelName }
     if (importedModelIndex >= 0) {
       importedModels.removeAt(importedModelIndex)
     }
-    ProtoDataStoreRepository.saveImportedModels(importedModels = importedModels)
+    protoDataStoreRepository.saveImportedModels(importedModels = importedModels)
   }
 
   suspend fun renameOnlyDisplayName(oldFileName: String, displayName: String): Model? {
-    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = protoDataStoreRepository.readImportedModels().toMutableList()
     val index = importedModels.indexOfFirst { it.fileName == oldFileName }
     if (index >= 0) {
       val updated = importedModels[index].toBuilder().setDisplayName(displayName).build()
       importedModels[index] = updated
-      ProtoDataStoreRepository.saveImportedModels(importedModels)
+      protoDataStoreRepository.saveImportedModels(importedModels)
       return buildAndRestoreImportedModel(updated)
     }
     return null
@@ -118,7 +118,7 @@ class ImportedModelCoordinator(
   suspend fun renameFileAndRecord(oldFileName: String, newFileName: String, displayName: String): Model? {
     if (!modelStorageRepository.renameImportedFile(oldFileName, newFileName)) return null
 
-    val importedModels = ProtoDataStoreRepository.readImportedModels().toMutableList()
+    val importedModels = protoDataStoreRepository.readImportedModels().toMutableList()
     val index = importedModels.indexOfFirst { it.fileName == oldFileName }
     var resultModel: Model? = null
     if (index >= 0) {
@@ -127,7 +127,7 @@ class ImportedModelCoordinator(
         .setDisplayName(displayName)
         .build()
       importedModels[index] = updated
-      ProtoDataStoreRepository.saveImportedModels(importedModels)
+      protoDataStoreRepository.saveImportedModels(importedModels)
       resultModel = buildAndRestoreImportedModel(updated)
     }
 

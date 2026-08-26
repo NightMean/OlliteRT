@@ -77,7 +77,7 @@ import java.util.concurrent.atomic.AtomicLong
 @AndroidEntryPoint
 class ServerService : Service() {
 
-  @Inject lateinit var ProtoDataStoreRepository: ProtoDataStoreRepository
+  @Inject lateinit var protoDataStoreRepository: ProtoDataStoreRepository
   @Inject lateinit var preferencesRepository: PreferencesRepository
   @Inject lateinit var serverStateRepository: ServerStateRepository
 
@@ -121,7 +121,7 @@ class ServerService : Service() {
     super.onCreate()
     activeInstance = this
     try {
-      val dataStoreRepo = if (::ProtoDataStoreRepository.isInitialized) ProtoDataStoreRepository else null
+      val dataStoreRepo = if (::protoDataStoreRepository.isInitialized) protoDataStoreRepository else null
       modelCatalogMerger = ModelCatalogMerger(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,

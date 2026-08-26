@@ -37,7 +37,7 @@ private const val TAG = "OlliteRT.ListImport"
  */
 class ModelListImportManager(
   private val context: Context,
-  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val allowlistLoader: AllowlistLoader,
 ) {
 
@@ -129,7 +129,7 @@ class ModelListImportManager(
     val repoName = allowlist.sourceName.ifEmpty {
       context.getString(R.string.import_model_list_default_name)
     }
-    ProtoDataStoreRepository.addRepository(
+    protoDataStoreRepository.addRepository(
       Repository(
         id = repoId,
         url = repoUrl,

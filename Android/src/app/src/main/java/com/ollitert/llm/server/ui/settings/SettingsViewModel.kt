@@ -71,7 +71,7 @@ import com.ollitert.llm.server.service.updateClientIpAccessPolicy
 class SettingsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val persistence: RequestLogRepository,
-  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
   private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   private val logRetention: LogRetentionCoordinator =
@@ -95,7 +95,7 @@ class SettingsViewModel @Inject constructor(
 
   fun refreshRepositoryCounts() {
     viewModelScope.launch(ioDispatcher) {
-      val repos = ProtoDataStoreRepository.readRepositories()
+      val repos = protoDataStoreRepository.readRepositories()
       repoCount = repos.size
       enabledRepoCount = repos.count { it.enabled }
     }
@@ -520,7 +520,7 @@ class SettingsViewModel @Inject constructor(
     ServerService.updateClientIpAccessPolicy(ClientIpAccessPolicy.ALLOW_ALL)
 
     viewModelScope.launch(ioDispatcher) {
-      ProtoDataStoreRepository.resetRepositories()
+      protoDataStoreRepository.resetRepositories()
       val dir = context.getExternalFilesDir(null)
       if (dir != null) {
         // Delete only custom repo caches; keep the built-in official allowlist which ships with the APK.

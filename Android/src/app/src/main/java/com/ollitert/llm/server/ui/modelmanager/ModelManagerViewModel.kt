@@ -124,7 +124,7 @@ open class ModelManagerViewModel
 @Inject
 constructor(
   private val downloadRepository: DownloadRepository,
-  val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  val protoDataStoreRepository: ProtoDataStoreRepository,
   private val lifecycleProvider: OlliteRTLifecycleProvider,
   private val repositoryManager: RepositoryManager,
   @param:ApplicationContext private val context: Context,
@@ -160,7 +160,7 @@ constructor(
   init {
     viewModelScope.launch(ioDispatcher) {
       _onboardingCompleted.value = try {
-        ProtoDataStoreRepository.isOnboardingCompleted()
+        protoDataStoreRepository.isOnboardingCompleted()
       } catch (e: Exception) {
         // Degrade to completed — failing closed would trap returning users in onboarding.
         Log.w(TAG, "Failed to read onboarding flag, defaulting to completed", e)
@@ -169,11 +169,11 @@ constructor(
     }
   }
 
-  private val importManager = ModelListImportManager(context, ProtoDataStoreRepository, modelStorageRepository)
-  private val importedModelCoordinator = ImportedModelCoordinator(context, ProtoDataStoreRepository, modelStorageRepository, preferencesRepository)
+  private val importManager = ModelListImportManager(context, protoDataStoreRepository, modelStorageRepository)
+  private val importedModelCoordinator = ImportedModelCoordinator(context, protoDataStoreRepository, modelStorageRepository, preferencesRepository)
 
   fun completeOnboarding() {
-    viewModelScope.launch(ioDispatcher) { ProtoDataStoreRepository.setOnboardingCompleted() }
+    viewModelScope.launch(ioDispatcher) { protoDataStoreRepository.setOnboardingCompleted() }
   }
 
   /**
@@ -464,7 +464,7 @@ constructor(
 
   private val allowlistLoadCoordinator = AllowlistLoadCoordinator(
     context = context,
-    ProtoDataStoreRepository = ProtoDataStoreRepository,
+    protoDataStoreRepository = protoDataStoreRepository,
     repositoryManager = repositoryManager,
     modelStorageRepository = modelStorageRepository,
     importManager = importManager,
@@ -580,7 +580,7 @@ constructor(
     }
 
     val importedModels = mutableListOf<Model>()
-    for (importedModel in ProtoDataStoreRepository.readImportedModels()) {
+    for (importedModel in protoDataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
       // Reconcile registry with disk: a process death between file deletion and
       // record removal (or manual deletion via MTP/another app) leaves ghost

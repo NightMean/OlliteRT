@@ -63,7 +63,7 @@ import java.util.concurrent.TimeUnit
 class AllowlistRefreshWorker @AssistedInject constructor(
   @Assisted appContext: Context,
   @Assisted workerParams: WorkerParameters,
-  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(appContext),
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -75,7 +75,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       return Result.success()
     }
 
-    val repos = ProtoDataStoreRepository.readRepositories()
+    val repos = protoDataStoreRepository.readRepositories()
     val allUpdatableModels = mutableListOf<UpdatableInfo>()
     val nonUpdatableDownloaded = mutableListOf<String>()
     val seenModelIds = mutableSetOf<String>()
@@ -109,7 +109,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
         if (allowlist.contentVersion <= minVersion) {
           Log.d(TAG, "Repo '${repo.id}': v${allowlist.contentVersion} <= min v$minVersion — skipping")
           if (repo.lastError.isNotEmpty()) {
-            ProtoDataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
+            protoDataStoreRepository.updateRepository(repo.copy(lastRefreshMs = System.currentTimeMillis(), lastError = ""))
           }
           continue
         }
@@ -119,7 +119,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
           Log.w(TAG, "Disk cache write failed for '${repo.id}' — skipping DataStore update")
           continue
         }
-        ProtoDataStoreRepository.updateRepository(
+        protoDataStoreRepository.updateRepository(
           repo.copy(
             contentVersion = allowlist.contentVersion,
             lastRefreshMs = System.currentTimeMillis(),
@@ -149,7 +149,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
       } catch (e: Exception) {
         Log.w(TAG, "Failed to refresh repo '${repo.id}'", e)
         failedRepoCount++
-        ProtoDataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
+        protoDataStoreRepository.updateRepository(repo.copy(lastError = e.message?.take(MAX_REPO_ERROR_LENGTH) ?: UNKNOWN_ERROR_FALLBACK))
       }
     }
 

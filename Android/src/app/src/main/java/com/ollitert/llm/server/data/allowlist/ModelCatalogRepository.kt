@@ -45,7 +45,7 @@ interface ModelCatalogRepository {
 
 class DefaultModelCatalogRepository(
   private val modelCatalogMerger: ModelCatalogMerger,
-  private val ProtoDataStoreRepository: ProtoDataStoreRepository,
+  private val protoDataStoreRepository: ProtoDataStoreRepository,
 ) : ModelCatalogRepository {
   override fun loadAllowedModels(): List<AllowedModel> = modelCatalogMerger.load()
 
@@ -54,7 +54,7 @@ class DefaultModelCatalogRepository(
   }
 
   override suspend fun getImportedModels(): List<ImportedModel> {
-    return ProtoDataStoreRepository.readImportedModels()
+    return protoDataStoreRepository.readImportedModels()
   }
 
   override fun getAllowlistContentVersion(): Int = modelCatalogMerger.lastContentVersion
