@@ -53,6 +53,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -171,14 +173,11 @@ fun InferenceSettingsSheet(
 
   var showResetDialog by remember { mutableStateOf(false) }
 
-  var tempError by remember { mutableStateOf(false) }
-  var maxTokensError by remember { mutableStateOf(false) }
-  var topKError by remember { mutableStateOf(false) }
-  var topPError by remember { mutableStateOf(false) }
-  var tempForceError by remember { mutableStateOf(false) }
-  var maxTokensForceError by remember { mutableStateOf(false) }
-  var topKForceError by remember { mutableStateOf(false) }
-  var topPForceError by remember { mutableStateOf(false) }
+  // Per-field validation state, keyed by field instead of eight sibling
+  // booleans: the two error kinds are independent per field, and adding a
+  // field means adding an enum entry rather than another flag pair.
+  val inputErrors = remember { mutableStateMapOf<InferenceField, Boolean>() }
+  val forcedRangeErrors = remember { mutableStateSetOf<InferenceField>() }
   val outOfRangeMessage = stringResource(R.string.inference_settings_error_out_of_range)
 
   if (showGpuInfoDialog) {
@@ -267,26 +266,26 @@ fun InferenceSettingsSheet(
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_temperature),
           value = String.format(Locale.US, "%.2f", temperature).trimEnd('0').trimEnd('.'),
-          onValueChange = { temperature = it.toFloat(); tempForceError = false },
+          onValueChange = { temperature = it.toFloat(); forcedRangeErrors.remove(InferenceField.TEMPERATURE) },
           min = tempRange.first,
           max = tempRange.second,
           isFloat = true,
           keyboardType = KeyboardType.Decimal,
           modifier = Modifier.weight(1f),
-          forceError = tempForceError,
-          onErrorStateChange = { tempError = it },
+          forceError = InferenceField.TEMPERATURE in forcedRangeErrors,
+          onErrorStateChange = { hasError -> if (hasError) inputErrors[InferenceField.TEMPERATURE] = true else inputErrors.remove(InferenceField.TEMPERATURE) },
         )
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_max_tokens),
           value = maxTokens.toString(),
-          onValueChange = { maxTokens = it.toInt(); maxTokensForceError = false },
+          onValueChange = { maxTokens = it.toInt(); forcedRangeErrors.remove(InferenceField.MAX_TOKENS) },
           min = maxTokensRange.first,
           max = maxTokensRange.second,
           isFloat = false,
           keyboardType = KeyboardType.Number,
           modifier = Modifier.weight(1f),
-          forceError = maxTokensForceError,
-          onErrorStateChange = { maxTokensError = it },
+          forceError = InferenceField.MAX_TOKENS in forcedRangeErrors,
+          onErrorStateChange = { hasError -> if (hasError) inputErrors[InferenceField.MAX_TOKENS] = true else inputErrors.remove(InferenceField.MAX_TOKENS) },
         )
       }
 
@@ -298,26 +297,26 @@ fun InferenceSettingsSheet(
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_top_k),
           value = topK.toString(),
-          onValueChange = { topK = it.toInt(); topKForceError = false },
+          onValueChange = { topK = it.toInt(); forcedRangeErrors.remove(InferenceField.TOP_K) },
           min = topKRange.first,
           max = topKRange.second,
           isFloat = false,
           keyboardType = KeyboardType.Number,
           modifier = Modifier.weight(1f),
-          forceError = topKForceError,
-          onErrorStateChange = { topKError = it },
+          forceError = InferenceField.TOP_K in forcedRangeErrors,
+          onErrorStateChange = { hasError -> if (hasError) inputErrors[InferenceField.TOP_K] = true else inputErrors.remove(InferenceField.TOP_K) },
         )
         ParameterInputBox(
           label = stringResource(R.string.inference_settings_label_top_p),
           value = String.format(Locale.US, "%.2f", topP),
-          onValueChange = { topP = it.toFloat(); topPForceError = false },
+          onValueChange = { topP = it.toFloat(); forcedRangeErrors.remove(InferenceField.TOP_P) },
           min = topPRange.first,
           max = topPRange.second,
           isFloat = true,
           keyboardType = KeyboardType.Decimal,
           modifier = Modifier.weight(1f),
-          forceError = topPForceError,
-          onErrorStateChange = { topPError = it },
+          forceError = InferenceField.TOP_P in forcedRangeErrors,
+          onErrorStateChange = { hasError -> if (hasError) inputErrors[InferenceField.TOP_P] = true else inputErrors.remove(InferenceField.TOP_P) },
         )
       }
 
@@ -424,12 +423,12 @@ fun InferenceSettingsSheet(
       // Apply button
       Button(
         onClick = {
-          tempForceError = temperature < tempRange.first || temperature > tempRange.second
-          maxTokensForceError = maxTokens < maxTokensRange.first.toInt() || maxTokens > maxTokensRange.second.toInt()
-          topKForceError = topK < topKRange.first.toInt() || topK > topKRange.second.toInt()
-          topPForceError = topP < topPRange.first || topP > topPRange.second
-          val hasValidationError = tempForceError || maxTokensForceError || topKForceError || topPForceError
-            || tempError || maxTokensError || topKError || topPError
+          forcedRangeErrors.clear()
+          if (temperature < tempRange.first || temperature > tempRange.second) forcedRangeErrors.add(InferenceField.TEMPERATURE)
+          if (maxTokens < maxTokensRange.first.toInt() || maxTokens > maxTokensRange.second.toInt()) forcedRangeErrors.add(InferenceField.MAX_TOKENS)
+          if (topK < topKRange.first.toInt() || topK > topKRange.second.toInt()) forcedRangeErrors.add(InferenceField.TOP_K)
+          if (topP < topPRange.first || topP > topPRange.second) forcedRangeErrors.add(InferenceField.TOP_P)
+          val hasValidationError = inputErrors.values.any { it } || forcedRangeErrors.isNotEmpty()
           if (hasValidationError) {
             Toast.makeText(context, outOfRangeMessage, Toast.LENGTH_SHORT).show()
             return@Button
@@ -470,3 +469,7 @@ fun InferenceSettingsSheet(
     }
   }
 }
+
+
+/** Identifies a tunable inference parameter for per-field validation state. */
+private enum class InferenceField { TEMPERATURE, MAX_TOKENS, TOP_K, TOP_P }
