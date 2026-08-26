@@ -68,6 +68,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -201,9 +202,9 @@ constructor(
     }
   }
 
-  fun processModels() {
-    val models = uiState.value.models
+  fun processModels() = processModels(uiState.value.models)
 
+  private fun processModels(models: List<Model>) {
     val nameToPrefsKey = models
       .filter { !it.imported && it.name != it.downloadFileName }
       .associate { it.name to it.downloadFileName }
@@ -503,34 +504,85 @@ constructor(
     return allowlistLoadCoordinator.isModelSupportedOnDevice(allowedModel)
   }
 
-  /** Active allowlist load; a new load supersedes (cancels + generation-gates)
-   *  any previous one so pull-to-refresh, retry, and navigation-triggered
-   *  reloads cannot interleave or land their uiState updates out of order. */
-  private var allowlistLoadJob: kotlinx.coroutines.Job? = null
-  private var allowlistLoadGeneration = 0
+  /**
+   * Active allowlist load. Job ownership is changed only on [mainDispatcher],
+   * while the generation gate makes the freshness check and publication one
+   * indivisible operation.
+   */
+  private var allowlistLoadJob: Job? = null
+  private val allowlistLoadGenerationGate = AllowlistLoadGenerationGate()
+
+  private data class PreparedAllowlistLoad(
+    val result: AllowlistLoadResult,
+    val loadedUiState: ModelManagerUiState?,
+    val toastError: String?,
+  )
 
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
+    viewModelScope.launch(mainDispatcher) {
+      startModelAllowlistLoad(isManualRetry)
+    }
+  }
+
+  private fun startModelAllowlistLoad(isManualRetry: Boolean) {
     _uiState.update {
       it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "", allReposDisabled = false)
     }
 
     allowlistLoadJob?.cancel()
-    val generation = ++allowlistLoadGeneration
-    allowlistLoadJob = viewModelScope.launch(ioDispatcher) {
-      val result = allowlistLoadCoordinator.loadAllowlist(
-        isManualRetry = isManualRetry,
-        onToastError = { msg -> _toastErrorChannel.trySend(msg) },
-      )
-      // Cancellation is not a fence: a superseded load past its last
-      // suspension point can still run to completion. Every state write below
-      // is therefore gated on this generation so a stale load can never land
-      // its results after a newer one.
-      if (generation != allowlistLoadGeneration) {
-        Log.d(TAG, "Allowlist load superseded (gen $generation) — discarding result")
-        return@launch
+    val generation = allowlistLoadGenerationGate.beginLoad()
+    allowlistLoadJob = viewModelScope.launch(mainDispatcher) {
+      val preparedLoad = withContext(ioDispatcher) {
+        var toastError: String? = null
+        val result = allowlistLoadCoordinator.loadAllowlist(
+          isManualRetry = isManualRetry,
+          onToastError = { message -> toastError = message },
+        )
+        val loadedUiState = prepareLoadedUiState(result)
+        PreparedAllowlistLoad(
+          result = result,
+          loadedUiState = loadedUiState,
+          toastError = toastError,
+        )
       }
 
-      if (result.allReposDisabled) {
+      val wasPublished = allowlistLoadGenerationGate.publishIfCurrent(generation) {
+        publishAllowlistLoad(preparedLoad)
+      }
+      if (!wasPublished) {
+        Log.d(TAG, "Allowlist load superseded (gen $generation) — discarding result")
+      }
+    }
+  }
+
+  private suspend fun prepareLoadedUiState(result: AllowlistLoadResult): ModelManagerUiState? {
+    if (result.allReposDisabled) return null
+    if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
+      return null
+    }
+
+    processModels(result.models)
+    val loadedState = createUiState(result.models)
+    return if (result.isRawAllowlist) {
+      loadedState.copy(loadingModelAllowlist = false)
+    } else {
+      loadedState.copy(
+        loadingModelAllowlist = false,
+        loadingModelAllowlistError = result.errorMessage,
+        emptyReason = result.emptyReason,
+        requiredVersion = result.requiredVersion,
+        droppedByVersionFilter = result.droppedByVersionFilter,
+        totalBeforeFilters = result.totalBeforeFilters,
+      )
+    }
+  }
+
+  private fun publishAllowlistLoad(preparedLoad: PreparedAllowlistLoad) {
+    val result = preparedLoad.result
+    preparedLoad.toastError?.let(_toastErrorChannel::trySend)
+
+    when {
+      result.allReposDisabled -> {
         _uiState.update {
           it.copy(
             loadingModelAllowlist = false,
@@ -539,54 +591,29 @@ constructor(
             modelDownloadStatus = result.disabledReposStatusMap,
           )
         }
-        return@launch
       }
 
-      if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
+      result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist -> {
         _uiState.update {
           it.copy(
             loadingModelAllowlist = false,
             loadingModelAllowlistError = result.errorMessage,
           )
         }
-        return@launch
       }
 
-      _uiState.update { it.copy(models = result.models) }
-      processModels()
-
-      if (result.isRawAllowlist) {
-        _uiState.update {
-          createUiState().copy(loadingModelAllowlist = false)
-        }
-      } else {
-        _uiState.update {
-          createUiState()
-            .copy(
-              loadingModelAllowlist = false,
-              loadingModelAllowlistError = result.errorMessage,
-              emptyReason = result.emptyReason,
-              requiredVersion = result.requiredVersion,
-              droppedByVersionFilter = result.droppedByVersionFilter,
-              totalBeforeFilters = result.totalBeforeFilters,
-            )
-        }
+      else -> {
+        _uiState.value = checkNotNull(preparedLoad.loadedUiState)
+        notifyStorageChanged()
+        processPendingDownloads()
       }
-      if (generation != allowlistLoadGeneration) return@launch
-      notifyStorageChanged()
-      processPendingDownloads()
     }
   }
 
   fun clearLoadModelAllowlistError() {
-    processModels()
-    viewModelScope.launch(ioDispatcher) {
+    viewModelScope.launch(mainDispatcher) {
       _uiState.update {
-        createUiState()
-          .copy(
-            loadingModelAllowlist = false,
-            loadingModelAllowlistError = "",
-          )
+        it.copy(loadingModelAllowlistError = "")
       }
     }
   }
@@ -615,10 +642,10 @@ constructor(
     return ModelManagerUiState()
   }
 
-  private suspend fun createUiState(): ModelManagerUiState {
+  private suspend fun createUiState(models: List<Model>): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
-    for (model in uiState.value.models) {
+    for (model in models) {
       modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
       modelInstances[model.name] =
         ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
@@ -648,7 +675,7 @@ constructor(
 
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
-      models = uiState.value.models + importedModels,
+      models = models + importedModels,
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
     )
