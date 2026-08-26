@@ -42,6 +42,8 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import com.ollitert.llm.server.data.prefs.getCachedCrossChannelVersion
 
@@ -107,7 +109,10 @@ class UpdateCheckWorker @AssistedInject constructor(
     val checkedChannels = if (crossChannelEnabled) "stable/beta/dev" else BuildConfig.UPDATE_CHANNEL
 
     try {
-      val release = fetchLatestRelease(context) ?: run {
+      // fetchGitHub uses blocking HttpURLConnection (up to 15s on timeouts);
+      // move the whole fetch-and-decide section off the Default dispatcher so
+      // it can't starve CPU-bound coroutines sharing the pool.
+      val release = withContext(Dispatchers.IO) { fetchLatestRelease(context) } ?: run {
         if (verbose) {
           RequestLogStore.addEvent(
             "No releases found",
