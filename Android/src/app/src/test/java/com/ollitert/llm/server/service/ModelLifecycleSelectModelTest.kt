@@ -24,6 +24,9 @@ import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -52,8 +55,8 @@ class ModelLifecycleSelectModelTest {
 
   @Test
   fun requestAdmissionRemainsActiveUntilEveryLeaseCloses() {
-    val first = lifecycle.acquireRequestAdmission()
-    val second = lifecycle.acquireRequestAdmission()
+    val first = requireNotNull(lifecycle.tryAcquireRequestAdmission())
+    val second = requireNotNull(lifecycle.tryAcquireRequestAdmission())
 
     assertEquals(2, lifecycle.activeRequestAdmissionCount())
 
@@ -63,6 +66,27 @@ class ModelLifecycleSelectModelTest {
 
     second.close()
     assertEquals(0, lifecycle.activeRequestAdmissionCount())
+  }
+
+  @Test
+  fun emergencyUnloadWaitsForAdmissionsAndRejectsNewRequests() {
+    lifecycle.defaultModel = testModel
+    lifecycle.modelCache[testModel.name] = testModel
+    val activeAdmission = requireNotNull(lifecycle.tryAcquireRequestAdmission())
+
+    lifecycle.emergencyUnloadOnOom()
+
+    assertNull(lifecycle.defaultModel)
+    assertTrue(lifecycle.hasActiveIdleCleanup())
+    assertNull(lifecycle.tryAcquireRequestAdmission())
+
+    activeAdmission.close()
+    lifecycle.awaitIdleCleanup()
+
+    assertFalse(lifecycle.hasActiveIdleCleanup())
+    val recoveredAdmission = lifecycle.tryAcquireRequestAdmission()
+    assertNotNull(recoveredAdmission)
+    recoveredAdmission?.close()
   }
 
   @Test

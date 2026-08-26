@@ -87,7 +87,14 @@ internal fun Routing.audioRoutes(server: KtorServer) {
 
       val actualSize = fileBytes?.size?.toLong() ?: contentLengthHeader ?: 0L
 
-      val admission = modelLifecycle.acquireRequestAdmission()
+      val admission = modelLifecycle.tryAcquireRequestAdmission()
+      if (admission == null) {
+        val response = httpServiceUnavailable(MODEL_RECOVERY_IN_PROGRESS_MESSAGE)
+        finalizeLogEntry(logId, startMs, response, null, response.body)
+        call.response.headers.append("x-request-id", logId)
+        call.respondHttpResponse(response)
+        return@post
+      }
       try {
         val model = when (val sel = modelLifecycle.selectModel(null)) {
           is ModelLifecycle.ModelSelection.Ok -> sel.model

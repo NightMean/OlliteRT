@@ -298,7 +298,12 @@ suspend fun withRequestLogging(
       modelLifecycle = modelLifecycle,
       handler = handler,
     ) {
-      if (admitModelRequest) admission = modelLifecycle.acquireRequestAdmission()
+      if (!admitModelRequest) {
+        true
+      } else {
+        admission = modelLifecycle.tryAcquireRequestAdmission()
+        admission != null
+      }
     }
   } finally {
     admission?.close()
@@ -321,7 +326,7 @@ private suspend fun withRequestLoggingBody(
     sseExtraHeaders: Map<String, String>,
     prefs: RequestPrefsSnapshot,
   ) -> HttpResponse,
-  beforeHandler: () -> Unit,
+  beforeHandler: () -> Boolean,
 ) {
   val prefs = ServerPrefs.captureRequestSnapshot(serviceContext)
   val startMs = SystemClock.elapsedRealtime()
@@ -410,7 +415,21 @@ private suspend fun withRequestLoggingBody(
       return
     }
 
-    beforeHandler()
+    if (!beforeHandler()) {
+      val recoveryResponse = httpServiceUnavailable(MODEL_RECOVERY_IN_PROGRESS_MESSAGE)
+      requestBodySnapshot = "[Request rejected during model OOM recovery]"
+      finalizeLogEntry(
+        logId,
+        startMs,
+        recoveryResponse,
+        requestBodySnapshot,
+        recoveryResponse.body,
+        defaultModel?.name,
+      )
+      call.response.headers.append("x-request-id", logId)
+      call.respondHttpResponse(recoveryResponse)
+      return
+    }
     handler(body, captureBody, captureResponse, logId, sseExtraHeaders, prefs)
   } catch (_: kotlinx.coroutines.CancellationException) {
     RequestLogStore.update(logId) {

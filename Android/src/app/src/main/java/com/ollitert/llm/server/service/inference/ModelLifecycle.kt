@@ -51,6 +51,9 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
+internal const val MODEL_RECOVERY_IN_PROGRESS_MESSAGE =
+  "Model is recovering from an out-of-memory failure. Retry shortly."
+
 /**
  * Manages the LLM model keep-alive lifecycle: idle timeout, auto-unload, auto-reload,
  * model selection, and helper utilities (image decoding, system instruction building).
@@ -125,6 +128,12 @@ class ModelLifecycle(
   private var activeRequestAdmissions = 0
   private var isDestroyed = false
   @Volatile private var idleCleanupFinished: CountDownLatch? = null
+  private data class EmergencyUnloadState(
+    val model: Model,
+    val cleanupReady: CountDownLatch,
+    val cleanupFinished: CountDownLatch,
+  )
+  private var emergencyUnloadState: EmergencyUnloadState? = null
 
   /** Keeps a selected model alive until the complete HTTP response has been written. */
   internal class RequestAdmission internal constructor(
@@ -198,6 +207,9 @@ class ModelLifecycle(
     synchronized(keepAliveLock) {
       isDestroyed = true
       cancelKeepAliveTimer()
+      // Service shutdown has already stopped request admission and interrupted
+      // inference, so a deferred OOM cleanup must not remain blocked on old leases.
+      emergencyUnloadState?.cleanupReady?.countDown()
     }
     lifecycleScope.cancel()
   }
@@ -206,9 +218,10 @@ class ModelLifecycle(
    * Admit one model-using HTTP request. The lease must cover response writing,
    * including the complete SSE writer lifetime, not only handler construction.
    */
-  internal fun acquireRequestAdmission(): RequestAdmission {
+  internal fun tryAcquireRequestAdmission(): RequestAdmission? {
     synchronized(keepAliveLock) {
       check(!isDestroyed) { "Model lifecycle is destroyed" }
+      if (emergencyUnloadState != null) return null
       cancelKeepAliveTimer()
       activeRequestAdmissions++
     }
@@ -219,7 +232,14 @@ class ModelLifecycle(
     synchronized(keepAliveLock) {
       check(activeRequestAdmissions > 0) { "No active model request admission to release" }
       activeRequestAdmissions--
-      if (activeRequestAdmissions == 0 && !isDestroyed) resetKeepAliveTimer()
+      if (activeRequestAdmissions == 0) {
+        val emergency = emergencyUnloadState
+        if (emergency != null) {
+          if (!ServerMetrics.isInferring.value) emergency.cleanupReady.countDown()
+        } else if (!isDestroyed) {
+          resetKeepAliveTimer()
+        }
+      }
     }
   }
 
@@ -229,15 +249,7 @@ class ModelLifecycle(
   /** Waits off the main thread until an idle-unloaded Engine has finished closing. */
   internal fun awaitIdleCleanup() {
     val cleanup = idleCleanupFinished ?: return
-    var wasInterrupted = false
-    while (cleanup.count > 0) {
-      try {
-        cleanup.await()
-      } catch (_: InterruptedException) {
-        wasInterrupted = true
-      }
-    }
-    if (wasInterrupted) Thread.currentThread().interrupt()
+    awaitLatchUninterruptibly(cleanup)
   }
 
   internal fun hasActiveIdleCleanup(): Boolean = (idleCleanupFinished?.count ?: 0) > 0
@@ -252,37 +264,56 @@ class ModelLifecycle(
    * [reloadModelFromIdle], and publish the cleanup latch so a concurrent reloader
    * waits for `Engine.close()` instead of racing it.
    *
-   * If an inference is still running on this engine the whole operation is skipped:
-   * closing the engine underneath a live request would crash the process, while
-   * dropping only the reference would leave a half-torn-down engine that no path
-   * ever cleans up. The running request finishes normally and the ordinary
-   * lifecycle (keep-alive timeout / next load) owns teardown from there.
+   * The model is unpublished immediately so no new work can select it. Existing
+   * request admissions keep their lease and finish without concurrent teardown;
+   * one process-wide cleanup starts after the last lease releases. New admissions
+   * receive a retryable rejection until cleanup completes.
    */
   fun emergencyUnloadOnOom() {
-    synchronized(keepAliveLock) {
-      if (isDestroyed) return
+    val emergency = synchronized(keepAliveLock) {
+      if (isDestroyed || emergencyUnloadState != null) return
       val model = defaultModel ?: return
-      if (ServerMetrics.isInferring.value) {
-        Log.w(TAG, "OOM: inference still active on ${model.name}; skipping emergency unload")
-        return
-      }
       Log.w(TAG, "OOM: emergency-unloading model ${model.name}")
       keepAliveUnloadedRef.set(model.name to model.prefsKey)
       defaultModel = null
       modelCache.remove(model.name, model)
       ServerMetrics.onModelIdleUnloaded()
+      val cleanupReady = CountDownLatch(1)
       val cleanupFinished = CountDownLatch(1)
       idleCleanupFinished = cleanupFinished
-      // Native teardown outside the lock (Engine.close can take seconds); a
-      // concurrent reloader blocks via awaitIdleCleanup() until it completes.
-      lifecycleScope.launch {
-        try {
-          ServerLlmModelHelper.safeCleanup(model)
-        } finally {
-          cleanupFinished.countDown()
+      EmergencyUnloadState(model, cleanupReady, cleanupFinished).also { state ->
+        emergencyUnloadState = state
+        if (activeRequestAdmissions == 0 && !ServerMetrics.isInferring.value) {
+          state.cleanupReady.countDown()
         }
       }
     }
+
+    // Queue cleanup immediately on the process-wide native cleanup chain. It waits
+    // for the final pre-OOM admission, and survives service-scope cancellation.
+    ServerCleanupCoordinator.enqueueCleanup("OlliteRT-OomCleanup") {
+      awaitLatchUninterruptibly(emergency.cleanupReady)
+      try {
+        ServerLlmModelHelper.safeCleanup(emergency.model)
+      } finally {
+        synchronized(keepAliveLock) {
+          if (emergencyUnloadState === emergency) emergencyUnloadState = null
+        }
+        emergency.cleanupFinished.countDown()
+      }
+    }
+  }
+
+  private fun awaitLatchUninterruptibly(latch: CountDownLatch) {
+    var wasInterrupted = false
+    while (latch.count > 0) {
+      try {
+        latch.await()
+      } catch (_: InterruptedException) {
+        wasInterrupted = true
+      }
+    }
+    if (wasInterrupted) Thread.currentThread().interrupt()
   }
 
   /**
