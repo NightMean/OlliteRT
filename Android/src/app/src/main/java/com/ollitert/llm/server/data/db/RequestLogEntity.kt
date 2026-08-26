@@ -25,8 +25,11 @@ import com.ollitert.llm.server.data.model.ErrorKind
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
+import android.util.Log
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
+private const val TAG = "OlliteRT.LogEntity"
 
 /**
  * Room entity for persisted request logs.
@@ -92,11 +95,21 @@ data class RequestLogEntity(
 
   /** Convert back to the in-memory [RequestLogEntry]. */
   fun toEntry(): RequestLogEntry {
+    // Corrupted extras must degrade loudly, not silently: a swallowed parse
+    // failure here permanently erases the request/response bodies with no
+    // trace. Log once per affected row (bounded by row count) and keep the
+    // identity columns intact so the entry still appears in the list.
     val ext = try {
       json.decodeFromString<ExtrasJson>(extras)
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+      Log.w(TAG, "Corrupt extras JSON for log entry $id (${extras.length} chars) — dropping bodies", e)
       ExtrasJson()
     }
+    fun <T : Enum<T>> parseEnum(name: String, values: Array<T>, fallback: T): T =
+      values.firstOrNull { it.name == name } ?: run {
+        Log.w(TAG, "Unknown ${fallback::class.java.simpleName} '$name' in log entry $id — using ${fallback.name}")
+        fallback
+      }
     return RequestLogEntry(
       id = id,
       timestamp = timestamp,
@@ -111,7 +124,7 @@ data class RequestLogEntity(
       isStreaming = isStreaming,
       modelName = modelName,
       clientIp = ext.clientIp,
-      level = try { LogLevel.valueOf(level) } catch (_: Exception) { LogLevel.INFO },
+      level = parseEnum(level, LogLevel.values(), LogLevel.INFO),
       isPending = ext.isPending,
       isGenerating = ext.isGenerating,
       isThinking = ext.isThinking,
@@ -121,13 +134,20 @@ data class RequestLogEntity(
       isCancelled = ext.isCancelled,
       cancelledByUser = ext.cancelledByUser,
       partialText = ext.partialText,
-      eventCategory = try { EventCategory.valueOf(eventCategory) } catch (_: Exception) { EventCategory.GENERAL },
+      eventCategory = parseEnum(eventCategory, EventCategory.values(), EventCategory.GENERAL),
       inputTokenEstimate = inputTokenEstimate,
       maxContextTokens = maxContextTokens,
       isExactTokenCount = ext.isExactTokenCount,
       ignoredClientParams = ext.ignoredClientParams,
       hasToolCalls = ext.hasToolCalls,
-      errorKind = ext.errorKind?.let { try { ErrorKind.valueOf(it) } catch (_: Exception) { null } },
+      errorKind = ext.errorKind?.let { kind ->
+        try {
+          ErrorKind.valueOf(kind)
+        } catch (_: Exception) {
+          Log.w(TAG, "Unknown ErrorKind '$kind' in log entry $id — clearing")
+          null
+        }
+      },
       ttfbMs = ext.ttfbMs,
       decodeSpeed = ext.decodeSpeed,
       prefillSpeed = ext.prefillSpeed,
