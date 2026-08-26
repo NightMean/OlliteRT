@@ -135,11 +135,13 @@ data class AllowedModel(
     // an SoC map is actually present.
     soc: String? = null,
   ): Model {
-    // Construct HF download url.
+    fun huggingFaceDownloadUrl(version: String, fileName: String): String =
+      "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/$version/$fileName?download=true"
+
+    // Construct the base artifact identity.
     var version = commitHash
     var downloadedFileName = modelFile
-    var downloadUrl =
-      url ?: "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/$commitHash/$modelFile?download=true"
+    var downloadUrl = url ?: huggingFaceDownloadUrl(commitHash, modelFile)
     var sizeInBytes = sizeInBytes
 
     // Handle per-soc model files.
@@ -150,14 +152,18 @@ data class AllowedModel(
         // fields must inherit the model's base file metadata — sentinel values
         // here ("-", negative sizes, null-interpolated URLs) used to leak into
         // download paths and progress denominators.
+        val overridesArtifactIdentity = info.commitHash != null || info.modelFile != null
         version = info.commitHash ?: version
         downloadedFileName = info.modelFile ?: downloadedFileName
-        val socUrl = info.url ?: when {
-          info.commitHash != null && info.modelFile != null ->
-            "${GitHubConfig.HUGGINGFACE_BASE_URL}/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
-          else -> null
+        // An omitted SoC URL inherits the transport rule, not the old concrete
+        // URL. Rebuild it from the final effective hash + filename whenever
+        // either identity field changes so bytes are never stored under a
+        // revision different from the one they were downloaded from.
+        downloadUrl = info.url ?: if (overridesArtifactIdentity) {
+          huggingFaceDownloadUrl(version, downloadedFileName)
+        } else {
+          downloadUrl
         }
-        downloadUrl = socUrl ?: downloadUrl
         sizeInBytes = info.sizeInBytes ?: sizeInBytes
       }
     }

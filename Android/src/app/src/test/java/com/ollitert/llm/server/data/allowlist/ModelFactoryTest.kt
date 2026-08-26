@@ -69,7 +69,7 @@ class ModelFactoryTest {
     assertEquals("sochash", model.version)
     assertEquals("Gemma3-1B-IT.litertlm", model.downloadFileName)
     assertEquals(
-      "https://huggingface.co/google/Gemma3-1B-IT/resolve/basehash/Gemma3-1B-IT.litertlm?download=true",
+      "https://huggingface.co/google/Gemma3-1B-IT/resolve/sochash/Gemma3-1B-IT.litertlm?download=true",
       model.url,
     )
     assertEquals(1L, model.sizeInBytes)
