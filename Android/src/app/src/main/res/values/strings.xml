@@ -1041,6 +1041,7 @@
   <string name="download_error_unauthorized">Authentication failed. Check your HuggingFace token or verify the model is publicly accessible.</string>
   <string name="download_error_server">Server returned HTTP %1$d. Try again later.</string>
   <string name="download_error_zip_corrupted">Download failed: the model archive appears corrupted or contains invalid paths. Try downloading again.</string>
+  <string name="download_error_finalize">Download completed but the model file could not be replaced. The downloaded data was kept; retry or check storage access.</string>
   <string name="download_notif_title_generic">Downloading model</string>
   <string name="download_notif_title_named">Downloading \"%1$s\"</string>
   <string name="download_notif_progress">Downloading in progress: %1$d%%</string>

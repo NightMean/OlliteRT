@@ -304,18 +304,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               connection.disconnect()
             }
 
-            // Finalize the tmp file under its real name. An unchecked rename
-            // failure here previously produced Result.success() with no final
-            // file on disk — a "phantom downloaded" model. Fail loudly instead;
-            // the .tmp is kept so a retry can resume.
+            // Same-directory atomic replacement preserves a previous valid file
+            // if finalization fails and keeps the staging file resumable.
             val originalFilePath = outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT")
             val originalFile = File(originalFilePath)
-            if (originalFile.exists() && !originalFile.delete()) {
-              throw IOException("Failed to replace existing file before finalize: ${originalFile.absolutePath}")
-            }
-            if (!outputTmpFile.renameTo(originalFile)) {
-              throw IOException("Failed to finalize downloaded file: ${originalFile.absolutePath}")
-            }
+            finalizeDownloadedFile(outputTmpFile, originalFile)
             Log.d(TAG, "Download done")
 
             // Unzip if the downloaded file is a zip.
@@ -336,7 +329,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               // just downloaded fresh.
               val tmpExtractDir = File("${destDir.absolutePath}.$TMP_EXTRACT_EXT")
               if (tmpExtractDir.exists()) tmpExtractDir.deleteRecursively()
-              if (destDir.exists()) destDir.deleteRecursively()
               tmpExtractDir.mkdirs()
 
               // Unzip.
@@ -374,10 +366,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 }
                 }
 
-                // Commit: rename is same-volume and effectively atomic.
-                if (!tmpExtractDir.renameTo(destDir)) {
-                  throw IOException("Failed to finalize extracted model directory: ${destDir.absolutePath}")
-                }
+                finalizeExtractedDirectory(tmpExtractDir, destDir)
               } finally {
                 // No-op on success (renamed away); cleans partial extraction on failure.
                 if (tmpExtractDir.exists()) tmpExtractDir.deleteRecursively()
@@ -415,11 +404,18 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           // the little space left and can't be resumed meaningfully. Delete them
           // to give the user their storage back. For network errors (where space
           // is still available), keep .tmp files so downloads can resume.
-          val isDiskFull = try {
-            val stat = StatFs(Environment.getDataDirectory().path)
-            // Less than 500 MB left → almost certainly a disk-full write failure
-            stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES
-          } catch (_: Exception) { false }
+          val isDiskFull =
+            if (e is DownloadFinalizationException) {
+              false
+            } else {
+              try {
+                val stat = StatFs(Environment.getDataDirectory().path)
+                // Less than 500 MB left → almost certainly a disk-full write failure
+                stat.availableBytes < MIN_STORAGE_FOR_MODEL_INIT_BYTES
+              } catch (_: Exception) {
+                false
+              }
+            }
 
           if (isDiskFull) {
             var freedBytes = 0L
@@ -441,6 +437,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             applicationContext.getString(R.string.download_error_disk_full)
           } else {
             when (e) {
+              is DownloadFinalizationException ->
+                applicationContext.getString(R.string.download_error_finalize)
               is HttpErrorException -> when {
                 e.isRepoNotFound -> applicationContext.getString(R.string.download_error_not_found)
                 e.statusCode == HttpURLConnection.HTTP_NOT_FOUND -> applicationContext.getString(R.string.download_error_not_found)
