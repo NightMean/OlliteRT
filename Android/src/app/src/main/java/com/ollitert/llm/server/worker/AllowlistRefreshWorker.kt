@@ -43,7 +43,6 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
 import com.ollitert.llm.server.data.repository.RequestLogStore
-import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import androidx.hilt.work.HiltWorker
 import dagger.assisted.Assisted
@@ -64,7 +63,7 @@ class AllowlistRefreshWorker @AssistedInject constructor(
   @Assisted appContext: Context,
   @Assisted workerParams: WorkerParameters,
   private val protoDataStoreRepository: ProtoDataStoreRepository,
-  private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(appContext),
+  private val modelStorageRepository: ModelStorageRepository,
 ) : CoroutineWorker(appContext, workerParams) {
 
   override suspend fun doWork(): Result {
