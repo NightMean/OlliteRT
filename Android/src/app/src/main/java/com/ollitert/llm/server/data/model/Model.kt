@@ -270,9 +270,13 @@ data class Model(
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
 
+  /** The actual filename used for storage and imported-model registry operations. */
+  val storageFileName: String
+    get() = downloadFileName.substringAfterLast('/').substringAfterLast('\\')
+
   /** Stable key for per-model SharedPreferences entries (system prompt, inference config). */
   val prefsKey: String
-    get() = if (imported) name else downloadFileName
+    get() = if (imported) storageFileName else downloadFileName
 
   fun preProcess() {
     val configValues: MutableMap<String, Any> = mutableMapOf()

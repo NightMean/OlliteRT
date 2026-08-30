@@ -126,6 +126,21 @@ class ModelLifecycleSelectModelTest {
   }
 
   @Test
+  fun selectModelAcceptsLegacyImportedFilename() {
+    val importedModel = Model(
+      name = "Qwen3.5-2B_int8",
+      downloadFileName = "__imports/Qwen3.5-2B_int8.litertlm",
+      imported = true,
+    )
+    lifecycle.defaultModel = importedModel
+
+    val result = lifecycle.selectModel("Qwen3.5-2B_int8.litertlm")
+
+    assertTrue(result is ModelLifecycle.ModelSelection.Ok)
+    assertEquals(importedModel, (result as ModelLifecycle.ModelSelection.Ok).model)
+  }
+
+  @Test
   fun selectModel_returns400_whenRequestedModelDoesNotMatch() {
     lifecycle.defaultModel = testModel
     val result = lifecycle.selectModel("llama-3-8b")

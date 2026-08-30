@@ -16,12 +16,43 @@
 
 package com.ollitert.llm.server.data.allowlist
 
+import com.ollitert.llm.server.proto.ImportedModel
+import com.ollitert.llm.server.proto.LlmConfig
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
 class ModelFactoryTest {
+  @Test
+  fun buildImportedModelSeparatesLogicalIdentityFromStorageFile() {
+    val model = ModelFactory.buildImportedModel(
+      ImportedModel.newBuilder()
+        .setFileName("Qwen3.5-2B_int8.litertlm")
+        .setLlmConfig(importedLlmConfig())
+        .build(),
+    )
+
+    assertEquals("Qwen3.5-2B_int8", model.name)
+    assertEquals("Qwen3.5-2B_int8", model.displayName)
+    assertEquals("__imports/Qwen3.5-2B_int8.litertlm", model.downloadFileName)
+    assertEquals("Qwen3.5-2B_int8.litertlm", model.prefsKey)
+  }
+
+  @Test
+  fun buildImportedModelKeepsCustomDisplayNameSeparateFromLogicalIdentity() {
+    val model = ModelFactory.buildImportedModel(
+      ImportedModel.newBuilder()
+        .setFileName("Qwen3.5-2B_int8.litertlm")
+        .setDisplayName("My Qwen")
+        .setLlmConfig(importedLlmConfig())
+        .build(),
+    )
+
+    assertEquals("Qwen3.5-2B_int8", model.name)
+    assertEquals("My Qwen", model.displayName)
+  }
+
   @Test
   fun buildAllowedModelPrefersNamedImportOverrideWhenPresent() {
     val importsDir = createTempDirectory(prefix = "imports-dir").toFile()
@@ -53,6 +84,11 @@ class ModelFactoryTest {
       defaultConfig = DefaultConfig(),
     )
   }
+
+  private fun importedLlmConfig(): LlmConfig = LlmConfig.newBuilder()
+    .addCompatibleAccelerators("CPU")
+    .setDefaultMaxTokens(1_024)
+    .build()
 
   @Test
   fun partialSocEntryFallsBackToBaseFileMetadata() {

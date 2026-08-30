@@ -70,7 +70,7 @@ class ImportedModelCoordinator(
       RequestLogStore.addEvent(
         "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
         level = LogLevel.DEBUG,
-        modelName = info.fileName,
+        modelName = ModelFactory.importedModelId(info.fileName),
         category = EventCategory.MODEL,
       )
     }
@@ -87,7 +87,7 @@ class ImportedModelCoordinator(
       RequestLogStore.addEvent(
         "Imported model defaults updated: ${updatedInfo.fileName}",
         level = LogLevel.DEBUG,
-        modelName = updatedInfo.fileName,
+        modelName = ModelFactory.importedModelId(updatedInfo.fileName),
         category = EventCategory.MODEL,
       )
     }

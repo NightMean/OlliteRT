@@ -455,7 +455,10 @@ class ModelLifecycle(
     } else {
       // 2. Fall back to imported models from DataStore
       val importedMatch = try {
-        readImportedModels().firstOrNull { it.fileName.equals(name, ignoreCase = true) }
+        readImportedModels().firstOrNull {
+          it.fileName.equals(name, ignoreCase = true) ||
+            ModelFactory.importedModelId(it.fileName).equals(name, ignoreCase = true)
+        }
       } catch (e: Exception) {
         Log.w(TAG, "Failed to read imported models from DataStore", e)
         null
@@ -518,7 +521,10 @@ class ModelLifecycle(
       emptyList()
     }
     for (info in importedModels) {
-      if (info.fileName.equals(excludeName, ignoreCase = true)) continue
+      if (
+        info.fileName.equals(excludeName, ignoreCase = true) ||
+        ModelFactory.importedModelId(info.fileName).equals(excludeName, ignoreCase = true)
+      ) continue
       val candidate = try {
         ModelFactory.buildImportedModel(info)
       } catch (e: Exception) {
@@ -628,7 +634,12 @@ class ModelLifecycle(
       // names to handle variations (e.g. "gemma-4-e2b" vs "Gemma_4_E2B_it").
       val requestedKey = BridgeUtils.normalizeModelKey(requested)
       val activeKey = BridgeUtils.normalizeModelKey(active.name)
-      if (requestedKey == activeKey) {
+      val legacyStorageKey = if (active.imported) {
+        BridgeUtils.normalizeModelKey(active.storageFileName)
+      } else {
+        null
+      }
+      if (requestedKey == activeKey || requestedKey == legacyStorageKey) {
         return ModelSelection.Ok(active)
       }
       // The requested model doesn't match the active model. Return a descriptive error.

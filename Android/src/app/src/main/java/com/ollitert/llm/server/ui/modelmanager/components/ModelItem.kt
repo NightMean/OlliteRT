@@ -212,14 +212,14 @@ fun ModelItem(
     var existingInfo by remember { mutableStateOf<com.ollitert.llm.server.proto.ImportedModel?>(null) }
     LaunchedEffect(model.name) {
       existingInfo = modelManagerViewModel.protoDataStoreRepository.readImportedModels()
-        .firstOrNull { it.fileName == model.name }
+        .firstOrNull { it.fileName == model.storageFileName }
     }
     val loadedInfo = existingInfo
     if (loadedInfo != null) {
       EditImportedModelDialog(
         existingModel = loadedInfo,
         isCurrentlyActive = activeModelName == model.name && serverStatus != ServerStatus.STOPPED,
-        existingImportedModelNames = modelManagerUiState.models.filter { it.imported }.map { it.name }.toSet(),
+        existingImportedModelNames = modelManagerUiState.models.filter { it.imported }.map { it.storageFileName }.toSet(),
         allowlistModelNames = modelManagerUiState.models.filter { !it.imported }.map { it.name }.toSet(),
         onDismiss = { showEditDefaults = false },
         onRename = { oldFileName, newFileName, displayName ->

@@ -212,6 +212,16 @@ constructor(
       preferencesRepository.migratePerModelKeys(nameToPrefsKey)
     }
 
+    // Imported models historically persisted their complete filename as the default model.
+    // Resolve that legacy identity once and persist the new logical ID for future launches.
+    val configuredDefault = preferencesRepository.getDefaultModelName()
+    val migratedDefault = models.firstOrNull {
+      it.imported && it.storageFileName.equals(configuredDefault, ignoreCase = true)
+    }
+    if (migratedDefault != null) {
+      preferencesRepository.setDefaultModelName(migratedDefault.name)
+    }
+
     for (model in models) {
       model.preProcess()
       ModelFactory.restoreInferenceConfig(preferencesRepository, model)
@@ -334,7 +344,7 @@ constructor(
 
     if (model.imported) {
       viewModelScope.launch(ioDispatcher) {
-        importedModelCoordinator.deleteImportedModelRecord(model.name)
+        importedModelCoordinator.deleteImportedModelRecord(model.storageFileName)
       }
     }
     _uiState.update { current ->
@@ -408,7 +418,7 @@ constructor(
     val now = System.currentTimeMillis()
     _uiState.update { current ->
       val updatedModels = current.models
-        .filter { !(it.name == info.fileName && it.imported) }
+        .filter { !(it.imported && it.storageFileName == info.fileName) }
         .plus(model)
       val statusMap = current.modelDownloadStatus.toMutableMap()
       val initMap = current.modelInitializationStatus.toMutableMap()
@@ -438,7 +448,7 @@ constructor(
       val updatedModel = importedModelCoordinator.updateDefaults(updatedInfo)
       _uiState.update { current ->
         val updatedModels = current.models.map { m ->
-          if (m.name == updatedInfo.fileName && m.imported) updatedModel else m
+          if (m.imported && m.storageFileName == updatedInfo.fileName) updatedModel else m
         }
         current.copy(models = updatedModels)
       }
@@ -451,7 +461,7 @@ constructor(
         val updatedModel = importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName) ?: return@launch
         _uiState.update { current ->
           val updatedModels = current.models.map { m ->
-            if (m.imported && m.name == oldFileName) updatedModel else m
+            if (m.imported && m.storageFileName == oldFileName) updatedModel else m
           }
           current.copy(models = updatedModels)
         }
@@ -462,10 +472,29 @@ constructor(
     viewModelScope.launch(ioDispatcher) {
       val updatedModel = importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName) ?: return@launch
       _uiState.update { current ->
-        val updatedModels = current.models.map { m ->
-          if (m.imported && m.name == oldFileName) updatedModel else m
+        val oldModel = current.models.firstOrNull { it.imported && it.storageFileName == oldFileName }
+        val oldModelName = oldModel?.name
+        val updatedModels = current.models.map { model ->
+          if (model.imported && model.storageFileName == oldFileName) updatedModel else model
         }
-        current.copy(models = updatedModels)
+        val downloadStatus = current.modelDownloadStatus.toMutableMap()
+        val initializationStatus = current.modelInitializationStatus.toMutableMap()
+        if (oldModelName != null) {
+          downloadStatus.remove(oldModelName)?.let { downloadStatus[updatedModel.name] = it }
+          initializationStatus.remove(oldModelName)?.let { initializationStatus[updatedModel.name] = it }
+        }
+        current.copy(
+          models = updatedModels,
+          modelDownloadStatus = downloadStatus,
+          modelInitializationStatus = initializationStatus,
+        )
+      }
+      val configuredDefault = preferencesRepository.getDefaultModelName()
+      if (
+        configuredDefault.equals(oldFileName, ignoreCase = true) ||
+        configuredDefault.equals(ModelFactory.importedModelId(oldFileName), ignoreCase = true)
+      ) {
+        preferencesRepository.setDefaultModelName(updatedModel.name)
       }
     }
     return true

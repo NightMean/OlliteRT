@@ -38,6 +38,15 @@ import java.io.File
  * should use these methods to ensure imported and allowlist models are constructed identically.
  */
 object ModelFactory {
+  private const val LITERT_MODEL_EXTENSION = ".litertlm"
+
+  internal fun importedModelId(fileName: String): String =
+    if (fileName.endsWith(LITERT_MODEL_EXTENSION, ignoreCase = true)) {
+      fileName.dropLast(LITERT_MODEL_EXTENSION.length)
+    } else {
+      fileName.substringBeforeLast('.', missingDelimiterValue = fileName)
+    }
+
   fun buildAllowedModel(allowedModel: AllowedModel, importsDir: File): Model {
     val base = allowedModel.toModel(appVersion = SemVer.parse(BuildConfig.VERSION_NAME))
     val imported = File(importsDir, "${allowedModel.name}.litertlm")
@@ -71,14 +80,14 @@ object ModelFactory {
       supportSpeculativeDecoding = info.llmConfig.supportSpeculativeDecoding,
     ).toMutableList()
 
-    // Strip .litertlm extension for the display name shown on model cards,
-    // status screen, and logs. The full filename (with extension) stays in `name` for
-    // identity/lookup since pickModelByName and DataStore match by fileName.
-    val stem = info.displayName.ifEmpty { info.fileName.substringBeforeLast('.') }
+    // Logical identity is independent of the package filename. The full filename remains
+    // authoritative for storage, registry operations, and existing per-model preferences.
+    val logicalId = importedModelId(info.fileName)
+    val displayName = info.displayName.ifEmpty { logicalId }
 
     val model = Model(
-      name = info.fileName,
-      displayName = stem,
+      name = logicalId,
+      displayName = displayName,
       url = "",
       configs = configs,
       sizeInBytes = info.fileSize,
