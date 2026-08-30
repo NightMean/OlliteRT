@@ -109,6 +109,7 @@ fun OlliteRTApp(
   // emit on status transitions (rare), not per-token, so recomposition cost is minimal.
   val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
   val isInferring by serverViewModel.isInferring.collectAsStateWithLifecycle()
+  val modelLoadPhase by serverViewModel.modelLoadPhase.collectAsStateWithLifecycle()
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
@@ -346,6 +347,7 @@ fun OlliteRTApp(
         OlliteRTTopBar(
           serverStatus = serverStatus,
           isInferring = isInferring,
+          modelLoadPhase = modelLoadPhase,
           onSettingsClick = {
             navController.navigate(OlliteRTRoute.Settings) {
               launchSingleTop = true

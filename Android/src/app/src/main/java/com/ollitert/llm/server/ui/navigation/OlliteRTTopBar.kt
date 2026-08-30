@@ -60,8 +60,10 @@ import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.common.ModelLoadPhase
 import com.ollitert.llm.server.ui.theme.OlliteRTGreen400
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +73,7 @@ fun OlliteRTTopBar(
   onSettingsClick: () -> Unit,
   modifier: Modifier = Modifier,
   isInferring: Boolean = false,
+  modelLoadPhase: ModelLoadPhase = ModelLoadPhase.STARTING,
   onBackClick: (() -> Unit)? = null,
   trailingContent: @Composable (() -> Unit)? = null,
 ) {
@@ -126,6 +129,7 @@ fun OlliteRTTopBar(
     StatusPill(
       serverStatus = serverStatus,
       isInferring = isInferring,
+      modelLoadPhase = modelLoadPhase,
       modifier = Modifier.align(Alignment.Center),
     )
 
@@ -160,10 +164,14 @@ fun StatusPill(
   serverStatus: ServerStatus,
   modifier: Modifier = Modifier,
   isInferring: Boolean = false,
+  modelLoadPhase: ModelLoadPhase = ModelLoadPhase.STARTING,
 ) {
   val isProcessing = serverStatus == ServerStatus.RUNNING && isInferring
+  val isRetryingOnCpu = serverStatus == ServerStatus.LOADING &&
+    modelLoadPhase == ModelLoadPhase.RETRYING_CPU
   val (dotColor, label) = when {
     isProcessing -> OlliteRTPrimary to stringResource(R.string.status_pill_processing)
+    isRetryingOnCpu -> OlliteRTWarningText to stringResource(R.string.status_pill_retrying_cpu)
     serverStatus == ServerStatus.STOPPED -> MaterialTheme.colorScheme.error to stringResource(R.string.status_pill_stopped)
     serverStatus == ServerStatus.LOADING -> MaterialTheme.colorScheme.onSurfaceVariant to stringResource(R.string.status_pill_starting)
     serverStatus == ServerStatus.RUNNING -> OlliteRTGreen400 to stringResource(R.string.status_pill_running)
@@ -186,7 +194,7 @@ fun StatusPill(
     if (serverStatus == ServerStatus.LOADING) {
       CircularProgressIndicator(
         modifier = Modifier.size(12.dp),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = animatedDotColor,
         strokeWidth = 2.dp,
       )
     } else {

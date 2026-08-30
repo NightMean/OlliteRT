@@ -194,6 +194,10 @@ object ServerMetrics {
   private val _loadingStartedAtMs = sessionFlow(0L)
   val loadingStartedAtMs: StateFlow<Long> = _loadingStartedAtMs.asStateFlow()
 
+  /** Current model-load detail used to distinguish recovery from ordinary startup. */
+  private val _modelLoadPhase = sessionFlow(ModelLoadPhase.STARTING)
+  val modelLoadPhase: StateFlow<ModelLoadPhase> = _modelLoadPhase.asStateFlow()
+
   /** Size of the active model in bytes, or 0 if none. */
   private val _activeModelSize = sessionFlow(0L)
   val activeModelSize: StateFlow<Long> = _activeModelSize.asStateFlow()
@@ -283,6 +287,7 @@ object ServerMetrics {
         _activeModelName.value = state.modelName
         _loadingStartedAtMs.value = state.loadingStartedAtMs
         _lastError.value = null
+        _modelLoadPhase.value = ModelLoadPhase.STARTING
       }
       is ServerLifecycleState.Running -> {
         _port.value = state.port
@@ -294,11 +299,13 @@ object ServerMetrics {
         _loadingStartedAtMs.value = 0L
         _lastError.value = null
         _isIdleUnloaded.value = state.isIdleUnloaded
+        _modelLoadPhase.value = ModelLoadPhase.STARTING
       }
       is ServerLifecycleState.Error -> {
         _startedAtMs.value = 0L
         _loadingStartedAtMs.value = 0L
         _lastError.value = state.message
+        _modelLoadPhase.value = ModelLoadPhase.STARTING
       }
     }
   }
@@ -379,6 +386,10 @@ object ServerMetrics {
 
   fun setActiveAccelerator(accelerator: String?) {
     _activeAccelerator.value = accelerator
+  }
+
+  fun onCpuFallbackStarted() {
+    _modelLoadPhase.value = ModelLoadPhase.RETRYING_CPU
   }
 
   fun setThinkingEnabled(enabled: Boolean) {

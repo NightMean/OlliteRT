@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.data.repository
 
 import com.ollitert.llm.server.common.ServerMetrics
+import com.ollitert.llm.server.common.ModelLoadPhase
 import com.ollitert.llm.server.common.ServerStatus
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -43,6 +44,21 @@ class ServerStateRepositoryTest {
     assertEquals(null, repository.activeModelName.value)
     ServerMetrics.onServerStarting(8000, "gemma-2b")
     assertEquals("gemma-2b", repository.activeModelName.value)
+  }
+
+  @Test
+  fun cpuFallbackPhaseClearsWhenLoadingEnds() {
+    ServerMetrics.onServerStarting(8000, "gemma-2b")
+    ServerMetrics.onCpuFallbackStarted()
+    assertEquals(ModelLoadPhase.RETRYING_CPU, repository.modelLoadPhase.value)
+
+    ServerMetrics.onServerRunning("192.168.1.50")
+    assertEquals(ModelLoadPhase.STARTING, repository.modelLoadPhase.value)
+
+    ServerMetrics.onServerStarting(8000, "gemma-2b")
+    ServerMetrics.onCpuFallbackStarted()
+    ServerMetrics.onServerError("CPU initialization failed")
+    assertEquals(ModelLoadPhase.STARTING, repository.modelLoadPhase.value)
   }
 
   @Test

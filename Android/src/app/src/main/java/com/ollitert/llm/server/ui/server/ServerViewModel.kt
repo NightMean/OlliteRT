@@ -78,6 +78,7 @@ class ServerViewModel @Inject constructor(
   val modelLoadTimeMs = serverStateRepository.modelLoadTimeMs
   val isIdleUnloaded = serverStateRepository.isIdleUnloaded
   val loadingStartedAtMs = serverStateRepository.loadingStartedAtMs
+  val modelLoadPhase = serverStateRepository.modelLoadPhase
   val lastError = serverStateRepository.lastError
   val nativeHeapBytes = serverStateRepository.nativeHeapBytes
   val appHeapUsedBytes = serverStateRepository.appHeapUsedBytes

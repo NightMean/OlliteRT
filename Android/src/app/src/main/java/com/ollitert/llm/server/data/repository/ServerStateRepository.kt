@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.common.ServerLifecycleState
+import com.ollitert.llm.server.common.ModelLoadPhase
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.prefs.isLoopbackOnly
 
@@ -62,6 +63,7 @@ interface ServerStateRepository {
   val modelLoadTimeMs: StateFlow<Long>
   val isIdleUnloaded: StateFlow<Boolean>
   val loadingStartedAtMs: StateFlow<Long>
+  val modelLoadPhase: StateFlow<ModelLoadPhase>
   val lastError: StateFlow<String?>
   val nativeHeapBytes: StateFlow<Long>
   val appHeapUsedBytes: StateFlow<Long>
@@ -119,6 +121,7 @@ class DefaultServerStateRepository @Inject constructor() : ServerStateRepository
   override val modelLoadTimeMs: StateFlow<Long> get() = ServerMetrics.modelLoadTimeMs
   override val isIdleUnloaded: StateFlow<Boolean> get() = ServerMetrics.isIdleUnloaded
   override val loadingStartedAtMs: StateFlow<Long> get() = ServerMetrics.loadingStartedAtMs
+  override val modelLoadPhase: StateFlow<ModelLoadPhase> get() = ServerMetrics.modelLoadPhase
   override val lastError: StateFlow<String?> get() = ServerMetrics.lastError
   override val nativeHeapBytes: StateFlow<Long> get() = ServerMetrics.nativeHeapBytes
   override val appHeapUsedBytes: StateFlow<Long> get() = ServerMetrics.appHeapUsedBytes

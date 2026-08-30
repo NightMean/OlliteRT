@@ -121,6 +121,22 @@ class LogEventParsersTest {
     assertEquals("Out of memory", (result as ParsedEventType.ModelLoadFailed).errorMessage)
   }
 
+  @Test
+  fun cpuFallbackStarted() {
+    val result = parseEventType("GPU init failed, retrying with CPU: Out of host memory")
+    assertTrue(result is ParsedEventType.CpuFallbackStarted)
+    assertEquals(
+      "Out of host memory",
+      (result as ParsedEventType.CpuFallbackStarted).technicalReason,
+    )
+  }
+
+  @Test
+  fun cpuFallbackSucceeded() {
+    val result = parseEventType("Model loaded on CPU (GPU unavailable on this device)")
+    assertTrue(result is ParsedEventType.CpuFallbackSucceeded)
+  }
+
   // ── parseEventType: ServerFailed ──────────────────────────────────────────
 
   @Test

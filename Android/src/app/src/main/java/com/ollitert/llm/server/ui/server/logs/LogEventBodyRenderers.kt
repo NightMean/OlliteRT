@@ -212,6 +212,24 @@ internal fun LogEventBodyRenderer(
       )
     }
 
+    is ParsedEventType.CpuFallbackStarted -> {
+      Text(
+        text = highlightPlainIfSearching(
+          stringResource(R.string.logs_event_cpu_fallback_started, parsedEvent.technicalReason),
+        ),
+        style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+
+    is ParsedEventType.CpuFallbackSucceeded -> {
+      Text(
+        text = highlightPlainIfSearching(stringResource(R.string.logs_event_cpu_fallback_succeeded)),
+        style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+
     is ParsedEventType.ServerFailed -> {
       Text(
         text = highlightPlainIfSearching(parsedEvent.errorMessage, accentColor),

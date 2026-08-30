@@ -75,6 +75,10 @@ internal sealed class ParsedEventType {
   data class WarmupSkipped(val reason: String) : ParsedEventType()
   /** Model load failed with an error message. */
   data class ModelLoadFailed(val errorMessage: String) : ParsedEventType()
+  /** GPU initialization failed and model loading is recovering on CPU. */
+  data class CpuFallbackStarted(val technicalReason: String) : ParsedEventType()
+  /** CPU recovery completed after GPU initialization failed. */
+  data object CpuFallbackSucceeded : ParsedEventType()
   /** Server failed to start (e.g. port in use). */
   data class ServerFailed(val errorMessage: String) : ParsedEventType()
   /** Model not found or model files missing on disk. */
@@ -262,6 +266,16 @@ internal fun parseEventType(message: String, eventBody: String? = null): ParsedE
     return ParsedEventType.ModelLoadFailed(message.removePrefix("Model load failed: "))
   }
 
+  if (message.startsWith("GPU init failed, retrying with CPU: ")) {
+    return ParsedEventType.CpuFallbackStarted(
+      message.removePrefix("GPU init failed, retrying with CPU: "),
+    )
+  }
+
+  if (message == "Model loaded on CPU (GPU unavailable on this device)") {
+    return ParsedEventType.CpuFallbackSucceeded
+  }
+
   // Server failed to start: "Server failed to start on port <N>: <error>"
   if (message.startsWith("Server failed to start")) {
     return ParsedEventType.ServerFailed(message)
@@ -414,6 +428,8 @@ internal fun resolveEventHeadline(context: Context, parsed: ParsedEventType): St
   is ParsedEventType.ServerStopped -> context.getString(R.string.logs_headline_server_stopped)
   is ParsedEventType.WarmupSkipped -> context.getString(R.string.logs_headline_warmup_skipped)
   is ParsedEventType.ModelLoadFailed -> context.getString(R.string.logs_headline_model_load_failed)
+  is ParsedEventType.CpuFallbackStarted -> context.getString(R.string.logs_headline_cpu_fallback_started)
+  is ParsedEventType.CpuFallbackSucceeded -> context.getString(R.string.logs_headline_cpu_fallback_succeeded)
   is ParsedEventType.ServerFailed -> context.getString(R.string.logs_headline_server_failed)
   is ParsedEventType.ModelNotFound -> context.getString(R.string.logs_headline_model_not_found)
   is ParsedEventType.ImageDecodeFailed -> context.getString(R.string.logs_headline_image_decode_failed)

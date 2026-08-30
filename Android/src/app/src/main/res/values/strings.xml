@@ -669,6 +669,8 @@
   <string name="logs_headline_server_stopped" translatable="false">Server Stopped</string>
   <string name="logs_headline_warmup_skipped" translatable="false">Warmup Skipped</string>
   <string name="logs_headline_model_load_failed" translatable="false">Model Load Failed</string>
+  <string name="logs_headline_cpu_fallback_started" translatable="false">GPU Unavailable — Switching to CPU</string>
+  <string name="logs_headline_cpu_fallback_succeeded" translatable="false">Model Loaded on CPU</string>
   <string name="logs_headline_server_failed" translatable="false">Server Failed</string>
   <string name="logs_headline_model_not_found" translatable="false">Model Not Found</string>
   <string name="logs_headline_image_decode_failed" translatable="false">Image Decode Failed</string>
@@ -697,6 +699,8 @@
   <string name="logs_event_loading_prefix" translatable="false">Loading\u0020</string>
   <string name="logs_event_loading_suffix" translatable="false">\u0020into memory</string>
   <string name="logs_event_loaded_suffix" translatable="false">\u0020loaded into memory</string>
+  <string name="logs_event_cpu_fallback_started" translatable="false">GPU initialization failed. Model loading is continuing on CPU. Technical reason: %1$s</string>
+  <string name="logs_event_cpu_fallback_succeeded" translatable="false">CPU recovery completed successfully.</string>
   <string name="logs_event_model_unloaded_prefix" translatable="false">Model\u0020</string>
   <string name="logs_event_model_unloaded_suffix" translatable="false">\u0020unloaded from memory</string>
   <string name="logs_event_reloading_prefix" translatable="false">Restarting\u0020</string>
@@ -785,6 +789,7 @@
   <string name="status_pill_running" translatable="false">RUNNING</string>
   <string name="status_pill_error" translatable="false">ERROR</string>
   <string name="status_pill_processing" translatable="false">PROCESSING</string>
+  <string name="status_pill_retrying_cpu" translatable="false">RETRYING ON CPU</string>
 
   <!-- Getting Started screen -->
   <string name="getting_started_subtitle" translatable="false">Turn your device into a local OpenAI-compatible API server with text, vision, and speech-to-text support</string>

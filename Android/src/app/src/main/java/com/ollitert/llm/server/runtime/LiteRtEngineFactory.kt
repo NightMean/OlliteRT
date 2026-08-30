@@ -35,6 +35,7 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.cleanUpLiteRtErrorMessage
+import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.prefs.ConfigKeys
 import com.ollitert.llm.server.data.prefs.DEFAULT_MAX_TOKEN
@@ -324,16 +325,10 @@ object LiteRtEngineFactory {
     } catch (e: Exception) {
       Log.e(TAG, "Engine init failed for '${model.name}' with ${preferredBackend::class.simpleName}: " +
         "[${e::class.simpleName}] ${e.message}", e)
-      RequestLogStore.addEvent(
-        "${preferredBackend::class.simpleName} init failed: [${e::class.simpleName}] ${e.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS)}",
-        level = LogLevel.ERROR,
-        modelName = model.name,
-        category = EventCategory.MODEL,
-      )
-
       // Safety-net: retry with CPU fallback if GPU init failed
       if (preferredBackend is Backend.GPU && canFallbackToCpu) {
         Log.w(TAG, "GPU initialization failed, retrying with CPU backend")
+        ServerMetrics.onCpuFallbackStarted()
         RequestLogStore.addEvent(
           "GPU init failed, retrying with CPU: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}",
           level = LogLevel.WARNING,
@@ -374,6 +369,13 @@ object LiteRtEngineFactory {
             category = EventCategory.MODEL,
           )
         }
+      } else {
+        RequestLogStore.addEvent(
+          "${preferredBackend::class.simpleName} init failed: [${e::class.simpleName}] ${e.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS)}",
+          level = LogLevel.ERROR,
+          modelName = model.name,
+          category = EventCategory.MODEL,
+        )
       }
 
       onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
