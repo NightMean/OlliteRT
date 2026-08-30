@@ -26,9 +26,16 @@ import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.model.Repository
+import com.ollitert.llm.server.data.allowlist.LoadResult
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.allowlist.RepositoryManager
+import com.ollitert.llm.server.common.SemVer
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -127,5 +134,53 @@ class AllowlistLoadCoordinatorTest {
     )
 
     assertTrue(coordinator.isModelSupportedOnDevice(allowedModel))
+  }
+
+  @Test
+  fun retainDownloadedModelsFromDisabledSourcesKeepsLocalOfficialModel() = runTest {
+    val downloadedOfficial = Model(name = "Downloaded", sourceRepositoryId = "official")
+    val availableOfficial = Model(name = "Available", sourceRepositoryId = "official")
+    val enabledCommunity = Model(name = "Community", sourceRepositoryId = "community")
+    val repositories = listOf(
+      createTestRepo("official", enabled = false),
+      createTestRepo("community", enabled = true),
+    )
+    coEvery {
+      repositoryManager.loadAll(any(), modelStorageRepository, ignoreDisabled = true, modelFilter = any())
+    } returns LoadResult(
+      models = listOf(downloadedOfficial, availableOfficial, enabledCommunity),
+      repositories = repositories,
+    )
+    every { modelStorageRepository.getModelDownloadStatus(downloadedOfficial) } returns
+      ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
+    every { modelStorageRepository.getModelDownloadStatus(availableOfficial) } returns
+      ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)
+
+    val result = coordinator.retainDownloadedModelsFromDisabledSources(
+      loadResult = LoadResult(models = listOf(enabledCommunity), repositories = repositories),
+      appVersion = SemVer.parse("0.9.6"),
+    )
+
+    assertEquals(listOf("Community", "Downloaded"), result.models.map { it.name })
+    assertTrue(!result.allReposDisabled)
+  }
+
+  @Test
+  fun retainDownloadedModelsFromDisabledSourcesSupportsAllSourcesDisabled() = runTest {
+    val downloadedOfficial = Model(name = "Downloaded", sourceRepositoryId = "official")
+    val repositories = listOf(createTestRepo("official", enabled = false))
+    coEvery {
+      repositoryManager.loadAll(any(), modelStorageRepository, ignoreDisabled = true, modelFilter = any())
+    } returns LoadResult(models = listOf(downloadedOfficial), repositories = repositories)
+    every { modelStorageRepository.getModelDownloadStatus(downloadedOfficial) } returns
+      ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
+
+    val result = coordinator.retainDownloadedModelsFromDisabledSources(
+      loadResult = LoadResult(models = emptyList(), repositories = repositories),
+      appVersion = SemVer.parse("0.9.6"),
+    )
+
+    assertEquals(listOf("Downloaded"), result.models.map { it.name })
+    assertTrue(result.allReposDisabled)
   }
 }

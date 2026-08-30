@@ -33,7 +33,6 @@ import com.ollitert.llm.server.data.allowlist.ModelAllowlist
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
 import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
-import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
@@ -52,13 +51,17 @@ private const val TAG = "OlliteRT.AllowlistCoord"
 data class AllowlistLoadResult(
   val models: List<Model> = emptyList(),
   val allReposDisabled: Boolean = false,
-  val disabledReposStatusMap: Map<String, ModelDownloadStatus> = emptyMap(),
   val errorMessage: String = "",
   val emptyReason: ModelEmptyReason = ModelEmptyReason.NONE,
   val requiredVersion: String? = null,
   val droppedByVersionFilter: Int = 0,
   val totalBeforeFilters: Int = 0,
   val isRawAllowlist: Boolean = false,
+)
+
+internal data class SourceVisibilityResult(
+  val models: List<Model>,
+  val allReposDisabled: Boolean,
 )
 
 /**
@@ -118,10 +121,7 @@ class AllowlistLoadCoordinator(
       val appVersion = SemVer.parse(BuildConfig.VERSION_NAME)
       val loadResult = repositoryManager.loadAll(appVersion, modelStorageRepository, modelFilter = ::isModelSupportedOnDevice)
 
-      val disabledResult = checkAllReposDisabled(loadResult, appVersion)
-      if (disabledResult != null) {
-        return disabledResult
-      }
+      val sourceVisibility = retainDownloadedModelsFromDisabledSources(loadResult, appVersion)
 
       val enabledRepos = loadResult.repositories.filter { it.enabled }
       val errorMessage = computeRefreshErrorMessage(refreshResult, enabledRepos)
@@ -132,14 +132,14 @@ class AllowlistLoadCoordinator(
       }
 
       val hasOfflineRepos = enabledRepos.any { it.id in refreshResult.failedRepoIds && it.modelCount == null }
-      if (loadResult.models.isEmpty() && hasOfflineRepos) {
+      if (sourceVisibility.models.isEmpty() && hasOfflineRepos) {
         return AllowlistLoadResult(
           models = emptyList(),
           errorMessage = context.getString(R.string.error_all_repos_offline),
         )
       }
 
-      val models = loadResult.models
+      val models = sourceVisibility.models
       val emptyReason = when {
         models.isNotEmpty() -> ModelEmptyReason.NONE
         loadResult.droppedByVersionFilter > 0 -> ModelEmptyReason.VERSION_TOO_OLD
@@ -157,6 +157,7 @@ class AllowlistLoadCoordinator(
 
       return AllowlistLoadResult(
         models = models,
+        allReposDisabled = sourceVisibility.allReposDisabled,
         errorMessage = errorMessage,
         emptyReason = emptyReason,
         requiredVersion = loadResult.lowestRequiredVersion,
@@ -180,25 +181,36 @@ class AllowlistLoadCoordinator(
     return AllowlistLoadResult(models = models, isRawAllowlist = true)
   }
 
-  suspend fun checkAllReposDisabled(loadResult: LoadResult, appVersion: SemVer?): AllowlistLoadResult? {
+  /**
+   * Disabled sources stop advertising models that are not installed, but they do not revoke
+   * ownership of model files already on the device. Re-read disabled caches only to recover
+   * metadata for those local files; imported models are merged later by createUiState.
+   */
+  internal suspend fun retainDownloadedModelsFromDisabledSources(
+    loadResult: LoadResult,
+    appVersion: SemVer?,
+  ): SourceVisibilityResult {
+    val disabledRepoIds = loadResult.repositories
+      .filterNot { it.enabled }
+      .mapTo(mutableSetOf()) { it.id }
     val allDisabled = loadResult.repositories.isNotEmpty() &&
-      loadResult.repositories.all { !it.enabled }
-    if (!allDisabled) return null
+      disabledRepoIds.size == loadResult.repositories.size
+    if (disabledRepoIds.isEmpty()) {
+      return SourceVisibilityResult(loadResult.models, allReposDisabled = false)
+    }
 
     val allModelsResult = repositoryManager.loadAll(
       appVersion, modelStorageRepository, ignoreDisabled = true, modelFilter = ::isModelSupportedOnDevice,
     )
-    val statusMap = mutableMapOf<String, ModelDownloadStatus>()
-    for (model in allModelsResult.models) {
-      statusMap[model.name] = modelStorageRepository.getModelDownloadStatus(model)
+    val downloadedFromDisabledSources = allModelsResult.models.filter { model ->
+      model.sourceRepositoryId in disabledRepoIds &&
+        modelStorageRepository.getModelDownloadStatus(model).status == ModelDownloadStatusType.SUCCEEDED
     }
-    val downloadedOnly = allModelsResult.models.filter { model ->
-      statusMap[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
-    }
-    return AllowlistLoadResult(
-      models = downloadedOnly,
-      allReposDisabled = true,
-      disabledReposStatusMap = statusMap,
+    val visibleNames = loadResult.models.mapTo(mutableSetOf()) { it.name.lowercase() }
+    val retainedModels = downloadedFromDisabledSources.filter { visibleNames.add(it.name.lowercase()) }
+    return SourceVisibilityResult(
+      models = loadResult.models + retainedModels,
+      allReposDisabled = allDisabled,
     )
   }
 

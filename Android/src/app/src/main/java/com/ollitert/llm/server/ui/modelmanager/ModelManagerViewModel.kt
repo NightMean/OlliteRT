@@ -585,7 +585,6 @@ constructor(
   }
 
   private suspend fun prepareLoadedUiState(result: AllowlistLoadResult): ModelManagerUiState? {
-    if (result.allReposDisabled) return null
     if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
       return null
     }
@@ -597,6 +596,7 @@ constructor(
     } else {
       loadedState.copy(
         loadingModelAllowlist = false,
+        allReposDisabled = result.allReposDisabled,
         loadingModelAllowlistError = result.errorMessage,
         emptyReason = result.emptyReason,
         requiredVersion = result.requiredVersion,
@@ -611,17 +611,6 @@ constructor(
     preparedLoad.toastError?.let(_toastErrorChannel::trySend)
 
     when {
-      result.allReposDisabled -> {
-        _uiState.update {
-          it.copy(
-            loadingModelAllowlist = false,
-            allReposDisabled = true,
-            models = result.models,
-            modelDownloadStatus = result.disabledReposStatusMap,
-          )
-        }
-      }
-
       result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist -> {
         _uiState.update {
           it.copy(
