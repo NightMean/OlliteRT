@@ -204,9 +204,9 @@ class RequestLogStoreTest {
   fun loadEntriesAlsoEnforcesBodyBudget() {
     RequestLogStore.bodyBudgetChars = 25_000L
     RequestLogStore.loadEntries(listOf(
-      bigBodyEntry("db-1", 15_000),
-      bigBodyEntry("db-2", 15_000),
-      bigBodyEntry("db-3", 15_000),
+      bigBodyEntry("db-1", 15_000).copy(timestamp = 3L),
+      bigBodyEntry("db-2", 15_000).copy(timestamp = 2L),
+      bigBodyEntry("db-3", 15_000).copy(timestamp = 1L),
     ))
     // 45k total vs 25k budget requires shedding two oldest entries.
     assertEquals(listOf("db-1"), RequestLogStore.entries.value.map { it.id })
