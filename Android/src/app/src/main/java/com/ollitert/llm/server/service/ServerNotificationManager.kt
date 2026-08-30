@@ -48,25 +48,27 @@ data class LoadNotificationState(
   val endpointUrl: String,
 )
 
+private data class RunningNotificationState(
+  val modelName: String,
+  val contentIntent: PendingIntent,
+  val stopIntent: PendingIntent,
+  val copyIntent: PendingIntent,
+  val endpointUrl: String,
+)
+
 /**
  * Encapsulates notification creation, update, and intent building for [ServerService].
  * Isolates Android system notification orchestration from service lifecycle and inference.
  */
 class ServerNotificationManager(private val context: Context) {
 
-  private var notifContentIntent: PendingIntent? = null
-  private var notifStopIntent: PendingIntent? = null
-  private var notifCopyIntent: PendingIntent? = null
-  private var notifEndpointUrl: String? = null
-  private var notifModelName: String? = null
+  // Model loading publishes this snapshot from a service coroutine while Ktor
+  // request threads read it to refresh live notification metrics.
+  @Volatile private var runningNotificationState: RunningNotificationState? = null
 
   /** Clears cached notification intent references on service shutdown. */
   fun clear() {
-    notifContentIntent = null
-    notifStopIntent = null
-    notifCopyIntent = null
-    notifEndpointUrl = null
-    notifModelName = null
+    runningNotificationState = null
   }
 
   /** Starts the foreground service with a minimal placeholder notification to meet the Android 10s deadline. */
@@ -131,11 +133,13 @@ class ServerNotificationManager(private val context: Context) {
 
   /** Updates notification intents and displays the running notification. */
   fun updateToRunning(model: Model, notifState: LoadNotificationState) {
-    notifContentIntent = notifState.contentIntent
-    notifStopIntent = notifState.stopIntent
-    notifCopyIntent = notifState.copyIntent
-    notifEndpointUrl = notifState.endpointUrl
-    notifModelName = model.name
+    runningNotificationState = RunningNotificationState(
+      modelName = model.name,
+      contentIntent = notifState.contentIntent,
+      stopIntent = notifState.stopIntent,
+      copyIntent = notifState.copyIntent,
+      endpointUrl = notifState.endpointUrl,
+    )
     val initialText = buildString {
       if (ServerPrefs.isNotifShowRequestCount(context)) {
         append(context.resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
@@ -169,16 +173,14 @@ class ServerNotificationManager(private val context: Context) {
 
   /** Update the foreground notification with the current request count and optional update badge. */
   fun refreshRunning() {
-    val ci = notifContentIntent ?: return
-    val name = notifModelName ?: return
-    val url = notifEndpointUrl ?: return
+    val state = runningNotificationState ?: return
     NotificationHelper.refreshRunning(
       context = context,
-      modelName = name,
-      endpointUrl = url,
-      contentIntent = ci,
-      stopIntent = notifStopIntent,
-      copyIntent = notifCopyIntent,
+      modelName = state.modelName,
+      endpointUrl = state.endpointUrl,
+      contentIntent = state.contentIntent,
+      stopIntent = state.stopIntent,
+      copyIntent = state.copyIntent,
       cachedUpdateVersion = ServerMetrics.availableUpdateVersion.value,
     )
   }
