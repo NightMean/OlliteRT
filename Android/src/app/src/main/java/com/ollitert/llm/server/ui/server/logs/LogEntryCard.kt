@@ -102,7 +102,7 @@ internal fun LogEntryCard(
           text = highlighted,
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           fontWeight = FontWeight.SemiBold,
-          modifier = Modifier.weight(1f, fill = false),
+          modifier = Modifier.weight(1f),
           onTextLayout = { result ->
             if (result.lineCount > 1 && !pathIsMultiLine) pathIsMultiLine = true
           },
@@ -113,7 +113,7 @@ internal fun LogEntryCard(
           style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceGroteskFontFamily, fontSize = LOG_BODY_FONT_SIZE),
           color = MaterialTheme.colorScheme.onSurface,
           fontWeight = FontWeight.SemiBold,
-          modifier = Modifier.weight(1f, fill = false),
+          modifier = Modifier.weight(1f),
           onTextLayout = { result ->
             if (result.lineCount > 1 && !pathIsMultiLine) pathIsMultiLine = true
           },
@@ -121,11 +121,10 @@ internal fun LogEntryCard(
       }
 
       if (!pathIsMultiLine && entry.clientIp != null) {
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         EntryIpPill(entry = entry, searchQuery = searchQuery)
       }
 
-      Spacer(modifier = Modifier.weight(1f))
       EntryActionButtons(
         entry = entry,
         hasInfoButton = hasInfoButton,
@@ -136,7 +135,13 @@ internal fun LogEntryCard(
 
     if (pathIsMultiLine && entry.clientIp != null) {
       Spacer(modifier = Modifier.height(4.dp))
-      EntryIpPill(entry = entry, searchQuery = searchQuery)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        EntryIpPill(entry = entry, searchQuery = searchQuery)
+      }
     }
 
     // Body content: Request, Compacted Prompt, Response
