@@ -213,6 +213,7 @@ fun RepositoryListScreen(
       items(uiState.repositories, key = { it.id }) { repo ->
         RepositoryRow(
           repo = repo,
+          downloadedModelCount = viewModel.getDownloadedModelCountForRepo(repo.id, downloadedModelRepoIds),
           onClick = { onRepoClick(repo.id) },
           onToggle = { enabled ->
             if (!enabled) {
@@ -395,6 +396,7 @@ fun RepositoryListScreen(
 @Composable
 private fun RepositoryRow(
   repo: Repository,
+  downloadedModelCount: Int,
   onClick: () -> Unit,
   onToggle: (Boolean) -> Unit,
   modifier: Modifier = Modifier,
@@ -422,8 +424,17 @@ private fun RepositoryRow(
       )
       val subtitle = when {
         repo.modelCount == null -> stringResource(R.string.repo_model_count_none)
+        repo.hiddenModelCount > 0 && downloadedModelCount > 0 -> stringResource(
+          R.string.repo_model_count_with_hidden_and_downloaded,
+          repo.modelCount,
+          repo.hiddenModelCount,
+          downloadedModelCount,
+        )
         repo.hiddenModelCount > 0 -> stringResource(
           R.string.repo_model_count_with_hidden, repo.modelCount, repo.hiddenModelCount
+        )
+        downloadedModelCount > 0 -> stringResource(
+          R.string.repo_model_count_with_downloaded, repo.modelCount, downloadedModelCount
         )
         else -> stringResource(R.string.repo_model_count, repo.modelCount)
       }

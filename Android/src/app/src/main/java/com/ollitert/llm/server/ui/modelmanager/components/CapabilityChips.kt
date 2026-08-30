@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
@@ -52,7 +53,7 @@ fun CapabilityChips(
     modifier = modifier.horizontalScroll(rememberScrollState()),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    CapabilityChip(label = stringResource(R.string.capability_text), searchQuery = searchQuery)
+    ModelFeatureChip(label = stringResource(R.string.capability_text), searchQuery = searchQuery)
     for (cap in ModelCapability.entries) {
       if (cap in model.capabilities) {
         val label = when (cap) {
@@ -63,22 +64,23 @@ fun CapabilityChips(
           ModelCapability.NPU -> R.string.capability_npu
           ModelCapability.SPECULATIVE_DECODING -> R.string.capability_speculative_decoding
         }
-        CapabilityChip(label = stringResource(label), searchQuery = searchQuery)
+        ModelFeatureChip(label = stringResource(label), searchQuery = searchQuery)
       }
     }
   }
 }
 
 @Composable
-private fun CapabilityChip(
+fun ModelFeatureChip(
   label: String,
   modifier: Modifier = Modifier,
   searchQuery: String = "",
+  containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
   Row(
     modifier = modifier
       .clip(RoundedCornerShape(6.dp))
-      .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+      .background(containerColor)
       .padding(horizontal = 8.dp, vertical = 3.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {

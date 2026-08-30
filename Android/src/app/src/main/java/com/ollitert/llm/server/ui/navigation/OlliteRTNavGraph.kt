@@ -101,6 +101,13 @@ private fun activeDownloadsByRepoId(
     .associate { it.name to it.sourceRepositoryId }
 }
 
+private fun downloadedModelsByRepoId(
+  models: List<Model>,
+  statuses: Map<String, ModelDownloadStatus>,
+): Map<String, String> = models
+  .filter { it.isLlm && statuses[it.name]?.status == ModelDownloadStatusType.SUCCEEDED }
+  .associate { it.name to it.sourceRepositoryId }
+
 @Composable
 fun OlliteRTNavHost(
   navController: NavHostController,
@@ -330,9 +337,7 @@ fun OlliteRTNavHost(
       val modelManagerState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
       val downloadedModelRepoIds by remember {
         derivedStateOf<Map<String, String>> {
-          modelManagerState.models
-            .filter { it.isLlm && modelManagerState.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED }
-            .associate { it.name to it.sourceRepositoryId }
+          downloadedModelsByRepoId(modelManagerState.models, modelManagerState.modelDownloadStatus)
         }
       }
       val downloadingModelRepoIds by remember {
@@ -371,6 +376,14 @@ fun OlliteRTNavHost(
       val detailDownloadingRepoIds by remember {
         derivedStateOf { activeDownloadsByRepoId(detailModelManagerState.models, detailModelManagerState.modelDownloadStatus) }
       }
+      val detailDownloadedRepoIds by remember {
+        derivedStateOf<Map<String, String>> {
+          downloadedModelsByRepoId(
+            detailModelManagerState.models,
+            detailModelManagerState.modelDownloadStatus,
+          )
+        }
+      }
       RepositoryDetailScreen(
         viewModel = detailViewModel,
         repoId = repoId,
@@ -379,6 +392,7 @@ fun OlliteRTNavHost(
             ?.set("detailReposChanged", reposChanged)
           navController.popBackStack()
         },
+        downloadedModelRepoIds = detailDownloadedRepoIds,
         downloadingModelRepoIds = detailDownloadingRepoIds,
         onCancelDownload = { modelName ->
           modelManagerViewModel.cancelModelDownloadByName(modelName)

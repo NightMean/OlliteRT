@@ -67,6 +67,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.ui.common.MarkdownText
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
+import com.ollitert.llm.server.ui.modelmanager.components.ModelFeatureChip
 
 @Composable
 fun RepositoryDetailScreen(
@@ -74,6 +75,7 @@ fun RepositoryDetailScreen(
   repoId: String,
   onBackClick: (hasChanges: Boolean) -> Unit,
   modifier: Modifier = Modifier,
+  downloadedModelRepoIds: Map<String, String> = emptyMap(),
   downloadingModelRepoIds: Map<String, String> = emptyMap(),
   onCancelDownload: (modelName: String) -> Unit = {},
 ) {
@@ -242,6 +244,7 @@ fun RepositoryDetailScreen(
 
         itemsIndexed(uiState.detailModels, key = { index, model -> "${index}_${model.name}" }) { _, model ->
           val contentAlpha = if (model.isIncompatible) 0.4f else 1f
+          val isDownloaded = downloadedModelRepoIds[model.name] == repo.id
           Row(
             modifier = Modifier
               .fillMaxWidth()
@@ -252,13 +255,26 @@ fun RepositoryDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = model.name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                Text(
+                  text = model.name,
+                  style = MaterialTheme.typography.bodyMedium,
+                  fontWeight = FontWeight.SemiBold,
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f, fill = false),
+                )
+                if (isDownloaded) {
+                  ModelFeatureChip(
+                    label = stringResource(R.string.filter_downloaded),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                  )
+                }
+              }
               if (model.description.isNotEmpty()) {
                 MarkdownText(
                   text = model.description,
