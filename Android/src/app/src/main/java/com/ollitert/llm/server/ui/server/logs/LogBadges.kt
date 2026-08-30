@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.ErrorKind
+import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.ui.server.ContextOverflowColor
 import com.ollitert.llm.server.ui.server.TruncatedColor
 import com.ollitert.llm.server.ui.server.WarningColor
@@ -151,6 +152,10 @@ internal fun parseCompactionBadges(details: String?, short: Boolean = false): Li
     }
   }
 }
+
+/** Returns the request size before storage compaction when that measurement is available. */
+internal fun requestBodySizeChars(entry: RequestLogEntry): Int =
+  entry.originalRequestBodySize.takeIf { it > 0 } ?: entry.requestBody.orEmpty().length
 
 internal fun formatTimestamp(
   millis: Long,

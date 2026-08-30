@@ -149,7 +149,9 @@ internal fun LogEntryCard(
     if (!entry.requestBody.isNullOrBlank()) {
       val formatted = remember(entry.requestBody) { prettyPrintJson(entry.requestBody) }
       val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
-      val requestSize = remember(entry.requestBody) { entry.requestBody.length.humanReadableSize() }
+      val requestSize = remember(entry.requestBody, entry.originalRequestBodySize) {
+        requestBodySizeChars(entry).humanReadableSize()
+      }
       Spacer(modifier = Modifier.height(10.dp))
       val requestLabel = stringResource(R.string.logs_entry_request_label, requestSize)
       val annotatedRequestLabel = if (entry.hasToolCalls) {
@@ -178,6 +180,9 @@ internal fun LogEntryCard(
       val formatted = remember(entry.compactedPrompt) { prettyPrintJson(entry.compactedPrompt) }
       val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
       val compactedSize = remember(entry.compactedPrompt) { entry.compactedPrompt.length.humanReadableSize() }
+      val compactionBadges = remember(entry.compactionDetails) {
+        parseCompactionBadges(entry.compactionDetails)
+      }
       Spacer(modifier = Modifier.height(10.dp))
       ExpandableBodySection(
         label = stringResource(R.string.logs_entry_compacted_prompt_label, compactedSize),
@@ -189,6 +194,23 @@ internal fun LogEntryCard(
         searchQuery = searchQuery,
         wrapText = wrapText,
       )
+      if (compactionBadges.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          compactionBadges.forEachIndexed { index, (badgeLabel, badgeColor) ->
+            if (index > 0) FooterDot()
+            Text(
+              text = badgeLabel,
+              style = MaterialTheme.typography.labelSmall,
+              color = badgeColor,
+              fontWeight = FontWeight.SemiBold,
+            )
+          }
+        }
+      }
     }
 
     when (responseContent) {
