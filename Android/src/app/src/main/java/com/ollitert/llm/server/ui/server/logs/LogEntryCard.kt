@@ -80,6 +80,7 @@ internal fun LogEntryCard(
   var pathIsMultiLine by remember { mutableStateOf(false) }
   val hasInfoButton = entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0
   val hasCopyButton = !entry.isPending
+  val responseContent = resolveLogResponseContent(entry)
 
   Column(
     modifier = Modifier
@@ -190,41 +191,77 @@ internal fun LogEntryCard(
       )
     }
 
-    if (entry.isCancelled) {
-      Spacer(modifier = Modifier.height(10.dp))
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(12.dp))
-          .background(CancelledColor.copy(alpha = 0.08f))
-          .padding(12.dp),
-      ) {
+    when (responseContent) {
+      is LogResponseContent.Pending -> {
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
-          text = if (entry.cancelledByUser) stringResource(R.string.logs_entry_stopped_by_user)
-                 else stringResource(R.string.logs_entry_client_disconnected),
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = SpaceGroteskFontFamily,
-            fontSize = LOG_DETAIL_FONT_SIZE,
-          ),
-          color = CancelledColor,
+          text = stringResource(R.string.logs_entry_response),
+          style = MaterialTheme.typography.labelSmall,
+          color = OlliteRTPrimary,
           fontWeight = FontWeight.SemiBold,
         )
+        Spacer(modifier = Modifier.height(4.dp))
+        PendingResponseSection(
+          entryId = entry.id,
+          partialText = responseContent.partialText,
+          isGenerating = responseContent.isGenerating,
+        )
       }
-    } else if (!entry.responseBody.isNullOrBlank()) {
-      val formatted = remember(entry.responseBody) { prettyPrintJson(entry.responseBody) }
-      val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
-      val responseSize = remember(entry.responseBody) { entry.responseBody.length.humanReadableSize() }
-      Spacer(modifier = Modifier.height(10.dp))
-      ExpandableBodySection(
-        label = stringResource(R.string.logs_entry_response_label, responseSize),
-        labelColor = OlliteRTPrimary,
-        body = formatted,
-        expanded = responseExpanded,
-        showToggle = isLong,
-        onToggle = { responseExpanded = !responseExpanded },
-        searchQuery = searchQuery,
-        wrapText = wrapText,
-      )
+
+      is LogResponseContent.Cancelled -> {
+        val cancelledDisplay = remember(responseContent.partialText) {
+          responseContent.partialText?.replace("<think>", "")?.replace("</think>", "")?.trimStart()
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(CancelledColor.copy(alpha = 0.08f))
+            .padding(12.dp),
+        ) {
+          if (!cancelledDisplay.isNullOrEmpty()) {
+            Text(
+              text = cancelledDisplay,
+              style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = SpaceGroteskFontFamily,
+                fontSize = LOG_DETAIL_FONT_SIZE,
+              ),
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+          }
+          Text(
+            text = if (responseContent.cancelledByUser) stringResource(R.string.logs_entry_stopped_by_user)
+                   else stringResource(R.string.logs_entry_client_disconnected),
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontFamily = SpaceGroteskFontFamily,
+              fontSize = LOG_DETAIL_FONT_SIZE,
+            ),
+            color = CancelledColor,
+            fontWeight = FontWeight.SemiBold,
+          )
+        }
+      }
+
+      is LogResponseContent.Completed -> {
+        val formatted = remember(responseContent.body) { prettyPrintJson(responseContent.body) }
+        val isLong = remember(formatted) { formatted.length > COLLAPSED_MAX_CHARS || formatted.count { it == '\n' } > COLLAPSED_MAX_LINES }
+        val responseSize = remember(responseContent.body) { responseContent.body.length.humanReadableSize() }
+        Spacer(modifier = Modifier.height(10.dp))
+        ExpandableBodySection(
+          label = stringResource(R.string.logs_entry_response_label, responseSize),
+          labelColor = OlliteRTPrimary,
+          body = formatted,
+          expanded = responseExpanded,
+          showToggle = isLong,
+          onToggle = { responseExpanded = !responseExpanded },
+          searchQuery = searchQuery,
+          wrapText = wrapText,
+        )
+      }
+
+      LogResponseContent.None -> Unit
     }
 
     if (entry.ignoredClientParams != null) {
