@@ -76,7 +76,12 @@ fun EditImportedModelDialog(
   allowlistModelNames: Set<String>,
   onDismiss: () -> Unit,
   onDone: (ImportedModel) -> Unit,
-  onRename: (oldFileName: String, newFileName: String, displayName: String) -> Boolean,
+  onRename: (
+    oldFileName: String,
+    newFileName: String,
+    displayName: String,
+    onResult: (Boolean) -> Unit,
+  ) -> Unit,
 ) {
   val context = LocalContext.current
   val fileExtension = remember {
@@ -91,6 +96,7 @@ fun EditImportedModelDialog(
   }
   var editedStem by remember { mutableStateOf(fileStem) }
   var nameError by remember { mutableStateOf("") }
+  var isSaving by remember { mutableStateOf(false) }
   val nameValidationRegex = remember { Regex("^[a-zA-Z0-9._-]+$") }
 
   val errorNameEmpty = stringResource(R.string.error_model_name_empty)
@@ -268,12 +274,6 @@ fun EditImportedModelDialog(
               }
 
               val newFileName = editedStem + fileExtension
-              val renamed = onRename(existingModel.fileName, newFileName, editedStem)
-              if (!renamed) {
-                nameError = errorRenameFailed
-                return@Button
-              }
-
               val supportedAccelerators = safeConfigValue(
                 values, ConfigKeys.COMPATIBLE_ACCELERATORS, ValueType.STRING, SUPPORTED_ACCELERATORS[0].label
               ).split(",")
@@ -305,8 +305,17 @@ fun EditImportedModelDialog(
                     .build()
                 )
                 .build()
-              onDone(updated)
-            }
+              isSaving = true
+              onRename(existingModel.fileName, newFileName, editedStem) { renamed ->
+                isSaving = false
+                if (renamed) {
+                  onDone(updated)
+                } else {
+                  nameError = errorRenameFailed
+                }
+              }
+            },
+            enabled = !isSaving,
           ) {
             Text(stringResource(R.string.button_save))
           }

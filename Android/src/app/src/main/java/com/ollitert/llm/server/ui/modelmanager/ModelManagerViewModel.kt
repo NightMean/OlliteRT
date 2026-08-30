@@ -455,22 +455,28 @@ constructor(
     }
   }
 
-  fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): Boolean {
-    if (oldFileName == newFileName) {
-      viewModelScope.launch(ioDispatcher) {
-        val updatedModel = importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName) ?: return@launch
-        _uiState.update { current ->
-          val updatedModels = current.models.map { m ->
-            if (m.imported && m.storageFileName == oldFileName) updatedModel else m
-          }
-          current.copy(models = updatedModels)
-        }
-      }
-      return true
-    }
-
+  fun renameImportedModel(
+    oldFileName: String,
+    newFileName: String,
+    displayName: String,
+    onResult: (Boolean) -> Unit,
+  ) {
     viewModelScope.launch(ioDispatcher) {
-      val updatedModel = importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName) ?: return@launch
+      val updatedModel = try {
+        if (oldFileName == newFileName) {
+          importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName)
+        } else {
+          importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName)
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to rename imported model '$oldFileName'", e)
+        null
+      }
+      if (updatedModel == null) {
+        withContext(mainDispatcher) { onResult(false) }
+        return@launch
+      }
+
       _uiState.update { current ->
         val oldModel = current.models.firstOrNull { it.imported && it.storageFileName == oldFileName }
         val oldModelName = oldModel?.name
@@ -489,15 +495,17 @@ constructor(
           modelInitializationStatus = initializationStatus,
         )
       }
-      val configuredDefault = preferencesRepository.getDefaultModelName()
-      if (
-        configuredDefault.equals(oldFileName, ignoreCase = true) ||
-        configuredDefault.equals(ModelFactory.importedModelId(oldFileName), ignoreCase = true)
-      ) {
-        preferencesRepository.setDefaultModelName(updatedModel.name)
+      if (oldFileName != newFileName) {
+        val configuredDefault = preferencesRepository.getDefaultModelName()
+        if (
+          configuredDefault.equals(oldFileName, ignoreCase = true) ||
+          configuredDefault.equals(ModelFactory.importedModelId(oldFileName), ignoreCase = true)
+        ) {
+          preferencesRepository.setDefaultModelName(updatedModel.name)
+        }
       }
+      withContext(mainDispatcher) { onResult(true) }
     }
-    return true
   }
 
   private fun processPendingDownloads() {

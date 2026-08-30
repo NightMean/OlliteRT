@@ -222,8 +222,8 @@ fun ModelItem(
         existingImportedModelNames = modelManagerUiState.models.filter { it.imported }.map { it.storageFileName }.toSet(),
         allowlistModelNames = modelManagerUiState.models.filter { !it.imported }.map { it.name }.toSet(),
         onDismiss = { showEditDefaults = false },
-        onRename = { oldFileName, newFileName, displayName ->
-          modelManagerViewModel.renameImportedModel(oldFileName, newFileName, displayName)
+        onRename = { oldFileName, newFileName, displayName, onResult ->
+          modelManagerViewModel.renameImportedModel(oldFileName, newFileName, displayName, onResult)
         },
         onDone = { updated ->
           modelManagerViewModel.updateImportedModelDefaults(updated)
