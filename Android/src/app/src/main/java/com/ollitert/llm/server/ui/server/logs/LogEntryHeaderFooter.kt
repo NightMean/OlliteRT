@@ -17,10 +17,16 @@
 package com.ollitert.llm.server.ui.server.logs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Construction
@@ -39,6 +45,7 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -198,6 +205,57 @@ internal fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
       color = contextUtilizationColor(utilRatio),
     )
   }
+}
+
+/**
+ * Keeps model and timestamp metadata pinned while badges fit, then scrolls the
+ * complete footer as one row when the badge region no longer fits.
+ */
+@Composable
+internal fun ResponsiveLogFooter(
+  modelTimeText: String,
+  badges: @Composable RowScope.() -> Unit,
+) {
+  val scrollState = rememberScrollState()
+  val isOverflowing = scrollState.maxValue > 0
+
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    if (!isOverflowing) {
+      Row(
+        modifier = Modifier
+          .weight(1f)
+          .horizontalScroll(scrollState),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        content = badges,
+      )
+      Spacer(modifier = Modifier.width(6.dp))
+      FooterModelTime(modelTimeText)
+    } else {
+      Row(
+        modifier = Modifier.horizontalScroll(scrollState),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        badges()
+        FooterDot()
+        FooterModelTime(modelTimeText)
+      }
+    }
+  }
+}
+
+@Composable
+private fun FooterModelTime(modelTimeText: String) {
+  Text(
+    text = modelTimeText,
+    style = MaterialTheme.typography.labelSmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    maxLines = 1,
+  )
 }
 
 internal fun buildAnnotatedRequestLabel(

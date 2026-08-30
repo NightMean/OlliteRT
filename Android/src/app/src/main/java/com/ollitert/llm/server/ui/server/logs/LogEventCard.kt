@@ -18,7 +18,6 @@ package com.ollitert.llm.server.ui.server.logs
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,7 +27,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
@@ -113,10 +111,6 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
   // Headline text shown next to the category badge
   val headline = if (parsedEvent != null) resolveEventHeadline(context, parsedEvent)
     else if (isDebug) stringResource(R.string.logs_headline_debug) else null
-
-  // Hoisted here so footerOverflowing can observe maxValue and trigger recomposition
-  // when the timing badges overflow the weight(1f) area.
-  val footerScrollState = rememberScrollState()
 
   CompositionLocalProvider(LocalSearchQuery provides searchQuery) {
     Column(
@@ -218,46 +212,10 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
 
       // ── Footer — scrollable badges on the left, model · time pinned to the right ──
       Spacer(modifier = Modifier.height(8.dp))
-      val footerOverflowing = footerScrollState.maxValue > 0
       val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
 
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        if (!footerOverflowing) {
-          Row(
-            modifier = Modifier
-              .weight(1f)
-              .horizontalScroll(footerScrollState),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-          ) {
-            EventFooterBadges(parsedEvent = parsedEvent)
-          }
-          Spacer(modifier = Modifier.width(6.dp))
-          Text(
-            text = modelTimeText,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-          )
-        } else {
-          Row(
-            modifier = Modifier.horizontalScroll(footerScrollState),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-          ) {
-            EventFooterBadges(parsedEvent = parsedEvent)
-            FooterDot()
-            Text(
-              text = modelTimeText,
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              maxLines = 1,
-            )
-          }
-        }
+      ResponsiveLogFooter(modelTimeText = modelTimeText) {
+        EventFooterBadges(parsedEvent = parsedEvent)
       }
     }
   }

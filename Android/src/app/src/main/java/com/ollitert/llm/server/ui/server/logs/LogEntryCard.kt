@@ -17,7 +17,6 @@
 package com.ollitert.llm.server.ui.server.logs
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -75,7 +73,6 @@ internal fun LogEntryCard(
   var compactedExpanded by remember { mutableStateOf(autoExpand) }
   var responseExpanded by remember { mutableStateOf(autoExpand) }
   var showMetricsDialog by remember { mutableStateOf(false) }
-  val footerScrollState = rememberScrollState()
 
   var pathIsMultiLine by remember { mutableStateOf(false) }
   val hasInfoButton = entry.ttfbMs > 0 || entry.decodeSpeed > 0 || entry.latencyMs > 0
@@ -314,46 +311,10 @@ internal fun LogEntryCard(
     } else {
       val contextOverflow = entry.errorKind == ErrorKind.CONTEXT_OVERFLOW
       Spacer(modifier = Modifier.height(10.dp))
-      val footerOverflowing = footerScrollState.maxValue > 0
       val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
 
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        if (!footerOverflowing) {
-          Row(
-            modifier = Modifier
-              .weight(1f)
-              .horizontalScroll(footerScrollState),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-          ) {
-            FooterBadges(entry = entry, contextOverflow = contextOverflow)
-          }
-          Spacer(modifier = Modifier.width(6.dp))
-          Text(
-            text = modelTimeText,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-          )
-        } else {
-          Row(
-            modifier = Modifier.horizontalScroll(footerScrollState),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-          ) {
-            FooterBadges(entry = entry, contextOverflow = contextOverflow)
-            FooterDot()
-            Text(
-              text = modelTimeText,
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              maxLines = 1,
-            )
-          }
-        }
+      ResponsiveLogFooter(modelTimeText = modelTimeText) {
+        FooterBadges(entry = entry, contextOverflow = contextOverflow)
       }
     }
   }
