@@ -57,8 +57,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ErrorSuggestions
+import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
@@ -107,6 +109,32 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
   }
 
   val parsedEvent = remember(message, entry.requestBody) { parseEventType(message, entry.requestBody) }
+  val loadingStartedAtMs = if (parsedEvent is ParsedEventType.Loading) {
+    ServerMetrics.loadingStartedAtMs.collectAsStateWithLifecycle().value
+  } else {
+    0L
+  }
+  val activeModelName = if (parsedEvent is ParsedEventType.Loading) {
+    ServerMetrics.activeModelName.collectAsStateWithLifecycle().value
+  } else {
+    null
+  }
+  val keepAliveReloadStartedAtMs = if (parsedEvent is ParsedEventType.KeepAliveReloading) {
+    ServerMetrics.keepAliveReloadStartedAtMs.collectAsStateWithLifecycle().value
+  } else {
+    0L
+  }
+  val isActiveModelLoad = isActiveModelLoadingEvent(
+    parsedEvent = parsedEvent,
+    entryTimestampMs = entry.timestamp,
+    activeModelName = activeModelName,
+    loadingStartedAtMs = loadingStartedAtMs,
+  )
+  val isActiveKeepAliveReload = isActiveKeepAliveReloadingEvent(
+    parsedEvent = parsedEvent,
+    entryTimestampMs = entry.timestamp,
+    keepAliveReloadStartedAtMs = keepAliveReloadStartedAtMs,
+  )
 
   // Headline text shown next to the category badge
   val headline = if (parsedEvent != null) resolveEventHeadline(context, parsedEvent)
@@ -214,12 +242,36 @@ internal fun InternalEventCard(entry: RequestLogEntry, searchQuery: String = "")
       Spacer(modifier = Modifier.height(8.dp))
       val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
 
-      ResponsiveLogFooter(modelTimeText = modelTimeText) {
-        EventFooterBadges(parsedEvent = parsedEvent)
+      if (isActiveModelLoad || isActiveKeepAliveReload) {
+        val timerStartedAtMs = if (isActiveModelLoad) loadingStartedAtMs else keepAliveReloadStartedAtMs
+        PendingLogFooter(startTimestampMs = timerStartedAtMs, modelTimeText = modelTimeText)
+      } else {
+        ResponsiveLogFooter(modelTimeText = modelTimeText) {
+          EventFooterBadges(parsedEvent = parsedEvent)
+        }
       }
     }
   }
 }
+
+/** Only the event created for the currently active load may own the live timer. */
+internal fun isActiveModelLoadingEvent(
+  parsedEvent: ParsedEventType?,
+  entryTimestampMs: Long,
+  activeModelName: String?,
+  loadingStartedAtMs: Long,
+): Boolean = parsedEvent is ParsedEventType.Loading &&
+  loadingStartedAtMs > 0L &&
+  parsedEvent.modelName == activeModelName &&
+  entryTimestampMs >= loadingStartedAtMs
+
+internal fun isActiveKeepAliveReloadingEvent(
+  parsedEvent: ParsedEventType?,
+  entryTimestampMs: Long,
+  keepAliveReloadStartedAtMs: Long,
+): Boolean = parsedEvent is ParsedEventType.KeepAliveReloading &&
+  keepAliveReloadStartedAtMs > 0L &&
+  entryTimestampMs >= keepAliveReloadStartedAtMs
 
 private val prettyJson = Json { prettyPrint = true; prettyPrintIndent = "  " }
 

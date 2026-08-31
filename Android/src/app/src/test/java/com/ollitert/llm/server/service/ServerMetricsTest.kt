@@ -386,6 +386,15 @@ class ServerMetricsTest {
     assertFalse(ServerMetrics.isIdleUnloaded.value)
   }
 
+  @Test
+  fun keepAliveReloadTimestampToggles() {
+    assertEquals(0L, ServerMetrics.keepAliveReloadStartedAtMs.value)
+    ServerMetrics.onKeepAliveReloadStarted()
+    assertTrue(ServerMetrics.keepAliveReloadStartedAtMs.value > 0L)
+    ServerMetrics.onKeepAliveReloadFinished()
+    assertEquals(0L, ServerMetrics.keepAliveReloadStartedAtMs.value)
+  }
+
   // ── updateMemorySnapshot() ───────────────────────────────────────────────
 
   @Test

@@ -194,6 +194,10 @@ object ServerMetrics {
   private val _loadingStartedAtMs = sessionFlow(0L)
   val loadingStartedAtMs: StateFlow<Long> = _loadingStartedAtMs.asStateFlow()
 
+  /** Epoch millis when an idle keep-alive model reload started, or 0 if not reloading. */
+  private val _keepAliveReloadStartedAtMs = sessionFlow(0L)
+  val keepAliveReloadStartedAtMs: StateFlow<Long> = _keepAliveReloadStartedAtMs.asStateFlow()
+
   /** Current model-load detail used to distinguish recovery from ordinary startup. */
   private val _modelLoadPhase = sessionFlow(ModelLoadPhase.STARTING)
   val modelLoadPhase: StateFlow<ModelLoadPhase> = _modelLoadPhase.asStateFlow()
@@ -482,6 +486,14 @@ object ServerMetrics {
   fun onModelReloadedFromIdle() {
     _isIdleUnloaded.value = false
     stateMachine.process(ServerLifecycleEvent.ModelReloadedFromIdle)
+  }
+
+  fun onKeepAliveReloadStarted() {
+    _keepAliveReloadStartedAtMs.value = System.currentTimeMillis()
+  }
+
+  fun onKeepAliveReloadFinished() {
+    _keepAliveReloadStartedAtMs.value = 0L
   }
 
   /**

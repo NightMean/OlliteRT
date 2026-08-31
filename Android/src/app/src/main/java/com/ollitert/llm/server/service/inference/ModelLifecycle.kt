@@ -382,51 +382,57 @@ class ModelLifecycle(
       val modelName = keepAliveUnloadedModelName ?: return null
       awaitIdleCleanup()
       Log.i(TAG, "Keep-alive: reloading model $modelName (waking from idle)")
-      RequestLogStore.addEvent(
-        "Auto-reloading model: $modelName (keep_alive wake-up)",
-        modelName = modelName,
-        category = EventCategory.MODEL,
-      )
-      ServerMetrics.onModelReloadedFromIdle()
-
-      // pickModelByName already restores persisted inference config via restoreInferenceConfig
-      val model = pickModelByName(modelName) ?: run {
-        Log.e(TAG, "Keep-alive: model '$modelName' not found during reload")
-        // Clear unloaded state to prevent infinite retry on every subsequent request
-        // (e.g. model file was deleted while idle-unloaded)
-        keepAliveUnloadedRef.set(null to null)
-        ServerMetrics.onModelReloadedFromIdle()
-        return null
-      }
-
-      val loadStart = SystemClock.elapsedRealtime()
-      val initErr = initializeEngine(model)
-      if (initErr.isNotEmpty()) {
-        Log.e(TAG, "Keep-alive: model reload failed: $initErr")
+      ServerMetrics.onKeepAliveReloadStarted()
+      try {
         RequestLogStore.addEvent(
-          "Keep-alive reload failed: $initErr",
-          level = LogLevel.ERROR,
+          "Auto-reloading model: $modelName (keep_alive wake-up)",
           modelName = modelName,
           category = EventCategory.MODEL,
         )
-        // Clear unloaded state to prevent infinite retry on every subsequent request
-        keepAliveUnloadedRef.set(null to null)
         ServerMetrics.onModelReloadedFromIdle()
-        return null
+
+        // pickModelByName already restores persisted inference config via restoreInferenceConfig
+        val model = pickModelByName(modelName) ?: run {
+          Log.e(TAG, "Keep-alive: model '$modelName' not found during reload")
+          // Clear unloaded state to prevent infinite retry on every subsequent request
+          // (e.g. model file was deleted while idle-unloaded)
+          keepAliveUnloadedRef.set(null to null)
+          ServerMetrics.onModelReloadedFromIdle()
+          return null
+        }
+
+        val loadStart = SystemClock.elapsedRealtime()
+        val initErr = initializeEngine(model)
+        if (initErr.isNotEmpty()) {
+          Log.e(TAG, "Keep-alive: model reload failed: $initErr")
+          RequestLogStore.addEvent(
+            "Keep-alive reload failed: $initErr",
+            level = LogLevel.ERROR,
+            modelName = modelName,
+            category = EventCategory.MODEL,
+          )
+          // Clear unloaded state to prevent infinite retry on every subsequent request
+          keepAliveUnloadedRef.set(null to null)
+          ServerMetrics.onModelReloadedFromIdle()
+          return null
+        }
+        defaultModel = model
+        modelCache[model.name] = model
+        keepAliveUnloadedRef.set(null to null)
+        val loadMs = SystemClock.elapsedRealtime() - loadStart
+        ServerMetrics.recordModelLoadTime(loadMs)
+        RequestLogStore.addEvent(
+          "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
+          modelName = model.name,
+          category = EventCategory.MODEL,
+        )
+        // Reset keep-alive timer for the next idle period
+        resetKeepAliveTimer()
+        return model
+      } finally {
+        // The Logs timer must stop on success, failure, early return, or exception.
+        ServerMetrics.onKeepAliveReloadFinished()
       }
-      defaultModel = model
-      modelCache[model.name] = model
-      keepAliveUnloadedRef.set(null to null)
-      val loadMs = SystemClock.elapsedRealtime() - loadStart
-      ServerMetrics.recordModelLoadTime(loadMs)
-      RequestLogStore.addEvent(
-        "Model reloaded: ${model.name} (${loadMs}ms, keep_alive wake-up)",
-        modelName = model.name,
-        category = EventCategory.MODEL,
-      )
-      // Reset keep-alive timer for the next idle period
-      resetKeepAliveTimer()
-      return model
     }
   }
 

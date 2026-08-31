@@ -238,7 +238,7 @@ internal fun PendingLogFooter(startTimestampMs: Long, modelTimeText: String) {
         elapsedProcessingSeconds(startTimestampMs, currentTimeMs),
       ),
       style = MaterialTheme.typography.labelSmall,
-      color = OlliteRTPrimary,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
       fontWeight = FontWeight.SemiBold,
     )
     Spacer(modifier = Modifier.weight(1f))
