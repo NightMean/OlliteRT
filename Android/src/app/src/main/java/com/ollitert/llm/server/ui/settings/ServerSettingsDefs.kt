@@ -199,6 +199,22 @@ val DONTKILLMYAPP = SettingDef.Custom(
 
 // ─── Advanced Timeouts Card ──────────────────────────────────────────────
 
+val DEFAULT_SEED = SettingDef.TextInput(
+  key = "default_seed",
+  labelRes = R.string.settings_default_seed_label,
+  descriptionRes = R.string.settings_default_seed_desc_prefix,
+  card = CardId.ADVANCED_SETTINGS,
+  default = "",
+  prefsKey = "default_seed",
+  validate = { input, ctx ->
+    if (input.isNotBlank() && (input.toIntOrNull() == null || input.toInt() < 0)) {
+      ctx.getString(R.string.validation_default_seed_invalid)
+    } else null
+  },
+  read = { it.getDefaultSeed()?.toString() ?: "" },
+  write = { repo, value -> repo.setDefaultSeed(value.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()) },
+)
+
 val TIMEOUT_CHAT_COMPLETIONS = SettingDef.NumericWithUnit(
   key = "timeout_chat_completions",
   labelRes = R.string.settings_timeout_chat_completions_label,

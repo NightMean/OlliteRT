@@ -26,6 +26,7 @@ private const val KEY_CONFIRM_CLEAR_LOGS = "confirm_clear_logs"
 // -- Keys: developer / debug ------------------------------------------------
 private const val KEY_VERBOSE_DEBUG_ENABLED = "verbose_debug_enabled"
 private const val KEY_IGNORE_CLIENT_SAMPLER_PARAMS = "ignore_client_sampler_params"
+private const val KEY_DEFAULT_SEED = "default_seed"
 
 // -- Keys: request queueing -------------------------------------------------
 private const val KEY_REJECT_WHEN_BUSY = "reject_when_busy"
@@ -67,6 +68,15 @@ fun ServerPrefs.setVerboseDebugEnabled(context: Context, enabled: Boolean) = set
 
 fun ServerPrefs.isIgnoreClientSamplerParams(context: Context): Boolean = get(context, IGNORE_CLIENT_SAMPLER_PARAMS)
 fun ServerPrefs.setIgnoreClientSamplerParams(context: Context, enabled: Boolean) = set(context, IGNORE_CLIENT_SAMPLER_PARAMS, enabled)
+
+fun ServerPrefs.getDefaultSeed(context: Context): Int? =
+  prefs(context).getString(KEY_DEFAULT_SEED, null)?.toIntOrNull()
+
+fun ServerPrefs.setDefaultSeed(context: Context, seed: Int?) {
+  prefs(context).edit {
+    if (seed == null) remove(KEY_DEFAULT_SEED) else putString(KEY_DEFAULT_SEED, seed.toString())
+  }
+}
 
   // ══════════════════════════════════════════════════════════════════════════
   // § Request Queueing

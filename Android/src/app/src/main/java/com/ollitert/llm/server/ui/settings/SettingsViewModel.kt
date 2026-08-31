@@ -177,6 +177,7 @@ class SettingsViewModel @Inject constructor(
   val timeoutWarmupEntry get() = entry<Long>("timeout_warmup")
   val timeoutKeepAliveRecheckEntry get() = entry<Long>("timeout_keep_alive_recheck")
   val timeoutCleanupAwaitEntry get() = entry<Long>("timeout_cleanup_await")
+  val defaultSeedEntry get() = entry<String>("default_seed")
 
   // ─── UI State (non-persisted) ────────────────────────────────────────────
 

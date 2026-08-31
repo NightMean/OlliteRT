@@ -54,6 +54,7 @@ class FakePreferencesRepository : PreferencesRepository {
   private var _warmupEnabled: Boolean = false
   private var _eagerVisionInit: Boolean = false
   private var _ignoreClientSamplerParams: Boolean = false
+  private var _defaultSeed: Int? = null
   private var _forceStreamUsage: Boolean = false
   private var _resolveClientHostnames: Boolean = false
   private var _hideHealthLogs: Boolean = false
@@ -141,6 +142,8 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setAudioGpuAcceleration(enabled: Boolean) { this._audioGpuAcceleration = enabled }
   override fun isIgnoreClientSamplerParams(): Boolean = _ignoreClientSamplerParams
   override fun setIgnoreClientSamplerParams(enabled: Boolean) { this._ignoreClientSamplerParams = enabled }
+  override fun getDefaultSeed(): Int? = _defaultSeed
+  override fun setDefaultSeed(seed: Int?) { this._defaultSeed = seed }
   override fun isForceStreamUsage(): Boolean = _forceStreamUsage
   override fun setForceStreamUsage(enabled: Boolean) { this._forceStreamUsage = enabled }
   override fun isResolveClientHostnames(): Boolean = _resolveClientHostnames

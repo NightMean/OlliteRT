@@ -60,6 +60,7 @@ import com.ollitert.llm.server.data.prefs.isHaIntegrationEnabled
 import com.ollitert.llm.server.data.prefs.isHideHealthLogs
 
 import com.ollitert.llm.server.data.prefs.isIgnoreClientSamplerParams
+import com.ollitert.llm.server.data.prefs.getDefaultSeed
 
 import com.ollitert.llm.server.data.prefs.isKeepScreenOn
 
@@ -112,6 +113,7 @@ import com.ollitert.llm.server.data.prefs.setHaIntegrationEnabled
 import com.ollitert.llm.server.data.prefs.setHideHealthLogs
 
 import com.ollitert.llm.server.data.prefs.setIgnoreClientSamplerParams
+import com.ollitert.llm.server.data.prefs.setDefaultSeed
 
 import com.ollitert.llm.server.data.prefs.setKeepScreenOn
 
@@ -211,6 +213,8 @@ interface PreferencesRepository {
   fun setAudioGpuAcceleration(enabled: Boolean)
   fun isIgnoreClientSamplerParams(): Boolean
   fun setIgnoreClientSamplerParams(enabled: Boolean)
+  fun getDefaultSeed(): Int?
+  fun setDefaultSeed(seed: Int?)
   fun isForceStreamUsage(): Boolean
   fun setForceStreamUsage(enabled: Boolean)
   fun isResolveClientHostnames(): Boolean
@@ -341,6 +345,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setAudioGpuAcceleration(enabled: Boolean) = ServerPrefs.setAudioGpuAccelerationEnabled(context, enabled)
   override fun isIgnoreClientSamplerParams(): Boolean = ServerPrefs.isIgnoreClientSamplerParams(context)
   override fun setIgnoreClientSamplerParams(enabled: Boolean) = ServerPrefs.setIgnoreClientSamplerParams(context, enabled)
+  override fun getDefaultSeed(): Int? = ServerPrefs.getDefaultSeed(context)
+  override fun setDefaultSeed(seed: Int?) = ServerPrefs.setDefaultSeed(context, seed)
   override fun isForceStreamUsage(): Boolean = ServerPrefs.isForceStreamUsage(context)
   override fun setForceStreamUsage(enabled: Boolean) = ServerPrefs.setForceStreamUsage(context, enabled)
   override fun isResolveClientHostnames(): Boolean = ServerPrefs.isResolveClientHostnames(context)

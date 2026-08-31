@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.ui.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -25,21 +26,35 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.common.olliteTextFieldColors
+import com.ollitert.llm.server.ui.theme.customColors
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 internal fun AdvancedSettingsCard(vm: SettingsViewModel) {
+  val uriHandler = LocalUriHandler.current
   CollapsibleSettingsCard(
     icon = Icons.Outlined.Science,
     title = stringResource(R.string.settings_card_advanced_settings),
@@ -48,6 +63,50 @@ internal fun AdvancedSettingsCard(vm: SettingsViewModel) {
     searchQuery = vm.searchQuery,
   ) {
     Column {
+      SectionHeader(
+        icon = Icons.Outlined.Tune,
+        title = stringResource(R.string.settings_advanced_sampling_section),
+      )
+      Spacer(modifier = Modifier.height(12.dp))
+      Text(
+        text = stringResource(R.string.settings_default_seed_label),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      OutlinedTextField(
+        value = vm.defaultSeedEntry.current,
+        onValueChange = { value -> vm.defaultSeedEntry.update(value.filter { it.isDigit() }) },
+        placeholder = { Text(stringResource(R.string.settings_default_seed_placeholder)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        isError = vm.hasError(DEFAULT_SEED.key),
+        colors = olliteTextFieldColors(isError = vm.hasError(DEFAULT_SEED.key)),
+        modifier = Modifier.fillMaxWidth(),
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = buildAnnotatedString {
+          append(stringResource(R.string.settings_default_seed_desc_prefix))
+          append(" ")
+          withLink(
+            link = LinkAnnotation.Url(
+              url = LITERT_LM_SAMPLER_ISSUE_URL,
+              styles = TextLinkStyles(
+                style = SpanStyle(
+                  color = MaterialTheme.customColors.linkColor,
+                  textDecoration = TextDecoration.Underline,
+                ),
+              ),
+              linkInteractionListener = { uriHandler.openUri(LITERT_LM_SAMPLER_ISSUE_URL) },
+            ),
+          ) { append(stringResource(R.string.settings_default_seed_issue_link)) }
+          append(stringResource(R.string.settings_default_seed_desc_suffix))
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.height(12.dp))
       SectionHeader(
         icon = Icons.Outlined.Timer,
         title = stringResource(R.string.settings_advanced_timeouts_section),
@@ -138,6 +197,9 @@ internal fun AdvancedSettingsCard(vm: SettingsViewModel) {
     }
   }
 }
+
+private const val LITERT_LM_SAMPLER_ISSUE_URL =
+  "https://github.com/google-ai-edge/LiteRT-LM/issues/2080"
 
 @Composable
 private fun SectionHeader(

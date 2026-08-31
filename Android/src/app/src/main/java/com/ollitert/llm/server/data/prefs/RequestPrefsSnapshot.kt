@@ -28,6 +28,7 @@ data class RequestPrefsSnapshot(
   val autoTruncateHistory: Boolean = false,
   val autoTrimPrompts: Boolean = false,
   val ignoreClientSamplerParams: Boolean = false,
+  val defaultSeed: Int? = null,
   val eagerVisionInit: Boolean = false,
   val streamLogsPreview: Boolean = true,
   val keepPartialResponse: Boolean = false,

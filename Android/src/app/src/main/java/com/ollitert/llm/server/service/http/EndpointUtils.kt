@@ -86,7 +86,8 @@ internal fun resolveSamplerOverrides(
   val effectiveTopP = topP.takeUnless { ignore }
   val effectiveTopK = topK.takeUnless { ignore }
   val effectiveMaxTokens = maxTokens.takeUnless { ignore }
-  val effectiveSeed = seed.takeUnless { ignore }
+  // The app setting is an intentional server-wide override; blank preserves the client seed.
+  val effectiveSeed = prefs.defaultSeed ?: seed.takeUnless { ignore }
   if (ignore && logId != null) {
     val ignored = describeClientSamplerParams(temperature, topP, topK, maxTokens, seed)
     if (ignored != null) RequestLogStore.update(logId) { it.copy(ignoredClientParams = ignored) }

@@ -430,6 +430,7 @@ object ServerPrefs {
       autoTruncateHistory = isAutoTruncateHistory(context),
       autoTrimPrompts = isAutoTrimPrompts(context),
       ignoreClientSamplerParams = isIgnoreClientSamplerParams(context),
+      defaultSeed = getDefaultSeed(context),
       eagerVisionInit = isEagerVisionInit(context),
       streamLogsPreview = isStreamLogsPreview(context),
       keepPartialResponse = isKeepPartialResponse(context),

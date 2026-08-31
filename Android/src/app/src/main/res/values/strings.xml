@@ -453,6 +453,13 @@
   <!-- Settings: Advanced Settings -->
   <string name="settings_card_advanced_settings" translatable="false">Advanced Settings</string>
   <string name="settings_advanced_timeouts_section" translatable="false">Timeouts</string>
+  <string name="settings_advanced_sampling_section" translatable="false">Sampling</string>
+  <string name="settings_default_seed_label" translatable="false">Default seed</string>
+  <string name="settings_default_seed_desc_prefix" translatable="false">Optional seed used when a request does not provide one. Due to</string>
+  <string name="settings_default_seed_issue_link" translatable="false">LiteRT-LM issue #2080</string>
+  <string name="settings_default_seed_desc_suffix" translatable="false">, session sampler settings—including seed—are currently ignored on GPU and NPU; they apply on CPU only.</string>
+  <string name="settings_default_seed_placeholder" translatable="false">Blank for a random seed</string>
+  <string name="validation_default_seed_invalid" translatable="false">Enter a non-negative 32-bit integer or leave the seed blank</string>
   <string name="settings_timeout_chat_completions_label" translatable="false">Chat completions timeout</string>
   <string name="settings_timeout_chat_completions_desc" translatable="false">Maximum time for /v1/chat/completions and /v1/messages requests</string>
   <string name="settings_timeout_responses_label" translatable="false">Responses timeout</string>
