@@ -20,6 +20,7 @@ import com.ollitert.llm.server.service.inference.*
 import com.ollitert.llm.server.service.http.KtorServer
 import io.ktor.server.application.call
 import io.ktor.server.routing.Routing
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 
 /**
@@ -52,6 +53,13 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
       if (!requireServerControl(call)) return@post
       withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerConfig(body)
+      }
+    }
+
+    get("/v1/server/config") {
+      if (!requireServerControl(call)) return@get
+      withGetLogging(call) {
+        handleServerConfig("")
       }
     }
   }

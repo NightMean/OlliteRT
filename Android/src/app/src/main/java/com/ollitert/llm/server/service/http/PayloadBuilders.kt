@@ -28,6 +28,7 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.getDefaultSeed
 import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.prefs.configThinkingEnabled
@@ -42,6 +43,7 @@ import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -235,6 +237,9 @@ object PayloadBuilders {
       put("top_p", JsonPrimitive(inferenceConfig.configTopP()?.toDouble() ?: 0.0))
       put("thinking_enabled", JsonPrimitive(inferenceConfig.configThinkingEnabled() ?: false))
       put("thinking_budget", JsonPrimitive(inferenceConfig.thinkingBudgetTokens() ?: 0))
+      // Keep the field present after a clear so clients can distinguish an
+      // intentionally random seed from a server that lacks this setting.
+      put("default_seed", ServerPrefs.getDefaultSeed(context)?.let(::JsonPrimitive) ?: JsonNull)
       put("speculative_decoding_enabled", JsonPrimitive(inferenceConfig.configSpeculativeDecodingEnabled() ?: false))
       put("auto_truncate_history", JsonPrimitive(ServerPrefs.isAutoTruncateHistory(context)))
       put("auto_trim_prompts", JsonPrimitive(ServerPrefs.isAutoTrimPrompts(context)))

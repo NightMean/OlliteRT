@@ -29,6 +29,8 @@ import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.getDefaultSeed
+import com.ollitert.llm.server.data.prefs.setDefaultSeed
 import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.configTopK
@@ -197,33 +199,33 @@ class ServerControlHandler(
       val reqTopP = parseConfigDouble(obj, "top_p")
       val reqThinking = parseConfigBool(obj, "thinking_enabled")
       val reqThinkingBudget = parseConfigInt(obj, "thinking_budget")
-      val updated: Map<String, Any>
-      val configChanges: MutableList<String>
+      val configUpdate: InferenceConfigUpdate
       if (model != null) {
         synchronized(inferenceLock) {
-          val result = mergeInferenceConfig(
+          configUpdate = mergeInferenceConfig(
             model.configValues, model, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking, reqThinkingBudget,
           )
-          updated = result.first
-          configChanges = result.second
-          if (configChanges.isNotEmpty()) model.configValues = updated
         }
       } else {
         val base = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey) ?: emptyMap()
-        val result = mergeInferenceConfig(
+        configUpdate = mergeInferenceConfig(
           base, null, reqTemperature, reqMaxTokens, reqTopK, reqTopP, reqThinking, reqThinkingBudget,
         )
-        updated = result.first
-        configChanges = result.second
       }
-      val changes = configChanges.toMutableList()
-      applyBehaviorToggles(obj, changes)
-      val specialFieldError = applySpecialFields(obj, modelPrefsKey, changes)
-      if (specialFieldError != null) return specialFieldError
+      val changes = configUpdate.changes.toMutableList()
+      val behaviorUpdates = parseBehaviorToggleUpdates(obj, changes)
+      val specialUpdates = parseSpecialFieldUpdates(obj, modelPrefsKey, changes)
       if (changes.isEmpty()) {
         httpBadRequest("No recognized config fields")
       } else {
-        ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updated)
+        // Apply only after all fields validate so an HTTP 400 is side-effect free.
+        if (model != null && configUpdate.changes.isNotEmpty()) {
+          synchronized(inferenceLock) { model.configValues = configUpdate.values }
+        }
+        applyBehaviorToggleUpdates(behaviorUpdates)
+        applySpecialFieldUpdates(specialUpdates)
+        configUpdate.thinkingEnabled?.let(ServerMetrics::setThinkingEnabled)
+        ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, configUpdate.values)
         RequestLogStore.addEvent(
           "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",
           modelName = modelName,
@@ -231,7 +233,7 @@ class ServerControlHandler(
           body = changes.joinToString("\n"),
         )
         httpOkJson(
-          PayloadBuilders.serverConfig(updated, modelName, !isIdle, modelPrefsKey, serviceContext, success = true),
+          PayloadBuilders.serverConfig(configUpdate.values, modelName, !isIdle, modelPrefsKey, serviceContext, success = true),
         )
       }
     } catch (e: ConfigFieldException) {
@@ -250,9 +252,10 @@ class ServerControlHandler(
     reqTopP: Double?,
     reqThinking: Boolean?,
     reqThinkingBudget: Int? = null,
-  ): Pair<Map<String, Any>, MutableList<String>> {
+  ): InferenceConfigUpdate {
     val updated = currentConfig.toMutableMap()
     val changes = mutableListOf<String>()
+    var thinkingEnabled: Boolean? = null
     reqTemperature?.let { raw ->
       val old = currentConfig.configTemperature()
       val v = clampTemperature(raw)
@@ -281,7 +284,7 @@ class ServerControlHandler(
       if (model == null || model.llmSupportThinking) {
         val old = currentConfig.configThinkingEnabled() ?: false
         updated[ConfigKeys.ENABLE_THINKING.id] = v
-        ServerMetrics.setThinkingEnabled(v)
+        thinkingEnabled = v
         changes.add("Thinking: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
       }
     }
@@ -305,7 +308,7 @@ class ServerControlHandler(
       }
       Unit
     }
-    return updated.toMap() to changes
+    return InferenceConfigUpdate(updated.toMap(), changes, thinkingEnabled)
   }
 
   private fun parseThinkingRequestedState(body: String, currentState: Boolean): Boolean? {
@@ -320,41 +323,78 @@ class ServerControlHandler(
     return !currentState
   }
 
-  private fun applyBehaviorToggles(obj: JsonObject, changes: MutableList<String>) {
+  private fun parseBehaviorToggleUpdates(
+    obj: JsonObject,
+    changes: MutableList<String>,
+  ): List<BehaviorToggleUpdate> {
+    val updates = mutableListOf<BehaviorToggleUpdate>()
     for (toggle in behaviorToggles) {
       parseConfigBool(obj, toggle.jsonKey)?.let { v ->
         val old = toggle.read(serviceContext)
-        toggle.write(serviceContext, v)
-        toggle.onChanged?.invoke(v)
         changes.add("${toggle.displayName}: ${if (old) "enabled" else "disabled"} → ${if (v) "enabled" else "disabled"}")
+        updates.add(BehaviorToggleUpdate(toggle, v))
       }
     }
+    return updates
   }
 
-  private fun applySpecialFields(
+  private fun parseSpecialFieldUpdates(
     obj: JsonObject,
     modelPrefsKey: String,
     changes: MutableList<String>,
-  ): HttpResponse? {
-    parseConfigInt(obj, "keep_alive_minutes")?.let { v ->
+  ): SpecialFieldUpdates {
+    val defaultSeed = parseDefaultSeedUpdate(obj)
+    if (defaultSeed is DefaultSeedUpdate.Set) {
+      val old = ServerPrefs.getDefaultSeed(serviceContext)
+      changes.add("Default Seed: ${old ?: "unset"} → ${defaultSeed.value ?: "unset"}")
+    }
+    val keepAliveMinutes = parseConfigInt(obj, "keep_alive_minutes")?.also { v ->
       if (v < 1 || v > 7200) {
-        return httpBadRequest("keep_alive_minutes out of range (1–7200)")
+        throw ConfigFieldException("keep_alive_minutes", "integer from 1 to 7200")
       }
       val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
-      ServerPrefs.setKeepAliveMinutes(serviceContext, v)
-      if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
       changes.add("Keep Alive Minutes: $old → $v")
     }
-    parseConfigString(obj, "system_prompt")?.let { v ->
+    val systemPrompt = parseConfigString(obj, "system_prompt")?.also { v ->
       val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
-      ServerPrefs.setSystemPrompt(serviceContext, modelPrefsKey, v)
       val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
       val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
       changes.add("System Prompt: $oldDisplay → $newDisplay")
     }
-    return null
+    return SpecialFieldUpdates(defaultSeed, keepAliveMinutes, systemPrompt, modelPrefsKey)
+  }
+
+  private fun applyBehaviorToggleUpdates(updates: List<BehaviorToggleUpdate>) {
+    for ((toggle, value) in updates) {
+      toggle.write(serviceContext, value)
+      toggle.onChanged?.invoke(value)
+    }
+  }
+
+  private fun applySpecialFieldUpdates(updates: SpecialFieldUpdates) {
+    (updates.defaultSeed as? DefaultSeedUpdate.Set)?.let { ServerPrefs.setDefaultSeed(serviceContext, it.value) }
+    updates.keepAliveMinutes?.let { minutes ->
+      ServerPrefs.setKeepAliveMinutes(serviceContext, minutes)
+      if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+    }
+    updates.systemPrompt?.let { ServerPrefs.setSystemPrompt(serviceContext, updates.modelPrefsKey, it) }
   }
 }
+
+private data class InferenceConfigUpdate(
+  val values: Map<String, Any>,
+  val changes: MutableList<String>,
+  val thinkingEnabled: Boolean?,
+)
+
+private data class BehaviorToggleUpdate(val toggle: BooleanToggle, val value: Boolean)
+
+private data class SpecialFieldUpdates(
+  val defaultSeed: DefaultSeedUpdate,
+  val keepAliveMinutes: Int?,
+  val systemPrompt: String?,
+  val modelPrefsKey: String,
+)
 
 private sealed interface BehaviorSetting {
   val jsonKey: String
@@ -368,6 +408,24 @@ private class BooleanToggle(
   val write: (Context, Boolean) -> Unit,
   val onChanged: ((Boolean) -> Unit)? = null,
 ) : BehaviorSetting
+
+sealed interface DefaultSeedUpdate {
+  data object Unchanged : DefaultSeedUpdate
+  data class Set(val value: Int?) : DefaultSeedUpdate
+}
+
+fun parseDefaultSeedUpdate(obj: JsonObject): DefaultSeedUpdate {
+  if (!obj.containsKey("default_seed")) return DefaultSeedUpdate.Unchanged
+  val seedElement = obj.getValue("default_seed")
+  if (seedElement is kotlinx.serialization.json.JsonNull) return DefaultSeedUpdate.Set(null)
+  val seed = try {
+    seedElement.jsonPrimitive.int
+  } catch (e: IllegalArgumentException) {
+    throw ConfigFieldException("default_seed", "a non-negative 32-bit integer or null", e)
+  }
+  if (seed < 0) throw ConfigFieldException("default_seed", "a non-negative 32-bit integer or null")
+  return DefaultSeedUpdate.Set(seed)
+}
 
 class ConfigFieldException(
   val fieldName: String,

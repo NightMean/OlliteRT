@@ -135,4 +135,44 @@ class ServerConfigParsingTest {
     assertEquals("system_prompt", ex!!.fieldName)
     assertTrue(ex.message!!.contains("string"))
   }
+
+  @Test
+  fun `parseDefaultSeedUpdate accepts a non-negative integer`() {
+    val obj = Json.parseToJsonElement("""{"default_seed": 42}""").jsonObject
+    assertEquals(DefaultSeedUpdate.Set(42), parseDefaultSeedUpdate(obj))
+  }
+
+  @Test
+  fun `parseDefaultSeedUpdate leaves an absent field unchanged`() {
+    val obj = Json.parseToJsonElement("{} ").jsonObject
+    assertEquals(DefaultSeedUpdate.Unchanged, parseDefaultSeedUpdate(obj))
+  }
+
+  @Test
+  fun `parseDefaultSeedUpdate preserves an explicit clear request`() {
+    val obj = Json.parseToJsonElement("""{"default_seed": null}""").jsonObject
+    assertEquals(DefaultSeedUpdate.Set(null), parseDefaultSeedUpdate(obj))
+  }
+
+  @Test
+  fun `parseDefaultSeedUpdate rejects a negative value`() {
+    val obj = Json.parseToJsonElement("""{"default_seed": -1}""").jsonObject
+    val ex = try {
+      parseDefaultSeedUpdate(obj)
+      null
+    } catch (e: ConfigFieldException) { e }
+    assertTrue(ex != null)
+    assertEquals("default_seed", ex!!.fieldName)
+  }
+
+  @Test
+  fun `parseDefaultSeedUpdate rejects a non-integer value`() {
+    val obj = Json.parseToJsonElement("""{"default_seed": "random"}""").jsonObject
+    val ex = try {
+      parseDefaultSeedUpdate(obj)
+      null
+    } catch (e: ConfigFieldException) { e }
+    assertTrue(ex != null)
+    assertEquals("default_seed", ex!!.fieldName)
+  }
 }
