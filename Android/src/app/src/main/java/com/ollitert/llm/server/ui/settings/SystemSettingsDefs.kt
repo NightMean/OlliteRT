@@ -32,6 +32,17 @@ val KEEP_SCREEN_AWAKE = SettingDef.Toggle(
   write = { repo, v -> repo.setKeepScreenOn(v) },
 )
 
+val FLOATING_MONITOR = SettingDef.Toggle(
+  key = "floating_monitor",
+  labelRes = R.string.settings_floating_monitor,
+  descriptionRes = R.string.settings_floating_monitor_desc,
+  card = CardId.GENERAL,
+  default = false,
+  prefsKey = "floating_monitor_enabled",
+  read = { it.isFloatingMonitorEnabled() },
+  write = { repo, v -> repo.setFloatingMonitorEnabled(v) },
+)
+
 val AUTO_EXPAND_LOGS = SettingDef.Toggle(
   key = "auto_expand_logs",
   labelRes = R.string.settings_auto_expand_logs,

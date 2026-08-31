@@ -139,6 +139,7 @@ class SettingsViewModel @Inject constructor(
   val defaultModelEntry get() = entry<String?>("default_model")
   val corsAllowedOriginsEntry get() = entry<String>("cors_origins")
   val keepScreenOnEntry get() = entry<Boolean>("keep_screen_awake")
+  val floatingMonitorEntry get() = entry<Boolean>("floating_monitor")
   val autoExpandLogsEntry get() = entry<Boolean>("auto_expand_logs")
   val streamLogsPreviewEntry get() = entry<Boolean>("stream_response_preview")
   val compactImageDataEntry get() = entry<Boolean>("compact_image_data")

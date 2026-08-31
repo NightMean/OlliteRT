@@ -268,6 +268,8 @@
   <string name="settings_card_general" translatable="false">General</string>
   <string name="settings_keep_screen_awake" translatable="false">Keep Screen Awake</string>
   <string name="settings_keep_screen_awake_desc" translatable="false">Prevent screen from turning off while app is open</string>
+  <string name="settings_floating_monitor" translatable="false">Floating Monitor</string>
+  <string name="settings_floating_monitor_desc" translatable="false">Show live server metrics over other apps while OlliteRT is in the background. Draw over app permission is required</string>
   <string name="settings_auto_expand_logs" translatable="false">Auto-Expand Logs</string>
   <string name="settings_auto_expand_logs_desc" translatable="false">Show full request and response bodies in the Logs tab</string>
   <string name="settings_wrap_log_text" translatable="false">Wrap Lines in Log Cards</string>

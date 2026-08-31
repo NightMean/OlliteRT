@@ -65,6 +65,7 @@ class FakePreferencesRepository : PreferencesRepository {
   private var _clearLogsOnStop: Boolean = false
   private var _confirmClearLogs: Boolean = true
   private var _showModelRecommendations: Boolean = true
+  private var _floatingMonitorEnabled: Boolean = false
 
   private var _keepPartialResponse: Boolean = false
   private var _sttTranscriptionPromptEnabled: Boolean = true
@@ -164,6 +165,8 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setConfirmClearLogs(enabled: Boolean) { this._confirmClearLogs = enabled }
   override fun isShowModelRecommendations(): Boolean = _showModelRecommendations
   override fun setShowModelRecommendations(enabled: Boolean) { this._showModelRecommendations = enabled }
+  override fun isFloatingMonitorEnabled(): Boolean = _floatingMonitorEnabled
+  override fun setFloatingMonitorEnabled(enabled: Boolean) { this._floatingMonitorEnabled = enabled }
   override fun isKeepPartialResponse(): Boolean = _keepPartialResponse
   override fun setKeepPartialResponse(enabled: Boolean) { this._keepPartialResponse = enabled }
   override fun isSttTranscriptionPromptEnabled(): Boolean = _sttTranscriptionPromptEnabled

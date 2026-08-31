@@ -219,6 +219,7 @@ internal fun ToggleCardContent(
   cardId: CardId,
   vm: SettingsViewModel,
   dividerPadding: Int = 16,
+  onToggleChanged: ((key: String, enabled: Boolean) -> Unit)? = null,
 ) {
   val keys = cardDefsById[cardId]?.settings?.map { it.key } ?: return
   val visible = keys.map { vm.settingVisible(it) }
@@ -239,6 +240,7 @@ internal fun ToggleCardContent(
           vm.showTrimPromptWarning = true
         } else {
           entry.update(newValue)
+          onToggleChanged?.invoke(key, newValue)
         }
       },
       searchQuery = vm.searchQuery,

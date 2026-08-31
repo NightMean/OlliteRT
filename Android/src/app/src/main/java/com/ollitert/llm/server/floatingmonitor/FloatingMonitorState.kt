@@ -35,6 +35,20 @@ internal fun floatingMonitorDot(
   else -> FloatingMonitorDot.ERROR
 }
 
+/** Uses the same state wording as the app's top-bar status pill. */
+internal fun floatingMonitorStateLabel(
+  status: ServerStatus,
+  isInferring: Boolean,
+  modelLoadPhase: ModelLoadPhase,
+): Int = when (floatingMonitorDot(status, isInferring, modelLoadPhase)) {
+  FloatingMonitorDot.PROCESSING -> com.ollitert.llm.server.R.string.status_pill_processing
+  FloatingMonitorDot.RETRYING_CPU -> com.ollitert.llm.server.R.string.status_pill_retrying_cpu
+  FloatingMonitorDot.STOPPED -> com.ollitert.llm.server.R.string.status_pill_stopped
+  FloatingMonitorDot.LOADING -> com.ollitert.llm.server.R.string.status_pill_starting
+  FloatingMonitorDot.RUNNING -> com.ollitert.llm.server.R.string.status_pill_running
+  FloatingMonitorDot.ERROR -> com.ollitert.llm.server.R.string.status_pill_error
+}
+
 internal fun shouldShowFloatingMonitor(
   enabled: Boolean,
   hasOverlayPermission: Boolean,

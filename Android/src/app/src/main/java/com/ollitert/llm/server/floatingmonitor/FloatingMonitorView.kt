@@ -25,6 +25,34 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.ui.navigation.StatusPill
+import com.ollitert.llm.server.ui.server.StatusCapabilityChips
+import com.ollitert.llm.server.ui.theme.OlliteRTTheme
 import kotlin.math.abs
 
 internal class FloatingMonitorView(
@@ -32,11 +60,13 @@ internal class FloatingMonitorView(
   private val onPlacementChanged: (Int, Int) -> Unit,
   private val onPositionChanged: (Int, Int) -> Unit,
   private val onSizeChanged: () -> Unit,
-) : View(context) {
+) : FrameLayout(context), LifecycleOwner {
   private val density = resources.displayMetrics.density
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+  private val overlayViewTreeOwner = OverlayViewTreeOwner()
   private var snapshot = FloatingMonitorSnapshot()
+  private var headerSnapshot by mutableStateOf(snapshot)
   private var nowMs = 0L
   private var expanded = false
   private var downRawX = 0f
@@ -46,123 +76,155 @@ internal class FloatingMonitorView(
   private var dragging = false
 
   val desiredWidthPx = dp(248)
-  val desiredHeightPx get() = dp(if (expanded) 278 else 206)
+  val desiredHeightPx get() = dp(if (expanded) expandedFooterYDp() + 16 else 188)
 
   init {
     setLayerType(LAYER_TYPE_SOFTWARE, null)
+    setWillNotDraw(false)
+    setViewTreeLifecycleOwner(overlayViewTreeOwner)
+    setViewTreeSavedStateRegistryOwner(overlayViewTreeOwner)
+    addView(
+      ComposeView(context).apply {
+        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        setContent {
+          OlliteRTTheme {
+            FloatingMonitorHeader(snapshot = headerSnapshot)
+          }
+        }
+      },
+      LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)),
+    )
   }
+
+  override val lifecycle: Lifecycle get() = overlayViewTreeOwner.lifecycle
 
   fun render(snapshot: FloatingMonitorSnapshot, nowMs: Long) {
     this.snapshot = snapshot
+    headerSnapshot = snapshot
     this.nowMs = nowMs
     invalidate()
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    super.onMeasure(
+      MeasureSpec.makeMeasureSpec(desiredWidthPx, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(desiredHeightPx, MeasureSpec.EXACTLY),
+    )
     setMeasuredDimension(desiredWidthPx, desiredHeightPx)
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    overlayViewTreeOwner.resume()
+  }
+
+  override fun onDetachedFromWindow() {
+    overlayViewTreeOwner.destroy()
+    super.onDetachedFromWindow()
   }
 
   override fun onDraw(canvas: Canvas) {
     super.onDraw(canvas)
     val width = width.toFloat()
     val height = height.toFloat()
-    paint.color = Color.rgb(25, 26, 28)
+    paint.color = Color.rgb(28, 27, 28)
     paint.setShadowLayer(dp(12).toFloat(), 0f, dp(5).toFloat(), 0x55000000)
     canvas.drawRoundRect(RectF(0f, 0f, width, height), dp(22).toFloat(), dp(22).toFloat(), paint)
     paint.clearShadowLayer()
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = dp(1).toFloat()
-    paint.color = Color.rgb(79, 82, 86)
+    paint.color = Color.rgb(68, 71, 70)
     canvas.drawRoundRect(RectF(.5f, .5f, width - .5f, height - .5f), dp(22).toFloat(), dp(22).toFloat(), paint)
     paint.style = Paint.Style.FILL
 
-    drawHeader(canvas)
     drawMetrics(canvas)
-    if (expanded) drawSettings(canvas)
+    if (expanded) drawAdditionalMetrics(canvas)
     drawFooter(canvas)
-  }
-
-  private fun drawHeader(canvas: Canvas) {
-    val dot = when (floatingMonitorDot(snapshot.status, snapshot.isInferring, snapshot.modelLoadPhase)) {
-      FloatingMonitorDot.PROCESSING -> Color.rgb(103, 183, 255)
-      FloatingMonitorDot.RETRYING_CPU -> Color.rgb(255, 183, 77)
-      FloatingMonitorDot.LOADING -> Color.rgb(174, 176, 181)
-      FloatingMonitorDot.RUNNING -> Color.rgb(96, 211, 133)
-      FloatingMonitorDot.STOPPED, FloatingMonitorDot.ERROR -> Color.rgb(239, 91, 91)
-    }
-    paint.color = dot
-    canvas.drawCircle(dp(18).toFloat(), dp(18).toFloat(), dp(6).toFloat(), paint)
-    val badges = buildList {
-      snapshot.accelerator?.takeIf { it.isNotBlank() }?.let(::add)
-      if (snapshot.thinkingEnabled) add("THINK")
-      if (snapshot.mtpEnabled) add("MTP")
-    }
-    var right = width - dp(14).toFloat()
-    for (badge in badges.asReversed()) {
-      paint.textSize = dp(9).toFloat()
-      paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
-      val badgeWidth = paint.measureText(badge) + dp(14)
-      val left = right - badgeWidth
-      paint.color = Color.rgb(48, 50, 54)
-      canvas.drawRoundRect(RectF(left.toFloat(), dp(9).toFloat(), right.toFloat(), dp(27).toFloat()), dp(6).toFloat(), dp(6).toFloat(), paint)
-      paint.color = Color.rgb(141, 196, 255)
-      drawText(canvas, badge, left + dp(7), dp(21), 9, true)
-      right = left - dp(5)
-    }
   }
 
   private fun drawMetrics(canvas: Canvas) {
     val gap = dp(6)
     val left = dp(12)
-    val top = dp(38)
+    val top = dp(48)
     val cellWidth = (width - left * 2 - gap * 2) / 3f
     val cellHeight = dp(52).toFloat()
-    metric(canvas, left.toFloat(), top.toFloat(), cellWidth, cellHeight, snapshot.requestCount.toString(), "REQ")
-    metric(canvas, left + cellWidth + gap, top.toFloat(), cellWidth, cellHeight, formatMonitorSpeed(snapshot.decodeSpeed), "T/S")
-    metric(canvas, left + (cellWidth + gap) * 2, top.toFloat(), cellWidth, cellHeight, if (snapshot.ttfbMs > 0) "${snapshot.ttfbMs}" else "—", "TTFB")
-    metric(canvas, left.toFloat(), top + dp(58).toFloat(), cellWidth, cellHeight, snapshot.errorCount.toString(), "ERR")
-    metric(canvas, left + cellWidth + gap, top + dp(58).toFloat(), cellWidth * 2 + gap, cellHeight, formatCompactUptime(snapshot.startedAtMs, nowMs), "UP")
+    metric(canvas, left.toFloat(), top.toFloat(), cellWidth, cellHeight, snapshot.requestCount.toString(), "REQUESTS")
+    metric(canvas, left + cellWidth + gap, top.toFloat(), cellWidth, cellHeight, formatMonitorSpeed(snapshot.decodeSpeed), "DECODE SPEED")
+    metric(
+      canvas,
+      left + (cellWidth + gap) * 2,
+      top.toFloat(),
+      cellWidth,
+      cellHeight,
+      formatCompactUptime(snapshot.startedAtMs, nowMs),
+      "UPTIME",
+    )
+    val errorWidth = dp(70).toFloat()
+    metric(canvas, left.toFloat(), top + dp(58).toFloat(), errorWidth, cellHeight, snapshot.errorCount.toString(), "ERRORS")
+    metric(
+      canvas,
+      left + errorWidth + gap,
+      top + dp(58).toFloat(),
+      width - left * 2 - errorWidth - gap,
+      cellHeight,
+      if (snapshot.ttfbMs > 0) "${snapshot.ttfbMs}ms" else "—",
+      "LAST TTFB",
+    )
   }
 
   private fun metric(canvas: Canvas, x: Float, y: Float, width: Float, height: Float, value: String, label: String) {
-    paint.color = Color.rgb(45, 47, 50)
-    canvas.drawRoundRect(RectF(x, y, x + width, y + height), dp(10).toFloat(), dp(10).toFloat(), paint)
-    paint.color = Color.rgb(230, 231, 234)
+    paint.color = Color.rgb(40, 42, 44)
+    canvas.drawRoundRect(RectF(x, y, x + width, y + height), dp(16).toFloat(), dp(16).toFloat(), paint)
+    paint.color = Color.rgb(229, 226, 227)
     drawText(canvas, value, x + dp(10), y + dp(23), 16, true)
-    paint.color = Color.rgb(165, 167, 172)
-    drawText(canvas, label, x + dp(10), y + dp(40), 8, true)
+    paint.color = Color.rgb(194, 198, 216)
+    drawText(canvas, label, x + dp(10), y + dp(40), 7, false)
   }
 
-  private fun drawSettings(canvas: Canvas) {
-    val settings = snapshot.inferenceSettings
-    val values = listOf(
-      "TEMP" to settings.temperature?.let { "%.2f".format(java.util.Locale.US, it) },
-      "MAX" to settings.maxTokens?.toString(),
-      "TOP-K" to settings.topK?.toString(),
-      "TOP-P" to settings.topP?.let { "%.2f".format(java.util.Locale.US, it) },
-      "THINK" to settings.thinkingEnabled?.let { if (it) "ON" else "OFF" },
-      "BUDGET" to settings.thinkingBudget?.toString(),
-    ).filter { it.second != null }
-    var x = dp(14).toFloat()
-    var y = dp(158).toFloat()
+  private fun drawAdditionalMetrics(canvas: Canvas) {
+    val values = additionalMetrics()
+    val gap = dp(6)
+    val left = dp(12).toFloat()
+    val top = dp(182).toFloat()
+    val cellWidth = (width - dp(24) - gap * 2) / 3f
+    drawText(canvas, "MODEL DETAILS", left, dp(174), 8, false)
     values.forEachIndexed { index, (label, value) ->
-      if (index == 3) { x = dp(14).toFloat(); y += dp(28) }
-      paint.color = Color.rgb(166, 168, 173)
-      drawText(canvas, "$label ${value ?: "—"}", x, y, 9, false)
-      x += dp(74)
+      val row = index / 3
+      val column = index % 3
+      val x = left + column * (cellWidth + gap)
+      val y = top + row * dp(54)
+      val metricWidth = if (index == 4) cellWidth * 2 + gap else cellWidth
+      metric(canvas, x, y, metricWidth, dp(48).toFloat(), value, label)
     }
   }
 
   private fun drawFooter(canvas: Canvas) {
-    val footerY = if (expanded) dp(263) else dp(190)
-    paint.color = Color.rgb(157, 159, 164)
-    drawText(canvas, if (expanded) "⌃  SETTINGS" else "⌄  SETTINGS", dp(14).toFloat(), footerY.toFloat(), 9, true)
+    val footerY = if (expanded) dp(expandedFooterYDp()) else dp(172)
+    paint.color = Color.rgb(194, 198, 216)
+    drawDisclosureChevron(canvas, dp(14).toFloat(), footerY - dp(3), expanded)
+    drawText(canvas, "MODEL DETAILS", dp(21).toFloat(), footerY.toFloat(), 8, true)
     val model = snapshot.modelName ?: "No model"
     paint.textSize = dp(10).toFloat()
     paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
     val modelX = width - dp(14) - paint.measureText(model)
-    paint.color = Color.rgb(193, 195, 199)
+    paint.color = Color.rgb(229, 226, 227)
     drawText(canvas, model, modelX, footerY, 10, true)
+  }
+
+  private fun additionalMetrics(): List<Pair<String, String>> {
+    val settings = snapshot.inferenceSettings
+    return listOfNotNull(
+      settings.temperature?.let { "TEMPERATURE" to "%.2f".format(java.util.Locale.US, it) },
+      settings.maxTokens?.let { "MAX TOKENS" to it.toString() },
+      settings.topK?.let { "TOP K" to it.toString() },
+      settings.topP?.let { "TOP P" to "%.2f".format(java.util.Locale.US, it) },
+      settings.thinkingBudget?.let { "THINK BUDGET" to it.toString() },
+    )
+  }
+
+  private fun expandedFooterYDp(): Int {
+    val rows = ((additionalMetrics().size.coerceAtLeast(1) + 2) / 3)
+    return 182 + rows * 54 + 16
   }
 
   private fun drawText(canvas: Canvas, text: String, x: Float, baseline: Int, size: Int, bold: Boolean) =
@@ -172,6 +234,20 @@ internal class FloatingMonitorView(
     paint.textSize = dp(size).toFloat()
     paint.typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
     canvas.drawText(text, x, baseline, paint)
+  }
+
+  private fun drawDisclosureChevron(canvas: Canvas, x: Float, centerY: Int, expanded: Boolean) {
+    paint.style = Paint.Style.STROKE
+    paint.strokeCap = Paint.Cap.ROUND
+    paint.strokeWidth = dp(1).toFloat()
+    val halfWidth = dp(3).toFloat()
+    val halfHeight = dp(2).toFloat()
+    val pointY = if (expanded) centerY - halfHeight else centerY + halfHeight
+    val outerY = if (expanded) centerY + halfHeight else centerY - halfHeight
+    canvas.drawLine(x - halfWidth, outerY, x, pointY, paint)
+    canvas.drawLine(x, pointY, x + halfWidth, outerY, paint)
+    paint.strokeCap = Paint.Cap.BUTT
+    paint.style = Paint.Style.FILL
   }
 
   override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -207,4 +283,56 @@ internal class FloatingMonitorView(
   }
 
   private fun dp(value: Int): Int = (value * density).toInt()
+}
+
+/**
+ * An application overlay is not attached to an Activity, so it must provide the
+ * lifecycle and saved-state owners that Compose normally receives from that host.
+ * The monitor has no restorable UI state; its snapshot is supplied by the controller.
+ */
+private class OverlayViewTreeOwner : LifecycleOwner, SavedStateRegistryOwner {
+  private val lifecycleRegistry = LifecycleRegistry(this)
+  private val savedStateController = SavedStateRegistryController.create(this)
+
+  override val lifecycle: Lifecycle = lifecycleRegistry
+  override val savedStateRegistry: SavedStateRegistry = savedStateController.savedStateRegistry
+
+  init {
+    savedStateController.performAttach()
+    savedStateController.performRestore(null)
+    lifecycleRegistry.currentState = Lifecycle.State.CREATED
+  }
+
+  fun resume() {
+    lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+  }
+
+  fun destroy() {
+    lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+  }
+}
+
+@Composable
+private fun FloatingMonitorHeader(snapshot: FloatingMonitorSnapshot) {
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .fillMaxSize()
+      .padding(horizontal = 12.dp, vertical = 10.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    StatusPill(
+      serverStatus = snapshot.status,
+      isInferring = snapshot.isInferring,
+      modelLoadPhase = snapshot.modelLoadPhase,
+    )
+    if (snapshot.status != ServerStatus.STOPPED && snapshot.status != ServerStatus.LOADING) {
+      StatusCapabilityChips(
+        accelerator = snapshot.accelerator,
+        thinkingEnabled = snapshot.thinkingEnabled,
+        mtpEnabled = snapshot.mtpEnabled,
+      )
+    }
+  }
 }

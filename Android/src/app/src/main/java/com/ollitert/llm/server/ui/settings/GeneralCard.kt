@@ -16,20 +16,32 @@
 
 package com.ollitert.llm.server.ui.settings
 
+import android.provider.Settings
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.floatingmonitor.FloatingMonitorPermissionCoordinator
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 
 @Composable
 internal fun GeneralCard(vm: SettingsViewModel) {
+  val context = LocalContext.current
   SettingsCard(
     icon = Icons.Outlined.PhoneAndroid,
     title = stringResource(R.string.settings_card_general),
     searchQuery = vm.searchQuery,
   ) {
-    ToggleCardContent(cardId = CardId.GENERAL, vm = vm)
+    ToggleCardContent(
+      cardId = CardId.GENERAL,
+      vm = vm,
+      onToggleChanged = { key, enabled ->
+        if (key == "floating_monitor" && enabled && !Settings.canDrawOverlays(context)) {
+          FloatingMonitorPermissionCoordinator.requestOverlayPermission(context)
+        }
+      },
+    )
   }
 }

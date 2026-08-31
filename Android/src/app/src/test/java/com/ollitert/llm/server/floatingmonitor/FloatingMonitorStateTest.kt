@@ -53,6 +53,17 @@ class FloatingMonitorStateTest {
     assertEquals(FloatingMonitorDot.RUNNING, floatingMonitorDot(ServerStatus.RUNNING, false, ModelLoadPhase.STARTING))
   }
 
+  @Test fun `state label follows the status pill wording`() {
+    assertEquals(
+      com.ollitert.llm.server.R.string.status_pill_processing,
+      floatingMonitorStateLabel(ServerStatus.RUNNING, true, ModelLoadPhase.STARTING),
+    )
+    assertEquals(
+      com.ollitert.llm.server.R.string.status_pill_running,
+      floatingMonitorStateLabel(ServerStatus.RUNNING, false, ModelLoadPhase.STARTING),
+    )
+  }
+
   @Test fun `placement clamps invalid and edge values`() {
     assertEquals(FloatingMonitorPlacement(0f, 1f), FloatingMonitorPlacement(-1f, 2f).clamped())
     assertEquals(FloatingMonitorPlacement.DEFAULT, FloatingMonitorPlacement(Float.NaN, Float.POSITIVE_INFINITY).clamped())

@@ -235,6 +235,8 @@ interface PreferencesRepository {
   fun setConfirmClearLogs(enabled: Boolean)
   fun isShowModelRecommendations(): Boolean
   fun setShowModelRecommendations(enabled: Boolean)
+  fun isFloatingMonitorEnabled(): Boolean
+  fun setFloatingMonitorEnabled(enabled: Boolean)
   fun getSystemPrompt(modelName: String): String
   fun setSystemPrompt(modelName: String, prompt: String)
   fun getInferenceConfig(modelName: String): Map<String, Any>?
@@ -367,6 +369,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setConfirmClearLogs(enabled: Boolean) = ServerPrefs.setConfirmClearLogs(context, enabled)
   override fun isShowModelRecommendations(): Boolean = ServerPrefs.isShowModelRecommendations(context)
   override fun setShowModelRecommendations(enabled: Boolean) = ServerPrefs.setShowModelRecommendations(context, enabled)
+  override fun isFloatingMonitorEnabled(): Boolean = ServerPrefs.isFloatingMonitorEnabled(context)
+  override fun setFloatingMonitorEnabled(enabled: Boolean) = ServerPrefs.setFloatingMonitorEnabled(context, enabled)
   override fun isKeepPartialResponse(): Boolean = ServerPrefs.isKeepPartialResponse(context)
   override fun setKeepPartialResponse(enabled: Boolean) = ServerPrefs.setKeepPartialResponse(context, enabled)
   override fun isSttTranscriptionPromptEnabled(): Boolean = ServerPrefs.isSttTranscriptionPromptEnabled(context)

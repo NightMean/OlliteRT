@@ -38,7 +38,7 @@
 - **Activity Logs** — Detailed request/response logs with search, filtering, and JSON highlighting
 - **Always On, Low Power** — Configurable auto-start on boot, sips ~5-10W vs 300W+ for a GPU server — perfect for that old phone in your drawer*
 - **Highly Configurable** — Per-model inference settings, GPU/CPU accelerator, idle model unload, listener scope, client IP access rules, bearer token auth, and more
-- **Model & Server Monitoring** — Live stats dashboard, [Prometheus metrics](docs/integrations/PROMETHEUS.md) for Grafana, and [Home Assistant REST API](docs/integrations/HOME_ASSISTANT.md) for remote server control
+- **Model & Server Monitoring** — Live stats dashboard, optional movable floating monitor for live background metrics, [Prometheus metrics](docs/integrations/PROMETHEUS.md) for Grafana, and [Home Assistant REST API](docs/integrations/HOME_ASSISTANT.md) for remote server control
 - **Broad Compatibility** — Home Assistant, Open WebUI, OpenClaw, Python, curl — if it talks to OpenAI, it works
 
 > [!NOTE]

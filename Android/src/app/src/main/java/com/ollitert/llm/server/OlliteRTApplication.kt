@@ -53,6 +53,11 @@ private const val TAG = "OlliteRT.App"
 
 @HiltAndroidApp
 class OlliteRTApplication : Application(), Configuration.Provider, SingletonImageLoader.Factory {
+  private lateinit var floatingMonitorController: FloatingMonitorController
+
+  fun reconcileFloatingMonitor() {
+    if (::floatingMonitorController.isInitialized) floatingMonitorController.reconcile()
+  }
 
   /**
    * Entry point for accessing Hilt-managed singletons from [Application.onCreate].
@@ -129,7 +134,8 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
 
     val floatingMonitorEntryPoint = EntryPointAccessors.fromApplication(this, FloatingMonitorEntryPoint::class.java)
     registerActivityLifecycleCallbacks(ForegroundLifecycleCallbacks(floatingMonitorEntryPoint.lifecycleProvider()))
-    floatingMonitorEntryPoint.floatingMonitorController().start()
+    floatingMonitorController = floatingMonitorEntryPoint.floatingMonitorController()
+    floatingMonitorController.start()
 
     // Initialize log persistence (registers callback on RequestLogStore, loads from DB if enabled).
     // Wrapped in try-catch so a persistence failure doesn't crash the entire app on startup.

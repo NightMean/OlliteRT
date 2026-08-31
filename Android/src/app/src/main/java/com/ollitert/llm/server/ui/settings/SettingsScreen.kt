@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
@@ -110,6 +111,7 @@ fun SettingsScreen(
         if (vm.keepScreenOnEntry.current) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Toast.makeText(context, settingsSavedText, Toast.LENGTH_SHORT).show()
+        (context.applicationContext as? OlliteRTApplication)?.reconcileFloatingMonitor()
         onSettingsSaved()
       }
       is SettingsViewModel.SaveResult.NeedsRestart -> {
@@ -117,6 +119,7 @@ fun SettingsScreen(
         if (result.keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         vm.showRestartDialog = true
+        (context.applicationContext as? OlliteRTApplication)?.reconcileFloatingMonitor()
         onSettingsSaved()
       }
       is SettingsViewModel.SaveResult.ValidationError -> Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()

@@ -112,9 +112,9 @@ fun OlliteRTTheme(content: @Composable () -> Unit) {
   }
 
   // Keep navigation bar transparent
-  LaunchedEffect(Unit) {
-    val window = (view.context as Activity).window
-    window.isNavigationBarContrastEnforced = false
+  LaunchedEffect(currentWindow) {
+    // A system overlay has an application context rather than an Activity window.
+    currentWindow?.isNavigationBarContrastEnforced = false
   }
 }
 

@@ -29,9 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -116,50 +114,12 @@ internal fun ActiveModelCard(
             color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f, fill = false),
           )
-          if (!isStopped && !isLoading && activeAccelerator != null) {
-            Box(
-              modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-            ) {
-              Text(
-                text = activeAccelerator,
-                style = MaterialTheme.typography.labelSmall,
-                color = OlliteRTPrimary,
-                fontWeight = FontWeight.Bold,
-              )
-            }
-          }
-          if (!isStopped && !isLoading && thinkingEnabled) {
-            Box(
-              modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(horizontal = 6.dp, vertical = 3.dp),
-            ) {
-              Icon(
-                imageVector = Icons.Outlined.Psychology,
-                contentDescription = stringResource(R.string.status_cd_thinking_enabled),
-                tint = OlliteRTPrimary,
-                modifier = Modifier.size(16.dp),
-              )
-            }
-          }
-          if (!isStopped && !isLoading && speculativeDecodingEnabled) {
-            Box(
-              modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(horizontal = 6.dp, vertical = 3.dp),
-            ) {
-              Icon(
-                imageVector = Icons.Outlined.Speed,
-                contentDescription = stringResource(R.string.status_cd_mtp_enabled),
-                tint = OlliteRTPrimary,
-                modifier = Modifier.size(16.dp),
-              )
-            }
+          if (!isStopped && !isLoading) {
+            StatusCapabilityChips(
+              accelerator = activeAccelerator,
+              thinkingEnabled = thinkingEnabled,
+              mtpEnabled = speculativeDecodingEnabled,
+            )
           }
         }
         Spacer(modifier = Modifier.height(2.dp))
