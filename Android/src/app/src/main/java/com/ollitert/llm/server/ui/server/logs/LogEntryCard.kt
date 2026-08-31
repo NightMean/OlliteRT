@@ -296,17 +296,21 @@ internal fun LogEntryCard(
     if (entry.isPending) {
       Spacer(modifier = Modifier.height(10.dp))
       val modelTimeText = listOfNotNull(entry.modelName, formatTimestamp(entry.timestamp)).joinToString(" · ")
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-      ) {
-        Text(
-          text = modelTimeText,
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 1,
-        )
+      if (entry.isGenerating) {
+        PendingLogFooter(startTimestampMs = entry.timestamp, modelTimeText = modelTimeText)
+      } else {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.End,
+        ) {
+          Text(
+            text = modelTimeText,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+          )
+        }
       }
     } else {
       val contextOverflow = entry.errorKind == ErrorKind.CONTEXT_OVERFLOW

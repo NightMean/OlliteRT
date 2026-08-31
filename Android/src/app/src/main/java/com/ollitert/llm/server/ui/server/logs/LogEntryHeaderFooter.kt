@@ -43,7 +43,11 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -62,6 +66,7 @@ import com.ollitert.llm.server.ui.server.ThinkingColor
 import com.ollitert.llm.server.ui.theme.OlliteRTOnSurfaceVariant
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.SpaceGroteskFontFamily
+import kotlinx.coroutines.delay
 
 /** The client IP address pill shown in the log entry card header. */
 @Composable
@@ -206,6 +211,43 @@ internal fun FooterBadges(entry: RequestLogEntry, contextOverflow: Boolean) {
     )
   }
 }
+
+/**
+ * Uses the request's persisted start timestamp while the entry remains pending.
+ * Leaving the pending branch removes this composable and cancels its ticker, so
+ * completed cards immediately return to their normal status and latency badges.
+ */
+@Composable
+internal fun PendingLogFooter(startTimestampMs: Long, modelTimeText: String) {
+  var currentTimeMs by remember(startTimestampMs) { mutableLongStateOf(System.currentTimeMillis()) }
+
+  LaunchedEffect(startTimestampMs) {
+    while (true) {
+      currentTimeMs = System.currentTimeMillis()
+      delay(1_000L)
+    }
+  }
+
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(
+      text = stringResource(
+        R.string.logs_processing_elapsed_seconds,
+        elapsedProcessingSeconds(startTimestampMs, currentTimeMs),
+      ),
+      style = MaterialTheme.typography.labelSmall,
+      color = OlliteRTPrimary,
+      fontWeight = FontWeight.SemiBold,
+    )
+    Spacer(modifier = Modifier.weight(1f))
+    FooterModelTime(modelTimeText)
+  }
+}
+
+internal fun elapsedProcessingSeconds(startTimestampMs: Long, currentTimeMs: Long): Long =
+  ((currentTimeMs - startTimestampMs).coerceAtLeast(0L)) / 1_000L
 
 /**
  * Keeps model and timestamp metadata pinned while badges fit, then scrolls the
