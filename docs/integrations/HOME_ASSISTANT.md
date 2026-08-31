@@ -108,11 +108,12 @@ Control OlliteRT remotely from HA automations and scripts.
 | `/v1/server/stop` | `POST` | Stop the server | None |
 | `/v1/server/reload` | `POST` | Reload the current model | None |
 | `/v1/server/thinking` | `POST` | Toggle thinking mode | `{"enabled": true}` or `{"enabled": false}` |
+| `/v1/server/config` | `GET` | Read current model/server configuration | None |
 | `/v1/server/config` | `POST` | Update inference and behavior settings | Any subset of fields (see below) |
 
 #### `/v1/server/config` Fields
 
-Send an empty body to read current config, or any subset of fields to update:
+Use `GET` to read the current configuration. For compatibility, `POST` with an empty body also reads it. Send any subset of fields in a `POST` body to update:
 
 | Field | Type | Description |
 |:------|:-----|:------------|
@@ -120,6 +121,8 @@ Send an empty body to read current config, or any subset of fields to update:
 | `max_tokens` | integer | Maximum tokens to generate |
 | `top_k` | integer | Top-k sampling |
 | `top_p` | number | Nucleus sampling threshold |
+| `default_seed` | integer or `null` | Global non-negative seed override; `null` clears it. Overrides request-level seeds and applies without a model restart |
+| `accelerator` | string | Active model accelerator (`cpu`, `gpu`, or `npu`); read-only |
 | `thinking_enabled` | boolean | Enable chain-of-thought mode |
 | `auto_truncate_history` | boolean | Auto-drop older messages when context is full |
 | `auto_trim_prompts` | boolean | Hard-cut prompts as last resort when context overflows |
@@ -135,6 +138,18 @@ Send an empty body to read current config, or any subset of fields to update:
 ### Example `configuration.yaml`
 
 ```yaml
+rest:
+  - resource: "http://PHONE_IP:8000/v1/server/config"
+    scan_interval: 30
+    # Uncomment if bearer auth is enabled:
+    # headers:
+    #   Authorization: "Bearer your-token"
+    sensor:
+      - name: "OlliteRT Configured Seed"
+        value_template: "{{ value_json.default_seed | default('random') }}"
+      - name: "OlliteRT Active Accelerator"
+        value_template: "{{ value_json.accelerator | default('unknown') }}"
+
 rest_command:
   ollitert_stop:
     url: "http://PHONE_IP:8000/v1/server/stop"

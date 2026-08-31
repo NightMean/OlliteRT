@@ -15,6 +15,7 @@ OlliteRT exposes an OpenAI-compatible HTTP API. The listener address, client IP 
 - [Models](#models--get-v1models)
 - [Model Detail](#model-detail--get-v1modelsid)
 - [Health](#health--get-health)
+- [Server Configuration](#server-configuration--get--post-v1serverconfig)
 - [Error Responses](#error-responses)
 - [Server Info](#server-info--get--or-get-v1)
 - [Prometheus Metrics](#prometheus-metrics--get-metrics)
@@ -37,6 +38,8 @@ OlliteRT exposes an OpenAI-compatible HTTP API. The listener address, client IP 
 | `GET`  | `/health` | Health check (add `?metrics=true` for detailed JSON stats) |
 | `GET`  | `/metrics` | Prometheus metrics (exposition format) |
 | `GET`  | `/ping` | Simple liveness check — returns `{"status":"ok"}` |
+| `GET`  | `/v1/server/config` | Read model and server configuration |
+| `POST` | `/v1/server/config` | Update model and server configuration |
 
 ## Authentication
 
@@ -514,6 +517,51 @@ Appends server info and a `metrics` object to the base response:
 | `metrics.context_utilization_percent` | number | Last request context window usage (%) |
 | `metrics.model_load_time_seconds` | number | Model load/warmup time (seconds) |
 | `metrics.is_inferring` | boolean | `true` if a request is currently being processed |
+
+## Server Configuration — `GET` / `POST /v1/server/config`
+
+This management endpoint is available when **REST API Integration** is enabled
+in Settings → Home Assistant; otherwise it returns `404`. It requires bearer
+authentication when bearer authentication is enabled, and requires a loaded or
+idle-unloaded model context.
+
+Use `GET` to read the active model's effective configuration. `POST` with an
+empty body is retained as a compatibility read. Send any subset of the
+following fields in a non-empty `POST` body to update them:
+
+| Field | Type | Access | Description |
+|:------|:-----|:------:|:------------|
+| `temperature` | number | Read/write | Sampling temperature |
+| `max_tokens` | integer | Read/write | Maximum generated tokens |
+| `top_k` | integer | Read/write | Top-k sampling |
+| `top_p` | number | Read/write | Nucleus sampling threshold |
+| `default_seed` | integer or `null` | Read/write | Server-wide non-negative seed override; `null` restores random seeding |
+| `accelerator` | string | Read-only | Active model accelerator (`cpu`, `gpu`, or `npu`) |
+| `thinking_enabled` | boolean | Read/write | Chain-of-thought mode when the model supports it |
+| `thinking_budget` | integer | Read/write | Token budget for thinking; `0` clears the override |
+| `speculative_decoding_enabled` | boolean | Read-only | Whether speculative decoding is enabled |
+| `auto_truncate_history` | boolean | Read/write | Drop older messages to fit context |
+| `auto_trim_prompts` | boolean | Read/write | Hard-trim prompts when context overflows |
+| `warmup_enabled` | boolean | Read/write | Run warmup inference after model load |
+| `keep_alive_enabled` | boolean | Read/write | Keep the model loaded while idle |
+| `keep_alive_minutes` | integer | Read/write | Idle unload timeout, from 1 to 7200 minutes |
+| `custom_prompts_enabled` | boolean | Read/write | Enable custom system prompts |
+| `system_prompt` | string | Read/write | Per-model system instruction text |
+
+`default_seed` is always present in a configuration response: it is a number
+when configured and `null` when random seeding is active. Configuration updates
+are validated as a unit; an invalid request changes no configuration fields.
+
+```json
+{
+  "model": "Gemma-4-E2B-it",
+  "model_loaded": true,
+  "accelerator": "cpu",
+  "temperature": 1.0,
+  "default_seed": null,
+  "keep_alive_minutes": 5
+}
+```
 
 ## Server Info — `GET /` or `GET /v1`
 

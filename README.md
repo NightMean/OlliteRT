@@ -110,6 +110,8 @@ See the **[Model Guide](docs/MODELS.md)** for recommendations, capability detail
 | `GET`  | `/health` | Health check (with optional `?metrics=true`) |
 | `GET`  | `/metrics` | Prometheus metrics |
 | `GET`  | `/ping` | Simple liveness check |
+| `GET`  | `/v1/server/config` | Read model and server configuration |
+| `POST` | `/v1/server/config` | Update model and server configuration |
 
 </details>
 

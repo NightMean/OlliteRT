@@ -114,7 +114,7 @@ The `/v1/server/*` endpoints allow remote control of the server:
 | `/v1/server/stop` | Stops the server | Denial of service |
 | `/v1/server/reload` | Reloads the current model | Brief downtime during reload |
 | `/v1/server/thinking` | Toggles thinking mode | Changes model behavior |
-| `/v1/server/config` | Updates inference settings | Changes temperature, max tokens, etc. |
+| `/v1/server/config` (`GET`, `POST`) | Reads or updates model and server settings | Exposes or changes inference, sampler, and lifecycle configuration |
 
 > [!IMPORTANT]
 > Without bearer token authentication enabled, anyone on your network can access these endpoints — including stopping your server or changing its settings. Enable auth in Settings to restrict access.

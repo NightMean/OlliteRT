@@ -87,7 +87,8 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
       val haConfig = buildString {
         appendLine("# OlliteRT — Home Assistant REST Integration")
         appendLine("# Add this to your configuration.yaml")
-        appendLine("# Docs: GET /health?metrics=true for sensors, POST /v1/server/* for commands")
+        appendLine("# Docs: GET /health?metrics=true and GET /v1/server/config for sensors")
+        appendLine("#       POST /v1/server/* for commands and configuration updates")
         appendLine()
 
         appendLine("rest:")
@@ -123,6 +124,18 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
         appendLine("      - name: \"OlliteRT Context Usage\"")
         appendLine("        value_template: \"{{ value_json.metrics.context_utilization_percent | default(0) | round(1) }}\"")
         appendLine("        unit_of_measurement: \"%\"")
+        appendLine()
+
+        appendLine("  - resource: \"$baseUrl/v1/server/config\"")
+        appendLine("    scan_interval: 30")
+        if (currentToken.isNotBlank()) {
+          append(authYaml)
+        }
+        appendLine("    sensor:")
+        appendLine("      - name: \"OlliteRT Configured Seed\"")
+        appendLine("        value_template: \"{{ value_json.default_seed | default('random') }}\"")
+        appendLine("      - name: \"OlliteRT Configured Accelerator\"")
+        appendLine("        value_template: \"{{ value_json.accelerator | default('unknown') }}\"")
         appendLine()
 
         appendLine("rest_command:")

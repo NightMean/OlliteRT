@@ -111,6 +111,8 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 |:-----|:---------------|
 | `ServerService.kt` | Service lifecycle — start, stop, model loading, intent handling |
 | `KtorServer.kt` | Ktor CIO HTTP server — routing, CORS plugin, bearer auth, response dispatch |
+| `routes/ServerControlRoutes.kt` | Protected Ktor routes for server lifecycle and configuration control |
+| `http/ServerControlHandler.kt` | Validates and applies `/v1/server/*` lifecycle and configuration requests |
 | `KtorRequestAdapter.kt` | Adapts Ktor `ApplicationCall` to the internal request model |
 | `KtorSseWriter.kt` | SSE streaming writer — wraps Ktor's `Writer` from `respondTextWriter` |
 | `SseWriter.kt` | SSE writer interface — abstracts streaming output for testability |
@@ -122,7 +124,7 @@ The heart of the app. Runs as an Android foreground service with a persistent no
 | `InferenceGateway.kt` | Per-request terminal ownership, serialized native dispatch, cancellation, timeout, and recovery |
 | `RequestCancellationBridge.kt` | Race-safe handoff from UI cancellation to the exact inference request |
 | `ConversationCachePublication.kt` | Success-only publication of reusable conversation history |
-| `PayloadBuilders.kt` | JSON response construction (health, models, server info) |
+| `PayloadBuilders.kt` | JSON response construction (health, models, server info, configuration) |
 | `ResponseRenderer.kt` | Renders LLM responses to JSON with capabilities metadata |
 | `FinishReason.kt` | Infers finish reason (`stop`, `length`, `tool_calls`) from token counts |
 | `ApiModels.kt` | Kotlin data classes for OpenAI API request/response format |
