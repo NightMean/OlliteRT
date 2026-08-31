@@ -26,8 +26,10 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.data.prefs.ConfigKeys
 import com.ollitert.llm.server.data.prefs.getDefaultSeed
 import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
@@ -231,6 +233,7 @@ object PayloadBuilders {
       if (success != null) put("success", JsonPrimitive(success))
       put("model", JsonPrimitive(modelName))
       put("model_loaded", JsonPrimitive(isModelLoaded))
+      put("accelerator", JsonPrimitive(inferenceConfig[ConfigKeys.ACCELERATOR.id]?.toString() ?: Accelerator.GPU.label))
       put("temperature", JsonPrimitive(inferenceConfig.configTemperature()?.toDouble() ?: 0.0))
       put("max_tokens", JsonPrimitive(inferenceConfig.maxTokensInt() ?: 0))
       put("top_k", JsonPrimitive(inferenceConfig.configTopK() ?: 0))
