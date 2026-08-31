@@ -153,6 +153,7 @@ class ServerControlHandler(
     }
     ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, updatedConfig)
     ServerMetrics.setThinkingEnabled(requestedState)
+    ServerMetrics.setInferenceSettings(updatedConfig)
     val oldLabel = if (currentState) "enabled" else "disabled"
     val newLabel = if (requestedState) "enabled" else "disabled"
     RequestLogStore.addEvent(
@@ -225,6 +226,7 @@ class ServerControlHandler(
         applyBehaviorToggleUpdates(behaviorUpdates)
         applySpecialFieldUpdates(specialUpdates)
         configUpdate.thinkingEnabled?.let(ServerMetrics::setThinkingEnabled)
+        ServerMetrics.setInferenceSettings(configUpdate.values)
         ServerPrefs.setInferenceConfig(serviceContext, modelPrefsKey, configUpdate.values)
         RequestLogStore.addEvent(
           "Config via REST API (${changes.size} ${if (changes.size == 1) "change" else "changes"})",

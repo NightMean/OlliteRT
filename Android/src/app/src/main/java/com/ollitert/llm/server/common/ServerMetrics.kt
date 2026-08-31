@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.common
 
+import com.ollitert.llm.server.data.prefs.ConfigKeys
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -218,6 +219,10 @@ object ServerMetrics {
   private val _speculativeDecodingEnabled = sessionFlow(false)
   val speculativeDecodingEnabled: StateFlow<Boolean> = _speculativeDecodingEnabled.asStateFlow()
 
+  /** API-mutable inference values published as one immutable snapshot for compact consumers. */
+  private val _inferenceSettings = sessionFlow(FloatingInferenceSettings())
+  val inferenceSettings: StateFlow<FloatingInferenceSettings> = _inferenceSettings.asStateFlow()
+
   /** Human-readable error message when status is ERROR, or null. */
   private val _lastError = sessionFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
@@ -402,6 +407,21 @@ object ServerMetrics {
 
   fun setSpeculativeDecodingEnabled(enabled: Boolean) {
     _speculativeDecodingEnabled.value = enabled
+  }
+
+  /**
+   * Publishes only the model values the REST configuration endpoint can alter.
+   * The producer calls this after its existing validation/atomic config write succeeds.
+   */
+  fun setInferenceSettings(configValues: Map<String, Any>) {
+    _inferenceSettings.value = FloatingInferenceSettings(
+      temperature = (configValues[ConfigKeys.TEMPERATURE.id] as? Number)?.toDouble(),
+      maxTokens = (configValues[ConfigKeys.MAX_TOKENS.id] as? Number)?.toInt(),
+      topK = (configValues[ConfigKeys.TOPK.id] as? Number)?.toInt(),
+      topP = (configValues[ConfigKeys.TOPP.id] as? Number)?.toDouble(),
+      thinkingEnabled = configValues[ConfigKeys.ENABLE_THINKING.id] as? Boolean,
+      thinkingBudget = (configValues[ConfigKeys.THINKING_BUDGET.id] as? Number)?.toInt(),
+    )
   }
 
   fun recordModelLoadTime(ms: Long) {

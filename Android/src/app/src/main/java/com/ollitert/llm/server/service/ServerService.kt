@@ -628,6 +628,7 @@ class ServerService : Service() {
           // Update thinking/MTP state in metrics so the Status screen reflects the change
           ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
           ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)
+          ServerMetrics.setInferenceSettings(model.configValues)
         }
       }
     }

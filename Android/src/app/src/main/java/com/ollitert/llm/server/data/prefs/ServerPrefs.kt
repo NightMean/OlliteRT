@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.data.prefs
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.common.FloatingMonitorPlacement
 
 import android.content.Context
 import android.util.Log
@@ -39,6 +40,9 @@ private const val KEY_CUSTOM_PROMPTS_ENABLED = "custom_prompts_enabled"
 private const val KEY_AUTO_TRUNCATE_HISTORY = "auto_truncate_history"
 private const val KEY_AUTO_TRIM_PROMPTS = "auto_trim_prompts"
 private const val KEY_KEEP_PARTIAL_RESPONSE = "keep_partial_response"
+private const val KEY_FLOATING_MONITOR_ENABLED = "floating_monitor_enabled"
+private const val KEY_FLOATING_MONITOR_X_FRACTION = "floating_monitor_x_fraction"
+private const val KEY_FLOATING_MONITOR_Y_FRACTION = "floating_monitor_y_fraction"
 private const val KEY_SCHEMA_INJECTION_TOOL_CALLING = "schema_injection_tool_calling"
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,6 +90,11 @@ internal class LongPref(key: String, default: Long) : Pref<Long>(key, default) {
   override fun write(editor: android.content.SharedPreferences.Editor, value: Long) = editor.putLong(key, value)
   }
 
+internal class FloatPref(key: String, default: Float) : Pref<Float>(key, default) {
+  override fun read(prefs: android.content.SharedPreferences) = prefs.getFloat(key, default)
+  override fun write(editor: android.content.SharedPreferences.Editor, value: Float) = editor.putFloat(key, value)
+  }
+
 internal class StringPref(key: String, default: String) : Pref<String>(key, default) {
   override fun read(prefs: android.content.SharedPreferences) = prefs.getString(key, default) ?: default
   override fun write(editor: android.content.SharedPreferences.Editor, value: String) = editor.putString(key, value)
@@ -123,6 +132,9 @@ object ServerPrefs {
   private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
   private val SCHEMA_INJECTION_TOOL_CALLING = BoolPref(KEY_SCHEMA_INJECTION_TOOL_CALLING, true)
   private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
+  private val FLOATING_MONITOR_ENABLED = BoolPref(KEY_FLOATING_MONITOR_ENABLED, false)
+  private val FLOATING_MONITOR_X_FRACTION = FloatPref(KEY_FLOATING_MONITOR_X_FRACTION, FloatingMonitorPlacement.DEFAULT.xFraction)
+  private val FLOATING_MONITOR_Y_FRACTION = FloatPref(KEY_FLOATING_MONITOR_Y_FRACTION, FloatingMonitorPlacement.DEFAULT.yFraction)
 
   // UI Preferences
 
@@ -236,6 +248,21 @@ object ServerPrefs {
 
   fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
   fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)
+
+  fun isFloatingMonitorEnabled(context: Context): Boolean = get(context, FLOATING_MONITOR_ENABLED)
+  fun setFloatingMonitorEnabled(context: Context, enabled: Boolean) = set(context, FLOATING_MONITOR_ENABLED, enabled)
+
+  fun getFloatingMonitorPlacement(context: Context): Pair<Float, Float> =
+    get(context, FLOATING_MONITOR_X_FRACTION) to get(context, FLOATING_MONITOR_Y_FRACTION)
+
+  /** Saves both normalized coordinates together so restoration cannot observe a mixed placement. */
+  fun setFloatingMonitorPlacement(context: Context, xFraction: Float, yFraction: Float) {
+    val placement = FloatingMonitorPlacement(xFraction, yFraction).clamped()
+    prefs(context).edit {
+      FLOATING_MONITOR_X_FRACTION.write(this, placement.xFraction)
+      FLOATING_MONITOR_Y_FRACTION.write(this, placement.yFraction)
+    }
+  }
 
   fun getSystemPrompt(context: Context, modelName: String): String =
     prefs(context)

@@ -103,6 +103,7 @@ internal class ServerModelLoader(
       )
       ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
       ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)
+      ServerMetrics.setInferenceSettings(model.configValues)
       ServerMetrics.onServerRunning(notifState.advertisedHost, notifState.isLoopbackOnly)
       modelLifecycle.resetKeepAliveTimer()
       RequestLogStore.addEvent(

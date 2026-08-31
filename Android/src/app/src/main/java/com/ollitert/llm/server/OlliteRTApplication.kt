@@ -19,6 +19,8 @@ package com.ollitert.llm.server
 
 import com.ollitert.llm.server.common.ServerMetrics
 import android.app.Application
+import android.app.Activity
+import android.os.Bundle
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -46,6 +48,7 @@ import okio.Buffer
 import okio.ForwardingSource
 import okio.buffer
 import com.ollitert.llm.server.data.prefs.isUpdateCheckEnabled
+import com.ollitert.llm.server.floatingmonitor.FloatingMonitorController
 private const val TAG = "OlliteRT.App"
 
 @HiltAndroidApp
@@ -66,6 +69,13 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
   @InstallIn(SingletonComponent::class)
   interface WorkerFactoryEntryPoint {
     fun workerFactory(): HiltWorkerFactory
+  }
+
+  @EntryPoint
+  @InstallIn(SingletonComponent::class)
+  interface FloatingMonitorEntryPoint {
+    fun floatingMonitorController(): FloatingMonitorController
+    fun lifecycleProvider(): OlliteRTLifecycleProvider
   }
 
   override val workManagerConfiguration: Configuration
@@ -116,6 +126,10 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
 
   override fun onCreate() {
     super.onCreate()
+
+    val floatingMonitorEntryPoint = EntryPointAccessors.fromApplication(this, FloatingMonitorEntryPoint::class.java)
+    registerActivityLifecycleCallbacks(ForegroundLifecycleCallbacks(floatingMonitorEntryPoint.lifecycleProvider()))
+    floatingMonitorEntryPoint.floatingMonitorController().start()
 
     // Initialize log persistence (registers callback on RequestLogStore, loads from DB if enabled).
     // Wrapped in try-catch so a persistence failure doesn't crash the entire app on startup.
@@ -206,5 +220,27 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     } catch (e: Exception) {
       Log.e(TAG, "Failed to schedule allowlist refresh", e)
     }
+  }
+
+  private class ForegroundLifecycleCallbacks(
+    private val lifecycleProvider: OlliteRTLifecycleProvider,
+  ) : ActivityLifecycleCallbacks {
+    private var startedActivityCount = 0
+
+    override fun onActivityStarted(activity: Activity) {
+      startedActivityCount++
+      lifecycleProvider.isAppInForeground = true
+    }
+
+    override fun onActivityStopped(activity: Activity) {
+      startedActivityCount = (startedActivityCount - 1).coerceAtLeast(0)
+      lifecycleProvider.isAppInForeground = startedActivityCount > 0
+    }
+
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+    override fun onActivityResumed(activity: Activity) = Unit
+    override fun onActivityPaused(activity: Activity) = Unit
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+    override fun onActivityDestroyed(activity: Activity) = Unit
   }
 }
