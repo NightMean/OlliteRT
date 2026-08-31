@@ -21,7 +21,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.RequestLogEntry
@@ -88,7 +91,11 @@ internal fun RequestMetricsDialog(entry: RequestLogEntry, onDismiss: () -> Unit)
             label = stringResource(R.string.logs_metrics_context_util),
             value = String.format(Locale.US, "%.1f%%", utilRatio * 100.0),
             valueColor = contextUtilizationColor(utilRatio),
-            detail = stringResource(R.string.logs_metrics_ctx_detail, entry.inputTokenEstimate, entry.maxContextTokens),
+            detail = if (entry.isExactTokenCount) {
+              stringResource(R.string.logs_metrics_ctx_detail, entry.inputTokenEstimate, entry.maxContextTokens)
+            } else {
+              stringResource(R.string.logs_metrics_ctx_estimated_detail, entry.inputTokenEstimate, entry.maxContextTokens)
+            },
           )
         }
       }
@@ -108,17 +115,19 @@ internal fun MetricsRow(
   valueColor: Color = MaterialTheme.colorScheme.onSurface,
   detail: String? = null,
 ) {
-  Row(
+  Column(
     modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically,
   ) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Column(horizontalAlignment = Alignment.End) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        text = label,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
       Text(
         text = value,
         style = MaterialTheme.typography.bodyMedium,
@@ -126,13 +135,16 @@ internal fun MetricsRow(
         fontWeight = FontWeight.SemiBold,
         fontFamily = SpaceGroteskFontFamily,
       )
-      if (detail != null) {
-        Text(
-          text = detail,
+    }
+    if (detail != null) {
+      Spacer(modifier = Modifier.height(16.dp))
+      Text(
+        text = detail,
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.fillMaxWidth(),
+          textAlign = TextAlign.Center,
         )
-      }
     }
   }
 }

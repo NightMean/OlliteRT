@@ -652,6 +652,7 @@
   <string name="logs_metrics_close" translatable="false">Close</string>
   <string name="logs_metrics_value_ms" translatable="false">%1$dms</string>
   <string name="logs_metrics_ctx_detail" translatable="false">%1$d / %2$d</string>
+  <string name="logs_metrics_ctx_estimated_detail" translatable="false">Context utilization is estimated from character length ÷ 4 due to the LiteRT-LM SDK not exposing exact token counts</string>
 
   <!-- LogEventCard: Category labels -->
   <string name="logs_event_category_model" translatable="false">MODEL</string>
