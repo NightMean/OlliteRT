@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.floatingmonitor
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.provider.Settings
 import android.util.Log
@@ -127,6 +128,7 @@ class FloatingMonitorController @Inject constructor(
       },
       onPositionChanged = { x, y -> updatePosition(x, y, persist = false) },
       onSizeChanged = { updateLayout() },
+      onOpenApp = ::openApp,
     )
     monitorView = view
     try {
@@ -157,6 +159,28 @@ class FloatingMonitorController @Inject constructor(
       manager.updateViewLayout(view, current)
     } catch (e: RuntimeException) {
       Log.w(TAG, "Unable to update floating monitor layout", e)
+    }
+  }
+
+  fun resetPosition() {
+    val defaultPlacement = FloatingMonitorPlacement.DEFAULT
+    ServerPrefs.setFloatingMonitorPlacement(context, defaultPlacement.xFraction, defaultPlacement.yFraction)
+    val view = monitorView ?: return
+    val manager = windowManager ?: return
+    try {
+      manager.updateViewLayout(view, layoutParams(view, defaultPlacement))
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "Unable to reset floating monitor position", e)
+    }
+  }
+
+  private fun openApp() {
+    val launchIntent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName) ?: return
+    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    try {
+      appContext.startActivity(launchIntent)
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "Unable to open app from floating monitor", e)
     }
   }
 

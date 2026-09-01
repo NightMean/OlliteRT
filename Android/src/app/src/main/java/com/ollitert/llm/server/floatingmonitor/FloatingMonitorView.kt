@@ -49,6 +49,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.ollitert.llm.server.common.FloatingInferenceSettings
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.ui.navigation.StatusPill
 import com.ollitert.llm.server.ui.server.StatusCapabilityChips
@@ -60,6 +61,7 @@ internal class FloatingMonitorView(
   private val onPlacementChanged: (Int, Int) -> Unit,
   private val onPositionChanged: (Int, Int) -> Unit,
   private val onSizeChanged: () -> Unit,
+  private val onOpenApp: () -> Unit,
 ) : FrameLayout(context), LifecycleOwner {
   private val density = resources.displayMetrics.density
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -176,25 +178,47 @@ internal class FloatingMonitorView(
     paint.color = Color.rgb(40, 42, 44)
     canvas.drawRoundRect(RectF(x, y, x + width, y + height), dp(16).toFloat(), dp(16).toFloat(), paint)
     paint.color = Color.rgb(229, 226, 227)
-    drawText(canvas, value, x + dp(10), y + dp(23), 16, true)
+    val contentLeft = x + dp(10)
+    val contentRight = x + width - dp(10)
+    val fittedValue = fitMonitorMetricText(
+      value = value,
+      availableWidthPx = contentRight - contentLeft,
+      measureWidth = { text, sizeDp ->
+        paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        paint.textSize = dp(sizeDp).toFloat()
+        paint.measureText(text)
+      },
+    )
+    canvas.save()
+    canvas.clipRect(contentLeft, y + dp(4), contentRight, y + dp(29))
+    drawText(canvas, fittedValue.value, contentLeft, y + dp(23), fittedValue.sizeDp, true)
+    canvas.restore()
     paint.color = Color.rgb(194, 198, 216)
     drawText(canvas, label, x + dp(10), y + dp(40), 7, false)
   }
 
   private fun drawAdditionalMetrics(canvas: Canvas) {
-    val values = additionalMetrics()
+    val values = floatingMonitorDetails(snapshot.inferenceSettings)
     val gap = dp(6)
     val left = dp(12).toFloat()
-    val top = dp(182).toFloat()
+    val top = dp(170).toFloat()
     val cellWidth = (width - dp(24) - gap * 2) / 3f
-    drawText(canvas, "MODEL DETAILS", left, dp(174), 8, false)
-    values.forEachIndexed { index, (label, value) ->
-      val row = index / 3
-      val column = index % 3
+    var row = 0
+    var column = 0
+    values.forEach { metric ->
+      if (column + metric.columnSpan > 3) {
+        row++
+        column = 0
+      }
       val x = left + column * (cellWidth + gap)
       val y = top + row * dp(54)
-      val metricWidth = if (index == 4) cellWidth * 2 + gap else cellWidth
-      metric(canvas, x, y, metricWidth, dp(48).toFloat(), value, label)
+      val metricWidth = cellWidth * metric.columnSpan + gap * (metric.columnSpan - 1)
+      metric(canvas, x, y, metricWidth, dp(48).toFloat(), metric.value, metric.label)
+      column += metric.columnSpan
+      if (column == 3) {
+        row++
+        column = 0
+      }
     }
   }
 
@@ -204,27 +228,16 @@ internal class FloatingMonitorView(
     drawDisclosureChevron(canvas, dp(14).toFloat(), footerY - dp(3), expanded)
     drawText(canvas, "MODEL DETAILS", dp(21).toFloat(), footerY.toFloat(), 8, true)
     val model = snapshot.modelName ?: "No model"
-    paint.textSize = dp(10).toFloat()
+    paint.textSize = dp(8).toFloat()
     paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
     val modelX = width - dp(14) - paint.measureText(model)
     paint.color = Color.rgb(229, 226, 227)
-    drawText(canvas, model, modelX, footerY, 10, true)
-  }
-
-  private fun additionalMetrics(): List<Pair<String, String>> {
-    val settings = snapshot.inferenceSettings
-    return listOfNotNull(
-      settings.temperature?.let { "TEMPERATURE" to "%.2f".format(java.util.Locale.US, it) },
-      settings.maxTokens?.let { "MAX TOKENS" to it.toString() },
-      settings.topK?.let { "TOP K" to it.toString() },
-      settings.topP?.let { "TOP P" to "%.2f".format(java.util.Locale.US, it) },
-      settings.thinkingBudget?.let { "THINK BUDGET" to it.toString() },
-    )
+    drawText(canvas, model, modelX, footerY, 8, true)
   }
 
   private fun expandedFooterYDp(): Int {
-    val rows = ((additionalMetrics().size.coerceAtLeast(1) + 2) / 3)
-    return 182 + rows * 54 + 16
+    val rows = additionalMetricRowCount(floatingMonitorDetails(snapshot.inferenceSettings))
+    return 170 + rows * 54 + 16
   }
 
   private fun drawText(canvas: Canvas, text: String, x: Float, baseline: Int, size: Int, bold: Boolean) =
@@ -268,9 +281,18 @@ internal class FloatingMonitorView(
         return true
       }
       MotionEvent.ACTION_UP -> {
-        if (dragging) persistPlacement(params) else if (event.y >= height - dp(38)) {
+        if (dragging) {
+          persistPlacement(params)
+        } else if (isFloatingMonitorFooterTap(
+            tapY = event.y,
+            monitorHeightPx = height,
+            footerHeightPx = dp(38),
+          )) {
           expanded = !expanded
-          requestLayout(); onSizeChanged()
+          requestLayout()
+          onSizeChanged()
+        } else {
+          onOpenApp()
         }
         return true
       }
@@ -284,6 +306,46 @@ internal class FloatingMonitorView(
 
   private fun dp(value: Int): Int = (value * density).toInt()
 }
+
+internal data class AdditionalMonitorDetail(
+  val label: String,
+  val value: String,
+  val columnSpan: Int = 1,
+)
+
+private fun additionalMetricRowCount(metrics: List<AdditionalMonitorDetail>): Int {
+  if (metrics.isEmpty()) return 1
+  var rows = 0
+  var columnsUsed = 0
+  metrics.forEach { metric ->
+    if (columnsUsed + metric.columnSpan > 3) {
+      rows++
+      columnsUsed = 0
+    }
+    columnsUsed += metric.columnSpan
+    if (columnsUsed == 3) {
+      rows++
+      columnsUsed = 0
+    }
+  }
+  return if (columnsUsed == 0) rows else rows + 1
+}
+
+internal fun floatingMonitorDetails(settings: FloatingInferenceSettings): List<AdditionalMonitorDetail> =
+  listOfNotNull(
+    settings.temperature?.let { AdditionalMonitorDetail("TEMPERATURE", "%.2f".format(java.util.Locale.US, it)) },
+    settings.topP?.let { AdditionalMonitorDetail("TOP P", "%.2f".format(java.util.Locale.US, it)) },
+    settings.topK?.let { AdditionalMonitorDetail("TOP K", it.toString()) },
+    settings.maxTokens?.let { AdditionalMonitorDetail("MAX TOKENS", it.toString()) },
+    settings.thinkingBudget?.let { AdditionalMonitorDetail("THINKING BUDGET", it.toString(), columnSpan = 2) },
+  )
+
+/** The bottom footer is the model-details control, preserving its broad original tap target. */
+internal fun isFloatingMonitorFooterTap(
+  tapY: Float,
+  monitorHeightPx: Int,
+  footerHeightPx: Int,
+): Boolean = tapY >= monitorHeightPx - footerHeightPx
 
 /**
  * An application overlay is not attached to an Activity, so it must provide the

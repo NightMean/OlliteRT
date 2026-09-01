@@ -17,11 +17,24 @@
 package com.ollitert.llm.server.ui.settings
 
 import android.provider.Settings
+import android.widget.Toast
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.floatingmonitor.FloatingMonitorPermissionCoordinator
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
@@ -29,6 +42,8 @@ import com.ollitert.llm.server.ui.settings.SettingsViewModel
 @Composable
 internal fun GeneralCard(vm: SettingsViewModel) {
   val context = LocalContext.current
+  val resetFloatingMonitorPositionMessage =
+    stringResource(R.string.toast_floating_monitor_position_reset)
   SettingsCard(
     icon = Icons.Outlined.PhoneAndroid,
     title = stringResource(R.string.settings_card_general),
@@ -40,6 +55,39 @@ internal fun GeneralCard(vm: SettingsViewModel) {
       onToggleChanged = { key, enabled ->
         if (key == "floating_monitor" && enabled && !Settings.canDrawOverlays(context)) {
           FloatingMonitorPermissionCoordinator.requestOverlayPermission(context)
+        }
+      },
+      afterToggleContent = { key, enabled ->
+        if (key == "floating_monitor" && enabled) {
+          SettingDivider(verticalPadding = 8)
+          Column {
+            Button(
+              onClick = {
+                (context.applicationContext as? OlliteRTApplication)?.resetFloatingMonitorPosition()
+                Toast.makeText(
+                  context,
+                  resetFloatingMonitorPositionMessage,
+                  Toast.LENGTH_SHORT,
+                ).show()
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+              ),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              Text(
+                text = stringResource(R.string.settings_reset_floating_monitor_position),
+                fontWeight = FontWeight.Bold,
+              )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              text = stringResource(R.string.settings_reset_floating_monitor_position_desc),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
         }
       },
     )

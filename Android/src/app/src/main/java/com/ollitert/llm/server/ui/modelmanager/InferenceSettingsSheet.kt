@@ -70,9 +70,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.Accelerator
+import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.data.prefs.ConfigKeys
-import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.prefs.DEFAULT_THINKING_BUDGET_TOKENS
 import com.ollitert.llm.server.data.prefs.NumberSliderConfig
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.prefs.configTemperature
@@ -88,8 +89,6 @@ import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import java.util.Locale
 
-/** Default reasoning token budget applied when the user enables thinking. */
-private const val DEFAULT_THINKING_BUDGET_TOKENS = 1024
 /** Lower bound of the thinking budget slider — below this, reasoning is rarely coherent. */
 private const val MIN_THINKING_BUDGET_TOKENS = 128
 

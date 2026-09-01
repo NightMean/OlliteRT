@@ -28,6 +28,7 @@ import android.app.PendingIntent
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 
 /**
  * Builds and updates the foreground service notification for ServerService.
@@ -71,6 +72,7 @@ object NotificationHelper {
     contentIntent: PendingIntent,
     stopIntent: PendingIntent? = null,
     copyIntent: PendingIntent? = null,
+    resetPositionIntent: PendingIntent? = null,
     showProgress: Boolean = false,
   ): Notification {
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -85,6 +87,9 @@ object NotificationHelper {
     }
     if (copyIntent != null) {
       builder.addAction(android.R.drawable.ic_menu_share, context.getString(R.string.notif_action_copy_url), copyIntent)
+    }
+    if (resetPositionIntent != null && ServerPrefs.isFloatingMonitorEnabled(context)) {
+      builder.addAction(android.R.drawable.ic_menu_revert, context.getString(R.string.notif_action_reset_monitor_position), resetPositionIntent)
     }
     if (showProgress) {
       builder.setProgress(0, 0, true) // indeterminate progress bar
@@ -104,9 +109,10 @@ object NotificationHelper {
     contentIntent: PendingIntent,
     stopIntent: PendingIntent? = null,
     copyIntent: PendingIntent? = null,
+    resetPositionIntent: PendingIntent? = null,
     showProgress: Boolean = false,
   ) {
-    val notification = build(context, title, text, contentIntent, stopIntent, copyIntent, showProgress)
+    val notification = build(context, title, text, contentIntent, stopIntent, copyIntent, resetPositionIntent, showProgress)
     val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
     if (mgr == null) {
       android.util.Log.e(TAG, "NotificationManager unavailable — cannot update notification")
@@ -130,6 +136,7 @@ object NotificationHelper {
     contentIntent: PendingIntent,
     stopIntent: PendingIntent?,
     copyIntent: PendingIntent?,
+    resetPositionIntent: PendingIntent?,
     cachedUpdateVersion: String?,
   ) {
     val count = ServerMetrics.requestCount.value
@@ -142,6 +149,7 @@ object NotificationHelper {
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,
+      resetPositionIntent = resetPositionIntent,
     )
   }
 }

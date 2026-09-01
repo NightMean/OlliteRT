@@ -94,7 +94,8 @@ fun Map<String, Any>.configThinkingEnabled(): Boolean? =
 fun Map<String, Any>.thinkingBudgetTokens(): Int? =
   (this[ConfigKeys.THINKING_BUDGET.id] as? Number)?.toInt()
 
-/** Bounds for [ConfigKeys.THINKING_BUDGET] across UI and API surfaces. */
+/** Default and bounds for [ConfigKeys.THINKING_BUDGET] across UI and API surfaces. */
+const val DEFAULT_THINKING_BUDGET_TOKENS = 1024
 const val MIN_THINKING_BUDGET_TOKENS = 128
 const val MAX_THINKING_BUDGET_TOKENS = 32_000
 

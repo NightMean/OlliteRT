@@ -31,6 +31,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
+import android.widget.Toast
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
@@ -196,6 +197,18 @@ class ServerService : Service() {
     // Sent by SettingsScreen when the user changes keep_alive settings while the server is running.
     if (intent?.action == ACTION_RESET_KEEP_ALIVE) {
       resetKeepAliveTimer()
+      return START_STICKY
+    }
+
+    if (intent?.action == ACTION_RESET_FLOATING_MONITOR_POSITION) {
+      (application as? OlliteRTApplication)?.resetFloatingMonitorPosition()
+      Toast.makeText(this, R.string.toast_floating_monitor_position_reset, Toast.LENGTH_SHORT).show()
+      notificationManager.refreshRunning()
+      return START_STICKY
+    }
+
+    if (intent?.action == ACTION_REFRESH_RUNNING_NOTIFICATION) {
+      notificationManager.refreshRunning()
       return START_STICKY
     }
 
@@ -597,6 +610,8 @@ class ServerService : Service() {
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
+    const val ACTION_RESET_FLOATING_MONITOR_POSITION = "com.ollitert.llm.server.RESET_FLOATING_MONITOR_POSITION"
+    const val ACTION_REFRESH_RUNNING_NOTIFICATION = "com.ollitert.llm.server.REFRESH_RUNNING_NOTIFICATION"
 
     internal val reloadConfigOverrideRegistry = ReloadConfigOverrideRegistry()
 

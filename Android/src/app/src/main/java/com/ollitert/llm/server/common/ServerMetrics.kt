@@ -17,6 +17,8 @@
 package com.ollitert.llm.server.common
 
 import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.prefs.DEFAULT_THINKING_BUDGET_TOKENS
+import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -414,13 +416,16 @@ object ServerMetrics {
    * The producer calls this after its existing validation/atomic config write succeeds.
    */
   fun setInferenceSettings(configValues: Map<String, Any>) {
+    val thinkingEnabled = configValues[ConfigKeys.ENABLE_THINKING.id] as? Boolean
     _inferenceSettings.value = FloatingInferenceSettings(
       temperature = (configValues[ConfigKeys.TEMPERATURE.id] as? Number)?.toDouble(),
       maxTokens = (configValues[ConfigKeys.MAX_TOKENS.id] as? Number)?.toInt(),
       topK = (configValues[ConfigKeys.TOPK.id] as? Number)?.toInt(),
       topP = (configValues[ConfigKeys.TOPP.id] as? Number)?.toDouble(),
-      thinkingEnabled = configValues[ConfigKeys.ENABLE_THINKING.id] as? Boolean,
-      thinkingBudget = (configValues[ConfigKeys.THINKING_BUDGET.id] as? Number)?.toInt(),
+      thinkingEnabled = thinkingEnabled,
+      // Thinking-enabled models use this established default until a model-specific override exists.
+      thinkingBudget = configValues.thinkingBudgetTokens()
+        ?: DEFAULT_THINKING_BUDGET_TOKENS.takeIf { thinkingEnabled == true },
     )
   }
 

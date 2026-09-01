@@ -59,6 +59,10 @@ class OlliteRTApplication : Application(), Configuration.Provider, SingletonImag
     if (::floatingMonitorController.isInitialized) floatingMonitorController.reconcile()
   }
 
+  fun resetFloatingMonitorPosition() {
+    if (::floatingMonitorController.isInitialized) floatingMonitorController.resetPosition()
+  }
+
   /**
    * Entry point for accessing Hilt-managed singletons from [Application.onCreate].
    * Needed because [RequestLogPersistence] is Hilt-provided but [RequestLogStore]

@@ -220,6 +220,7 @@ internal fun ToggleCardContent(
   vm: SettingsViewModel,
   dividerPadding: Int = 16,
   onToggleChanged: ((key: String, enabled: Boolean) -> Unit)? = null,
+  afterToggleContent: (@Composable (key: String, enabled: Boolean) -> Unit)? = null,
 ) {
   val keys = cardDefsById[cardId]?.settings?.map { it.key } ?: return
   val visible = keys.map { vm.settingVisible(it) }
@@ -247,6 +248,7 @@ internal fun ToggleCardContent(
       enabled = vm.isSettingEnabled(key),
       alphaOverride = vm.settingAlpha(key),
     )
+    afterToggleContent?.invoke(key, entry.current)
   }
 }
 

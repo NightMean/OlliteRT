@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.floatingmonitor
 
 import com.ollitert.llm.server.common.ModelLoadPhase
+import com.ollitert.llm.server.common.FloatingInferenceSettings
 import com.ollitert.llm.server.common.FloatingMonitorBounds
 import com.ollitert.llm.server.common.FloatingMonitorPlacement
 import com.ollitert.llm.server.common.ServerStatus
@@ -80,5 +81,67 @@ class FloatingMonitorStateTest {
     val restored = FloatingMonitorPlacement.fromWindowPosition(x, y, bounds, 248, 188)
     assertEquals(placement.xFraction, restored.xFraction, 0.001f)
     assertEquals(placement.yFraction, restored.yFraction, 0.001f)
+  }
+
+  @Test fun `bottom footer taps expand model details`() {
+    assertFalse(isFloatingMonitorFooterTap(tapY = 149f, monitorHeightPx = 188, footerHeightPx = 38))
+    assertTrue(isFloatingMonitorFooterTap(tapY = 150f, monitorHeightPx = 188, footerHeightPx = 38))
+  }
+
+  @Test fun `details exclude inference settings already shown as badges`() {
+    val details = floatingMonitorDetails(
+      FloatingInferenceSettings(
+        temperature = 0.75,
+        maxTokens = 32_000,
+        topK = 40,
+        topP = 0.9,
+        thinkingEnabled = true,
+        thinkingBudget = 128,
+      ),
+    )
+
+    assertEquals(
+      listOf("TEMPERATURE", "TOP P", "TOP K", "MAX TOKENS", "THINKING BUDGET"),
+      details.map(AdditionalMonitorDetail::label),
+    )
+    assertFalse(details.any { it.label == "THINKING" })
+    assertEquals(listOf(1, 1, 1, 1, 2), details.map(AdditionalMonitorDetail::columnSpan))
+  }
+
+  @Test fun `formats decode speed with its unit`() {
+    assertEquals("9.8 t/s", formatMonitorSpeed(9.84))
+    assertEquals("—", formatMonitorSpeed(0.0))
+  }
+
+  @Test fun `keeps metric values within the available card width`() {
+    val fitted = fitMonitorMetricText(
+      value = "100 t/s",
+      availableWidthPx = 40f,
+      measureWidth = { text, sizeDp -> text.length * sizeDp.toFloat() / 2f },
+    )
+
+    assertEquals("100 t/s", fitted.value)
+    assertTrue(fitted.sizeDp < 16)
+  }
+
+  @Test fun `keeps five digit max tokens in a standard detail card`() {
+    val fitted = fitMonitorMetricText(
+      value = "32000",
+      availableWidthPx = 40f,
+      measureWidth = { text, sizeDp -> text.length * sizeDp.toFloat() / 2f },
+    )
+
+    assertEquals("32000", fitted.value)
+  }
+
+  @Test fun `shortens metric values only when the minimum size cannot fit`() {
+    val fitted = fitMonitorMetricText(
+      value = "123456789 ms",
+      availableWidthPx = 20f,
+      measureWidth = { text, sizeDp -> text.length * sizeDp.toFloat() },
+    )
+
+    assertEquals("1…", fitted.value)
+    assertEquals(8, fitted.sizeDp)
   }
 }

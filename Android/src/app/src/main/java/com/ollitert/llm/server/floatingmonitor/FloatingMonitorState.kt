@@ -69,4 +69,36 @@ internal fun formatCompactUptime(startedAtMs: Long, nowMs: Long): String {
 }
 
 internal fun formatMonitorSpeed(tokensPerSecond: Double): String =
-  if (tokensPerSecond <= 0.0) "—" else "${(tokensPerSecond * 10.0).roundToLong() / 10.0}"
+  if (tokensPerSecond <= 0.0) "—" else "${(tokensPerSecond * 10.0).roundToLong() / 10.0} t/s"
+
+internal data class MonitorMetricText(
+  val value: String,
+  val sizeDp: Int,
+)
+
+/**
+ * Keeps metric values inside their cards without making normal values smaller.
+ * The ellipsis branch is only for unusually long values on a very narrow display.
+ */
+internal fun fitMonitorMetricText(
+  value: String,
+  availableWidthPx: Float,
+  measureWidth: (String, Int) -> Float,
+  maxSizeDp: Int = 16,
+  minSizeDp: Int = 8,
+): MonitorMetricText {
+  for (sizeDp in maxSizeDp downTo minSizeDp) {
+    if (measureWidth(value, sizeDp) <= availableWidthPx) return MonitorMetricText(value, sizeDp)
+  }
+
+  val ellipsis = "…"
+  var visibleCharacters = value.length
+  while (visibleCharacters > 0) {
+    val truncated = value.take(visibleCharacters) + ellipsis
+    if (measureWidth(truncated, minSizeDp) <= availableWidthPx) {
+      return MonitorMetricText(truncated, minSizeDp)
+    }
+    visibleCharacters--
+  }
+  return MonitorMetricText(ellipsis, minSizeDp)
+}

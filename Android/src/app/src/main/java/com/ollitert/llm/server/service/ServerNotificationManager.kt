@@ -45,6 +45,7 @@ data class LoadNotificationState(
   val contentIntent: PendingIntent,
   val stopIntent: PendingIntent,
   val copyIntent: PendingIntent,
+  val resetPositionIntent: PendingIntent,
   val endpointUrl: String,
 )
 
@@ -53,6 +54,7 @@ private data class RunningNotificationState(
   val contentIntent: PendingIntent,
   val stopIntent: PendingIntent,
   val copyIntent: PendingIntent,
+  val resetPositionIntent: PendingIntent,
   val endpointUrl: String,
 )
 
@@ -121,12 +123,20 @@ class ServerNotificationManager(private val context: Context) {
       },
       PendingIntent.FLAG_IMMUTABLE,
     )
+    val resetPositionIntent = PendingIntent.getService(
+      context, 3,
+      Intent(context, ServerService::class.java).apply {
+        action = ServerService.ACTION_RESET_FLOATING_MONITOR_POSITION
+      },
+      PendingIntent.FLAG_IMMUTABLE,
+    )
     return LoadNotificationState(
       advertisedHost = displayAddress,
       isLoopbackOnly = isLoopbackOnly,
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,
+      resetPositionIntent = resetPositionIntent,
       endpointUrl = endpointUrl,
     )
   }
@@ -138,6 +148,7 @@ class ServerNotificationManager(private val context: Context) {
       contentIntent = notifState.contentIntent,
       stopIntent = notifState.stopIntent,
       copyIntent = notifState.copyIntent,
+      resetPositionIntent = notifState.resetPositionIntent,
       endpointUrl = notifState.endpointUrl,
     )
     val initialText = buildString {
@@ -156,6 +167,7 @@ class ServerNotificationManager(private val context: Context) {
       contentIntent = notifState.contentIntent,
       stopIntent = notifState.stopIntent,
       copyIntent = notifState.copyIntent,
+      resetPositionIntent = notifState.resetPositionIntent,
     )
   }
 
@@ -181,6 +193,7 @@ class ServerNotificationManager(private val context: Context) {
       contentIntent = state.contentIntent,
       stopIntent = state.stopIntent,
       copyIntent = state.copyIntent,
+      resetPositionIntent = state.resetPositionIntent,
       cachedUpdateVersion = ServerMetrics.availableUpdateVersion.value,
     )
   }

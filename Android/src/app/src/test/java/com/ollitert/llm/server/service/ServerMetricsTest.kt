@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.service
 
 import com.ollitert.llm.server.common.ServerMetrics
+import com.ollitert.llm.server.data.prefs.ConfigKeys
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
@@ -452,6 +453,42 @@ class ServerMetricsTest {
     assertTrue(ServerMetrics.thinkingEnabled.value)
     ServerMetrics.setThinkingEnabled(false)
     assertFalse(ServerMetrics.thinkingEnabled.value)
+  }
+
+  @Test
+  fun setInferenceSettingsPublishesEveryApiMutableValue() {
+    ServerMetrics.setInferenceSettings(
+      mapOf(
+        ConfigKeys.TEMPERATURE.id to 0.75,
+        ConfigKeys.MAX_TOKENS.id to 512,
+        ConfigKeys.TOPK.id to 40,
+        ConfigKeys.TOPP.id to 0.9,
+        ConfigKeys.ENABLE_THINKING.id to true,
+        ConfigKeys.THINKING_BUDGET.id to 128,
+      ),
+    )
+
+    assertEquals(0.75, ServerMetrics.inferenceSettings.value.temperature)
+    assertEquals(512, ServerMetrics.inferenceSettings.value.maxTokens)
+    assertEquals(40, ServerMetrics.inferenceSettings.value.topK)
+    assertEquals(0.9, ServerMetrics.inferenceSettings.value.topP)
+    assertTrue(ServerMetrics.inferenceSettings.value.thinkingEnabled == true)
+    assertEquals(128, ServerMetrics.inferenceSettings.value.thinkingBudget)
+  }
+
+  @Test
+  fun setInferenceSettingsUsesDefaultThinkingBudgetWhenThinkingIsEnabled() {
+    ServerMetrics.setInferenceSettings(
+      mapOf(ConfigKeys.ENABLE_THINKING.id to true),
+    )
+
+    assertEquals(1024, ServerMetrics.inferenceSettings.value.thinkingBudget)
+
+    ServerMetrics.setInferenceSettings(
+      mapOf(ConfigKeys.ENABLE_THINKING.id to false),
+    )
+
+    assertNull(ServerMetrics.inferenceSettings.value.thinkingBudget)
   }
 
   @Test

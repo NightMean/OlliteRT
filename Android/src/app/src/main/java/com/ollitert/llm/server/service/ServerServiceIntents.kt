@@ -21,6 +21,7 @@ import android.util.Log
 import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.common.ServerMetrics
+import com.ollitert.llm.server.common.ServerStatus
 
 /**
  * Intent-launching entry points for [ServerService], split out of the companion
@@ -83,6 +84,17 @@ fun ServerService.Companion.resetKeepAliveTimer(context: Context) {
         )
       } catch (e: Exception) {
         Log.w(TAG, "Failed to reset keep-alive timer — service may not be running", e)
+      }
+    }
+
+fun ServerService.Companion.refreshRunningNotification(context: Context) {
+      if (ServerMetrics.status.value != ServerStatus.RUNNING) return
+      try {
+        context.startService(
+          Intent(context, ServerService::class.java).apply { action = ACTION_REFRESH_RUNNING_NOTIFICATION }
+        )
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to refresh running notification", e)
       }
     }
 
