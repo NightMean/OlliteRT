@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.ollitert.llm.server.service.resetKeepAliveTimer
 import com.ollitert.llm.server.service.updateClientIpAccessPolicy
+import com.ollitert.llm.server.floatingmonitor.resolveFloatingMonitorEnabled
 
 /**
  * ViewModel for the Settings screen. Owns all settings state, validation,
@@ -169,6 +170,19 @@ class SettingsViewModel @Inject constructor(
   val logAutoDeleteMinutesEntry get() = entry<Long>("log_auto_delete")
   val showRequestTypesEntry get() = entry<Boolean>("show_request_types")
   val showAdvancedMetricsEntry get() = entry<Boolean>("show_advanced_metrics")
+
+  /** Reconciles the monitor preference against Android's authoritative overlay permission. */
+  fun reconcileFloatingMonitorPermission(
+    hasOverlayPermission: Boolean,
+    requestedEnabled: Boolean = floatingMonitorEntry.current,
+  ) {
+    floatingMonitorEntry.update(
+      resolveFloatingMonitorEnabled(
+        requestedEnabled = requestedEnabled,
+        hasOverlayPermission = hasOverlayPermission,
+      ),
+    )
+  }
 
   // Advanced Timeouts
   val timeoutChatCompletionsEntry get() = entry<Long>("timeout_chat_completions")

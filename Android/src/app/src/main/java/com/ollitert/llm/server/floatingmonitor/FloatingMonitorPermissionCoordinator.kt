@@ -22,6 +22,8 @@ import android.net.Uri
 import android.provider.Settings
 
 internal object FloatingMonitorPermissionCoordinator {
+  fun hasOverlayPermission(context: Context): Boolean = Settings.canDrawOverlays(context)
+
   fun requestOverlayPermission(context: Context) {
     context.startActivity(
       Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
@@ -29,3 +31,9 @@ internal object FloatingMonitorPermissionCoordinator {
     )
   }
 }
+
+/** The monitor cannot be enabled until Android grants its overlay permission. */
+internal fun resolveFloatingMonitorEnabled(
+  requestedEnabled: Boolean,
+  hasOverlayPermission: Boolean,
+): Boolean = requestedEnabled && hasOverlayPermission

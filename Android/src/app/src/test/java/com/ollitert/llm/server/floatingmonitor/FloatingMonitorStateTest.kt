@@ -48,6 +48,12 @@ class FloatingMonitorStateTest {
     assertFalse(shouldShowFloatingMonitor(true, true, false, ServerStatus.ERROR))
   }
 
+  @Test fun `floating monitor enables only after overlay permission is granted`() {
+    assertTrue(resolveFloatingMonitorEnabled(requestedEnabled = true, hasOverlayPermission = true))
+    assertFalse(resolveFloatingMonitorEnabled(requestedEnabled = true, hasOverlayPermission = false))
+    assertFalse(resolveFloatingMonitorEnabled(requestedEnabled = false, hasOverlayPermission = true))
+  }
+
   @Test fun `dot prioritizes processing and cpu retry`() {
     assertEquals(FloatingMonitorDot.PROCESSING, floatingMonitorDot(ServerStatus.RUNNING, true, ModelLoadPhase.STARTING))
     assertEquals(FloatingMonitorDot.RETRYING_CPU, floatingMonitorDot(ServerStatus.LOADING, false, ModelLoadPhase.RETRYING_CPU))

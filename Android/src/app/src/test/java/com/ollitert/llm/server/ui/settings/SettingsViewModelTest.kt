@@ -132,6 +132,25 @@ class SettingsViewModelTest {
   }
 
   @Test
+  fun floatingMonitorPermissionReconciliationClearsAnUnpermittedEnablement() {
+    vm.floatingMonitorEntry.update(true)
+
+    vm.reconcileFloatingMonitorPermission(hasOverlayPermission = false)
+
+    assertFalse(vm.floatingMonitorEntry.current)
+  }
+
+  @Test
+  fun floatingMonitorPermissionReconciliationEnablesAfterAGrantedUserRequest() {
+    vm.reconcileFloatingMonitorPermission(
+      hasOverlayPermission = true,
+      requestedEnabled = true,
+    )
+
+    assertTrue(vm.floatingMonitorEntry.current)
+  }
+
+  @Test
   fun toggleRevertClearsChange() {
     vm.keepScreenOnEntry.update(false)
     vm.keepScreenOnEntry.update(true)

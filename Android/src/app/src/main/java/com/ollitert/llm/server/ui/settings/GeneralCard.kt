@@ -16,7 +16,6 @@
 
 package com.ollitert.llm.server.ui.settings
 
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,11 +28,17 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.floatingmonitor.FloatingMonitorPermissionCoordinator
@@ -44,6 +49,18 @@ internal fun GeneralCard(vm: SettingsViewModel) {
   val context = LocalContext.current
   val resetFloatingMonitorPositionMessage =
     stringResource(R.string.toast_floating_monitor_position_reset)
+  var isAwaitingOverlayPermission by remember { mutableStateOf(false) }
+
+  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    if (isAwaitingOverlayPermission) {
+      isAwaitingOverlayPermission = false
+      vm.reconcileFloatingMonitorPermission(
+        hasOverlayPermission = FloatingMonitorPermissionCoordinator.hasOverlayPermission(context),
+        requestedEnabled = true,
+      )
+    }
+  }
+
   SettingsCard(
     icon = Icons.Outlined.PhoneAndroid,
     title = stringResource(R.string.settings_card_general),
@@ -52,9 +69,15 @@ internal fun GeneralCard(vm: SettingsViewModel) {
     ToggleCardContent(
       cardId = CardId.GENERAL,
       vm = vm,
-      onToggleChanged = { key, enabled ->
-        if (key == "floating_monitor" && enabled && !Settings.canDrawOverlays(context)) {
+      onToggleRequested = { key, enabled ->
+        if (key == "floating_monitor" && enabled &&
+          !FloatingMonitorPermissionCoordinator.hasOverlayPermission(context)
+        ) {
+          isAwaitingOverlayPermission = true
           FloatingMonitorPermissionCoordinator.requestOverlayPermission(context)
+          false
+        } else {
+          true
         }
       },
       afterToggleContent = { key, enabled ->

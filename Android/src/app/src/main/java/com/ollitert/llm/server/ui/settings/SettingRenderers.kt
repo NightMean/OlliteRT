@@ -219,6 +219,7 @@ internal fun ToggleCardContent(
   cardId: CardId,
   vm: SettingsViewModel,
   dividerPadding: Int = 16,
+  onToggleRequested: ((key: String, enabled: Boolean) -> Boolean)? = null,
   onToggleChanged: ((key: String, enabled: Boolean) -> Unit)? = null,
   afterToggleContent: (@Composable (key: String, enabled: Boolean) -> Unit)? = null,
 ) {
@@ -239,7 +240,7 @@ internal fun ToggleCardContent(
       onCheckedChange = { newValue ->
         if (key == "trim_prompt" && newValue) {
           vm.showTrimPromptWarning = true
-        } else {
+        } else if (onToggleRequested?.invoke(key, newValue) != false) {
           entry.update(newValue)
           onToggleChanged?.invoke(key, newValue)
         }

@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.OlliteRTApplication
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.floatingmonitor.FloatingMonitorPermissionCoordinator
 import com.ollitert.llm.server.service.ServerService
 import com.ollitert.llm.server.service.refreshRunningNotification
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
@@ -132,12 +133,20 @@ fun SettingsScreen(
   }
 
   val performSave: () -> Unit = {
+    vm.reconcileFloatingMonitorPermission(
+      FloatingMonitorPermissionCoordinator.hasOverlayPermission(context),
+    )
     when (val result = vm.trySave(serverStatus)) {
       is SettingsViewModel.SaveResult.NeedsTrimConfirmation -> vm.showTrimLogsDialog = true
       else -> handleSaveResult(result)
     }
   }
-  val forceSave: () -> Unit = { handleSaveResult(vm.save(serverStatus)) }
+  val forceSave: () -> Unit = {
+    vm.reconcileFloatingMonitorPermission(
+      FloatingMonitorPermissionCoordinator.hasOverlayPermission(context),
+    )
+    handleSaveResult(vm.save(serverStatus))
+  }
 
   BackHandler(enabled = vm.hasUnsavedChanges) { vm.showDiscardDialog = true }
   val currentSave by rememberUpdatedState(performSave)
