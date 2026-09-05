@@ -77,7 +77,7 @@ jobs:
         working-directory: .
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Always checkout default branch for workflow_dispatch (tag may
           # not exist yet, or we need to verify it first). Push-triggered
@@ -360,7 +360,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
 
