@@ -35,6 +35,9 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.storage.KEY_MODEL_URL
+import com.ollitert.llm.server.data.storage.KEY_MODEL_MODELSCOPE_PRIMARY_ERROR
+import com.ollitert.llm.server.data.storage.KEY_MODEL_MODELSCOPE_CONSENT_ERROR
+import com.ollitert.llm.server.data.storage.KEY_MODEL_FROM_MODELSCOPE
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -72,6 +75,7 @@ internal fun buildDownloadRequestData(model: Model): Data {
     Data.Builder()
       .putString(KEY_MODEL_NAME, model.name)
       .putString(KEY_MODEL_URL, model.url)
+      .putString(KEY_MODEL_MODELSCOPE_PRIMARY_ERROR, model.modelScopePrimaryError)
       .putString(KEY_MODEL_COMMIT_HASH, model.version)
       .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
       .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
@@ -111,6 +115,7 @@ class DownloadRepository @Inject constructor(
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
     val inputData = buildDownloadRequestData(model)
+    model.modelScopePrimaryError = null
 
     // Create worker request.
     val downloadWorkRequest =
@@ -179,9 +184,10 @@ class DownloadRepository @Inject constructor(
             val receivedBytes = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
             val downloadRate = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RATE, 0L)
             val startUnzipping = workInfo.progress.getBoolean(KEY_MODEL_START_UNZIPPING, false)
+            val fromModelScope = workInfo.progress.getBoolean(KEY_MODEL_FROM_MODELSCOPE, false)
 
             if (!startUnzipping) {
-              if (receivedBytes != 0L) {
+              if (workInfo.progress.keyValueMap.containsKey(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES) || fromModelScope) {
                 lastReceivedBytes = receivedBytes
                 lastTotalBytes = totalDownloadBytes
                 onStatusUpdated(
@@ -191,6 +197,7 @@ class DownloadRepository @Inject constructor(
                     totalBytes = totalDownloadBytes,
                     receivedBytes = receivedBytes,
                     bytesPerSecond = downloadRate,
+                    fromModelScope = fromModelScope,
                   ),
                 )
               }
@@ -205,7 +212,13 @@ class DownloadRepository @Inject constructor(
           WorkInfo.State.SUCCEEDED -> {
             try {
               Log.d(TAG, "worker %s success".format(workerId.toString()))
-              onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
+              onStatusUpdated(
+                model,
+                ModelDownloadStatus(
+                  status = ModelDownloadStatusType.SUCCEEDED,
+                  fromModelScope = workInfo.outputData.getBoolean(KEY_MODEL_FROM_MODELSCOPE, false),
+                ),
+              )
               sendNotification(
                 title = context.getString(R.string.notification_title_success),
                 text = context.getString(R.string.notification_content_success).format(model.name),
@@ -241,6 +254,8 @@ class DownloadRepository @Inject constructor(
                   errorMessage = errorMessage,
                   receivedBytes = if (status == ModelDownloadStatusType.FAILED) lastReceivedBytes else 0L,
                   totalBytes = if (status == ModelDownloadStatusType.FAILED) lastTotalBytes else 0L,
+                  fromModelScope = workInfo.outputData.getBoolean(KEY_MODEL_FROM_MODELSCOPE, false),
+                  modelScopeConsentError = workInfo.outputData.getString(KEY_MODEL_MODELSCOPE_CONSENT_ERROR),
                 ),
               )
             } finally {

@@ -140,6 +140,13 @@
   <string name="button_open_user_agreement">Open user agreement</string>
   <string name="dialog_network_error_title">Unknown network error</string>
   <string name="dialog_network_error_body">Please check your internet connection.</string>
+  <string name="modelscope_fallback_label">Allow ModelScope fallback</string>
+  <string name="modelscope_fallback_description">After connection or temporary server failures, try pinned ModelScope copies of supported models. Gated models require confirmed access during the current transfer. These are community uploads; equivalence to the publisher files is not verified. Hugging Face tokens are never sent to ModelScope. Token and license errors still require action.</string>
+  <string name="modelscope_consent_title">Try ModelScope when Hugging Face is unavailable?</string>
+  <string name="modelscope_consent_body">A connection or temporary server error interrupted the Hugging Face download. Allow automatic fallback to ModelScope for supported models? Gated models require confirmed access during the current transfer. These community uploads are checked against pinned ModelScope checksums, not verified as identical to the publisher files. Applicable model licenses still apply. You can turn this off in Settings under Hugging Face Token.</string>
+  <string name="modelscope_consent_allow">Allow and retry</string>
+  <string name="modelscope_source">ModelScope</string>
+  <string name="modelscope_consent_required">Hugging Face download failed. Retry to allow ModelScope fallback.</string>
   <string name="dialog_model_not_found_title">Model not found</string>
   <string name="dialog_model_not_found_body">The model could not be found on HuggingFace. Verify that the model ID and commit hash in your model list are correct.</string>
   <string name="dialog_hf_token_required_title">HuggingFace Token Required</string>

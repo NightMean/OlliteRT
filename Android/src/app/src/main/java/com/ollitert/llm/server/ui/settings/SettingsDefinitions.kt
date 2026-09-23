@@ -39,7 +39,7 @@ val allSettingDefs: List<SettingDef> = listOf(
   // Repositories
   REPOSITORIES_NAV,
   // HF Token
-  HF_TOKEN,
+  HF_TOKEN, MODELSCOPE_FALLBACK,
   // General
   KEEP_SCREEN_AWAKE, FLOATING_MONITOR, SHOW_MODEL_RECOMMENDATIONS, RESOLVE_CLIENT_HOSTNAMES,
   WRAP_LOG_TEXT, AUTO_EXPAND_LOGS, STREAM_RESPONSE_PREVIEW, KEEP_PARTIAL_RESPONSE, COMPACT_IMAGE_DATA,
@@ -88,7 +88,7 @@ val allCardDefs: List<CardDef> = listOf(
     id = CardId.HF_TOKEN,
     titleRes = R.string.settings_card_hf_token,
     icon = CardIcon.Vector(Icons.Outlined.Key),
-    settings = listOf(HF_TOKEN),
+    settings = listOf(HF_TOKEN, MODELSCOPE_FALLBACK),
   ),
   CardDef(
     id = CardId.GENERAL,

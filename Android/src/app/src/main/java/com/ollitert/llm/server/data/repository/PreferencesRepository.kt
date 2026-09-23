@@ -165,6 +165,8 @@ interface PreferencesRepository {
   fun setBearerToken(token: String)
   fun getHfToken(): String
   fun setHfToken(token: String)
+  fun isModelScopeFallbackEnabled(): Boolean
+  fun setModelScopeFallbackEnabled(enabled: Boolean)
   fun getDefaultModelName(): String?
   fun setDefaultModelName(name: String?)
   fun isAutoStartOnBoot(): Boolean
@@ -299,6 +301,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setBearerToken(token: String) = ServerPrefs.setBearerToken(context, token)
   override fun getHfToken(): String = ServerPrefs.getHfToken(context)
   override fun setHfToken(token: String) = ServerPrefs.setHfToken(context, token)
+  override fun isModelScopeFallbackEnabled(): Boolean = ServerPrefs.isModelScopeFallbackEnabled(context)
+  override fun setModelScopeFallbackEnabled(enabled: Boolean) = ServerPrefs.setModelScopeFallbackEnabled(context, enabled)
   override fun getDefaultModelName(): String? = ServerPrefs.getDefaultModelName(context)
   override fun setDefaultModelName(name: String?) = ServerPrefs.setDefaultModelName(context, name)
   override fun isAutoStartOnBoot(): Boolean = ServerPrefs.isAutoStartOnBoot(context)

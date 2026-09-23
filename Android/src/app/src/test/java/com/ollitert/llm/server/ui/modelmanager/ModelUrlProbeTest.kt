@@ -25,9 +25,59 @@ import io.mockk.mockk
 import io.mockk.verify
 import java.net.HttpURLConnection
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelUrlProbeTest {
+
+  @Test
+  fun probeDoesNotAttachCredentialsToCleartextHuggingFace() {
+    val connection = mockk<HttpURLConnection>(relaxed = true)
+    every { connection.responseCode } returns 200
+    probeModelUrl("http://huggingface.co/org/repo", "test-token") { connection }
+    verify(exactly = 0) { connection.setRequestProperty("Authorization", any()) }
+  }
+
+  @Test
+  fun authenticatedProbeUsesTheTokenButDoesNotForwardItToTheCdn() {
+    val initial = mockk<HttpURLConnection>(relaxed = true)
+    val cdn = mockk<HttpURLConnection>(relaxed = true)
+    every { initial.responseCode } returns 302
+    every { initial.getHeaderField("Location") } returns "https://cdn.example.test/model.litertlm"
+    every { cdn.responseCode } returns 200
+    every { cdn.contentType } returns "application/octet-stream"
+
+    val result = probeModelUrl("https://huggingface.co/org/repo", "test-token") { url ->
+      if (url.startsWith("https://huggingface.co/")) initial else cdn
+    }
+
+    assertEquals(ModelUrlResult.Success(200), result)
+    verify { initial.setRequestProperty("Authorization", "Bearer test-token") }
+    verify(exactly = 0) { cdn.setRequestProperty("Authorization", any()) }
+  }
+
+  @Test
+  fun actualNetworkExceptionsAreClassifiedWithoutParsingTheirMessages() {
+    val result = probeModelUrl("https://huggingface.co/model", null) {
+      throw java.net.UnknownHostException("localized error")
+    }
+    assertTrue((result as ModelUrlResult.Error).retryable)
+    val tls = probeModelUrl("https://huggingface.co/model", null) {
+      throw javax.net.ssl.SSLHandshakeException("localized error")
+    }
+    assertFalse((tls as ModelUrlResult.Error).retryable)
+  }
+
+  @Test
+  fun cancellationIsNotConvertedIntoAnOrdinaryNetworkError() {
+    try {
+      probeModelUrl("https://huggingface.co/model", null) {
+        throw kotlinx.coroutines.CancellationException()
+      }
+      org.junit.Assert.fail("Expected cancellation")
+    } catch (_: kotlinx.coroutines.CancellationException) { }
+  }
 
   @Test
   fun redirectProbeBoundsBothConnections() {

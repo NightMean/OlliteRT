@@ -117,7 +117,7 @@ fun fetchBoundedResult(
 
 sealed class ModelUrlResult {
   data class Success(val code: Int) : ModelUrlResult()
-  data class Error(val message: String) : ModelUrlResult()
+  data class Error(val message: String, val retryable: Boolean = false) : ModelUrlResult()
 }
 
 internal fun probeModelUrl(
@@ -160,8 +160,13 @@ internal fun probeModelUrl(
       return ModelUrlResult.Success(redirectConnection.responseCode)
     }
     return ModelUrlResult.Success(responseCode)
+  } catch (e: kotlinx.coroutines.CancellationException) {
+    throw e
   } catch (e: Exception) {
-    return ModelUrlResult.Error(e.message ?: "Unknown network error")
+    return ModelUrlResult.Error(
+      e.message ?: "Unknown network error",
+      retryable = com.ollitert.llm.server.data.download.isTransientDownloadFailure(e),
+    )
   } finally {
     connection?.disconnect()
     redirectConnection?.disconnect()
@@ -178,17 +183,21 @@ internal fun configuredHfTokenOrNull(rawToken: String): String? =
  * True when it is safe to attach the user's Hugging Face bearer token to requests
  * for [url]. Allowlist entries and user-added repos can declare arbitrary download
  * URLs — a hostile repo operator must never receive the credential, so the token
- * is scoped to huggingface.co (and subdomains) only.
+ * is scoped to HTTPS on huggingface.co (and subdomains), without URL credentials
+ * or a nonstandard port.
  */
 internal fun isHuggingFaceUrl(url: String): Boolean {
-  val host = try {
-    URL(url).host.lowercase()
-  } catch (_: Exception) {
+  val parsed = try {
+    java.net.URI(url)
+  } catch (_: java.net.URISyntaxException) {
     return false
   }
+  if (!parsed.scheme.equals("https", ignoreCase = true) ||
+    parsed.rawUserInfo != null || parsed.port !in listOf(-1, 443)
+  ) return false
+  val host = parsed.host?.lowercase(java.util.Locale.ROOT) ?: return false
   return host == "huggingface.co" || host.endsWith(".huggingface.co")
 }
 
 private fun defaultOpenConnection(url: String): HttpURLConnection =
   URL(url).openConnection() as HttpURLConnection
-

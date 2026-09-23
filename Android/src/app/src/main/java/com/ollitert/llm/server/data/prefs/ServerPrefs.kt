@@ -197,6 +197,13 @@ object ServerPrefs {
   fun getHfToken(context: Context): String =
     ServerPrefsNetwork.getHfToken(prefs(context))
 
+  fun isModelScopeFallbackEnabled(context: Context): Boolean =
+    ServerPrefsNetwork.isModelScopeFallbackEnabled(prefs(context))
+
+  fun setModelScopeFallbackEnabled(context: Context, enabled: Boolean) {
+    ServerPrefsNetwork.setModelScopeFallbackEnabled(prefs(context), enabled)
+  }
+
   fun setHfToken(context: Context, token: String) {
     ServerPrefsNetwork.setHfToken(prefs(context), token)
   }

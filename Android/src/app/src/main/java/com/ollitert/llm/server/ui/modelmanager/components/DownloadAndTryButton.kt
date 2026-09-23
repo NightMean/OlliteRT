@@ -47,6 +47,8 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,7 +77,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.isWifiConnected
 import com.ollitert.llm.server.data.model.Model
@@ -149,6 +151,7 @@ fun DownloadAndTryButton(
   var checkingToken by remember { mutableStateOf(false) }
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
+  var modelScopeConsentError by remember { mutableStateOf<String?>(null) }
   var showModelNotFoundDialog by remember { mutableStateOf(false) }
   var showStopActiveDialog by remember { mutableStateOf(false) }
   var hfTokenDialogReason by remember { mutableStateOf<HfTokenDialogReason?>(null) }
@@ -173,6 +176,13 @@ fun DownloadAndTryButton(
   // effect — writing snapshot state during composition can loop invalidation.
   LaunchedEffect(downloadStatus?.status, checkingToken) {
     if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
+      downloadStarted = false
+    }
+  }
+  LaunchedEffect(downloadStatus?.modelScopeConsentError) {
+    downloadStatus?.modelScopeConsentError?.let {
+      modelScopeConsentError = it
+      checkingToken = false
       downloadStarted = false
     }
   }
@@ -223,12 +233,22 @@ fun DownloadAndTryButton(
       if (needToDownloadFirst) {
         downloadStarted = true
         // Optimistic flag so the progress row shows "Checking access…" during probes.
-        if (model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)) {
+        if (isHuggingFaceUrl(model.url)) {
           checkingToken = true
         }
         when (val outcome = downloadGate.resolveDownloadAccess(model)) {
           is DownloadGateOutcome.StartDownload -> {
-            withContext(Dispatchers.Main) { startDownload(outcome.accessToken) }
+            withContext(Dispatchers.Main) {
+              model.modelScopePrimaryError = outcome.modelScopePrimaryError
+              startDownload(outcome.accessToken)
+            }
+          }
+          is DownloadGateOutcome.NeedsModelScopeConsent -> {
+            withContext(Dispatchers.Main) {
+              modelScopeConsentError = outcome.primaryError
+              checkingToken = false
+              downloadStarted = false
+            }
           }
           is DownloadGateOutcome.NetworkError -> {
             Log.e(TAG, "Network error while checking access: ${outcome.message}")
@@ -443,6 +463,13 @@ fun DownloadAndTryButton(
           modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
         )
         if (!compact) {
+          if (downloadStatus?.fromModelScope == true) {
+            Text(
+              stringResource(R.string.modelscope_source),
+              style = MaterialTheme.typography.labelSmall,
+              modifier = Modifier.padding(horizontal = 4.dp),
+            )
+          }
           val barColor = if (failedWithProgress) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
           LinearProgressIndicator(
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
@@ -455,8 +482,12 @@ fun DownloadAndTryButton(
           val cbRetry = stringResource(R.string.cd_retry_download_icon)
           IconButton(
             onClick = {
-              downloadStarted = true
-              modelManagerViewModel.retryDownloadModel(model = model)
+              if (downloadStatus?.modelScopeConsentError != null) {
+                modelScopeConsentError = downloadStatus.modelScopeConsentError
+              } else {
+                downloadStarted = true
+                modelManagerViewModel.retryDownloadModel(model = model)
+              }
             },
             colors = IconButtonDefaults.iconButtonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -484,6 +515,32 @@ fun DownloadAndTryButton(
     LaunchedEffect(curDownloadProgress) {
       animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
     }
+  }
+
+  modelScopeConsentError?.let { primaryError ->
+    val dismissConsent = {
+      modelManagerViewModel.dismissModelScopeConsent(model)
+      modelScopeConsentError = null
+    }
+    AlertDialog(
+      onDismissRequest = dismissConsent,
+      title = { Text(stringResource(R.string.modelscope_consent_title)) },
+      text = { Text(stringResource(R.string.modelscope_consent_body)) },
+      confirmButton = {
+        TextButton(onClick = {
+          modelManagerViewModel.setModelScopeFallbackEnabled(true)
+          model.modelScopePrimaryError = primaryError
+          modelScopeConsentError = null
+          downloadStarted = true
+          startDownload(configuredHfTokenOrNull(modelManagerViewModel.getHfToken()))
+        }) { Text(stringResource(R.string.modelscope_consent_allow)) }
+      },
+      dismissButton = {
+        TextButton(onClick = dismissConsent) {
+          Text(stringResource(R.string.close))
+        }
+      },
+    )
   }
 
   if (showAgreementAckSheet) {

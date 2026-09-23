@@ -30,6 +30,7 @@ internal const val KEY_CLIENT_IP_POLICY_MODE = "client_ip_policy_mode"
 internal const val KEY_CLIENT_IP_RULES = "client_ip_rules"
 internal const val KEY_BEARER_TOKEN = "bearer_token"
 internal const val KEY_HF_TOKEN = "hf_token"
+internal const val KEY_MODELSCOPE_FALLBACK = "modelscope_fallback"
 internal const val KEY_CORS_ALLOWED_ORIGINS = "cors_allowed_origins"
 internal const val DEFAULT_CORS_ALLOWED_ORIGINS = "*"
 
@@ -83,6 +84,13 @@ internal object ServerPrefsNetwork {
 
   fun getHfToken(prefs: SharedPreferences): String =
     prefs.getString(KEY_HF_TOKEN, "") ?: ""
+
+  fun isModelScopeFallbackEnabled(prefs: SharedPreferences): Boolean =
+    prefs.getBoolean(KEY_MODELSCOPE_FALLBACK, false)
+
+  fun setModelScopeFallbackEnabled(prefs: SharedPreferences, enabled: Boolean) {
+    prefs.edit { putBoolean(KEY_MODELSCOPE_FALLBACK, enabled) }
+  }
 
   fun setHfToken(prefs: SharedPreferences, token: String) {
     prefs.edit { putString(KEY_HF_TOKEN, token.trim()) }

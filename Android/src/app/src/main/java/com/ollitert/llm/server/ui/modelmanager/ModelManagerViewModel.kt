@@ -238,6 +238,20 @@ constructor(
   fun setInferenceConfig(prefsKey: String, configValues: Map<String, Any>) = preferencesRepository.setInferenceConfig(prefsKey, configValues)
   fun getPort(): Int = preferencesRepository.getPort()
   fun getHfToken(): String = preferencesRepository.getHfToken()
+  fun isModelScopeFallbackEnabled(): Boolean = preferencesRepository.isModelScopeFallbackEnabled()
+  fun setModelScopeFallbackEnabled(enabled: Boolean) = preferencesRepository.setModelScopeFallbackEnabled(enabled)
+
+  fun dismissModelScopeConsent(model: Model) {
+    _uiState.update { current ->
+      val status = current.modelDownloadStatus[model.name] ?: return@update current
+      val error = status.modelScopeConsentError ?: return@update current
+      current.copy(
+        modelDownloadStatus = current.modelDownloadStatus + (
+          model.name to status.copy(modelScopeConsentError = null, errorMessage = error)
+        ),
+      )
+    }
+  }
 
   private fun notifyStorageChanged() {
     _uiState.update { it.copy(storageUpdateTrigger = System.currentTimeMillis()) }
@@ -253,6 +267,14 @@ constructor(
   private val downloadStartGate = DownloadStartGate()
 
   fun downloadModel(model: Model) {
+    val previousStatus = uiState.value.modelDownloadStatus[model.name]?.status
+    if (!model.updatable && previousStatus in listOf(
+        ModelDownloadStatusType.FAILED, ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
+      )
+    ) {
+      retryDownloadModel(model)
+      return
+    }
     if (!downloadStartGate.tryAcquire(model.name)) {
       Log.d(TAG, "Ignoring duplicate download start for '${model.name}'")
       return

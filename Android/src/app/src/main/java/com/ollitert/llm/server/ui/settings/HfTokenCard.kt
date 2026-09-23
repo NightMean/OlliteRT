@@ -122,5 +122,7 @@ internal fun HfTokenCard(vm: SettingsViewModel, context: Context) {
       colors = olliteTextFieldColors(),
       modifier = Modifier.fillMaxWidth(),
     )
+    SettingDivider()
+    ToggleCardContent(cardId = CardId.HF_TOKEN, vm = vm)
   }
 }

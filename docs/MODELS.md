@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [Supported Models](#supported-models)
+- [ModelScope Download Fallback](#modelscope-download-fallback)
 - [Which Model Should I Pick?](#which-model-should-i-pick)
 - [Capabilities Explained](#capabilities-explained)
 - [RAM Requirements](#ram-requirements)
@@ -26,7 +27,62 @@
 | **Qwen 2.5 1.5B** | 1.5 GB | 4K | Text | 6 GB | Good text quality for its size, longer context than Gemma 3 1B |
 | **DeepSeek-R1 1.5B** | 1.7 GB | 4K | Text | 6 GB | Reasoning-focused, includes chain-of-thought |
 
-All models are downloaded from [HuggingFace](https://huggingface.co/litert-community) in `.litertlm` format and run on-device via Google's [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) runtime.
+The default models download from [HuggingFace](https://huggingface.co/litert-community) first, in `.litertlm` format, and run on-device via Google's [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) runtime.
+
+## ModelScope Download Fallback
+
+For the seven bundled model revisions, OlliteRT can try a pinned
+[ModelScope](https://modelscope.cn/) download after a Hugging Face connection
+failure or HTTP 408, 429, or 5xx response. No region detection is used.
+
+Fallback is off by default. On an eligible failure, choose **Allow and retry**
+to remember consent for future downloads. You can enable or disable
+**Allow ModelScope fallback** in **Settings > Hugging Face Token**. Settings
+changes use the existing Save action.
+
+Each download tries Hugging Face first and at most one ModelScope alternative.
+For the public Gemma 4 E2B/E4B, Qwen 2.5, and DeepSeek-R1 mappings, an initial
+network or temporary-server failure can switch directly to the alternative
+after consent, without repeating the failed check. If both sources fail, the
+model card reports both errors. The progress row and download notification
+identify ModelScope while it is in use.
+
+The Gemma 3 1B and Gemma 3n E2B/E4B mappings are gated on Hugging Face.
+A timeout, a saved token, or mirror consent does not establish access. These
+models can fall back only after the current transfer has received valid
+model bytes from Hugging Face or its download CDN and then fails due to a
+network interruption. Retries re-establish access; previous access checks
+and saved partial files cannot authorize a new mirror attempt.
+
+Authentication and license failures (401/403), missing files (404), certificate
+errors, cancellation, and storage failures do not trigger fallback. Hugging
+Face credentials are attached only to the initial Hugging Face request for
+these mapped downloads, never to redirects or ModelScope. Accepting fallback
+does not replace any model-license requirements.
+
+The ModelScope copies are community uploads. Downloads use fixed ModelScope
+revisions and must match their bundled size, LiteRT-LM header, and SHA-256
+before being marked complete. This validates the selected ModelScope artifact;
+it does not prove equality with the publisher's Hugging Face file or publisher
+endorsement.
+
+Partial downloads are kept separately for each source, with ModelScope
+partials also keyed by artifact checksum. Bytes from different sources or
+mirror revisions are never appended together. Separate partials can
+temporarily consume additional storage; the unused partial is removed when a
+download completes, along with obsolete checksum-specific partials for that
+same artifact. Cancellation removes the model's partial downloads.
+
+Saved progress prefers the Hugging Face partial when both sources have one.
+A mirror-only partial is labelled ModelScope; a new primary attempt resets
+progress to its own saved bytes, including zero, before connecting.
+
+Mappings are limited to the exact bundled Hugging Face revisions in
+`ModelScopeFallback.kt`, with no query string or only `?download=true`.
+A catalog entry with a new revision, another query string, a custom URL, a ZIP,
+or extra data files does not inherit a fallback automatically. Endpoint
+availability does not guarantee access from every network in China or
+successful inference on a particular phone.
 
 ## Which Model Should I Pick?
 
@@ -164,4 +220,3 @@ Models are stored in the app's private storage directory. You can manage them fr
 ## SDK Compatibility
 
 The LiteRT SDK version bundled with OlliteRT determines which models can run. Some newer models may require an app update even if they appear in a model source. See [SDK Compatibility](SDK_COMPATIBILITY.md) for the full compatibility table.
-

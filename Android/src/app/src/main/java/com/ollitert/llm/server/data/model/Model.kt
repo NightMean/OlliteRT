@@ -259,6 +259,7 @@ data class Model(
   @Volatile var configValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
   var accessToken: String? = null,
+  var modelScopePrimaryError: String? = null,
 
   /** Set to true when a stale version is found on disk and a newer version is available. */
   var updatable: Boolean = false,
@@ -378,6 +379,8 @@ data class ModelDownloadStatus(
   val receivedBytes: Long = 0,
   val errorMessage: String = "",
   val bytesPerSecond: Long = 0,
+  val fromModelScope: Boolean = false,
+  val modelScopeConsentError: String? = null,
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

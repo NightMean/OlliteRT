@@ -20,6 +20,9 @@ import android.content.Context
 import com.ollitert.llm.server.data.model.IMPORTS_DIR
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.download.modelScopeFallback
+import com.ollitert.llm.server.data.storage.TMP_FILE_EXT
+import com.ollitert.llm.server.data.storage.modelScopeStagingFile
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
@@ -114,5 +117,25 @@ class ModelStorageRepositoryTest {
     val model = Model(name = "test-llm", downloadFileName = "model.bin")
     val status = repository.getModelDownloadStatus(model)
     assertEquals(ModelDownloadStatusType.NOT_DOWNLOADED, status.status)
+  }
+
+  @Test
+  fun mirrorPartialIsFoundAfterRestartWithoutBeingTreatedAsACompleteModel() {
+    val model = Model(
+      name = "Gemma3-1B-IT",
+      downloadFileName = "gemma3-1b-it-int4.litertlm",
+      version = "42d538a932e8d5b12e6b3b455f5572560bd60b2c",
+      url = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/42d538a932e8d5b12e6b3b455f5572560bd60b2c/gemma3-1b-it-int4.litertlm",
+    )
+    val primary = File(model.getPath(mockContext, fileName = "${model.downloadFileName}.$TMP_FILE_EXT"))
+    primary.parentFile.mkdirs()
+    val fallback = requireNotNull(modelScopeFallback(model.url))
+    modelScopeStagingFile(primary, fallback.sha256).writeBytes(ByteArray(16))
+
+    val reloaded = DefaultModelStorageRepository(mockContext).getModelDownloadStatus(model)
+
+    assertEquals(ModelDownloadStatusType.PARTIALLY_DOWNLOADED, reloaded.status)
+    assertEquals(16L, reloaded.receivedBytes)
+    assertTrue(reloaded.fromModelScope)
   }
 }

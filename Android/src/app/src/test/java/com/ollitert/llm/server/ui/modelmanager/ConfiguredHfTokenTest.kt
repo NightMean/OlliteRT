@@ -42,6 +42,22 @@ class ConfiguredHfTokenTest {
   fun huggingFaceHostsAndSubdomainsAreAllowed() {
     assertTrue(isHuggingFaceUrl("https://huggingface.co/repo/file.litertlm"))
     assertTrue(isHuggingFaceUrl("https://cdn-lfs.huggingface.co/repo/file.litertlm"))
+    assertTrue(isHuggingFaceUrl("https://huggingface.co:443/repo/file.litertlm"))
+    assertTrue(isHuggingFaceUrl("HTTPS://HUGGINGFACE.CO/repo/file.litertlm"))
+  }
+
+  @Test
+  fun tokensAreNotAllowedOnCleartextOrAmbiguousOrigins() {
+    for (url in listOf(
+        "http://huggingface.co/repo/file.litertlm",
+        "http://cdn-lfs.huggingface.co/repo/file.litertlm",
+        "ftp://huggingface.co/repo/file.litertlm",
+        "https://user@huggingface.co/repo/file.litertlm",
+        "https://huggingface.co:8443/repo/file.litertlm",
+      )
+    ) {
+      assertFalse(url, isHuggingFaceUrl(url))
+    }
   }
 
   @Test

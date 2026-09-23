@@ -86,6 +86,9 @@ The [keep-alive](FAQ.md#what-is-keep-alive--idle-unload) feature automatically u
 
 ### Model download fails
 
+- **Hugging Face is unreachable** - For a supported bundled model, choose **Allow and retry** when offered to enable the [ModelScope fallback](MODELS.md#modelscope-download-fallback). This can also be enabled in Settings under Hugging Face Token. Fallback does not bypass authentication, model licenses, or certificate errors.
+- **No fallback offered for a gated model** - Gemma 3 1B and Gemma 3n E2B/E4B must establish access during the current Hugging Face transfer. A timeout before model data arrives cannot establish permission, even with a stored token and fallback enabled.
+- **ModelScope verification failed** - The downloaded file did not match its pinned size, format, or checksum. It is not accepted as a completed model; retry rather than loading the rejected file.
 - **Gated models** — some models require accepting a license agreement on HuggingFace before downloading. Add your HuggingFace token in Settings and accept the agreement on the model's HuggingFace page
 - **Network errors** — if a download fails mid-way, try again. Downloads resume from where they left off unless being cancelled by user
 - **No internet** — the app needs an internet connection to download models. After downloading, the app works fully offline.

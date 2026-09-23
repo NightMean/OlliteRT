@@ -20,6 +20,7 @@ import com.ollitert.llm.server.data.model.IMPORTS_DIR
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.download.modelScopeFallback
 
 import android.content.Context
 import android.util.Log
@@ -98,13 +99,13 @@ class ModelFileManager(
     }
   }
 
-  fun isModelPartiallyDownloaded(model: Model): Boolean {
-    if (model.localModelFilePathOverride.isNotEmpty()) {
-      return false
-    }
-    val tmpFilePath =
-      model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
-    return File(tmpFilePath).exists()
+  fun isModelPartiallyDownloaded(model: Model): Boolean = partialDownloadFile(model) != null
+
+  private fun partialDownloadFile(model: Model): File? {
+    if (model.localModelFilePathOverride.isNotEmpty()) return null
+    val primary = File(model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT"))
+    val mirror = modelScopeFallback(model.url)?.let { modelScopeStagingFile(primary, it.sha256) }
+    return listOfNotNull(primary, mirror).firstOrNull { it.isFile }
   }
 
   fun isModelDownloaded(model: Model): Boolean {
@@ -168,13 +169,11 @@ class ModelFileManager(
     var status = ModelDownloadStatusType.NOT_DOWNLOADED
     var receivedBytes = 0L
     var totalBytes = 0L
+    val partial = partialDownloadFile(model)
 
-    if (isModelPartiallyDownloaded(model = model)) {
+    if (partial != null) {
       status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-      val tmpFilePath =
-        model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
-      val tmpFile = File(tmpFilePath)
-      receivedBytes = tmpFile.length()
+      receivedBytes = partial.length()
       totalBytes = model.totalBytes
       Log.d(TAG, "${model.name} is partially downloaded. $receivedBytes/$totalBytes")
     } else if (isModelDownloaded(model = model)) {
@@ -188,6 +187,7 @@ class ModelFileManager(
       status = status,
       receivedBytes = receivedBytes,
       totalBytes = totalBytes,
+      fromModelScope = partial?.extension == "modelscope",
     )
   }
 }

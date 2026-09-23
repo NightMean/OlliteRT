@@ -19,6 +19,9 @@ package com.ollitert.llm.server.data.storage
 
 // Keys used to send/receive data to WorkManager.
 const val KEY_MODEL_URL = "KEY_MODEL_URL"
+const val KEY_MODEL_MODELSCOPE_PRIMARY_ERROR = "KEY_MODEL_MODELSCOPE_PRIMARY_ERROR"
+const val KEY_MODEL_MODELSCOPE_CONSENT_ERROR = "KEY_MODEL_MODELSCOPE_CONSENT_ERROR"
+const val KEY_MODEL_FROM_MODELSCOPE = "KEY_MODEL_FROM_MODELSCOPE"
 const val KEY_MODEL_NAME = "KEY_MODEL_NAME"
 const val KEY_MODEL_COMMIT_HASH = "KEY_MODEL_COMMIT_HASH"
 const val KEY_MODEL_DOWNLOAD_MODEL_DIR = "KEY_MODEL_DOWNLOAD_MODEL_DIR"
@@ -36,6 +39,9 @@ const val KEY_MODEL_START_UNZIPPING = "KEY_MODEL_START_UNZIPPING"
 
 // The extension of the tmp download files.
 const val TMP_FILE_EXT = "olliterttmp"
+
+internal fun modelScopeStagingFile(primary: java.io.File, sha256: String): java.io.File =
+  java.io.File("${primary.path}.$sha256.modelscope")
 
 // Suffix of the sibling temp directory used during zip extraction. The extracted
 // tree is renamed into its final name only after a complete, successful unzip, so

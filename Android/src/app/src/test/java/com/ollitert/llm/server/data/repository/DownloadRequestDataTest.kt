@@ -18,6 +18,18 @@ import org.junit.Test
 
 class DownloadRequestDataTest {
   @Test
+  fun preflightFailureSurvivesWorkerEnqueueWithoutChangingArtifactIdentity() {
+    val model = Model(
+      name = "model", url = "https://huggingface.co/org/model", version = "pinned",
+      modelScopePrimaryError = "DNS failure",
+    )
+    val data = buildDownloadRequestData(model)
+    assertEquals("DNS failure", data.getString("KEY_MODEL_MODELSCOPE_PRIMARY_ERROR"))
+    assertEquals("https://huggingface.co/org/model", data.getString("KEY_MODEL_URL"))
+    assertEquals("pinned", data.getString("KEY_MODEL_COMMIT_HASH"))
+  }
+
+  @Test
   fun buildDownloadRequestDataUsesCanonicalTotalIncludingExtraFilesOnce() {
     val model =
       Model(

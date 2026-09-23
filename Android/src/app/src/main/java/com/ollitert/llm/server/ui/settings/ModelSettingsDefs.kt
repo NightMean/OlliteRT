@@ -40,6 +40,17 @@ val HF_TOKEN = SettingDef.TextInput(
   write = { repo, v -> repo.setHfToken(v) },
 )
 
+val MODELSCOPE_FALLBACK = SettingDef.Toggle(
+  key = "modelscope_fallback",
+  labelRes = R.string.modelscope_fallback_label,
+  descriptionRes = R.string.modelscope_fallback_description,
+  card = CardId.HF_TOKEN,
+  default = false,
+  prefsKey = "modelscope_fallback",
+  read = { it.isModelScopeFallbackEnabled() },
+  write = { repo, value -> repo.setModelScopeFallbackEnabled(value) },
+)
+
 // ─── Model Behaviour Card ─────────────────────────────────────────────
 
 val CUSTOM_PROMPTS = SettingDef.Toggle(
