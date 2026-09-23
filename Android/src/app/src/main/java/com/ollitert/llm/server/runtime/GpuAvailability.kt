@@ -19,6 +19,7 @@ package com.ollitert.llm.server.runtime
 
 import android.os.Build
 import android.util.Log
+import com.ollitert.llm.server.common.SOC
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.repository.RequestLogStore
@@ -33,7 +34,7 @@ object GpuAvailability {
   // true (because /system/vendor/ is a symlink to /vendor/).
   val isOpenClAccessible: Boolean by lazy {
     Log.i(TAG, "OpenCL probe: device=${Build.DEVICE} model=${Build.MODEL} " +
-      "SOC=${Build.SOC_MODEL} SDK=${Build.VERSION.SDK_INT}")
+      "SOC=$SOC SDK=${Build.VERSION.SDK_INT}")
 
     val probeResults = StringBuilder()
 

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.supportsRuntimeNotificationPermission
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 
@@ -50,19 +51,14 @@ fun checkNotificationPermissionAndStartDownload(
   launcher: ManagedActivityResultLauncher<String, Boolean>,
   modelManagerViewModel: ModelManagerViewModel,
   model: Model,
+  sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
-  // Check permission
-  when (PackageManager.PERMISSION_GRANTED) {
-    // Already got permission. Call the lambda.
-    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) -> {
-      modelManagerViewModel.downloadModel(model = model)
-    }
-
-    // Otherwise, ask for permission
-    else -> {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-      }
-    }
+  if (!supportsRuntimeNotificationPermission(sdkInt) ||
+    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+      PackageManager.PERMISSION_GRANTED
+  ) {
+    modelManagerViewModel.downloadModel(model = model)
+  } else {
+    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
   }
 }

@@ -43,6 +43,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -57,6 +58,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.supportsRuntimeNotificationPermission
 import com.ollitert.llm.server.worker.DownloadWorker
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -157,6 +159,7 @@ class DownloadRepository @Inject constructor(
   fun observerWorkerProgress(
     workerId: UUID,
     model: Model,
+    sdkInt: Int = Build.VERSION.SDK_INT,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
     val liveData = workManager.getWorkInfoByIdLiveData(workerId)
@@ -210,6 +213,7 @@ class DownloadRepository @Inject constructor(
                 title = context.getString(R.string.notification_title_success),
                 text = context.getString(R.string.notification_content_success).format(model.name),
                 isSuccess = true,
+                sdkInt = sdkInt,
               )
             } finally {
               observer?.let { liveData.removeObserver(it) }
@@ -232,6 +236,7 @@ class DownloadRepository @Inject constructor(
                   title = context.getString(R.string.notification_title_fail),
                   text = context.getString(R.string.notification_content_fail).format(model.name),
                   isSuccess = false,
+                  sdkInt = sdkInt,
                 )
               }
               onStatusUpdated(
@@ -255,7 +260,7 @@ class DownloadRepository @Inject constructor(
     liveData.observeForever(observer)
   }
 
-  private fun sendNotification(title: String, text: String, isSuccess: Boolean) {
+  private fun sendNotification(title: String, text: String, isSuccess: Boolean, sdkInt: Int) {
     // Don't send notification if app is in foreground.
     if (lifecycleProvider.isAppInForeground) {
       return
@@ -264,7 +269,7 @@ class DownloadRepository @Inject constructor(
     val channelId = "download_notification"
     val channelName = context.getString(R.string.notif_channel_download_name)
 
-    // Create the NotificationChannel (always available since minSdk 31)
+    // Notification channels are available on all supported Android versions.
     val importance = NotificationManager.IMPORTANCE_HIGH
     val channel = NotificationChannel(channelId, channelName, importance)
     val notificationManager =
@@ -299,10 +304,11 @@ class DownloadRepository @Inject constructor(
 
     with(NotificationManagerCompat.from(context)) {
       if (
+        supportsRuntimeNotificationPermission(sdkInt) &&
         ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
           PackageManager.PERMISSION_GRANTED
       ) {
-        // POST_NOTIFICATIONS not granted -- notification silently suppressed
+        Log.i(TAG, "Download notification not posted: POST_NOTIFICATIONS denied")
         return
       }
       notify(1, builder.build())
