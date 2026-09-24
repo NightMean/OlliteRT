@@ -16,82 +16,82 @@
 -->
 
 <resources>
-  <string name="all" translatable="false">All</string>
-  <string name="baseline" translatable="false">Baseline</string>
-  <string name="basic_info" translatable="false">Basic info</string>
-  <string name="benchmark" translatable="false">Benchmark</string>
-  <string name="benchmark_comparison_help_title" translatable="false">How to compare benchmark runs</string>
-  <string name="benchmark_comparison_help_content" translatable="false">Compare benchmark runs by tapping the **Baseline** chip on any run result card to set the run as the comparison baseline. We\'ll automatically calculate and display the percentage differences in **all other** run result cards.</string>
-  <string name="benchmark_model" translatable="false">Benchmark model</string>
-  <string name="benchmark_results" translatable="false">Benchmark results</string>
-  <string name="benchmark_no_results" translatable="false">No benchmark results</string>
-  <string name="benchmark_tokens_limit_message" translatable="false">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
-  <string name="badge_best_overall" translatable="false">Best overall</string>
-  <string name="badge_new" translatable="false">New</string>
-  <string name="badge_fastest" translatable="false">Fastest</string>
-  <string name="cancel" translatable="false">Cancel</string>
-  <string name="checking_access" translatable="false">Checking access...</string>
-  <string name="close" translatable="false">Close</string>
-  <string name="collapse_all" translatable="false">Collapse all</string>
-  <string name="continue_button_label" translatable="false">Continue</string>
-  <string name="copy" translatable="false">Copy</string>
-  <string name="delete" translatable="false">Delete</string>
-  <string name="delete_benchmark_result_dialog_title" translatable="false">Delete benchmark result</string>
-  <string name="delete_benchmark_result_dialog_content" translatable="false">Are you sure you want to delete the benchmark result?</string>
-  <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
-  <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%1$s\"?</string>
-  <string name="dismiss" translatable="false">Dismiss</string>
-  <string name="download" translatable="false">Download</string>
-  <string name="expand_all" translatable="false">Expand all</string>
-  <string name="learn_more" translatable="false">Learn more and see model license</string>
-  <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
-  <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
-  <string name="memory_warning_title" translatable="false">Memory Warning</string>
-  <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
-  <string name="model_list_imported_models_title" translatable="false">Imported models</string>
-  <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
-  <string name="notification_content_fail" translatable="false">Model "%s" could not be downloaded</string>
-  <string name="notification_title_fail" translatable="false">Model download failed</string>
-  <string name="notification_title_success" translatable="false">Model download succeeded</string>
-  <string name="ok" translatable="false">OK</string>
-  <string name="enabled" translatable="false">Enabled</string>
-  <string name="results" translatable="false">Results</string>
-  <string name="run_benchmark" translatable="false">Run benchmark</string>
-  <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
-  <string name="benchmark_server_conflict_title" translatable="false">Server is running</string>
-  <string name="benchmark_server_conflict_body" translatable="false">Running a benchmark while the server has a model loaded may cause out-of-memory errors or GPU resource conflicts. Please stop the server first, then try again.</string>
-  <string name="benchmark_error_title" translatable="false">Benchmark failed</string>
-  <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
-  <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
-  <string name="select_model" translatable="false">Select a model</string>
-  <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
-  <string name="try_it" translatable="false">Start Server</string>
-  <string name="repo_list_heading" translatable="false">Model Sources</string>
-  <string name="repo_list_subheading" translatable="false">Manage the sources your models are downloaded from.</string>
-  <string name="repo_info_button" translatable="false">About model sources</string>
-  <string name="repo_info_title" translatable="false">About Model Sources</string>
-  <string name="repo_info_body" translatable="false">Model sources provide lists of models available for download. OlliteRT ships with a built-in source that is kept up to date automatically.\n\nYou can add custom sources by providing a URL to a compatible model list. Disabling a source hides its models from the download list but does not remove any models already downloaded.\n\nModels that appear in multiple sources are shown once, using the first enabled source.</string>
-  <string name="search_models" translatable="false">Search models…</string>
-  <string name="filter_all" translatable="false">All</string>
-  <string name="filter_downloaded" translatable="false">Downloaded</string>
-  <string name="filter_available" translatable="false">Available</string>
-  <string name="filter_imported" translatable="false">Imported</string>
-  <string name="no_models_match_search" translatable="false">No models match your search</string>
-  <string name="no_models_version_too_old" translatable="false">No compatible models found. Update to version %1$s or newer.</string>
-  <string name="no_models_empty_source" translatable="false">No models found in your model sources. Try refreshing or adding a new source.</string>
-  <string name="no_models_not_compatible" translatable="false">Models were found but none could be loaded. The model source may contain invalid data.</string>
-  <string name="models_hidden_by_version" translatable="false">%1$s hidden — requires a newer app version</string>
-  <string name="retry" translatable="false">Retry</string>
-  <string name="wifi_warning_title" translatable="false">No Wi-Fi Connection</string>
-  <string name="wifi_warning_content_prefix" translatable="false">"The server can\'t accept connections from other devices on the network without Wi-Fi. It will still be reachable on this device at "</string>
-  <string name="wifi_warning_content_suffix" translatable="false">" — useful for on-device clients like Termux."</string>
-  <string name="wifi_warning_start_anyway" translatable="false">Start anyway</string>
-  <string name="view_results" translatable="false">View results</string>
-  <plurals name="runs" translatable="false">
+  <string name="all">All</string>
+  <string name="baseline">Baseline</string>
+  <string name="basic_info">Basic info</string>
+  <string name="benchmark">Benchmark</string>
+  <string name="benchmark_comparison_help_title">How to compare benchmark runs</string>
+  <string name="benchmark_comparison_help_content">Compare benchmark runs by tapping the **Baseline** chip on any run result card to set the run as the comparison baseline. We\'ll automatically calculate and display the percentage differences in **all other** run result cards.</string>
+  <string name="benchmark_model">Benchmark model</string>
+  <string name="benchmark_results">Benchmark results</string>
+  <string name="benchmark_no_results">No benchmark results</string>
+  <string name="benchmark_tokens_limit_message">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
+  <string name="badge_best_overall">Best overall</string>
+  <string name="badge_new">New</string>
+  <string name="badge_fastest">Fastest</string>
+  <string name="cancel">Cancel</string>
+  <string name="checking_access">Checking access...</string>
+  <string name="close">Close</string>
+  <string name="collapse_all">Collapse all</string>
+  <string name="continue_button_label">Continue</string>
+  <string name="copy">Copy</string>
+  <string name="delete">Delete</string>
+  <string name="delete_benchmark_result_dialog_title">Delete benchmark result</string>
+  <string name="delete_benchmark_result_dialog_content">Are you sure you want to delete the benchmark result?</string>
+  <string name="confirm_delete_model_dialog_title">Delete download</string>
+  <string name="confirm_delete_model_dialog_content">Are you sure you want to delete the downloaded model \"%1$s\"?</string>
+  <string name="dismiss">Dismiss</string>
+  <string name="download">Download</string>
+  <string name="expand_all">Expand all</string>
+  <string name="learn_more">Learn more and see model license</string>
+  <string name="memory_warning_content">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
+  <string name="memory_warning_proceed_anyway">Proceed anyway</string>
+  <string name="memory_warning_title">Memory Warning</string>
+  <string name="max_tokens_warning_message">Setting max tokens above 10000 may cause app to be unstable.</string>
+  <string name="model_list_imported_models_title">Imported models</string>
+  <string name="notification_content_success">Model "%s" has been downloaded</string>
+  <string name="notification_content_fail">Model "%s" could not be downloaded</string>
+  <string name="notification_title_fail">Model download failed</string>
+  <string name="notification_title_success">Model download succeeded</string>
+  <string name="ok">OK</string>
+  <string name="enabled">Enabled</string>
+  <string name="results">Results</string>
+  <string name="run_benchmark">Run benchmark</string>
+  <string name="run_benchmark_confirmation_msg">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
+  <string name="benchmark_server_conflict_title">Server is running</string>
+  <string name="benchmark_server_conflict_body">Running a benchmark while the server has a model loaded may cause out-of-memory errors or GPU resource conflicts. Please stop the server first, then try again.</string>
+  <string name="benchmark_error_title">Benchmark failed</string>
+  <string name="running_benchmark_msg">Running model benchmark...</string>
+  <string name="select_downloaded_model">Select a downloaded model</string>
+  <string name="select_model">Select a model</string>
+  <string name="tap_to_see_value">Tap on graph to see value</string>
+  <string name="try_it">Start Server</string>
+  <string name="repo_list_heading">Model Sources</string>
+  <string name="repo_list_subheading">Manage the sources your models are downloaded from.</string>
+  <string name="repo_info_button">About model sources</string>
+  <string name="repo_info_title">About Model Sources</string>
+  <string name="repo_info_body">Model sources provide lists of models available for download. OlliteRT ships with a built-in source that is kept up to date automatically.\n\nYou can add custom sources by providing a URL to a compatible model list. Disabling a source hides its models from the download list but does not remove any models already downloaded.\n\nModels that appear in multiple sources are shown once, using the first enabled source.</string>
+  <string name="search_models">Search models…</string>
+  <string name="filter_all">All</string>
+  <string name="filter_downloaded">Downloaded</string>
+  <string name="filter_available">Available</string>
+  <string name="filter_imported">Imported</string>
+  <string name="no_models_match_search">No models match your search</string>
+  <string name="no_models_version_too_old">No compatible models found. Update to version %1$s or newer.</string>
+  <string name="no_models_empty_source">No models found in your model sources. Try refreshing or adding a new source.</string>
+  <string name="no_models_not_compatible">Models were found but none could be loaded. The model source may contain invalid data.</string>
+  <string name="models_hidden_by_version">%1$s hidden — requires a newer app version</string>
+  <string name="retry">Retry</string>
+  <string name="wifi_warning_title">No Wi-Fi Connection</string>
+  <string name="wifi_warning_content_prefix">"The server can\'t accept connections from other devices on the network without Wi-Fi. It will still be reachable on this device at "</string>
+  <string name="wifi_warning_content_suffix">" — useful for on-device clients like Termux."</string>
+  <string name="wifi_warning_start_anyway">Start anyway</string>
+  <string name="view_results">View results</string>
+  <plurals name="runs">
     <item quantity="one">%d run</item>
     <item quantity="other">%d runs</item>
   </plurals>
-  <plurals name="models_count" translatable="false">
+  <plurals name="models_count">
     <item quantity="one">%d model</item>
     <item quantity="other">%d models</item>
   </plurals>
@@ -110,7 +110,7 @@
   <string name="cd_help">Help</string>
 
   <!-- Fork: LLM HTTP foreground service notification channel -->
-  <string name="llm_http_channel_name" translatable="false">OlliteRT Server</string>
+  <string name="llm_http_channel_name">OlliteRT Server</string>
 
   <!-- Dialog titles and body text -->
   <string name="dialog_clear_logs_title">Delete All Activity Log Entries</string>
@@ -228,10 +228,10 @@
   <string name="notif_model_load_failed_title">Model Load Failed</string>
   <string name="notif_update_available_title">OlliteRT Update Available</string>
   <string name="notif_update_available_body">Version %1$s is available</string>
-  <string name="notif_cross_channel_title_beta" translatable="false">New Release on Beta Channel</string>
-  <string name="notif_cross_channel_title_dev" translatable="false">New Release on Dev Channel</string>
-  <string name="notif_cross_channel_title_stable" translatable="false">New Release on Stable Channel</string>
-  <string name="notif_cross_channel_body" translatable="false">OlliteRT v%1$s is available</string>
+  <string name="notif_cross_channel_title_beta">New Release on Beta Channel</string>
+  <string name="notif_cross_channel_title_dev">New Release on Dev Channel</string>
+  <string name="notif_cross_channel_title_stable">New Release on Stable Channel</string>
+  <string name="notif_cross_channel_body">OlliteRT v%1$s is available</string>
 
   <!-- Toast messages -->
   <string name="toast_settings_saved">Settings saved</string>
@@ -252,626 +252,626 @@
   <!-- Settings screen labels -->
 
   <!-- Settings heading -->
-  <string name="settings_heading" translatable="false">Global Settings</string>
-  <string name="settings_subheading" translatable="false">Configure server behavior, authentication, and preferences</string>
-  <string name="settings_search_placeholder" translatable="false">Search settings…</string>
-  <string name="settings_search_clear" translatable="false">Clear search</string>
-  <string name="settings_no_results" translatable="false">No settings match \"%1$s\"</string>
+  <string name="settings_heading">Global Settings</string>
+  <string name="settings_subheading">Configure server behavior, authentication, and preferences</string>
+  <string name="settings_search_placeholder">Search settings…</string>
+  <string name="settings_search_clear">Clear search</string>
+  <string name="settings_no_results">No settings match \"%1$s\"</string>
 
   <!-- Settings: Save tooltip -->
-  <string name="settings_save_tooltip" translatable="false">Save settings</string>
+  <string name="settings_save_tooltip">Save settings</string>
 
   <!-- Settings: Unsaved changes banner -->
-  <string name="settings_unsaved_changes_banner" translatable="false">You have unsaved changes</string>
+  <string name="settings_unsaved_changes_banner">You have unsaved changes</string>
 
   <!-- Settings: General card -->
-  <string name="settings_card_general" translatable="false">General</string>
-  <string name="settings_keep_screen_awake" translatable="false">Keep Screen Awake</string>
-  <string name="settings_keep_screen_awake_desc" translatable="false">Prevent screen from turning off while app is open</string>
-  <string name="settings_floating_monitor" translatable="false">Floating Monitor</string>
-  <string name="settings_floating_monitor_desc" translatable="false">Show live server metrics over other apps while OlliteRT is in the background. Draw over app permission is required</string>
-  <string name="settings_reset_floating_monitor_position" translatable="false">Reset floating window position</string>
-  <string name="settings_reset_floating_monitor_position_desc" translatable="false">Move it back to its default screen position.</string>
-  <string name="toast_floating_monitor_position_reset" translatable="false">Floating window position reset</string>
-  <string name="notif_action_reset_monitor_position" translatable="false">Reset position</string>
-  <string name="settings_auto_expand_logs" translatable="false">Auto-Expand Logs</string>
-  <string name="settings_auto_expand_logs_desc" translatable="false">Show full request and response bodies in the Logs tab</string>
-  <string name="settings_wrap_log_text" translatable="false">Wrap Lines in Log Cards</string>
-  <string name="settings_wrap_log_text_desc" translatable="false">Wrap long lines in log cards instead of scrolling horizontally</string>
-  <string name="settings_stream_response_preview" translatable="false">Stream Response Preview</string>
-  <string name="settings_stream_response_preview_desc" translatable="false">Show model output as it generates in the Logs tab for streaming requests</string>
-  <string name="settings_compact_image_data" translatable="false">Compact Image Data in Logs</string>
-  <string name="settings_compact_image_data_desc" translatable="false">Replace inline base64 image data with a size placeholder when storing log entries. Prevents UI lag from rendering multi-MB image payloads. Disable for full raw data in logs (may cause lag with large images)</string>
-  <string name="settings_resolve_client_hostnames" translatable="false">Resolve Client Hostnames</string>
-  <string name="settings_resolve_client_hostnames_desc" translatable="false">Show client device names instead of IP addresses in log entries. Uses reverse DNS lookup which may add slight latency to request logging</string>
-  <string name="settings_hide_health_logs" translatable="false">Hide Health Logs</string>
-  <string name="settings_hide_health_logs_desc" translatable="false">Suppress /health endpoint entries from the Logs tab. Useful when monitoring tools poll frequently and create noise</string>
-  <string name="settings_clear_logs_on_stop" translatable="false">Clear Logs on Stop</string>
-  <string name="settings_clear_logs_on_stop_desc" translatable="false">Automatically clear in-memory logs when the server stops</string>
-  <string name="settings_confirm_clear_logs" translatable="false">Confirm Before Clearing Logs</string>
-  <string name="settings_confirm_clear_logs_desc" translatable="false">Show a confirmation dialog before clearing logs</string>
-  <string name="settings_keep_partial_response" translatable="false">Keep Partial Response</string>
-  <string name="settings_keep_partial_response_desc" translatable="false">Preserve incomplete response text in logs when a streaming request is cancelled by the client</string>
-  <string name="settings_reject_when_busy" translatable="false">Reject Requests When Busy</string>
-  <string name="settings_reject_when_busy_desc" translatable="false">Return an error immediately when a request is already being processed, instead of queueing</string>
+  <string name="settings_card_general">General</string>
+  <string name="settings_keep_screen_awake">Keep Screen Awake</string>
+  <string name="settings_keep_screen_awake_desc">Prevent screen from turning off while app is open</string>
+  <string name="settings_floating_monitor">Floating Monitor</string>
+  <string name="settings_floating_monitor_desc">Show live server metrics over other apps while OlliteRT is in the background. Draw over app permission is required</string>
+  <string name="settings_reset_floating_monitor_position">Reset floating window position</string>
+  <string name="settings_reset_floating_monitor_position_desc">Move it back to its default screen position.</string>
+  <string name="toast_floating_monitor_position_reset">Floating window position reset</string>
+  <string name="notif_action_reset_monitor_position">Reset position</string>
+  <string name="settings_auto_expand_logs">Auto-Expand Logs</string>
+  <string name="settings_auto_expand_logs_desc">Show full request and response bodies in the Logs tab</string>
+  <string name="settings_wrap_log_text">Wrap Lines in Log Cards</string>
+  <string name="settings_wrap_log_text_desc">Wrap long lines in log cards instead of scrolling horizontally</string>
+  <string name="settings_stream_response_preview">Stream Response Preview</string>
+  <string name="settings_stream_response_preview_desc">Show model output as it generates in the Logs tab for streaming requests</string>
+  <string name="settings_compact_image_data">Compact Image Data in Logs</string>
+  <string name="settings_compact_image_data_desc">Replace inline base64 image data with a size placeholder when storing log entries. Prevents UI lag from rendering multi-MB image payloads. Disable for full raw data in logs (may cause lag with large images)</string>
+  <string name="settings_resolve_client_hostnames">Resolve Client Hostnames</string>
+  <string name="settings_resolve_client_hostnames_desc">Show client device names instead of IP addresses in log entries. Uses reverse DNS lookup which may add slight latency to request logging</string>
+  <string name="settings_hide_health_logs">Hide Health Logs</string>
+  <string name="settings_hide_health_logs_desc">Suppress /health endpoint entries from the Logs tab. Useful when monitoring tools poll frequently and create noise</string>
+  <string name="settings_clear_logs_on_stop">Clear Logs on Stop</string>
+  <string name="settings_clear_logs_on_stop_desc">Automatically clear in-memory logs when the server stops</string>
+  <string name="settings_confirm_clear_logs">Confirm Before Clearing Logs</string>
+  <string name="settings_confirm_clear_logs_desc">Show a confirmation dialog before clearing logs</string>
+  <string name="settings_keep_partial_response">Keep Partial Response</string>
+  <string name="settings_keep_partial_response_desc">Preserve incomplete response text in logs when a streaming request is cancelled by the client</string>
+  <string name="settings_reject_when_busy">Reject Requests When Busy</string>
+  <string name="settings_reject_when_busy_desc">Return an error immediately when a request is already being processed, instead of queueing</string>
 
   <!-- Settings: Hugging Face Token card -->
-  <string name="settings_card_hf_token" translatable="false">Hugging Face Token</string>
-  <string name="settings_hf_token_desc" translatable="false">Required for downloading models from Hugging Face. Get your token from</string>
+  <string name="settings_card_hf_token">Hugging Face Token</string>
+  <string name="settings_hf_token_desc">Required for downloading models from Hugging Face. Get your token from</string>
   <string name="settings_hf_token_link_text" translatable="false">huggingface.co/settings/tokens</string>
   <string name="settings_hf_token_placeholder" translatable="false">hf_…</string>
-  <string name="settings_hf_token_hide" translatable="false">Hide token</string>
-  <string name="settings_hf_token_show" translatable="false">Show token</string>
-  <string name="settings_hf_token_clear" translatable="false">Clear token</string>
+  <string name="settings_hf_token_hide">Hide token</string>
+  <string name="settings_hf_token_show">Show token</string>
+  <string name="settings_hf_token_clear">Clear token</string>
 
   <!-- Settings: Server Configuration card -->
-  <string name="settings_card_server_config" translatable="false">Server Configuration</string>
-  <string name="settings_bind_mode_label" translatable="false">Listen on</string>
-  <string name="settings_bind_mode_desc" translatable="false">Choose which network interfaces accept connections. Changes require a server restart</string>
-  <string name="settings_bind_mode_all_interfaces" translatable="false">Local network (all interfaces) [0.0.0.0]</string>
-  <string name="settings_bind_mode_loopback" translatable="false">This device only (loopback) [127.0.0.1]</string>
-  <string name="settings_bind_mode_custom" translatable="false">Custom IP address</string>
-  <string name="settings_custom_bind_address_label" translatable="false">Custom bind address</string>
-  <string name="settings_custom_bind_address_desc" translatable="false">Numeric IPv4 or IPv6 address assigned to this device. The server cannot start if the address is unavailable</string>
-  <string name="settings_custom_bind_address_placeholder" translatable="false">e.g. 192.168.1.50</string>
-  <string name="settings_host_port_label" translatable="false">Host Port (1024–65535)</string>
+  <string name="settings_card_server_config">Server Configuration</string>
+  <string name="settings_bind_mode_label">Listen on</string>
+  <string name="settings_bind_mode_desc">Choose which network interfaces accept connections. Changes require a server restart</string>
+  <string name="settings_bind_mode_all_interfaces">Local network (all interfaces) [0.0.0.0]</string>
+  <string name="settings_bind_mode_loopback">This device only (loopback) [127.0.0.1]</string>
+  <string name="settings_bind_mode_custom">Custom IP address</string>
+  <string name="settings_custom_bind_address_label">Custom bind address</string>
+  <string name="settings_custom_bind_address_desc">Numeric IPv4 or IPv6 address assigned to this device. The server cannot start if the address is unavailable</string>
+  <string name="settings_custom_bind_address_placeholder">e.g. 192.168.1.50</string>
+  <string name="settings_host_port_label">Host Port (1024–65535)</string>
   <string name="settings_host_port_placeholder" translatable="false">8000</string>
-  <string name="settings_host_port_desc" translatable="false">Default: 8000. Requires server restart to take effect</string>
-  <string name="settings_client_ip_policy_label" translatable="false">Client IP access</string>
-  <string name="settings_client_ip_policy_desc" translatable="false">Filter clients by their direct network address before authentication and CORS</string>
-  <string name="settings_client_ip_policy_allow_all" translatable="false">Allow all clients</string>
-  <string name="settings_client_ip_policy_allow_only" translatable="false">Allowlist</string>
-  <string name="settings_client_ip_policy_block_listed" translatable="false">Blocklist</string>
-  <string name="settings_client_ip_rules_label" translatable="false">IP addresses and networks</string>
-  <string name="settings_client_ip_rules_desc" translatable="false">IPv4, IPv6, and CIDR rules. Hostnames are not supported. Saved changes apply without restarting the server</string>
+  <string name="settings_host_port_desc">Default: 8000. Requires server restart to take effect</string>
+  <string name="settings_client_ip_policy_label">Client IP access</string>
+  <string name="settings_client_ip_policy_desc">Filter clients by their direct network address before authentication and CORS</string>
+  <string name="settings_client_ip_policy_allow_all">Allow all clients</string>
+  <string name="settings_client_ip_policy_allow_only">Allowlist</string>
+  <string name="settings_client_ip_policy_block_listed">Blocklist</string>
+  <string name="settings_client_ip_rules_label">IP addresses and networks</string>
+  <string name="settings_client_ip_rules_desc">IPv4, IPv6, and CIDR rules. Hostnames are not supported. Saved changes apply without restarting the server</string>
   <string name="settings_client_ip_rules_placeholder" translatable="false">192.168.1.25\n192.168.1.0/24</string>
-  <string name="settings_client_ip_rules_none" translatable="false">No rules configured</string>
-  <string name="settings_client_ip_rules_edit" translatable="false">Edit</string>
-  <string name="settings_client_ip_rules_dialog_title" translatable="false">Edit IP rules</string>
-  <string name="settings_client_ip_rules_dialog_help" translatable="false">Paste one rule per line or separate rules with commas. Existing rules can be edited or replaced here.</string>
-  <string name="settings_client_ip_rules_apply" translatable="false">Apply rules</string>
-  <plurals name="settings_client_ip_rules_count" translatable="false">
+  <string name="settings_client_ip_rules_none">No rules configured</string>
+  <string name="settings_client_ip_rules_edit">Edit</string>
+  <string name="settings_client_ip_rules_dialog_title">Edit IP rules</string>
+  <string name="settings_client_ip_rules_dialog_help">Paste one rule per line or separate rules with commas. Existing rules can be edited or replaced here.</string>
+  <string name="settings_client_ip_rules_apply">Apply rules</string>
+  <plurals name="settings_client_ip_rules_count">
     <item quantity="one">%1$d active rule</item>
     <item quantity="other">%1$d active rules</item>
   </plurals>
-  <string name="settings_bearer_token" translatable="false">Require Bearer Token</string>
-  <string name="settings_bearer_token_desc" translatable="false">Protect the API with a bearer token. Clients must include it in the Authorization header</string>
-  <string name="settings_bearer_copy_tooltip" translatable="false">Copy token</string>
-  <string name="settings_bearer_regenerate_tooltip" translatable="false">Regenerate token</string>
-  <string name="settings_cors_label" translatable="false">CORS Allowed Origins</string>
+  <string name="settings_bearer_token">Require Bearer Token</string>
+  <string name="settings_bearer_token_desc">Protect the API with a bearer token. Clients must include it in the Authorization header</string>
+  <string name="settings_bearer_copy_tooltip">Copy token</string>
+  <string name="settings_bearer_regenerate_tooltip">Regenerate token</string>
+  <string name="settings_cors_label">CORS Allowed Origins</string>
   <string name="settings_cors_placeholder" translatable="false">*</string>
-  <string name="settings_cors_clear" translatable="false">Clear origins</string>
-  <string name="settings_cors_desc" translatable="false">Origins allowed to make cross-origin requests. Use * to allow all, comma-separated URLs for specific origins (e.g. http://localhost:3000, https://my-app.com), or leave blank to disable CORS</string>
-  <string name="settings_notif_request_count" translatable="false">Show Request Count in Notification</string>
-  <string name="settings_notif_request_count_desc" translatable="false">Update the foreground notification after each request to show the total request count</string>
+  <string name="settings_cors_clear">Clear origins</string>
+  <string name="settings_cors_desc">Origins allowed to make cross-origin requests. Use * to allow all, comma-separated URLs for specific origins (e.g. http://localhost:3000, https://my-app.com), or leave blank to disable CORS</string>
+  <string name="settings_notif_request_count">Show Request Count in Notification</string>
+  <string name="settings_notif_request_count_desc">Update the foreground notification after each request to show the total request count</string>
 
   <!-- Settings: Auto-Launch &amp; Behavior card -->
-  <string name="settings_card_auto_launch" translatable="false">Auto-Launch &amp; Behavior</string>
-  <string name="settings_default_model_label" translatable="false">Default Model</string>
-  <string name="settings_no_downloaded_models" translatable="false">No downloaded models. Download a model first from the Models tab</string>
-  <string name="settings_none_manual_start" translatable="false">None (manual start)</string>
-  <string name="settings_default_model_desc" translatable="false">Automatically load this model when the app is launched</string>
-  <string name="settings_start_on_boot" translatable="false">Start on Boot</string>
-  <string name="settings_start_on_boot_desc_no_model" translatable="false">Select a default model above to enable</string>
-  <string name="settings_start_on_boot_desc" translatable="false">Launch server automatically when device starts</string>
-  <string name="settings_keep_alive" translatable="false">Keep Alive Timeout</string>
-  <string name="settings_keep_alive_desc" translatable="false">Model stays in RAM by default. Enable to unload after idle timeout and free memory. Next request auto-reloads (cold start)</string>
-  <string name="settings_idle_timeout_label" translatable="false">Idle Timeout</string>
-  <string name="settings_idle_timeout_desc" translatable="false">How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size)</string>
-  <string name="settings_dontkillmyapp_title" translatable="false">Manufacturer Background Guides</string>
-  <string name="settings_dontkillmyapp_desc" translatable="false">Some manufacturers kill background apps aggressively. Check dontkillmyapp.com for device-specific fixes</string>
-  <string name="settings_dontkillmyapp_cd" translatable="false">Open dontkillmyapp.com</string>
+  <string name="settings_card_auto_launch">Auto-Launch &amp; Behavior</string>
+  <string name="settings_default_model_label">Default Model</string>
+  <string name="settings_no_downloaded_models">No downloaded models. Download a model first from the Models tab</string>
+  <string name="settings_none_manual_start">None (manual start)</string>
+  <string name="settings_default_model_desc">Automatically load this model when the app is launched</string>
+  <string name="settings_start_on_boot">Start on Boot</string>
+  <string name="settings_start_on_boot_desc_no_model">Select a default model above to enable</string>
+  <string name="settings_start_on_boot_desc">Launch server automatically when device starts</string>
+  <string name="settings_keep_alive">Keep Alive Timeout</string>
+  <string name="settings_keep_alive_desc">Model stays in RAM by default. Enable to unload after idle timeout and free memory. Next request auto-reloads (cold start)</string>
+  <string name="settings_idle_timeout_label">Idle Timeout</string>
+  <string name="settings_idle_timeout_desc">How long the model stays loaded after the last request. When the timeout expires, native memory is freed. The next request triggers an automatic reload (5–30s cold start depending on model size)</string>
+  <string name="settings_dontkillmyapp_title">Manufacturer Background Guides</string>
+  <string name="settings_dontkillmyapp_desc">Some manufacturers kill background apps aggressively. Check dontkillmyapp.com for device-specific fixes</string>
+  <string name="settings_dontkillmyapp_cd">Open dontkillmyapp.com</string>
 
   <!-- Settings: Check for Updates -->
-  <string name="settings_check_for_updates" translatable="false">Check for Updates</string>
-  <string name="settings_check_for_updates_desc" translatable="false">Check for a newer version of OlliteRT %1$s. Only checks releases matching your install channel</string>
-  <string name="settings_check_for_updates_desc_cross_channel" translatable="false">Check for the latest version of OlliteRT across all channels (stable, beta, dev)</string>
-  <string name="settings_update_available" translatable="false">New version available: %1$s</string>
-  <string name="settings_download_version" translatable="false">Download %1$s</string>
-  <string name="settings_check_now_tooltip" translatable="false">Check now</string>
-  <string name="settings_checking_for_updates" translatable="false">Checking for updates…</string>
-  <string name="settings_update_check_timeout" translatable="false">Update check timed out — check your network connection</string>
-  <string name="settings_auto_update_check" translatable="false">Automatic Update Check</string>
-  <string name="settings_auto_update_check_desc" translatable="false">Periodically check in the background and notify when an update is available</string>
-  <string name="settings_notif_permission_warning" translatable="false">Notification access not enabled. Grant notification permission in system settings to receive update alerts</string>
-  <string name="settings_notif_channel_muted" translatable="false">Update notification channel is muted in system settings</string>
-  <string name="settings_check_frequency_label" translatable="false">Check Frequency</string>
-  <string name="settings_check_frequency_desc" translatable="false">How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days</string>
-  <string name="settings_cross_channel_notify" translatable="false">Notify About Other Channels</string>
-  <string name="settings_cross_channel_notify_desc" translatable="false">Get notified when releases are available on other channels (beta, dev, stable).\nEach channel installs as a separate app — you can run them side by side</string>
-  <string name="settings_cross_channel_notify_desc_dev" translatable="false">Dev builds already receive all release notifications</string>
-  <string name="settings_notification_settings" translatable="false">Notification Settings</string>
-  <string name="settings_notification_settings_desc" translatable="false">Customize which notification channels are enabled</string>
-  <string name="settings_cross_channel_muted" translatable="false">Cross-channel notification channels are muted in system settings</string>
+  <string name="settings_check_for_updates">Check for Updates</string>
+  <string name="settings_check_for_updates_desc">Check for a newer version of OlliteRT %1$s. Only checks releases matching your install channel</string>
+  <string name="settings_check_for_updates_desc_cross_channel">Check for the latest version of OlliteRT across all channels (stable, beta, dev)</string>
+  <string name="settings_update_available">New version available: %1$s</string>
+  <string name="settings_download_version">Download %1$s</string>
+  <string name="settings_check_now_tooltip">Check now</string>
+  <string name="settings_checking_for_updates">Checking for updates…</string>
+  <string name="settings_update_check_timeout">Update check timed out — check your network connection</string>
+  <string name="settings_auto_update_check">Automatic Update Check</string>
+  <string name="settings_auto_update_check_desc">Periodically check in the background and notify when an update is available</string>
+  <string name="settings_notif_permission_warning">Notification access not enabled. Grant notification permission in system settings to receive update alerts</string>
+  <string name="settings_notif_channel_muted">Update notification channel is muted in system settings</string>
+  <string name="settings_check_frequency_label">Check Frequency</string>
+  <string name="settings_check_frequency_desc">How often to check for new releases. Default: 24 hours. Min: 1 hour, Max: 30 days</string>
+  <string name="settings_cross_channel_notify">Notify About Other Channels</string>
+  <string name="settings_cross_channel_notify_desc">Get notified when releases are available on other channels (beta, dev, stable).\nEach channel installs as a separate app — you can run them side by side</string>
+  <string name="settings_cross_channel_notify_desc_dev">Dev builds already receive all release notifications</string>
+  <string name="settings_notification_settings">Notification Settings</string>
+  <string name="settings_notification_settings_desc">Customize which notification channels are enabled</string>
+  <string name="settings_cross_channel_muted">Cross-channel notification channels are muted in system settings</string>
 
   <!-- Settings: Metrics card -->
-  <string name="settings_card_metrics" translatable="false">Metrics</string>
-  <string name="settings_show_request_types" translatable="false">Show Request Types</string>
-  <string name="settings_show_request_types_desc" translatable="false">Show text, vision, and audio request counts on the Status screen</string>
-  <string name="settings_show_advanced_metrics" translatable="false">Show Advanced Metrics</string>
-  <string name="settings_show_advanced_metrics_desc" translatable="false">Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen</string>
-  <string name="settings_force_stream_usage" translatable="false">Always Send Usage in Streaming</string>
-  <string name="settings_force_stream_usage_desc" translatable="false">Emit token counts and inference timings on every streaming response, even when the client does not set stream_options.include_usage. Required for Open WebUI, llama.cpp, and other clients to display per-message tokens/sec stats</string>
+  <string name="settings_card_metrics">Metrics</string>
+  <string name="settings_show_request_types">Show Request Types</string>
+  <string name="settings_show_request_types_desc">Show text, vision, and audio request counts on the Status screen</string>
+  <string name="settings_show_advanced_metrics">Show Advanced Metrics</string>
+  <string name="settings_show_advanced_metrics_desc">Display prefill speed, inter-token latency, latency stats, and context utilization on the Status screen</string>
+  <string name="settings_force_stream_usage">Always Send Usage in Streaming</string>
+  <string name="settings_force_stream_usage_desc">Emit token counts and inference timings on every streaming response, even when the client does not set stream_options.include_usage. Required for Open WebUI, llama.cpp, and other clients to display per-message tokens/sec stats</string>
 
   <!-- Settings: Activity Log Storage card (controls the Logs tab entries — not verbose/debug logging or adb logcat) -->
-  <string name="settings_card_log_persistence" translatable="false">Activity Log Storage</string>
-  <string name="settings_persist_logs" translatable="false">Store Activity Log on Device</string>
-  <string name="settings_persist_logs_desc" translatable="false">Save the request and response activity shown on the Logs tab to a local database so it survives app restarts. Does not control verbose/debug logging or adb logcat output. Disabled by default</string>
-  <string name="settings_max_log_entries_label" translatable="false">Maximum Activity Log Entries</string>
-  <string name="settings_max_log_entries_desc" translatable="false">Maximum Logs tab entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit (capped at 10,000 in memory)</string>
-  <string name="settings_auto_delete_label" translatable="false">Auto-Delete Activity Log After</string>
-  <string name="settings_auto_delete_desc" translatable="false">Stored Logs tab entries older than this are automatically removed from the on-device database. Does not affect the current session\'s in-memory entries or adb logcat output.\nSet to 0 to disable</string>
-  <string name="settings_clear_all_logs_button" translatable="false">Delete All Activity Log Entries</string>
-  <string name="settings_clear_all_logs_desc" translatable="false">Permanently remove every Logs tab entry from the on-device database and the current session. Does not affect verbose/debug logging or adb logcat</string>
+  <string name="settings_card_log_persistence">Activity Log Storage</string>
+  <string name="settings_persist_logs">Store Activity Log on Device</string>
+  <string name="settings_persist_logs_desc">Save the request and response activity shown on the Logs tab to a local database so it survives app restarts. Does not control verbose/debug logging or adb logcat output. Disabled by default</string>
+  <string name="settings_max_log_entries_label">Maximum Activity Log Entries</string>
+  <string name="settings_max_log_entries_desc">Maximum Logs tab entries kept in memory and in the database. Oldest entries are pruned when the limit is reached.\nSet to 0 for no limit (capped at 10,000 in memory)</string>
+  <string name="settings_auto_delete_label">Auto-Delete Activity Log After</string>
+  <string name="settings_auto_delete_desc">Stored Logs tab entries older than this are automatically removed from the on-device database. Does not affect the current session\'s in-memory entries or adb logcat output.\nSet to 0 to disable</string>
+  <string name="settings_clear_all_logs_button">Delete All Activity Log Entries</string>
+  <string name="settings_clear_all_logs_desc">Permanently remove every Logs tab entry from the on-device database and the current session. Does not affect verbose/debug logging or adb logcat</string>
 
   <!-- Settings: Home Assistant card -->
   <string name="settings_card_home_assistant" translatable="false">Home Assistant</string>
-  <string name="settings_ha_rest_api" translatable="false">REST API Integration</string>
-  <string name="settings_ha_rest_api_desc" translatable="false">Enable server control endpoints (/v1/server/*) for remote management via Home Assistant or other automation tools</string>
-  <string name="settings_stt_transcription_prompt" translatable="false">Force Transcription</string>
-  <string name="settings_stt_transcription_prompt_desc" translatable="false">Instructs the model to transcribe audio instead of replying to it. Enable for voice assistants that expect transcribed text only. Required for multimodal models that otherwise respond conversationally. Note: applies to all clients using the audio endpoint, which may affect non-voice-assistant workflows (e.g. Open WebUI)</string>
-  <string name="settings_stt_transcription_prompt_text" translatable="false">Transcription Prompt</string>
-  <string name="settings_stt_transcription_prompt_text_desc" translatable="false">The instruction sent to the model when Force Transcription is enabled. The default prompt will be used if left blank</string>
-  <string name="settings_ha_edit_prompt" translatable="false">Edit Prompt</string>
-  <string name="settings_ha_transcription_prompt_placeholder" translatable="false">Default prompt will be used if left blank</string>
-  <string name="settings_ha_config_preview" translatable="false">Generates a configuration.yaml snippet with your current IP (%1$s), port (%2$d)%3$s</string>
-  <string name="settings_ha_config_preview_token_suffix" translatable="false">, and bearer token</string>
-  <string name="settings_ha_loopback_warning" translatable="false">Home Assistant cannot reach OlliteRT while the server listens only on this device. Choose Local network or a reachable custom address</string>
-  <string name="settings_ha_copy_config" translatable="false">Copy Configuration</string>
+  <string name="settings_ha_rest_api">REST API Integration</string>
+  <string name="settings_ha_rest_api_desc">Enable server control endpoints (/v1/server/*) for remote management via Home Assistant or other automation tools</string>
+  <string name="settings_stt_transcription_prompt">Force Transcription</string>
+  <string name="settings_stt_transcription_prompt_desc">Instructs the model to transcribe audio instead of replying to it. Enable for voice assistants that expect transcribed text only. Required for multimodal models that otherwise respond conversationally. Note: applies to all clients using the audio endpoint, which may affect non-voice-assistant workflows (e.g. Open WebUI)</string>
+  <string name="settings_stt_transcription_prompt_text">Transcription Prompt</string>
+  <string name="settings_stt_transcription_prompt_text_desc">The instruction sent to the model when Force Transcription is enabled. The default prompt will be used if left blank</string>
+  <string name="settings_ha_edit_prompt">Edit Prompt</string>
+  <string name="settings_ha_transcription_prompt_placeholder">Default prompt will be used if left blank</string>
+  <string name="settings_ha_config_preview">Generates a configuration.yaml snippet with your current IP (%1$s), port (%2$d)%3$s</string>
+  <string name="settings_ha_config_preview_token_suffix">, and bearer token</string>
+  <string name="settings_ha_loopback_warning">Home Assistant cannot reach OlliteRT while the server listens only on this device. Choose Local network or a reachable custom address</string>
+  <string name="settings_ha_copy_config">Copy Configuration</string>
 
   <!-- Settings: Context Management card -->
-  <string name="settings_card_context_management" translatable="false">Context Management</string>
+  <string name="settings_card_context_management">Context Management</string>
 
   <!-- Settings: Model Behaviour card -->
-  <string name="settings_card_model_behaviour" translatable="false">Model Behaviour</string>
-  <string name="settings_warmup_message" translatable="false">Warmup Message</string>
-  <string name="settings_warmup_message_desc" translatable="false">Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup</string>
-  <string name="settings_pre_init_vision" translatable="false">Pre-initialize Vision</string>
-  <string name="settings_pre_init_vision_desc" translatable="false">Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start</string>
-  <string name="settings_audio_gpu" translatable="false">GPU Audio Acceleration</string>
-  <string name="settings_audio_gpu_desc" translatable="false">Run the audio executor on the GPU instead of the CPU for faster speech transcription on supported devices. Requires a model reload to apply; falls back to CPU automatically if unsupported</string>
-  <string name="settings_custom_prompts" translatable="false">Custom System Prompt</string>
-  <string name="settings_custom_prompts_desc" translatable="false">Enable per-model system prompt field in Inference Settings. The system prompt is prepended to every conversation as an instruction to the model</string>
-  <string name="settings_truncate_history" translatable="false">Truncate Conversation History</string>
-  <string name="settings_truncate_history_desc" translatable="false">When a request exceeds the model\'s context window, drop older messages from the conversation while keeping system prompts and the most recent messages</string>
-  <string name="settings_trim_prompt" translatable="false">Trim Prompt</string>
-  <string name="settings_trim_prompt_desc" translatable="false">⚠️ Last resort — will likely produce degraded output. Hard-cuts the prompt to fit the context window, discarding the beginning (including system prompts and tool definitions). Only enable if requests are consistently rejected for exceeding context limits</string>
-  <string name="settings_ignore_client_params" translatable="false">Ignore Client Sampler Parameters</string>
-  <string name="settings_ignore_client_params_desc" translatable="false">Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server\'s own Inference Settings will always be used instead</string>
-  <string name="settings_schema_injection_tool_calling" translatable="false">Tool Schema Injection (Experimental)</string>
-  <string name="settings_schema_injection_tool_calling_desc" translatable="false">Injects tool schemas directly into the model\'s context via the LiteRT SDK instead of embedding them in the text prompt. May produce more reliable tool calls with compatible models (Gemma 4). Also enables word-by-word streaming — without this, responses are buffered and sent all at once when tools are present, even if the client requests streaming. Disable if tool calling stops working</string>
-  <string name="settings_show_model_recommendations" translatable="false">Show model recommendations</string>
-  <string name="settings_show_model_recommendations_desc" translatable="false">Display badges and pin recommended models to the top of the list</string>
+  <string name="settings_card_model_behaviour">Model Behaviour</string>
+  <string name="settings_warmup_message">Warmup Message</string>
+  <string name="settings_warmup_message_desc">Send a test message when the model loads to verify the engine is working. Disabling this speeds up model startup</string>
+  <string name="settings_pre_init_vision">Pre-initialize Vision</string>
+  <string name="settings_pre_init_vision_desc">Load the vision backend when a multimodal model starts, even before any image request arrives. Eliminates delay on the first image request but increases memory and GPU usage from the start</string>
+  <string name="settings_audio_gpu">GPU Audio Acceleration</string>
+  <string name="settings_audio_gpu_desc">Run the audio executor on the GPU instead of the CPU for faster speech transcription on supported devices. Requires a model reload to apply; falls back to CPU automatically if unsupported</string>
+  <string name="settings_custom_prompts">Custom System Prompt</string>
+  <string name="settings_custom_prompts_desc">Enable per-model system prompt field in Inference Settings. The system prompt is prepended to every conversation as an instruction to the model</string>
+  <string name="settings_truncate_history">Truncate Conversation History</string>
+  <string name="settings_truncate_history_desc">When a request exceeds the model\'s context window, drop older messages from the conversation while keeping system prompts and the most recent messages</string>
+  <string name="settings_trim_prompt">Trim Prompt</string>
+  <string name="settings_trim_prompt_desc">⚠️ Last resort — will likely produce degraded output. Hard-cuts the prompt to fit the context window, discarding the beginning (including system prompts and tool definitions). Only enable if requests are consistently rejected for exceeding context limits</string>
+  <string name="settings_ignore_client_params">Ignore Client Sampler Parameters</string>
+  <string name="settings_ignore_client_params_desc">Discard temperature, top_p, top_k, and max_tokens values sent by API clients. The server\'s own Inference Settings will always be used instead</string>
+  <string name="settings_schema_injection_tool_calling">Tool Schema Injection (Experimental)</string>
+  <string name="settings_schema_injection_tool_calling_desc">Injects tool schemas directly into the model\'s context via the LiteRT SDK instead of embedding them in the text prompt. May produce more reliable tool calls with compatible models (Gemma 4). Also enables word-by-word streaming — without this, responses are buffered and sent all at once when tools are present, even if the client requests streaming. Disable if tool calling stops working</string>
+  <string name="settings_show_model_recommendations">Show model recommendations</string>
+  <string name="settings_show_model_recommendations_desc">Display badges and pin recommended models to the top of the list</string>
 
   <!-- Settings: App Updates card -->
   <string name="settings_card_repositories">Model Sources</string>
   <string name="settings_repositories_description">Manage model sources and allowlist URLs</string>
-  <string name="settings_card_updates" translatable="false">App Updates</string>
+  <string name="settings_card_updates">App Updates</string>
 
   <!-- Settings: Developer card -->
-  <string name="settings_card_developer" translatable="false">Developer</string>
-  <string name="settings_verbose_debug" translatable="false">Verbose Debug Mode</string>
-  <string name="settings_verbose_debug_desc" translatable="false">Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance</string>
-  <string name="settings_export_logcat" translatable="false">Export Debug Logs</string>
-  <string name="settings_export_logcat_desc" translatable="false">Share the system log buffer for this app. Useful for diagnosing issues</string>
-  <string name="logcat_export_chooser_title" translatable="false">Share debug logs</string>
+  <string name="settings_card_developer">Developer</string>
+  <string name="settings_verbose_debug">Verbose Debug Mode</string>
+  <string name="settings_verbose_debug_desc">Logs additional details: full stack traces, memory snapshots, model config, per-request timing. May impact performance</string>
+  <string name="settings_export_logcat">Export Debug Logs</string>
+  <string name="settings_export_logcat_desc">Share the system log buffer for this app. Useful for diagnosing issues</string>
+  <string name="logcat_export_chooser_title">Share debug logs</string>
 
   <!-- Settings: Advanced Settings -->
-  <string name="settings_card_advanced_settings" translatable="false">Advanced Settings</string>
-  <string name="settings_advanced_timeouts_section" translatable="false">Timeouts</string>
-  <string name="settings_advanced_sampling_section" translatable="false">Sampling</string>
-  <string name="settings_default_seed_label" translatable="false">Default seed</string>
-  <string name="settings_default_seed_desc_prefix" translatable="false">Optional seed used when a request does not provide one. Due to</string>
+  <string name="settings_card_advanced_settings">Advanced Settings</string>
+  <string name="settings_advanced_timeouts_section">Timeouts</string>
+  <string name="settings_advanced_sampling_section">Sampling</string>
+  <string name="settings_default_seed_label">Default seed</string>
+  <string name="settings_default_seed_desc_prefix">Optional seed used when a request does not provide one. Due to</string>
   <string name="settings_default_seed_issue_link" translatable="false">LiteRT-LM issue #2080</string>
-  <string name="settings_default_seed_desc_suffix" translatable="false">, session sampler settings—including seed—are currently ignored on GPU and NPU; they apply on CPU only.</string>
-  <string name="settings_default_seed_placeholder" translatable="false">Blank for a random seed</string>
-  <string name="validation_default_seed_invalid" translatable="false">Enter a non-negative 32-bit integer or leave the seed blank</string>
-  <string name="settings_timeout_chat_completions_label" translatable="false">Chat completions timeout</string>
-  <string name="settings_timeout_chat_completions_desc" translatable="false">Maximum time for /v1/chat/completions and /v1/messages requests</string>
-  <string name="settings_timeout_responses_label" translatable="false">Responses timeout</string>
-  <string name="settings_timeout_responses_desc" translatable="false">Maximum time for /v1/responses requests</string>
-  <string name="settings_timeout_streaming_label" translatable="false">Streaming timeout</string>
-  <string name="settings_timeout_streaming_desc" translatable="false">Per-chunk idle timeout for streaming inference</string>
-  <string name="settings_timeout_blocking_label" translatable="false">Blocking timeout</string>
-  <string name="settings_timeout_blocking_desc" translatable="false">Timeout for non-streaming inference</string>
-  <string name="settings_timeout_warmup_label" translatable="false">Warmup timeout</string>
-  <string name="settings_timeout_warmup_desc" translatable="false">Maximum wait for warmup inference after model load</string>
-  <string name="settings_timeout_keep_alive_recheck_label" translatable="false">Keep-alive recheck</string>
-  <string name="settings_timeout_keep_alive_recheck_desc" translatable="false">Recheck delay when model is busy at idle-unload time</string>
-  <string name="settings_timeout_cleanup_await_label" translatable="false">Cleanup await</string>
-  <string name="settings_timeout_cleanup_await_desc" translatable="false">Maximum wait for previous model cleanup before init</string>
+  <string name="settings_default_seed_desc_suffix">, session sampler settings—including seed—are currently ignored on GPU and NPU; they apply on CPU only.</string>
+  <string name="settings_default_seed_placeholder">Blank for a random seed</string>
+  <string name="validation_default_seed_invalid">Enter a non-negative 32-bit integer or leave the seed blank</string>
+  <string name="settings_timeout_chat_completions_label">Chat completions timeout</string>
+  <string name="settings_timeout_chat_completions_desc">Maximum time for /v1/chat/completions and /v1/messages requests</string>
+  <string name="settings_timeout_responses_label">Responses timeout</string>
+  <string name="settings_timeout_responses_desc">Maximum time for /v1/responses requests</string>
+  <string name="settings_timeout_streaming_label">Streaming timeout</string>
+  <string name="settings_timeout_streaming_desc">Per-chunk idle timeout for streaming inference</string>
+  <string name="settings_timeout_blocking_label">Blocking timeout</string>
+  <string name="settings_timeout_blocking_desc">Timeout for non-streaming inference</string>
+  <string name="settings_timeout_warmup_label">Warmup timeout</string>
+  <string name="settings_timeout_warmup_desc">Maximum wait for warmup inference after model load</string>
+  <string name="settings_timeout_keep_alive_recheck_label">Keep-alive recheck</string>
+  <string name="settings_timeout_keep_alive_recheck_desc">Recheck delay when model is busy at idle-unload time</string>
+  <string name="settings_timeout_cleanup_await_label">Cleanup await</string>
+  <string name="settings_timeout_cleanup_await_desc">Maximum wait for previous model cleanup before init</string>
 
   <!-- Settings: Reset &amp; Footer -->
-  <string name="settings_reset_to_defaults" translatable="false">Reset to Defaults</string>
-  <string name="settings_whats_new" translatable="false">What\'s New</string>
-  <string name="settings_report_issue" translatable="false">Report Issue</string>
-  <string name="settings_donate" translatable="false">Donate</string>
-  <string name="settings_licenses" translatable="false">Licenses</string>
-  <string name="settings_privacy_policy" translatable="false">Privacy Policy</string>
+  <string name="settings_reset_to_defaults">Reset to Defaults</string>
+  <string name="settings_whats_new">What\'s New</string>
+  <string name="settings_report_issue">Report Issue</string>
+  <string name="settings_donate">Donate</string>
+  <string name="settings_licenses">Licenses</string>
+  <string name="settings_privacy_policy">Privacy Policy</string>
   <string name="settings_version_footer" translatable="false">OlliteRT v%1$s (%2$s)</string>
 
   <!-- Status screen labels -->
 
   <!-- Status: Server not running banner -->
-  <string name="status_server_not_running" translatable="false">Server not running</string>
-  <string name="status_server_not_running_hint" translatable="false">Start a model from the Models tab to begin serving requests.</string>
+  <string name="status_server_not_running">Server not running</string>
+  <string name="status_server_not_running_hint">Start a model from the Models tab to begin serving requests.</string>
 
   <!-- Status: Model info card -->
-  <string name="status_no_model_loaded" translatable="false">No model loaded</string>
-  <string name="status_model_loading" translatable="false">Loading…</string>
-  <string name="status_cd_thinking_enabled" translatable="false">Thinking enabled</string>
-  <string name="status_cd_mtp_enabled" translatable="false">Speculative decoding enabled</string>
-  <string name="status_loading_elapsed" translatable="false">Loading… %1$ds</string>
-  <string name="status_loading_elapsed_with_size" translatable="false">%1$s · Loading… %2$ds</string>
-  <string name="status_idle_unloaded" translatable="false">Idle — model unloaded to free RAM</string>
-  <string name="status_loaded_in" translatable="false">Loaded in %1$s</string>
-  <string name="status_loaded_in_with_size" translatable="false">%1$s · Loaded in %2$s</string>
-  <string name="status_start_model_hint" translatable="false">Start a model from the Models tab</string>
-  <string name="status_reload_model_tooltip" translatable="false">Reload model</string>
+  <string name="status_no_model_loaded">No model loaded</string>
+  <string name="status_model_loading">Loading…</string>
+  <string name="status_cd_thinking_enabled">Thinking enabled</string>
+  <string name="status_cd_mtp_enabled">Speculative decoding enabled</string>
+  <string name="status_loading_elapsed">Loading… %1$ds</string>
+  <string name="status_loading_elapsed_with_size">%1$s · Loading… %2$ds</string>
+  <string name="status_idle_unloaded">Idle — model unloaded to free RAM</string>
+  <string name="status_loaded_in">Loaded in %1$s</string>
+  <string name="status_loaded_in_with_size">%1$s · Loaded in %2$s</string>
+  <string name="status_start_model_hint">Start a model from the Models tab</string>
+  <string name="status_reload_model_tooltip">Reload model</string>
 
   <!-- Status: Endpoint card -->
-  <string name="status_active_api_endpoint" translatable="false">Active API Endpoint</string>
+  <string name="status_active_api_endpoint">Active API Endpoint</string>
   <string name="status_endpoint_placeholder" translatable="false">—</string>
-  <string name="status_endpoint_loopback_only" translatable="false">Loopback only — reachable from this device only (no Wi-Fi)</string>
-  <string name="status_copy_endpoint_tooltip" translatable="false">Copy endpoint URL</string>
-  <string name="status_open_endpoint" translatable="false">Open endpoint in browser</string>
-  <string name="status_auth_cors" translatable="false">Auth: %1$s · CORS: %2$s</string>
-  <string name="status_client_access" translatable="false">Client access: %1$s</string>
-  <string name="status_client_access_all" translatable="false">all clients</string>
-  <string name="status_client_access_allow_only" translatable="false">allow-only (%1$d rules)</string>
-  <string name="status_client_access_block_listed" translatable="false">block-list (%1$d rules)</string>
-  <string name="status_auth_on" translatable="false">on</string>
-  <string name="status_auth_off" translatable="false">off</string>
-  <string name="status_cors_all_origins" translatable="false">all origins</string>
-  <string name="status_cors_restricted" translatable="false">restricted</string>
-  <string name="status_cors_disabled" translatable="false">disabled</string>
+  <string name="status_endpoint_loopback_only">Loopback only — reachable from this device only (no Wi-Fi)</string>
+  <string name="status_copy_endpoint_tooltip">Copy endpoint URL</string>
+  <string name="status_open_endpoint">Open endpoint in browser</string>
+  <string name="status_auth_cors">Auth: %1$s · CORS: %2$s</string>
+  <string name="status_client_access">Client access: %1$s</string>
+  <string name="status_client_access_all">all clients</string>
+  <string name="status_client_access_allow_only">allow-only (%1$d rules)</string>
+  <string name="status_client_access_block_listed">block-list (%1$d rules)</string>
+  <string name="status_auth_on">on</string>
+  <string name="status_auth_off">off</string>
+  <string name="status_cors_all_origins">all origins</string>
+  <string name="status_cors_restricted">restricted</string>
+  <string name="status_cors_disabled">disabled</string>
 
   <!-- Status: Section headers -->
-  <string name="status_section_metrics" translatable="false">Metrics</string>
-  <string name="status_metrics_info_tooltip" translatable="false">Token estimation info</string>
-  <string name="status_metrics_info_title" translatable="false">Estimated Metrics</string>
-  <string name="status_metrics_info_body" translatable="false">Token counts (Tokens In, Tokens Out) and metrics derived from them (Decode Speed, Prefill Speed, Throughput, Inter-Token Latency) are estimates based on character length ÷ 4.\n\nThe LiteRT SDK does not expose exact token counts, so this approximation is used instead. Actual values may vary depending on the tokenizer.</string>
-  <string name="status_section_request_types" translatable="false">Request Types</string>
-  <string name="status_section_advanced" translatable="false">Advanced</string>
+  <string name="status_section_metrics">Metrics</string>
+  <string name="status_metrics_info_tooltip">Token estimation info</string>
+  <string name="status_metrics_info_title">Estimated Metrics</string>
+  <string name="status_metrics_info_body">Token counts (Tokens In, Tokens Out) and metrics derived from them (Decode Speed, Prefill Speed, Throughput, Inter-Token Latency) are estimates based on character length ÷ 4.\n\nThe LiteRT SDK does not expose exact token counts, so this approximation is used instead. Actual values may vary depending on the tokenizer.</string>
+  <string name="status_section_request_types">Request Types</string>
+  <string name="status_section_advanced">Advanced</string>
 
   <!-- Status: Core metric labels -->
-  <string name="status_metric_uptime" translatable="false">Uptime</string>
-  <string name="status_metric_requests" translatable="false">Requests</string>
-  <string name="status_metric_tokens_in" translatable="false">Tokens In</string>
-  <string name="status_metric_tokens_out" translatable="false">Tokens Out</string>
-  <string name="status_metric_decode_speed" translatable="false">Decode Speed</string>
-  <string name="status_metric_peak_decode" translatable="false">Peak Decode</string>
-  <string name="status_metric_last_ttfb" translatable="false">Last TTFB</string>
-  <string name="status_metric_avg_ttfb" translatable="false">Avg TTFB</string>
-  <string name="status_metric_success_rate" translatable="false">Success Rate</string>
+  <string name="status_metric_uptime">Uptime</string>
+  <string name="status_metric_requests">Requests</string>
+  <string name="status_metric_tokens_in">Tokens In</string>
+  <string name="status_metric_tokens_out">Tokens Out</string>
+  <string name="status_metric_decode_speed">Decode Speed</string>
+  <string name="status_metric_peak_decode">Peak Decode</string>
+  <string name="status_metric_last_ttfb">Last TTFB</string>
+  <string name="status_metric_avg_ttfb">Avg TTFB</string>
+  <string name="status_metric_success_rate">Success Rate</string>
 
   <!-- Status: Request type labels -->
-  <string name="status_metric_text" translatable="false">Text</string>
-  <string name="status_metric_vision" translatable="false">Vision</string>
-  <string name="status_metric_audio" translatable="false">Audio</string>
+  <string name="status_metric_text">Text</string>
+  <string name="status_metric_vision">Vision</string>
+  <string name="status_metric_audio">Audio</string>
 
   <!-- Status: Advanced metric labels -->
-  <string name="status_metric_prefill_speed" translatable="false">Prefill Speed</string>
-  <string name="status_metric_avg_throughput" translatable="false">Avg Throughput</string>
-  <string name="status_metric_inter_token_latency" translatable="false">Inter-Token Latency</string>
-  <string name="status_metric_last_latency" translatable="false">Last Latency</string>
-  <string name="status_metric_avg_latency" translatable="false">Avg Latency</string>
-  <string name="status_metric_peak_latency" translatable="false">Peak Latency</string>
+  <string name="status_metric_prefill_speed">Prefill Speed</string>
+  <string name="status_metric_avg_throughput">Avg Throughput</string>
+  <string name="status_metric_inter_token_latency">Inter-Token Latency</string>
+  <string name="status_metric_last_latency">Last Latency</string>
+  <string name="status_metric_avg_latency">Avg Latency</string>
+  <string name="status_metric_peak_latency">Peak Latency</string>
 
   <!-- Status: Metric value formats -->
   <string name="status_value_ms" translatable="false">%1$dms</string>
   <string name="status_value_throughput" translatable="false">%1$s t/s</string>
-  <string name="status_value_success_rate" translatable="false">%1$s (%2$d err)</string>
+  <string name="status_value_success_rate">%1$s (%2$d err)</string>
   <string name="status_value_no_data" translatable="false">—</string>
 
   <!-- Status: Reload dialog -->
-  <string name="status_dialog_reload_title" translatable="false">Reload Model</string>
-  <string name="status_dialog_reload_body" translatable="false">This will restart the server and reload %1$s. Any in-flight requests will be interrupted.</string>
-  <string name="status_dialog_reload_confirm" translatable="false">Reload</string>
+  <string name="status_dialog_reload_title">Reload Model</string>
+  <string name="status_dialog_reload_body">This will restart the server and reload %1$s. Any in-flight requests will be interrupted.</string>
+  <string name="status_dialog_reload_confirm">Reload</string>
 
   <!-- Logs screen labels -->
 
   <!-- LogsScreen: Header & toolbar -->
-  <string name="logs_header_title" translatable="false">Activity Log</string>
-  <string name="logs_tooltip_clear_all" translatable="false">Clear all logs</string>
-  <string name="logs_tooltip_copy_filtered_json" translatable="false">Copy filtered logs (JSON)</string>
-  <string name="logs_tooltip_copy_all_json" translatable="false">Copy all logs (JSON)</string>
-  <string name="logs_tooltip_export_filtered_json" translatable="false">Export filtered logs as JSON</string>
-  <string name="logs_tooltip_export_all_json" translatable="false">Export logs as JSON</string>
-  <string name="logs_tooltip_close_search" translatable="false">Close search</string>
-  <string name="logs_tooltip_search" translatable="false">Search logs</string>
-  <string name="logs_search_placeholder" translatable="false">Search logs…</string>
-  <string name="logs_search_clear_cd" translatable="false">Clear search</string>
+  <string name="logs_header_title">Activity Log</string>
+  <string name="logs_tooltip_clear_all">Clear all logs</string>
+  <string name="logs_tooltip_copy_filtered_json">Copy filtered logs (JSON)</string>
+  <string name="logs_tooltip_copy_all_json">Copy all logs (JSON)</string>
+  <string name="logs_tooltip_export_filtered_json">Export filtered logs as JSON</string>
+  <string name="logs_tooltip_export_all_json">Export logs as JSON</string>
+  <string name="logs_tooltip_close_search">Close search</string>
+  <string name="logs_tooltip_search">Search logs</string>
+  <string name="logs_search_placeholder">Search logs…</string>
+  <string name="logs_search_clear_cd">Clear search</string>
 
   <!-- LogsScreen: Clear logs dialog -->
-  <string name="logs_dialog_clear_title" translatable="false">Clear All Logs</string>
-  <string name="logs_dialog_clear_body_filtered" translatable="false">This will delete all %1$d log entries (not just the %2$d shown). This action cannot be undone.</string>
-  <string name="logs_dialog_clear_body" translatable="false">This will delete all %1$d log entries. This action cannot be undone.</string>
-  <string name="logs_dialog_clear_confirm" translatable="false">Clear</string>
-  <string name="logs_dialog_clear_cancel" translatable="false">Cancel</string>
-  <string name="logs_dialog_clear_active_title" translatable="false">Active Generation</string>
-  <plurals name="logs_dialog_clear_active_body" translatable="false">
+  <string name="logs_dialog_clear_title">Clear All Logs</string>
+  <string name="logs_dialog_clear_body_filtered">This will delete all %1$d log entries (not just the %2$d shown). This action cannot be undone.</string>
+  <string name="logs_dialog_clear_body">This will delete all %1$d log entries. This action cannot be undone.</string>
+  <string name="logs_dialog_clear_confirm">Clear</string>
+  <string name="logs_dialog_clear_cancel">Cancel</string>
+  <string name="logs_dialog_clear_active_title">Active Generation</string>
+  <plurals name="logs_dialog_clear_active_body">
     <item quantity="one">This will delete all log entries. There is %1$d request being processed or queued. Do you want to:\n\n• \"Clear\" — Delete all logs, let generation continue\n• \"Stop\" — Cancel all pending requests and delete all logs</item>
     <item quantity="other">This will delete all log entries. There are %1$d requests being processed or queued. Do you want to:\n\n• \"Clear\" — Delete all logs, let generation continue\n• \"Stop\" — Cancel all pending requests and delete all logs</item>
   </plurals>
-  <string name="logs_dialog_clear_active_clear" translatable="false">Clear</string>
-  <string name="logs_dialog_clear_active_stop" translatable="false">Stop</string>
-  <string name="logs_dialog_stop_active_title" translatable="false">Active Generation</string>
-  <plurals name="logs_dialog_stop_active_body" translatable="false">
+  <string name="logs_dialog_clear_active_clear">Clear</string>
+  <string name="logs_dialog_clear_active_stop">Stop</string>
+  <string name="logs_dialog_stop_active_title">Active Generation</string>
+  <plurals name="logs_dialog_stop_active_body">
     <item quantity="one">There is %1$d request currently being processed or waiting in the queue. Stopping the server will cancel it.</item>
     <item quantity="other">There are %1$d requests currently being processed or waiting in the queue. Stopping the server will cancel them.</item>
   </plurals>
 
   <!-- LogsScreen: Result count banner -->
-  <string name="logs_showing_count" translatable="false">Showing %1$d of %2$d</string>
-  <string name="logs_clear_filters" translatable="false">Clear filters</string>
+  <string name="logs_showing_count">Showing %1$d of %2$d</string>
+  <string name="logs_clear_filters">Clear filters</string>
 
   <!-- LogsScreen: Empty states -->
-  <string name="logs_empty_title" translatable="false">No activity yet</string>
-  <string name="logs_empty_body" translatable="false">Server activity will appear here.</string>
-  <string name="logs_no_match_title" translatable="false">No matching entries</string>
-  <string name="logs_no_match_body" translatable="false">No logs match the current filters.</string>
+  <string name="logs_empty_title">No activity yet</string>
+  <string name="logs_empty_body">Server activity will appear here.</string>
+  <string name="logs_no_match_title">No matching entries</string>
+  <string name="logs_no_match_body">No logs match the current filters.</string>
 
   <!-- LogsScreen: New activity indicator -->
-  <plurals name="logs_new_activity" translatable="false">
+  <plurals name="logs_new_activity">
     <item quantity="one">New activity</item>
     <item quantity="other">%1$d new entries</item>
   </plurals>
 
   <!-- LogsScreen: Stop generation -->
-  <string name="logs_tooltip_stop_generation" translatable="false">Stop generation</string>
+  <string name="logs_tooltip_stop_generation">Stop generation</string>
 
   <!-- LogEntryCard: Section labels -->
-  <string name="logs_entry_request_label" translatable="false">Request · %1$s</string>
-  <string name="logs_entry_compacted_prompt_label" translatable="false">Compacted Prompt · %1$s</string>
-  <string name="logs_entry_response_label" translatable="false">Response · %1$s</string>
-  <string name="logs_entry_response" translatable="false">Response</string>
-  <string name="logs_entry_pending_in_queue" translatable="false">Pending in queue…</string>
-  <string name="logs_processing_elapsed_seconds" translatable="false">Elapsed · %1$ds</string>
-  <string name="logs_entry_request" translatable="false">Request</string>
+  <string name="logs_entry_request_label">Request · %1$s</string>
+  <string name="logs_entry_compacted_prompt_label">Compacted Prompt · %1$s</string>
+  <string name="logs_entry_response_label">Response · %1$s</string>
+  <string name="logs_entry_response">Response</string>
+  <string name="logs_entry_pending_in_queue">Pending in queue…</string>
+  <string name="logs_processing_elapsed_seconds">Elapsed · %1$ds</string>
+  <string name="logs_entry_request">Request</string>
 
   <!-- LogEntryCard: Cancelled state -->
-  <string name="logs_entry_stopped_by_user" translatable="false">Generation stopped by user</string>
-  <string name="logs_entry_client_disconnected" translatable="false">Client disconnected — generation stopped</string>
+  <string name="logs_entry_stopped_by_user">Generation stopped by user</string>
+  <string name="logs_entry_client_disconnected">Client disconnected — generation stopped</string>
 
   <!-- LogEntryCard: Ignored client params -->
-  <string name="logs_entry_ignored_params" translatable="false">Client params ignored: %1$s</string>
+  <string name="logs_entry_ignored_params">Client params ignored: %1$s</string>
 
   <!-- LogEntryCard: Expandable body -->
-  <string name="logs_body_collapse_cd" translatable="false">Collapse</string>
-  <string name="logs_body_expand_cd" translatable="false">Expand</string>
+  <string name="logs_body_collapse_cd">Collapse</string>
+  <string name="logs_body_expand_cd">Expand</string>
 
   <!-- LogEntryCard: Footer badges -->
   <string name="logs_badge_sse" translatable="false">SSE</string>
-  <string name="logs_badge_thinking" translatable="false">Thinking</string>
-  <string name="logs_badge_tool_call" translatable="false">Tool Call</string>
-  <string name="logs_badge_cancelled" translatable="false">Cancelled</string>
-  <string name="logs_badge_ctx_format" translatable="false">%1$s%2$d / %3$d ctx</string>
+  <string name="logs_badge_thinking">Thinking</string>
+  <string name="logs_badge_tool_call">Tool Call</string>
+  <string name="logs_badge_cancelled">Cancelled</string>
+  <string name="logs_badge_ctx_format">%1$s%2$d / %3$d ctx</string>
 
   <!-- LogEntryCard: Action button tooltips -->
-  <string name="logs_tooltip_request_metrics" translatable="false">Request metrics</string>
-  <string name="logs_tooltip_copy_entry" translatable="false">Copy log entry</string>
+  <string name="logs_tooltip_request_metrics">Request metrics</string>
+  <string name="logs_tooltip_copy_entry">Copy log entry</string>
 
   <!-- LogEntryCard: Request metrics dialog -->
-  <string name="logs_metrics_title" translatable="false">Request Metrics</string>
-  <string name="logs_metrics_ttfb" translatable="false">Time to First Token</string>
-  <string name="logs_metrics_decode_speed" translatable="false">Decode Speed</string>
-  <string name="logs_metrics_prefill_speed" translatable="false">Prefill Speed</string>
-  <string name="logs_metrics_itl" translatable="false">Inter-Token Latency</string>
-  <string name="logs_metrics_total_latency" translatable="false">Total Latency</string>
-  <string name="logs_metrics_input_tokens" translatable="false">Input Tokens</string>
-  <string name="logs_metrics_output_tokens" translatable="false">Output Tokens</string>
-  <string name="logs_metrics_context_util" translatable="false">Context Utilization</string>
-  <string name="logs_metrics_close" translatable="false">Close</string>
+  <string name="logs_metrics_title">Request Metrics</string>
+  <string name="logs_metrics_ttfb">Time to First Token</string>
+  <string name="logs_metrics_decode_speed">Decode Speed</string>
+  <string name="logs_metrics_prefill_speed">Prefill Speed</string>
+  <string name="logs_metrics_itl">Inter-Token Latency</string>
+  <string name="logs_metrics_total_latency">Total Latency</string>
+  <string name="logs_metrics_input_tokens">Input Tokens</string>
+  <string name="logs_metrics_output_tokens">Output Tokens</string>
+  <string name="logs_metrics_context_util">Context Utilization</string>
+  <string name="logs_metrics_close">Close</string>
   <string name="logs_metrics_value_ms" translatable="false">%1$dms</string>
   <string name="logs_metrics_ctx_detail" translatable="false">%1$d / %2$d</string>
-  <string name="logs_metrics_ctx_estimated_detail" translatable="false">Context utilization is estimated from character length ÷ 4 due to the LiteRT-LM SDK not exposing exact token counts</string>
+  <string name="logs_metrics_ctx_estimated_detail">Context utilization is estimated from character length ÷ 4 due to the LiteRT-LM SDK not exposing exact token counts</string>
 
   <!-- LogEventCard: Category labels -->
-  <string name="logs_event_category_model" translatable="false">MODEL</string>
-  <string name="logs_event_category_settings" translatable="false">SETTINGS</string>
-  <string name="logs_event_category_server" translatable="false">SERVER</string>
-  <string name="logs_event_category_prompt" translatable="false">PROMPT</string>
-  <string name="logs_event_category_update" translatable="false">UPDATE</string>
-  <string name="logs_event_category_general" translatable="false">EVENT</string>
+  <string name="logs_event_category_model">MODEL</string>
+  <string name="logs_event_category_settings">SETTINGS</string>
+  <string name="logs_event_category_server">SERVER</string>
+  <string name="logs_event_category_prompt">PROMPT</string>
+  <string name="logs_event_category_update">UPDATE</string>
+  <string name="logs_event_category_general">EVENT</string>
 
   <!-- LogEventCard: Headline strings -->
-  <string name="logs_headline_model_loading" translatable="false">Model Loading</string>
-  <string name="logs_headline_model_loaded" translatable="false">Model Loaded</string>
-  <string name="logs_headline_warmup_message" translatable="false">Internal Warmup Message</string>
-  <string name="logs_headline_settings_changed" translatable="false">Settings changed</string>
-  <string name="logs_headline_prompt_active" translatable="false">%1$s active</string>
-  <string name="logs_headline_server_stopped" translatable="false">Server Stopped</string>
-  <string name="logs_headline_warmup_skipped" translatable="false">Warmup Skipped</string>
-  <string name="logs_headline_model_load_failed" translatable="false">Model Load Failed</string>
-  <string name="logs_headline_cpu_fallback_started" translatable="false">GPU Unavailable — Switching to CPU</string>
-  <string name="logs_headline_cpu_fallback_succeeded" translatable="false">Model Loaded on CPU</string>
-  <string name="logs_headline_server_failed" translatable="false">Server Failed</string>
-  <string name="logs_headline_model_not_found" translatable="false">Model Not Found</string>
-  <string name="logs_headline_image_decode_failed" translatable="false">Image Decode Failed</string>
-  <string name="logs_headline_queued_reload" translatable="false">Queued Reload</string>
-  <string name="logs_headline_conversation_reset_failed" translatable="false">Conversation Reset Failed</string>
-  <string name="logs_headline_settings_updated" translatable="false">Settings updated</string>
-  <string name="logs_headline_config_via_api" translatable="false">Config via REST API</string>
-  <string name="logs_headline_model_restart" translatable="false">Model Restart</string>
-  <string name="logs_headline_model_unloading" translatable="false">Model Unloading</string>
-  <string name="logs_headline_model_idle_unloaded" translatable="false">Model Idle Unloaded</string>
-  <string name="logs_headline_model_reloading" translatable="false">Model Reloading</string>
-  <string name="logs_headline_model_reloaded" translatable="false">Model Reloaded</string>
-  <string name="logs_headline_update_available" translatable="false">Update Available</string>
-  <string name="logs_headline_up_to_date" translatable="false">Up to Date</string>
-  <string name="logs_headline_update_check_disabled" translatable="false">Update Check Disabled</string>
-  <string name="logs_headline_memory_pressure" translatable="false">Memory Pressure</string>
-  <string name="logs_headline_audio_transcription" translatable="false">Audio Transcription</string>
-  <string name="logs_headline_debug" translatable="false">Debug</string>
+  <string name="logs_headline_model_loading">Model Loading</string>
+  <string name="logs_headline_model_loaded">Model Loaded</string>
+  <string name="logs_headline_warmup_message">Internal Warmup Message</string>
+  <string name="logs_headline_settings_changed">Settings changed</string>
+  <string name="logs_headline_prompt_active">%1$s active</string>
+  <string name="logs_headline_server_stopped">Server Stopped</string>
+  <string name="logs_headline_warmup_skipped">Warmup Skipped</string>
+  <string name="logs_headline_model_load_failed">Model Load Failed</string>
+  <string name="logs_headline_cpu_fallback_started">GPU Unavailable — Switching to CPU</string>
+  <string name="logs_headline_cpu_fallback_succeeded">Model Loaded on CPU</string>
+  <string name="logs_headline_server_failed">Server Failed</string>
+  <string name="logs_headline_model_not_found">Model Not Found</string>
+  <string name="logs_headline_image_decode_failed">Image Decode Failed</string>
+  <string name="logs_headline_queued_reload">Queued Reload</string>
+  <string name="logs_headline_conversation_reset_failed">Conversation Reset Failed</string>
+  <string name="logs_headline_settings_updated">Settings updated</string>
+  <string name="logs_headline_config_via_api">Config via REST API</string>
+  <string name="logs_headline_model_restart">Model Restart</string>
+  <string name="logs_headline_model_unloading">Model Unloading</string>
+  <string name="logs_headline_model_idle_unloaded">Model Idle Unloaded</string>
+  <string name="logs_headline_model_reloading">Model Reloading</string>
+  <string name="logs_headline_model_reloaded">Model Reloaded</string>
+  <string name="logs_headline_update_available">Update Available</string>
+  <string name="logs_headline_up_to_date">Up to Date</string>
+  <string name="logs_headline_update_check_disabled">Update Check Disabled</string>
+  <string name="logs_headline_memory_pressure">Memory Pressure</string>
+  <string name="logs_headline_audio_transcription">Audio Transcription</string>
+  <string name="logs_headline_debug">Debug</string>
 
   <!-- LogEventCard: Tooltip -->
-  <string name="logs_tooltip_copy_event" translatable="false">Copy event</string>
+  <string name="logs_tooltip_copy_event">Copy event</string>
 
   <!-- LogEventCard: Body text fragments -->
   <!-- AAPT strips leading/trailing whitespace from <string> resources, so strings that need
        a space adjacent to a dynamically inserted model name use \u0020 to preserve it. -->
-  <string name="logs_event_loading_prefix" translatable="false">Loading\u0020</string>
-  <string name="logs_event_loading_suffix" translatable="false">\u0020into memory</string>
-  <string name="logs_event_loaded_suffix" translatable="false">\u0020loaded into memory</string>
-  <string name="logs_event_cpu_fallback_started" translatable="false">GPU initialization failed. Model loading is continuing on CPU. Technical reason: %1$s</string>
-  <string name="logs_event_cpu_fallback_succeeded" translatable="false">CPU recovery completed successfully.</string>
-  <string name="logs_event_model_unloaded_prefix" translatable="false">Model\u0020</string>
-  <string name="logs_event_model_unloaded_suffix" translatable="false">\u0020unloaded from memory</string>
-  <string name="logs_event_reloading_prefix" translatable="false">Restarting\u0020</string>
-  <string name="logs_event_unloading_prefix" translatable="false">Unloading\u0020</string>
-  <string name="logs_event_unloading_suffix" translatable="false">\u0020from memory</string>
-  <string name="logs_event_keepalive_unloaded_suffix" translatable="false">\u0020unloaded after %1$sm idle to free RAM</string>
-  <string name="logs_event_keepalive_reloading_prefix" translatable="false">Reloading\u0020</string>
-  <string name="logs_event_keepalive_reloading_suffix" translatable="false">\u0020(request received while idle)</string>
-  <string name="logs_event_keepalive_reloaded_suffix" translatable="false">\u0020reloaded in %1$sms</string>
-  <string name="logs_event_version_prefix" translatable="false">Version\u0020</string>
-  <string name="logs_event_version_suffix" translatable="false">\u0020is available</string>
-  <string name="logs_event_update_none" translatable="false">No newer version found</string>
-  <string name="logs_event_update_auto_disabled" translatable="false">Too many consecutive failures</string>
-  <string name="logs_event_memory_pressure_body" translatable="false">Android is critically low on RAM — the app may be killed soon. Close other apps or use a smaller model.</string>
-  <string name="logs_event_queued_reload_model" translatable="false">Reloading %1$s with updated settings</string>
-  <string name="logs_event_queued_reload_generic" translatable="false">Reloading model with updated settings</string>
+  <string name="logs_event_loading_prefix">Loading\u0020</string>
+  <string name="logs_event_loading_suffix">\u0020into memory</string>
+  <string name="logs_event_loaded_suffix">\u0020loaded into memory</string>
+  <string name="logs_event_cpu_fallback_started">GPU initialization failed. Model loading is continuing on CPU. Technical reason: %1$s</string>
+  <string name="logs_event_cpu_fallback_succeeded">CPU recovery completed successfully.</string>
+  <string name="logs_event_model_unloaded_prefix">Model\u0020</string>
+  <string name="logs_event_model_unloaded_suffix">\u0020unloaded from memory</string>
+  <string name="logs_event_reloading_prefix">Restarting\u0020</string>
+  <string name="logs_event_unloading_prefix">Unloading\u0020</string>
+  <string name="logs_event_unloading_suffix">\u0020from memory</string>
+  <string name="logs_event_keepalive_unloaded_suffix">\u0020unloaded after %1$sm idle to free RAM</string>
+  <string name="logs_event_keepalive_reloading_prefix">Reloading\u0020</string>
+  <string name="logs_event_keepalive_reloading_suffix">\u0020(request received while idle)</string>
+  <string name="logs_event_keepalive_reloaded_suffix">\u0020reloaded in %1$sms</string>
+  <string name="logs_event_version_prefix">Version\u0020</string>
+  <string name="logs_event_version_suffix">\u0020is available</string>
+  <string name="logs_event_update_none">No newer version found</string>
+  <string name="logs_event_update_auto_disabled">Too many consecutive failures</string>
+  <string name="logs_event_memory_pressure_body">Android is critically low on RAM — the app may be killed soon. Close other apps or use a smaller model.</string>
+  <string name="logs_event_queued_reload_model">Reloading %1$s with updated settings</string>
+  <string name="logs_event_queued_reload_generic">Reloading model with updated settings</string>
   <!-- LogEventCard: Show more/less toggle -->
-  <string name="logs_event_show_less" translatable="false">Show less</string>
-  <string name="logs_event_show_more" translatable="false">Show more</string>
+  <string name="logs_event_show_less">Show less</string>
+  <string name="logs_event_show_more">Show more</string>
 
   <!-- LogEventCard: Prompt before/after -->
-  <string name="logs_prompt_before" translatable="false">Before</string>
-  <string name="logs_prompt_after" translatable="false">After</string>
-  <string name="logs_prompt_set_to" translatable="false">Set to</string>
-  <string name="logs_prompt_empty" translatable="false">(empty)</string>
+  <string name="logs_prompt_before">Before</string>
+  <string name="logs_prompt_after">After</string>
+  <string name="logs_prompt_set_to">Set to</string>
+  <string name="logs_prompt_empty">(empty)</string>
 
   <!-- LogEventCard: Audio transcription -->
-  <string name="logs_audio_server_prompt" translatable="false">Server Prompt</string>
-  <string name="logs_audio_client_params" translatable="false">Client Parameters</string>
-  <string name="logs_audio_transcription_output" translatable="false">Transcription</string>
+  <string name="logs_audio_server_prompt">Server Prompt</string>
+  <string name="logs_audio_client_params">Client Parameters</string>
+  <string name="logs_audio_transcription_output">Transcription</string>
 
   <!-- LogEventCard: Footer badge -->
-  <string name="logs_event_ready" translatable="false">Ready</string>
-  <string name="logs_event_forced_transcription" translatable="false">Forced</string>
+  <string name="logs_event_ready">Ready</string>
+  <string name="logs_event_forced_transcription">Forced</string>
 
   <!-- LogBadges: HTTP status labels -->
-  <string name="logs_status_context_exceeded" translatable="false">Context Exceeded</string>
-  <string name="logs_status_bad_request" translatable="false">Bad Request</string>
-  <string name="logs_status_unauthorized" translatable="false">Unauthorized</string>
-  <string name="logs_status_forbidden" translatable="false">Forbidden</string>
-  <string name="logs_status_not_found" translatable="false">Not Found</string>
-  <string name="logs_status_method_not_allowed" translatable="false">Method Not Allowed</string>
-  <string name="logs_status_request_timeout" translatable="false">Request Timeout</string>
-  <string name="logs_status_payload_too_large" translatable="false">Payload Too Large</string>
-  <string name="logs_status_too_many_requests" translatable="false">Too Many Requests</string>
-  <string name="logs_status_internal_server_error" translatable="false">Internal Server Error</string>
-  <string name="logs_status_bad_gateway" translatable="false">Bad Gateway</string>
-  <string name="logs_status_service_unavailable" translatable="false">Service Unavailable</string>
-  <string name="logs_status_gateway_timeout" translatable="false">Gateway Timeout</string>
-  <string name="logs_status_error" translatable="false">Error</string>
-  <string name="logs_status_ok" translatable="false">OK</string>
+  <string name="logs_status_context_exceeded">Context Exceeded</string>
+  <string name="logs_status_bad_request">Bad Request</string>
+  <string name="logs_status_unauthorized">Unauthorized</string>
+  <string name="logs_status_forbidden">Forbidden</string>
+  <string name="logs_status_not_found">Not Found</string>
+  <string name="logs_status_method_not_allowed">Method Not Allowed</string>
+  <string name="logs_status_request_timeout">Request Timeout</string>
+  <string name="logs_status_payload_too_large">Payload Too Large</string>
+  <string name="logs_status_too_many_requests">Too Many Requests</string>
+  <string name="logs_status_internal_server_error">Internal Server Error</string>
+  <string name="logs_status_bad_gateway">Bad Gateway</string>
+  <string name="logs_status_service_unavailable">Service Unavailable</string>
+  <string name="logs_status_gateway_timeout">Gateway Timeout</string>
+  <string name="logs_status_error">Error</string>
+  <string name="logs_status_ok">OK</string>
 
   <!-- LogBadges: ErrorKind labels (streaming errors where status code stays 200) -->
-  <string name="logs_error_kind_timeout" translatable="false">Timeout</string>
-  <string name="logs_error_kind_oom" translatable="false">Out of Memory</string>
-  <string name="logs_error_kind_model_not_found" translatable="false">Model Not Found</string>
-  <string name="logs_error_kind_model_files_missing" translatable="false">Model Files Missing</string>
-  <string name="logs_error_kind_model_not_ready" translatable="false">Model Not Ready</string>
-  <string name="logs_error_kind_image_decode_failed" translatable="false">Image Decode Failed</string>
-  <string name="logs_error_kind_inference_error" translatable="false">Inference Error</string>
+  <string name="logs_error_kind_timeout">Timeout</string>
+  <string name="logs_error_kind_oom">Out of Memory</string>
+  <string name="logs_error_kind_model_not_found">Model Not Found</string>
+  <string name="logs_error_kind_model_files_missing">Model Files Missing</string>
+  <string name="logs_error_kind_model_not_ready">Model Not Ready</string>
+  <string name="logs_error_kind_image_decode_failed">Image Decode Failed</string>
+  <string name="logs_error_kind_inference_error">Inference Error</string>
 
   <!-- LogClipboardExport -->
-  <string name="logs_export_chooser_title" translatable="false">Export OlliteRT Logs</string>
+  <string name="logs_export_chooser_title">Export OlliteRT Logs</string>
 
   <!-- Models screen, navigation & common UI labels -->
 
   <!-- Navigation: Bottom bar tab labels -->
-  <string name="nav_tab_models" translatable="false">Models</string>
-  <string name="nav_tab_status" translatable="false">Status</string>
-  <string name="nav_tab_logs" translatable="false">Logs</string>
+  <string name="nav_tab_models">Models</string>
+  <string name="nav_tab_status">Status</string>
+  <string name="nav_tab_logs">Logs</string>
 
   <!-- Navigation: Storage/memory bars -->
-  <string name="nav_storage_free_of" translatable="false">%1$s free of %2$s</string>
-  <string name="nav_memory_app_pss" translatable="false">\u0020· App %1$s</string>
+  <string name="nav_storage_free_of">%1$s free of %2$s</string>
+  <string name="nav_memory_app_pss">\u0020· App %1$s</string>
 
   <!-- Top bar -->
-  <string name="topbar_back" translatable="false">Back</string>
+  <string name="topbar_back">Back</string>
   <string name="topbar_brand_dev" translatable="false">OlliteRT Dev</string>
   <string name="topbar_brand_beta" translatable="false">OlliteRT Beta</string>
   <string name="topbar_brand" translatable="false">OlliteRT</string>
-  <string name="topbar_settings" translatable="false">Settings</string>
+  <string name="topbar_settings">Settings</string>
 
   <!-- Status pill labels -->
-  <string name="status_pill_stopped" translatable="false">STOPPED</string>
-  <string name="status_pill_starting" translatable="false">STARTING</string>
-  <string name="status_pill_running" translatable="false">RUNNING</string>
-  <string name="status_pill_error" translatable="false">ERROR</string>
-  <string name="status_pill_processing" translatable="false">PROCESSING</string>
-  <string name="status_pill_retrying_cpu" translatable="false">RETRYING ON CPU</string>
+  <string name="status_pill_stopped">STOPPED</string>
+  <string name="status_pill_starting">STARTING</string>
+  <string name="status_pill_running">RUNNING</string>
+  <string name="status_pill_error">ERROR</string>
+  <string name="status_pill_processing">PROCESSING</string>
+  <string name="status_pill_retrying_cpu">RETRYING ON CPU</string>
 
   <!-- Getting Started screen -->
-  <string name="getting_started_subtitle" translatable="false">Turn your device into a local OpenAI-compatible API server with text, vision, and speech-to-text support</string>
-  <string name="getting_started_permission_notice" translatable="false">You\u2019ll be asked for notification and battery optimization permissions to keep the server running reliably.</string>
-  <string name="getting_started_button" translatable="false">Get Started</string>
-  <string name="getting_started_learn_more" translatable="false">Learn More</string>
-  <string name="getting_started_hero_line1" translatable="false">Your Private\n</string>
-  <string name="getting_started_hero_highlight" translatable="false">On-Device</string>
-  <string name="getting_started_hero_line3" translatable="false">\nLLM Server</string>
-  <string name="getting_started_step1_title" translatable="false">Download a model</string>
-  <string name="getting_started_step1_desc" translatable="false">Choose from available models</string>
-  <string name="getting_started_step2_title" translatable="false">Start the server</string>
-  <string name="getting_started_step2_desc" translatable="false">Select your model and tap start</string>
-  <string name="getting_started_step3_title" translatable="false">Connect your client</string>
-  <string name="getting_started_step3_desc" translatable="false">Point any OpenAI-compatible app to your phone’s local network IP address</string>
-  <string name="getting_started_step_cd" translatable="false">Step %1$d: %2$s. %3$s</string>
+  <string name="getting_started_subtitle">Turn your device into a local OpenAI-compatible API server with text, vision, and speech-to-text support</string>
+  <string name="getting_started_permission_notice">You\u2019ll be asked for notification and battery optimization permissions to keep the server running reliably.</string>
+  <string name="getting_started_button">Get Started</string>
+  <string name="getting_started_learn_more">Learn More</string>
+  <string name="getting_started_hero_line1">Your Private\n</string>
+  <string name="getting_started_hero_highlight">On-Device</string>
+  <string name="getting_started_hero_line3">\nLLM Server</string>
+  <string name="getting_started_step1_title">Download a model</string>
+  <string name="getting_started_step1_desc">Choose from available models</string>
+  <string name="getting_started_step2_title">Start the server</string>
+  <string name="getting_started_step2_desc">Select your model and tap start</string>
+  <string name="getting_started_step3_title">Connect your client</string>
+  <string name="getting_started_step3_desc">Point any OpenAI-compatible app to your phone’s local network IP address</string>
+  <string name="getting_started_step_cd">Step %1$d: %2$s. %3$s</string>
 
   <!-- Models screen: Search & filters -->
-  <string name="models_clear_search" translatable="false">Clear search</string>
-  <string name="models_filter_capabilities" translatable="false">Capabilities</string>
-  <string name="models_tooltip_more_filters" translatable="false">More filters</string>
-  <string name="models_tooltip_sort" translatable="false">Sort models</string>
-  <string name="models_sort_default" translatable="false">Default</string>
-  <string name="models_sort_name" translatable="false">Name</string>
-  <string name="models_sort_size" translatable="false">Size</string>
+  <string name="models_clear_search">Clear search</string>
+  <string name="models_filter_capabilities">Capabilities</string>
+  <string name="models_tooltip_more_filters">More filters</string>
+  <string name="models_tooltip_sort">Sort models</string>
+  <string name="models_sort_default">Default</string>
+  <string name="models_sort_name">Name</string>
+  <string name="models_sort_size">Size</string>
 
   <!-- Models screen: Capability chip labels -->
-  <string name="capability_text" translatable="false">Text</string>
-  <string name="capability_vision" translatable="false">Vision</string>
-  <string name="capability_audio" translatable="false">Audio</string>
-  <string name="capability_thinking" translatable="false">Thinking</string>
-  <string name="capability_tools" translatable="false">Tools</string>
+  <string name="capability_text">Text</string>
+  <string name="capability_vision">Vision</string>
+  <string name="capability_audio">Audio</string>
+  <string name="capability_thinking">Thinking</string>
+  <string name="capability_tools">Tools</string>
   <string name="capability_npu" translatable="false">NPU</string>
   <string name="capability_speculative_decoding" translatable="false">MTP</string>
 
   <!-- Models screen: Error/empty states -->
-  <string name="models_failed_to_load" translatable="false">Failed to load models</string>
+  <string name="models_failed_to_load">Failed to load models</string>
 
   <!-- Models screen: Import -->
-  <string name="toast_model_imported" translatable="false">Model imported successfully</string>
+  <string name="toast_model_imported">Model imported successfully</string>
 
   <!-- Models screen: Permission warning -->
-  <string name="models_permission_notification" translatable="false">notification access</string>
-  <string name="models_permission_battery" translatable="false">battery optimization exemption</string>
-  <string name="models_permission_warning" translatable="false">Missing %1$s — the server may be stopped by the system while running in the background. Tap to open settings.</string>
+  <string name="models_permission_notification">notification access</string>
+  <string name="models_permission_battery">battery optimization exemption</string>
+  <string name="models_permission_warning">Missing %1$s — the server may be stopped by the system while running in the background. Tap to open settings.</string>
 
   <!-- Model item: Loading/status hints -->
-  <string name="model_loading_hint" translatable="false">Sit tight — this may take a couple of minutes depending on your device</string>
-  <string name="model_tooltip_inference_settings" translatable="false">Inference settings</string>
-  <string name="model_tooltip_delete" translatable="false">Delete model</string>
+  <string name="model_loading_hint">Sit tight — this may take a couple of minutes depending on your device</string>
+  <string name="model_tooltip_inference_settings">Inference settings</string>
+  <string name="model_tooltip_delete">Delete model</string>
 
   <!-- Model status labels -->
-  <string name="model_status_unzipping" translatable="false">Unzipping…</string>
-  <string name="model_status_resuming_suffix" translatable="false">\u0020(resuming…)</string>
+  <string name="model_status_unzipping">Unzipping…</string>
+  <string name="model_status_resuming_suffix">\u0020(resuming…)</string>
 
-  <string name="model_download_progress" translatable="false">%1$s of %2$s</string>
+  <string name="model_download_progress">%1$s of %2$s</string>
   <string name="model_download_speed_suffix" translatable="false">%1$s/s</string>
 
   <!-- Model download panel -->
-  <string name="model_stop_server_for_benchmark" translatable="false">Stop the server first to run benchmarks</string>
-  <string name="model_stop_server_for_update" translatable="false">Stop the server first to update the model</string>
-  <string name="model_loading_hint_wait" translatable="false">Please wait for the current model to finish loading</string>
+  <string name="model_stop_server_for_benchmark">Stop the server first to run benchmarks</string>
+  <string name="model_stop_server_for_update">Stop the server first to update the model</string>
+  <string name="model_loading_hint_wait">Please wait for the current model to finish loading</string>
 
   <!-- Model update -->
-  <string name="update" translatable="false">Update</string>
-  <string name="update_available" translatable="false">Update available</string>
-  <string name="about_this_update" translatable="false">About this update</string>
+  <string name="update">Update</string>
+  <string name="update_available">Update available</string>
+  <string name="about_this_update">About this update</string>
 
   <!-- Donate dialog: Platform labels -->
   <string name="donate_github_sponsors" translatable="false">GitHub Sponsors</string>
@@ -879,58 +879,58 @@
   <string name="donate_kofi" translatable="false">Ko-fi</string>
 
   <!-- Common: Clipboard toast -->
-  <string name="toast_copied_to_clipboard" translatable="false">Copied to clipboard</string>
-  <string name="toast_copied_to_clipboard_format" translatable="false">Copied to clipboard (%1$s)</string>
+  <string name="toast_copied_to_clipboard">Copied to clipboard</string>
+  <string name="toast_copied_to_clipboard_format">Copied to clipboard (%1$s)</string>
 
   <!-- Common: Model error messages -->
-  <string name="error_model_load_failed" translatable="false">Failed to load model</string>
-  <string name="error_model_load_failed_short" translatable="false">Failed to load — check Logs for details</string>
-  <string name="error_model_load_failed_detail" translatable="false">Failed to load: %1$s</string>
+  <string name="error_model_load_failed">Failed to load model</string>
+  <string name="error_model_load_failed_short">Failed to load — check Logs for details</string>
+  <string name="error_model_load_failed_detail">Failed to load: %1$s</string>
 
   <!-- Common: Import errors -->
-  <string name="error_import_failed" translatable="false">Failed to import</string>
-  <string name="error_import_finalize_failed" translatable="false">Failed to finalize import: %1$s</string>
+  <string name="error_import_failed">Failed to import</string>
+  <string name="error_import_finalize_failed">Failed to finalize import: %1$s</string>
 
   <!-- Error and status messages -->
 
   <!-- UpdateCheckWorker: Toast result messages (shown via WorkManager KEY_MESSAGE → Settings UI toast) -->
-  <string name="update_check_no_updates" translatable="false">No new %1$s update available</string>
-  <string name="update_check_up_to_date" translatable="false">You\'re on the latest version (%1$s)</string>
-  <string name="update_check_failed_network" translatable="false">Update check failed — check your network connection</string>
-  <string name="update_check_failed_rate_limited" translatable="false">Update check failed — rate limited, try again later</string>
-  <string name="update_check_failed_not_found" translatable="false">Update check failed — repository or releases not found</string>
-  <string name="update_check_failed_server_error" translatable="false">Update check failed — server error, try again later</string>
-  <string name="update_check_failed_http" translatable="false">Update check failed — HTTP error %1$d</string>
+  <string name="update_check_no_updates">No new %1$s update available</string>
+  <string name="update_check_up_to_date">You\'re on the latest version (%1$s)</string>
+  <string name="update_check_failed_network">Update check failed — check your network connection</string>
+  <string name="update_check_failed_rate_limited">Update check failed — rate limited, try again later</string>
+  <string name="update_check_failed_not_found">Update check failed — repository or releases not found</string>
+  <string name="update_check_failed_server_error">Update check failed — server error, try again later</string>
+  <string name="update_check_failed_http">Update check failed — HTTP error %1$d</string>
 
   <!-- DataStore corruption recovery notification -->
-  <string name="notif_channel_corruption_name" translatable="false">Data Recovery</string>
-  <string name="notif_channel_corruption_desc" translatable="false">Notifies when corrupted data was detected and reset</string>
-  <string name="notif_corruption_title" translatable="false">Data was reset after corruption</string>
-  <string name="notif_corruption_text_one" translatable="false">The %1$s data file was corrupted and has been reset to defaults.</string>
-  <string name="notif_corruption_text_many" translatable="false">%1$d data files were corrupted and have been reset to defaults: %2$s</string>
-  <string name="log_corruption_recovered" translatable="false">DataStore corruption recovered — reset to defaults: %1$s</string>
+  <string name="notif_channel_corruption_name">Data Recovery</string>
+  <string name="notif_channel_corruption_desc">Notifies when corrupted data was detected and reset</string>
+  <string name="notif_corruption_title">Data was reset after corruption</string>
+  <string name="notif_corruption_text_one">The %1$s data file was corrupted and has been reset to defaults.</string>
+  <string name="notif_corruption_text_many">%1$d data files were corrupted and have been reset to defaults: %2$s</string>
+  <string name="log_corruption_recovered">DataStore corruption recovered — reset to defaults: %1$s</string>
 
   <!-- UpdateCheckWorker: Notification channel (visible in Android system notification settings) -->
-  <string name="notif_channel_app_update_name" translatable="false">App Updates</string>
-  <string name="notif_channel_app_update_desc" translatable="false">Notifies when a new version of OlliteRT is available</string>
-  <string name="notif_channel_beta_release_name" translatable="false">Beta Releases</string>
-  <string name="notif_channel_beta_release_desc" translatable="false">Notifications about new beta releases from other channels.</string>
-  <string name="notif_channel_dev_release_name" translatable="false">Dev Releases</string>
-  <string name="notif_channel_dev_release_desc" translatable="false">Notifications about new dev pre-releases from other channels.</string>
+  <string name="notif_channel_app_update_name">App Updates</string>
+  <string name="notif_channel_app_update_desc">Notifies when a new version of OlliteRT is available</string>
+  <string name="notif_channel_beta_release_name">Beta Releases</string>
+  <string name="notif_channel_beta_release_desc">Notifications about new beta releases from other channels.</string>
+  <string name="notif_channel_dev_release_name">Dev Releases</string>
+  <string name="notif_channel_dev_release_desc">Notifications about new dev pre-releases from other channels.</string>
 
   <!-- AllowlistRefreshWorker: Model update notification channel and content -->
-  <string name="notif_channel_model_update_name" translatable="false">Model Updates</string>
-  <string name="notif_channel_model_update_desc" translatable="false">Notifications when newer model versions are available</string>
-  <string name="notif_model_update_title" translatable="false">Model update available</string>
-  <string name="notif_model_update_text" translatable="false">A newer version of %1$s is available</string>
+  <string name="notif_channel_model_update_name">Model Updates</string>
+  <string name="notif_channel_model_update_desc">Notifications when newer model versions are available</string>
+  <string name="notif_model_update_title">Model update available</string>
+  <string name="notif_model_update_text">A newer version of %1$s is available</string>
 
   <!-- Model Update Dialog (shown when tapping a model update notification) -->
-  <string name="model_update_dialog_title" translatable="false">Update available for %1$s</string>
-  <string name="model_update_dialog_body_empty" translatable="false">A newer version of this model is available.</string>
-  <string name="model_update_dialog_server_running" translatable="false">Stop the server before updating this model.</string>
-  <string name="model_update_dialog_ignore" translatable="false">Ignore this update</string>
-  <string name="model_update_dialog_later" translatable="false">Later</string>
-  <string name="model_update_dialog_not_found" translatable="false">Update info no longer available.</string>
+  <string name="model_update_dialog_title">Update available for %1$s</string>
+  <string name="model_update_dialog_body_empty">A newer version of this model is available.</string>
+  <string name="model_update_dialog_server_running">Stop the server before updating this model.</string>
+  <string name="model_update_dialog_ignore">Ignore this update</string>
+  <string name="model_update_dialog_later">Later</string>
+  <string name="model_update_dialog_not_found">Update info no longer available.</string>
 
   <!-- InferenceSettingsSheet -->
   <string name="inference_settings_title">Inference Settings</string>
@@ -943,9 +943,9 @@
   <string name="inference_settings_allow_thinking">Allow Thinking</string>
   <string name="inference_settings_thinking_supported">Enables the model\'s thinking mode for step-by-step reasoning</string>
   <string name="inference_settings_thinking_unsupported">This model does not support thinking mode</string>
-  <string name="inference_settings_spec_dec_label" translatable="false">Speculative Decoding (MTP)</string>
-  <string name="inference_settings_spec_dec_supported" translatable="false">Predicts multiple tokens at once for faster decode speed without quality loss</string>
-  <string name="inference_settings_spec_dec_unsupported" translatable="false">This model does not support speculative decoding</string>
+  <string name="inference_settings_spec_dec_label">Speculative Decoding (MTP)</string>
+  <string name="inference_settings_spec_dec_supported">Predicts multiple tokens at once for faster decode speed without quality loss</string>
+  <string name="inference_settings_spec_dec_unsupported">This model does not support speculative decoding</string>
   <string name="inference_settings_accelerator">Accelerator</string>
   <string name="inference_settings_accelerator_only">This model only supports %1$s acceleration</string>
 
@@ -959,7 +959,7 @@
 
   <string name="inference_settings_custom_system_prompt">Custom System Prompt</string>
   <string name="inference_settings_system_prompt_description">Prepended to every conversation as a system instruction</string>
-  <string name="inference_settings_label_system_prompt" translatable="false">SYSTEM PROMPT</string>
+  <string name="inference_settings_label_system_prompt">SYSTEM PROMPT</string>
   <string name="inference_settings_system_prompt_placeholder">e.g. You are a helpful coding assistant…</string>
   <string name="inference_settings_reload_warning">Changes to Max Tokens or Accelerator will reload the model</string>
   <string name="inference_settings_save_apply">Save &amp; Apply Configuration</string>
@@ -969,57 +969,57 @@
   <string name="cd_expand">Expand</string>
 
   <!-- ConfigKey: display labels for config editor rows -->
-  <string name="config_label_max_tokens" translatable="false">Max tokens</string>
+  <string name="config_label_max_tokens">Max tokens</string>
   <string name="config_label_topk" translatable="false">TopK</string>
   <string name="config_label_topp" translatable="false">TopP</string>
   <string name="config_label_temperature" translatable="false">Temperature</string>
-  <string name="config_label_default_max_tokens" translatable="false">Default max tokens</string>
-  <string name="config_label_default_topk" translatable="false">Default TopK</string>
-  <string name="config_label_default_topp" translatable="false">Default TopP</string>
-  <string name="config_label_default_temperature" translatable="false">Default temperature</string>
-  <string name="config_label_support_image" translatable="false">Support\nvision</string>
-  <string name="config_label_support_audio" translatable="false">Support\naudio</string>
-  <string name="config_label_support_thinking" translatable="false">Support\nthinking</string>
-  <string name="config_label_support_tools" translatable="false">Support\ntools</string>
-  <string name="config_label_support_speculative_decoding" translatable="false">Support\nMTP</string>
-  <string name="config_label_enable_thinking" translatable="false">Enable thinking</string>
-  <string name="config_label_thinking_budget" translatable="false">Thinking budget</string>
-  <string name="inference_settings_thinking_budget_tokens" translatable="false">%d tokens</string>
-  <string name="inference_settings_thinking_budget_hint" translatable="false">Reasoning token budget (min 128)</string>
-  <string name="config_label_enable_speculative_decoding" translatable="false">Speculative decoding</string>
-  <string name="config_hint_requires_model_update" translatable="false">Requires model update to take effect</string>
-  <string name="config_label_accelerator" translatable="false">Accelerator</string>
-  <string name="config_label_vision_accelerator" translatable="false">Vision accelerator</string>
-  <string name="config_label_compatible_accelerators" translatable="false">Compatible accelerators</string>
-  <string name="config_label_name" translatable="false">Name</string>
-  <string name="config_label_model_type" translatable="false">Model type</string>
-  <string name="config_label_prefill_tokens" translatable="false">Prefill tokens</string>
-  <string name="config_label_decode_tokens" translatable="false">Decode tokens</string>
-  <string name="config_label_number_of_runs" translatable="false">Number of runs</string>
+  <string name="config_label_default_max_tokens">Default max tokens</string>
+  <string name="config_label_default_topk">Default TopK</string>
+  <string name="config_label_default_topp">Default TopP</string>
+  <string name="config_label_default_temperature">Default temperature</string>
+  <string name="config_label_support_image">Support\nvision</string>
+  <string name="config_label_support_audio">Support\naudio</string>
+  <string name="config_label_support_thinking">Support\nthinking</string>
+  <string name="config_label_support_tools">Support\ntools</string>
+  <string name="config_label_support_speculative_decoding">Support\nMTP</string>
+  <string name="config_label_enable_thinking">Enable thinking</string>
+  <string name="config_label_thinking_budget">Thinking budget</string>
+  <string name="inference_settings_thinking_budget_tokens">%d tokens</string>
+  <string name="inference_settings_thinking_budget_hint">Reasoning token budget (min 128)</string>
+  <string name="config_label_enable_speculative_decoding">Speculative decoding</string>
+  <string name="config_hint_requires_model_update">Requires model update to take effect</string>
+  <string name="config_label_accelerator">Accelerator</string>
+  <string name="config_label_vision_accelerator">Vision accelerator</string>
+  <string name="config_label_compatible_accelerators">Compatible accelerators</string>
+  <string name="config_label_name">Name</string>
+  <string name="config_label_model_type">Model type</string>
+  <string name="config_label_prefill_tokens">Prefill tokens</string>
+  <string name="config_label_decode_tokens">Decode tokens</string>
+  <string name="config_label_number_of_runs">Number of runs</string>
 
   <!-- BenchmarkResultsViewer: stat labels (technical) -->
-  <string name="benchmark_stat_model" translatable="false">Model</string>
-  <string name="benchmark_stat_accelerator" translatable="false">Accelerator</string>
-  <string name="benchmark_stat_prefill_tokens" translatable="false">Prefill tokens</string>
-  <string name="benchmark_stat_decode_tokens" translatable="false">Decode tokens</string>
-  <string name="benchmark_stat_number_of_runs" translatable="false">Number of runs</string>
-  <string name="benchmark_stat_speculative_decoding" translatable="false">Speculative decoding</string>
-  <string name="benchmark_stat_app_version" translatable="false">App version</string>
-  <string name="benchmark_stat_prefill_speed" translatable="false">Prefill speed</string>
-  <string name="benchmark_stat_decode_speed" translatable="false">Decode speed</string>
-  <string name="benchmark_stat_time_to_first_token" translatable="false">Time to first token</string>
-  <string name="benchmark_stat_first_init_time" translatable="false">First init time</string>
-  <string name="benchmark_stat_steady_init_time" translatable="false">Steady init time</string>
-  <string name="benchmark_unit_tokens_per_sec" translatable="false">tokens/sec</string>
-  <string name="benchmark_unit_sec" translatable="false">sec</string>
-  <string name="benchmark_unit_ms" translatable="false">ms</string>
+  <string name="benchmark_stat_model">Model</string>
+  <string name="benchmark_stat_accelerator">Accelerator</string>
+  <string name="benchmark_stat_prefill_tokens">Prefill tokens</string>
+  <string name="benchmark_stat_decode_tokens">Decode tokens</string>
+  <string name="benchmark_stat_number_of_runs">Number of runs</string>
+  <string name="benchmark_stat_speculative_decoding">Speculative decoding</string>
+  <string name="benchmark_stat_app_version">App version</string>
+  <string name="benchmark_stat_prefill_speed">Prefill speed</string>
+  <string name="benchmark_stat_decode_speed">Decode speed</string>
+  <string name="benchmark_stat_time_to_first_token">Time to first token</string>
+  <string name="benchmark_stat_first_init_time">First init time</string>
+  <string name="benchmark_stat_steady_init_time">Steady init time</string>
+  <string name="benchmark_unit_tokens_per_sec">tokens/sec</string>
+  <string name="benchmark_unit_sec">sec</string>
+  <string name="benchmark_unit_ms">ms</string>
 
   <!-- BenchmarkValueSeriesViewer: sparkline tap label -->
-  <string name="benchmark_sparkline_value" translatable="false">Value: %1$s</string>
+  <string name="benchmark_sparkline_value">Value: %1$s</string>
 
   <!-- BenchmarkViewModel: error messages -->
-  <string name="benchmark_error_engine_init" translatable="false">The model engine could not be initialized. This usually means the selected accelerator (GPU/NPU) is not supported on this device.\n\nTry switching to CPU in the benchmark settings.</string>
-  <string name="benchmark_error_oom" translatable="false">The device ran out of memory while loading the model. Try closing other apps or using a smaller model.</string>
+  <string name="benchmark_error_engine_init">The model engine could not be initialized. This usually means the selected accelerator (GPU/NPU) is not supported on this device.\n\nTry switching to CPU in the benchmark settings.</string>
+  <string name="benchmark_error_oom">The device ran out of memory while loading the model. Try closing other apps or using a smaller model.</string>
 
   <!-- BenchmarkViewModel: aggregation labels -->
   <!-- ModelImportDialog: edit dialog -->
@@ -1029,9 +1029,9 @@
 
   <!-- SettingsViewModel: validation errors -->
   <string name="validation_invalid_port">Invalid port number</string>
-  <string name="validation_bind_address_invalid" translatable="false">Enter a valid numeric IPv4 or IPv6 address</string>
-  <string name="validation_client_ip_rules_required" translatable="false">Add at least one IP address or CIDR network</string>
-  <string name="validation_client_ip_rule_invalid" translatable="false">Entry %1$d is not a valid IP address or CIDR network: %2$s</string>
+  <string name="validation_bind_address_invalid">Enter a valid numeric IPv4 or IPv6 address</string>
+  <string name="validation_client_ip_rules_required">Add at least one IP address or CIDR network</string>
+  <string name="validation_client_ip_rule_invalid">Entry %1$d is not a valid IP address or CIDR network: %2$s</string>
   <string name="validation_port_required">A port number is required</string>
   <string name="validation_port_range">Port must be between %1$d and %2$d</string>
   <string name="validation_numeric_range">%1$s must be between %2$d and %3$d</string>
@@ -1040,7 +1040,7 @@
 
 
   <!-- DownloadRepository: notification channel -->
-  <string name="notif_channel_download_name" translatable="false">OlliteRT download notification</string>
+  <string name="notif_channel_download_name">OlliteRT download notification</string>
 
   <!-- OlliteRTApp: server error dialog -->
   <string name="dialog_server_error_title">Server Error</string>
@@ -1122,9 +1122,9 @@
   <string name="repo_delete_downloading_cancel_and_delete">Cancel download &amp; delete</string>
   <string name="repo_limit_warning">Approaching model source limit</string>
   <string name="repo_toggle_label">Toggle %1$s</string>
-  <string name="add" translatable="false">Add</string>
-  <string name="remove" translatable="false">Remove</string>
-  <string name="paste" translatable="false">Paste</string>
+  <string name="add">Add</string>
+  <string name="remove">Remove</string>
+  <string name="paste">Paste</string>
 
   <!-- RepositoriesCard (Settings) -->
   <string name="repo_card_no_sources">No model sources</string>
@@ -1165,5 +1165,12 @@
 
   <!-- InferenceRunner: error message -->
   <string name="error_model_init_failed">Model initialization failed: %1$s</string>
+
+  <!-- Added by the zh-rCN translation work: duration unit labels for the settings
+       dropdowns. Stored preference values stay "seconds"/"minutes"/"hours"/"days". -->
+  <string name="unit_seconds">seconds</string>
+  <string name="unit_minutes">minutes</string>
+  <string name="unit_hours">hours</string>
+  <string name="unit_days">days</string>
 
 </resources>

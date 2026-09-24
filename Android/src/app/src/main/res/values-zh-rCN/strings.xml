@@ -1,0 +1,1021 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ Simplified Chinese (zh-rCN) translations for OlliteRT.
+ Drafted with AI assistance and reviewed entry by entry against the running app.
+ String names, format placeholders and \n / \u0020 escapes match values/strings.xml.
+-->
+<resources>
+  <string name="all">全部</string>
+  <string name="baseline">基准</string>
+  <string name="basic_info">基本信息</string>
+  <string name="benchmark">基准测试</string>
+  <string name="benchmark_comparison_help_title">如何对比基准测试运行</string>
+  <string name="benchmark_comparison_help_content">在任意一次运行结果卡片上点按 **基准** 标签，即可把该次运行设为对比基准。我们会自动计算并在 **其他所有** 运行结果卡片中显示百分比差异。</string>
+  <string name="benchmark_model">基准测试模型</string>
+  <string name="benchmark_results">基准测试结果</string>
+  <string name="benchmark_no_results">暂无基准测试结果</string>
+  <string name="benchmark_tokens_limit_message">请确保预填充与解码的 token 总数不超过模型的最大 token 限制（%d 对 %d）</string>
+  <string name="badge_best_overall">综合最佳</string>
+  <string name="badge_new">新</string>
+  <string name="badge_fastest">最快</string>
+  <string name="cancel">取消</string>
+  <string name="checking_access">正在检查访问权限…</string>
+  <string name="close">关闭</string>
+  <string name="collapse_all">全部收起</string>
+  <string name="continue_button_label">继续</string>
+  <string name="copy">复制</string>
+  <string name="delete">删除</string>
+  <string name="delete_benchmark_result_dialog_title">删除基准测试结果</string>
+  <string name="delete_benchmark_result_dialog_content">确定要删除该基准测试结果吗？</string>
+  <string name="confirm_delete_model_dialog_title">删除已下载内容</string>
+  <string name="confirm_delete_model_dialog_content">确定要删除已下载的模型“%1$s”吗？</string>
+  <string name="dismiss">忽略</string>
+  <string name="download">下载</string>
+  <string name="expand_all">全部展开</string>
+  <string name="learn_more">了解更多并查看模型许可证</string>
+  <string name="memory_warning_content">你选择的模型可能超出设备内存，导致应用崩溃。为获得最佳体验，建议改用更小的模型。</string>
+  <string name="memory_warning_proceed_anyway">仍然继续</string>
+  <string name="memory_warning_title">内存警告</string>
+  <string name="max_tokens_warning_message">将最大 token 数设为 10000 以上可能导致应用不稳定。</string>
+  <string name="model_list_imported_models_title">已导入的模型</string>
+  <string name="notification_content_success">模型“%s”已下载完成</string>
+  <string name="notification_content_fail">模型“%s”下载失败</string>
+  <string name="notification_title_fail">模型下载失败</string>
+  <string name="notification_title_success">模型下载成功</string>
+  <string name="ok">确定</string>
+  <string name="enabled">已启用</string>
+  <string name="results">结果</string>
+  <string name="run_benchmark">运行基准测试</string>
+  <string name="run_benchmark_confirmation_msg">该过程通常需要几分钟，且开始后无法中断。确定继续吗？</string>
+  <string name="benchmark_server_conflict_title">服务器正在运行</string>
+  <string name="benchmark_server_conflict_body">在服务器已加载模型时运行基准测试，可能导致内存溢出或 GPU 资源冲突。请先停止服务器，然后重试。</string>
+  <string name="benchmark_error_title">基准测试失败</string>
+  <string name="running_benchmark_msg">正在运行模型基准测试…</string>
+  <string name="select_downloaded_model">选择一个已下载的模型</string>
+  <string name="select_model">选择一个模型</string>
+  <string name="tap_to_see_value">点按图表可查看数值</string>
+  <string name="try_it">启动服务器</string>
+  <string name="repo_list_heading">模型源</string>
+  <string name="repo_list_subheading">管理模型下载来源。</string>
+  <string name="repo_info_button">关于模型源</string>
+  <string name="repo_info_title">关于模型源</string>
+  <string name="repo_info_body">模型源提供可下载模型的列表。OlliteRT 自带一个内置源，会自动保持最新。\n\n你也可以提供一个兼容模型列表的 URL 来添加自定义源。停用某个源只会把它的模型从下载列表中隐藏，不会删除已经下载的模型。\n\n如果同一个模型出现在多个源中，只会显示一次，并使用最先启用的那个源。</string>
+  <string name="search_models">搜索模型…</string>
+  <string name="filter_all">全部</string>
+  <string name="filter_downloaded">已下载</string>
+  <string name="filter_available">可下载</string>
+  <string name="filter_imported">已导入</string>
+  <string name="no_models_match_search">没有符合搜索条件的模型</string>
+  <string name="no_models_version_too_old">未找到兼容的模型。请更新到 %1$s 或更高版本。</string>
+  <string name="no_models_empty_source">你的模型源中没有找到模型。请尝试刷新或添加新的源。</string>
+  <string name="no_models_not_compatible">找到了模型，但均无法加载。模型源中可能包含无效数据。</string>
+  <string name="models_hidden_by_version">已隐藏 %1$s — 需要更高版本的应用</string>
+  <string name="retry">重试</string>
+  <string name="wifi_warning_title">未连接 Wi-Fi</string>
+  <string name="wifi_warning_content_prefix">"没有 Wi-Fi 时，服务器无法接受来自网络中其他设备的连接，但仍可在本机上的以下地址访问："</string>
+  <string name="wifi_warning_content_suffix">"（对 Termux 这类本机客户端依然可用）"</string>
+  <string name="wifi_warning_start_anyway">仍然启动</string>
+  <string name="view_results">查看结果</string>
+  <plurals name="runs">
+    <item quantity="one">%d 次运行</item>
+    <item quantity="other">%d 次运行</item>
+  </plurals>
+  <plurals name="models_count">
+    <item quantity="one">%d 个模型</item>
+    <item quantity="other">%d 个模型</item>
+  </plurals>
+  <!-- Accessibility content descriptions -->
+  <string name="cd_import_model_button">导入模型</string>
+  <string name="cd_error">错误</string>
+  <string name="cd_import_model_from_local_file_button">从本地文件导入模型</string>
+  <string name="cd_navigate_back_icon">返回</string>
+  <string name="cd_stop_icon">停止</string>
+  <string name="cd_retry_download_icon">重试下载</string>
+  <string name="cd_downloaded_icon">已下载</string>
+  <string name="cd_not_downloaded_icon">未下载</string>
+  <string name="cd_downloading_icon">正在下载</string>
+  <string name="cd_download_failed_icon">下载失败</string>
+  <string name="cd_help">帮助</string>
+  <!-- Fork: LLM HTTP foreground service notification channel -->
+  <string name="llm_http_channel_name">OlliteRT 服务器</string>
+  <!-- Dialog titles and body text -->
+  <string name="dialog_clear_logs_title">删除全部活动日志条目</string>
+  <string name="dialog_clear_logs_body">这将永久删除“日志”标签页中的全部条目，包括当前会话和本机数据库记录。不影响详细/调试日志和 adb logcat 输出。此操作无法撤销。</string>
+  <string name="button_clear">清除</string>
+  <string name="dialog_reduce_log_limit_title">降低日志上限</string>
+  <string name="dialog_reduce_log_limit_body">当前共有 %1$d 条日志。把上限降低到 %2$d 后，保存时将删除最早的 %3$d 条记录。</string>
+  <string name="dialog_unsaved_changes_title">未保存的更改</string>
+  <string name="dialog_unsaved_changes_body">你有未保存的更改。要保存还是放弃？</string>
+  <string name="button_save">保存</string>
+  <string name="button_discard">放弃</string>
+  <string name="dialog_restart_server_title">重启服务器？</string>
+  <string name="dialog_restart_server_body">部分更改的设置需要重启服务器才能生效。</string>
+  <string name="button_restart">重启</string>
+  <string name="button_later">稍后</string>
+  <string name="dialog_trim_prompt_warning_title">启用提示词截断？</string>
+  <string name="dialog_trim_prompt_warning_body">这会对超出上下文窗口的提示词做硬截断，从开头丢弃内容——包括系统提示词、工具定义和较早的对话历史。\n\n模型将收到不完整的上下文，通常会导致回答语无伦次、偏离主题或完全不合理。\n\n仅当请求因超出上下文限制而被拒绝，且其他策略（截断历史、压缩 schema）都不够用时，再启用此项。</string>
+  <string name="button_enable_anyway">仍然启用</string>
+  <string name="dialog_reset_defaults_title">恢复默认设置</string>
+  <string name="dialog_reset_defaults_body">这将把所有设置恢复为默认值，包括端口、Bearer 令牌、HuggingFace 令牌、推理配置、系统提示词以及所有开关。</string>
+  <string name="dialog_reset_defaults_body_server_active">这将把所有设置恢复为默认值，包括端口、Bearer 令牌、HuggingFace 令牌、推理配置、系统提示词以及所有开关。\n\n服务器将被停止。</string>
+  <string name="button_reset">重置</string>
+  <string name="dialog_reset_inference_title">恢复默认设置</string>
+  <string name="dialog_reset_inference_body">这将把该模型的所有推理设置恢复为默认值。模型会重新加载以应用更改。</string>
+  <string name="dialog_user_agreement_title">确认用户协议</string>
+  <string name="dialog_user_agreement_body">这是一个受限模型。请点击下面的按钮查看并同意用户协议。接受后，关闭该页面即可继续下载模型。</string>
+  <string name="button_open_user_agreement">打开用户协议</string>
+  <string name="dialog_network_error_title">未知网络错误</string>
+  <string name="dialog_network_error_body">请检查你的网络连接。</string>
+  <string name="dialog_model_not_found_title">未找到模型</string>
+  <string name="dialog_model_not_found_body">在 HuggingFace 上找不到该模型。请确认模型列表中的模型 ID 和 commit 哈希是否正确。</string>
+  <string name="dialog_hf_token_required_title">需要 HuggingFace 令牌</string>
+  <string name="dialog_hf_token_required_body">该模型受限，下载时需要提供 HuggingFace 访问令牌。\n\n请在“设置”中添加你的令牌。</string>
+  <string name="dialog_hf_token_invalid_title">HuggingFace 令牌无效</string>
+  <string name="dialog_hf_token_invalid_body">服务器拒绝了你的 HuggingFace 令牌。它可能已过期、被吊销或不正确。\n\n请在“设置”中检查你的令牌。</string>
+  <string name="button_go_to_settings">前往设置</string>
+  <string name="button_go_to_model_sources">前往模型源</string>
+  <string name="dialog_storage_warning_title">存储空间不足</string>
+  <string name="dialog_storage_warning_body">本次下载共需 %1$.1f GB：\n  \u2022 模型大小：%2$.1f GB\n  \u2022 系统预留：%3$.0f GB\n\n可用空间：%4$.1f GB\n\n请至少释放 %5$.1f GB 后继续，或点按“仍然下载”跳过安全检查。</string>
+  <string name="button_download_anyway">仍然下载</string>
+  <string name="dialog_storage_warning_import_body">本次导入共需 %1$.1f GB：\n  \u2022 模型大小：%2$.1f GB\n  \u2022 系统预留：%3$.0f GB\n\n可用空间：%4$.1f GB\n\n请至少释放 %5$.1f GB 后继续，或点按“仍然导入”跳过安全检查。</string>
+  <string name="button_import_anyway">仍然导入</string>
+  <string name="label_loading_model">正在加载模型</string>
+  <string name="button_stop_server">停止服务器</string>
+  <string name="dialog_unsupported_file_type_title">不支持的文件类型</string>
+  <string name="dialog_unsupported_file_type_body">仅支持“.litertlm”文件格式。</string>
+  <string name="dialog_unsupported_web_model_title">不支持的模型类型</string>
+  <string name="dialog_unsupported_web_model_body">该模型似乎是仅供网页端使用的模型，本应用不支持。</string>
+  <string name="dialog_switch_model_title">切换模型？</string>
+  <string name="dialog_switch_model_body">这将卸载“%1$s”并加载“%2$s”。\n\n服务器会重启。\n\n注意：在内存有限的设备上于大模型之间切换可能失败，因为 LiteRT 运行时并不总能在新旧模型之间释放原生 GPU 内存。如果应用崩溃或新模型加载失败，请完全重启应用（或重启设备），然后直接加载新模型。</string>
+  <string name="label_current_model">当前模型</string>
+  <string name="button_switch">切换</string>
+  <string name="label_import_model">导入模型</string>
+  <string name="label_import_from_local_file">从本地模型文件导入（.litertlm）</string>
+  <string name="label_import_from_model_list">从模型列表文件导入（.json）</string>
+  <string name="cd_import_model_list_button">从 JSON 文件导入模型列表</string>
+  <string name="import_model_list_success">模型列表导入成功</string>
+  <string name="import_model_list_default_name">已导入的模型列表</string>
+  <string name="import_model_list_error_read">读取文件失败</string>
+  <string name="import_model_list_error_empty">文件为空</string>
+  <string name="import_model_list_error_invalid_json">模型列表格式无效</string>
+  <string name="import_model_list_error_no_models">该模型列表中没有任何模型</string>
+  <string name="import_model_list_error_newer_version">该模型列表需要更高版本的应用</string>
+  <string name="import_model_list_error_invalid_url">URL 无效</string>
+  <string name="http_warning">此 URL 使用未加密连接。在不可信的网络中，数据可能被窃取。</string>
+  <string name="import_model_list_error_fetch">无法访问该 URL</string>
+  <string name="import_model_list_error_too_large">文件过大（最大 %1$s）</string>
+  <string name="label_import_from_url">从模型列表 URL 导入（.json）</string>
+  <string name="cd_import_model_list_url_button">从 JSON 直链 URL 导入模型列表</string>
+  <string name="import_model_list_url_title">从 URL 导入模型列表</string>
+  <string name="import_model_list_url_label">模型列表 URL</string>
+  <string name="import_model_list_url_loading">正在获取模型列表…</string>
+  <string name="repo_detail_imported_locally">已从本地文件导入</string>
+  <string name="dialog_import_model_title">导入模型</string>
+  <string name="import_defaults_disclaimer">这些是应用默认值，并非该模型的推荐值。请现在或稍后在该模型的推理设置中调整，以获得最佳效果。</string>
+  <string name="import_compatible_accelerators_description">选择该模型支持的加速器</string>
+  <string name="button_import">导入</string>
+  <string name="button_replace">替换</string>
+  <string name="dialog_replace_model_title">替换已有模型？</string>
+  <string name="dialog_replace_model_body">名为“%1$s”的模型已经导入过。替换会覆盖现有的模型文件和设置。</string>
+  <string name="error_model_name_taken_imported">已导入同名模型</string>
+  <string name="error_model_name_taken_allowlist">该名称已被模型库中的某个模型占用</string>
+  <string name="error_model_name_empty">模型名称不能为空</string>
+  <string name="error_model_name_invalid_chars">名称只能包含字母、数字、英文句号、连字符和下划线</string>
+  <string name="toast_model_renamed">模型重命名成功</string>
+  <string name="error_model_rename_failed">重命名模型文件失败</string>
+  <string name="dialog_allowlist_conflict_title">名称冲突</string>
+  <string name="dialog_allowlist_conflict_body">请重命名模型文件或使用其他名称，以免与模型库中的模型冲突。</string>
+  <string name="dialog_donate_title">支持 OlliteRT</string>
+  <string name="dialog_donate_body">如果觉得 OlliteRT 对你有帮助，欢迎支持它的开发。</string>
+  <string name="dialog_engagement_title">用得还开心吗？</string>
+  <string name="dialog_engagement_body">这款应用由一位独立开发者在业余时间开发和维护。如果它对你有帮助，欢迎支持它的开发。</string>
+  <string name="label_support_development">支持开发</string>
+  <string name="label_star_on_github">在 GitHub 加星</string>
+  <string name="label_dont_show_again">不再显示</string>
+  <string name="button_not_now">暂不</string>
+  <string name="label_dont_ask_again_for_model">该模型不再询问</string>
+  <string name="label_please_wait_model_loading">请等待当前模型加载完成</string>
+  <!-- Notification strings -->
+  <string name="notif_action_stop_server">停止服务器</string>
+  <string name="notif_action_copy_url">复制 URL</string>
+  <string name="notif_server_running_title">OlliteRT 服务器正在运行</string>
+  <string name="notif_server_body_model">模型：%1$s</string>
+  <plurals name="notif_server_body_requests">
+    <item quantity="one">请求数：%1$d 次</item>
+    <item quantity="other">请求数：%1$d 次</item>
+  </plurals>
+  <string name="notif_server_body_url">API 地址：%1$s</string>
+  <string name="notif_server_body_update">有可用更新：%1$s</string>
+  <string name="notif_starting_title">OlliteRT</string>
+  <string name="notif_starting_body">正在启动…</string>
+  <string name="notif_loading_model_title">正在加载模型：%1$s</string>
+  <string name="notif_loading_model_body">请稍候，这可能需要一点时间…</string>
+  <string name="notif_model_load_failed_title">模型加载失败</string>
+  <string name="notif_update_available_title">OlliteRT 有可用更新</string>
+  <string name="notif_update_available_body">新版本 %1$s 已发布</string>
+  <string name="notif_cross_channel_title_beta">Beta 通道有新版本</string>
+  <string name="notif_cross_channel_title_dev">Dev 通道有新版本</string>
+  <string name="notif_cross_channel_title_stable">Stable 通道有新版本</string>
+  <string name="notif_cross_channel_body">OlliteRT v%1$s 已可用</string>
+  <!-- Toast messages -->
+  <string name="toast_settings_saved">设置已保存</string>
+  <string name="toast_settings_saved_restart_manual">设置已保存。请手动重启服务器以生效。</string>
+  <string name="toast_server_restarting">正在用新设置重启服务器</string>
+  <string name="toast_settings_reset">全部设置已恢复默认</string>
+  <string name="toast_logs_cleared">活动日志条目已删除</string>
+  <string name="toast_token_cleared">令牌已清除</string>
+  <string name="toast_token_regenerated">令牌已重新生成 — 保存后生效</string>
+  <string name="toast_settings_saved_reload_pending">设置已保存 — 当前加载完成后会重新加载模型</string>
+  <string name="toast_settings_saved_reloading">设置已保存 — 模型正在重新加载</string>
+  <string name="toast_model_settings_reset">模型设置已恢复默认</string>
+  <string name="toast_clipboard_unavailable">剪贴板不可用</string>
+  <string name="toast_copied_entries_json">已复制 %1$d 条记录（JSON）</string>
+  <string name="toast_clipboard_too_large">日志数据过大，无法复制到剪贴板（%1$d 条）— 请改用导出。</string>
+  <string name="toast_export_failed">导出失败：%1$s</string>
+  <!-- Settings screen labels -->
+  <!-- Settings heading -->
+  <string name="settings_heading">全局设置</string>
+  <string name="settings_subheading">配置服务器行为、认证与偏好选项</string>
+  <string name="settings_search_placeholder">搜索设置…</string>
+  <string name="settings_search_clear">清除搜索</string>
+  <string name="settings_no_results">没有匹配“%1$s”的设置</string>
+  <!-- Settings: Save tooltip -->
+  <string name="settings_save_tooltip">保存设置</string>
+  <!-- Settings: Unsaved changes banner -->
+  <string name="settings_unsaved_changes_banner">你有未保存的更改</string>
+  <!-- Settings: General card -->
+  <string name="settings_card_general">通用</string>
+  <string name="settings_keep_screen_awake">保持屏幕常亮</string>
+  <string name="settings_keep_screen_awake_desc">应用打开时防止屏幕自动熄灭</string>
+  <string name="settings_floating_monitor">悬浮监控窗</string>
+  <string name="settings_floating_monitor_desc">OlliteRT 处于后台时，在其他应用之上显示服务器实时指标。需要“显示在其他应用上层”权限</string>
+  <string name="settings_reset_floating_monitor_position">重置悬浮窗位置</string>
+  <string name="settings_reset_floating_monitor_position_desc">把它移回默认屏幕位置。</string>
+  <string name="toast_floating_monitor_position_reset">悬浮窗位置已重置</string>
+  <string name="notif_action_reset_monitor_position">重置位置</string>
+  <string name="settings_auto_expand_logs">自动展开日志</string>
+  <string name="settings_auto_expand_logs_desc">在“日志”标签页中直接显示完整的请求与响应内容</string>
+  <string name="settings_wrap_log_text">日志卡片内自动换行</string>
+  <string name="settings_wrap_log_text_desc">日志卡片中的长行自动换行，而不是横向滚动</string>
+  <string name="settings_stream_response_preview">流式响应预览</string>
+  <string name="settings_stream_response_preview_desc">对流式请求，在“日志”标签页中随生成过程实时显示模型输出</string>
+  <string name="settings_compact_image_data">日志中压缩图片数据</string>
+  <string name="settings_compact_image_data_desc">存储日志条目时，用大小占位符替换内联的 base64 图片数据。可避免渲染数 MB 图片负载导致的界面卡顿。如需在日志中保留完整原始数据请关闭此项（大图片可能导致卡顿）</string>
+  <string name="settings_resolve_client_hostnames">解析客户端主机名</string>
+  <string name="settings_resolve_client_hostnames_desc">在日志条目中显示客户端设备名而非 IP 地址。使用反向 DNS 查询，可能给请求日志增加少量延迟</string>
+  <string name="settings_hide_health_logs">隐藏健康检查日志</string>
+  <string name="settings_hide_health_logs_desc">不在“日志”标签页显示 /health 端点的条目。当监控工具频繁轮询产生大量噪声时很有用</string>
+  <string name="settings_clear_logs_on_stop">停止时清除日志</string>
+  <string name="settings_clear_logs_on_stop_desc">服务器停止时自动清除内存中的日志</string>
+  <string name="settings_confirm_clear_logs">清除日志前确认</string>
+  <string name="settings_confirm_clear_logs_desc">清除日志前显示确认对话框</string>
+  <string name="settings_keep_partial_response">保留部分响应</string>
+  <string name="settings_keep_partial_response_desc">流式请求被客户端取消时，在日志中保留未完成的响应文本</string>
+  <string name="settings_reject_when_busy">繁忙时拒绝请求</string>
+  <string name="settings_reject_when_busy_desc">当已有请求正在处理时立即返回错误，而不是排队等待</string>
+  <!-- Settings: Hugging Face Token card -->
+  <string name="settings_card_hf_token">Hugging Face 令牌</string>
+  <string name="settings_hf_token_desc">从 Hugging Face 下载模型时需要。请从这里获取你的令牌</string>
+  <string name="settings_hf_token_hide">隐藏令牌</string>
+  <string name="settings_hf_token_show">显示令牌</string>
+  <string name="settings_hf_token_clear">清除令牌</string>
+  <!-- Settings: Server Configuration card -->
+  <string name="settings_card_server_config">服务器配置</string>
+  <string name="settings_bind_mode_label">监听地址</string>
+  <string name="settings_bind_mode_desc">选择接受网络连接的网络接口。更改需要重启服务器</string>
+  <string name="settings_bind_mode_all_interfaces">局域网（所有接口）[0.0.0.0]</string>
+  <string name="settings_bind_mode_loopback">仅本机（回环）[127.0.0.1]</string>
+  <string name="settings_bind_mode_custom">自定义 IP 地址</string>
+  <string name="settings_custom_bind_address_label">自定义绑定地址</string>
+  <string name="settings_custom_bind_address_desc">分配给本设备的数字 IPv4 或 IPv6 地址。若该地址不可用，服务器无法启动</string>
+  <string name="settings_custom_bind_address_placeholder">例如 192.168.1.50</string>
+  <string name="settings_host_port_label">主机端口（1024–65535）</string>
+  <string name="settings_host_port_desc">默认值：8000。需要重启服务器才生效</string>
+  <string name="settings_client_ip_policy_label">客户端 IP 访问</string>
+  <string name="settings_client_ip_policy_desc">在认证和 CORS 之前，按客户端的直接网络地址进行过滤</string>
+  <string name="settings_client_ip_policy_allow_all">允许所有客户端</string>
+  <string name="settings_client_ip_policy_allow_only">白名单</string>
+  <string name="settings_client_ip_policy_block_listed">黑名单</string>
+  <string name="settings_client_ip_rules_label">IP 地址与网段</string>
+  <string name="settings_client_ip_rules_desc">支持 IPv4、IPv6 和 CIDR 规则，不支持主机名。保存后的更改无需重启服务器即可生效</string>
+  <string name="settings_client_ip_rules_none">尚未配置规则</string>
+  <string name="settings_client_ip_rules_edit">编辑</string>
+  <string name="settings_client_ip_rules_dialog_title">编辑 IP 规则</string>
+  <string name="settings_client_ip_rules_dialog_help">每行粘贴一条规则，或用逗号分隔。这里也可以编辑或替换已有规则。</string>
+  <string name="settings_client_ip_rules_apply">应用规则</string>
+  <plurals name="settings_client_ip_rules_count">
+    <item quantity="one">%1$d 条生效规则</item>
+    <item quantity="other">%1$d 条生效规则</item>
+  </plurals>
+  <string name="settings_bearer_token">要求 Bearer 令牌</string>
+  <string name="settings_bearer_token_desc">用 Bearer 令牌保护 API。客户端必须在 Authorization 请求头中带上它</string>
+  <string name="settings_bearer_copy_tooltip">复制令牌</string>
+  <string name="settings_bearer_regenerate_tooltip">重新生成令牌</string>
+  <string name="settings_cors_label">CORS 允许的来源</string>
+  <string name="settings_cors_clear">清除来源</string>
+  <string name="settings_cors_desc">允许发起跨域请求的来源。用 * 表示允许全部，用逗号分隔的 URL 指定具体来源（例如 http://localhost:3000, https://my-app.com），留空则禁用 CORS</string>
+  <string name="settings_notif_request_count">在通知中显示请求数</string>
+  <string name="settings_notif_request_count_desc">每次请求后更新前台通知，显示累计请求数</string>
+  <!-- Settings: Auto-Launch &amp; Behavior card -->
+  <string name="settings_card_auto_launch">自动启动与行为</string>
+  <string name="settings_default_model_label">默认模型</string>
+  <string name="settings_no_downloaded_models">还没有已下载的模型。请先在“模型”标签页下载模型</string>
+  <string name="settings_none_manual_start">无（手动启动）</string>
+  <string name="settings_default_model_desc">应用启动时自动加载该模型</string>
+  <string name="settings_start_on_boot">开机启动</string>
+  <string name="settings_start_on_boot_desc_no_model">请先在上方选择默认模型以启用</string>
+  <string name="settings_start_on_boot_desc">设备开机后自动启动服务器</string>
+  <string name="settings_keep_alive">保活超时</string>
+  <string name="settings_keep_alive_desc">默认将模型保留在内存中。启用后会在空闲超时后卸载以释放内存。下一次请求会自动重新加载（冷启动）</string>
+  <string name="settings_idle_timeout_label">空闲超时</string>
+  <string name="settings_idle_timeout_desc">最后一次请求之后模型继续保留加载的时长。超时后会释放原生内存。下一次请求会触发自动重新加载（冷启动 5–30 秒，取决于模型大小）</string>
+  <string name="settings_dontkillmyapp_title">厂商后台保活指南</string>
+  <string name="settings_dontkillmyapp_desc">部分制造商会激进地杀死后台应用。请查看 dontkillmyapp.com 获取对应机型的解决方案</string>
+  <string name="settings_dontkillmyapp_cd">打开 dontkillmyapp.com</string>
+  <!-- Settings: Check for Updates -->
+  <string name="settings_check_for_updates">检查更新</string>
+  <string name="settings_check_for_updates_desc">检查 OlliteRT %1$s 是否有新版本。仅检查与你安装通道匹配的发布</string>
+  <string name="settings_check_for_updates_desc_cross_channel">跨所有通道（stable、beta、dev）检查 OlliteRT 的最新版本</string>
+  <string name="settings_update_available">有新版本可用：%1$s</string>
+  <string name="settings_download_version">下载 %1$s</string>
+  <string name="settings_check_now_tooltip">立即检查</string>
+  <string name="settings_checking_for_updates">正在检查更新…</string>
+  <string name="settings_update_check_timeout">检查更新超时 — 请检查网络连接</string>
+  <string name="settings_auto_update_check">自动检查更新</string>
+  <string name="settings_auto_update_check_desc">定期在后台检查，有可用更新时发送通知</string>
+  <string name="settings_notif_permission_warning">未开启通知权限。请在系统设置中授予通知权限，以便接收更新提醒</string>
+  <string name="settings_notif_channel_muted">系统设置中该更新通知通道已被静音</string>
+  <string name="settings_check_frequency_label">检查频率</string>
+  <string name="settings_check_frequency_desc">检查新版本的间隔。默认：24 小时。最小 1 小时，最大 30 天</string>
+  <string name="settings_cross_channel_notify">提醒其他通道的更新</string>
+  <string name="settings_cross_channel_notify_desc">当其他通道（beta、dev、stable）有新版本时通知你。\n每个通道都是独立安装的应用 — 可以并存使用</string>
+  <string name="settings_cross_channel_notify_desc_dev">Dev 版本已经会接收所有发布通知</string>
+  <string name="settings_notification_settings">通知设置</string>
+  <string name="settings_notification_settings_desc">自定义启用哪些通知通道</string>
+  <string name="settings_cross_channel_muted">系统设置中跨通道通知已被静音</string>
+  <!-- Settings: Metrics card -->
+  <string name="settings_card_metrics">指标</string>
+  <string name="settings_show_request_types">显示请求类型</string>
+  <string name="settings_show_request_types_desc">在“状态”页面显示文本、视觉和音频请求的数量</string>
+  <string name="settings_show_advanced_metrics">显示高级指标</string>
+  <string name="settings_show_advanced_metrics_desc">在“状态”页面显示预填充速度、token 间延迟、延迟统计和上下文占用率</string>
+  <string name="settings_force_stream_usage">流式响应始终返回用量</string>
+  <string name="settings_force_stream_usage_desc">在每个流式响应中输出 token 数和推理耗时，即使客户端没有设置 stream_options.include_usage。Open WebUI、llama.cpp 等客户端需要它才能显示每条消息的 tokens/s 统计</string>
+  <!-- Settings: Activity Log Storage card (controls the Logs tab entries — not verbose/debug logging or adb logcat) -->
+  <string name="settings_card_log_persistence">活动日志存储</string>
+  <string name="settings_persist_logs">在本机保存活动日志</string>
+  <string name="settings_persist_logs_desc">把“日志”标签页显示的请求与响应活动保存到本地数据库，以便在应用重启后依然保留。不控制详细/调试日志或 adb logcat 输出。默认关闭</string>
+  <string name="settings_max_log_entries_label">活动日志最大条目数</string>
+  <string name="settings_max_log_entries_desc">内存和数据库中保留的“日志”标签页条目上限，达到上限后会清理最早的条目。\n设为 0 表示不限制（内存中上限为 10,000 条）</string>
+  <string name="settings_auto_delete_label">活动日志自动删除期限</string>
+  <string name="settings_auto_delete_desc">存储在本机数据库中的“日志”条目超过该时长后会自动删除。不影响当前会话的内存条目或 adb logcat 输出。\n设为 0 表示禁用</string>
+  <string name="settings_clear_all_logs_button">删除全部活动日志条目</string>
+  <string name="settings_clear_all_logs_desc">从本机数据库和当前会话中永久删除每一条“日志”标签页记录。不影响详细/调试日志或 adb logcat</string>
+  <!-- Settings: Home Assistant card -->
+  <string name="settings_ha_rest_api">REST API 集成</string>
+  <string name="settings_ha_rest_api_desc">启用服务器控制端点（/v1/server/*），以便通过 Home Assistant 或其他自动化工具远程管理</string>
+  <string name="settings_stt_transcription_prompt">强制转写</string>
+  <string name="settings_stt_transcription_prompt_desc">指示模型转写音频而不是回应音频。对于只期望得到转写文本的语音助手请启用。多模态模型默认会像聊天一样回应，因此必须启用。注意：该项会影响使用音频端点的所有客户端，可能干扰非语音助手的工作流（例如 Open WebUI）</string>
+  <string name="settings_stt_transcription_prompt_text">转写提示词</string>
+  <string name="settings_stt_transcription_prompt_text_desc">启用“强制转写”时发送给模型的指令。留空则使用默认提示词</string>
+  <string name="settings_ha_edit_prompt">编辑提示词</string>
+  <string name="settings_ha_transcription_prompt_placeholder">留空则使用默认提示词</string>
+  <string name="settings_ha_config_preview">根据你当前的 IP（%1$s）、端口（%2$d）%3$s生成 configuration.yaml 片段</string>
+  <string name="settings_ha_config_preview_token_suffix">，以及 bearer 令牌</string>
+  <string name="settings_ha_loopback_warning">服务器仅监听本机时，Home Assistant 无法访问 OlliteRT。请选择“局域网”或一个可访问的自定义地址</string>
+  <string name="settings_ha_copy_config">复制配置</string>
+  <!-- Settings: Context Management card -->
+  <string name="settings_card_context_management">上下文管理</string>
+  <!-- Settings: Model Behaviour card -->
+  <string name="settings_card_model_behaviour">模型行为</string>
+  <string name="settings_warmup_message">预热消息</string>
+  <string name="settings_warmup_message_desc">模型加载时发送一条测试消息，以验证推理引擎正常工作。关闭可加快模型启动</string>
+  <string name="settings_pre_init_vision">预初始化视觉</string>
+  <string name="settings_pre_init_vision_desc">多模态模型启动时即加载视觉后端，而不必等待第一个图片请求。可消除首次图片请求的延迟，但从一开始就占用更多内存和 GPU</string>
+  <string name="settings_audio_gpu">音频 GPU 加速</string>
+  <string name="settings_audio_gpu_desc">在支持的设备上把音频执行器放到 GPU 而非 CPU 上运行，以加快语音转写。需要重新加载模型生效；不支持时会自动回退到 CPU</string>
+  <string name="settings_custom_prompts">自定义系统提示词</string>
+  <string name="settings_custom_prompts_desc">在“推理设置”中启用按模型配置的系统提示词字段。系统提示词会作为指令拼接在每次对话的最前面</string>
+  <string name="settings_truncate_history">截断对话历史</string>
+  <string name="settings_truncate_history_desc">当请求超出模型的上下文窗口时，丢弃对话中较早的消息，同时保留系统提示词和最近的消息</string>
+  <string name="settings_trim_prompt">裁剪提示词</string>
+  <string name="settings_trim_prompt_desc">⚠️ 最后手段 — 很可能导致输出质量下降。为了塞进上下文窗口而对提示词硬裁剪，从开头丢弃内容（包括系统提示词和工具定义）。仅当请求持续因超出上下文限制而被拒绝时才启用</string>
+  <string name="settings_ignore_client_params">忽略客户端采样参数</string>
+  <string name="settings_ignore_client_params_desc">丢弃 API 客户端发来的 temperature、top_p、top_k 和 max_tokens 取值。始终改用服务器自身的“推理设置”</string>
+  <string name="settings_schema_injection_tool_calling">工具 schema 注入（实验性）</string>
+  <string name="settings_schema_injection_tool_calling_desc">通过 LiteRT SDK 把工具 schema 直接注入模型上下文，而不是嵌入文本提示词。在兼容的模型上（Gemma 4）可能产生更可靠的工具调用。同时启用逐词流式输出 — 若不启用，存在工具时响应会被缓冲后一次性发送，即使客户端要求流式。如果工具调用失效请关闭</string>
+  <string name="settings_show_model_recommendations">显示模型推荐</string>
+  <string name="settings_show_model_recommendations_desc">显示徽章并把推荐模型置顶</string>
+  <!-- Settings: App Updates card -->
+  <string name="settings_card_repositories">模型源</string>
+  <string name="settings_repositories_description">管理模型源与 allowlist URL</string>
+  <string name="settings_card_updates">应用更新</string>
+  <!-- Settings: Developer card -->
+  <string name="settings_card_developer">开发者</string>
+  <string name="settings_verbose_debug">详细调试模式</string>
+  <string name="settings_verbose_debug_desc">记录更多细节：完整堆栈跟踪、内存快照、模型配置、逐请求耗时。可能影响性能</string>
+  <string name="settings_export_logcat">导出调试日志</string>
+  <string name="settings_export_logcat_desc">分享本应用的系统日志缓冲区内容，用于排查问题</string>
+  <string name="logcat_export_chooser_title">分享调试日志</string>
+  <!-- Settings: Advanced Settings -->
+  <string name="settings_card_advanced_settings">高级设置</string>
+  <string name="settings_advanced_timeouts_section">超时</string>
+  <string name="settings_advanced_sampling_section">采样</string>
+  <string name="settings_default_seed_label">默认 seed</string>
+  <string name="settings_default_seed_desc_prefix">可选的 seed，在请求未提供时使用。由于</string>
+  <string name="settings_default_seed_desc_suffix">，目前在 GPU 和 NPU 上会忽略会话级采样设置（包括 seed）；仅在 CPU 上生效。</string>
+  <string name="settings_default_seed_placeholder">留空表示随机 seed</string>
+  <string name="validation_default_seed_invalid">请输入非负的 32 位整数，或将 seed 留空</string>
+  <string name="settings_timeout_chat_completions_label">聊天补全超时</string>
+  <string name="settings_timeout_chat_completions_desc">/v1/chat/completions 与 /v1/messages 请求的最长时间</string>
+  <string name="settings_timeout_responses_label">Responses 超时</string>
+  <string name="settings_timeout_responses_desc">/v1/responses 请求的最长时间</string>
+  <string name="settings_timeout_streaming_label">流式超时</string>
+  <string name="settings_timeout_streaming_desc">流式推理每个数据块之间的空闲超时</string>
+  <string name="settings_timeout_blocking_label">阻塞超时</string>
+  <string name="settings_timeout_blocking_desc">非流式推理的超时时间</string>
+  <string name="settings_timeout_warmup_label">预热超时</string>
+  <string name="settings_timeout_warmup_desc">模型加载后等待预热推理的最长时间</string>
+  <string name="settings_timeout_keep_alive_recheck_label">保活重查</string>
+  <string name="settings_timeout_keep_alive_recheck_desc">空闲卸载时模型正忙的重新检查间隔</string>
+  <string name="settings_timeout_cleanup_await_label">清理等待</string>
+  <string name="settings_timeout_cleanup_await_desc">初始化前等待上一个模型清理完成的最长时间</string>
+  <!-- Settings: Reset &amp; Footer -->
+  <string name="settings_reset_to_defaults">恢复默认设置</string>
+  <string name="settings_whats_new">新功能</string>
+  <string name="settings_report_issue">反馈问题</string>
+  <string name="settings_donate">捐助</string>
+  <string name="settings_licenses">许可证</string>
+  <string name="settings_privacy_policy">隐私政策</string>
+  <!-- Status screen labels -->
+  <!-- Status: Server not running banner -->
+  <string name="status_server_not_running">服务器未运行</string>
+  <string name="status_server_not_running_hint">请在“模型”标签页启动一个模型，开始处理请求。</string>
+  <!-- Status: Model info card -->
+  <string name="status_no_model_loaded">未加载模型</string>
+  <string name="status_model_loading">正在加载…</string>
+  <string name="status_cd_thinking_enabled">思考模式已启用</string>
+  <string name="status_cd_mtp_enabled">投机解码已启用</string>
+  <string name="status_loading_elapsed">正在加载… %1$d 秒</string>
+  <string name="status_loading_elapsed_with_size">%1$s · 正在加载… %2$d 秒</string>
+  <string name="status_idle_unloaded">空闲 — 已卸载模型以释放内存</string>
+  <string name="status_loaded_in">加载耗时 %1$s</string>
+  <string name="status_loaded_in_with_size">%1$s · 加载耗时 %2$s</string>
+  <string name="status_start_model_hint">请在“模型”标签页启动一个模型</string>
+  <string name="status_reload_model_tooltip">重新加载模型</string>
+  <!-- Status: Endpoint card -->
+  <string name="status_active_api_endpoint">当前 API 端点</string>
+  <string name="status_endpoint_loopback_only">仅回环 — 只能从本机访问（无 Wi-Fi）</string>
+  <string name="status_copy_endpoint_tooltip">复制端点 URL</string>
+  <string name="status_open_endpoint">在浏览器中打开端点</string>
+  <string name="status_auth_cors">认证：%1$s · CORS：%2$s</string>
+  <string name="status_client_access">客户端访问：%1$s</string>
+  <string name="status_client_access_all">所有客户端</string>
+  <string name="status_client_access_allow_only">仅允许（%1$d 条规则）</string>
+  <string name="status_client_access_block_listed">拒绝列表（%1$d 条规则）</string>
+  <string name="status_auth_on">开启</string>
+  <string name="status_auth_off">关闭</string>
+  <string name="status_cors_all_origins">所有来源</string>
+  <string name="status_cors_restricted">受限</string>
+  <string name="status_cors_disabled">已禁用</string>
+  <!-- Status: Section headers -->
+  <string name="status_section_metrics">指标</string>
+  <string name="status_metrics_info_tooltip">Token 估算说明</string>
+  <string name="status_metrics_info_title">估算指标</string>
+  <string name="status_metrics_info_body">Token 数（输入 Token、输出 Token）以及由此衍生的指标（解码速度、预填充速度、吞吐量、token 间延迟）都是按 字符长度 ÷ 4 估算的。\n\n由于 LiteRT SDK 不提供精确的 token 计数，因此采用该近似值。实际数值会因分词器不同而有差异。</string>
+  <string name="status_section_request_types">请求类型</string>
+  <string name="status_section_advanced">高级</string>
+  <!-- Status: Core metric labels -->
+  <string name="status_metric_uptime">运行时长</string>
+  <string name="status_metric_requests">请求数</string>
+  <string name="status_metric_tokens_in">输入 Token</string>
+  <string name="status_metric_tokens_out">输出 Token</string>
+  <string name="status_metric_decode_speed">解码速度</string>
+  <string name="status_metric_peak_decode">峰值解码</string>
+  <string name="status_metric_last_ttfb">最近 TTFB</string>
+  <string name="status_metric_avg_ttfb">平均 TTFB</string>
+  <string name="status_metric_success_rate">成功率</string>
+  <!-- Status: Request type labels -->
+  <string name="status_metric_text">文本</string>
+  <string name="status_metric_vision">视觉</string>
+  <string name="status_metric_audio">音频</string>
+  <!-- Status: Advanced metric labels -->
+  <string name="status_metric_prefill_speed">预填充速度</string>
+  <string name="status_metric_avg_throughput">平均吞吐量</string>
+  <string name="status_metric_inter_token_latency">Token 间延迟</string>
+  <string name="status_metric_last_latency">最近延迟</string>
+  <string name="status_metric_avg_latency">平均延迟</string>
+  <string name="status_metric_peak_latency">峰值延迟</string>
+  <!-- Status: Metric value formats -->
+  <string name="status_value_success_rate">%1$s（%2$d 次错误）</string>
+  <!-- Status: Reload dialog -->
+  <string name="status_dialog_reload_title">重新加载模型</string>
+  <string name="status_dialog_reload_body">这将重启服务器并重新加载 %1$s。正在处理的请求会被中断。</string>
+  <string name="status_dialog_reload_confirm">重新加载</string>
+  <!-- Logs screen labels -->
+  <!-- LogsScreen: Header & toolbar -->
+  <string name="logs_header_title">活动日志</string>
+  <string name="logs_tooltip_clear_all">清除全部日志</string>
+  <string name="logs_tooltip_copy_filtered_json">复制筛选后的日志（JSON）</string>
+  <string name="logs_tooltip_copy_all_json">复制全部日志（JSON）</string>
+  <string name="logs_tooltip_export_filtered_json">导出筛选后的日志为 JSON</string>
+  <string name="logs_tooltip_export_all_json">导出日志为 JSON</string>
+  <string name="logs_tooltip_close_search">关闭搜索</string>
+  <string name="logs_tooltip_search">搜索日志</string>
+  <string name="logs_search_placeholder">搜索日志…</string>
+  <string name="logs_search_clear_cd">清除搜索</string>
+  <!-- LogsScreen: Clear logs dialog -->
+  <string name="logs_dialog_clear_title">清除全部日志</string>
+  <string name="logs_dialog_clear_body_filtered">这将删除全部 %1$d 条日志（不只是当前显示的 %2$d 条）。此操作无法撤销。</string>
+  <string name="logs_dialog_clear_body">这将删除全部 %1$d 条日志。此操作无法撤销。</string>
+  <string name="logs_dialog_clear_confirm">清除</string>
+  <string name="logs_dialog_clear_cancel">取消</string>
+  <string name="logs_dialog_clear_active_title">正在生成的请求</string>
+  <plurals name="logs_dialog_clear_active_body">
+    <item quantity="one">这将删除全部日志。当前有 %1$d 个请求正在处理或排队。你想：\n\n• “清除” — 删除全部日志，让生成继续\n• “停止” — 取消所有待处理请求并删除全部日志</item>
+    <item quantity="other">这将删除全部日志。当前有 %1$d 个请求正在处理或排队。你想：\n\n• “清除” — 删除全部日志，让生成继续\n• “停止” — 取消所有待处理请求并删除全部日志</item>
+  </plurals>
+  <string name="logs_dialog_clear_active_clear">清除</string>
+  <string name="logs_dialog_clear_active_stop">停止</string>
+  <string name="logs_dialog_stop_active_title">正在生成的请求</string>
+  <plurals name="logs_dialog_stop_active_body">
+    <item quantity="one">当前有 %1$d 个请求正在处理或排队中，停止服务器会将其取消。</item>
+    <item quantity="other">当前有 %1$d 个请求正在处理或排队中，停止服务器会将它们取消。</item>
+  </plurals>
+  <!-- LogsScreen: Result count banner -->
+  <string name="logs_showing_count">显示 %2$d 条中的 %1$d 条</string>
+  <string name="logs_clear_filters">清除筛选</string>
+  <!-- LogsScreen: Empty states -->
+  <string name="logs_empty_title">还没有活动记录</string>
+  <string name="logs_empty_body">服务器活动会显示在这里。</string>
+  <string name="logs_no_match_title">没有匹配的记录</string>
+  <string name="logs_no_match_body">没有日志符合当前筛选条件。</string>
+  <!-- LogsScreen: New activity indicator -->
+  <plurals name="logs_new_activity">
+    <item quantity="one">有新活动</item>
+    <item quantity="other">%1$d 条新记录</item>
+  </plurals>
+  <!-- LogsScreen: Stop generation -->
+  <string name="logs_tooltip_stop_generation">停止生成</string>
+  <!-- LogEntryCard: Section labels -->
+  <string name="logs_entry_request_label">请求 · %1$s</string>
+  <string name="logs_entry_compacted_prompt_label">压缩后的提示词 · %1$s</string>
+  <string name="logs_entry_response_label">响应 · %1$s</string>
+  <string name="logs_entry_response">响应</string>
+  <string name="logs_entry_pending_in_queue">排队等待中…</string>
+  <string name="logs_processing_elapsed_seconds">已用时 · %1$d 秒</string>
+  <string name="logs_entry_request">请求</string>
+  <!-- LogEntryCard: Cancelled state -->
+  <string name="logs_entry_stopped_by_user">用户已停止生成</string>
+  <string name="logs_entry_client_disconnected">客户端已断开 — 生成已停止</string>
+  <!-- LogEntryCard: Ignored client params -->
+  <string name="logs_entry_ignored_params">已忽略客户端参数：%1$s</string>
+  <!-- LogEntryCard: Expandable body -->
+  <string name="logs_body_collapse_cd">收起</string>
+  <string name="logs_body_expand_cd">展开</string>
+  <!-- LogEntryCard: Footer badges -->
+  <string name="logs_badge_thinking">思考</string>
+  <string name="logs_badge_tool_call">工具调用</string>
+  <string name="logs_badge_cancelled">已取消</string>
+  <string name="logs_badge_ctx_format">上下文 %1$s%2$d / %3$d</string>
+  <!-- LogEntryCard: Action button tooltips -->
+  <string name="logs_tooltip_request_metrics">请求指标</string>
+  <string name="logs_tooltip_copy_entry">复制日志条目</string>
+  <!-- LogEntryCard: Request metrics dialog -->
+  <string name="logs_metrics_title">请求指标</string>
+  <string name="logs_metrics_ttfb">首 token 时间</string>
+  <string name="logs_metrics_decode_speed">解码速度</string>
+  <string name="logs_metrics_prefill_speed">预填充速度</string>
+  <string name="logs_metrics_itl">Token 间延迟</string>
+  <string name="logs_metrics_total_latency">总延迟</string>
+  <string name="logs_metrics_input_tokens">输入 Token</string>
+  <string name="logs_metrics_output_tokens">输出 Token</string>
+  <string name="logs_metrics_context_util">上下文占用</string>
+  <string name="logs_metrics_close">关闭</string>
+  <string name="logs_metrics_ctx_estimated_detail">由于 LiteRT-LM SDK 不提供精确 token 计数，上下文占用按 字符长度 ÷ 4 估算</string>
+  <!-- LogEventCard: Category labels -->
+  <string name="logs_event_category_model">模型</string>
+  <string name="logs_event_category_settings">设置</string>
+  <string name="logs_event_category_server">服务器</string>
+  <string name="logs_event_category_prompt">提示词</string>
+  <string name="logs_event_category_update">更新</string>
+  <string name="logs_event_category_general">事件</string>
+  <!-- LogEventCard: Headline strings -->
+  <string name="logs_headline_model_loading">模型加载中</string>
+  <string name="logs_headline_model_loaded">模型已加载</string>
+  <string name="logs_headline_warmup_message">内部预热消息</string>
+  <string name="logs_headline_settings_changed">设置已更改</string>
+  <string name="logs_headline_prompt_active">%1$s 生效中</string>
+  <string name="logs_headline_server_stopped">服务器已停止</string>
+  <string name="logs_headline_warmup_skipped">已跳过预热</string>
+  <string name="logs_headline_model_load_failed">模型加载失败</string>
+  <string name="logs_headline_cpu_fallback_started">GPU 不可用 — 正在切换到 CPU</string>
+  <string name="logs_headline_cpu_fallback_succeeded">已在 CPU 上加载模型</string>
+  <string name="logs_headline_server_failed">服务器启动失败</string>
+  <string name="logs_headline_model_not_found">未找到模型</string>
+  <string name="logs_headline_image_decode_failed">图片解码失败</string>
+  <string name="logs_headline_queued_reload">排队等待重新加载</string>
+  <string name="logs_headline_conversation_reset_failed">对话重置失败</string>
+  <string name="logs_headline_settings_updated">设置已更新</string>
+  <string name="logs_headline_config_via_api">通过 REST API 配置</string>
+  <string name="logs_headline_model_restart">模型重启</string>
+  <string name="logs_headline_model_unloading">模型卸载中</string>
+  <string name="logs_headline_model_idle_unloaded">模型因空闲被卸载</string>
+  <string name="logs_headline_model_reloading">模型重新加载中</string>
+  <string name="logs_headline_model_reloaded">模型已重新加载</string>
+  <string name="logs_headline_update_available">有可用更新</string>
+  <string name="logs_headline_up_to_date">已是最新</string>
+  <string name="logs_headline_update_check_disabled">已禁用更新检查</string>
+  <string name="logs_headline_memory_pressure">内存压力</string>
+  <string name="logs_headline_audio_transcription">音频转写</string>
+  <string name="logs_headline_debug">调试</string>
+  <!-- LogEventCard: Tooltip -->
+  <string name="logs_tooltip_copy_event">复制事件</string>
+  <!-- LogEventCard: Body text fragments -->
+  <string name="logs_event_loading_prefix">正在把\u0020</string>
+  <string name="logs_event_loading_suffix">\u0020加载到内存中</string>
+  <string name="logs_event_loaded_suffix">\u0020已加载到内存中</string>
+  <string name="logs_event_cpu_fallback_started">GPU 初始化失败。模型加载正在 CPU 上继续。技术原因：%1$s</string>
+  <string name="logs_event_cpu_fallback_succeeded">已成功的 CPU 回退处理完成。</string>
+  <string name="logs_event_model_unloaded_prefix">模型\u0020</string>
+  <string name="logs_event_model_unloaded_suffix">\u0020已从内存中卸载</string>
+  <string name="logs_event_reloading_prefix">正在重启\u0020</string>
+  <string name="logs_event_unloading_prefix">正在从内存中卸载\u0020</string>
+  <string name="logs_event_unloading_suffix">\u0020</string>
+  <string name="logs_event_keepalive_unloaded_suffix">\u0020空闲 %1$s 分钟后已卸载以释放内存</string>
+  <string name="logs_event_keepalive_reloading_prefix">正在重新加载\u0020</string>
+  <string name="logs_event_keepalive_reloading_suffix">\u0020（空闲期间收到请求）</string>
+  <string name="logs_event_keepalive_reloaded_suffix">\u0020重新加载完成，用时 %1$s 毫秒</string>
+  <string name="logs_event_version_prefix">版本\u0020</string>
+  <string name="logs_event_version_suffix">\u0020已可用</string>
+  <string name="logs_event_update_none">未发现更新的版本</string>
+  <string name="logs_event_update_auto_disabled">连续失败次数过多</string>
+  <string name="logs_event_memory_pressure_body">Android 可用内存严重不足 — 应用可能很快被系统结束。请关闭其他应用，或改用更小的模型。</string>
+  <string name="logs_event_queued_reload_model">正在用更新后的设置重新加载 %1$s</string>
+  <string name="logs_event_queued_reload_generic">正在用更新后的设置重新加载模型</string>
+  <!-- LogEventCard: Show more/less toggle -->
+  <string name="logs_event_show_less">收起</string>
+  <string name="logs_event_show_more">展开</string>
+  <!-- LogEventCard: Prompt before/after -->
+  <string name="logs_prompt_before">修改前</string>
+  <string name="logs_prompt_after">修改后</string>
+  <string name="logs_prompt_set_to">设为</string>
+  <string name="logs_prompt_empty">（空）</string>
+  <!-- LogEventCard: Audio transcription -->
+  <string name="logs_audio_server_prompt">服务器提示词</string>
+  <string name="logs_audio_client_params">客户端参数</string>
+  <string name="logs_audio_transcription_output">转写结果</string>
+  <!-- LogEventCard: Footer badge -->
+  <string name="logs_event_ready">就绪</string>
+  <string name="logs_event_forced_transcription">已强制</string>
+  <!-- LogBadges: HTTP status labels -->
+  <string name="logs_status_context_exceeded">上下文超限</string>
+  <string name="logs_status_bad_request">请求错误</string>
+  <string name="logs_status_unauthorized">未授权</string>
+  <string name="logs_status_forbidden">禁止访问</string>
+  <string name="logs_status_not_found">未找到</string>
+  <string name="logs_status_method_not_allowed">方法不被允许</string>
+  <string name="logs_status_request_timeout">请求超时</string>
+  <string name="logs_status_payload_too_large">请求体过大</string>
+  <string name="logs_status_too_many_requests">请求过多</string>
+  <string name="logs_status_internal_server_error">服务器内部错误</string>
+  <string name="logs_status_bad_gateway">网关错误</string>
+  <string name="logs_status_service_unavailable">服务不可用</string>
+  <string name="logs_status_gateway_timeout">网关超时</string>
+  <string name="logs_status_error">错误</string>
+  <string name="logs_status_ok">正常</string>
+  <!-- LogBadges: ErrorKind labels (streaming errors where status code stays 200) -->
+  <string name="logs_error_kind_timeout">超时</string>
+  <string name="logs_error_kind_oom">内存不足</string>
+  <string name="logs_error_kind_model_not_found">未找到模型</string>
+  <string name="logs_error_kind_model_files_missing">模型文件缺失</string>
+  <string name="logs_error_kind_model_not_ready">模型未就绪</string>
+  <string name="logs_error_kind_image_decode_failed">图片解码失败</string>
+  <string name="logs_error_kind_inference_error">推理错误</string>
+  <!-- LogClipboardExport -->
+  <string name="logs_export_chooser_title">导出 OlliteRT 日志</string>
+  <!-- Models screen, navigation & common UI labels -->
+  <!-- Navigation: Bottom bar tab labels -->
+  <string name="nav_tab_models">模型</string>
+  <string name="nav_tab_status">状态</string>
+  <string name="nav_tab_logs">日志</string>
+  <!-- Navigation: Storage/memory bars -->
+  <string name="nav_storage_free_of">%2$s 中可用 %1$s</string>
+  <string name="nav_memory_app_pss">\u0020· 应用 %1$s</string>
+  <!-- Top bar -->
+  <string name="topbar_back">返回</string>
+  <string name="topbar_settings">设置</string>
+  <!-- Status pill labels -->
+  <string name="status_pill_stopped">已停止</string>
+  <string name="status_pill_starting">启动中</string>
+  <string name="status_pill_running">运行中</string>
+  <string name="status_pill_error">错误</string>
+  <string name="status_pill_processing">处理中</string>
+  <string name="status_pill_retrying_cpu">正在 CPU 重试</string>
+  <!-- Getting Started screen -->
+  <string name="getting_started_subtitle">把你的设备变成支持文本、视觉和语音转文字的本地 OpenAI 兼容 API 服务器</string>
+  <string name="getting_started_permission_notice">为了确保服务器可靠运行，接下来会请求通知和电池优化豁免权限。</string>
+  <string name="getting_started_button">开始使用</string>
+  <string name="getting_started_learn_more">了解更多</string>
+  <string name="getting_started_hero_line1">你的专属\n</string>
+  <string name="getting_started_hero_highlight">本地端侧</string>
+  <string name="getting_started_hero_line3">\n大模型服务器</string>
+  <string name="getting_started_step1_title">下载模型</string>
+  <string name="getting_started_step1_desc">从可用模型中挑选</string>
+  <string name="getting_started_step2_title">启动服务器</string>
+  <string name="getting_started_step2_desc">选择模型并点按启动</string>
+  <string name="getting_started_step3_title">接入你的客户端</string>
+  <string name="getting_started_step3_desc">把任意 OpenAI 兼容应用指向手机所在局域网的 IP 地址</string>
+  <string name="getting_started_step_cd">第 %1$d 步：%2$s。%3$s</string>
+  <!-- Models screen: Search & filters -->
+  <string name="models_clear_search">清除搜索</string>
+  <string name="models_filter_capabilities">能力</string>
+  <string name="models_tooltip_more_filters">更多筛选</string>
+  <string name="models_tooltip_sort">模型排序</string>
+  <string name="models_sort_default">默认</string>
+  <string name="models_sort_name">名称</string>
+  <string name="models_sort_size">大小</string>
+  <!-- Models screen: Capability chip labels -->
+  <string name="capability_text">文本</string>
+  <string name="capability_vision">视觉</string>
+  <string name="capability_audio">音频</string>
+  <string name="capability_thinking">思考</string>
+  <string name="capability_tools">工具</string>
+  <!-- Models screen: Error/empty states -->
+  <string name="models_failed_to_load">模型加载失败</string>
+  <!-- Models screen: Import -->
+  <string name="toast_model_imported">模型导入成功</string>
+  <!-- Models screen: Permission warning -->
+  <string name="models_permission_notification">通知权限</string>
+  <string name="models_permission_battery">电池优化豁免</string>
+  <string name="models_permission_warning">缺少 %1$s — 服务器在后台运行时可能被系统停止。点按打开设置。</string>
+  <!-- Model item: Loading/status hints -->
+  <string name="model_loading_hint">请稍等 — 根据设备情况，这可能需要几分钟</string>
+  <string name="model_tooltip_inference_settings">推理设置</string>
+  <string name="model_tooltip_delete">删除模型</string>
+  <!-- Model status labels -->
+  <string name="model_status_unzipping">正在解压…</string>
+  <string name="model_status_resuming_suffix">\u0020（正在续传…）</string>
+  <string name="model_download_progress">%2$s 中已下载 %1$s</string>
+  <!-- Model download panel -->
+  <string name="model_stop_server_for_benchmark">请先停止服务器再运行基准测试</string>
+  <string name="model_stop_server_for_update">请先停止服务器再更新模型</string>
+  <string name="model_loading_hint_wait">请等待当前模型加载完成</string>
+  <!-- Model update -->
+  <string name="update">更新</string>
+  <string name="update_available">有可用更新</string>
+  <string name="about_this_update">关于本次更新</string>
+  <!-- Donate dialog: Platform labels -->
+  <!-- Common: Clipboard toast -->
+  <string name="toast_copied_to_clipboard">已复制到剪贴板</string>
+  <string name="toast_copied_to_clipboard_format">已复制到剪贴板（%1$s）</string>
+  <!-- Common: Model error messages -->
+  <string name="error_model_load_failed">模型加载失败</string>
+  <string name="error_model_load_failed_short">加载失败 — 请查看日志了解详情</string>
+  <string name="error_model_load_failed_detail">加载失败：%1$s</string>
+  <!-- Common: Import errors -->
+  <string name="error_import_failed">导入失败</string>
+  <string name="error_import_finalize_failed">导入收尾失败：%1$s</string>
+  <!-- Error and status messages -->
+  <!-- UpdateCheckWorker: Toast result messages (shown via WorkManager KEY_MESSAGE → Settings UI toast) -->
+  <string name="update_check_no_updates">没有比 %1$s 更新的版本</string>
+  <string name="update_check_up_to_date">你已在使用最新版本（%1$s）</string>
+  <string name="update_check_failed_network">检查更新失败 — 请检查网络连接</string>
+  <string name="update_check_failed_rate_limited">检查更新失败 — 请求过于频繁，请稍后重试</string>
+  <string name="update_check_failed_not_found">检查更新失败 — 未找到仓库或发布信息</string>
+  <string name="update_check_failed_server_error">检查更新失败 — 服务器错误，请稍后重试</string>
+  <string name="update_check_failed_http">检查更新失败 — HTTP 错误 %1$d</string>
+  <!-- DataStore corruption recovery notification -->
+  <string name="notif_channel_corruption_name">数据恢复</string>
+  <string name="notif_channel_corruption_desc">在检测到数据损坏并重置时通知</string>
+  <string name="notif_corruption_title">数据因损坏已被重置</string>
+  <string name="notif_corruption_text_one">%1$s 数据文件已损坏，现已重置为默认值。</string>
+  <string name="notif_corruption_text_many">%1$d 个数据文件已损坏，现已重置为默认值：%2$s</string>
+  <string name="log_corruption_recovered">DataStore 损坏已恢复 — 重置为默认值：%1$s</string>
+  <!-- UpdateCheckWorker: Notification channel (visible in Android system notification settings) -->
+  <string name="notif_channel_app_update_name">应用更新</string>
+  <string name="notif_channel_app_update_desc">当有 OlliteRT 新版本时通知</string>
+  <string name="notif_channel_beta_release_name">Beta 发布</string>
+  <string name="notif_channel_beta_release_desc">来自其他通道的 beta 新版本通知。</string>
+  <string name="notif_channel_dev_release_name">Dev 发布</string>
+  <string name="notif_channel_dev_release_desc">来自其他通道的 dev 预发布新版本通知。</string>
+  <!-- AllowlistRefreshWorker: Model update notification channel and content -->
+  <string name="notif_channel_model_update_name">模型更新</string>
+  <string name="notif_channel_model_update_desc">当有更新的模型版本时通知</string>
+  <string name="notif_model_update_title">有可用的模型更新</string>
+  <string name="notif_model_update_text">%1$s 有新版本可用</string>
+  <!-- Model Update Dialog (shown when tapping a model update notification) -->
+  <string name="model_update_dialog_title">%1$s 有可用更新</string>
+  <string name="model_update_dialog_body_empty">该模型有新版本可用。</string>
+  <string name="model_update_dialog_server_running">更新该模型前请先停止服务器。</string>
+  <string name="model_update_dialog_ignore">忽略此更新</string>
+  <string name="model_update_dialog_later">稍后</string>
+  <string name="model_update_dialog_not_found">更新信息已不可用</string>
+  <!-- InferenceSettingsSheet -->
+  <string name="inference_settings_title">推理设置</string>
+  <string name="inference_settings_tooltip_edit_defaults">编辑模型默认值</string>
+  <string name="inference_settings_tooltip_reset">恢复默认值</string>
+  <string name="inference_settings_allow_thinking">允许思考模式</string>
+  <string name="inference_settings_thinking_supported">启用模型的思考模式，进行逐步推理</string>
+  <string name="inference_settings_thinking_unsupported">该模型不支持思考模式</string>
+  <string name="inference_settings_spec_dec_label">投机解码（MTP）</string>
+  <string name="inference_settings_spec_dec_supported">一次性预测多个 token，在不损失质量的前提下提升解码速度</string>
+  <string name="inference_settings_spec_dec_unsupported">该模型不支持投机解码</string>
+  <string name="inference_settings_accelerator">加速器</string>
+  <string name="inference_settings_accelerator_only">该模型仅支持 %1$s 加速</string>
+  <!-- GPU Unavailable Dialog -->
+  <string name="gpu_unavailable_dialog_title">GPU 加速不可用</string>
+  <string name="gpu_unavailable_dialog_body">本机无法访问 GPU 推理所需的 OpenCL 库。这是当前版本 LiteRT LM 在部分手机上（例如 Pixel 5）的已知限制。\n\n应用将改用 CPU — 推理结果正确但速度更慢。采样参数设置（TopK、TopP、Temperature）可能不会生效。\n\n如果你希望为你的设备获得 GPU 支持，可以考虑在</string>
+  <string name="gpu_unavailable_dialog_link_text">LiteRT-LM GitHub</string>
+  <string name="gpu_unavailable_dialog_dont_show_again">不再显示</string>
+  <string name="gpu_unavailable_caption">GPU 不可用 — 无法访问 OpenCL。</string>
+  <string name="gpu_unavailable_learn_more">点按查看更多信息</string>
+  <string name="inference_settings_custom_system_prompt">自定义系统提示词</string>
+  <string name="inference_settings_system_prompt_description">作为系统指令拼接在每次对话的最前面</string>
+  <string name="inference_settings_label_system_prompt">系统提示词</string>
+  <string name="inference_settings_system_prompt_placeholder">例如：你是一位乐于助人的编程助手…</string>
+  <string name="inference_settings_reload_warning">修改 Max Tokens 或加速器会重新加载模型</string>
+  <string name="inference_settings_save_apply">保存并应用配置</string>
+  <string name="inference_settings_error_out_of_range">取值必须在允许的范围内</string>
+  <string name="cd_clear">清除</string>
+  <string name="cd_collapse">收起</string>
+  <string name="cd_expand">展开</string>
+  <!-- ConfigKey: display labels for config editor rows -->
+  <string name="config_label_max_tokens">最大 token 数</string>
+  <string name="config_label_default_max_tokens">默认最大 token 数</string>
+  <string name="config_label_default_topk">默认 TopK</string>
+  <string name="config_label_default_topp">默认 TopP</string>
+  <string name="config_label_default_temperature">默认 temperature</string>
+  <string name="config_label_support_image">支持\n视觉</string>
+  <string name="config_label_support_audio">支持\n音频</string>
+  <string name="config_label_support_thinking">支持\n思考</string>
+  <string name="config_label_support_tools">支持\n工具</string>
+  <string name="config_label_support_speculative_decoding">支持\nMTP</string>
+  <string name="config_label_enable_thinking">启用思考模式</string>
+  <string name="config_label_thinking_budget">思考预算</string>
+  <string name="inference_settings_thinking_budget_tokens">%d 个 token</string>
+  <string name="inference_settings_thinking_budget_hint">推理 token 预算（最小 128）</string>
+  <string name="config_label_enable_speculative_decoding">投机解码</string>
+  <string name="config_hint_requires_model_update">需要更新模型后才能生效</string>
+  <string name="config_label_accelerator">加速器</string>
+  <string name="config_label_vision_accelerator">视觉加速器</string>
+  <string name="config_label_compatible_accelerators">兼容的加速器</string>
+  <string name="config_label_name">名称</string>
+  <string name="config_label_model_type">模型类型</string>
+  <string name="config_label_prefill_tokens">预填充 token</string>
+  <string name="config_label_decode_tokens">解码 token</string>
+  <string name="config_label_number_of_runs">运行次数</string>
+  <!-- BenchmarkResultsViewer: stat labels (technical) -->
+  <string name="benchmark_stat_model">模型</string>
+  <string name="benchmark_stat_accelerator">加速器</string>
+  <string name="benchmark_stat_prefill_tokens">预填充 token</string>
+  <string name="benchmark_stat_decode_tokens">解码 token</string>
+  <string name="benchmark_stat_number_of_runs">运行次数</string>
+  <string name="benchmark_stat_speculative_decoding">投机解码</string>
+  <string name="benchmark_stat_app_version">应用版本</string>
+  <string name="benchmark_stat_prefill_speed">预填充速度</string>
+  <string name="benchmark_stat_decode_speed">解码速度</string>
+  <string name="benchmark_stat_time_to_first_token">首 token 时间</string>
+  <string name="benchmark_stat_first_init_time">首次初始化时间</string>
+  <string name="benchmark_stat_steady_init_time">稳定态初始化时间</string>
+  <string name="benchmark_unit_tokens_per_sec">token/秒</string>
+  <string name="benchmark_unit_sec">秒</string>
+  <string name="benchmark_unit_ms">毫秒</string>
+  <!-- BenchmarkValueSeriesViewer: sparkline tap label -->
+  <string name="benchmark_sparkline_value">数值：%1$s</string>
+  <!-- BenchmarkViewModel: error messages -->
+  <string name="benchmark_error_engine_init">无法初始化模型引擎。这通常表示所选加速器（GPU/NPU）在本设备不受支持。\n\n请在基准测试设置中改为 CPU 再试。</string>
+  <string name="benchmark_error_oom">加载模型时设备内存耗尽。请尝试关闭其他应用或改用更小的模型。</string>
+  <!-- BenchmarkViewModel: aggregation labels -->
+  <!-- ModelImportDialog: edit dialog -->
+  <string name="dialog_edit_model_defaults_title">编辑模型默认值</string>
+  <string name="dialog_edit_model_active_warning">服务器正在运行该模型 — 更改会在其重新加载后生效。已保存的推理自定义设置将被重置为这些新的默认值。</string>
+  <string name="dialog_edit_model_defaults_note">已保存的推理自定义设置将被重置为这些新的默认值。</string>
+  <!-- SettingsViewModel: validation errors -->
+  <string name="validation_invalid_port">端口号无效</string>
+  <string name="validation_bind_address_invalid">请输入有效的 IPv4 或 IPv6 数字地址</string>
+  <string name="validation_client_ip_rules_required">请至少添加一个 IP 地址或 CIDR 网段</string>
+  <string name="validation_client_ip_rule_invalid">第 %1$d 项不是有效的 IP 地址或 CIDR 网段：%2$s</string>
+  <string name="validation_port_required">必须填写端口号</string>
+  <string name="validation_port_range">端口必须在 %1$d 到 %2$d 之间</string>
+  <string name="validation_numeric_range">%1$s 必须在 %2$d 到 %3$d 之间</string>
+  <string name="validation_numeric_range_with_unit">%1$s 必须在 %2$d 到 %3$d %4$s 之间</string>
+  <string name="validation_cors_invalid">CORS 来源无效 — 请使用 *、留空，或用逗号分隔并带 http(s):// 的 URL</string>
+  <!-- DownloadRepository: notification channel -->
+  <string name="notif_channel_download_name">OlliteRT 下载通知</string>
+  <!-- OlliteRTApp: server error dialog -->
+  <string name="dialog_server_error_title">服务器错误</string>
+  <string name="view_logs">查看日志</string>
+  <!-- InferenceSettingsSheet: edit field content description -->
+  <string name="cd_edit_field">编辑 %1$s</string>
+  <!-- DownloadWorker: notification channel + notifications -->
+  <string name="notif_channel_download_worker_name">模型下载中</string>
+  <string name="notif_channel_download_worker_desc">模型下载相关通知</string>
+  <string name="download_error_disk_full">存储空间不足，无法完成下载。已清理不完整的文件。</string>
+  <string name="download_error_timeout">下载超时。请检查网络连接后重试。</string>
+  <string name="download_error_no_internet">没有网络连接。请检查网络设置后重试。</string>
+  <string name="download_error_connection_lost">下载过程中网络连接中断。请在网络稳定后重试。</string>
+  <string name="download_error_network">因网络错误导致下载失败。请检查网络连接后重试。</string>
+  <string name="download_error_not_found">未找到模型（404）。请检查模型列表中的模型 ID 和 commit 哈希。</string>
+  <string name="download_error_unauthorized">认证失败。请检查你的 HuggingFace 令牌，或确认该模型是否公开可访问。</string>
+  <string name="download_error_server">服务器返回 HTTP %1$d。请稍后重试。</string>
+  <string name="download_error_zip_corrupted">下载失败：模型压缩包似乎已损坏或包含非法路径。请重新下载。</string>
+  <string name="download_error_finalize">下载已完成，但无法替换模型文件。已保留下载到的数据；请重试或检查存储访问权限。</string>
+  <string name="download_notif_title_generic">正在下载模型</string>
+  <string name="download_notif_title_named">正在下载“%1$s”</string>
+  <string name="download_notif_progress">正在下载：%1$d%%</string>
+  <!-- ServerService: error messages -->
+  <string name="error_autostart_boot_prefix">开机自动启动失败：</string>
+  <string name="error_autostart_launch_prefix">启动应用时自动启动失败：</string>
+  <string name="error_model_not_found">未找到模型“%1$s”。请确认该模型仍在已下载列表中，或在设置中更新默认模型。</string>
+  <string name="error_model_file_missing">磁盘上找不到模型文件。模型可能已被删除 — 请重新下载，或在设置中更新默认模型。</string>
+  <string name="error_port_in_use">端口 %1$d 已被占用</string>
+  <string name="error_server_failed_to_start">服务器启动失败：%1$s</string>
+  <string name="error_invalid_bind_address">服务器绑定地址无效：%1$s。请在设置中输入 IP 数字地址。</string>
+  <string name="error_invalid_client_ip_policy">客户端 IP 访问策略无效。请打开设置并修正地址列表。</string>
+  <string name="error_storage_low_model_init">存储空间不足，无法加载模型（可用 %1$sMB，至少需要 %2$sMB）。请释放空间后重试。</string>
+  <string name="error_model_init_unknown">模型初始化过程中发生未知错误</string>
+  <string name="error_unknown">未知错误</string>
+  <!-- ModelManagerViewModel: error/toast messages -->
+  <string name="error_model_server_unreachable">无法连接到模型服务器</string>
+  <string name="error_model_list_load_failed_detail">加载模型列表失败：%1$s</string>
+  <string name="no_repos_enabled">未启用任何模型源</string>
+  <string name="error_all_repos_offline">所有模型源均无法访问</string>
+  <string name="error_showing_cached_list">正在显示缓存的模型列表 — 无法检查更新</string>
+  <string name="error_some_repos_unavailable">%2$d 个模型源中有 %1$d 个无法访问</string>
+  <!-- RepositoryViewModel: add-repository validation errors -->
+  <string name="repo_error_invalid_url">URL 无效</string>
+  <string name="repo_error_unsupported_protocol">仅支持 HTTP 和 HTTPS URL</string>
+  <string name="repo_error_already_added">该模型源已经添加过</string>
+  <string name="repo_error_access_denied">访问被拒绝 — 不支持私有仓库</string>
+  <string name="repo_error_not_found">该 URL 下没有文件</string>
+  <string name="repo_error_http">服务器返回错误（HTTP %1$d）</string>
+  <string name="repo_error_invalid_model_list">无法从该 URL 读取有效的模型列表</string>
+  <string name="repo_error_empty_model_list">该 URL 不包含有效的模型列表</string>
+  <string name="repo_error_newer_version">该模型源需要更高版本的 OlliteRT</string>
+  <string name="repo_error_save_failed">无法将模型源数据保存到磁盘</string>
+  <!-- RepositoryListScreen -->
+  <string name="repo_add">添加模型源</string>
+  <string name="repo_add_title">添加模型源</string>
+  <string name="repo_add_url_label">URL</string>
+  <string name="repo_add_helper">输入模型列表 JSON 文件的 URL</string>
+  <string name="repo_add_loading">正在校验…</string>
+  <string name="repo_added_success">模型源已添加</string>
+  <string name="repo_model_count">%1$d 个模型</string>
+  <string name="repo_model_count_with_hidden">%1$d 个模型 · %2$d 个已隐藏</string>
+  <string name="repo_model_count_with_downloaded">%1$d 个模型 · %2$d 个已下载</string>
+  <string name="repo_model_count_with_hidden_and_downloaded">%1$d 个模型 · %2$d 个已隐藏 · %3$d 个已下载</string>
+  <string name="repo_delete_title">移除模型源？</string>
+  <string name="repo_delete_message">要移除 %1$s 吗？这不会删除已下载的模型。</string>
+  <string name="repo_disable_title">停用模型源？</string>
+  <string name="repo_disable_downloaded_info">你从该源下载了 %1$d 个模型。它们会继续留在“模型”页面，直到你删除。</string>
+  <string name="repo_disable_confirm">停用</string>
+  <string name="repo_disable_downloading_title">正在下载</string>
+  <string name="repo_disable_downloading_message">该源有 %1$d 个模型正在下载。停用会取消这些下载任务。</string>
+  <string name="repo_disable_downloading_cancel_and_disable">取消下载并停用</string>
+  <string name="repo_delete_downloading_message">该源有 %1$d 个模型正在下载。删除会取消这些下载任务。</string>
+  <string name="repo_delete_downloading_cancel_and_delete">取消下载并删除</string>
+  <string name="repo_limit_warning">接近模型源数量上限</string>
+  <string name="repo_toggle_label">切换 %1$s</string>
+  <string name="add">添加</string>
+  <string name="remove">移除</string>
+  <string name="paste">粘贴</string>
+  <!-- RepositoriesCard (Settings) -->
+  <string name="repo_card_no_sources">没有模型源</string>
+  <string name="repo_card_all_enabled">%1$d 个已启用 · 0 个已停用</string>
+  <string name="repo_card_enabled_disabled">%1$d 个已启用 · %2$d 个已停用</string>
+  <string name="repo_card_tap_hint">点按以管理模型源</string>
+  <string name="repo_model_count_none">—</string>
+  <!-- RepositoryDetailScreen -->
+  <string name="repo_not_found">未找到模型源</string>
+  <string name="repo_detail_description">说明</string>
+  <string name="repo_detail_url">URL</string>
+  <string name="repo_detail_models">模型</string>
+  <string name="repo_detail_version">内容版本</string>
+  <string name="repo_detail_share">分享 URL</string>
+  <string name="repo_detail_delete">移除模型源</string>
+  <string name="repo_detail_last_error">最近错误</string>
+  <string name="repo_detail_models_section">该源中的模型</string>
+  <!-- ServerLlmModelHelper: error messages -->
+  <string name="error_model_file_not_found">未找到模型文件：%1$s</string>
+  <string name="error_model_file_corrupted">模型文件似乎已损坏或被截断（%1$d 字节）：%2$s</string>
+  <string name="error_model_file_size_mismatch">模型文件已损坏（大小不匹配：磁盘上 %1$s，应为 %2$s）。请删除该模型并重新下载。</string>
+  <string name="error_storage_insufficient">存储空间不足，无法加载模型（可用 %1$sMB，至少需要 %2$sMB）。请删除不常用的模型或文件以释放空间，然后重试。</string>
+  <!-- ErrorSuggestions: recovery suggestions -->
+  <string name="suggestion_context_overflow">请在 OlliteRT 设置 → 高级设置中启用“截断对话历史”或“裁剪提示词”，或发送更短的提示词。</string>
+  <string name="suggestion_timeout">请在 OlliteRT 设置 → 高级设置中增大“聊天补全超时”，或发送更短的提示词，或重启服务器。</string>
+  <string name="suggestion_model_not_found">请在“模型”页面查看有哪些已下载的模型。</string>
+  <string name="suggestion_model_files_missing">模型文件可能已被删除。请在“模型”页面重新下载该模型。</string>
+  <string name="suggestion_port_bind_failure">该端口已被其他应用占用。请关闭占用端口的应用，或在设置中更换端口号。</string>
+  <string name="suggestion_model_instance_null">模型尚未加载。请等待加载完成，或重启服务器。</string>
+  <string name="suggestion_image_decode_failed">无法解码 base64 图片数据。请确认 data URI 格式正确（data:image/…;base64,…），并且 base64 内容未被截断。</string>
+  <string name="suggestion_oom">设备内存耗尽。请尝试关闭其他应用、改用更小的模型，或在推理设置中降低 Max Tokens。</string>
+  <!-- CopyUrlReceiver: clipboard label -->
+  <string name="clipboard_label_endpoint">OlliteRT 端点</string>
+  <!-- InferenceRunner: error message -->
+  <string name="error_model_init_failed">模型初始化失败：%1$s</string>
+  <string name="unit_seconds">秒</string>
+  <string name="unit_minutes">分钟</string>
+  <string name="unit_hours">小时</string>
+  <string name="unit_days">天</string>
+</resources>
