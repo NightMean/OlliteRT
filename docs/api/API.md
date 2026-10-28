@@ -525,6 +525,9 @@ in Settings → Home Assistant; otherwise it returns `404`. It requires bearer
 authentication when bearer authentication is enabled, and requires a loaded or
 idle-unloaded model context.
 
+All server-control `POST` requests require `Content-Type: application/json`,
+including requests with an empty body. Missing or other content types return 415.
+
 Use `GET` to read the active model's effective configuration. `POST` with an
 empty body is retained as a compatibility read. Send any subset of the
 following fields in a non-empty `POST` body to update them:

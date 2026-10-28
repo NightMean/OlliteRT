@@ -36,10 +36,12 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import io.ktor.http.ContentType
+import io.ktor.http.BadContentTypeFormatException
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
+import io.ktor.http.parseHeaderValue
 import io.ktor.http.withCharset
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -139,6 +141,25 @@ suspend fun requireServerControl(call: ApplicationCall, serviceContext: Context)
     return false
   }
   return requireAuth(call, serviceContext)
+}
+
+internal fun isServerControlJsonContentType(values: List<String>): Boolean {
+  if (values.size != 1) return false
+  if (parseHeaderValue(values.single()).size != 1) return false
+  val contentType = try {
+    ContentType.parse(values.single())
+  } catch (_: BadContentTypeFormatException) {
+    return false
+  }
+  return contentType.contentType.equals("application", ignoreCase = true) &&
+    contentType.contentSubtype.equals("json", ignoreCase = true)
+}
+
+internal suspend fun requireServerControlJson(call: ApplicationCall): Boolean {
+  // Even bodyless control actions need a non-safelisted content type so browsers preflight them.
+  if (isServerControlJsonContentType(call.request.headers.getAll(HttpHeaders.ContentType) ?: emptyList())) return true
+  call.respondHttpResponse(httpJsonError(415, "Content-Type must be application/json"))
+  return false
 }
 
 /**

@@ -30,6 +30,7 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
   with(server) {
     post("/v1/server/stop") {
       if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
       withRequestLogging(call) { _, _, _, _, _, _ ->
         handleServerStop()
       }
@@ -37,6 +38,7 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
 
     post("/v1/server/reload") {
       if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
       withRequestLogging(call) { _, _, _, _, _, _ ->
         handleServerReload()
       }
@@ -44,6 +46,7 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
 
     post("/v1/server/thinking") {
       if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
       withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerThinking(body)
       }
@@ -51,6 +54,7 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
 
     post("/v1/server/config") {
       if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
       withRequestLogging(call) { body, _, _, _, _, _ ->
         handleServerConfig(body)
       }

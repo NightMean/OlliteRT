@@ -111,6 +111,9 @@ Control OlliteRT remotely from HA automations and scripts.
 | `/v1/server/config` | `GET` | Read current model/server configuration | None |
 | `/v1/server/config` | `POST` | Update inference and behavior settings | Any subset of fields (see below) |
 
+Every server-control `POST` requires `Content-Type: application/json`, including
+stop and reload requests with no body. Other or missing content types return 415.
+
 #### `/v1/server/config` Fields
 
 Use `GET` to read the current configuration. For compatibility, `POST` with an empty body also reads it. Send any subset of fields in a `POST` body to update:
