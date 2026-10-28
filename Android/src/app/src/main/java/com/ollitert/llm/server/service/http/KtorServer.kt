@@ -66,6 +66,8 @@ class KtorServer(
 ) {
 
   private val logIdCounter = AtomicLong(0)
+  internal val requestBodyAdmission = RequestBodyAdmission()
+  private val controlBodyAdmission = RequestBodyAdmission(MAX_IN_FLIGHT_CONTROL_REQUESTS)
   private val clientIpAccessPolicy = AtomicReference(initialClientIpAccessPolicy)
   private val serverControlHandler = ServerControlHandler(serviceContext, modelLifecycle, inferenceLock)
 
@@ -171,6 +173,8 @@ class KtorServer(
   internal suspend fun withRequestLogging(
     call: ApplicationCall,
     admitModelRequest: Boolean = false,
+    inferenceRequest: Boolean = false,
+    anthropicRequest: Boolean = false,
     handler: suspend (
       body: String,
       captureBody: (String) -> Unit,
@@ -180,17 +184,31 @@ class KtorServer(
       prefs: RequestPrefsSnapshot,
     ) -> HttpResponse,
   ) {
-    withRequestLogging(
-      call = call,
-      serviceContext = serviceContext,
-      defaultModel = defaultModel,
-      keepAliveUnloadedModelName = keepAliveUnloadedModelName,
-      nextLogId = ::nextLogId,
-      emitDebugStackTrace = emitDebugStackTrace,
-      modelLifecycle = modelLifecycle,
-      admitModelRequest = admitModelRequest,
-      handler = handler,
-    )
+    val gate = if (inferenceRequest) requestBodyAdmission else controlBodyAdmission
+    val admission = gate.tryAcquire() ?: run {
+      val message = "Too many in-flight requests. Retry later."
+      val response = if (anthropicRequest) {
+        httpAnthropicError(503, "overloaded_error", message).copy(extraHeaders = mapOf("Retry-After" to "5"))
+      } else httpServiceUnavailable(message)
+      withGetLogging(call) { response }
+      return
+    }
+    try {
+      withRequestLogging(
+        call = call,
+        serviceContext = serviceContext,
+        defaultModel = defaultModel,
+        keepAliveUnloadedModelName = keepAliveUnloadedModelName,
+        nextLogId = ::nextLogId,
+        emitDebugStackTrace = emitDebugStackTrace,
+        modelLifecycle = modelLifecycle,
+        admitModelRequest = admitModelRequest,
+        anthropicRequest = anthropicRequest,
+        handler = handler,
+      )
+    } finally {
+      admission.close()
+    }
   }
 
   // ── Server control delegates ──────────────────────────────────────────────

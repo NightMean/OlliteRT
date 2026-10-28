@@ -55,6 +55,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.response.respondTextWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "OlliteRT.Middleware"
@@ -297,6 +298,7 @@ suspend fun withRequestLogging(
   emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   modelLifecycle: ModelLifecycle,
   admitModelRequest: Boolean = false,
+  anthropicRequest: Boolean = false,
   handler: suspend (
     body: String,
     captureBody: (String) -> Unit,
@@ -316,6 +318,7 @@ suspend fun withRequestLogging(
       nextLogId = nextLogId,
       emitDebugStackTrace = emitDebugStackTrace,
       modelLifecycle = modelLifecycle,
+      anthropicRequest = anthropicRequest,
       handler = handler,
     ) {
       if (!admitModelRequest) {
@@ -338,6 +341,7 @@ private suspend fun withRequestLoggingBody(
   nextLogId: () -> String,
   emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   modelLifecycle: ModelLifecycle,
+  anthropicRequest: Boolean,
   handler: suspend (
     body: String,
     captureBody: (String) -> Unit,
@@ -396,7 +400,16 @@ private suspend fun withRequestLoggingBody(
     }
 
     val body = try {
-      withContext(Dispatchers.IO) { call.receiveText() }
+      withTimeoutOrNull(REQUEST_BODY_READ_TIMEOUT_MS) { withContext(Dispatchers.IO) { call.receiveText() } }
+        ?: run {
+          val message = "Request body took too long to receive"
+          val response = if (anthropicRequest) httpAnthropicError(408, "invalid_request_error", message)
+            else httpJsonError(408, message)
+          finalizeLogEntry(logId, startMs, response, "[Request body read timed out]", response.body, defaultModel?.name)
+          call.response.headers.append("x-request-id", logId)
+          call.respondHttpResponse(response)
+          return
+        }
     } catch (_: OutOfMemoryError) {
       System.gc()
       Log.w(TAG, "receiveText() OOM — returning HTTP 413 to client")
