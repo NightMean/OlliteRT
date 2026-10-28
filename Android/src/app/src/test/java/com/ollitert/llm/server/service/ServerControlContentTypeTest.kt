@@ -16,7 +16,7 @@
 
 package com.ollitert.llm.server.service
 
-import com.ollitert.llm.server.service.http.isServerControlJsonContentType
+import com.ollitert.llm.server.service.http.isJsonContentType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,9 +24,9 @@ import org.junit.Test
 class ServerControlContentTypeTest {
   @Test
   fun acceptsJsonWithCaseAndParameters() {
-    assertTrue(isServerControlJsonContentType(listOf("application/json")))
-    assertTrue(isServerControlJsonContentType(listOf("Application/JSON; charset=utf-8")))
-    assertTrue(isServerControlJsonContentType(listOf("application/json; note=\"one,two\"")))
+    assertTrue(isJsonContentType(listOf("application/json")))
+    assertTrue(isJsonContentType(listOf("Application/JSON; charset=utf-8")))
+    assertTrue(isJsonContentType(listOf("application/json; note=\"one,two\"")))
   }
 
   @Test
@@ -37,7 +37,7 @@ class ServerControlContentTypeTest {
       listOf("text/plain, application/json"),
       listOf("application/json", "text/plain"), listOf("application"),
     )) {
-      assertFalse("Expected rejection for $headers", isServerControlJsonContentType(headers))
+      assertFalse("Expected rejection for $headers", isJsonContentType(headers))
     }
   }
 }

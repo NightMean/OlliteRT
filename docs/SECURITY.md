@@ -77,6 +77,14 @@ Changing the listener or port requires a server restart. The Status screen alway
 
 ### Recommendations
 
+With bearer authentication disabled, inference and audio requests from a browser
+must originate from this server or a specifically configured CORS origin. The
+wildcard CORS setting does not authorize anonymous browser writes. This is not
+authentication: native clients can omit or forge browser headers, so enable a
+bearer token to restrict LAN access. Server-control endpoints have a separate
+policy and still require bearer authentication for protection against untrusted
+browser origins.
+
 | Risk | Mitigation |
 |:-----|:-----------|
 | Unauthorized LAN access | Enable bearer token authentication |

@@ -139,6 +139,9 @@ class KtorServer(
   internal suspend fun requireAuth(call: ApplicationCall): Boolean =
     requireAuth(call, serviceContext)
 
+  internal suspend fun requireInferenceRequest(call: ApplicationCall, json: Boolean = true, anthropic: Boolean = false): Boolean =
+    requireInferenceRequest(call, serviceContext, json, anthropic)
+
   internal suspend fun requireServerControl(call: ApplicationCall): Boolean =
     requireServerControl(call, serviceContext)
 

@@ -32,35 +32,35 @@ import io.ktor.server.routing.post
 internal fun Routing.chatRoutes(server: KtorServer) {
   with(server) {
     post("/generate") {
-      if (!requireAuth(call)) return@post
+      if (!requireInferenceRequest(call)) return@post
       withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleGenerate(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/completions") {
-      if (!requireAuth(call)) return@post
+      if (!requireInferenceRequest(call)) return@post
       withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleCompletions(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/chat/completions") {
-      if (!requireAuth(call)) return@post
+      if (!requireInferenceRequest(call)) return@post
       withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleChatCompletion(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/responses") {
-      if (!requireAuth(call)) return@post
+      if (!requireInferenceRequest(call)) return@post
       withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         endpointHandlers.handleResponses(body, captureBody, captureResponse, logId, prefs)
       }
     }
 
     post("/v1/messages") {
-      if (!requireAuth(call)) return@post
+      if (!requireInferenceRequest(call, anthropic = true)) return@post
       withRequestLogging(call, admitModelRequest = true, inferenceRequest = true, anthropicRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         if (prefs.verboseDebug) {
           val headers = call.request.headers
@@ -79,7 +79,7 @@ internal fun Routing.chatRoutes(server: KtorServer) {
     }
 
     post("/v1/messages/count_tokens") {
-      if (!requireAuth(call)) return@post
+      if (!requireInferenceRequest(call, anthropic = true)) return@post
       withRequestLogging(call, inferenceRequest = true, anthropicRequest = true) { body, captureBody, captureResponse, logId, _, prefs ->
         anthropicEndpointHandlers.handleCountTokens(body, captureBody, captureResponse, logId, prefs)
       }

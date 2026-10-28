@@ -115,7 +115,10 @@ suspend fun ApplicationCall.respondHttpResponse(resp: HttpResponse) {
  * Checks bearer token authorization. Returns `true` if authorized or auth is disabled.
  */
 suspend fun requireAuth(call: ApplicationCall, serviceContext: Context): Boolean {
-  val expected = ServerPrefs.getBearerToken(serviceContext)
+  return requireAuthToken(call, ServerPrefs.getBearerToken(serviceContext))
+}
+
+private suspend fun requireAuthToken(call: ApplicationCall, expected: String): Boolean {
   if (expected.isBlank()) return true
   val header = call.request.headers["Authorization"] ?: ""
   if (BridgeUtils.isBearerAuthorized(expected, header)) return true
@@ -144,7 +147,7 @@ suspend fun requireServerControl(call: ApplicationCall, serviceContext: Context)
   return requireAuth(call, serviceContext)
 }
 
-internal fun isServerControlJsonContentType(values: List<String>): Boolean {
+internal fun isJsonContentType(values: List<String>): Boolean {
   if (values.size != 1) return false
   if (parseHeaderValue(values.single()).size != 1) return false
   val contentType = try {
@@ -158,9 +161,53 @@ internal fun isServerControlJsonContentType(values: List<String>): Boolean {
 
 internal suspend fun requireServerControlJson(call: ApplicationCall): Boolean {
   // Even bodyless control actions need a non-safelisted content type so browsers preflight them.
-  if (isServerControlJsonContentType(call.request.headers.getAll(HttpHeaders.ContentType) ?: emptyList())) return true
+  if (isJsonContentType(call.request.headers.getAll(HttpHeaders.ContentType) ?: emptyList())) return true
   call.respondHttpResponse(httpJsonError(415, "Content-Type must be application/json"))
   return false
+}
+
+internal suspend fun requireInferenceRequest(
+  call: ApplicationCall,
+  serviceContext: Context,
+  requireJson: Boolean,
+  anthropic: Boolean = false,
+): Boolean {
+  // One token snapshot determines both authentication and anonymous-origin handling.
+  val expected = ServerPrefs.getBearerToken(serviceContext)
+  val origins = if (expected.isBlank()) ServerPrefs.getCorsAllowedOrigins(serviceContext) else ""
+  return requireInferenceRequestForSettings(call, expected, origins, requireJson, anthropic)
+}
+
+internal suspend fun requireInferenceRequestForSettings(
+  call: ApplicationCall,
+  expected: String,
+  allowedOrigins: String,
+  requireJson: Boolean,
+  anthropic: Boolean,
+): Boolean {
+  if (!requireAuthToken(call, expected)) return false
+  if (expected.isBlank()) {
+    val local = call.request.local
+    val requestOrigin = try {
+      java.net.URI(local.scheme, null, local.serverHost, local.serverPort, null, null, null).toString()
+    } catch (_: java.net.URISyntaxException) { "" }
+    if (!isAllowedAnonymousInferenceOrigin(
+        call.request.headers.getAll(HttpHeaders.Origin) ?: emptyList(),
+        call.request.headers.getAll("Sec-Fetch-Site") ?: emptyList(),
+        requestOrigin,
+        allowedOrigins,
+      )) {
+      val message = "Browser origin is not trusted; enable bearer authentication or configure a trusted CORS origin"
+      call.respondHttpResponse(if (anthropic) httpAnthropicError(403, "permission_error", message) else httpJsonError(403, message))
+      return false
+    }
+  }
+  if (requireJson && !isJsonContentType(call.request.headers.getAll(HttpHeaders.ContentType) ?: emptyList())) {
+    val message = "Content-Type must be application/json"
+    call.respondHttpResponse(if (anthropic) httpAnthropicError(415, "invalid_request_error", message) else httpJsonError(415, message))
+    return false
+  }
+  return true
 }
 
 /**

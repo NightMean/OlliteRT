@@ -47,6 +47,14 @@ be retried. A streaming request occupies its slot until the stream ends.
 Server-control requests have a separate single-request limit. Request body reads
 time out after two minutes; this does not limit inference or stream duration.
 
+JSON inference POSTs require `Content-Type: application/json`; audio
+transcriptions use multipart form data. When bearer authentication is disabled,
+browser-origin inference and audio requests must be same-origin or match a
+specific origin in CORS Allowed Origins. The `*` setting does not authorize
+anonymous cross-origin writes. Native clients without browser origin headers are
+unchanged. Browser clients can enable bearer authentication or list a trusted
+origin. Origin checks do not authenticate native clients.
+
 ## Authentication
 
 Bearer token authentication is **optional** and disabled by default. When disabled, all endpoints are open — no API key or header is needed.

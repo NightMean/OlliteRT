@@ -48,7 +48,7 @@ internal fun Routing.audioRoutes(server: KtorServer) {
     route("/v1/audio/transcriptions") {
       installAudioBodyLimit()
       post {
-        if (!requireAuth(call)) return@post
+        if (!requireInferenceRequest(call, json = false)) return@post
         val bodyAdmission = requestBodyAdmission.tryAcquire() ?: run {
           withGetLogging(call) { httpServiceUnavailable("Too many in-flight requests. Retry later.") }
           return@post
