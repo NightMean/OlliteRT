@@ -29,6 +29,30 @@ import org.junit.Test
 class ServerConfigParsingTest {
 
   @Test
+  fun `transcription temperature accepts finite numbers and rejects invalid input`() {
+    assertEquals(0.5, parseTranscriptionTemperature("0.5")!!, 0.0)
+    assertNull(parseTranscriptionTemperature(null))
+    for (value in listOf("NaN", "Infinity", "-Infinity", "1e999", "bad")) {
+      org.junit.Assert.assertThrows(ConfigFieldException::class.java) {
+        parseTranscriptionTemperature(value)
+      }
+    }
+  }
+
+  @Test
+  fun `parseConfigDouble rejects non-finite numbers`() {
+    for (field in listOf("temperature", "top_p")) {
+      for (value in listOf("\"NaN\"", "\"Infinity\"", "\"-Infinity\"", "1e999")) {
+        val obj = Json.parseToJsonElement("{\"$field\":$value}").jsonObject
+        val error = org.junit.Assert.assertThrows(ConfigFieldException::class.java) {
+          parseConfigDouble(obj, field)
+        }
+        assertEquals(field, error.fieldName)
+      }
+    }
+  }
+
+  @Test
   fun `parseConfigDouble returns value for valid double`() {
     val obj = Json.parseToJsonElement("""{"temperature": 0.7}""").jsonObject
     val result = parseConfigDouble(obj, "temperature")

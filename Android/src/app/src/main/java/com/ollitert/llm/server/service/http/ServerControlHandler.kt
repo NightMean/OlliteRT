@@ -437,11 +437,13 @@ class ConfigFieldException(
 
 fun parseConfigDouble(obj: JsonObject, field: String): Double? {
   if (!obj.containsKey(field)) return null
-  return try {
+  val value = try {
     obj.getValue(field).jsonPrimitive.double
   } catch (e: Exception) {
     throw ConfigFieldException(field, "number", e)
   }
+  if (!value.isFinite()) throw ConfigFieldException(field, "finite number")
+  return value
 }
 
 fun parseConfigInt(obj: JsonObject, field: String): Int? {

@@ -24,6 +24,15 @@ import org.junit.Test
 class ServerPrefsConfigJsonTest {
 
   @Test
+  fun preservesValidSettingsWhenSavedNumberIsNonFinite() {
+    for (value in listOf("NaN", "Infinity", "-Infinity", "1e999")) {
+      val output = decodeInferenceConfig("{\"temperature\":$value,\"topk\":40}")!!
+      assertTrue(!output.containsKey("temperature"))
+      assertEquals(40, output["topk"])
+    }
+  }
+
+  @Test
   fun roundtripPreservesTypes() {
     val input = mapOf<String, Any>(
       "temperature" to 0.8f,

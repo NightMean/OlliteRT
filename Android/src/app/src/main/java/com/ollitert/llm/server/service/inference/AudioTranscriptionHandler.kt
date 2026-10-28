@@ -37,6 +37,13 @@ import kotlinx.serialization.json.put
 internal const val MAX_FILE_SIZE_BYTES = 50_000_000L
 private const val TAG = "OlliteRT.AudioSTT"
 
+internal fun parseTranscriptionTemperature(value: String?): Double? {
+  if (value.isNullOrBlank()) return null
+  val parsed = value.toDoubleOrNull()
+  if (parsed == null || !parsed.isFinite()) throw ConfigFieldException("temperature", "finite number")
+  return parsed
+}
+
 /**
  * Handles POST /v1/audio/transcriptions — OpenAI Whisper-compatible endpoint.
  *
@@ -79,6 +86,11 @@ class AudioTranscriptionHandler(
     val language = fields["language"]?.takeIf { it.isNotBlank() }
     val prompt = fields["prompt"]?.takeIf { it.isNotBlank() }
     val temperatureStr = fields["temperature"]?.takeIf { it.isNotBlank() }
+    val temperature = try {
+      parseTranscriptionTemperature(temperatureStr)
+    } catch (e: ConfigFieldException) {
+      return httpBadRequest(e.message ?: "Invalid temperature: expected a finite number")
+    }
     val responseFormat = fields["response_format"]?.takeIf { it.isNotBlank() } ?: "json"
 
     // srt/vtt require word-level timestamps — LiteRT returns raw text without timing data
@@ -149,7 +161,6 @@ class AudioTranscriptionHandler(
       }
     }
 
-    val temperature = temperatureStr?.toDoubleOrNull()
     val configSnapshot = resolveSamplerOverrides(model, prefs, temperature, topP = null, topK = null, maxTokens = null, seed = null, logId)
 
     // Run inference

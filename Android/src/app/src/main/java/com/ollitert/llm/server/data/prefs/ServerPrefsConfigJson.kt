@@ -88,6 +88,12 @@ internal fun decodeInferenceConfig(jsonStr: String?): Map<String, Any>? {
     val result = mutableMapOf<String, Any>()
     for ((key, element) in json) {
       val prim = element.jsonPrimitive
+      // Older releases could persist non-finite sampler values as invalid JSON numbers.
+      // Drop only the damaged value so unrelated model settings remain recoverable.
+      if (!prim.isString && prim.content.toDoubleOrNull()?.isFinite() == false) {
+        Log.w(TAG, "Ignoring non-finite saved inference setting: ${key.take(80)}")
+        continue
+      }
       result[key] = when {
         prim.isString -> prim.content
         prim.booleanOrNull != null -> prim.boolean
