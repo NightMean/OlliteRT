@@ -41,7 +41,7 @@ OlliteRT exposes an OpenAI-compatible HTTP API. The listener address, client IP 
 | `GET`  | `/v1/server/config` | Read model and server configuration |
 | `POST` | `/v1/server/config` | Update model and server configuration |
 
-At most two JSON inference requests, including token-count requests, may be in
+At most two inference requests, including token-count and audio requests, may be in
 flight at once. Additional requests receive HTTP 503 with `Retry-After` and can
 be retried. A streaming request occupies its slot until the stream ends.
 Server-control requests have a separate single-request limit. Request body reads
@@ -372,6 +372,10 @@ Counts are estimated as `chars / 4` (the same heuristic OlliteRT uses across the
 ## Audio Transcriptions — `POST /v1/audio/transcriptions`
 
 Accepts an audio file via multipart/form-data and returns a text transcription.
+
+The complete multipart request is limited to 50 MB, 32 parts, one file, and
+65,536 characters per form field, including uploads using chunked transfer
+encoding. Requests exceeding these limits receive HTTP 413.
 
 Requires a model with audio capability (e.g. Gemma 4, Gemma 3n).
 

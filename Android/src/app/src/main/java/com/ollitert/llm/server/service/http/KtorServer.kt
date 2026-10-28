@@ -41,6 +41,7 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.http.HttpRequestLifecycle
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.uri
 import io.ktor.server.routing.routing
@@ -97,6 +98,9 @@ class KtorServer(
       configureCors(serviceContext)
       install(ContentNegotiation) { json(json) }
       install(StatusPages) {
+        exception<PayloadTooLargeException> { call, _ ->
+          call.respondHttpResponse(httpPayloadTooLarge("Request body exceeds the 50MB limit"))
+        }
         status(HttpStatusCode.MethodNotAllowed) { call, _ ->
           withGetLogging(call) { httpMethodNotAllowed() }
         }
