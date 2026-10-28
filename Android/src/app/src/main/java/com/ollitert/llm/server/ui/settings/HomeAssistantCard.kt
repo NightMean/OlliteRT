@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -46,10 +48,37 @@ import com.ollitert.llm.server.data.prefs.ServerBindMode
 import com.ollitert.llm.server.data.prefs.formatHostForUrl
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
 
 @Composable
 internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
   var haIntegrationEnabled by remember { mutableStateOf(vm.isHaIntegrationEnabled()) }
+  var showUnprotectedWarning by remember { mutableStateOf(false) }
+
+  if (showUnprotectedWarning) {
+    AlertDialog(
+      onDismissRequest = { showUnprotectedWarning = false },
+      icon = { Icon(Icons.Outlined.Warning, contentDescription = null, tint = OlliteRTWarningText) },
+      title = { Text(stringResource(R.string.dialog_ha_unprotected_title)) },
+      text = { Text(stringResource(R.string.dialog_ha_unprotected_body)) },
+      confirmButton = {
+        Button(onClick = {
+          showUnprotectedWarning = false
+          haIntegrationEnabled = true
+          vm.setHaIntegrationEnabled(true)
+        }) { Text(stringResource(R.string.button_enable_anyway)) }
+      },
+      dismissButton = {
+        Button(
+          onClick = { showUnprotectedWarning = false },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+          ),
+        ) { Text(stringResource(R.string.cancel)) }
+      },
+    )
+  }
 
   SettingsCard(
     iconRes = R.drawable.ic_home_assistant,
@@ -60,9 +89,13 @@ internal fun HomeAssistantCard(vm: SettingsViewModel, context: Context) {
       label = stringResource(R.string.settings_ha_rest_api),
       description = stringResource(R.string.settings_ha_rest_api_desc),
       checked = haIntegrationEnabled,
-      onCheckedChange = {
-        haIntegrationEnabled = it
-        vm.setHaIntegrationEnabled(it)
+      onCheckedChange = { enabled ->
+        if (enabled && vm.bearerTokenEntry.saved.isBlank()) {
+          showUnprotectedWarning = true
+        } else {
+          haIntegrationEnabled = enabled
+          vm.setHaIntegrationEnabled(enabled)
+        }
       },
       searchQuery = vm.searchQuery,
     )

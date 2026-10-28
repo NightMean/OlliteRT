@@ -336,6 +336,8 @@
   </plurals>
   <string name="settings_bearer_token" translatable="false">Require Bearer Token</string>
   <string name="settings_bearer_token_desc" translatable="false">Protect the API with a bearer token. Clients must include it in the Authorization header</string>
+  <string name="dialog_ha_unprotected_title">Enable REST API without a token?</string>
+  <string name="dialog_ha_unprotected_body">Without a saved bearer token, anyone who can reach the server can use its API. The REST API also allows them to change the saved system prompt through /v1/server/config, influencing future responses. Enable and save Require Bearer Token in Server Configuration to protect the API.</string>
   <string name="settings_bearer_copy_tooltip" translatable="false">Copy token</string>
   <string name="settings_bearer_regenerate_tooltip" translatable="false">Regenerate token</string>
   <string name="settings_cors_label" translatable="false">CORS Allowed Origins</string>
