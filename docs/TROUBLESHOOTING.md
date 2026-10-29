@@ -1,5 +1,6 @@
 # Troubleshooting
 
+- [Installation](#installation)
 - [Connection Issues](#connection-issues)
 - [Performance](#performance)
 - [Models](#models)
@@ -9,6 +10,25 @@
 - [Model Sources & Updates](#model-sources--updates)
 - [Tool Calling](#tool-calling-experimental)
 - [Voice Transcription](#voice-transcription)
+
+## Installation
+
+### "There was a problem parsing the package" on Android 11
+
+The installer message is generic, but APKs declaring `minSdk=31` cannot install
+on Android 11 (API 30), regardless of RAM or processor. Re-downloading that APK
+or changing unknown-source settings does not remove its minimum SDK.
+
+This branch provides an **experimental API 30 source build**, not an update to
+already-published APKs. Use the [Android 11 build instructions](BUILDING.md#android-11-compatibility-attempt)
+and `adb -s SERIAL install -r APK_PATH` to capture a precise installation error.
+Keep the original APK intact; editing only its manifest does not fix unsafe
+Android API calls or native-runtime incompatibilities.
+
+If installation succeeds but the app or a model fails to start, record the ROM,
+app commit, model, selected accelerator, and relevant logs. Start with a small
+text model on **CPU**, then test GPU separately. An unknown SoC on Android 11 is
+expected and does not imply that generic CPU/GPU models are unavailable.
 
 ## Connection Issues
 
@@ -235,4 +255,3 @@ Multimodal models treat audio as conversational input by default — they respon
 - **Check audio format** — WAV, MP3, OGG (Vorbis), and FLAC are supported. See [Multimodal → Audio not working](#audio-not-working) for format details
 - **Check model capabilities** — only models with Audio capability support audio input (Gemma 4, Gemma 3n). See the [Model Guide](MODELS.md#supported-models)
 - **Try a different model** — transcription quality varies between models. Larger models generally produce better results
-

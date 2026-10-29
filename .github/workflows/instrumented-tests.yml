@@ -4,7 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Android/src/gradle.properties'
+      - 'Android/src/**'
+      - 'model_allowlists/**'
+      - '.github/workflows/instrumented-tests.yml'
+  pull_request:
+    paths:
+      - 'Android/src/**'
+      - 'model_allowlists/**'
+      - '.github/workflows/instrumented-tests.yml'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +26,12 @@ concurrency:
 
 jobs:
   instrumented-tests:
+    name: Android API ${{ matrix.api-level }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [30, 31]
     defaults:
       run:
         working-directory: Android/src
@@ -50,7 +62,7 @@ jobs:
       - name: Install Android SDK packages
         run: |
           sdkmanager --licenses < /dev/null > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "system-images;android-31;default;x86_64" "emulator"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "system-images;android-${{ matrix.api-level }};default;x86_64" "emulator"
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
@@ -58,7 +70,7 @@ jobs:
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: default
           force-avd-creation: false
@@ -71,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: instrumented-test-reports-${{ github.sha }}
+          name: instrumented-test-reports-api-${{ matrix.api-level }}-${{ github.sha }}
           path: Android/src/app/build/reports/androidTests/connected/
           if-no-files-found: ignore
           retention-days: 14
@@ -81,6 +93,7 @@ jobs:
         env:
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
+          API_LEVEL: ${{ matrix.api-level }}
         run: |
           RESULTS_DIR="app/build/outputs/androidTest-results/connected/debug/flavors/stable"
           COMMIT_SHA=$(git rev-parse --short HEAD)
@@ -117,6 +130,8 @@ jobs:
           TRIGGER="push"
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             TRIGGER="manual"
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            TRIGGER="pull request"
           fi
 
           {
@@ -129,7 +144,7 @@ jobs:
             echo "| **App version** | $APP_VERSION |"
             echo "| **Trigger** | $TRIGGER |"
             echo "| **Build type** | stableDebug |"
-            echo "| **Emulator** | API 31, x86_64 |"
+            echo "| **Emulator** | API $API_LEVEL, x86_64 (no native inference) |"
             echo "| **Total tests** | $TOTAL |"
             echo "| **Passed** | $PASSED |"
             if [ "$FAILED" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then

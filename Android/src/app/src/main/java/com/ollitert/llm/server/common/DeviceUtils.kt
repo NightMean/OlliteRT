@@ -18,9 +18,20 @@
 package com.ollitert.llm.server.common
 
 import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 
-/** Current device's SOC in lowercase. */
-val SOC: String by lazy { Build.SOC_MODEL.lowercase() }
+@ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
+internal fun supportsRuntimeNotificationPermission(sdkInt: Int = Build.VERSION.SDK_INT): Boolean =
+  sdkInt >= Build.VERSION_CODES.TIRAMISU
+
+/** Platform SoC identifier in lowercase; unknown before Android 12, never guessed from board names. */
+val SOC: String by lazy {
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    Build.SOC_MODEL.lowercase()
+  } else {
+    Build.UNKNOWN
+  }
+}
 
 fun isPixelDevice(): Boolean {
   return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel")

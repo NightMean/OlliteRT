@@ -18,6 +18,7 @@ package com.ollitert.llm.server.data.prefs
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.ollitert.llm.server.BuildConfig
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,7 +60,7 @@ class ServerPrefsTest {
     ServerPrefs.setHaIntegrationEnabled(context, true)
     ServerPrefs.setVerboseDebugEnabled(context, true)
     ServerPrefs.setUpdateCheckEnabled(context, false)
-    ServerPrefs.setCrossChannelNotifyEnabled(context, true)
+    ServerPrefs.setCrossChannelNotifyEnabled(context, BuildConfig.UPDATE_CHANNEL == "stable")
 
     ServerPrefs.resetToDefaults(context)
 
@@ -76,7 +77,7 @@ class ServerPrefsTest {
     assertFalse(ServerPrefs.isHaIntegrationEnabled(context))
     assertFalse(ServerPrefs.isVerboseDebugEnabled(context))
     assertTrue(ServerPrefs.isUpdateCheckEnabled(context))
-    assertFalse(ServerPrefs.isCrossChannelNotifyEnabled(context))
+    assertEquals(BuildConfig.UPDATE_CHANNEL != "stable", ServerPrefs.isCrossChannelNotifyEnabled(context))
   }
 
   @Test
@@ -193,8 +194,8 @@ class ServerPrefsTest {
   // --- Cross-Channel State ---
 
   @Test
-  fun crossChannelNotifyDefaultsToFalse() {
-    assertFalse(ServerPrefs.isCrossChannelNotifyEnabled(context))
+  fun crossChannelNotifyDefaultsFollowUpdateChannel() {
+    assertEquals(BuildConfig.UPDATE_CHANNEL != "stable", ServerPrefs.isCrossChannelNotifyEnabled(context))
   }
 
   @Test

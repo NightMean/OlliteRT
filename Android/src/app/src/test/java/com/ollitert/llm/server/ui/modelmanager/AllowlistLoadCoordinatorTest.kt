@@ -25,6 +25,7 @@ import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
+import com.ollitert.llm.server.data.allowlist.SocModelFile
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.allowlist.LoadResult
 import com.ollitert.llm.server.data.model.Model
@@ -37,6 +38,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -134,6 +136,28 @@ class AllowlistLoadCoordinatorTest {
     )
 
     assertTrue(coordinator.isModelSupportedOnDevice(allowedModel))
+  }
+
+  @Test
+  fun isModelSupportedOnDevice_rejectsNpuOnlyModelWhenSocIsUnknown() {
+    val allowedModel = AllowedModel(
+      name = "NPU-only",
+      modelId = "test/npu",
+      modelFile = "npu.litertlm",
+      description = "Test model",
+      sizeInBytes = 1000L,
+      defaultConfig = DefaultConfig(accelerators = "npu"),
+      socToModelFiles = mapOf(
+        "sm8250" to SocModelFile(
+          modelFile = "npu-sm8250.litertlm",
+          url = null,
+          commitHash = null,
+          sizeInBytes = null,
+        ),
+      ),
+    )
+
+    assertFalse(coordinator.isModelSupportedOnDevice(allowedModel))
   }
 
   @Test
