@@ -123,12 +123,15 @@ object LiteRtEngineFactory {
     if (modelFile.length() < 1024) {
       return context.getString(R.string.error_model_file_corrupted, modelFile.length(), modelFile.name)
     }
-    if (model.totalBytes > 0 && modelFile.length() != model.totalBytes) {
-      Log.e(TAG, "Model file size mismatch: on-disk=${modelFile.length()}, expected=${model.totalBytes}")
+    // The catalog's size belongs to its latest revision, not older installed revisions.
+    val latest = model.latestModelFile
+    val isLatest = latest == null || (model.version == latest.commitHash && model.downloadFileName == latest.fileName)
+    if (isLatest && !model.isZip && model.sizeInBytes > 0 && modelFile.length() != model.sizeInBytes) {
+      Log.e(TAG, "Model file size mismatch: on-disk=${modelFile.length()}, expected=${model.sizeInBytes}")
       return context.getString(
         R.string.error_model_file_size_mismatch,
         modelFile.length().bytesToMb().toString() + "MB",
-        model.totalBytes.bytesToMb().toString() + "MB",
+        model.sizeInBytes.bytesToMb().toString() + "MB",
       )
     }
 

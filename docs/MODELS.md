@@ -133,6 +133,8 @@ The JSON file must follow the [Model Allowlist Schema](MODEL_ALLOWLIST_SCHEMA.md
 
 Custom model sources can be enabled, disabled, or removed at any time. Disabled sources are hidden from the Models screen but their configuration is preserved.
 
+When enabled sources list the same model ID, the Official source takes precedence. Disable it to use a custom entry for that model. In a custom model list, `url` must be a direct URL to the model file, not a mirror's homepage; `sizeInBytes` must match the file's exact size.
+
 ### Incompatible Models
 
 The Model Sources detail screen shows all models in a source, including those incompatible with your device (shown greyed out with the reason, e.g. "Requires app version X.Y.Z"). The source list shows the count as "N models · M hidden" when some models are filtered out.

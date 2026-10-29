@@ -54,6 +54,8 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_IS_ZIP
 import com.ollitert.llm.server.data.storage.KEY_MODEL_NAME
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.storage.KEY_MODEL_URL
 import com.ollitert.llm.server.data.prefs.MIN_STORAGE_FOR_MODEL_INIT_BYTES
@@ -77,7 +79,9 @@ import java.util.zip.ZipInputStream
 
 private const val TAG = "OlliteRT.Download"
 
-data class UrlAndFileName(val url: String, val fileName: String)
+data class UrlAndFileName(val url: String, val fileName: String, val expectedBytes: Long)
+
+private class InvalidArtifactException(val problem: ArtifactProblem) : IOException("Invalid downloaded artifact: $problem")
 
 private class HttpErrorException(
   val statusCode: Int,
@@ -127,6 +131,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val extraDataFileNames =
       inputData.getString(KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES)?.split(",") ?: listOf()
     val totalBytes = inputData.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
+    // Older persisted WorkManager requests have no per-file sizes.
+    val fileBytes = inputData.getLong(
+      KEY_MODEL_FILE_BYTES,
+      if (extraDataFileUrls.isEmpty()) totalBytes else 0L,
+    )
+    val extraFileBytes = inputData.getString(KEY_MODEL_EXTRA_FILE_BYTES)?.split(",") ?: emptyList()
     val accessToken = inputData.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN)
 
     return withContext(Dispatchers.IO) {
@@ -144,10 +154,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
           // Collect data for all files.
           val allFiles: MutableList<UrlAndFileName> = mutableListOf()
-          allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName))
+          allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName, expectedBytes = fileBytes))
           for (index in extraDataFileUrls.indices) {
             allFiles.add(
-              UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index])
+              UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index],
+                expectedBytes = extraFileBytes.getOrNull(index)?.toLongOrNull() ?: 0L)
             )
           }
           Log.d(TAG, "About to download: $allFiles")
@@ -305,6 +316,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               connection.disconnect()
             }
 
+            val problem = validateDownloadedArtifact(outputTmpFile, file.expectedBytes)
+            if (problem != null) {
+              if (!outputTmpFile.delete()) Log.w(TAG, "Could not remove invalid staging file: ${outputTmpFile.name}")
+              throw InvalidArtifactException(problem)
+            }
+
             // Same-directory atomic replacement preserves a previous valid file
             // if finalization fails and keeps the staging file resumable.
             val originalFilePath = outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT")
@@ -406,7 +423,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           // to give the user their storage back. For network errors (where space
           // is still available), keep .tmp files so downloads can resume.
           val isDiskFull =
-            if (e is DownloadFinalizationException) {
+            if (e is DownloadFinalizationException || e is InvalidArtifactException) {
               false
             } else {
               try {
@@ -438,6 +455,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             applicationContext.getString(R.string.download_error_disk_full)
           } else {
             when (e) {
+              is InvalidArtifactException -> applicationContext.getString(
+                if (e.problem == ArtifactProblem.HTML) R.string.download_error_html else R.string.download_error_size_mismatch
+              )
               is DownloadFinalizationException ->
                 applicationContext.getString(R.string.download_error_finalize)
               is HttpErrorException -> when {

@@ -16,6 +16,8 @@
 -->
 
 <resources>
+    <string name="download_error_html">The download URL returned a web page instead of a model file. Check the model source and use a direct file download URL.</string>
+    <string name="download_error_size_mismatch">The downloaded file is empty or its size does not match the model source. Check the source and try again.</string>
   <string name="all" translatable="false">All</string>
   <string name="baseline" translatable="false">Baseline</string>
   <string name="basic_info" translatable="false">Basic info</string>

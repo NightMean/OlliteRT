@@ -33,6 +33,8 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_IS_ZIP
 import com.ollitert.llm.server.data.storage.KEY_MODEL_NAME
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.storage.KEY_MODEL_URL
 
@@ -79,10 +81,12 @@ internal fun buildDownloadRequestData(model: Model): Data {
       .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
       // Model.preProcess() defines totalBytes as the main file plus every extra file.
       .putLong(KEY_MODEL_TOTAL_BYTES, model.totalBytes)
+      .putLong(KEY_MODEL_FILE_BYTES, model.sizeInBytes)
 
   if (model.extraDataFiles.isNotEmpty()) {
     builder
       .putString(KEY_MODEL_EXTRA_DATA_URLS, model.extraDataFiles.joinToString(",") { it.url })
+      .putString(KEY_MODEL_EXTRA_FILE_BYTES, model.extraDataFiles.joinToString(",") { it.sizeInBytes.toString() })
       .putString(
         KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
         model.extraDataFiles.joinToString(",") { it.downloadFileName },

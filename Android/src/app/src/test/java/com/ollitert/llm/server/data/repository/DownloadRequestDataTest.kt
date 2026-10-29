@@ -13,6 +13,8 @@ package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDataFile
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -37,5 +39,7 @@ class DownloadRequestDataTest {
     val inputData = buildDownloadRequestData(model)
 
     assertEquals(125L, inputData.getLong(KEY_MODEL_TOTAL_BYTES, -1L))
+    assertEquals(100L, inputData.getLong(KEY_MODEL_FILE_BYTES, -1L))
+    assertEquals("25", inputData.getString(KEY_MODEL_EXTRA_FILE_BYTES))
   }
 }

@@ -56,7 +56,7 @@ Each entry in the `models` array.
 | `modelId` | `string` | HuggingFace repo ID (e.g. `litert-community/gemma-4-E2B-it-litert-lm`) |
 | `modelFile` | `string` | Filename of the `.litertlm` model file in the repo |
 | `description` | `string` | Model description (Markdown supported) |
-| `sizeInBytes` | `long` | Model file size in bytes |
+| `sizeInBytes` | `long` | Exact model file size in bytes; downloads with a different size are rejected |
 | `defaultConfig` | `DefaultConfig` | Inference configuration defaults (see below) |
 
 ### Optional Fields
@@ -72,7 +72,7 @@ Each entry in the `models` array.
 | `badge` | `string` | `null` | Badge key for UI display. Known keys: `best_overall`, `new`, `fastest`. Unknown keys render as title-cased text |
 | `minDeviceMemoryInGb` | `int` | `null` | Minimum device RAM in GB (shows warning dialog if insufficient) |
 | `localModelFilePathOverride` | `string` | `null` | Override path for local testing |
-| `url` | `string` | `null` | Custom download URL (overrides HuggingFace URL construction) |
+| `url` | `string` | `null` | Complete direct model file download URL (overrides HuggingFace URL construction); a mirror's homepage is not a download URL |
 | `runtimeType` | `string` | `null` | Runtime type: `litert_lm` or `unknown` |
 | `socToModelFiles` | `object` | `null` | Per-SoC model file overrides (see below) |
 | `pinned` | `boolean` | `null` | Pin model to top of the list |
