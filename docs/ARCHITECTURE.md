@@ -256,7 +256,7 @@ OlliteRT supports OpenAI-compatible tool calling via two modes:
 The client sends tools in OpenAI format (`tools` array with JSON Schema parameters). `SchemaInjectionBridge` translates this into the LiteRT LM SDK's native tool calling interface:
 
 1. **Tool specs → ToolProviders** — each OpenAI `ToolSpec` is converted to a LiteRT `ToolProvider` object (name + parameter schema as `JsonObjectSchema`)
-2. **Conversation history → native Messages** — prior `user`/`assistant`/`tool` messages are converted to LiteRT `Message` objects with the appropriate roles, skipping the system prompt (which is handled separately) and the last user message (which becomes the `inputText` parameter)
+2. **Instructions and history → native conversation** — for `/v1/chat/completions`, nonblank per-model prompt text (when enabled) is followed by client `system` and `developer` messages in request order in one native `systemInstruction`, separated by blank lines. Other prior messages are converted to native messages, and the last conversation message becomes the inference input. An instruction-only request also uses its last message as input for compatibility.
 3. **Tool result workaround** — when the last messages are `assistant` (with tool_calls) followed by `tool` (with results), these are formatted into a synthetic user message describing the function return values, because the SDK doesn't support multi-turn tool result injection directly
 4. **Native tool calls → API response** — when the model produces tool calls via the SDK callback (`onMessage` with `toolCalls`), `SchemaInjectionBridge` converts them back to OpenAI `ToolCall` objects (with generated call IDs, serialized arguments)
 
@@ -264,7 +264,11 @@ The SDK handles tool schema formatting internally — tool definitions don't app
 
 ### Prompt-based fallback
 
-When Schema Injection is disabled, `PromptBuilder` injects tool schemas directly into the text prompt with explicit formatting instructions. `ToolCallParser` then attempts to parse tool calls from the model's raw text output using pattern matching (JSON wrappers, XML tags, Gemma-native format). This mode works with any model but is less reliable since the model must follow the formatting instructions exactly.
+When Schema Injection is disabled, `PromptBuilder` injects tool schemas directly into the conversation text with explicit formatting instructions. `ToolCallParser` then attempts to parse tool calls from the model's raw text output using pattern matching (JSON wrappers, XML tags, Gemma-native format). This mode works with any model but is less reliable since the model must follow the formatting instructions exactly.
+
+For `/v1/chat/completions`, the enabled per-model prompt remains the native `systemInstruction`; client messages, including `system` and `developer`, are rendered into the conversation text, usually with role labels (a single message without a template has no role label). This also applies when there are no tools or `tool_choice` is `none`, even if the schema-injection setting is enabled. No numeric weights or deterministic conflict resolution are applied.
+
+The Anthropic `/v1/messages` endpoint converts its system field to a chat system message and uses this same pipeline. When the request explicitly supplies `system`, it suppresses the per-model prompt. The `/v1/responses` endpoint has a separate prompt pipeline; the chat-specific behavior above does not describe it.
 
 ## Dependencies
 

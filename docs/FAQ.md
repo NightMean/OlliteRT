@@ -201,7 +201,14 @@ Yes. Tap the gear icon on any model card to open inference settings. You can con
 
 ### Can I set a custom system prompt?
 
-Yes. Enable **Custom System Prompt** in Settings → Model Behaviour, then set a per-model system prompt in the inference settings (tap the gear icon on a model card → expand "Custom System Prompt"). The system prompt is prepended to every conversation as an instruction to the model.
+Yes. Enable **Custom System Prompt** in Settings → Model Behaviour, then set a per-model system prompt in the inference settings (tap the gear icon on a model card → expand "Custom System Prompt"). It applies to requests using that model, including requests from other clients.
+
+For `/v1/chat/completions`, client `system` and `developer` messages are also used, but their delivery depends on tool calling:
+
+- With tools present, `tool_choice` other than `none`, and **Tool Schema Injection** enabled, OlliteRT combines the enabled per-model prompt first, followed by client `system` and `developer` messages in request order, into one native LiteRT system instruction.
+- With schema injection disabled, or when the request has no active tools, OlliteRT sends the enabled per-model prompt as the native system instruction. Client messages are instead rendered into the conversation text, usually with role labels such as `System:`.
+
+There is no numeric prompt weight or guaranteed resolution for conflicting instructions. Models can respond differently to the two delivery methods and may not follow either instruction reliably. The Anthropic `/v1/messages` endpoint uses the same chat pipeline, but an explicitly supplied `system` field suppresses the per-model prompt for that request. These details do not describe the separate `/v1/responses` pipeline.
 
 ---
 
@@ -223,7 +230,7 @@ See also [Troubleshooting → Context window exceeded](TROUBLESHOOTING.md#long-c
 OlliteRT supports two tool calling modes:
 
 - **Tool Schema Injection (default, experimental)** — Tool schemas are injected directly into the model's context via the LiteRT SDK, and the model returns structured tool call objects. This produces more reliable results with compatible models (Gemma 4).
-- **Prompt-based (fallback)** — Tool definitions are embedded in the system prompt as text, and the model's output is parsed for tool call patterns using regex/bracket matching.
+- **Prompt-based (fallback)** — Tool definitions are embedded in the conversation text, and the model's output is parsed for tool call patterns using regex/bracket matching.
 
 You can switch between modes in **Settings → Model Behaviour → Tool Schema Injection**. If schema injection doesn't work with your model, disable the toggle to fall back to prompt-based injection.
 
