@@ -88,6 +88,35 @@ class SchemaInjectionBridgeTest {
   }
 
   @Test
+  fun systemInstructionPreservesClientInstructionsAndOrder() {
+    val messages = listOf(
+      ChatMessage("system", ChatContent("First instruction")),
+      ChatMessage("user", ChatContent("Hello")),
+      ChatMessage("developer", ChatContent("Developer instruction")),
+      ChatMessage("system", ChatContent("Last instruction")),
+    )
+    assertEquals(
+      "Model instruction\n\nFirst instruction\n\nDeveloper instruction\n\nLast instruction",
+      SchemaInjectionBridge.systemInstructionText("Model instruction", messages),
+    )
+    assertEquals(
+      "First instruction\n\nDeveloper instruction\n\nLast instruction",
+      SchemaInjectionBridge.systemInstructionText("", messages),
+    )
+    assertEquals(null, SchemaInjectionBridge.systemInstructionText(" ", emptyList()))
+  }
+
+  @Test
+  fun conversationMessagesKeepTurnsAndHandleInstructionOnlyRequests() {
+    val system = ChatMessage("system", ChatContent("Instruction"))
+    val user = ChatMessage("user", ChatContent("Question"))
+    val developer = ChatMessage("developer", ChatContent("More instructions"))
+    assertEquals(listOf(user), SchemaInjectionBridge.conversationMessages(listOf(system, user, developer)))
+    assertEquals(listOf(system), SchemaInjectionBridge.conversationMessages(listOf(system)))
+    assertTrue(SchemaInjectionBridge.conversationMessages(emptyList()).isEmpty())
+  }
+
+  @Test
   fun buildInitialMessages_skipsSystemAndDropsLast() {
     val msgs = listOf(
       ChatMessage(role = "system", content = ChatContent("You are helpful")),

@@ -119,7 +119,9 @@ internal class ChatCompletionsHandler(
     val hasTools = tools.isNotEmpty() && toolChoiceStr != "none"
     val useSchemaInjection = hasTools && prefs.schemaInjectionToolCalling
     val schemaInjectionProviders = if (useSchemaInjection) SchemaInjectionBridge.toolSpecsToProviders(tools) else emptyList()
-    val schemaInjectionMessages = if (useSchemaInjection) SchemaInjectionBridge.buildInitialMessages(req.messages) else emptyList()
+    // Keep instruction-only requests usable while sending normal instructions separately.
+    val schemaConversationMessages = if (useSchemaInjection) SchemaInjectionBridge.conversationMessages(req.messages) else emptyList()
+    val schemaInjectionMessages = if (useSchemaInjection) SchemaInjectionBridge.buildInitialMessages(schemaConversationMessages) else emptyList()
     val truncateHistory = prefs.autoTruncateHistory
     val trimPrompts = prefs.autoTrimPrompts
     val maxContext = model.maxContextTokens
@@ -155,7 +157,7 @@ internal class ChatCompletionsHandler(
     val presencePenalty = req.presence_penalty?.coerceIn(-2.0, 2.0)?.takeIf { clientPenaltiesActive && it != 0.0 }
     // Apply response_format JSON mode prompt injection
     val prompt = if (useSchemaInjection) {
-      InferenceRunner.applyResponseFormat(SchemaInjectionBridge.buildLastUserInput(req.messages), req.response_format)
+      InferenceRunner.applyResponseFormat(SchemaInjectionBridge.buildLastUserInput(schemaConversationMessages), req.response_format)
     } else {
       InferenceRunner.applyResponseFormat(compactionResult.prompt, req.response_format)
     }
@@ -256,9 +258,11 @@ internal class ChatCompletionsHandler(
       ConversationPreparation(
         incrementalUserText = decision.newUserText.takeIf { decision.kind == IncrementalDecision.Kind.EXTEND },
         cacheGeneration = decision.cacheGeneration,
-        systemInstruction = perModelSystemPrompt
-          .takeIf { it.isNotBlank() }
-          ?.let { Contents.of(listOf(Content.Text(it))) },
+        systemInstruction = (if (useSchemaInjection) {
+          SchemaInjectionBridge.systemInstructionText(perModelSystemPrompt, req.messages)
+        } else {
+          perModelSystemPrompt.takeIf { it.isNotBlank() }
+        })?.let { Contents.of(listOf(Content.Text(it))) },
       )
     }
     return if (req.stream == true) {

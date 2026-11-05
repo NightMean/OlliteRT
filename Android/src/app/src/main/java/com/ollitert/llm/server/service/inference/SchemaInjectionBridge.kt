@@ -105,6 +105,18 @@ object SchemaInjectionBridge {
       )
     }
 
+  internal fun isInstruction(message: ChatMessage): Boolean =
+    message.role == "system" || message.role == "developer"
+
+  internal fun systemInstructionText(perModelPrompt: String, messages: List<ChatMessage>): String? =
+    (listOf(perModelPrompt) + messages.filter(::isInstruction).map { it.content.text })
+      .filter { it.isNotBlank() }
+      .joinToString("\n\n")
+      .takeIf { it.isNotEmpty() }
+
+  internal fun conversationMessages(messages: List<ChatMessage>): List<ChatMessage> =
+    messages.filterNot(::isInstruction).ifEmpty { messages.takeLast(1) }
+
   fun buildInitialMessages(msgs: List<ChatMessage>): List<Message> {
     if (msgs.size <= 1) return emptyList()
     return msgs.dropLast(1)
