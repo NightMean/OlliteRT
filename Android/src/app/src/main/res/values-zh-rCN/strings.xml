@@ -16,7 +16,7 @@
   <string name="benchmark_model">基准测试模型</string>
   <string name="benchmark_results">基准测试结果</string>
   <string name="benchmark_no_results">暂无基准测试结果</string>
-  <string name="benchmark_tokens_limit_message">请确保预填充与解码的 token 总数不超过模型的最大 token 限制（%d 对 %d）</string>
+  <string name="benchmark_tokens_limit_message">请确保预填充与解码的 token 总数不超过模型的最大 token 限制（当前 %1$d / 上限 %2$d）</string>
   <string name="badge_best_overall">综合最佳</string>
   <string name="badge_new">新</string>
   <string name="badge_fastest">最快</string>
