@@ -79,11 +79,9 @@
   <string name="wifi_warning_start_anyway">仍然启动</string>
   <string name="view_results">查看结果</string>
   <plurals name="runs">
-    <item quantity="one">%d 次运行</item>
     <item quantity="other">%d 次运行</item>
   </plurals>
   <plurals name="models_count">
-    <item quantity="one">%d 个模型</item>
     <item quantity="other">%d 个模型</item>
   </plurals>
   <!-- Accessibility content descriptions -->
@@ -203,7 +201,6 @@
   <string name="notif_server_running_title">OlliteRT 服务器正在运行</string>
   <string name="notif_server_body_model">模型：%1$s</string>
   <plurals name="notif_server_body_requests">
-    <item quantity="one">请求数：%1$d 次</item>
     <item quantity="other">请求数：%1$d 次</item>
   </plurals>
   <string name="notif_server_body_url">API 地址：%1$s</string>
@@ -306,7 +303,6 @@
   <string name="settings_client_ip_rules_dialog_help">每行粘贴一条规则，或用逗号分隔。这里也可以编辑或替换已有规则。</string>
   <string name="settings_client_ip_rules_apply">应用规则</string>
   <plurals name="settings_client_ip_rules_count">
-    <item quantity="one">%1$d 条生效规则</item>
     <item quantity="other">%1$d 条生效规则</item>
   </plurals>
   <string name="settings_bearer_token">要求 Bearer 令牌</string>
@@ -536,14 +532,12 @@
   <string name="logs_dialog_clear_cancel">取消</string>
   <string name="logs_dialog_clear_active_title">正在生成的请求</string>
   <plurals name="logs_dialog_clear_active_body">
-    <item quantity="one">这将删除全部日志。当前有 %1$d 个请求正在处理或排队。你想：\n\n• “清除” — 删除全部日志，让生成继续\n• “停止” — 取消所有待处理请求并删除全部日志</item>
     <item quantity="other">这将删除全部日志。当前有 %1$d 个请求正在处理或排队。你想：\n\n• “清除” — 删除全部日志，让生成继续\n• “停止” — 取消所有待处理请求并删除全部日志</item>
   </plurals>
   <string name="logs_dialog_clear_active_clear">清除</string>
   <string name="logs_dialog_clear_active_stop">停止</string>
   <string name="logs_dialog_stop_active_title">正在生成的请求</string>
   <plurals name="logs_dialog_stop_active_body">
-    <item quantity="one">当前有 %1$d 个请求正在处理或排队中，停止服务器会将其取消。</item>
     <item quantity="other">当前有 %1$d 个请求正在处理或排队中，停止服务器会将它们取消。</item>
   </plurals>
   <!-- LogsScreen: Result count banner -->
@@ -556,7 +550,6 @@
   <string name="logs_no_match_body">没有日志符合当前筛选条件。</string>
   <!-- LogsScreen: New activity indicator -->
   <plurals name="logs_new_activity">
-    <item quantity="one">有新活动</item>
     <item quantity="other">%1$d 条新记录</item>
   </plurals>
   <!-- LogsScreen: Stop generation -->
