@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.ui.settings
 
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -53,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -72,6 +74,19 @@ fun SettingLabel(text: String, searchQuery: String) {
     style = MaterialTheme.typography.bodyMedium,
     color = MaterialTheme.colorScheme.onSurface,
   )
+}
+
+/**
+ * Duration units are persisted as logic keys ("seconds"/"minutes"/"hours"/"days") because the
+ * `toBaseUnit`/`fromBaseUnit` converters of each setting match on them. Localize at render time
+ * only, so stored preferences and the converters keep working.
+ */
+internal fun localizedUnit(context: Context, unit: String): String = when (unit) {
+  "seconds" -> context.getString(R.string.unit_seconds)
+  "minutes" -> context.getString(R.string.unit_minutes)
+  "hours" -> context.getString(R.string.unit_hours)
+  "days" -> context.getString(R.string.unit_days)
+  else -> unit
 }
 
 /** Divider between settings within a card. */
@@ -145,6 +160,7 @@ fun NumericWithUnitRow(
   onErrorClear: () -> Unit = {},
 ) {
   val focusManager = LocalFocusManager.current
+  val context = LocalContext.current
   val (initialDisplayValue, initialUnit) = remember(savedBaseValue) {
     def.fromBaseUnit(savedBaseValue)
   }
@@ -190,7 +206,7 @@ fun NumericWithUnitRow(
       SettingsDropdown(
         selectedValue = selectedUnit,
         options = def.unitOptions.map { unit ->
-          SettingsDropdownOption(value = unit, label = unit)
+          SettingsDropdownOption(value = unit, label = localizedUnit(context, unit))
         },
         onSelected = { unit ->
           selectedUnit = unit
