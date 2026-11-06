@@ -57,7 +57,7 @@ android {
 
   defaultConfig {
     applicationId = "com.ollitert.llm.server"
-    minSdk = 31
+    minSdk = 30
     targetSdk = 35
     versionCode = resolvedVersionCode
     versionName = findProperty("APP_VERSION_NAME") as String

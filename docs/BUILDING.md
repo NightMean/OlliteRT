@@ -4,6 +4,7 @@
 
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
+- [Android 11 Compatibility Attempt](#android-11-compatibility-attempt)
 - [Product Flavors](#product-flavors)
 - [App Icons](#app-icons)
 - [Versioning](#versioning)
@@ -22,7 +23,7 @@
 - **Gradle** 9.4.1 (bundled via wrapper)
 - **Git** — required at build time to embed the commit hash in `BuildConfig.GIT_HASH` and for auto-versioning (`APP_VERSION_CODE=auto`)
 - **LiteRT LM SDK** — bundled via Gradle dependency (see [SDK Compatibility](SDK_COMPATIBILITY.md) for version mapping)
-- **Minimum SDK** — Android 12 (API 31)
+- **Minimum SDK** — Android 11 (API 30), experimental; Android 12+ remains recommended
 
 ### `local.properties`
 
@@ -76,6 +77,81 @@ Android/src/app/build/outputs/apk/{flavor}/{buildType}/
 
 > [!NOTE]
 > Only **arm64-v8a** is supported. The LiteRT native library crashes on x86_64 emulators (SIGILL — unsupported CPU instructions), and 32-bit architectures have no native libraries at all. Nearly all Android devices from 2017+ are arm64-v8a.
+
+## Android 11 Compatibility Attempt
+
+This branch lowers the app's minimum to **API 30** without lowering `compileSdk`
+or `targetSdk`, overriding dependency manifests, or replacing LiteRT-LM. Android
+11 support is **experimental**: installation and Android API compatibility are
+separate from successful native inference on a particular phone.
+
+Use the `dev` flavor to keep the experiment separate from a stable/beta
+installation. Existing upstream release APKs with `minSdk=31` are not made
+compatible by these source changes.
+
+From the repository root, on Windows PowerShell:
+
+```powershell
+Set-Location Android\src
+.\gradlew.bat :app:assembleDevDebug :app:lintDevDebug :app:testDevDebugUnitTest
+
+# Replace SERIAL with the intended device from adb devices -l.
+$apk = Get-ChildItem .\app\build\outputs\apk\dev\debug\*.apk | Select-Object -First 1
+adb -s SERIAL install -r $apk.FullName
+adb -s SERIAL shell am start -n com.ollitert.llm.server.dev/com.ollitert.llm.server.MainActivity
+```
+
+The APK remains **arm64-v8a only**. A debug APK uses the local debug signing key;
+it cannot update an existing `dev` installation signed with a different key.
+
+### Automated coverage
+
+JVM regressions cover unknown SoC metadata, generic model-file selection, and
+rejection of unmatched NPU-only models. The instrumented workflow runs on API
+**30 and 31**, checking the packaged minimum SDK, real platform SoC access, the
+OpenCL accessibility probe, and the existing persistence tests.
+
+To run the instrumented suite on a connected emulator:
+
+```powershell
+.\gradlew.bat :app:connectedDevDebugAndroidTest -PDISABLE_ABI_SPLITS=true
+```
+
+ABI splits are disabled only for the emulator test APK. These tests do **not**
+load the LiteRT inference engine: an x86_64 emulator is not evidence that ARM64
+CPU or GPU inference works.
+
+### Physical-device acceptance checklist
+
+For the Smartisan R2 / Snapdragon 865 family / 12 GB RAM target, record the ROM,
+Android API level, app commit, model revision, accelerator, and context size.
+Do not promote Android 11 support from experimental until these checks succeed:
+
+1. Install the branch APK on Android 11, cold-launch it, complete onboarding,
+   browse the catalog, and reopen it after backgrounding. On API 30, an unknown
+   SoC is intentional: board names are not used to guess NPU compatibility.
+2. Download or import a small **CPU-capable text model**, such as Gemma 3 1B.
+   Select **CPU** explicitly and start with a small context, such as 1024 tokens.
+   With notifications enabled, confirm a background download completes and its
+   completion notification appears, then confirm the server notification appears.
+   On API 30/31/32, also confirm the download completes with notifications disabled;
+   no visible notification is required in that case.
+3. Confirm `/health`, `/v1/models`, and both non-streaming and streaming
+   `/v1/chat/completions` requests work. Exercise cancellation, stop/restart,
+   model reload, and screen-off/background serving.
+4. Only after CPU succeeds, test **GPU** separately with the same model and
+   settings. Record the effective backend from Logs: an OpenCL probe passing is
+   not proof that a GPU kernel works, and a CPU fallback is not a GPU success.
+5. Repeat the smoke checks on an Android 12+ ARM64 device. Test boot auto-start
+   if enabled, and test vision/audio separately before claiming those work.
+
+Capture relevant errors with `adb -s SERIAL logcat -d -v threadtime` and redact
+tokens, client prompts, and other private data before sharing. Native linkage
+errors, `SIGILL`, or GPU driver crashes require device-level investigation;
+lowering the manifest cannot resolve them.
+
+See [SDK Compatibility](SDK_COMPATIBILITY.md#android-version-compatibility) for
+the dependency evidence and its limitations.
 
 ## Product Flavors
 

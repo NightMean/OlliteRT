@@ -18,6 +18,7 @@
     <img src="https://img.shields.io/badge/Anthropic_Compatible-D97757?logo=anthropic&logoColor=white" alt="Anthropic Compatible" />
     <br />  
     <img src="https://img.shields.io/badge/Android_12+-34A853?logo=android&logoColor=white" alt="Android 12+" />
+    <img src="https://img.shields.io/badge/Android_11-experimental-yellow?logo=android&logoColor=white" alt="Android 11 experimental" />
     <a href="LICENSE"><img src="https://img.shields.io/github/license/NightMean/ollitert?style=flat" alt="License" /></a>
   </div>
 
@@ -65,7 +66,9 @@
 4. **Configure your client** — Use the endpoint shown on the Status screen (e.g. `http://PHONE_IP:8000/v1`) with any OpenAI-compatible client — Open WebUI, OpenClaw, Home Assistant, Python, etc. See **[Client Setup](docs/CLIENT_SETUP.md)** for detailed guides.
 
 > [!IMPORTANT]
-> Requires: Android 12+ · **arm64-v8a** device · 6 GB RAM minimum · 8 GB+ recommended for multimodal models (see [model table](#available-models))
+> Requires: Android 11+ (**Android 11 is experimental; Android 12+ recommended**) · **arm64-v8a** device · 6 GB RAM minimum · 8 GB+ recommended for multimodal models (see [model table](#available-models))
+
+Android 11 support is a source-build compatibility attempt, not a claim that existing release APKs support API 30. Build this branch's `devDebug` APK and start with a small text model on CPU; native inference and GPU drivers still need validation on your phone. See the [Android 11 build and device checklist](docs/BUILDING.md#android-11-compatibility-attempt).
 
 ## Available Models
 
@@ -179,4 +182,3 @@ What happens on your phone stays on your phone. If that matters to you, consider
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
-

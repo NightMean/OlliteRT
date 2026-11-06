@@ -12,6 +12,7 @@ This document describes OlliteRT's internal architecture for contributors and an
 - [Persistence](#persistence)
 - [Request Flow](#request-flow)
 - [Tool Calling](#tool-calling)
+- [Android Compatibility Boundary](#android-compatibility-boundary)
 - [Dependencies](#dependencies)
 
 ---
@@ -270,6 +271,33 @@ For `/v1/chat/completions`, the enabled per-model prompt remains the native `sys
 
 The Anthropic `/v1/messages` endpoint converts its system field to a chat system message and uses this same pipeline. When the request explicitly supplies `system`, it suppresses the per-model prompt. The `/v1/responses` endpoint has a separate prompt pipeline; the chat-specific behavior above does not describe it.
 
+## Android Compatibility Boundary
+
+Android 11 (API 30) is an experimental minimum; `compileSdk=36`, `targetSdk=35`,
+the ARM64 packaging policy, and the HTTP/inference pipeline remain unchanged.
+The compatibility work sits at the platform boundary, not in a second inference
+implementation:
+
+- `common/DeviceUtils.kt` is the single SoC lookup. It reads `Build.SOC_MODEL`
+  only on API 31+, otherwise returns `Build.UNKNOWN`. `data/prefs/Consts.kt`
+  re-exports that value for existing callers.
+- `data/allowlist/ModelAllowlist.kt` uses the identifier for exact per-SoC file
+  overrides, while `ui/modelmanager/AllowlistLoadCoordinator.kt` filters
+  unmatched NPU-only models. Unknown metadata keeps generic CPU/GPU artifacts;
+  `Build.HARDWARE` and `Build.BOARD` are not treated as SoC identifiers.
+- `runtime/GpuAvailability.kt` uses the same guarded identifier in diagnostics.
+  Its OpenCL probe remains a driver-access check. `LiteRtEngineFactory.kt`
+  retains model-dependent CPU fallback; no blanket Android 11 GPU override is
+  introduced.
+- Splash screens use AndroidX compatibility APIs. Notification permissions,
+  newer memory APIs, and newer foreground-service behavior retain their SDK
+  guards. `DownloadWorker.getForegroundInfo()` supplies the notification needed
+  for expedited WorkManager downloads before Android 12.
+
+The API 30/31 emulator matrix covers platform integration, not native inference.
+Use the [physical-device checklist](BUILDING.md#physical-device-acceptance-checklist)
+before claiming support for a device/backend.
+
 ## Dependencies
 
 | Library | Purpose |
@@ -285,5 +313,5 @@ The Anthropic `/v1/messages` endpoint converts its system field to a chat system
 | **[Coil](https://coil-kt.github.io/coil/)** | Async image loading (model source icons) |
 | **[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)** | JSON serialization for API models |
 | **[Multiplatform Markdown Renderer](https://github.com/mikepenz/multiplatform-markdown-renderer)** | Markdown rendering in Compose (Material 3) |
-| **[Splash Screen](https://developer.android.com/develop/ui/views/launch/splash-screen)** | Android 12+ splash screen API |
+| **[Splash Screen](https://developer.android.com/develop/ui/views/launch/splash-screen)** | AndroidX splash screen compatibility, including Android 11 |
 | **[OSS Licenses](https://developers.google.com/android/guides/opensource)** | Open source license display |

@@ -31,6 +31,36 @@ import org.junit.Test
 class ModelAllowlistJsonTest {
 
   @Test
+  fun unavailableSocKeepsGenericModelArtifact() {
+    val allowedModel = AllowedModel(
+      name = "Generic",
+      modelId = "test/generic",
+      modelFile = "generic.litertlm",
+      commitHash = "generic-revision",
+      description = "Test model",
+      sizeInBytes = 100,
+      defaultConfig = DefaultConfig(accelerators = "cpu,gpu"),
+      socToModelFiles = mapOf(
+        "sm8250" to SocModelFile(
+          modelFile = "soc-specific.litertlm",
+          url = "https://example.com/soc-specific.litertlm",
+          commitHash = "soc-revision",
+          sizeInBytes = 200,
+        ),
+      ),
+    )
+
+    val model = allowedModel.toModel(soc = "unknown")
+
+    assertEquals("generic.litertlm", model.downloadFileName)
+    assertEquals("generic-revision", model.version)
+    assertEquals(
+      "https://huggingface.co/test/generic/resolve/generic-revision/generic.litertlm?download=true",
+      model.url,
+    )
+  }
+
+  @Test
   fun decodesAllowlistWithKnownFields() {
     val json =
       """

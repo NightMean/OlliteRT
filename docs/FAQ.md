@@ -34,9 +34,11 @@
 
 ### What are the minimum requirements?
 
-**Android 12+** (API 31) on an **arm64-v8a** device with at least **6 GB RAM** (8 GB+ recommended for multimodal models). Nearly all Android phones from 2017+ meet these requirements.
+This branch permits **Android 11+** (API 30) on an **arm64-v8a** device with at least **6 GB RAM** (8 GB+ recommended for multimodal models). **Android 11 support is experimental; Android 12+ remains recommended.** Existing release APKs that declare API 31 still cannot install on Android 11.
 
-Android 12 is the minimum because Google's [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) runtime requires GPU acceleration APIs not available on older versions. **Other architectures (armeabi-v7a, x86, x86_64) are not supported**  — the LiteRT native library crashes on x86_64 emulators due to unsupported CPU instructions, and 32-bit architectures have no native libraries at all.
+The current [LiteRT-LM dependency's manifest and native metadata](SDK_COMPATIBILITY.md#android-version-compatibility) do not establish an Android 12 minimum. That is not proof of working inference on every Android 11 device: native CPU instructions, available memory, and vendor GPU/OpenCL drivers still matter. Begin with a small CPU-capable text model and follow the [Android 11 device checklist](BUILDING.md#android-11-compatibility-attempt).
+
+**Other architectures (armeabi-v7a, x86, x86_64) are not supported for inference** — the LiteRT native library crashes on x86_64 emulators due to unsupported CPU instructions, and 32-bit architectures have no native libraries at all. Emulator tests cover Android integration, not model execution.
 
 See the [Model Guide](MODELS.md) for per-model RAM requirements.
 
