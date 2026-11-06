@@ -135,6 +135,12 @@ Custom model sources can be enabled, disabled, or removed at any time. Disabled 
 
 When enabled sources list the same model ID, the Official source takes precedence. Disable it to use a custom entry for that model. In a custom model list, `url` must be a direct URL to the model file, not a mirror's homepage; `sizeInBytes` must match the file's exact size.
 
+### Community Model Sources
+
+Model lists kept by their authors, not by the OlliteRT project. To use one, add its URL as a custom model source.
+
+- [john-rocky LiteRT models](https://github.com/john-rocky/awesome-litert/tree/main/ollitert) — LiteRT-LM chat models from [litert-community](https://huggingface.co/litert-community): `https://raw.githubusercontent.com/john-rocky/awesome-litert/main/ollitert/models.json`
+
 ### Incompatible Models
 
 The Model Sources detail screen shows all models in a source, including those incompatible with your device (shown greyed out with the reason, e.g. "Requires app version X.Y.Z"). The source list shows the count as "N models · M hidden" when some models are filtered out.
