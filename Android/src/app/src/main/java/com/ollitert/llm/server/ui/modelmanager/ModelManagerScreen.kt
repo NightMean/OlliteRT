@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -183,11 +184,13 @@ fun ModelManagerScreen(
   }
 
   // Filtered and sorted models
+  val importedSectionTitle = stringResource(R.string.model_list_imported_models_title)
   val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels) {
     derivedStateOf {
       filterAndSortModels(
         models = builtInModels,
         searchQuery = searchQuery,
+        sectionName = { it.sourceRepository.ifEmpty { UNKNOWN_REPO_LABEL } },
         matchesFilter = { model ->
           // Built-in models are hidden when Imported filter is active
           when (activeFilter) {
@@ -204,11 +207,12 @@ fun ModelManagerScreen(
     }
   }
 
-  val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels) {
+  val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels, importedSectionTitle) {
     derivedStateOf {
       filterAndSortModels(
         models = importedModels,
         searchQuery = searchQuery,
+        sectionName = { importedSectionTitle },
         matchesFilter = {
           // Imported models are always downloaded — hide only for "Available" filter
           activeFilter != ModelFilter.AVAILABLE
@@ -389,10 +393,9 @@ fun ModelManagerScreen(
       // Imported models section — shown first so user's own models are immediately visible
       if (filteredImportedModels.isNotEmpty()) {
         item(key = "imported_models_label") {
-          Text(
-            stringResource(R.string.model_list_imported_models_title),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge,
+          ModelSectionHeader(
+            title = importedSectionTitle,
+            count = filteredImportedModels.size,
             modifier = Modifier
               .padding(horizontal = 16.dp)
               .padding(top = 8.dp, bottom = 8.dp),
@@ -421,17 +424,15 @@ fun ModelManagerScreen(
       val sortedRepoIds = groupedByRepoId.keys.sortedWith(
         compareByDescending<String> { it == OFFICIAL_REPO_ID }.thenBy { it }
       )
-      val needsHeaders = sortedRepoIds.size > 1 || filteredImportedModels.isNotEmpty()
       for ((index, repoId) in sortedRepoIds.withIndex()) {
         val repoModels = groupedByRepoId[repoId] ?: continue
-        if (needsHeaders) {
+        if (repoId != "unknown" || sortedRepoIds.size > 1 || filteredImportedModels.isNotEmpty()) {
           val repoDisplayName = repoModels.first().sourceRepository.ifEmpty { UNKNOWN_REPO_LABEL }
           val isFirst = index == 0 && filteredImportedModels.isEmpty()
           item(key = "repo_header_$repoId") {
-            Text(
-              repoDisplayName,
-              color = MaterialTheme.colorScheme.onSurface,
-              style = MaterialTheme.typography.labelLarge,
+            ModelSectionHeader(
+              title = repoDisplayName,
+              count = repoModels.size,
               modifier = Modifier
                 .padding(horizontal = 16.dp)
                 .padding(top = if (isFirst) 8.dp else 24.dp, bottom = 8.dp),
@@ -619,8 +620,22 @@ fun ModelManagerScreen(
   )
 }
 
-/** Builds a combined searchable string from model name, display name, description, and capabilities. */
-private fun buildModelSearchableText(model: Model): String = buildString {
+@Composable
+private fun ModelSectionHeader(title: String, count: Int, modifier: Modifier = Modifier) {
+  val description = stringResource(R.string.model_section_with_count, title, count)
+  Row(
+    modifier = modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(title, Modifier.weight(1f).padding(end = 12.dp), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
+    Text(count.toString(), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
+  }
+}
+
+/** Builds a combined searchable string from section, model name, description, and capabilities. */
+internal fun buildModelSearchableText(model: Model, sectionName: String): String = buildString {
+  append(sectionName)
+  append(' ')
   append(model.displayName)
   append(' ')
   append(model.name)
@@ -654,6 +669,7 @@ private val capabilitySetSaver =
 private fun filterAndSortModels(
   models: List<Model>,
   searchQuery: String,
+  sectionName: (Model) -> String,
   matchesFilter: (Model) -> Boolean,
   activeCapabilities: Set<CapabilityFilter>,
   activeSort: ModelSort,
@@ -661,7 +677,7 @@ private fun filterAndSortModels(
 ): List<Model> =
   models
     .filter { model ->
-      matchesSearchQuery(buildModelSearchableText(model), searchQuery) &&
+      matchesSearchQuery(buildModelSearchableText(model, sectionName(model)), searchQuery) &&
         matchesFilter(model) &&
         modelMatchesCapabilityFilters(model, activeCapabilities)
     }

@@ -51,6 +51,7 @@
   <string name="memory_warning_title" translatable="false">Memory Warning</string>
   <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
+  <string name="model_section_with_count">%1$s, %2$d</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_content_fail" translatable="false">Model "%s" could not be downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
