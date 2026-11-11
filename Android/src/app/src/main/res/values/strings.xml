@@ -1174,4 +1174,8 @@
   <string name="model_download_recovering">Wait for model downloads to resume, then try again.</string>
   <string name="model_download_recovery_failed">Could not resume model downloads. Retry from the Models screen.</string>
   <string name="model_download_inspection_failed">Could not check active model downloads. Refresh Models to try again.</string>
+  <string name="hf_explore_catalog_error">Could not read added Hugging Face models. Check model storage and retry.</string>
+  <string name="hf_remove_model">Remove from Models</string>
+  <string name="hf_remove_model_message">Remove this model from the list?</string>
+  <string name="hf_remove_model_error">Could not remove this model. Check that it is not downloading and try again.</string>
 </resources>

@@ -29,8 +29,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -51,6 +54,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.service.ServerService
@@ -103,6 +107,7 @@ fun ModelItem(
 
   var showInferenceSettings by remember { mutableStateOf(false) }
   var showEditDefaults by remember { mutableStateOf(false) }
+  var showRemoveDiscovered by remember { mutableStateOf(false) }
 
   var boxModifier =
     modifier
@@ -187,6 +192,14 @@ fun ModelItem(
         .padding(12.dp),
       horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+      if (model.sourceRepositoryId == DISCOVERED_SOURCE_ID &&
+          downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !isActiveModel && !isModelLoading) {
+        TooltipIconButton(
+          icon = Icons.Outlined.Delete,
+          tooltip = stringResource(R.string.hf_remove_model),
+          onClick = { showRemoveDiscovered = true },
+        )
+      }
       if (model.localFileRelativeDirPathOverride.isEmpty()) {
         DeleteModelButton(
           model = model,
@@ -205,6 +218,25 @@ fun ModelItem(
         )
       }
     }
+  }
+
+  if (showRemoveDiscovered) {
+    val context = LocalContext.current
+    val failure = stringResource(R.string.hf_remove_model_error)
+    AlertDialog(
+      onDismissRequest = { showRemoveDiscovered = false },
+      title = { Text(stringResource(R.string.hf_remove_model)) },
+      text = { Text(stringResource(R.string.hf_remove_model_message)) },
+      confirmButton = {
+        TextButton(onClick = {
+          showRemoveDiscovered = false
+          modelManagerViewModel.removeDiscoveredModel(model) { removed ->
+            if (!removed) Toast.makeText(context, failure, Toast.LENGTH_LONG).show()
+          }
+        }) { Text(stringResource(R.string.hf_remove_model)) }
+      },
+      dismissButton = { TextButton(onClick = { showRemoveDiscovered = false }) { Text(stringResource(R.string.cancel)) } },
+    )
   }
 
   // Edit imported model defaults dialog

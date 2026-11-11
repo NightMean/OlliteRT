@@ -36,6 +36,7 @@ class ModelCatalogMerger(
 ) {
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
   @Volatile private var cached: ModelAllowlist? = null
+  @Volatile private var cachedDiscovered: List<AllowedModel> = emptyList()
   @Volatile var lastSource: String = "unknown"
   @Volatile var lastContentVersion: Int = 0
 
@@ -43,13 +44,22 @@ class ModelCatalogMerger(
   fun load(): List<AllowedModel> {
     val raw = readFromFiles()
     val fresh = if (raw != null && appVersion != null) raw.filterCompatible(appVersion) else raw
-    if (fresh != null && fresh.models.isNotEmpty()) {
+    val remote = if (fresh != null && fresh.models.isNotEmpty()) {
       cached = fresh
       lastContentVersion = fresh.contentVersion
-      return fresh.models
+      fresh.models
+    } else {
+      if (lastSource == "unknown") lastSource = "empty"
+      cached?.models ?: emptyList()
     }
-    if (lastSource == "unknown") lastSource = "empty"
-    return cached?.models ?: emptyList()
+    val local = try {
+      val dir = externalFilesDir ?: throw IllegalStateException("Model storage unavailable")
+      DiscoveredModels(dir).read().map { model -> model.toAllowedModel() }.also { cachedDiscovered = it }
+    } catch (e: Exception) {
+      onError("huggingface-models", e)
+      cachedDiscovered
+    }
+    return remote + local
   }
 
   private fun readFromFiles(): ModelAllowlist? {

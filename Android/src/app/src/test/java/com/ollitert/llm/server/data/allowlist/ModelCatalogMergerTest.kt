@@ -397,7 +397,6 @@ class ModelCatalogMergerTest {
     )
     val models = loader.load()
     assertTrue(models.isEmpty())
-    assertEquals(1, errors.size)
-    assertEquals("asset", errors[0].first)
+    assertEquals(listOf("asset", "huggingface-models"), errors.map { it.first })
   }
 }

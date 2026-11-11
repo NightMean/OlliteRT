@@ -23,6 +23,8 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.allowlist.AllowedModel
+import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
@@ -76,6 +78,19 @@ class AllowlistLoadCoordinator(
   private val importManager: ModelListImportManager,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
+  @Volatile private var cachedDiscoveredModels: List<Model> = emptyList()
+
+  private fun readDiscoveredModels(appVersion: SemVer?): Pair<List<Model>, String?> = try {
+    val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
+    val models = DiscoveredModels(directory).read().map {
+      it.toAllowedModel().toModel(appVersion, repositoryName = "Hugging Face", repositoryId = DISCOVERED_SOURCE_ID)
+    }
+    cachedDiscoveredModels = models
+    models to null
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to read Hugging Face model catalog", e)
+    cachedDiscoveredModels to context.getString(R.string.hf_explore_catalog_error)
+  }
 
   fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {
     val accelerators = allowedModel.defaultConfig.accelerators
@@ -132,14 +147,14 @@ class AllowlistLoadCoordinator(
       }
 
       val hasOfflineRepos = enabledRepos.any { it.id in refreshResult.failedRepoIds && it.modelCount == null }
-      if (sourceVisibility.models.isEmpty() && hasOfflineRepos) {
+      val (discovered, discoveredError) = readDiscoveredModels(appVersion)
+      val models = sourceVisibility.models + discovered
+      if (models.isEmpty() && hasOfflineRepos) {
         return AllowlistLoadResult(
           models = emptyList(),
           errorMessage = context.getString(R.string.error_all_repos_offline),
         )
       }
-
-      val models = sourceVisibility.models
       val emptyReason = when {
         models.isNotEmpty() -> ModelEmptyReason.NONE
         loadResult.droppedByVersionFilter > 0 -> ModelEmptyReason.VERSION_TOO_OLD
@@ -158,7 +173,7 @@ class AllowlistLoadCoordinator(
       return AllowlistLoadResult(
         models = models,
         allReposDisabled = sourceVisibility.allReposDisabled,
-        errorMessage = errorMessage,
+        errorMessage = discoveredError ?: errorMessage,
         emptyReason = emptyReason,
         requiredVersion = loadResult.lowestRequiredVersion,
         droppedByVersionFilter = loadResult.droppedByVersionFilter,
@@ -178,7 +193,8 @@ class AllowlistLoadCoordinator(
     val models = allowlist.models
       .filter(::isModelSupportedOnDevice)
       .map { it.toModel(appVersion = appVersion) }
-    return AllowlistLoadResult(models = models, isRawAllowlist = true)
+    val (discovered, discoveredError) = readDiscoveredModels(appVersion)
+    return AllowlistLoadResult(models = models + discovered, errorMessage = discoveredError.orEmpty(), isRawAllowlist = true)
   }
 
   /**

@@ -75,6 +75,25 @@ class DiscoveredModelsTest {
     assertFalse(built.configs.any { it.key == com.ollitert.llm.server.data.prefs.ConfigKeys.TOPK })
   }
 
+  @Test fun catalogMergerKeepsLocalFilesEvenWhenOfficialRepositoryHasSameId() {
+    val directory = temporary.newFolder()
+    val first = model()
+    val second = model("second.litertlm")
+    val store = DiscoveredModels(directory)
+    store.add(first)
+    store.add(second)
+    val bundled = """{"models":[{"name":"Official","modelId":"author/model","modelFile":"official.litertlm","description":"","sizeInBytes":1,"defaultConfig":{}}]}"""
+    val merger = ModelCatalogMerger(directory, assetReader = { bundled })
+    assertEquals(setOf("Official", first.toAllowedModel().name, second.toAllowedModel().name), merger.load().map { it.name }.toSet())
+
+    assertTrue(store.remove(first.toAllowedModel().name))
+    assertFalse(store.remove(first.toAllowedModel().name))
+    assertEquals(setOf("Official", second.toAllowedModel().name), merger.load().map { it.name }.toSet())
+    val readded = model()
+    assertTrue(store.add(readded))
+    assertNotEquals(first.toAllowedModel().modelFile, readded.toAllowedModel().modelFile)
+  }
+
   @Test fun invalidOrCorruptRecordsAreNeverOverwritten() {
     val directory = temporary.newFolder()
     val store = DiscoveredModels(directory)
@@ -86,5 +105,15 @@ class DiscoveredModelsTest {
     assertEquals("invalid", catalog.readText())
   }
 
-
+  @Test fun mergerRetainsLastValidLocalCatalogOnReadFailure() {
+    val directory = temporary.newFolder()
+    val entry = model()
+    DiscoveredModels(directory).add(entry)
+    val errors = mutableListOf<String>()
+    val merger = ModelCatalogMerger(directory, onError = { source, _ -> errors.add(source) })
+    assertEquals(listOf(entry.toAllowedModel().name), merger.load().map { it.name })
+    File(directory, "huggingface_models.json").writeText("broken")
+    assertEquals(listOf(entry.toAllowedModel().name), merger.load().map { it.name })
+    assertEquals(listOf("huggingface-models"), errors)
+  }
 }
