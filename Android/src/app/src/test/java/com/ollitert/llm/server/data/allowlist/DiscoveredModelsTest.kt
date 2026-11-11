@@ -1,0 +1,90 @@
+/*
+ * Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.ollitert.llm.server.data.allowlist
+
+import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+
+class DiscoveredModelsTest {
+  @get:Rule val temporary = TemporaryFolder()
+  private fun model(path: String = "nested/model file.litertlm") = DiscoveredModel(
+    repository = "author/model", path = path, revision = "a".repeat(40), size = 123,
+    vision = true, accelerators = listOf("cpu", "gpu"),
+  )
+
+  @Test fun selectedFilesSurviveRestartAndHaveDistinctIdentity() {
+    val directory = temporary.newFolder()
+    val store = DiscoveredModels(directory)
+    val first = model()
+    val second = model("other/model file.litertlm")
+    assertTrue(store.add(first))
+    assertTrue(store.add(second))
+    assertFalse(store.add(first.copy(revision = "b".repeat(40))))
+
+    assertEquals(listOf(first, second), DiscoveredModels(directory).read())
+    val firstAllowed = first.toAllowedModel()
+    val secondAllowed = second.toAllowedModel()
+    assertNotEquals(firstAllowed.name, secondAllowed.name)
+    assertNotEquals(firstAllowed.modelFile, secondAllowed.modelFile)
+    assertTrue(firstAllowed.url!!.contains("/nested/model%20file.litertlm"))
+    assertEquals("cpu,gpu", firstAllowed.defaultConfig.accelerators)
+    assertEquals(true, firstAllowed.llmSupportImage)
+  }
+
+  @Test fun selectedSettingsSurviveStorageAndReachCatalog() {
+    val directory = temporary.newFolder()
+    val entry = model().copy(displayName = "My model", maxTokens = 2048, topK = 42, topP = 0.8f,
+      temperature = 0.6f, speculativeDecoding = true, accelerators = listOf("npu"))
+    DiscoveredModels(directory).add(entry)
+    val restored = DiscoveredModels(directory).read().single()
+    val allowed = restored.toAllowedModel()
+    assertEquals(entry, restored)
+    assertEquals("My model", allowed.displayName)
+    assertEquals(2048, allowed.defaultConfig.maxTokens)
+    assertEquals(2048, allowed.defaultConfig.maxContextLength)
+    assertEquals(42, allowed.defaultConfig.topK)
+    assertEquals(0.8f, allowed.defaultConfig.topP!!, 0f)
+    assertEquals(0.6f, allowed.defaultConfig.temperature!!, 0f)
+    assertEquals(true, allowed.llmSupportSpeculativeDecoding)
+    assertEquals("npu", allowed.defaultConfig.accelerators)
+    val built = allowed.toModel(soc = "test-soc")
+    assertEquals("My model", built.displayName)
+    assertEquals(2048, built.llmMaxToken)
+    assertTrue(built.capabilities.contains(com.ollitert.llm.server.data.model.ModelCapability.SPECULATIVE_DECODING))
+    assertFalse(built.configs.any { it.key == com.ollitert.llm.server.data.prefs.ConfigKeys.TOPK })
+  }
+
+  @Test fun invalidOrCorruptRecordsAreNeverOverwritten() {
+    val directory = temporary.newFolder()
+    val store = DiscoveredModels(directory)
+    assertThrows(IllegalArgumentException::class.java) { store.add(model("../escape.litertlm")) }
+    assertThrows(IllegalArgumentException::class.java) { store.add(model().copy(accelerators = emptyList())) }
+    val catalog = File(directory, "huggingface_models.json")
+    catalog.writeText("invalid")
+    assertThrows(Exception::class.java) { store.add(model()) }
+    assertEquals("invalid", catalog.readText())
+  }
+
+
+}

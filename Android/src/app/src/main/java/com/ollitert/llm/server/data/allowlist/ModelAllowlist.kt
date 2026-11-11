@@ -85,6 +85,7 @@ data class AllowedModel(
   val description: String,
   val sizeInBytes: Long,
   val defaultConfig: DefaultConfig,
+  val displayName: String? = null,
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
   val llmSupportThinking: Boolean? = null,
@@ -229,6 +230,7 @@ data class AllowedModel(
 
     return Model(
       name = name,
+      displayName = displayName.orEmpty(),
       version = version,
       info = finalDescription,
       url = downloadUrl,
