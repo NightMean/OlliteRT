@@ -1171,4 +1171,7 @@
   <!-- InferenceRunner: error message -->
   <string name="error_model_init_failed">Model initialization failed: %1$s</string>
 
+  <string name="model_download_recovering">Wait for model downloads to resume, then try again.</string>
+  <string name="model_download_recovery_failed">Could not resume model downloads. Retry from the Models screen.</string>
+  <string name="model_download_inspection_failed">Could not check active model downloads. Refresh Models to try again.</string>
 </resources>

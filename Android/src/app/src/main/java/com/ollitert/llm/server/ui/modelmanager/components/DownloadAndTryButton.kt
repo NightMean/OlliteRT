@@ -183,17 +183,18 @@ fun DownloadAndTryButton(
 
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-      modelManagerViewModel.downloadModel(model = model)
+      if (!modelManagerViewModel.downloadModel(model = model)) downloadStarted = false
     }
 
   val startDownload: (accessToken: String?) -> Unit = { accessToken ->
     model.accessToken = accessToken
-    checkNotificationPermissionAndStartDownload(
+    val accepted = checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
       modelManagerViewModel = modelManagerViewModel,
       model = model,
     )
+    if (!accepted) downloadStarted = false
     checkingToken = false
   }
 
@@ -455,8 +456,7 @@ fun DownloadAndTryButton(
           val cbRetry = stringResource(R.string.cd_retry_download_icon)
           IconButton(
             onClick = {
-              downloadStarted = true
-              modelManagerViewModel.retryDownloadModel(model = model)
+              downloadStarted = modelManagerViewModel.retryDownloadModel(model = model)
             },
             colors = IconButtonDefaults.iconButtonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainer

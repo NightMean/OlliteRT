@@ -259,13 +259,7 @@ fun OlliteRTApp(
               }
               Button(
                 onClick = {
-                  model.latestModelFile?.let {
-                    model.version = it.commitHash
-                    model.downloadFileName = it.fileName
-                  }
-                  model.updatable = false
-                  modelManagerViewModel.downloadModel(model)
-                  onDismissModelUpdateDialog()
+                  if (modelManagerViewModel.downloadModel(model)) onDismissModelUpdateDialog()
                 },
                 shape = RoundedCornerShape(50),
               ) {

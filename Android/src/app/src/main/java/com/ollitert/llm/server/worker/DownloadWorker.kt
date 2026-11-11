@@ -58,12 +58,15 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.storage.KEY_MODEL_URL
+import com.ollitert.llm.server.data.storage.ModelDownloadLocks
 import com.ollitert.llm.server.data.prefs.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.storage.TMP_EXTRACT_EXT
 import com.ollitert.llm.server.data.storage.TMP_FILE_EXT
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -117,7 +120,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     }
   }
 
-  override suspend fun doWork(): Result {
+  override suspend fun doWork(): Result =
+    ModelDownloadLocks.withModel(inputData.getString(KEY_MODEL_NAME) ?: "Model") { download() }
+
+  private suspend fun download(): Result {
     val fileUrl = inputData.getString(KEY_MODEL_URL)
     val modelName = inputData.getString(KEY_MODEL_NAME) ?: "Model"
     val version = inputData.getString(KEY_MODEL_COMMIT_HASH)
@@ -265,6 +271,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                var lastForegroundUpdateTs: Long = 0
                var deltaBytes = 0L
               while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                coroutineContext.ensureActive()
                 outputStream.write(buffer, 0, bytesRead)
                 downloadedBytes += bytesRead
                 deltaBytes += bytesRead
@@ -326,6 +333,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             // if finalization fails and keeps the staging file resumable.
             val originalFilePath = outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT")
             val originalFile = File(originalFilePath)
+            coroutineContext.ensureActive()
             finalizeDownloadedFile(outputTmpFile, originalFile)
             Log.d(TAG, "Download done")
 

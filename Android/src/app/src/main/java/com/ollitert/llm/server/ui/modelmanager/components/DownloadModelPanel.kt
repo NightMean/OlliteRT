@@ -123,11 +123,6 @@ fun DownloadModelPanel(
           ),
           contentPadding = PaddingValues(horizontal = 12.dp),
           onClick = {
-            model.latestModelFile?.let {
-              model.version = it.commitHash
-              model.downloadFileName = it.fileName
-            }
-            model.updatable = false
             modelManagerViewModel.downloadModel(model)
           },
         ) {

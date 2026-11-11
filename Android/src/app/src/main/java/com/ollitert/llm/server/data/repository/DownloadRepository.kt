@@ -57,16 +57,26 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.WorkQuery
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.worker.DownloadWorker
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "OlliteRT.DownloadRepo"
 private const val MODEL_NAME_TAG = "modelName"
+
+internal fun unfinishedModelWorkers(work: List<WorkInfo>): Map<String, UUID> = buildMap {
+  work.filterNot { it.state.isFinished }.forEach { info ->
+    val name = info.tags.firstOrNull { it.startsWith("$MODEL_NAME_TAG:") }
+      ?.removePrefix("$MODEL_NAME_TAG:")?.takeIf { it.isNotEmpty() }
+    if (name != null) put(name, info.id)
+  }
+}
 
 /** Serializes the stable worker-input contract for one model download. */
 internal fun buildDownloadRequestData(model: Model): Data {
@@ -141,21 +151,32 @@ class DownloadRepository @Inject constructor(
     workManager.cancelAllWorkByTag("$MODEL_NAME_TAG:${model.name}")
   }
 
-  fun cancelAll(onComplete: () -> Unit) {
+  /** Called on an IO dispatcher while the model's download lock is held. */
+  fun hasUnfinishedDownload(modelName: String): Boolean =
+    workManager.getWorkInfosForUniqueWork(modelName).get(10, TimeUnit.SECONDS).any { !it.state.isFinished }
+
+  /** Finds work from a previous process, including requests that have not created a file yet. */
+  fun getUnfinishedModelDownloads(): Map<String, UUID> {
+    val query = WorkQuery.Builder.fromStates(
+      listOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED),
+    ).build()
+    return unfinishedModelWorkers(workManager.getWorkInfos(query).get(10, TimeUnit.SECONDS))
+  }
+
+  fun cancelDownloads(modelNames: List<String>, onComplete: (Boolean) -> Unit) {
     val executor = Executors.newSingleThreadExecutor()
-    workManager
-      .cancelAllWork()
-      .result
-      .addListener(
-        {
-          try {
-            onComplete()
-          } finally {
-            executor.shutdown()
-          }
-        },
-        executor,
-      )
+    executor.execute {
+      try {
+        val operations = modelNames.map { workManager.cancelUniqueWork(it) }
+        operations.forEach { it.result.get(10, TimeUnit.SECONDS) }
+        onComplete(true)
+      } catch (e: Exception) {
+        Log.e(TAG, "Could not cancel pending model downloads", e)
+        onComplete(false)
+      } finally {
+        executor.shutdown()
+      }
+    }
   }
 
   fun observerWorkerProgress(

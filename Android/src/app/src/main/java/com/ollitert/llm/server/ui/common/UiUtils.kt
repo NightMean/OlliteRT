@@ -50,19 +50,21 @@ fun checkNotificationPermissionAndStartDownload(
   launcher: ManagedActivityResultLauncher<String, Boolean>,
   modelManagerViewModel: ModelManagerViewModel,
   model: Model,
-) {
+): Boolean {
   // Check permission
   when (PackageManager.PERMISSION_GRANTED) {
     // Already got permission. Call the lambda.
     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) -> {
-      modelManagerViewModel.downloadModel(model = model)
+      return modelManagerViewModel.downloadModel(model = model)
     }
 
     // Otherwise, ask for permission
     else -> {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        return true
       }
+      return false
     }
   }
 }
