@@ -19,6 +19,7 @@ package com.ollitert.llm.server
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -318,9 +319,10 @@ fun OlliteRTApp(
   val isLogs = currentDestination?.hasRoute<OlliteRTRoute.Logs>() == true
   val isGettingStarted = currentDestination?.hasRoute<OlliteRTRoute.GettingStarted>() == true
   val isBenchmark = currentDestination?.hasRoute<OlliteRTRoute.Benchmark>() == true
+  val isHuggingFaceExplore = currentDestination?.hasRoute<OlliteRTRoute.HuggingFaceExplore>() == true
 
   val showNav = isModels || isStatus || isLogs
-  val showTopBar = currentDestination != null && !isGettingStarted && !isBenchmark
+  val showTopBar = currentDestination != null && !isGettingStarted && !isBenchmark && !isHuggingFaceExplore
 
   // Shared tab navigation lambda
   val onTabSelected: (OlliteRTTab) -> Unit = { tab ->
@@ -382,7 +384,8 @@ fun OlliteRTApp(
         modelManagerViewModel = modelManagerViewModel,
         serverViewModel = serverViewModel,
         startDestination = startDestination,
-        modifier = Modifier.padding(innerPadding),
+        modifier = if (isHuggingFaceExplore) Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
+          else Modifier.padding(innerPadding),
         onSetTopBarTrailingContent = { topBarTrailingContent = it },
       )
   }

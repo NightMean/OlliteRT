@@ -274,6 +274,8 @@ fun DownloadAndTryButton(
     }
   }
 
+
+
   if (!showDownloadProgress) {
     var buttonModifier: Modifier = modifier.defaultMinSize(minHeight = 42.dp)
     if (!compact) {

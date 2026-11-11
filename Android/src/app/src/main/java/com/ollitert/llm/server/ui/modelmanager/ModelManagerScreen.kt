@@ -103,6 +103,7 @@ fun ModelManagerScreen(
   modifier: Modifier = Modifier,
   onNavigateToSettings: () -> Unit = {},
   onNavigateToRepositories: () -> Unit = {},
+  onExploreHuggingFace: () -> Unit = {},
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   lastError: String? = null,
@@ -617,6 +618,7 @@ fun ModelManagerScreen(
     serverStatus = serverStatus,
     activeModelName = activeModelName,
     onSwitchModel = onSwitchModel,
+    onExploreHuggingFace = onExploreHuggingFace,
   )
 }
 

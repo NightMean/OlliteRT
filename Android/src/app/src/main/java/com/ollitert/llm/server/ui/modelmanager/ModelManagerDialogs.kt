@@ -27,12 +27,15 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.Dns
@@ -58,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -107,6 +111,7 @@ fun ModelManagerDialogs(
   serverStatus: ServerStatus,
   activeModelName: String?,
   onSwitchModel: (String) -> Unit,
+  onExploreHuggingFace: () -> Unit,
 ) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -161,6 +166,15 @@ fun ModelManagerDialogs(
         stringResource(R.string.label_import_model),
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+      )
+      BottomSheetActionRow(
+        iconRes = R.drawable.hugging_face_logo,
+        labelRes = R.string.hf_explore_title,
+        contentDescriptionRes = R.string.hf_explore_title,
+        onClick = {
+          state.showImportModelSheet = false
+          onExploreHuggingFace()
+        },
       )
       BottomSheetActionRow(
         icon = Icons.AutoMirrored.Outlined.NoteAdd,
@@ -337,7 +351,8 @@ fun ModelManagerDialogs(
 
 @Composable
 private fun BottomSheetActionRow(
-  icon: ImageVector,
+  icon: ImageVector? = null,
+  @DrawableRes iconRes: Int? = null,
   @StringRes labelRes: Int,
   @StringRes contentDescriptionRes: Int,
   onClick: () -> Unit,
@@ -358,7 +373,11 @@ private fun BottomSheetActionRow(
         .fillMaxWidth()
         .padding(16.dp),
     ) {
-      Icon(icon, contentDescription = null)
+      if (iconRes != null) {
+        Image(painterResource(iconRes), contentDescription = null, modifier = Modifier.size(24.dp))
+      } else if (icon != null) {
+        Icon(icon, contentDescription = null)
+      }
       Text(stringResource(labelRes), modifier = Modifier.clearAndSetSemantics {})
     }
   }

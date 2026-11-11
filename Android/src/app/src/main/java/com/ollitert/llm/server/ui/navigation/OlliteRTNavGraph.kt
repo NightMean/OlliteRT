@@ -60,6 +60,7 @@ import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerScreen
+import com.ollitert.llm.server.ui.modelmanager.HuggingFaceExploreScreen
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
@@ -246,6 +247,14 @@ fun OlliteRTNavHost(
         },
         onNavigateToSettings = { navController.navigate(OlliteRTRoute.Settings) { launchSingleTop = true } },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
+        onExploreHuggingFace = { navController.navigate(OlliteRTRoute.HuggingFaceExplore) { launchSingleTop = true } },
+      )
+    }
+
+    composable<OlliteRTRoute.HuggingFaceExplore> {
+      HuggingFaceExploreScreen(
+        onBack = { navController.navigateUp() },
+        modelManagerViewModel = modelManagerViewModel,
       )
     }
 

@@ -50,7 +50,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -105,7 +104,6 @@ internal fun HuggingFaceModelDetailsSheet(
         }
         Text(model.id.substringBefore('/'), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
         HuggingFaceModelStats(model)
-        Text(pluralStringResource(R.plurals.hf_sheet_files, files.size, files.size), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.hf_explore_compatibility), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
           files.forEach { file ->
@@ -125,7 +123,7 @@ internal fun HuggingFaceModelDetailsSheet(
         enabled = !loading && selected?.sizeBytes != null && validRevision,
         onClick = onContinue,
         modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
-      ) { Text(stringResource(R.string.hf_sheet_continue)) }
+      ) { Text(stringResource(R.string.hf_sheet_import)) }
     }
   }
 }

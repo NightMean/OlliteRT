@@ -45,5 +45,8 @@ sealed interface OlliteRTRoute {
   data object Repositories : OlliteRTRoute
 
   @Serializable
+  data object HuggingFaceExplore : OlliteRTRoute
+
+  @Serializable
   data class RepositoryDetail(val repoId: String) : OlliteRTRoute
 }

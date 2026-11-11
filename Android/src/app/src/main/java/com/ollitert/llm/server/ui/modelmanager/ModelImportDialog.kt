@@ -46,7 +46,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,9 +89,24 @@ fun ModelImportDialog(
   allowlistModelNames: Set<String> = emptySet(),
 ) {
   val context = LocalContext.current
-  val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
-  val fileSize by remember { mutableLongStateOf(info.first) }
-  val fileName by remember { mutableStateOf(ensureValidFileName(info.second)) }
+  val info = remember(uri) { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
+  ModelImportSettingsDialog(info.second, info.first, onDismiss, onDone, defaultValues, existingImportedModelNames, allowlistModelNames)
+}
+
+@Composable
+internal fun ModelImportSettingsDialog(
+  sourceFileName: String,
+  sourceFileSize: Long,
+  onDismiss: () -> Unit,
+  onDone: (ImportedModel) -> Unit,
+  defaultValues: Map<ConfigKey, Any> = emptyMap(),
+  existingImportedModelNames: Set<String> = emptySet(),
+  allowlistModelNames: Set<String> = emptySet(),
+  remote: Boolean = false,
+) {
+  val context = LocalContext.current
+  val fileSize = sourceFileSize
+  val fileName = remember(sourceFileName) { ensureValidFileName(sourceFileName) }
 
   // Split into editable stem and read-only extension so the user can rename
   // the model without accidentally changing or removing the file extension.
@@ -192,6 +206,9 @@ fun ModelImportDialog(
           modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+          if (remote) {
+            Text(stringResource(R.string.hf_import_npu_settings_note), style = MaterialTheme.typography.bodySmall)
+          }
           ConfigEditorsPanel(configs = importConfigs, values = values)
 
           // Capability toggles — compact two-per-row layout
@@ -292,7 +309,7 @@ fun ModelImportDialog(
                   )
                   .build()
               // Check available storage before proceeding.
-              if (isStorageLow(fileSize)) {
+              if (!remote && isStorageLow(fileSize)) {
                 pendingStorageModel = importedModel
               }
               // Check if a model with this name already exists.
@@ -307,7 +324,7 @@ fun ModelImportDialog(
               }
             }
           ) {
-            Text(stringResource(R.string.button_import))
+            Text(stringResource(if (remote) R.string.hf_explore_add else R.string.button_import))
           }
         }
       }
