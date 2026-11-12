@@ -1178,4 +1178,23 @@
   <string name="hf_remove_model">Remove from Models</string>
   <string name="hf_remove_model_message">Remove this model from the list?</string>
   <string name="hf_remove_model_error">Could not remove this model. Check that it is not downloading and try again.</string>
+  <string name="hf_explore_download_count">%1$s downloads</string>
+  <string name="hf_explore_like_count">%1$s likes</string>
+  <string name="hf_explore_updated_date">Updated: %1$s</string>
+  <string name="hf_explore_compatibility">Check the model card before adding a file. Some files need specific hardware or are not chat models.</string>
+  <string name="hf_sheet_no_files">This repository has no supported model files.</string>
+  <string name="hf_explore_metadata_unavailable">File size or revision is unavailable. This file cannot be added.</string>
+  <string name="hf_explore_save_error">Could not add this model. Check model storage and try again.</string>
+  <string name="hf_explore_already_added">This file is already in Models.</string>
+  <string name="hf_sheet_continue">Continue</string>
+  <string name="hf_sheet_copy_link">Copy model link</string>
+  <string name="hf_explore_unknown_size">File size unavailable</string>
+  <plurals name="hf_explore_variants">
+    <item quantity="one">%d variant</item>
+    <item quantity="other">%d variants</item>
+  </plurals>
+  <plurals name="hf_sheet_files">
+    <item quantity="one">%d model file</item>
+    <item quantity="other">%d model files</item>
+  </plurals>
 </resources>
