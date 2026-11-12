@@ -36,8 +36,8 @@ import kotlinx.serialization.json.put
  * spirit of running one server instance per model (llama.cpp style) — but on a
  * single port so one process, one admission gate, one request log:
  *
- *   /v1/model/1/* → primary (active) model
- *   /v1/model/2/* → secondary (pinned second) model
+ *   /v1/model/1/{endpoint}  → primary (active) model
+ *   /v1/model/2/{endpoint}  → secondary (pinned second) model
  *
  * The request's `model` field is rewritten to the slot's model name before the
  * canonical handler runs, so any generic client (default model name, a stale
