@@ -108,7 +108,7 @@ fun ModelManagerDialogs(
   serverStatus: ServerStatus,
   activeModelName: String?,
   onSwitchModel: (String) -> Unit,
-  onLoadCompanion: (String) -> Unit = {},
+  onLoadSecondary: (String) -> Unit = {},
 ) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -293,7 +293,7 @@ fun ModelManagerDialogs(
   }
 
   // Choice sheet when starting a second model while the server is running:
-  // replace the active model, or load the tapped model as a companion.
+  // replace the active model, or load the tapped model as a second model.
   val switchModel = state.pendingSwitchModel
   if (state.showSwitchModelDialog && switchModel != null) {
     val closeSheet = {
@@ -334,12 +334,12 @@ fun ModelManagerDialogs(
       )
       BottomSheetActionRow(
         icon = Icons.Outlined.Group,
-        labelRes = R.string.button_load_companion,
-        contentDescriptionRes = R.string.cd_load_companion,
+        labelRes = R.string.button_load_second_model,
+        contentDescriptionRes = R.string.cd_load_second_model,
         onClick = {
           closeSheet()
-          Toast.makeText(context, context.getString(R.string.toast_companion_loading), Toast.LENGTH_SHORT).show()
-          onLoadCompanion(switchModel.name)
+          Toast.makeText(context, context.getString(R.string.toast_second_model_loading), Toast.LENGTH_SHORT).show()
+          onLoadSecondary(switchModel.name)
         },
       )
       BottomSheetActionRow(

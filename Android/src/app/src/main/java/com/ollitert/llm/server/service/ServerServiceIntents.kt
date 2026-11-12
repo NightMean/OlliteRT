@@ -24,9 +24,9 @@ import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.common.ServerStatus
 
 /**
- * Intent-launching entry points for [ServerService], split out of the companion
+ * Intent-launching entry points for [ServerService], split out of the second model
  * object to keep the service class focused on lifecycle orchestration.
- * These are extension functions on ServerService.Companion so every existing
+ * These are extension functions on ServerService.Second model so every existing
  * `ServerService.start(...)`-style call site keeps compiling unchanged.
  */
 fun ServerService.Companion.start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, source: String? = null): Boolean {
@@ -78,35 +78,35 @@ fun ServerService.Companion.reload(context: Context, port: Int = DEFAULT_PORT, m
     }
 
 /**
- * Pins [modelName] as the companion model (embedding, in this version) alongside the
+ * Pins [modelName] as the second model (embedding, in this version) alongside the
  * running chat model. The service performs the blocking native init (10-60s cold) on
  * its own IO scope; result is surfaced via ServerMetrics/RequestLogStore. Fire-and-forget:
  * failures are logged in the service, not propagated to the caller.
  */
-fun ServerService.Companion.loadCompanion(context: Context, modelName: String) {
+fun ServerService.Companion.loadSecondary(context: Context, modelName: String) {
   try {
     context.startService(
       Intent(context, ServerService::class.java).apply {
-        action = ACTION_LOAD_COMPANION
+        action = ACTION_LOAD_SECONDARY
         putExtra(EXTRA_MODEL_NAME, modelName)
       }
     )
   } catch (e: Exception) {
-    Log.w(TAG, "Failed to send companion load intent — service may not be running", e)
+    Log.w(TAG, "Failed to send second model load intent — service may not be running", e)
   }
 }
 
-/** Unloads the pinned companion model. [modelName] guards against a stale tap. Fire-and-forget. */
-fun ServerService.Companion.unloadCompanion(context: Context, modelName: String? = null) {
+/** Unloads the pinned second model. [modelName] guards against a stale tap. Fire-and-forget. */
+fun ServerService.Companion.unloadSecondary(context: Context, modelName: String? = null) {
   try {
     context.startService(
       Intent(context, ServerService::class.java).apply {
-        action = ACTION_UNLOAD_COMPANION
+        action = ACTION_UNLOAD_SECONDARY
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
       }
     )
   } catch (e: Exception) {
-    Log.w(TAG, "Failed to send companion unload intent — service may not be running", e)
+    Log.w(TAG, "Failed to send second model unload intent — service may not be running", e)
   }
 }
 

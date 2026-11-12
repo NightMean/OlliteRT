@@ -102,14 +102,14 @@ object ServerReloadCoordinator {
       )
     }
     // Shared with onDestroy so the two teardown paths cannot drift.
-    // keepCompanion=true: a chat-model reload must NOT tear down the pinned
-    // companion (embedding) engine — it stays resident across the swap.
+    // keepSecondary=true: a chat-model reload must NOT tear down the pinned
+    // second model (embedding) engine — it stays resident across the swap.
     ServerCleanupCoordinator.collectAndEnqueueModelCleanup(
       modelLifecycle = modelLifecycle,
       loadJob = loadJob,
       inferenceExecutor = inferenceExecutor,
       source = "ReloadCleanup",
-      keepCompanion = true,
+      keepSecondary = true,
     )
     ServerMetrics.onServerStopped()
   }

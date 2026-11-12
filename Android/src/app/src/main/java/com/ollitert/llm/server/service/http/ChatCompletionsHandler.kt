@@ -112,6 +112,11 @@ internal class ChatCompletionsHandler(
       is ModelLifecycle.ModelSelection.Ok -> sel.model
       is ModelLifecycle.ModelSelection.Error -> return ChatCompletionExecution(sel.toHttpResponse())
     }
+    // When the request routes to the resident second model, make the request-log
+    // entry carry that model's name (it is initialized with the default model's).
+    if (logId != null && modelLifecycle.defaultModel?.name != model.name) {
+      RequestLogStore.update(logId) { it.copy(modelName = model.name) }
+    }
     // Build prompt with progressive compaction if context window is exceeded.
     // Two independent toggles: "Truncate History" (drop older messages) and
     // "Trim Prompt" (hard-cut as last resort).

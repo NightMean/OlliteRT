@@ -23,6 +23,7 @@ import com.google.ai.edge.litertlm.EmbeddingEngine
 import com.google.ai.edge.litertlm.EmbeddingOptions
 import com.google.ai.edge.litertlm.EmbeddingResponse
 import com.google.ai.edge.litertlm.InputData
+import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.service.http.HttpResponse
 import com.ollitert.llm.server.service.http.KtorServer
 import com.ollitert.llm.server.service.http.httpBadRequest
@@ -61,9 +62,9 @@ internal fun Routing.embeddingRoutes(server: KtorServer) {
   with(server) {
     post("/v1/embeddings") {
       if (!requireInferenceRequest(call)) return@post
-      withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, _, _, _ ->
+      withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, logId, _, _ ->
         captureBody(body)
-        val response = handleEmbeddings(body)
+        val response = handleEmbeddings(body, logId)
         if (response is HttpResponse.Json) captureResponse(response.body)
         response
       }
@@ -71,7 +72,7 @@ internal fun Routing.embeddingRoutes(server: KtorServer) {
   }
 }
 
-private suspend fun KtorServer.handleEmbeddings(body: String): HttpResponse {
+private suspend fun KtorServer.handleEmbeddings(body: String, logId: String): HttpResponse {
   val parsed = try {
     json.parseToJsonElement(body) as? JsonObject
   } catch (e: Exception) {
@@ -111,6 +112,9 @@ private suspend fun KtorServer.handleEmbeddings(body: String): HttpResponse {
       return httpJsonError(sel.statusCode, sel.message)
     else -> return httpInternalError("Model selection failed")
   }
+  // Name the model that actually serves this request in the request log
+  // (the second/embedding model, not the default chat model).
+  RequestLogStore.update(logId) { it.copy(modelName = model.name) }
   val engine = model.instance as? EmbeddingEngine
   if (engine == null) {
     return httpJsonError(

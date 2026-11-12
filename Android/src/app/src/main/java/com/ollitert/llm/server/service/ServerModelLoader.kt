@@ -106,6 +106,15 @@ internal class ServerModelLoader(
       ServerMetrics.setInferenceSettings(model.configValues)
       ServerMetrics.onServerRunning(notifState.advertisedHost, notifState.isLoopbackOnly)
       modelLifecycle.resetKeepAliveTimer()
+      // Second-model restore step: the reload's onServerStopped() reset the
+      // session flows (including secondaryModelName), but the pinned
+      // secondary's native engine survived the teardown. Re-publish it so
+      // the UI (secondary controls, notification, monitor) stays in sync
+      // with the resident engine.
+      val secondary = modelLifecycle.secondaryModel
+      if (secondary != null) {
+        ServerMetrics.updateSecondaryModelName(secondary.name)
+      }
       RequestLogStore.addEvent(
         "Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)",
         modelName = model.name,

@@ -69,6 +69,7 @@ internal fun ActiveModelCard(
   isIdleUnloaded: Boolean,
   loadingElapsedSeconds: Long,
   lastError: String?,
+  secondaryModelName: String? = null,
   onReloadClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -176,6 +177,14 @@ internal fun ActiveModelCard(
             text = stringResource(R.string.status_start_model_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          )
+        }
+        if (!isStopped && secondaryModelName != null && secondaryModelName != modelName) {
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = stringResource(R.string.status_second_model_loaded, secondaryModelName),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.tertiary,
           )
         }
       }

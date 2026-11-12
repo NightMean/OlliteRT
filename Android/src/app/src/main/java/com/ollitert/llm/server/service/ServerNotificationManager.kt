@@ -159,6 +159,12 @@ class ServerNotificationManager(private val context: Context) {
       append(context.getString(R.string.notif_server_body_model, model.name))
       append("\n")
       append(context.getString(R.string.notif_server_body_url, notifState.endpointUrl))
+      // A second model can be resident across a reload (its engine survives the
+      // chat-model teardown) — reflect it in the initial running notification.
+      ServerMetrics.secondaryModelName.value?.let { name ->
+        append("\n")
+        append(context.getString(R.string.notif_server_body_second_model, name))
+      }
     }
     NotificationHelper.update(
       context = context,
@@ -195,6 +201,8 @@ class ServerNotificationManager(private val context: Context) {
       copyIntent = state.copyIntent,
       resetPositionIntent = state.resetPositionIntent,
       cachedUpdateVersion = ServerMetrics.availableUpdateVersion.value,
+      // Read live: the second model can load/unload at any time after server start.
+      secondaryModelName = ServerMetrics.secondaryModelName.value,
     )
   }
 

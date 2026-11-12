@@ -233,6 +233,13 @@ internal class FloatingMonitorView(
     val modelX = width - dp(14) - paint.measureText(model)
     paint.color = Color.rgb(229, 226, 227)
     drawText(canvas, model, modelX, footerY, 8, true)
+    val secondary = snapshot.secondaryModelName
+    if (secondary != null && secondary != snapshot.modelName) {
+      val secondModelText = "+ $secondary"
+      paint.color = Color.rgb(194, 198, 216)
+      val secondModelX = width - dp(14) - paint.measureText(secondModelText)
+      drawText(canvas, secondModelText, secondModelX, footerY + dp(12), 7, false)
+    }
   }
 
   private fun expandedFooterYDp(): Int {

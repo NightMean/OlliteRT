@@ -212,41 +212,45 @@ class ServerService : Service() {
       return START_STICKY
     }
 
-    // Companion model load/unload — lightweight actions while the server keeps running.
-    // Both run on the service's IO scope: the companion's native init is blocking
+    // Second model load/unload — lightweight actions while the server keeps running.
+    // Both run on the service's IO scope: the second model's native init is blocking
     // (10-60s cold) and must never touch the main thread.
-    if (intent?.action == ACTION_LOAD_COMPANION) {
+    if (intent?.action == ACTION_LOAD_SECONDARY) {
       val name = intent.getStringExtra(EXTRA_MODEL_NAME)
       if (name == null) {
-        Log.w(TAG, "Companion load intent without model name — ignoring")
+        Log.w(TAG, "Second model load intent without model name — ignoring")
         return START_STICKY
       }
       serviceScope.launch {
-        val err = modelLifecycle.loadCompanionModel(name)
+        val err = modelLifecycle.loadSecondaryModel(name)
         if (err.isNotEmpty()) {
-          Log.w(TAG, "Companion load from UI failed for '$name': $err")
+          Log.w(TAG, "Second model load from UI failed for '$name': $err")
           RequestLogStore.addEvent(
-            "Companion model load failed: $err",
+            "Second model load failed: $err",
             level = LogLevel.WARNING,
             modelName = name,
             category = EventCategory.MODEL,
           )
         }
+        // Refresh the running notification so the second model shows up immediately.
+        notificationManager.refreshRunning()
       }
       return START_STICKY
     }
-    if (intent?.action == ACTION_UNLOAD_COMPANION) {
+    if (intent?.action == ACTION_UNLOAD_SECONDARY) {
       val name = intent.getStringExtra(EXTRA_MODEL_NAME)
       serviceScope.launch {
-        val err = modelLifecycle.unloadCompanionModel(name)
+        val err = modelLifecycle.unloadSecondaryModel(name)
         if (err.isNotEmpty()) {
-          Log.w(TAG, "Companion unload from UI failed: $err")
+          Log.w(TAG, "Second model unload from UI failed for '$name': $err")
           RequestLogStore.addEvent(
-            "Companion model unload failed: $err",
+            "Second model unload failed: $err",
             level = LogLevel.WARNING,
             category = EventCategory.MODEL,
           )
         }
+        // Refresh the running notification so the second model line disappears immediately.
+        notificationManager.refreshRunning()
       }
       return START_STICKY
     }
@@ -648,8 +652,8 @@ class ServerService : Service() {
     const val DEFAULT_PORT = com.ollitert.llm.server.data.prefs.DEFAULT_PORT
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
-    const val ACTION_LOAD_COMPANION = "com.ollitert.llm.server.LOAD_COMPANION"
-    const val ACTION_UNLOAD_COMPANION = "com.ollitert.llm.server.UNLOAD_COMPANION"
+    const val ACTION_LOAD_SECONDARY = "com.ollitert.llm.server.LOAD_SECONDARY"
+    const val ACTION_UNLOAD_SECONDARY = "com.ollitert.llm.server.UNLOAD_SECONDARY"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     const val ACTION_RESET_FLOATING_MONITOR_POSITION = "com.ollitert.llm.server.RESET_FLOATING_MONITOR_POSITION"
     const val ACTION_REFRESH_RUNNING_NOTIFICATION = "com.ollitert.llm.server.REFRESH_RUNNING_NOTIFICATION"

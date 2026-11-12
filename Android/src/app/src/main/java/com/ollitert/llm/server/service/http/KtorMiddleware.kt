@@ -585,7 +585,10 @@ fun finalizeLogEntry(
       latencyMs = if (isStreaming) it.latencyMs else elapsedMs,
       isStreaming = isStreaming,
       isThinking = isThinking,
-      modelName = defaultModelName,
+      // A route may have resolved the model that actually served the request
+      // (e.g. the second model embedding model for /v1/embeddings) and updated the
+      // entry before finalize. Keep that name; only fall back to the default.
+      modelName = if (it.modelName != null && it.modelName != defaultModelName) it.modelName else defaultModelName,
       level = level,
       isPending = if (isStreaming) it.isPending else false,
       inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,

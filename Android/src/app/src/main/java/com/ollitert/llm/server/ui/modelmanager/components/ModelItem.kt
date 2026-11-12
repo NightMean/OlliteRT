@@ -84,10 +84,10 @@ fun ModelItem(
   showBenchmarkButton: Boolean = false,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
-  companionModelName: String? = null,
+  secondaryModelName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
-  onStopCompanion: () -> Unit = {},
+  onStopSecondary: () -> Unit = {},
   onNavigateToSettings: () -> Unit = {},
   searchQuery: String = "",
   showRecommendations: Boolean = true,
@@ -99,9 +99,9 @@ fun ModelItem(
 
   val isIncompatible = model.incompatibilityReason != null
   val isServerRunning = serverStatus == ServerStatus.RUNNING
-  // Resident companion (e.g. embedding model loaded alongside the chat model).
-  val isCompanionLoaded = isServerRunning &&
-    companionModelName != null && companionModelName.equals(model.name, ignoreCase = true)
+  // Resident second model (e.g. embedding model loaded alongside the chat model).
+  val isSecondModelLoaded = isServerRunning &&
+    secondaryModelName != null && secondaryModelName.equals(model.name, ignoreCase = true)
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
@@ -160,9 +160,9 @@ fun ModelItem(
         showBenchmarkButton = showBenchmarkButton,
         serverStatus = serverStatus,
         activeModelName = activeModelName,
-        isCompanionLoaded = isCompanionLoaded,
+        isSecondModelLoaded = isSecondModelLoaded,
         onStopServer = onStopServer,
-        onStopCompanion = onStopCompanion,
+        onStopSecondary = onStopSecondary,
       )
 
       // Loading hint / error text

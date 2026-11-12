@@ -139,9 +139,9 @@ fun DownloadAndTryButton(
   canShowTryIt: Boolean = true,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
-  isCompanionLoaded: Boolean = false,
+  isSecondModelLoaded: Boolean = false,
   onStopServer: () -> Unit = {},
-  onStopCompanion: () -> Unit = {},
+  onStopSecondary: () -> Unit = {},
 ) {
   val isThisModelActive = activeModelName != null &&
     activeModelName.equals(model.name, ignoreCase = true)
@@ -347,9 +347,9 @@ fun DownloadAndTryButton(
           }
         }
       }
-    } else if (isCompanionLoaded) {
-      // Resident companion (e.g. embedding model alongside the chat model):
-      // keep the "Companion Loaded" state visible and offer an explicit stop.
+    } else if (isSecondModelLoaded) {
+      // Resident second model (e.g. embedding model alongside the chat model):
+      // keep the "Second model Loaded" state visible and offer an explicit stop.
       if (compact) {
         Button(
           modifier = buttonModifier,
@@ -357,11 +357,11 @@ fun DownloadAndTryButton(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
           ),
           contentPadding = PaddingValues(horizontal = 12.dp),
-          onClick = { onStopCompanion() },
+          onClick = { onStopSecondary() },
         ) {
           Icon(
             Icons.Outlined.StopCircle,
-            contentDescription = stringResource(R.string.cd_stop_companion),
+            contentDescription = stringResource(R.string.cd_stop_second_model),
             tint = MaterialTheme.colorScheme.onTertiaryContainer,
           )
         }
@@ -390,7 +390,7 @@ fun DownloadAndTryButton(
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
               )
               Text(
-                stringResource(R.string.companion_loaded),
+                stringResource(R.string.second_model_loaded),
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
@@ -404,7 +404,7 @@ fun DownloadAndTryButton(
               containerColor = MaterialTheme.colorScheme.errorContainer,
             ),
             contentPadding = PaddingValues(horizontal = 12.dp),
-            onClick = { onStopCompanion() },
+            onClick = { onStopSecondary() },
           ) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
@@ -416,7 +416,7 @@ fun DownloadAndTryButton(
                 tint = MaterialTheme.colorScheme.error,
               )
               Text(
-                stringResource(R.string.button_stop_companion),
+                stringResource(R.string.button_stop_second_model),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,

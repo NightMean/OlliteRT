@@ -124,23 +124,23 @@ class ServerControlHandler(
       return httpBadRequest("Missing required field: name (e.g. {\"name\": \"EmbeddingGemma-2-740M\"})")
     }
     return try {
-      val err = modelLifecycle.loadCompanionModel(name)
+      val err = modelLifecycle.loadSecondaryModel(name)
       if (err.isEmpty()) {
         httpOkJson(buildJsonObject {
           put("success", true)
-          put("message", "Companion model loaded")
-          put("model", modelLifecycle.companionModel?.name ?: name)
+          put("message", "Second model loaded")
+          put("model", modelLifecycle.secondaryModel?.name ?: name)
         }.toString())
       } else {
         httpJsonError(400, err)
       }
     } catch (e: Exception) {
-      Log.e(TAG, "Companion model load failed", e)
-      httpInternalError("Companion model load failed: ${e.message}")
+      Log.e(TAG, "Second model load failed", e)
+      httpInternalError("Second model load failed: ${e.message}")
     }
   }
 
-  /** Handles POST /v1/server/models/unload — releases the pinned companion model. */
+  /** Handles POST /v1/server/models/unload — releases the pinned second model. */
   fun handleModelUnload(body: String): HttpResponse {
     val obj = try {
       if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
@@ -149,15 +149,15 @@ class ServerControlHandler(
     }
     val name = obj?.get("name")?.jsonPrimitive?.content?.trim()?.ifEmpty { null }
     return try {
-      val err = modelLifecycle.unloadCompanionModel(name)
+      val err = modelLifecycle.unloadSecondaryModel(name)
       if (err.isEmpty()) {
-        httpOkJson("""{"success":true,"message":"Companion model unloaded"}""")
+        httpOkJson("""{"success":true,"message":"Second model unloaded"}""")
       } else {
         httpJsonError(400, err)
       }
     } catch (e: Exception) {
-      Log.e(TAG, "Companion model unload failed", e)
-      httpInternalError("Companion model unload failed: ${e.message}")
+      Log.e(TAG, "Second model unload failed", e)
+      httpInternalError("Second model unload failed: ${e.message}")
     }
   }
 

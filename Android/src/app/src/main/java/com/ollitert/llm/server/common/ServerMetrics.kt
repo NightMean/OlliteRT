@@ -63,12 +63,12 @@ object ServerMetrics {
   val activeModelName: StateFlow<String?> = _activeModelName.asStateFlow()
 
   /**
-   * Name of the pinned companion model (e.g. an embedding model) resident alongside
+   * Name of the pinned second model (e.g. an embedding model) resident alongside
    * the active chat model, or null when none is loaded. Set by [com.ollitert.llm.server.service.inference.ModelLifecycle]
-   * on companion publish/unload; cleared with the session when the server stops.
+   * on second model publish/unload; cleared with the session when the server stops.
    */
-  private val _companionModelName = sessionFlow<String?>(null)
-  val companionModelName: StateFlow<String?> = _companionModelName.asStateFlow()
+  private val _secondaryModelName = sessionFlow<String?>(null)
+  val secondaryModelName: StateFlow<String?> = _secondaryModelName.asStateFlow()
 
   // App-level state — not reset on server stop, only on resetForTesting()
   private val _port = MutableStateFlow(SERVER_DEFAULT_PORT)
@@ -357,9 +357,9 @@ object ServerMetrics {
     }
   }
 
-  /** Updates the resident companion model name (null = none). Called from ModelLifecycle. */
-  fun updateCompanionModelName(name: String?) {
-    _companionModelName.value = name
+  /** Updates the resident second model name (null = none). Called from ModelLifecycle. */
+  fun updateSecondaryModelName(name: String?) {
+    _secondaryModelName.value = name
   }
 
   fun incrementRequestCount() {

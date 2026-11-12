@@ -35,8 +35,8 @@ import com.ollitert.llm.server.service.queueReloadAfterLoad
 import com.ollitert.llm.server.service.reload
 import com.ollitert.llm.server.service.start
 import com.ollitert.llm.server.service.stop
-import com.ollitert.llm.server.service.loadCompanion
-import com.ollitert.llm.server.service.unloadCompanion
+import com.ollitert.llm.server.service.loadSecondary
+import com.ollitert.llm.server.service.unloadSecondary
 
 /**
  * ViewModel that exposes server state to the UI layer.
@@ -52,7 +52,7 @@ class ServerViewModel @Inject constructor(
   val status = serverStateRepository.status
   val isInferring = serverStateRepository.isInferring
   val activeModelName = serverStateRepository.activeModelName
-  val companionModelName = serverStateRepository.companionModelName
+  val secondaryModelName = serverStateRepository.secondaryModelName
   val activeModelSize = serverStateRepository.activeModelSize
   val port = serverStateRepository.port
   val bindAddress = serverStateRepository.bindAddress
@@ -148,17 +148,17 @@ class ServerViewModel @Inject constructor(
   }
 
   /**
-   * Pins [modelName] as the companion model alongside the running chat model
+   * Pins [modelName] as the second model alongside the running chat model
    * (embedding models in this version). The service does the blocking native
-   * init on its own IO scope; state appears in [companionModelName] when done.
+   * init on its own IO scope; state appears in [secondaryModelName] when done.
    */
-  fun loadCompanionModel(modelName: String) {
-    ServerService.loadCompanion(context, modelName)
+  fun loadSecondaryModel(modelName: String) {
+    ServerService.loadSecondary(context, modelName)
   }
 
-  /** Unloads the pinned companion model; the chat model keeps serving. */
-  fun unloadCompanionModel(modelName: String? = null) {
-    ServerService.unloadCompanion(context, modelName)
+  /** Unloads the pinned second model; the chat model keeps serving. */
+  fun unloadSecondaryModel(modelName: String? = null) {
+    ServerService.unloadSecondary(context, modelName)
   }
 
   fun getBearerToken(): String = preferencesRepository.getBearerToken()

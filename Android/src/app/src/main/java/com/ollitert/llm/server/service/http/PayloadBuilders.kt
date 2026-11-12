@@ -109,7 +109,7 @@ object PayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null, companionModelName: String? = null): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null, secondaryModelName: String? = null): String {
     val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
@@ -123,8 +123,8 @@ object PayloadBuilders {
       }
       put("status", JsonPrimitive(statusStr))
       snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
-      // Resident companion model (e.g. embedding model loaded alongside the chat model)
-      companionModelName?.let { put("companion_model", JsonPrimitive(it)) }
+      // Resident secondary (e.g. embedding model loaded alongside the chat model)
+      secondaryModelName?.let { put("secondary_model", JsonPrimitive(it)) }
       snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
       val latestVersion = ServerMetrics.availableUpdateVersion.value
@@ -284,14 +284,14 @@ object PayloadBuilders {
    * Reports the active model, or the idle-unloaded model name if keep_alive has
    * unloaded the model but the server is still running.
    */
-  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json, companionModel: Model? = null): String {
+  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json, secondaryModel: Model? = null): String {
     val items = mutableListOf<LlmHttpModelItem>()
     activeModel?.let { items.add(it.toModelItem()) }
-    companionModel?.let { companion ->
-      // Never list the companion twice when it IS the active model (e.g. the
+    secondaryModel?.let { secondary ->
+      // Never list the secondary twice when it IS the active model (e.g. the
       // user started the server directly on the embedding model).
-      if (activeModel == null || !companion.name.equals(activeModel.name, ignoreCase = true)) {
-        items.add(companion.toModelItem())
+      if (activeModel == null || !secondary.name.equals(activeModel.name, ignoreCase = true)) {
+        items.add(secondary.toModelItem())
       }
     }
     if (items.isEmpty()) {

@@ -243,7 +243,7 @@ class KtorServer(
     withGetLogging(call) {
       val body = PayloadBuilders.serverInfo(
         defaultModel, keepAliveUnloadedModelName, modelLifecycle.modelCatalogMerger,
-        modelLifecycle.companionModel?.name,
+        modelLifecycle.secondaryModel?.name,
       )
       httpOkJson(body)
     }
@@ -258,7 +258,7 @@ class KtorServer(
       val body = if (call.request.headers["anthropic-version"] != null) {
         PayloadBuilders.anthropicModelsList(defaultModel, keepAliveUnloadedModelName)
       } else {
-        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json, modelLifecycle.companionModel)
+        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json, modelLifecycle.secondaryModel)
       }
       httpOkJson(body)
     }
