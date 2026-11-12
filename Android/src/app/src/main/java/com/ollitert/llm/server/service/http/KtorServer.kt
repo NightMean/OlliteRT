@@ -186,6 +186,7 @@ class KtorServer(
     admitModelRequest: Boolean = false,
     inferenceRequest: Boolean = false,
     anthropicRequest: Boolean = false,
+    bodyTransform: ((String) -> String)? = null,
     handler: suspend (
       body: String,
       captureBody: (String) -> Unit,
@@ -215,6 +216,7 @@ class KtorServer(
         modelLifecycle = modelLifecycle,
         admitModelRequest = admitModelRequest,
         anthropicRequest = anthropicRequest,
+        bodyTransform = bodyTransform,
         handler = handler,
       )
     } finally {

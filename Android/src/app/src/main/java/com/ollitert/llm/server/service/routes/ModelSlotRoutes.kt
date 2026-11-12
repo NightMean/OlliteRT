@@ -164,7 +164,7 @@ private suspend fun KtorServer.withSlotBody(
 private fun rewriteModelField(json: kotlinx.serialization.json.Json, body: String, modelName: String): String {
   return try {
     val obj = json.parseToJsonElement(body).jsonObject
-    obj.toMutableMap().apply { put("model", modelName) }
+    obj.toMutableMap().apply { put("model", kotlinx.serialization.json.JsonPrimitive(modelName)) }
       .let { kotlinx.serialization.json.JsonObject(it) }.toString()
   } catch (_: Exception) {
     body
