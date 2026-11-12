@@ -31,6 +31,7 @@ import com.ollitert.llm.server.service.routes.chatRoutes
 import com.ollitert.llm.server.service.routes.embeddingRoutes
 import com.ollitert.llm.server.service.routes.managementRoutes
 import com.ollitert.llm.server.service.routes.modelRoutes
+import com.ollitert.llm.server.service.routes.modelSlotRoutes
 import com.ollitert.llm.server.service.routes.serverControlRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -121,6 +122,7 @@ class KtorServer(
         modelRoutes(this@KtorServer)
         chatRoutes(this@KtorServer)
         embeddingRoutes(this@KtorServer)
+        modelSlotRoutes(this@KtorServer)
         audioRoutes(this@KtorServer)
         serverControlRoutes(this@KtorServer)
       }

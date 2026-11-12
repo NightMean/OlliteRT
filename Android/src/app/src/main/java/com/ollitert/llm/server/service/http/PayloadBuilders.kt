@@ -148,6 +148,13 @@ object PayloadBuilders {
         JsonPrimitive("/v1/audio/transcriptions"),
         JsonPrimitive("/v1/models"),
         JsonPrimitive("/v1/models/{id}"),
+        // Model-slot routes: stable per-model URLs (slot 1 = primary, slot 2 = second)
+        JsonPrimitive("/v1/model/1"),
+        JsonPrimitive("/v1/model/2"),
+        JsonPrimitive("/v1/model/1/chat/completions"),
+        JsonPrimitive("/v1/model/2/chat/completions"),
+        JsonPrimitive("/v1/model/1/embeddings"),
+        JsonPrimitive("/v1/model/2/embeddings"),
         JsonPrimitive("/health"),
         JsonPrimitive("/metrics"),
         JsonPrimitive("/ping"),

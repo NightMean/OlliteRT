@@ -34,7 +34,10 @@ object RouteResolver {
    */
   fun isAnthropicApiPath(rawUri: String): Boolean {
     val uri = rawUri.substringBefore("?")
-    return uri == "/v1/messages" || uri.startsWith("/v1/messages/")
+    return uri == "/v1/messages" ||
+      uri.startsWith("/v1/messages/") ||
+      // Model-slot Anthropic routes: /v1/model/1/messages, /v1/model/2/messages
+      (uri.startsWith("/v1/model/") && uri.endsWith("/messages"))
   }
 
   /**

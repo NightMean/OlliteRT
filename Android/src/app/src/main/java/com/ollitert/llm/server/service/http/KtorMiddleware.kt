@@ -346,6 +346,12 @@ suspend fun withRequestLogging(
   modelLifecycle: ModelLifecycle,
   admitModelRequest: Boolean = false,
   anthropicRequest: Boolean = false,
+  /**
+   * Optional transform applied to the raw body after it is received and before
+   * it is logged/handled. Used by the model-slot routes to pin the request's
+   * `model` field to the slot's resident model.
+   */
+  bodyTransform: ((String) -> String)? = null,
   handler: suspend (
     body: String,
     captureBody: (String) -> Unit,
@@ -366,6 +372,7 @@ suspend fun withRequestLogging(
       emitDebugStackTrace = emitDebugStackTrace,
       modelLifecycle = modelLifecycle,
       anthropicRequest = anthropicRequest,
+      bodyTransform = bodyTransform,
       handler = handler,
     ) {
       if (!admitModelRequest) {
@@ -389,6 +396,7 @@ private suspend fun withRequestLoggingBody(
   emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   modelLifecycle: ModelLifecycle,
   anthropicRequest: Boolean,
+  bodyTransform: ((String) -> String)? = null,
   handler: suspend (
     body: String,
     captureBody: (String) -> Unit,
@@ -470,6 +478,10 @@ private suspend fun withRequestLoggingBody(
       call.respondHttpResponse(oomResponse)
       return
     }
+
+    // Slot routes pin the model field to the slot's resident model here, so the
+    // rewritten body is what gets logged, compacted, and handed to the handler.
+    val body = bodyTransform?.invoke(body) ?: body
 
     val compactImages = prefs.compactImageData
     val captureBody = { rawBody: String ->

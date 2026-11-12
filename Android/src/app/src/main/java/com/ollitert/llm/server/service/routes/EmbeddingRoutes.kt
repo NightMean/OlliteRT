@@ -64,7 +64,7 @@ internal fun Routing.embeddingRoutes(server: KtorServer) {
       if (!requireInferenceRequest(call)) return@post
       withRequestLogging(call, admitModelRequest = true, inferenceRequest = true) { body, captureBody, captureResponse, logId, _, _ ->
         captureBody(body)
-        val response = handleEmbeddings(body, logId)
+        val response = handleEmbeddingsRequest(body, logId)
         if (response is HttpResponse.Json) captureResponse(response.body)
         response
       }
@@ -72,7 +72,7 @@ internal fun Routing.embeddingRoutes(server: KtorServer) {
   }
 }
 
-private suspend fun KtorServer.handleEmbeddings(body: String, logId: String): HttpResponse {
+internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: String): HttpResponse {
   val parsed = try {
     json.parseToJsonElement(body) as? JsonObject
   } catch (e: Exception) {
