@@ -22,7 +22,8 @@ import android.os.Environment
 import android.os.StatFs
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.Capabilities
+import com.google.ai.edge.litertlm.EmbeddingEngine
+import com.google.ai.edge.litertlm.EmbeddingEngineConfig
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -31,6 +32,8 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.ModelInfo
+import com.google.ai.edge.litertlm.ModelType
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import com.ollitert.llm.server.R
@@ -287,13 +290,38 @@ object LiteRtEngineFactory {
         else null,
     )
 
-    var supportsSpeculativeDecoding = false
-    try {
-      Capabilities(modelPath).use {
-        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
-      }
+    val modelInfo: ModelInfo? = try {
+      ModelInfo.from(modelPath)
     } catch (e: Exception) {
-      Log.w(TAG, "Capabilities probe failed for '${model.name}': ${e.message}")
+      Log.w(TAG, "ModelInfo probe failed for '${model.name}': ${e.message}")
+      null
+    }
+
+    val isEmbeddingModel = modelInfo?.modelType == ModelType.EMBEDDING
+    var supportsSpeculativeDecoding = false
+    modelInfo?.let { info ->
+      try {
+        supportsSpeculativeDecoding = (info as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport() ?: false
+      } catch (e: Exception) {
+        Log.w(TAG, "Spec-decode capability probe failed for '${model.name}': ${e.message}")
+      } finally {
+        try { info.close() } catch (_: Exception) { }
+      }
+    }
+
+    if (isEmbeddingModel) {
+      initEmbeddingEngine(
+        context = context,
+        model = model,
+        modelPath = modelPath,
+        preferredBackend = preferredBackend,
+        visionBackend = visionBackend,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        canFallbackToCpu = canFallbackToCpu,
+        onDone = onDone,
+      )
+      return
     }
 
     val specDecUserEnabled = configOverrides?.configSpeculativeDecodingEnabled()
@@ -384,6 +412,67 @@ object LiteRtEngineFactory {
       onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
     }
+    onDone("")
+  }
+
+  /**
+   * Creates and initializes an [EmbeddingEngine] for an embedding model (detected via
+   * [ModelInfo]), storing it in [Model.instance]. Mirrors the chat path's GPU→CPU
+   * fallback and logging, minus conversations/samplers (not applicable to embeddings).
+   */
+  @OptIn(ExperimentalApi::class)
+  private fun initEmbeddingEngine(
+    context: Context,
+    model: Model,
+    modelPath: String,
+    preferredBackend: Backend,
+    visionBackend: Backend,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    canFallbackToCpu: Boolean,
+    onDone: (String) -> Unit,
+  ) {
+    fun embeddingConfigFor(backend: Backend, vision: Backend) = EmbeddingEngineConfig(
+      modelPath = modelPath,
+      backend = backend,
+      visionBackend = if (supportImage) vision else null,
+      audioBackend = if (supportAudio) Backend.CPU() else null,
+      cacheDir =
+        if (modelPath.startsWith("/data/local/tmp"))
+          context.getExternalFilesDir(null)?.absolutePath
+        else null,
+    )
+
+    fun attempt(backend: Backend, vision: Backend): EmbeddingEngine? = try {
+      val engine = EmbeddingEngine(embeddingConfigFor(backend, vision))
+      engine.initialize()
+      engine
+    } catch (e: Exception) {
+      Log.e(TAG, "Embedding engine init failed for '${model.name}' with ${backend::class.simpleName}: " +
+        "[${e::class.simpleName}] ${e.message}", e)
+      null
+    }
+
+    val engine = attempt(preferredBackend, visionBackend)
+      ?: if (preferredBackend is Backend.GPU && canFallbackToCpu) {
+        Log.w(TAG, "GPU embedding init failed, retrying with CPU backend for '${model.name}'")
+        ServerMetrics.onCpuFallbackStarted()
+        attempt(Backend.CPU(), Backend.CPU())
+      } else null
+
+    if (engine == null) {
+      onDone(context.getString(R.string.error_unknown))
+      return
+    }
+
+    model.instance = engine
+    Log.i(TAG, "Embedding engine initialized on ${preferredBackend::class.simpleName} for '${model.name}'")
+    RequestLogStore.addEvent(
+      "Embedding engine initialized",
+      level = LogLevel.INFO,
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
     onDone("")
   }
 
