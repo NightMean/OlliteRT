@@ -454,7 +454,7 @@ private suspend fun withRequestLoggingBody(
       return
     }
 
-    val body = try {
+    val rawBody = try {
       withTimeoutOrNull(REQUEST_BODY_READ_TIMEOUT_MS) { withContext(Dispatchers.IO) { call.receiveText() } }
         ?: run {
           val message = "Request body took too long to receive"
@@ -481,7 +481,7 @@ private suspend fun withRequestLoggingBody(
 
     // Slot routes pin the model field to the slot's resident model here, so the
     // rewritten body is what gets logged, compacted, and handed to the handler.
-    val body = bodyTransform?.invoke(body) ?: body
+    val body = bodyTransform?.invoke(rawBody) ?: rawBody
 
     val compactImages = prefs.compactImageData
     val captureBody = { rawBody: String ->
