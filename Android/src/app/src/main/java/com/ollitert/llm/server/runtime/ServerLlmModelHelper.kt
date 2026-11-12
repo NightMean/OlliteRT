@@ -20,6 +20,7 @@ package com.ollitert.llm.server.runtime
 import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.EmbeddingEngine
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.ExperimentalApi
@@ -186,6 +187,18 @@ object ServerLlmModelHelper {
   }
 
   fun cleanUp(model: Model, onDone: () -> Unit) {
+    // Embedding models store a bare EmbeddingEngine in instance (no conversation).
+    (model.instance as? EmbeddingEngine)?.let { embeddingEngine ->
+      try {
+        embeddingEngine.close()
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to close the embedding engine: ${e.message}")
+      }
+      model.instance = null
+      onDone()
+      Log.d(TAG, "Clean up done (embedding engine).")
+      return
+    }
     val instance = model.instance as? LlmModelInstance ?: return
 
     try {

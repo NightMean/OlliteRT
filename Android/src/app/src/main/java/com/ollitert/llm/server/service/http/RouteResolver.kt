@@ -42,7 +42,6 @@ object RouteResolver {
    * cannot support, or null if the URI is not a recognized unsupported endpoint.
    */
   fun getUnsupportedEndpointMessage(uri: String): String? = when {
-    uri.startsWith("/v1/embeddings") -> "Embeddings are not supported — this server runs inference-only models"
     uri.startsWith("/v1/audio/speech") -> "Audio speech synthesis is not supported by this server"
     uri.startsWith("/v1/audio") && !uri.startsWith("/v1/audio/transcriptions") ->
       "Audio endpoint not supported by this server"
