@@ -28,6 +28,7 @@ import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.routes.audioRoutes
 import com.ollitert.llm.server.service.routes.chatRoutes
+import com.ollitert.llm.server.service.routes.embeddingRoutes
 import com.ollitert.llm.server.service.routes.managementRoutes
 import com.ollitert.llm.server.service.routes.modelRoutes
 import com.ollitert.llm.server.service.routes.serverControlRoutes
@@ -119,6 +120,7 @@ class KtorServer(
         managementRoutes(this@KtorServer)
         modelRoutes(this@KtorServer)
         chatRoutes(this@KtorServer)
+        embeddingRoutes(this@KtorServer)
         audioRoutes(this@KtorServer)
         serverControlRoutes(this@KtorServer)
       }
