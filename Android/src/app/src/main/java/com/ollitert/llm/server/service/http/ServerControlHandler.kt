@@ -126,6 +126,9 @@ class ServerControlHandler(
     return try {
       val err = modelLifecycle.loadSecondaryModel(name)
       if (err.isEmpty()) {
+        // API-driven load: re-post the foreground notification so the second
+        // model line appears without a GUI round-trip (same as the intent path).
+        ServerService.refreshRunningNotification(serviceContext)
         httpOkJson(buildJsonObject {
           put("success", true)
           put("message", "Second model loaded")
@@ -151,6 +154,8 @@ class ServerControlHandler(
     return try {
       val err = modelLifecycle.unloadSecondaryModel(name)
       if (err.isEmpty()) {
+        // Mirror the load path: drop the second model line from the notification.
+        ServerService.refreshRunningNotification(serviceContext)
         httpOkJson("""{"success":true,"message":"Second model unloaded"}""")
       } else {
         httpJsonError(400, err)
