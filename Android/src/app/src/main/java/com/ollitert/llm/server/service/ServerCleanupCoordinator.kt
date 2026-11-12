@@ -130,6 +130,7 @@ internal object ServerCleanupCoordinator {
     loadJob: kotlinx.coroutines.Job?,
     inferenceExecutor: java.util.concurrent.ExecutorService?,
     source: String,
+    keepCompanion: Boolean = false,
   ) {
     val modelsToCleanUp = linkedSetOf<com.ollitert.llm.server.data.model.Model>()
     synchronized(modelLifecycle.keepAliveLock) {
@@ -137,6 +138,17 @@ internal object ServerCleanupCoordinator {
       modelLifecycle.defaultModel = null
       modelsToCleanUp.addAll(modelLifecycle.modelCache.values.filter { it.instance != null })
       modelLifecycle.modelCache.clear()
+      if (keepCompanion) {
+        // Reload path: the pinned companion model survives the chat model
+        // teardown and is re-published by the next load's restore step.
+        // Clearing it here would orphan its native engine (leak).
+        val companion = modelLifecycle.companionModel
+        if (companion != null) modelsToCleanUp.remove(companion)
+      } else {
+        // Destroy path: tear the companion down too.
+        modelLifecycle.companionModel?.let(modelsToCleanUp::add)
+        modelLifecycle.companionModel = null
+      }
     }
     if (
       loadJob != null || inferenceExecutor != null || modelsToCleanUp.isNotEmpty() ||

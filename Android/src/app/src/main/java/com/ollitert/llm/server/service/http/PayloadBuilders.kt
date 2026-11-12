@@ -282,21 +282,29 @@ object PayloadBuilders {
    * Reports the active model, or the idle-unloaded model name if keep_alive has
    * unloaded the model but the server is still running.
    */
-  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json): String {
-    if (activeModel == null) {
+  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json, companionModel: Model? = null): String {
+    val items = mutableListOf<LlmHttpModelItem>()
+    activeModel?.let { items.add(it.toModelItem()) }
+    companionModel?.let { companion ->
+      // Never list the companion twice when it IS the active model (e.g. the
+      // user started the server directly on the embedding model).
+      if (activeModel == null || !companion.name.equals(activeModel.name, ignoreCase = true)) {
+        items.add(companion.toModelItem())
+      }
+    }
+    if (items.isEmpty()) {
       // If model is idle-unloaded (keep_alive), still report it so clients know
       // which model will serve their next request (after auto-reload).
       val idleName = idleUnloadedModelName
       if (idleName != null) {
         Log.d(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
-        val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
-        return json.encodeToString(LlmHttpModelList(data = listOf(item)))
+        items.add(LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value))
+      } else {
+        Log.d(TAG, "Models list: no model loaded")
       }
-      Log.d(TAG, "Models list: no model loaded")
-      return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
-    Log.d(TAG, "Models list: active model=${activeModel.name}")
-    return json.encodeToString(LlmHttpModelList(data = listOf(activeModel.toModelItem())))
+    Log.d(TAG, "Models list: ${items.map { it.id }}")
+    return json.encodeToString(LlmHttpModelList(data = items))
   }
 
   /**

@@ -66,5 +66,21 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
         handleServerConfig("")
       }
     }
+
+    post("/v1/server/models/load") {
+      if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
+      withRequestLogging(call) { body, _, _, _, _, _ ->
+        handleModelLoad(body)
+      }
+    }
+
+    post("/v1/server/models/unload") {
+      if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
+      withRequestLogging(call) { body, _, _, _, _, _ ->
+        handleModelUnload(body)
+      }
+    }
   }
 }

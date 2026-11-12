@@ -108,6 +108,59 @@ class ServerControlHandler(
     return httpOkJson(result.toString())
   }
 
+  /**
+   * Handles POST /v1/server/models/load — pins a second (embedding) model to
+   * stay resident alongside the active chat model. Blocking: native engine init
+   * runs 10-60s on the CIO worker thread (never the main looper).
+   */
+  fun handleModelLoad(body: String): HttpResponse {
+    val obj = try {
+      if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
+    val name = obj?.get("name")?.jsonPrimitive?.content?.trim().orEmpty()
+    if (name.isEmpty()) {
+      return httpBadRequest("Missing required field: name (e.g. {\"name\": \"EmbeddingGemma-2-740M\"})")
+    }
+    return try {
+      val err = modelLifecycle.loadCompanionModel(name)
+      if (err.isEmpty()) {
+        httpOkJson(buildJsonObject {
+          put("success", true)
+          put("message", "Companion model loaded")
+          put("model", modelLifecycle.companionModel?.name ?: name)
+        }.toString())
+      } else {
+        httpJsonError(400, err)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Companion model load failed", e)
+      httpInternalError("Companion model load failed: ${e.message}")
+    }
+  }
+
+  /** Handles POST /v1/server/models/unload — releases the pinned companion model. */
+  fun handleModelUnload(body: String): HttpResponse {
+    val obj = try {
+      if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
+    val name = obj?.get("name")?.jsonPrimitive?.content?.trim()?.ifEmpty { null }
+    return try {
+      val err = modelLifecycle.unloadCompanionModel(name)
+      if (err.isEmpty()) {
+        httpOkJson("""{"success":true,"message":"Companion model unloaded"}""")
+      } else {
+        httpJsonError(400, err)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Companion model unload failed", e)
+      httpInternalError("Companion model unload failed: ${e.message}")
+    }
+  }
+
   private data class ModelContext(
     val model: Model?,
     val isIdle: Boolean,
