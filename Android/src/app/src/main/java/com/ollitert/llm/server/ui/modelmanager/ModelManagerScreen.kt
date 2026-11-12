@@ -104,9 +104,12 @@ fun ModelManagerScreen(
   onNavigateToRepositories: () -> Unit = {},
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  companionModelName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
   onSwitchModel: (String) -> Unit = {},
+  onLoadCompanion: (String) -> Unit = {},
+  onStopCompanion: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val showRecommendations by viewModel.showModelRecommendations.collectAsStateWithLifecycle()
@@ -231,13 +234,25 @@ fun ModelManagerScreen(
       ).show()
     } else {
       val isServerActive = serverStatus == ServerStatus.RUNNING
-      val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
-      if (isServerActive && isDifferentModel) {
-        // Ask user to confirm switching models
-        dialogState.pendingSwitchModel = model
-        dialogState.showSwitchModelDialog = true
+      // A model resident as the pinned companion (e.g. the embedding model alongside
+      // the chat model) is NOT a switch target — tapping it must not offer a replace.
+      val isCompanionLoaded = isServerActive &&
+        companionModelName != null && companionModelName.equals(model.name, ignoreCase = true)
+      if (isCompanionLoaded) {
+        Toast.makeText(
+          context,
+          context.getString(R.string.companion_loaded_toast),
+          Toast.LENGTH_SHORT,
+        ).show()
       } else {
-        onModelSelected(model)
+        val isDifferentModel = activeModelName != null && !activeModelName.equals(model.name, ignoreCase = true)
+        if (isServerActive && isDifferentModel) {
+          // Ask user to confirm switching models
+          dialogState.pendingSwitchModel = model
+          dialogState.showSwitchModelDialog = true
+        } else {
+          onModelSelected(model)
+        }
       }
     }
   }
@@ -408,12 +423,14 @@ fun ModelManagerScreen(
           showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
           serverStatus = serverStatus,
           activeModelName = activeModelName,
+          companionModelName = companionModelName,
           lastError = lastError,
           onStopServer = onStopServer,
+          onStopCompanion = { onStopCompanion(model.name) },
           onNavigateToSettings = onNavigateToSettings,
           searchQuery = searchQuery,
           showRecommendations = showRecommendations,
-        )
+          )
       }
 
       // Built-in models grouped by source repository (built-in repo always first)
@@ -447,8 +464,10 @@ fun ModelManagerScreen(
             showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
             serverStatus = serverStatus,
             activeModelName = activeModelName,
+            companionModelName = companionModelName,
             lastError = lastError,
             onStopServer = onStopServer,
+            onStopCompanion = { onStopCompanion(model.name) },
             onNavigateToSettings = onNavigateToSettings,
             searchQuery = searchQuery,
             showRecommendations = showRecommendations,
@@ -616,6 +635,7 @@ fun ModelManagerScreen(
     serverStatus = serverStatus,
     activeModelName = activeModelName,
     onSwitchModel = onSwitchModel,
+    onLoadCompanion = onLoadCompanion,
   )
 }
 

@@ -61,7 +61,9 @@ fun DownloadModelPanel(
   showBenchmarkButton: Boolean = false,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  isCompanionLoaded: Boolean = false,
   onStopServer: () -> Unit = {},
+  onStopCompanion: () -> Unit = {},
 ) {
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   Row(
@@ -173,7 +175,9 @@ fun DownloadModelPanel(
       modifierWhenExpanded = Modifier.weight(1f),
       serverStatus = serverStatus,
       activeModelName = activeModelName,
+      isCompanionLoaded = isCompanionLoaded,
       onStopServer = onStopServer,
+      onStopCompanion = onStopCompanion,
     )
   }
 }

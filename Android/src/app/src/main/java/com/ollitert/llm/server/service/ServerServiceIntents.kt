@@ -77,6 +77,39 @@ fun ServerService.Companion.reload(context: Context, port: Int = DEFAULT_PORT, m
       }
     }
 
+/**
+ * Pins [modelName] as the companion model (embedding, in this version) alongside the
+ * running chat model. The service performs the blocking native init (10-60s cold) on
+ * its own IO scope; result is surfaced via ServerMetrics/RequestLogStore. Fire-and-forget:
+ * failures are logged in the service, not propagated to the caller.
+ */
+fun ServerService.Companion.loadCompanion(context: Context, modelName: String) {
+  try {
+    context.startService(
+      Intent(context, ServerService::class.java).apply {
+        action = ACTION_LOAD_COMPANION
+        putExtra(EXTRA_MODEL_NAME, modelName)
+      }
+    )
+  } catch (e: Exception) {
+    Log.w(TAG, "Failed to send companion load intent — service may not be running", e)
+  }
+}
+
+/** Unloads the pinned companion model. [modelName] guards against a stale tap. Fire-and-forget. */
+fun ServerService.Companion.unloadCompanion(context: Context, modelName: String? = null) {
+  try {
+    context.startService(
+      Intent(context, ServerService::class.java).apply {
+        action = ACTION_UNLOAD_COMPANION
+        if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
+      }
+    )
+  } catch (e: Exception) {
+    Log.w(TAG, "Failed to send companion unload intent — service may not be running", e)
+  }
+}
+
 fun ServerService.Companion.resetKeepAliveTimer(context: Context) {
       try {
         context.startService(

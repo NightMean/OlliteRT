@@ -35,6 +35,7 @@ interface ServerStateRepository {
   val lifecycleState: StateFlow<ServerLifecycleState>
   val isInferring: StateFlow<Boolean>
   val activeModelName: StateFlow<String?>
+  val companionModelName: StateFlow<String?>
   val activeModelSize: StateFlow<Long>
   val port: StateFlow<Int>
   val bindAddress: StateFlow<String?>
@@ -93,6 +94,7 @@ class DefaultServerStateRepository @Inject constructor() : ServerStateRepository
   override val lifecycleState: StateFlow<ServerLifecycleState> get() = ServerMetrics.lifecycleState
   override val isInferring: StateFlow<Boolean> get() = ServerMetrics.isInferring
   override val activeModelName: StateFlow<String?> get() = ServerMetrics.activeModelName
+  override val companionModelName: StateFlow<String?> get() = ServerMetrics.companionModelName
   override val activeModelSize: StateFlow<Long> get() = ServerMetrics.activeModelSize
   override val port: StateFlow<Int> get() = ServerMetrics.port
   override val bindAddress: StateFlow<String?> get() = ServerMetrics.bindAddress

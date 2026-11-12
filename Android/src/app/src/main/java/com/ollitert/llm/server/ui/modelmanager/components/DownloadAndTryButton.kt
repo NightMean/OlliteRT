@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Refresh
@@ -138,7 +139,9 @@ fun DownloadAndTryButton(
   canShowTryIt: Boolean = true,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  isCompanionLoaded: Boolean = false,
   onStopServer: () -> Unit = {},
+  onStopCompanion: () -> Unit = {},
 ) {
   val isThisModelActive = activeModelName != null &&
     activeModelName.equals(model.name, ignoreCase = true)
@@ -341,6 +344,85 @@ fun DownloadAndTryButton(
               maxLines = 1,
               autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
+          }
+        }
+      }
+    } else if (isCompanionLoaded) {
+      // Resident companion (e.g. embedding model alongside the chat model):
+      // keep the "Companion Loaded" state visible and offer an explicit stop.
+      if (compact) {
+        Button(
+          modifier = buttonModifier,
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+          ),
+          contentPadding = PaddingValues(horizontal = 12.dp),
+          onClick = { onStopCompanion() },
+        ) {
+          Icon(
+            Icons.Outlined.StopCircle,
+            contentDescription = stringResource(R.string.cd_stop_companion),
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+          )
+        }
+      } else {
+        Row(
+          modifier = buttonModifier,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Button(
+            modifier = Modifier.weight(1f),
+            enabled = false,
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+              disabledContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            onClick = {},
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+              )
+              Text(
+                stringResource(R.string.companion_loaded),
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              )
+            }
+          }
+          Button(
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.errorContainer,
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            onClick = { onStopCompanion() },
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                Icons.Outlined.StopCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+              )
+              Text(
+                stringResource(R.string.button_stop_companion),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              )
+            }
           }
         }
       }

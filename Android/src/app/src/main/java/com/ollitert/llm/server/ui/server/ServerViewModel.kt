@@ -35,6 +35,8 @@ import com.ollitert.llm.server.service.queueReloadAfterLoad
 import com.ollitert.llm.server.service.reload
 import com.ollitert.llm.server.service.start
 import com.ollitert.llm.server.service.stop
+import com.ollitert.llm.server.service.loadCompanion
+import com.ollitert.llm.server.service.unloadCompanion
 
 /**
  * ViewModel that exposes server state to the UI layer.
@@ -50,6 +52,7 @@ class ServerViewModel @Inject constructor(
   val status = serverStateRepository.status
   val isInferring = serverStateRepository.isInferring
   val activeModelName = serverStateRepository.activeModelName
+  val companionModelName = serverStateRepository.companionModelName
   val activeModelSize = serverStateRepository.activeModelSize
   val port = serverStateRepository.port
   val bindAddress = serverStateRepository.bindAddress
@@ -142,6 +145,20 @@ class ServerViewModel @Inject constructor(
     if (actionInFlight) return
     setActionInFlight()
     ServerService.reload(context, port, modelName)
+  }
+
+  /**
+   * Pins [modelName] as the companion model alongside the running chat model
+   * (embedding models in this version). The service does the blocking native
+   * init on its own IO scope; state appears in [companionModelName] when done.
+   */
+  fun loadCompanionModel(modelName: String) {
+    ServerService.loadCompanion(context, modelName)
+  }
+
+  /** Unloads the pinned companion model; the chat model keeps serving. */
+  fun unloadCompanionModel(modelName: String? = null) {
+    ServerService.unloadCompanion(context, modelName)
   }
 
   fun getBearerToken(): String = preferencesRepository.getBearerToken()

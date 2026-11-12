@@ -233,6 +233,7 @@ class ModelLifecycle(
       // instead of publishing a model onto a dead lifecycle.
       companionLoadGeneration.incrementAndGet()
       companionLoadingName.set(null)
+      ServerMetrics.updateCompanionModelName(null)
       // Service shutdown has already stopped request admission and interrupted
       // inference, so a deferred OOM cleanup must not remain blocked on old leases.
       emergencyUnloadState?.cleanupReady?.countDown()
@@ -316,6 +317,7 @@ class ModelLifecycle(
         // Service keeps running after OOM — a stale loading flag would wedge
         // all future companion loads with "already loading".
         companionLoadingName.set(null)
+        ServerMetrics.updateCompanionModelName(null)
       }
       ServerMetrics.onModelIdleUnloaded()
       val cleanupReady = CountDownLatch(1)
@@ -825,6 +827,7 @@ class ModelLifecycle(
         companionModel = model
         modelCache[model.name] = model
         ServerPrefs.setCompanionModelName(context, model.name)
+        ServerMetrics.updateCompanionModelName(model.name)
       }
     } catch (e: Exception) {
       ServerLlmModelHelper.safeCleanup(model)
@@ -871,6 +874,7 @@ class ModelLifecycle(
       current
     }
     ServerPrefs.setCompanionModelName(context, null)
+    ServerMetrics.updateCompanionModelName(null)
     // Native close outside the lock — state transition is already published.
     ServerLlmModelHelper.safeCleanup(model)
     RequestLogStore.addEvent(
@@ -879,28 +883,6 @@ class ModelLifecycle(
       category = EventCategory.MODEL,
     )
     return ""
-  }
-
-  /**
-   * Best-effort restore of the persisted companion after the default model has
-   * been published (server start / reload). Runs on the lifecycle IO scope;
-   * failures are logged by [loadCompanionModel] and are not fatal — the chat
-   * model must stay up even if the companion files are missing.
-   */
-  fun restoreCompanionIfNeeded() {
-    val name = ServerPrefs.getCompanionModelName(context) ?: return
-    lifecycleScope.launch {
-      val err = loadCompanionModel(name)
-      if (err.isNotEmpty()) {
-        Log.w(TAG, "Companion restore failed for '$name': $err")
-        RequestLogStore.addEvent(
-          "Companion model restore failed: $err",
-          level = LogLevel.WARNING,
-          modelName = name,
-          category = EventCategory.MODEL,
-        )
-      }
-    }
   }
 
   // ── Utilities ──────────────────────────────────────────────────────────────

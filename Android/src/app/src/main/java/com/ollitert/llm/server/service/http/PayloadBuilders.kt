@@ -109,7 +109,7 @@ object PayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null, companionModelName: String? = null): String {
     val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
@@ -123,6 +123,8 @@ object PayloadBuilders {
       }
       put("status", JsonPrimitive(statusStr))
       snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      // Resident companion model (e.g. embedding model loaded alongside the chat model)
+      companionModelName?.let { put("companion_model", JsonPrimitive(it)) }
       snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
       val latestVersion = ServerMetrics.availableUpdateVersion.value

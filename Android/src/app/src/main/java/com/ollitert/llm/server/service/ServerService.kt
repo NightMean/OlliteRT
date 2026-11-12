@@ -158,10 +158,6 @@ class ServerService : Service() {
         onModelPublished = { model ->
           defaultModel = model
           modelCache[model.name] = model
-          // Restore the pinned companion (if persisted) now that the chat model
-          // is up. Non-blocking: reads prefs and launches on the lifecycle IO
-          // scope, so it is safe to call from under keepAliveLock.
-          modelLifecycle.restoreCompanionIfNeeded()
         },
         onOomRecover = {
           // Both lifecycle references must be cleared under keepAliveLock —
@@ -213,6 +209,45 @@ class ServerService : Service() {
 
     if (intent?.action == ACTION_REFRESH_RUNNING_NOTIFICATION) {
       notificationManager.refreshRunning()
+      return START_STICKY
+    }
+
+    // Companion model load/unload — lightweight actions while the server keeps running.
+    // Both run on the service's IO scope: the companion's native init is blocking
+    // (10-60s cold) and must never touch the main thread.
+    if (intent?.action == ACTION_LOAD_COMPANION) {
+      val name = intent.getStringExtra(EXTRA_MODEL_NAME)
+      if (name == null) {
+        Log.w(TAG, "Companion load intent without model name — ignoring")
+        return START_STICKY
+      }
+      serviceScope.launch {
+        val err = modelLifecycle.loadCompanionModel(name)
+        if (err.isNotEmpty()) {
+          Log.w(TAG, "Companion load from UI failed for '$name': $err")
+          RequestLogStore.addEvent(
+            "Companion model load failed: $err",
+            level = LogLevel.WARNING,
+            modelName = name,
+            category = EventCategory.MODEL,
+          )
+        }
+      }
+      return START_STICKY
+    }
+    if (intent?.action == ACTION_UNLOAD_COMPANION) {
+      val name = intent.getStringExtra(EXTRA_MODEL_NAME)
+      serviceScope.launch {
+        val err = modelLifecycle.unloadCompanionModel(name)
+        if (err.isNotEmpty()) {
+          Log.w(TAG, "Companion unload from UI failed: $err")
+          RequestLogStore.addEvent(
+            "Companion model unload failed: $err",
+            level = LogLevel.WARNING,
+            category = EventCategory.MODEL,
+          )
+        }
+      }
       return START_STICKY
     }
 
@@ -613,6 +648,8 @@ class ServerService : Service() {
     const val DEFAULT_PORT = com.ollitert.llm.server.data.prefs.DEFAULT_PORT
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
+    const val ACTION_LOAD_COMPANION = "com.ollitert.llm.server.LOAD_COMPANION"
+    const val ACTION_UNLOAD_COMPANION = "com.ollitert.llm.server.UNLOAD_COMPANION"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     const val ACTION_RESET_FLOATING_MONITOR_POSITION = "com.ollitert.llm.server.RESET_FLOATING_MONITOR_POSITION"
     const val ACTION_REFRESH_RUNNING_NOTIFICATION = "com.ollitert.llm.server.REFRESH_RUNNING_NOTIFICATION"

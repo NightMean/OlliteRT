@@ -216,6 +216,7 @@ fun OlliteRTNavHost(
       }
       val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
+      val companionModelName by serverViewModel.companionModelName.collectAsStateWithLifecycle()
       val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
       ModelManagerScreen(
         viewModel = modelManagerViewModel,
@@ -236,6 +237,7 @@ fun OlliteRTNavHost(
         },
         serverStatus = serverStatus,
         activeModelName = activeModelName,
+        companionModelName = companionModelName,
         lastError = lastError,
         onStopServer = { serverViewModel.stopServer() },
         onSwitchModel = { modelName ->
@@ -243,6 +245,12 @@ fun OlliteRTNavHost(
           serverViewModel.incrementManualStartCount()
           manualStartPending = true
           serverViewModel.switchModel(modelName)
+        },
+        onLoadCompanion = { modelName ->
+          serverViewModel.loadCompanionModel(modelName)
+        },
+        onStopCompanion = { modelName ->
+          serverViewModel.unloadCompanionModel(modelName)
         },
         onNavigateToSettings = { navController.navigate(OlliteRTRoute.Settings) { launchSingleTop = true } },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
