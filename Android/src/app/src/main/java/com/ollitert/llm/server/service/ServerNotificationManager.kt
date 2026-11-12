@@ -156,9 +156,9 @@ class ServerNotificationManager(private val context: Context) {
         append(context.resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
         append("\n")
       }
-      append(context.getString(R.string.notif_server_body_model, model.name))
-      append("\n")
       append(context.getString(R.string.notif_server_body_url, notifState.endpointUrl))
+      append("\n")
+      append(context.getString(R.string.notif_server_body_model, model.name))
       // A second model can be resident across a reload (its engine survives the
       // chat-model teardown) — reflect it in the initial running notification.
       ServerMetrics.secondaryModelName.value?.let { name ->

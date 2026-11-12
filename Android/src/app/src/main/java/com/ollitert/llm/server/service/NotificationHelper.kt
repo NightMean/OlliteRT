@@ -147,7 +147,7 @@ object NotificationHelper {
     update(
       context = context,
       title = context.getString(R.string.notif_server_running_title),
-      text = "$reqLabel\n${context.getString(R.string.notif_server_body_model, modelName)}\n${context.getString(R.string.notif_server_body_url, endpointUrl)}$secondModelLine$updateLine",
+      text = "$reqLabel\n${context.getString(R.string.notif_server_body_url, endpointUrl)}\n${context.getString(R.string.notif_server_body_model, modelName)}$secondModelLine$updateLine",
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,
