@@ -27,6 +27,10 @@ import android.os.SystemClock
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.EmbeddingEngine
+import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.ModelInfo
+import com.google.ai.edge.litertlm.ModelType
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.IMPORTS_DIR
@@ -81,6 +85,24 @@ class ModelLifecycle(
 
   /** Currently loaded model. Null when idle-unloaded or before first load. */
   @Volatile var defaultModel: Model? = null
+
+  /**
+   * Pinned companion model — a second resident model loaded alongside [defaultModel]
+   * (embedding-only in v1). Unlike [defaultModel] it is exempt from keep-alive
+   * idle unload and from reload teardown, so e.g. an embedding model stays warm
+   * while the chat model is swapped. Null when no companion is loaded.
+   */
+  @Volatile var companionModel: Model? = null
+
+  /**
+   * Generation counter guarding concurrent companion loads: a load publishes only
+   * if its generation is still current, mirroring ServerModelLoader's load-generation
+   * pattern. Bumped on every [loadCompanionModel] start and on [destroy].
+   */
+  private val companionLoadGeneration = java.util.concurrent.atomic.AtomicLong(0)
+
+  /** Name of a companion model currently initializing (null = no load in flight). */
+  private val companionLoadingName = java.util.concurrent.atomic.AtomicReference<String?>(null)
 
   /** Cache of Model objects built from the allowlist, keyed by name. */
   val modelCache: MutableMap<String, Model> = java.util.concurrent.ConcurrentHashMap()
@@ -207,6 +229,10 @@ class ModelLifecycle(
     synchronized(keepAliveLock) {
       isDestroyed = true
       cancelKeepAliveTimer()
+      // Invalidate any in-flight companion load so it cleans up after itself
+      // instead of publishing a model onto a dead lifecycle.
+      companionLoadGeneration.incrementAndGet()
+      companionLoadingName.set(null)
       // Service shutdown has already stopped request admission and interrupted
       // inference, so a deferred OOM cleanup must not remain blocked on old leases.
       emergencyUnloadState?.cleanupReady?.countDown()
@@ -270,13 +296,27 @@ class ModelLifecycle(
    * receive a retryable rejection until cleanup completes.
    */
   fun emergencyUnloadOnOom() {
+    var companion: Model? = null
     val emergency = synchronized(keepAliveLock) {
       if (isDestroyed || emergencyUnloadState != null) return
       val model = defaultModel ?: return
-      Log.w(TAG, "OOM: emergency-unloading model ${model.name}")
+      // Free the companion's RAM too: under OOM pressure the smaller resident
+      // engine is the cheap one to drop, and it restores itself on next load.
+      companion = companionModel
+      Log.w(TAG, "OOM: emergency-unloading model ${model.name}" +
+        (if (companion != null) " and companion ${companion.name}" else ""))
       keepAliveUnloadedRef.set(model.name to model.prefsKey)
       defaultModel = null
       modelCache.remove(model.name, model)
+      if (companion != null) {
+        companionModel = null
+        modelCache.remove(companion.name, companion)
+        ServerPrefs.setCompanionModelName(context, null)
+        companionLoadGeneration.incrementAndGet()
+        // Service keeps running after OOM — a stale loading flag would wedge
+        // all future companion loads with "already loading".
+        companionLoadingName.set(null)
+      }
       ServerMetrics.onModelIdleUnloaded()
       val cleanupReady = CountDownLatch(1)
       val cleanupFinished = CountDownLatch(1)
@@ -295,6 +335,7 @@ class ModelLifecycle(
       awaitLatchUninterruptibly(emergency.cleanupReady)
       try {
         ServerLlmModelHelper.safeCleanup(emergency.model)
+        companion?.let { ServerLlmModelHelper.safeCleanup(it) }
       } finally {
         synchronized(keepAliveLock) {
           if (emergencyUnloadState === emergency) emergencyUnloadState = null
@@ -654,6 +695,211 @@ class ModelLifecycle(
         "Model '${requested}' is not loaded. Currently loaded: '${active.name}'. " +
           "Please select '${active.name}' in your client or load the requested model on the device first."
       )
+    }
+  }
+
+  // ── Companion model (second resident model, embedding-only in v1) ─────────
+
+  /**
+   * Resolves the embedding model for an /v1/embeddings request. Looks at BOTH
+   * resident models (companion first, then default) so a chat model can be the
+   * active default while a pinned embedding model serves embeddings.
+   *
+   * [requestedModel] is the client's `model` field: blank/"local"/"default"
+   * resolves to whichever loaded model has an embedding engine; any other value
+   * must name-match a loaded embedding model (same normalization rules as
+   * [selectModel]).
+   */
+  fun selectEmbeddingModel(requestedModel: String?): ModelSelection {
+    synchronized(keepAliveLock) {
+      val candidates = listOfNotNull(companionModel, defaultModel)
+      if (candidates.isEmpty()) {
+        return ModelSelection.Error(
+          503,
+          "No model is loaded. Load an embedding model first (POST /v1/server/models/load)."
+        )
+      }
+      val requested = requestedModel?.trim().orEmpty()
+      if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
+        requested.equals("default", ignoreCase = true)
+      ) {
+        val any = candidates.firstOrNull { (it.instance as? EmbeddingEngine) != null }
+          ?: return ModelSelection.Error(
+            400,
+            "No embedding model is loaded. Loaded: " +
+              candidates.joinToString { it.name } +
+              ". Load one via POST /v1/server/models/load."
+          )
+        return ModelSelection.Ok(any)
+      }
+      val requestedKey = BridgeUtils.normalizeModelKey(requested)
+      for (candidate in candidates) {
+        if ((candidate.instance as? EmbeddingEngine) == null) continue
+        val key = BridgeUtils.normalizeModelKey(candidate.name)
+        val legacyStorageKey = if (candidate.imported) {
+          BridgeUtils.normalizeModelKey(candidate.storageFileName)
+        } else null
+        if (requestedKey == key || requestedKey == legacyStorageKey) {
+          return ModelSelection.Ok(candidate)
+        }
+      }
+      return ModelSelection.Error(
+        400,
+        "Model '$requested' is not a loaded embedding model. Loaded: " +
+          candidates.joinToString { it.name }
+      )
+    }
+  }
+
+  /** Probes the model file's LiteRT model type; false on any probe failure. */
+  @OptIn(ExperimentalApi::class)
+  private fun isEmbeddingModelFile(model: Model): Boolean {
+    return try {
+      val info = ModelInfo.from(model.getPath(context))
+      val isEmbedding = info.modelType == ModelType.EMBEDDING
+      try { info.close() } catch (_: Exception) { }
+      isEmbedding
+    } catch (e: Exception) {
+      Log.w(TAG, "ModelInfo probe failed for companion check on '${model.name}': ${e.message}")
+      false
+    }
+  }
+
+  /**
+   * Loads [name] as the pinned companion model alongside the active chat model.
+   * Embedding-only in v1. Blocking: native engine init runs 10-60s and must be
+   * called from a background thread (route handler thread is fine — it is a CIO
+   * worker, not the main looper).
+   *
+   * Native init runs OUTSIDE [keepAliveLock] (mirroring ServerModelLoader's
+   * initial-load path) so a companion load never blocks chat request selection;
+   * state publication happens under the lock and is guarded by the load
+   * generation so a superseded load cleans up after itself.
+   *
+   * Returns an error message, or "" on success / already loaded.
+   */
+  fun loadCompanionModel(name: String): String {
+    val requestedKey = BridgeUtils.normalizeModelKey(name)
+    val model: Model
+    val generation: Long
+    synchronized(keepAliveLock) {
+      if (isDestroyed) return "Server is shutting down"
+      val existing = companionModel
+      if (existing != null && existing.instance != null) {
+        val existingKey = BridgeUtils.normalizeModelKey(existing.name)
+        return if (existingKey == requestedKey) ""
+        else "Companion model '${existing.name}' is already loaded — unload it first (POST /v1/server/models/unload)"
+      }
+      val inFlight = companionLoadingName.get()
+      if (inFlight != null) {
+        return "Companion model '$inFlight' is already loading — retry shortly"
+      }
+      val active = defaultModel
+      if (active != null && BridgeUtils.normalizeModelKey(active.name) == requestedKey) {
+        return "Model '$name' is the active chat model — the companion must be a different model"
+      }
+      model = pickModelByName(name)
+        ?: return "Model '$name' not found (not in the allowlist or imports registry)"
+      if (!isEmbeddingModelFile(model)) {
+        return "Only embedding models can be pinned as the companion (v1); '${model.name}' is a chat model"
+      }
+      companionLoadingName.set(model.name)
+      generation = companionLoadGeneration.incrementAndGet()
+    }
+    try {
+      val initErr = initializeEngine(model)
+      if (initErr.isNotEmpty()) {
+        ServerLlmModelHelper.safeCleanup(model)
+        return "Companion model load failed: $initErr"
+      }
+      synchronized(keepAliveLock) {
+        if (isDestroyed) {
+          ServerLlmModelHelper.safeCleanup(model)
+          return "Server is shutting down"
+        }
+        if (companionLoadGeneration.get() != generation) {
+          // A newer load request (or destroy) superseded this one.
+          ServerLlmModelHelper.safeCleanup(model)
+          return "Companion load superseded by a newer request — retry"
+        }
+        companionModel = model
+        modelCache[model.name] = model
+        ServerPrefs.setCompanionModelName(context, model.name)
+      }
+    } catch (e: Exception) {
+      ServerLlmModelHelper.safeCleanup(model)
+      return "Companion model load failed: ${e.message}"
+    } finally {
+      // Clear the loading flag on EVERY path (success, init failure, destroy,
+      // supersede). compareAndSet: only clear it if we still own it — a newer
+      // load may have already replaced it with its own name under the lock.
+      companionLoadingName.compareAndSet(model.name, null)
+    }
+    RequestLogStore.addEvent(
+      "Companion model loaded: ${model.name} (resident alongside active model)",
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
+    return ""
+  }
+
+  /**
+   * Unloads the pinned companion model. When [name] is given, unloads only if it
+   * matches the current companion. Returns an error message, or "" on success.
+   */
+  fun unloadCompanionModel(name: String?): String {
+    val model = synchronized(keepAliveLock) {
+      val current = companionModel ?: return "No companion model is loaded"
+      // Never close a native engine under in-flight requests: an embedding call
+      // mid-compute would hit a freed engine. Embedding calls are short (~0.5s),
+      // so a retryable rejection is the right call.
+      if (activeRequestAdmissions > 0 || ServerMetrics.isInferring.value) {
+        return "A request is in flight on the companion model — retry shortly"
+      }
+      if (name != null && name.isNotBlank()) {
+        val key = BridgeUtils.normalizeModelKey(name)
+        val currentKey = BridgeUtils.normalizeModelKey(current.name)
+        val legacyStorageKey = if (current.imported) {
+          BridgeUtils.normalizeModelKey(current.storageFileName)
+        } else null
+        if (key != currentKey && key != legacyStorageKey) {
+          return "Companion model is '${current.name}', not '$name'"
+        }
+      }
+      companionModel = null
+      modelCache.remove(current.name, current)
+      current
+    }
+    ServerPrefs.setCompanionModelName(context, null)
+    // Native close outside the lock — state transition is already published.
+    ServerLlmModelHelper.safeCleanup(model)
+    RequestLogStore.addEvent(
+      "Companion model unloaded: ${model.name}",
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
+    return ""
+  }
+
+  /**
+   * Best-effort restore of the persisted companion after the default model has
+   * been published (server start / reload). Runs on the lifecycle IO scope;
+   * failures are logged by [loadCompanionModel] and are not fatal — the chat
+   * model must stay up even if the companion files are missing.
+   */
+  fun restoreCompanionIfNeeded() {
+    val name = ServerPrefs.getCompanionModelName(context) ?: return
+    lifecycleScope.launch {
+      val err = loadCompanionModel(name)
+      if (err.isNotEmpty()) {
+        Log.w(TAG, "Companion restore failed for '$name': $err")
+        RequestLogStore.addEvent(
+          "Companion model restore failed: $err",
+          level = LogLevel.WARNING,
+          modelName = name,
+          category = EventCategory.MODEL,
+        )
+      }
     }
   }
 

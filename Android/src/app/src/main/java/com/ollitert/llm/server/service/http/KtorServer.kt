@@ -233,6 +233,10 @@ class KtorServer(
   internal fun handleServerConfig(body: String): HttpResponse =
     serverControlHandler.handleServerConfig(body, defaultModel, keepAliveUnloadedModelName)
 
+  internal fun handleModelLoad(body: String): HttpResponse = serverControlHandler.handleModelLoad(body)
+
+  internal fun handleModelUnload(body: String): HttpResponse = serverControlHandler.handleModelUnload(body)
+
   // ── Shared route handlers ─────────────────────────────────────────────────
 
   internal suspend fun handleServerInfo(call: ApplicationCall) {
@@ -253,7 +257,7 @@ class KtorServer(
       val body = if (call.request.headers["anthropic-version"] != null) {
         PayloadBuilders.anthropicModelsList(defaultModel, keepAliveUnloadedModelName)
       } else {
-        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json, modelLifecycle.companionModel)
       }
       httpOkJson(body)
     }

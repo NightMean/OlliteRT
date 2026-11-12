@@ -158,6 +158,10 @@ class ServerService : Service() {
         onModelPublished = { model ->
           defaultModel = model
           modelCache[model.name] = model
+          // Restore the pinned companion (if persisted) now that the chat model
+          // is up. Non-blocking: reads prefs and launches on the lifecycle IO
+          // scope, so it is safe to call from under keepAliveLock.
+          modelLifecycle.restoreCompanionIfNeeded()
         },
         onOomRecover = {
           // Both lifecycle references must be cleared under keepAliveLock —

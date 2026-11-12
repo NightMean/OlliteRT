@@ -30,6 +30,7 @@ private const val PREFS_NAME = "llm_http_prefs"
 // ═══════════════════════════════════════════════════════════════════════════
 
 private const val KEY_DEFAULT_MODEL_NAME = "default_model_name"
+private const val KEY_COMPANION_MODEL_NAME = "companion_model_name"
 private const val KEY_PREFIX_SYSTEM_PROMPT = "system_prompt_"
 private const val KEY_PREFIX_INFERENCE_CONFIG = "inference_config_"
 private const val KEY_SHOW_MODEL_RECOMMENDATIONS = "show_model_recommendations"
@@ -220,6 +221,21 @@ object ServerPrefs {
     prefs(context).edit {
       if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
       else remove(KEY_DEFAULT_MODEL_NAME)
+    }
+  }
+
+  /**
+   * Persisted name of the pinned companion model (second resident model,
+   * embedding-only in v1). Restored best-effort after each server start so the
+   * companion stays across restarts without a manual reload.
+   */
+  fun getCompanionModelName(context: Context): String? =
+    prefs(context).getString(KEY_COMPANION_MODEL_NAME, null)
+
+  fun setCompanionModelName(context: Context, modelName: String?) {
+    prefs(context).edit {
+      if (modelName != null) putString(KEY_COMPANION_MODEL_NAME, modelName)
+      else remove(KEY_COMPANION_MODEL_NAME)
     }
   }
 

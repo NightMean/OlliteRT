@@ -103,15 +103,19 @@ private suspend fun KtorServer.handleEmbeddings(body: String): HttpResponse {
   }
   val normalize = parsed["normalize"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: true
 
-  val model = defaultModel
-  if (model == null) {
-    return httpServiceUnavailable("No model is currently loaded")
+  val model = when (val sel = modelLifecycle.selectEmbeddingModel(
+    parsed["model"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else null }
+  )) {
+    is com.ollitert.llm.server.service.inference.ModelLifecycle.ModelSelection.Ok -> sel.model
+    is com.ollitert.llm.server.service.inference.ModelLifecycle.ModelSelection.Error ->
+      return httpJsonError(sel.statusCode, sel.message)
+    else -> return httpInternalError("Model selection failed")
   }
   val engine = model.instance as? EmbeddingEngine
   if (engine == null) {
     return httpJsonError(
       400,
-      "The loaded model ('${model.name}') does not support embeddings. " +
+      "The resolved model ('${model.name}') does not support embeddings. " +
         "Load an embedding model (e.g. EmbeddingGemma 2) first."
     )
   }
