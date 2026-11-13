@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -112,6 +113,7 @@ fun ModelManagerScreen(
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val showRecommendations by viewModel.showModelRecommendations.collectAsStateWithLifecycle()
+  val favoriteModels by viewModel.favoriteModels.collectAsStateWithLifecycle()
   val dialogState = rememberModelManagerDialogState()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
@@ -184,14 +186,19 @@ fun ModelManagerScreen(
     }
   }
 
+  LaunchedEffect(favoriteModels) {
+    if (activeFilter == ModelFilter.FAVORITES && favoriteModels.isEmpty()) activeFilter = ModelFilter.ALL
+  }
+
   // Filtered and sorted models
+  val favoriteSectionTitle = stringResource(R.string.filter_favorites)
   val importedSectionTitle = stringResource(R.string.model_list_imported_models_title)
-  val filteredBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels) {
+  val matchingBuiltInModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, builtInModels, favoriteModels, favoriteSectionTitle) {
     derivedStateOf {
       filterAndSortModels(
         models = builtInModels,
         searchQuery = searchQuery,
-        sectionName = { it.sourceRepository.ifEmpty { UNKNOWN_REPO_LABEL } },
+        sectionName = { it.sourceRepository.ifEmpty { UNKNOWN_REPO_LABEL } + if (it.name in favoriteModels) " $favoriteSectionTitle" else "" },
         matchesFilter = { model ->
           // Built-in models are hidden when Imported filter is active
           when (activeFilter) {
@@ -199,6 +206,7 @@ fun ModelManagerScreen(
             ModelFilter.DOWNLOADED -> uiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
             ModelFilter.AVAILABLE -> uiState.modelDownloadStatus[model.name]?.status != ModelDownloadStatusType.SUCCEEDED
             ModelFilter.IMPORTED -> false
+            ModelFilter.FAVORITES -> model.name in favoriteModels
           }
         },
         activeCapabilities = activeCapabilities,
@@ -208,15 +216,15 @@ fun ModelManagerScreen(
     }
   }
 
-  val filteredImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels, importedSectionTitle) {
+  val matchingImportedModels by remember(searchQuery, activeFilter, activeCapabilities, activeSort, sortAscending, importedModels, importedSectionTitle, favoriteModels, favoriteSectionTitle) {
     derivedStateOf {
       filterAndSortModels(
         models = importedModels,
         searchQuery = searchQuery,
-        sectionName = { importedSectionTitle },
-        matchesFilter = {
-          // Imported models are always downloaded — hide only for "Available" filter
-          activeFilter != ModelFilter.AVAILABLE
+        sectionName = { importedSectionTitle + if (it.name in favoriteModels) " $favoriteSectionTitle" else "" },
+        matchesFilter = { model ->
+          activeFilter != ModelFilter.AVAILABLE &&
+            (activeFilter != ModelFilter.FAVORITES || model.name in favoriteModels)
         },
         activeCapabilities = activeCapabilities,
         activeSort = activeSort,
@@ -224,6 +232,19 @@ fun ModelManagerScreen(
       )
     }
   }
+
+  val matchingNames = (matchingImportedModels + matchingBuiltInModels).mapTo(mutableSetOf()) { it.name }
+  val filteredFavoriteModels = filterAndSortModels(
+    models = sortedAllModels,
+    searchQuery = "",
+    sectionName = { "" },
+    matchesFilter = { it.name in favoriteModels && it.name in matchingNames },
+    activeCapabilities = emptySet(),
+    activeSort = activeSort,
+    sortAscending = sortAscending,
+  )
+  val filteredImportedModels = matchingImportedModels.filterNot { it.name in favoriteModels }
+  val filteredBuiltInModels = matchingBuiltInModels.filterNot { it.name in favoriteModels }
 
   val pleaseWaitModelLoadingText = stringResource(R.string.label_please_wait_model_loading)
   val handleClickModel: (Model) -> Unit = { model ->
@@ -245,6 +266,24 @@ fun ModelManagerScreen(
         onModelSelected(model)
       }
     }
+  }
+
+  val modelKey: (Model) -> String = { "model:${it.sourceRepositoryId}:${it.name}:${it.downloadFileName}" }
+  val modelCard: @Composable LazyItemScope.(Model) -> Unit = { model ->
+    ModelItem(
+      model = model,
+      modelManagerViewModel = viewModel,
+      onModelClicked = handleClickModel,
+      onBenchmarkClicked = onBenchmarkClicked,
+      showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+      serverStatus = serverStatus,
+      activeModelName = activeModelName,
+      lastError = lastError,
+      onStopServer = onStopServer,
+      onNavigateToSettings = onNavigateToSettings,
+      searchQuery = searchQuery,
+      showRecommendations = showRecommendations,
+    )
   }
 
   PullToRefreshBox(
@@ -285,6 +324,7 @@ fun ModelManagerScreen(
           activeFilter = activeFilter,
           onFilterSelected = { activeFilter = it },
           hasImportedModels = importedModels.isNotEmpty(),
+          hasFavorites = favoriteModels.isNotEmpty(),
           showMoreFilters = showMoreFilters,
           onToggleMoreFilters = { showMoreFilters = !showMoreFilters },
           activeCapabilities = activeCapabilities,
@@ -391,6 +431,17 @@ fun ModelManagerScreen(
         }
       }
 
+      if (filteredFavoriteModels.isNotEmpty()) {
+        item(key = "favorite_models_label") {
+          ModelSectionHeader(
+            title = favoriteSectionTitle,
+            count = filteredFavoriteModels.size,
+            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp),
+          )
+        }
+      }
+      items(filteredFavoriteModels, key = modelKey, itemContent = modelCard)
+
       // Imported models section — shown first so user's own models are immediately visible
       if (filteredImportedModels.isNotEmpty()) {
         item(key = "imported_models_label") {
@@ -403,22 +454,7 @@ fun ModelManagerScreen(
           )
         }
       }
-      items(filteredImportedModels, key = { "imported_${it.name}" }) { model ->
-        ModelItem(
-          model = model,
-          modelManagerViewModel = viewModel,
-          onModelClicked = handleClickModel,
-          onBenchmarkClicked = onBenchmarkClicked,
-          showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
-          serverStatus = serverStatus,
-          activeModelName = activeModelName,
-          lastError = lastError,
-          onStopServer = onStopServer,
-          onNavigateToSettings = onNavigateToSettings,
-          searchQuery = searchQuery,
-          showRecommendations = showRecommendations,
-        )
-      }
+      items(filteredImportedModels, key = modelKey, itemContent = modelCard)
 
       // Built-in models grouped by source repository (built-in repo always first)
       val groupedByRepoId = filteredBuiltInModels.groupBy { it.sourceRepositoryId.ifEmpty { "unknown" } }
@@ -427,9 +463,9 @@ fun ModelManagerScreen(
       )
       for ((index, repoId) in sortedRepoIds.withIndex()) {
         val repoModels = groupedByRepoId[repoId] ?: continue
-        if (repoId != "unknown" || sortedRepoIds.size > 1 || filteredImportedModels.isNotEmpty()) {
+        if (repoId != "unknown" || sortedRepoIds.size > 1 || filteredImportedModels.isNotEmpty() || filteredFavoriteModels.isNotEmpty()) {
           val repoDisplayName = repoModels.first().sourceRepository.ifEmpty { UNKNOWN_REPO_LABEL }
-          val isFirst = index == 0 && filteredImportedModels.isEmpty()
+          val isFirst = index == 0 && filteredImportedModels.isEmpty() && filteredFavoriteModels.isEmpty()
           item(key = "repo_header_$repoId") {
             ModelSectionHeader(
               title = repoDisplayName,
@@ -440,22 +476,7 @@ fun ModelManagerScreen(
             )
           }
         }
-        items(repoModels, key = { "builtin_${it.name}" }) { model ->
-          ModelItem(
-            model = model,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
-            serverStatus = serverStatus,
-            activeModelName = activeModelName,
-            lastError = lastError,
-            onStopServer = onStopServer,
-            onNavigateToSettings = onNavigateToSettings,
-            searchQuery = searchQuery,
-            showRecommendations = showRecommendations,
-          )
-        }
+        items(repoModels, key = modelKey, itemContent = modelCard)
       }
 
       // All repos disabled banner — shown below downloaded models
@@ -482,7 +503,7 @@ fun ModelManagerScreen(
       }
 
       // Footer: some models hidden by version compatibility
-      val hasVisibleModels = filteredBuiltInModels.isNotEmpty() || filteredImportedModels.isNotEmpty()
+      val hasVisibleModels = filteredBuiltInModels.isNotEmpty() || filteredImportedModels.isNotEmpty() || filteredFavoriteModels.isNotEmpty()
       if (hasVisibleModels && uiState.droppedByVersionFilter > 0 && !uiState.loadingModelAllowlist) {
         item(key = "version_filter_footer") {
           val count = uiState.droppedByVersionFilter
@@ -505,7 +526,7 @@ fun ModelManagerScreen(
       }
 
       // Empty state — distinguish between filter mismatch and allowlist load failure
-      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && !uiState.loadingModelAllowlist && !uiState.allReposDisabled) {
+      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && filteredFavoriteModels.isEmpty() && !uiState.loadingModelAllowlist && !uiState.allReposDisabled) {
         item(key = "empty_state") {
           if (uiState.loadingModelAllowlistError.isNotEmpty()) {
             // Allowlist failed to load — show error with retry

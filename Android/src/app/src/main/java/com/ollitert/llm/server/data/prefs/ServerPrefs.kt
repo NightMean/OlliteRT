@@ -60,6 +60,7 @@ private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
 
 private const val KEY_ALLOWLIST_CONTENT_VERSION = "allowlist_content_version"
 private const val KEY_IGNORED_MODEL_UPDATES = "ignored_model_updates"
+private const val KEY_FAVORITE_MODELS = "favorite_models"
 
 // ═══════════════════════════════════════════════════════════════════════════
 // § DataStore Corruption Recovery
@@ -311,6 +312,13 @@ object ServerPrefs {
 
   fun getAllowlistContentVersion(context: Context): Int = get(context, ALLOWLIST_CONTENT_VERSION)
   fun setAllowlistContentVersion(context: Context, version: Int) = set(context, ALLOWLIST_CONTENT_VERSION, version)
+
+  fun getFavoriteModels(context: Context): Set<String> =
+    prefs(context).getStringSet(KEY_FAVORITE_MODELS, emptySet())?.toSet() ?: emptySet()
+
+  fun setFavoriteModels(context: Context, names: Set<String>) {
+    prefs(context).edit { putStringSet(KEY_FAVORITE_MODELS, names.toSet()) }
+  }
 
   fun getIgnoredModelUpdates(context: Context): Set<String> =
     prefs(context).getStringSet(KEY_IGNORED_MODEL_UPDATES, emptySet()) ?: emptySet()

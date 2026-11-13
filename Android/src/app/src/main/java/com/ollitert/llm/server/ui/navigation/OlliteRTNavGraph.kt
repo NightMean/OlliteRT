@@ -313,6 +313,7 @@ fun OlliteRTNavHost(
         },
         onStopServer = { serverViewModel.stopServer() },
         onNavigateToModels = {
+          modelManagerViewModel.refreshFavoriteModels()
           navController.navigate(OlliteRTRoute.Models) {
             launchSingleTop = true
             popUpTo<OlliteRTRoute.Settings> { inclusive = true }
@@ -320,7 +321,10 @@ fun OlliteRTNavHost(
         },
         downloadedModelNames = downloadedModelNames,
         onSetTopBarTrailingContent = onSetTopBarTrailingContent,
-        onSettingsSaved = { modelManagerViewModel.refreshShowModelRecommendations() },
+        onSettingsSaved = {
+          modelManagerViewModel.refreshShowModelRecommendations()
+          modelManagerViewModel.refreshFavoriteModels()
+        },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
       )
     }

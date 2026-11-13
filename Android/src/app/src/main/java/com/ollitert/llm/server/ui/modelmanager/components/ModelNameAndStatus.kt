@@ -43,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
@@ -70,6 +71,7 @@ fun ModelNameAndStatus(
   modifier: Modifier = Modifier,
   searchQuery: String = "",
   showRecommendations: Boolean = true,
+  actionInset: Dp = 100.dp,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
@@ -78,7 +80,7 @@ fun ModelNameAndStatus(
 
   Column(modifier = modifier) {
     // Model name — end padding reserves space for the overlaid action icons
-    // (delete 40dp + settings 40dp + 8dp gap + 12dp card padding = 100dp worst case).
+    // Reserve room for the action buttons actually shown on this card.
     Text(
       text = highlightSearchMatches(
         model.displayName.ifEmpty { model.name },
@@ -88,7 +90,7 @@ fun ModelNameAndStatus(
       maxLines = 2,
       overflow = TextOverflow.Ellipsis,
       style = MaterialTheme.typography.titleLarge,
-      modifier = Modifier.padding(end = 100.dp),
+      modifier = Modifier.padding(end = actionInset),
     )
 
     // Data-driven badge (e.g. "Best overall", "New") — hidden when recommendations are off

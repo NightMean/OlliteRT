@@ -161,6 +161,40 @@ constructor(
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
 
+  private val favoritesLock = Any()
+  private val _renamingFavoriteIds = MutableStateFlow<Set<String>>(emptySet())
+  val renamingFavoriteIds: StateFlow<Set<String>> = _renamingFavoriteIds.asStateFlow()
+  private val _favoriteModels = MutableStateFlow(preferencesRepository.getFavoriteModels().toSet())
+  val favoriteModels: StateFlow<Set<String>> = _favoriteModels.asStateFlow()
+
+  fun toggleFavorite(name: String) = synchronized(favoritesLock) {
+    if (name in _renamingFavoriteIds.value) return@synchronized
+    val current = _favoriteModels.value
+    val updated = if (name in current) current - name else current + name
+    preferencesRepository.setFavoriteModels(updated)
+    _favoriteModels.value = updated
+  }
+
+  private fun removeFavorite(name: String) = synchronized(favoritesLock) {
+    if (name in _favoriteModels.value) {
+      val updated = _favoriteModels.value - name
+      preferencesRepository.setFavoriteModels(updated)
+      _favoriteModels.value = updated
+    }
+  }
+
+  private fun renameFavorite(oldName: String, newName: String) = synchronized(favoritesLock) {
+    if (oldName in _favoriteModels.value && oldName != newName) {
+      val updated = _favoriteModels.value - oldName + newName
+      preferencesRepository.setFavoriteModels(updated)
+      _favoriteModels.value = updated
+    }
+  }
+
+  fun refreshFavoriteModels() = synchronized(favoritesLock) {
+    _favoriteModels.value = preferencesRepository.getFavoriteModels().toSet()
+  }
+
   private val _showModelRecommendations = MutableStateFlow(
     preferencesRepository.isShowModelRecommendations()
   )
@@ -318,6 +352,7 @@ constructor(
           }
         }
         if (removed) {
+          removeFavorite(model.name)
           allowlistLoadJob?.cancel()
           removalGeneration = allowlistLoadGenerationGate.beginLoad()
           _uiState.update { current ->
@@ -460,6 +495,7 @@ constructor(
     if (model.imported) {
       viewModelScope.launch(ioDispatcher) {
         importedModelCoordinator.deleteImportedModelRecord(model.storageFileName)
+        removeFavorite(model.name)
       }
     }
     markDownloadStatusChanged(model.name)
@@ -583,50 +619,67 @@ constructor(
     displayName: String,
     onResult: (Boolean) -> Unit,
   ) {
+    val oldId = ModelFactory.importedModelId(oldFileName)
+    val accepted = synchronized(favoritesLock) {
+      if (oldId in _renamingFavoriteIds.value) false else {
+        _renamingFavoriteIds.value = _renamingFavoriteIds.value + oldId
+        true
+      }
+    }
+    if (!accepted) { onResult(false); return }
     viewModelScope.launch(ioDispatcher) {
-      val updatedModel = try {
-        if (oldFileName == newFileName) {
-          importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName)
-        } else {
-          importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName)
+      try {
+        val updatedModel = try {
+          if (oldFileName == newFileName) {
+            importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName)
+          } else {
+            importedModelCoordinator.renameFileAndRecord(oldFileName, newFileName, displayName)
+          }
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to rename imported model '$oldFileName'", e)
+          null
         }
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed to rename imported model '$oldFileName'", e)
-        null
-      }
-      if (updatedModel == null) {
-        withContext(mainDispatcher) { onResult(false) }
-        return@launch
-      }
+        if (updatedModel == null) {
+          withContext(mainDispatcher) { onResult(false) }
+          return@launch
+        }
 
-      _uiState.update { current ->
-        val oldModel = current.models.firstOrNull { it.imported && it.storageFileName == oldFileName }
-        val oldModelName = oldModel?.name
-        val updatedModels = current.models.map { model ->
-          if (model.imported && model.storageFileName == oldFileName) updatedModel else model
+        if (oldFileName != newFileName) {
+          renameFavorite(oldId, updatedModel.name)
         }
-        val downloadStatus = current.modelDownloadStatus.toMutableMap()
-        val initializationStatus = current.modelInitializationStatus.toMutableMap()
-        if (oldModelName != null) {
-          downloadStatus.remove(oldModelName)?.let { downloadStatus[updatedModel.name] = it }
-          initializationStatus.remove(oldModelName)?.let { initializationStatus[updatedModel.name] = it }
+        _uiState.update { current ->
+          val oldModel = current.models.firstOrNull { it.imported && it.storageFileName == oldFileName }
+          val oldModelName = oldModel?.name
+          val updatedModels = current.models.map { model ->
+            if (model.imported && model.storageFileName == oldFileName) updatedModel else model
+          }
+          val downloadStatus = current.modelDownloadStatus.toMutableMap()
+          val initializationStatus = current.modelInitializationStatus.toMutableMap()
+          if (oldModelName != null) {
+            downloadStatus.remove(oldModelName)?.let { downloadStatus[updatedModel.name] = it }
+            initializationStatus.remove(oldModelName)?.let { initializationStatus[updatedModel.name] = it }
+          }
+          current.copy(
+            models = updatedModels,
+            modelDownloadStatus = downloadStatus,
+            modelInitializationStatus = initializationStatus,
+          )
         }
-        current.copy(
-          models = updatedModels,
-          modelDownloadStatus = downloadStatus,
-          modelInitializationStatus = initializationStatus,
-        )
+        if (oldFileName != newFileName) {
+          val configuredDefault = preferencesRepository.getDefaultModelName()
+          if (
+            configuredDefault.equals(oldFileName, ignoreCase = true) ||
+            configuredDefault.equals(ModelFactory.importedModelId(oldFileName), ignoreCase = true)
+          ) {
+            preferencesRepository.setDefaultModelName(updatedModel.name)
+          }
+        }
+        withContext(mainDispatcher) { onResult(true) }
+      } finally {
+        synchronized(favoritesLock) { _renamingFavoriteIds.value = _renamingFavoriteIds.value - oldId }
       }
-      if (oldFileName != newFileName) {
-        val configuredDefault = preferencesRepository.getDefaultModelName()
-        if (
-          configuredDefault.equals(oldFileName, ignoreCase = true) ||
-          configuredDefault.equals(ModelFactory.importedModelId(oldFileName), ignoreCase = true)
-        ) {
-          preferencesRepository.setDefaultModelName(updatedModel.name)
-        }
-      }
-      withContext(mainDispatcher) { onResult(true) }
     }
   }
 

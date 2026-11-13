@@ -233,6 +233,8 @@ interface PreferencesRepository {
   fun setClearLogsOnStop(enabled: Boolean)
   fun isConfirmClearLogs(): Boolean
   fun setConfirmClearLogs(enabled: Boolean)
+  fun getFavoriteModels(): Set<String>
+  fun setFavoriteModels(names: Set<String>)
   fun isShowModelRecommendations(): Boolean
   fun setShowModelRecommendations(enabled: Boolean)
   fun isFloatingMonitorEnabled(): Boolean
@@ -367,6 +369,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setClearLogsOnStop(enabled: Boolean) = ServerPrefs.setClearLogsOnStop(context, enabled)
   override fun isConfirmClearLogs(): Boolean = ServerPrefs.isConfirmClearLogs(context)
   override fun setConfirmClearLogs(enabled: Boolean) = ServerPrefs.setConfirmClearLogs(context, enabled)
+  override fun getFavoriteModels(): Set<String> = ServerPrefs.getFavoriteModels(context)
+  override fun setFavoriteModels(names: Set<String>) = ServerPrefs.setFavoriteModels(context, names)
   override fun isShowModelRecommendations(): Boolean = ServerPrefs.isShowModelRecommendations(context)
   override fun setShowModelRecommendations(enabled: Boolean) = ServerPrefs.setShowModelRecommendations(context, enabled)
   override fun isFloatingMonitorEnabled(): Boolean = ServerPrefs.isFloatingMonitorEnabled(context)

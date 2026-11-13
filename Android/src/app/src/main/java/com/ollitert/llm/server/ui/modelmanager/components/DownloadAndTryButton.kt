@@ -58,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LocalPinnableContainer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -198,6 +200,14 @@ fun DownloadAndTryButton(
     checkingToken = false
   }
 
+  val cardContainer = LocalPinnableContainer.current
+  // Starring the card can move it outside the viewport before its access check returns.
+  val keepCardComposed = checkingToken || showAgreementAckSheet
+  if (keepCardComposed) DisposableEffect(cardContainer) {
+    val pin = cardContainer?.pin()
+    onDispose { pin?.release() }
+  }
+
   val agreementAckLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
@@ -220,17 +230,14 @@ fun DownloadAndTryButton(
     }
 
   val handleClickButton = {
-    scope.launch(Dispatchers.IO) {
+    scope.launch {
       if (needToDownloadFirst) {
         downloadStarted = true
         // Optimistic flag so the progress row shows "Checking access…" during probes.
-        if (model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)) {
-          checkingToken = true
-        }
-        when (val outcome = downloadGate.resolveDownloadAccess(model)) {
-          is DownloadGateOutcome.StartDownload -> {
-            withContext(Dispatchers.Main) { startDownload(outcome.accessToken) }
-          }
+        checkingToken = model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)
+        val outcome = withContext(Dispatchers.IO) { downloadGate.resolveDownloadAccess(model) }
+        when (outcome) {
+          is DownloadGateOutcome.StartDownload -> startDownload(outcome.accessToken)
           is DownloadGateOutcome.NetworkError -> {
             Log.e(TAG, "Network error while checking access: ${outcome.message}")
             checkingToken = false

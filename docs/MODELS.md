@@ -78,6 +78,10 @@ The context window determines how much conversation history the model can "see" 
 
 When a conversation exceeds the context window, OlliteRT can automatically compact older messages to fit. Three compaction strategies are available in Settings → Context Management (all disabled by default). See the [FAQ](FAQ.md#what-is-prompt-compaction) for details, or [Troubleshooting](TROUBLESHOOTING.md#long-conversations-fail--context-window-exceeded) if conversations are failing.
 
+## Favorite Models
+
+Tap the heart on a model card to add it to Favorites. Favorite models appear at the top of Models, and the Favorites filter appears when at least one model is marked. Tap the heart again to remove a favorite. Deleting a downloaded file keeps its favorite if the model remains in the catalog.
+
 ## Importing Your Own Models
 
 Tap the **+** button on the Models screen to explore Hugging Face or import your own models.

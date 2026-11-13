@@ -163,6 +163,9 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setClearLogsOnStop(enabled: Boolean) { this._clearLogsOnStop = enabled }
   override fun isConfirmClearLogs(): Boolean = _confirmClearLogs
   override fun setConfirmClearLogs(enabled: Boolean) { this._confirmClearLogs = enabled }
+  private var favoriteModels: Set<String> = emptySet()
+  override fun getFavoriteModels(): Set<String> = favoriteModels.toSet()
+  override fun setFavoriteModels(names: Set<String>) { favoriteModels = names.toSet() }
   override fun isShowModelRecommendations(): Boolean = _showModelRecommendations
   override fun setShowModelRecommendations(enabled: Boolean) { this._showModelRecommendations = enabled }
   override fun isFloatingMonitorEnabled(): Boolean = _floatingMonitorEnabled
@@ -191,6 +194,7 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setTimeoutCleanupAwait(seconds: Long) { this._timeoutCleanupAwait = seconds }
   override fun setCachedUpdateInfo(version: String?, tagName: String?, releaseNotes: String?) {}
   override fun resetToDefaults() {
+    favoriteModels = emptySet()
     _port = 8000
     _serverBindConfig = ServerBindConfig(ServerBindMode.ALL_INTERFACES, "")
     _clientIpPolicyConfig = ClientIpPolicyConfig(ClientIpPolicyMode.ALLOW_ALL, "")

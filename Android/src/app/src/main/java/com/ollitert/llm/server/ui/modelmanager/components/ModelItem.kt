@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
@@ -95,6 +97,10 @@ fun ModelItem(
   showRecommendations: Boolean = true,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+  val favorites by modelManagerViewModel.favoriteModels.collectAsStateWithLifecycle()
+  val isFavorite = model.name in favorites
+  val renaming by modelManagerViewModel.renamingFavoriteIds.collectAsStateWithLifecycle()
+  val canToggleFavorite = model.name !in renaming
   val downloadStatus by remember {
     derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
   }
@@ -104,6 +110,15 @@ fun ModelItem(
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
+
+  val showRemove = !isIncompatible && model.sourceRepositoryId == DISCOVERED_SOURCE_ID &&
+    downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !isActiveModel && !isModelLoading
+  val showDelete = !isIncompatible && model.localFileRelativeDirPathOverride.isEmpty() &&
+    downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED && showDeleteButton
+  val showSettings = !isIncompatible && (isActiveModel || isModelLoading ||
+    downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED || model.imported)
+  val actionCount = 1 + listOf(showRemove, showDelete, showSettings).count { it }
+  val actionInset = (actionCount * 40 + (actionCount - 1) * 8 + 12).dp
 
   var showInferenceSettings by remember { mutableStateOf(false) }
   var showEditDefaults by remember { mutableStateOf(false) }
@@ -128,6 +143,7 @@ fun ModelItem(
         downloadStatus = downloadStatus,
         searchQuery = searchQuery,
         showRecommendations = showRecommendations,
+        actionInset = actionInset,
         modifier = Modifier.fillMaxWidth(),
       )
 
@@ -186,21 +202,20 @@ fun ModelItem(
     }
 
     // Action icons overlaid at top-right of card (hidden for incompatible models)
-    if (!isIncompatible) Row(
+    Row(
       modifier = Modifier
         .align(Alignment.TopEnd)
         .padding(12.dp),
       horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      if (model.sourceRepositoryId == DISCOVERED_SOURCE_ID &&
-          downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !isActiveModel && !isModelLoading) {
+      if (showRemove) {
         TooltipIconButton(
           icon = Icons.Outlined.Delete,
           tooltip = stringResource(R.string.hf_remove_model),
           onClick = { showRemoveDiscovered = true },
         )
       }
-      if (model.localFileRelativeDirPathOverride.isEmpty()) {
+      if (!isIncompatible && model.localFileRelativeDirPathOverride.isEmpty()) {
         DeleteModelButton(
           model = model,
           modelManagerViewModel = modelManagerViewModel,
@@ -209,8 +224,16 @@ fun ModelItem(
           isModelInUse = isActiveModel || isModelLoading,
         )
       }
+      TooltipIconButton(
+        icon = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
+        tooltip = stringResource(if (isFavorite) R.string.model_remove_favorite else R.string.model_add_favorite),
+        onClick = { modelManagerViewModel.toggleFavorite(model.name) },
+        enabled = canToggleFavorite,
+        tint = (if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+          .copy(alpha = if (canToggleFavorite) 1f else 0.38f),
+      )
       // Settings cog - available for any downloaded model (not just running)
-      if (isActiveModel || isModelLoading || downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED || model.imported) {
+      if (showSettings) {
         TooltipIconButton(
           icon = Icons.Outlined.Settings,
           tooltip = stringResource(R.string.model_tooltip_inference_settings),

@@ -54,6 +54,7 @@ enum class ModelFilter {
   DOWNLOADED,
   AVAILABLE,
   IMPORTED,
+  FAVORITES,
 }
 
 /** Capability filter for models. */
@@ -128,6 +129,7 @@ fun ModelFilterSection(
   activeFilter: ModelFilter,
   onFilterSelected: (ModelFilter) -> Unit,
   hasImportedModels: Boolean,
+  hasFavorites: Boolean,
   showMoreFilters: Boolean,
   onToggleMoreFilters: () -> Unit,
   activeCapabilities: Set<CapabilityFilter>,
@@ -168,6 +170,13 @@ fun ModelFilterSection(
           selected = activeFilter == ModelFilter.AVAILABLE,
           onClick = { onFilterSelected(ModelFilter.AVAILABLE) },
         )
+        if (hasFavorites) {
+          ModelFilterChip(
+            label = stringResource(R.string.filter_favorites),
+            selected = activeFilter == ModelFilter.FAVORITES,
+            onClick = { onFilterSelected(ModelFilter.FAVORITES) },
+          )
+        }
         if (hasImportedModels) {
           ModelFilterChip(
             label = stringResource(R.string.filter_imported),

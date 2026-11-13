@@ -78,6 +78,9 @@
   <string name="filter_all" translatable="false">All</string>
   <string name="filter_downloaded" translatable="false">Downloaded</string>
   <string name="filter_available" translatable="false">Available</string>
+  <string name="filter_favorites">Favorites</string>
+  <string name="model_add_favorite">Add to favorites</string>
+  <string name="model_remove_favorite">Remove from favorites</string>
   <string name="filter_imported" translatable="false">Imported</string>
   <string name="no_models_match_search" translatable="false">No models match your search</string>
   <string name="no_models_version_too_old" translatable="false">No compatible models found. Update to version %1$s or newer.</string>
