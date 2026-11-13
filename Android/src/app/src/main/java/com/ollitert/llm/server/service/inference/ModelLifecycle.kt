@@ -35,6 +35,7 @@ import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import com.ollitert.llm.server.data.allowlist.ModelFactory
+import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.llmSupportAudio
@@ -465,6 +466,8 @@ class ModelLifecycle(
           it.fileName.equals(name, ignoreCase = true) ||
             ModelFactory.importedModelId(it.fileName).equals(name, ignoreCase = true)
         }
+      } catch (e: ImportedModelRecoveryException) {
+        throw e
       } catch (e: Exception) {
         Log.w(TAG, "Failed to read imported models from DataStore", e)
         null
@@ -522,6 +525,8 @@ class ModelLifecycle(
     }
     val importedModels = try {
       readImportedModels()
+    } catch (e: ImportedModelRecoveryException) {
+      throw e
     } catch (e: Exception) {
       Log.w(TAG, "Failed to read imported models during fallback scan", e)
       emptyList()

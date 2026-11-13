@@ -102,6 +102,7 @@ class ModelManagerViewModelDisabledSourcesTest {
     coEvery { protoRepository.isOnboardingCompleted() } returns true
     coEvery { protoRepository.readRepositories() } returns listOf(disabledOfficial)
     coEvery { protoRepository.readImportedModels() } returns listOf(imported)
+    coEvery { protoRepository.readExistingImportedModels() } returns listOf(imported)
     coEvery { repositoryManager.refreshAll(storageRepository) } returns RefreshResult(emptySet())
     coEvery {
       repositoryManager.loadAll(any(), storageRepository, ignoreDisabled = false, modelFilter = any())

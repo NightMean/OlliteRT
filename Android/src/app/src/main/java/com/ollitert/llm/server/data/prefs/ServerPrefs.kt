@@ -61,6 +61,8 @@ private const val DEFAULT_KEEP_ALIVE_MINUTES = 5
 private const val KEY_ALLOWLIST_CONTENT_VERSION = "allowlist_content_version"
 private const val KEY_IGNORED_MODEL_UPDATES = "ignored_model_updates"
 private const val KEY_FAVORITE_MODELS = "favorite_models"
+private const val KEY_COMPLETED_IMPORTED_RENAME = "completed_imported_rename"
+private const val KEY_IMPORTED_RENAME_SYNC = "imported_rename_sync"
 
 // ═══════════════════════════════════════════════════════════════════════════
 // § DataStore Corruption Recovery
@@ -217,7 +219,7 @@ object ServerPrefs {
     prefs(context)
       .getString(KEY_DEFAULT_MODEL_NAME, null)
 
-  fun setDefaultModelName(context: Context, modelName: String?) {
+  @Synchronized fun setDefaultModelName(context: Context, modelName: String?) {
     prefs(context).edit {
       if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
       else remove(KEY_DEFAULT_MODEL_NAME)
@@ -269,7 +271,7 @@ object ServerPrefs {
     prefs(context)
       .getString(KEY_PREFIX_SYSTEM_PROMPT + modelName, "") ?: ""
 
-  fun setSystemPrompt(context: Context, modelName: String, prompt: String) {
+  @Synchronized fun setSystemPrompt(context: Context, modelName: String, prompt: String) {
     prefs(context).edit { putString(KEY_PREFIX_SYSTEM_PROMPT + modelName, prompt) }
   }
 
@@ -277,7 +279,7 @@ object ServerPrefs {
    * Persist inference config values (temperature, max tokens, etc.) for a specific model.
    * Stored as a JSON string so it survives app restarts. Values are keyed by ConfigKey label.
    */
-  fun setInferenceConfig(context: Context, modelName: String, configValues: Map<String, Any>) {
+  @Synchronized fun setInferenceConfig(context: Context, modelName: String, configValues: Map<String, Any>) {
     prefs(context).edit { putString(KEY_PREFIX_INFERENCE_CONFIG + modelName, encodeInferenceConfig(configValues)) }
   }
 
@@ -316,8 +318,52 @@ object ServerPrefs {
   fun getFavoriteModels(context: Context): Set<String> =
     prefs(context).getStringSet(KEY_FAVORITE_MODELS, emptySet())?.toSet() ?: emptySet()
 
-  fun setFavoriteModels(context: Context, names: Set<String>) {
+  @Synchronized fun setFavoriteModels(context: Context, names: Set<String>) {
     prefs(context).edit { putStringSet(KEY_FAVORITE_MODELS, names.toSet()) }
+  }
+
+  @Synchronized fun syncModelPreferences(context: Context): Boolean = syncModelPreferences(prefs(context))
+
+  @Synchronized internal fun syncModelPreferences(prefs: android.content.SharedPreferences): Boolean =
+    prefs.edit().remove(KEY_COMPLETED_IMPORTED_RENAME).commit()
+
+  @Synchronized fun setModelFavorite(context: Context, name: String, favorite: Boolean): Set<String> {
+    val updated = getFavoriteModels(context).toMutableSet()
+    if (favorite) updated.add(name) else updated.remove(name)
+    prefs(context).edit { putStringSet(KEY_FAVORITE_MODELS, updated.toSet()) }
+    return updated.toSet()
+  }
+
+  /** Commit all preference changes together; replay is safe after an interrupted rename. */
+  @Synchronized fun completeImportedRename(context: Context, oldFile: String, newFile: String, oldId: String, newId: String): Boolean =
+    completeImportedRename(prefs(context), oldFile, newFile, oldId, newId)
+
+  @Synchronized internal fun completeImportedRename(prefs: android.content.SharedPreferences, oldFile: String, newFile: String, oldId: String, newId: String): Boolean {
+    val operationKey = "${oldFile.length}:$oldFile$newFile"
+    if (prefs.getString(KEY_COMPLETED_IMPORTED_RENAME, null) == operationKey) {
+      // A failed commit may have updated memory without reaching disk. Force a new
+      // generation so a successful retry durably writes the entire preference state.
+      return prefs.edit().putBoolean(KEY_IMPORTED_RENAME_SYNC, !prefs.getBoolean(KEY_IMPORTED_RENAME_SYNC, false)).commit()
+    }
+    val editor = prefs.edit()
+    val favorites = (prefs.getStringSet(KEY_FAVORITE_MODELS, emptySet()) ?: emptySet()).toMutableSet()
+    if (favorites.remove(oldId)) {
+      favorites.add(newId)
+      editor.putStringSet(KEY_FAVORITE_MODELS, favorites.toSet())
+    }
+    for (prefix in listOf(KEY_PREFIX_SYSTEM_PROMPT, KEY_PREFIX_INFERENCE_CONFIG)) {
+      val oldKey = prefix + oldFile
+      val newKey = prefix + newFile
+      val value = prefs.getString(oldKey, null)
+      if (value != null) editor.putString(newKey, value) else editor.remove(newKey)
+      editor.remove(oldKey)
+    }
+    editor.putString(KEY_COMPLETED_IMPORTED_RENAME, operationKey)
+    val defaultModel = prefs.getString(KEY_DEFAULT_MODEL_NAME, null)
+    if (defaultModel.equals(oldFile, ignoreCase = true) || defaultModel.equals(oldId, ignoreCase = true)) {
+      editor.putString(KEY_DEFAULT_MODEL_NAME, newId)
+    }
+    return editor.commit()
   }
 
   fun getIgnoredModelUpdates(context: Context): Set<String> =
@@ -434,7 +480,7 @@ object ServerPrefs {
    * including per-model inference configs and system prompts.
    * The cached prefs instance is invalidated so the next access picks up the cleared state.
    */
-  fun resetToDefaults(context: Context) {
+  @Synchronized fun resetToDefaults(context: Context) {
     prefs(context).edit { clear() }
     cachedPrefs = null
   }

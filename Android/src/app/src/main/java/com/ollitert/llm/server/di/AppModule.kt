@@ -27,6 +27,12 @@ import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.prefs.BenchmarkResultsSerializer
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DefaultProtoDataStoreRepository
+import com.ollitert.llm.server.data.repository.DataStoreImportedRenameStorage
+import com.ollitert.llm.server.data.repository.DataStoreImportedCopyStorage
+import com.ollitert.llm.server.data.repository.PreferencesRepository
+import com.ollitert.llm.server.data.allowlist.ModelFactory
+import com.ollitert.llm.server.data.model.IMPORTS_DIR
+import java.io.File
 import com.ollitert.llm.server.data.allowlist.DefaultModelCatalogRepository
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
@@ -87,11 +93,21 @@ internal object AppModule {
   fun provideProtoDataStoreRepository(
     dataStore: DataStore<Settings>,
     benchmarkResultsStore: DataStore<BenchmarkResults>,
+    @ApplicationContext context: Context,
+    preferences: PreferencesRepository,
   ): ProtoDataStoreRepository {
-    return DefaultProtoDataStoreRepository(
-      dataStore,
-      benchmarkResultsStore,
+    val importsDirectory = { context.getExternalFilesDir(null)?.let { File(it, IMPORTS_DIR) } }
+    val renameStorage = DataStoreImportedRenameStorage(
+      dataStore = dataStore,
+      importsDirectory = importsDirectory,
+      syncPreferences = preferences::syncModelPreferences,
+      completePreferences = { rename ->
+        preferences.completeImportedRename(rename.oldName, rename.newName,
+          ModelFactory.importedModelId(rename.oldName), ModelFactory.importedModelId(rename.newName))
+      },
     )
+    val copyStorage = DataStoreImportedCopyStorage(dataStore, importsDirectory)
+    return DefaultProtoDataStoreRepository(dataStore, benchmarkResultsStore, renameStorage, copyStorage)
   }
 
   @Provides

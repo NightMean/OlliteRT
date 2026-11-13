@@ -897,6 +897,7 @@
 
   <!-- Common: Import errors -->
   <string name="error_import_failed" translatable="false">Failed to import</string>
+  <string name="error_import_existing_file" translatable="false">A file with this name is already in the import folder. Choose a different name.</string>
   <string name="error_import_finalize_failed" translatable="false">Failed to finalize import: %1$s</string>
 
   <!-- Error and status messages -->
@@ -1174,6 +1175,8 @@
   <!-- InferenceRunner: error message -->
   <string name="error_model_init_failed">Model initialization failed: %1$s</string>
 
+  <string name="error_model_settings_update_failed">Could not save model settings. Refresh Models and try again.</string>
+  <string name="imported_model_recovery_error">Could not recover imported models. Check model storage and retry.</string>
   <string name="hf_explore_title">From Hugging Face</string>
   <string name="hf_explore_back">Back</string>
   <string name="hf_explore_search">Search repositories</string>

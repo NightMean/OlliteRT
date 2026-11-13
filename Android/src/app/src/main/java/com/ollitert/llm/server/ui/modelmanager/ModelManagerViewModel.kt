@@ -33,6 +33,8 @@ import com.ollitert.llm.server.data.allowlist.AllowedModel
 import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
+import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
+import com.ollitert.llm.server.data.repository.UnregisteredImportFileException
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.model.EMPTY_MODEL
@@ -169,26 +171,11 @@ constructor(
 
   fun toggleFavorite(name: String) = synchronized(favoritesLock) {
     if (name in _renamingFavoriteIds.value) return@synchronized
-    val current = _favoriteModels.value
-    val updated = if (name in current) current - name else current + name
-    preferencesRepository.setFavoriteModels(updated)
-    _favoriteModels.value = updated
+    _favoriteModels.value = preferencesRepository.setModelFavorite(name, name !in _favoriteModels.value)
   }
 
   private fun removeFavorite(name: String) = synchronized(favoritesLock) {
-    if (name in _favoriteModels.value) {
-      val updated = _favoriteModels.value - name
-      preferencesRepository.setFavoriteModels(updated)
-      _favoriteModels.value = updated
-    }
-  }
-
-  private fun renameFavorite(oldName: String, newName: String) = synchronized(favoritesLock) {
-    if (oldName in _favoriteModels.value && oldName != newName) {
-      val updated = _favoriteModels.value - oldName + newName
-      preferencesRepository.setFavoriteModels(updated)
-      _favoriteModels.value = updated
-    }
+    _favoriteModels.value = preferencesRepository.setModelFavorite(name, false)
   }
 
   fun refreshFavoriteModels() = synchronized(favoritesLock) {
@@ -220,7 +207,7 @@ constructor(
   }
 
   private val importManager = ModelListImportManager(context, protoDataStoreRepository, modelStorageRepository)
-  private val importedModelCoordinator = ImportedModelCoordinator(context, protoDataStoreRepository, modelStorageRepository, preferencesRepository)
+  private val importedModelCoordinator = ImportedModelCoordinator(context, protoDataStoreRepository, preferencesRepository)
 
   fun completeOnboarding() {
     viewModelScope.launch(ioDispatcher) { protoDataStoreRepository.setOnboardingCompleted() }
@@ -462,8 +449,34 @@ constructor(
   }
 
   fun deleteModel(model: Model) {
+    if (model.imported && model.name in _renamingFavoriteIds.value) return
     downloadRepository.cancelDownloadModel(model)
     serverStateRepository.clearErrorIfModel(model.name)
+    if (model.imported) {
+      allowlistLoadJob?.cancel()
+      allowlistLoadGenerationGate.beginLoad()
+      _uiState.update { it.copy(loadingModelAllowlist = false) }
+      viewModelScope.launch(ioDispatcher) {
+        try {
+          importedModelCoordinator.deleteImportedModelRecord(model.storageFileName)
+          removeFavorite(model.name)
+          markDownloadStatusChanged(model.name)
+          _uiState.update { current -> current.copy(
+            models = current.models.filterNot { it.name == model.name },
+            modelDownloadStatus = current.modelDownloadStatus - model.name,
+          ) }
+          notifyStorageChanged()
+          loadModelAllowlist()
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.e(TAG, "Could not remove imported model", e)
+          _toastErrorChannel.trySend(context.getString(R.string.imported_model_recovery_error))
+          loadModelAllowlist()
+        }
+      }
+      return
+    }
 
     if (model.updatable) {
       model.updatable = false
@@ -476,11 +489,7 @@ constructor(
       }
     }
 
-    if (model.imported) {
-      deleteFilesFromImportDir(model.downloadFileName)
-    } else {
-      deleteDirFromExternalFilesDir(model.normalizedName)
-    }
+    deleteDirFromExternalFilesDir(model.normalizedName)
 
     val action = if (model.imported) "Imported model deleted" else "Model deleted"
     if (preferencesRepository.isVerboseDebugEnabled()) {
@@ -492,12 +501,6 @@ constructor(
       )
     }
 
-    if (model.imported) {
-      viewModelScope.launch(ioDispatcher) {
-        importedModelCoordinator.deleteImportedModelRecord(model.storageFileName)
-        removeFavorite(model.name)
-      }
-    }
     markDownloadStatusChanged(model.name)
     _uiState.update { current ->
       val statusMap = current.modelDownloadStatus.toMutableMap()
@@ -569,9 +572,54 @@ constructor(
     return result
   }
 
-  fun addImportedLlmModel(info: ImportedModel) {
+  private val _localModelImport = MutableStateFlow<LocalModelImportState>(LocalModelImportState.Idle)
+  internal val localModelImport = _localModelImport.asStateFlow()
+
+  internal fun importLocalModel(uri: Uri, info: ImportedModel) {
+    if (!_localModelImport.compareAndSet(LocalModelImportState.Idle, LocalModelImportState.Copying(info))) return
+    viewModelScope.launch(mainDispatcher) {
+      try {
+        val imported = withContext(ioDispatcher) {
+          importedModelCoordinator.importFile(uri, info) { progress ->
+            _localModelImport.value = LocalModelImportState.Copying(info, progress)
+          }
+        }
+        // A load started during the file copy may still contain the old registry snapshot.
+        allowlistLoadJob?.cancel()
+        allowlistLoadGenerationGate.beginLoad()
+        addImportedLlmModel(imported)
+        loadModelAllowlist()
+        _localModelImport.value = LocalModelImportState.Complete
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to import local model", e)
+        val message = when (e) {
+          is UnregisteredImportFileException -> R.string.error_import_existing_file
+          is ImportedModelRecoveryException -> R.string.imported_model_recovery_error
+          else -> R.string.error_import_failed
+        }
+        _localModelImport.value = LocalModelImportState.Failed(context.getString(message))
+        loadModelAllowlist()
+      }
+    }
+  }
+
+  internal fun dismissLocalModelImport() {
+    _localModelImport.update { if (it is LocalModelImportState.Copying) it else LocalModelImportState.Idle }
+  }
+
+  private fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
     val model = importedModelCoordinator.buildAndRestoreImportedModel(info)
+    if (preferencesRepository.isVerboseDebugEnabled()) {
+      RequestLogStore.addEvent(
+        "Model imported: ${info.fileName} (${info.fileSize.humanReadableSize()})",
+        level = LogLevel.DEBUG,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+    }
 
     val now = System.currentTimeMillis()
     _uiState.update { current ->
@@ -596,19 +644,24 @@ constructor(
       )
     }
 
-    viewModelScope.launch(ioDispatcher) {
-      importedModelCoordinator.saveImportedModel(info)
-    }
   }
 
-  fun updateImportedModelDefaults(updatedInfo: ImportedModel) {
+  fun updateImportedModelDefaults(expected: ImportedModel, updatedInfo: ImportedModel) {
     viewModelScope.launch(ioDispatcher) {
-      val updatedModel = importedModelCoordinator.updateDefaults(updatedInfo)
-      _uiState.update { current ->
-        val updatedModels = current.models.map { m ->
-          if (m.imported && m.storageFileName == updatedInfo.fileName) updatedModel else m
+      try {
+        val updatedModel = importedModelCoordinator.updateDefaults(expected, updatedInfo)
+        _uiState.update { current ->
+          val updatedModels = current.models.map { m ->
+            if (m.imported && m.storageFileName == updatedInfo.fileName) updatedModel else m
+          }
+          current.copy(models = updatedModels)
         }
-        current.copy(models = updatedModels)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e(TAG, "Could not update imported model settings", e)
+        _toastErrorChannel.trySend(context.getString(R.string.error_model_settings_update_failed))
+        loadModelAllowlist()
       }
     }
   }
@@ -627,9 +680,15 @@ constructor(
       }
     }
     if (!accepted) { onResult(false); return }
+    // Prevent a load started before the rename from publishing the old file name.
+    allowlistLoadJob?.cancel()
+    allowlistLoadGenerationGate.beginLoad()
+    _uiState.update { it.copy(loadingModelAllowlist = false) }
     viewModelScope.launch(ioDispatcher) {
       try {
+        var originalRecord: ImportedModel? = null
         val updatedModel = try {
+          originalRecord = protoDataStoreRepository.readImportedModels().firstOrNull { it.fileName == oldFileName }
           if (oldFileName == newFileName) {
             importedModelCoordinator.renameOnlyDisplayName(oldFileName, displayName)
           } else {
@@ -638,17 +697,33 @@ constructor(
         } catch (e: CancellationException) {
           throw e
         } catch (e: Exception) {
-          Log.e(TAG, "Failed to rename imported model '$oldFileName'", e)
-          null
+          Log.e(TAG, "Imported model rename did not complete; checking recovery", e)
+          // The file may already have moved, so do not leave the old card actionable.
+          _uiState.update { state -> state.copy(models = state.models.filterNot { it.name == oldId }) }
+          try {
+            val records = protoDataStoreRepository.readImportedModels()
+            refreshFavoriteModels()
+            loadModelAllowlist()
+            val expected = originalRecord?.toBuilder()?.setFileName(newFileName)?.setDisplayName(displayName)?.build()
+            records.firstOrNull { it == expected }?.let(importedModelCoordinator::buildAndRestoreImportedModel)
+          } catch (recoveryError: CancellationException) {
+            throw recoveryError
+          } catch (recoveryError: Exception) {
+            Log.e(TAG, "Imported model rename recovery failed", recoveryError)
+            _uiState.update { state -> state.copy(
+              models = state.models.filterNot { it.name == oldId },
+              loadingModelAllowlist = false,
+              loadingModelAllowlistError = context.getString(R.string.imported_model_recovery_error),
+            ) }
+            null
+          }
         }
         if (updatedModel == null) {
           withContext(mainDispatcher) { onResult(false) }
           return@launch
         }
 
-        if (oldFileName != newFileName) {
-          renameFavorite(oldId, updatedModel.name)
-        }
+        if (oldFileName != newFileName) refreshFavoriteModels()
         _uiState.update { current ->
           val oldModel = current.models.firstOrNull { it.imported && it.storageFileName == oldFileName }
           val oldModelName = oldModel?.name
@@ -667,15 +742,7 @@ constructor(
             modelInitializationStatus = initializationStatus,
           )
         }
-        if (oldFileName != newFileName) {
-          val configuredDefault = preferencesRepository.getDefaultModelName()
-          if (
-            configuredDefault.equals(oldFileName, ignoreCase = true) ||
-            configuredDefault.equals(ModelFactory.importedModelId(oldFileName), ignoreCase = true)
-          ) {
-            preferencesRepository.setDefaultModelName(updatedModel.name)
-          }
-        }
+        loadModelAllowlist()
         withContext(mainDispatcher) { onResult(true) }
       } finally {
         synchronized(favoritesLock) { _renamingFavoriteIds.value = _renamingFavoriteIds.value - oldId }
@@ -779,29 +846,42 @@ constructor(
     val generation = allowlistLoadGenerationGate.beginLoad()
     allowlistLoadJob = viewModelScope.launch(mainDispatcher) {
       val downloadRevisionsAtStart = downloadStatusRevisionSnapshot()
-      val preparedLoad = withContext(ioDispatcher) {
-        var toastError: String? = null
-        val result = allowlistLoadCoordinator.loadAllowlist(
-          isManualRetry = isManualRetry,
-          onToastError = { message -> toastError = message },
-        )
-        val unfinished = try {
-          downloadRepository.getUnfinishedModelDownloads()
-        } catch (e: Exception) {
-          Log.e(TAG, "Could not inspect pending downloads", e)
-          toastError = context.getString(R.string.model_download_inspection_failed)
-          null
+      val preparedLoad = try {
+        withContext(ioDispatcher) {
+          var toastError: String? = null
+          val result = allowlistLoadCoordinator.loadAllowlist(
+            isManualRetry = isManualRetry,
+            onToastError = { message -> toastError = message },
+          )
+          val unfinished = try {
+            downloadRepository.getUnfinishedModelDownloads()
+          } catch (e: Exception) {
+            Log.e(TAG, "Could not inspect pending downloads", e)
+            toastError = context.getString(R.string.model_download_inspection_failed)
+            null
+          }
+          // Read files after the WorkManager snapshot: an unobserved worker may
+          // finish between the two reads, and its final file must win over a stale partial.
+          val loadedUiState = prepareLoadedUiState(result)
+          PreparedAllowlistLoad(
+            result = result,
+            loadedUiState = loadedUiState,
+            toastError = toastError,
+            downloadRevisionsAtStart = downloadRevisionsAtStart,
+            unfinishedDownloads = unfinished,
+          )
         }
-        // Read files after the WorkManager snapshot: an unobserved worker may
-        // finish between the two reads, and its final file must win over a stale partial.
-        val loadedUiState = prepareLoadedUiState(result)
-        PreparedAllowlistLoad(
-          result = result,
-          loadedUiState = loadedUiState,
-          toastError = toastError,
-          downloadRevisionsAtStart = downloadRevisionsAtStart,
-          unfinishedDownloads = unfinished,
-        )
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e(TAG, "Could not load imported models", e)
+        allowlistLoadGenerationGate.publishIfCurrent(generation) {
+          val message = if (e is ImportedModelRecoveryException) R.string.imported_model_recovery_error
+            else R.string.models_failed_to_load
+          _uiState.update { it.copy(loadingModelAllowlist = false,
+            loadingModelAllowlistError = context.getString(message)) }
+        }
+        return@launch
       }
 
       val wasPublished = allowlistLoadGenerationGate.publishIfCurrent(generation) {
@@ -919,16 +999,10 @@ constructor(
     }
 
     val importedModels = mutableListOf<Model>()
-    for (importedModel in protoDataStoreRepository.readImportedModels()) {
+    val importedRecords = protoDataStoreRepository.readExistingImportedModels()
+    refreshFavoriteModels()
+    for (importedModel in importedRecords) {
       Log.d(TAG, "stored imported model: $importedModel")
-      // Reconcile registry with disk: a process death between file deletion and
-      // record removal (or manual deletion via MTP/another app) leaves ghost
-      // entries that report SUCCEEDED and fail opaquely at init. Purge them.
-      if (!importedModelCoordinator.importedFileExists(importedModel)) {
-        Log.w(TAG, "Imported model '${importedModel.fileName}' missing on disk — purging orphaned registry entry")
-        importedModelCoordinator.deleteImportedModelRecord(importedModel.fileName)
-        continue
-      }
       val model = importedModelCoordinator.buildAndRestoreImportedModel(importedModel)
       importedModels.add(model)
 
@@ -951,6 +1025,5 @@ constructor(
   private fun getModelDownloadStatus(model: Model) = modelStorageRepository.getModelDownloadStatus(model)
 
   private fun deleteFileFromExternalFilesDir(fileName: String) = modelStorageRepository.deleteFileFromExternalFilesDir(fileName)
-  private fun deleteFilesFromImportDir(fileName: String) = modelStorageRepository.deleteFilesFromImportDir(fileName)
   private fun deleteDirFromExternalFilesDir(dir: String) = modelStorageRepository.deleteDirFromExternalFilesDir(dir)
 }

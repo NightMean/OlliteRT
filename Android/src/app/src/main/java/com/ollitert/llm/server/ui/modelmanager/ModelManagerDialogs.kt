@@ -51,6 +51,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +72,7 @@ import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.Model
-import com.ollitert.llm.server.proto.ImportedModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.ui.common.ErrorAlertDialog
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.UrlInputDialog
@@ -88,9 +89,7 @@ class ModelManagerDialogState internal constructor() {
   var showUnsupportedFileTypeDialog by mutableStateOf(false)
   var showUnsupportedWebModelDialog by mutableStateOf(false)
   internal val selectedLocalModelFileUri = mutableStateOf<Uri?>(null)
-  internal val selectedImportedModelInfo = mutableStateOf<ImportedModel?>(null)
   var showImportDialog by mutableStateOf(false)
-  var showImportingDialog by mutableStateOf(false)
   var showSwitchModelDialog by mutableStateOf(false)
   var pendingSwitchModel by mutableStateOf<Model?>(null)
 }
@@ -257,9 +256,8 @@ fun ModelManagerDialogs(
         uri = uri,
         onDismiss = { state.showImportDialog = false },
         onDone = { info ->
-          state.selectedImportedModelInfo.value = info
           state.showImportDialog = false
-          state.showImportingDialog = true
+          viewModel.importLocalModel(uri, info)
         },
         existingImportedModelNames = importedModelNames,
         allowlistModelNames = allowlistModelNames,
@@ -267,23 +265,16 @@ fun ModelManagerDialogs(
     }
   }
 
-  // Importing in progress dialog
+  val importState by viewModel.localModelImport.collectAsStateWithLifecycle()
   val modelImportedText = stringResource(R.string.toast_model_imported)
-  if (state.showImportingDialog) {
-    state.selectedLocalModelFileUri.value?.let { uri ->
-      state.selectedImportedModelInfo.value?.let { info ->
-        ModelImportingDialog(
-          uri = uri,
-          info = info,
-          onDismiss = { state.showImportingDialog = false },
-          onDone = {
-            viewModel.addImportedLlmModel(info = it)
-            state.showImportingDialog = false
-            scope.launch { snackbarHostState.showSnackbar(modelImportedText) }
-          },
-        )
-      }
+  when (importState) {
+    LocalModelImportState.Idle -> Unit
+    LocalModelImportState.Complete -> LaunchedEffect(Unit) {
+      scope.launch { snackbarHostState.showSnackbar(modelImportedText) }
+      viewModel.dismissLocalModelImport()
     }
+    is LocalModelImportState.Copying, is LocalModelImportState.Failed ->
+      ModelImportingDialog(importState, onDismiss = viewModel::dismissLocalModelImport)
   }
 
   // Alert dialog for unsupported file type

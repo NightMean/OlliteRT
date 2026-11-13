@@ -280,8 +280,8 @@ fun ModelItem(
         onRename = { oldFileName, newFileName, displayName, onResult ->
           modelManagerViewModel.renameImportedModel(oldFileName, newFileName, displayName, onResult)
         },
-        onDone = { updated ->
-          modelManagerViewModel.updateImportedModelDefaults(updated)
+        onDone = { expected, updated ->
+          modelManagerViewModel.updateImportedModelDefaults(expected, updated)
           showEditDefaults = false
           showInferenceSettings = false
         },

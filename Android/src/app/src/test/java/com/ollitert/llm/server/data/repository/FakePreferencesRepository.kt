@@ -166,6 +166,15 @@ class FakePreferencesRepository : PreferencesRepository {
   private var favoriteModels: Set<String> = emptySet()
   override fun getFavoriteModels(): Set<String> = favoriteModels.toSet()
   override fun setFavoriteModels(names: Set<String>) { favoriteModels = names.toSet() }
+  override fun syncModelPreferences(): Boolean = true
+  override fun setModelFavorite(name: String, favorite: Boolean): Set<String> {
+    favoriteModels = if (favorite) favoriteModels + name else favoriteModels - name
+    return favoriteModels
+  }
+  override fun completeImportedRename(oldFile: String, newFile: String, oldId: String, newId: String): Boolean {
+    if (oldId in favoriteModels) favoriteModels = favoriteModels - oldId + newId
+    return true
+  }
   override fun isShowModelRecommendations(): Boolean = _showModelRecommendations
   override fun setShowModelRecommendations(enabled: Boolean) { this._showModelRecommendations = enabled }
   override fun isFloatingMonitorEnabled(): Boolean = _floatingMonitorEnabled

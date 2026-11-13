@@ -235,6 +235,9 @@ interface PreferencesRepository {
   fun setConfirmClearLogs(enabled: Boolean)
   fun getFavoriteModels(): Set<String>
   fun setFavoriteModels(names: Set<String>)
+  fun syncModelPreferences(): Boolean
+  fun setModelFavorite(name: String, favorite: Boolean): Set<String>
+  fun completeImportedRename(oldFile: String, newFile: String, oldId: String, newId: String): Boolean
   fun isShowModelRecommendations(): Boolean
   fun setShowModelRecommendations(enabled: Boolean)
   fun isFloatingMonitorEnabled(): Boolean
@@ -371,6 +374,10 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setConfirmClearLogs(enabled: Boolean) = ServerPrefs.setConfirmClearLogs(context, enabled)
   override fun getFavoriteModels(): Set<String> = ServerPrefs.getFavoriteModels(context)
   override fun setFavoriteModels(names: Set<String>) = ServerPrefs.setFavoriteModels(context, names)
+  override fun syncModelPreferences(): Boolean = ServerPrefs.syncModelPreferences(context)
+  override fun setModelFavorite(name: String, favorite: Boolean): Set<String> = ServerPrefs.setModelFavorite(context, name, favorite)
+  override fun completeImportedRename(oldFile: String, newFile: String, oldId: String, newId: String): Boolean =
+    ServerPrefs.completeImportedRename(context, oldFile, newFile, oldId, newId)
   override fun isShowModelRecommendations(): Boolean = ServerPrefs.isShowModelRecommendations(context)
   override fun setShowModelRecommendations(enabled: Boolean) = ServerPrefs.setShowModelRecommendations(context, enabled)
   override fun isFloatingMonitorEnabled(): Boolean = ServerPrefs.isFloatingMonitorEnabled(context)

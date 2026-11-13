@@ -117,7 +117,7 @@ When importing a `.litertlm` file, the import dialog lets you configure the mode
 - **Max tokens** — configure the maximum output length
 - **Context window** — set the model's context window size
 
-You can also edit all of these settings after import via the model's inference settings (tap the gear icon on the model card).
+You can also edit all of these settings after import via the model's inference settings (tap the gear icon on the model card). If the app stops during a file rename, it restores the old name or completes the rename when imported models are next loaded. The model's favorite and settings are preserved.
 
 > [!IMPORTANT]
 > - Only `.litertlm` format is supported — **GGUF files cannot be used** (LiteRT runtime limitation)

@@ -50,6 +50,7 @@ class ImportedRenameRecoveryTest {
     override suspend fun clear(rename: ImportedRename) { check(journal == rename); journal = null; crash("clear") }
     override suspend fun fileExists(name: String) = name in files
     override suspend fun registryRecord(name: String) = records[name]
+    override suspend fun deleteFile(name: String) { files.remove(name) }
     override suspend fun moveFile(oldName: String, newName: String): Boolean {
       moveGate?.await()
       if (falseBeforeMove || oldName !in files || newName in files) return false
@@ -177,6 +178,26 @@ class ImportedRenameRecoveryTest {
     ImportedRenameRecovery(store).recover()
     assertNull(store.journal)
     assertEquals(setOf(rename.oldName), store.favorites)
+  }
+
+  @Test fun reportsSuccessWhenMoveThrowsAfterItCompleted() = runTest {
+    val store = Store().apply { crashAfter = "file" }
+    assertTrue(ImportedRenameRecovery(store).rename(rename))
+    assertEquals(setOf(rename.newName), store.files)
+    assertEquals(setOf(rename.newName), store.favorites)
+    assertNull(store.journal)
+  }
+
+  @Test fun reservedImportPreventsCompetingRenameAndSecondImport() = runTest {
+    val store = Store()
+    val recovery = ImportedRenameRecovery(store)
+    assertTrue(recovery.reserveImport(rename.newName))
+    assertFalse(recovery.reserveImport(rename.newName))
+    assertFalse(recovery.rename(rename))
+    assertNull(store.journal)
+    recovery.releaseImport(rename.newName)
+    assertTrue(recovery.rename(rename))
+    assertEquals(setOf(rename.newName), store.favorites)
   }
 
 }

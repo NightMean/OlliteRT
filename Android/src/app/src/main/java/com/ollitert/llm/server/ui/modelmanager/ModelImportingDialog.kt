@@ -39,59 +39,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.model.IMPORTS_DIR
-import com.ollitert.llm.server.proto.ImportedModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 
 private const val TAG = "OlliteRT.Import"
 
 @Composable
-fun ModelImportingDialog(
-  uri: Uri,
-  info: ImportedModel,
+internal fun ModelImportingDialog(
+  state: LocalModelImportState,
   onDismiss: () -> Unit,
-  onDone: (ImportedModel) -> Unit,
 ) {
-  var error by remember { mutableStateOf("") }
-  val context = LocalContext.current
-  val coroutineScope = rememberCoroutineScope()
-  var progress by remember { mutableFloatStateOf(0f) }
-
-  LaunchedEffect(Unit) {
-    importModel(
-      context = context,
-      coroutineScope = coroutineScope,
-      fileName = info.fileName,
-      fileSize = info.fileSize,
-      uri = uri,
-      onDone = { onDone(info) },
-      onProgress = { progress = it },
-      onError = { error = it },
-    )
-  }
-
   Dialog(
     properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     onDismissRequest = onDismiss,
@@ -107,10 +71,10 @@ fun ModelImportingDialog(
           modifier = Modifier.padding(bottom = 8.dp),
         )
 
-        if (error.isEmpty()) {
+        if (state is LocalModelImportState.Copying) {
           Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-              "${info.fileName} (${info.fileSize.humanReadableSize()})",
+              "${state.model.fileName} (${state.model.fileSize.humanReadableSize()})",
               style = MaterialTheme.typography.labelSmall,
             )
             val animatedProgress = remember { Animatable(0f) }
@@ -118,11 +82,11 @@ fun ModelImportingDialog(
               progress = { animatedProgress.value },
               modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             )
-            LaunchedEffect(progress) {
-              animatedProgress.animateTo(progress, animationSpec = tween(150))
+            LaunchedEffect(state.progress) {
+              animatedProgress.animateTo(state.progress, animationSpec = tween(150))
             }
           }
-        } else {
+        } else if (state is LocalModelImportState.Failed) {
           Row(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -133,7 +97,7 @@ fun ModelImportingDialog(
               tint = MaterialTheme.colorScheme.error,
             )
             Text(
-              error,
+              state.message,
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.error,
               modifier = Modifier.padding(top = 4.dp),
@@ -145,83 +109,6 @@ fun ModelImportingDialog(
         }
       }
     }
-  }
-}
-
-internal fun importModel(
-  context: Context,
-  coroutineScope: CoroutineScope,
-  fileName: String,
-  fileSize: Long,
-  uri: Uri,
-  onDone: () -> Unit,
-  onProgress: (Float) -> Unit,
-  onError: (String) -> Unit,
-) {
-  coroutineScope.launch(Dispatchers.IO) {
-    val decodedUri = URLDecoder.decode(uri.toString(), StandardCharsets.UTF_8.name())
-    Log.d(TAG, "importing model from $decodedUri. File name: $fileName. File size: $fileSize")
-
-    val externalDir = context.getExternalFilesDir(null)
-      ?: throw IOException("External storage unavailable — cannot import model")
-    val importsDir = File(externalDir, IMPORTS_DIR)
-    if (!importsDir.exists()) {
-      importsDir.mkdirs()
-    }
-
-    val finalFile = File(externalDir, "$IMPORTS_DIR/$fileName")
-    val tmpFile = File(externalDir, "$IMPORTS_DIR/${fileName}.tmp")
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var bytesRead: Int
-    var lastSetProgressTs: Long = 0
-    var importedBytes = 0L
-    try {
-      val inputStream = context.contentResolver.openInputStream(uri)
-      if (inputStream == null) {
-        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.name}")
-        onError(context.getString(R.string.error_import_failed))
-        return@launch
-      }
-      inputStream.use { input ->
-        FileOutputStream(tmpFile).use { outputStream ->
-          while (input.read(buffer).also { bytesRead = it } != -1) {
-            outputStream.write(buffer, 0, bytesRead)
-            importedBytes += bytesRead
-
-            val curTs = System.currentTimeMillis()
-            if (curTs - lastSetProgressTs > 200) {
-              Log.d(TAG, "importing progress: $importedBytes, $fileSize")
-              lastSetProgressTs = curTs
-              if (fileSize != 0L) {
-                onProgress(importedBytes.toFloat() / fileSize.toFloat())
-              }
-            }
-          }
-        }
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "Import failed during file copy", e)
-      if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.name}")
-      onError(e.message ?: context.getString(R.string.error_import_failed))
-      return@launch
-    }
-
-    if (finalFile.exists()) {
-      if (!finalFile.delete()) Log.w(TAG, "Failed to delete existing file before rename: ${finalFile.name}")
-    }
-    if (!tmpFile.renameTo(finalFile)) {
-      try {
-        tmpFile.copyTo(finalFile, overwrite = true)
-        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file after copy: ${tmpFile.name}")
-      } catch (e: Exception) {
-        if (!tmpFile.delete()) Log.w(TAG, "Failed to delete temp file: ${tmpFile.name}")
-        onError(context.getString(R.string.error_import_finalize_failed, e.message ?: ""))
-        return@launch
-      }
-    }
-    Log.d(TAG, "import done")
-    onProgress(1f)
-    onDone()
   }
 }
 

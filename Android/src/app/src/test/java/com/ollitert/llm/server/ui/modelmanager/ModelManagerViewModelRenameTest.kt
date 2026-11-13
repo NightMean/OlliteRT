@@ -58,7 +58,7 @@ class ModelManagerViewModelRenameTest {
     val context = mockk<Context>(relaxed = true)
     val protoRepository = mockk<ProtoDataStoreRepository>(relaxed = true)
     val storageRepository = mockk<ModelStorageRepository>(relaxed = true)
-    every { storageRepository.renameImportedFile("old.litertlm", "new.litertlm") } returns false
+    coEvery { protoRepository.renameImportedModel("old.litertlm", "new.litertlm", "new") } returns null
     coEvery { protoRepository.isOnboardingCompleted() } returns true
 
     val preferences = FakePreferencesRepository()
@@ -96,8 +96,8 @@ class ModelManagerViewModelRenameTest {
     val context = mockk<Context>(relaxed = true)
     val protoRepository = mockk<ProtoDataStoreRepository>(relaxed = true)
     val storageRepository = mockk<ModelStorageRepository>(relaxed = true)
-    every {
-      storageRepository.renameImportedFile("old.litertlm", "new.litertlm")
+    coEvery {
+      protoRepository.renameImportedModel("old.litertlm", "new.litertlm", "new")
     } throws IllegalStateException("storage unavailable")
     coEvery { protoRepository.isOnboardingCompleted() } returns true
 
@@ -136,6 +136,10 @@ class ModelManagerViewModelRenameTest {
     coEvery { proto.isOnboardingCompleted() } returns true
     coEvery { proto.readImportedModels() } returns listOf(model)
     every { storage.renameImportedFile("old.litertlm", "new.litertlm") } returns true
+    coEvery { proto.renameImportedModel("old.litertlm", "new.litertlm", "new") } answers {
+      preferences.completeImportedRename("old.litertlm", "new.litertlm", oldId, newId)
+      model.toBuilder().setFileName("new.litertlm").setDisplayName("new").build()
+    }
     val vm = ModelManagerViewModel(
       downloadRepository = mockk<DownloadRepository>(relaxed = true),
       protoDataStoreRepository = proto,
@@ -159,6 +163,33 @@ class ModelManagerViewModelRenameTest {
     preferences.resetToDefaults()
     vm.refreshFavoriteModels()
     assertEquals(emptySet<String>(), vm.favoriteModels.value)
+  }
+
+  @Test
+  fun completedRenameIsReportedWhenRecoveryFindsExpectedRecord() = runTest(testDispatcher) {
+    val original = ImportedModel.newBuilder().setFileName("old.litertlm")
+      .setLlmConfig(LlmConfig.newBuilder().addCompatibleAccelerators("CPU").setDefaultMaxTokens(1024)).build()
+    val renamed = original.toBuilder().setFileName("new.litertlm").setDisplayName("new").build()
+    val proto = mockk<ProtoDataStoreRepository>(relaxed = true)
+    coEvery { proto.isOnboardingCompleted() } returns true
+    coEvery { proto.readImportedModels() } returnsMany listOf(listOf(original), listOf(renamed))
+    coEvery { proto.renameImportedModel("old.litertlm", "new.litertlm", "new") } throws IllegalStateException("lost acknowledgement")
+    val vm = ModelManagerViewModel(
+      downloadRepository = mockk<DownloadRepository>(relaxed = true),
+      protoDataStoreRepository = proto,
+      lifecycleProvider = mockk<OlliteRTLifecycleProvider>(relaxed = true),
+      repositoryManager = mockk<RepositoryManager>(relaxed = true),
+      context = mockk<Context>(relaxed = true),
+      preferencesRepository = FakePreferencesRepository(),
+      serverStateRepository = mockk<ServerStateRepository>(relaxed = true),
+      modelStorageRepository = mockk<ModelStorageRepository>(relaxed = true),
+      ioDispatcher = testDispatcher,
+      mainDispatcher = testDispatcher,
+    )
+    val outcomes = mutableListOf<Boolean>()
+    vm.renameImportedModel("old.litertlm", "new.litertlm", "new") { outcomes += it }
+    advanceUntilIdle()
+    assertEquals(listOf(true), outcomes)
   }
 
 }

@@ -59,6 +59,14 @@ class FakeProtoDataStoreRepository : ProtoDataStoreRepository {
   // Unused in RepositoryManager tests — stub implementations.
   override suspend fun saveImportedModels(importedModels: List<ImportedModel>) = Unit
   override suspend fun readImportedModels(): List<ImportedModel> = emptyList()
+  override suspend fun reserveImportedModel(fileName: String): Boolean = true
+  override suspend fun releaseImportedModel(fileName: String) = Unit
+  override suspend fun finalizeImportedModel(info: ImportedModel, expected: ImportedModel?, stagedFile: java.io.File) = Unit
+  override suspend fun readExistingImportedModels(): List<ImportedModel> = readImportedModels()
+  override suspend fun renameImportedDisplayName(fileName: String, displayName: String): ImportedModel? = null
+  override suspend fun removeImportedModel(fileName: String) = Unit
+  override suspend fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): ImportedModel? = null
+  override suspend fun replaceImportedModel(expected: ImportedModel, updated: ImportedModel, afterSave: () -> Unit) = afterSave()
   override suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel) = Unit
   override suspend fun setHasSeenBenchmarkComparisonHelp(seen: Boolean) = Unit
   override suspend fun getHasSeenBenchmarkComparisonHelp(): Boolean = false

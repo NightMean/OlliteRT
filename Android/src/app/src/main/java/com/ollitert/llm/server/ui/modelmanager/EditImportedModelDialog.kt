@@ -75,7 +75,7 @@ fun EditImportedModelDialog(
   existingImportedModelNames: Set<String>,
   allowlistModelNames: Set<String>,
   onDismiss: () -> Unit,
-  onDone: (ImportedModel) -> Unit,
+  onDone: (ImportedModel, ImportedModel) -> Unit,
   onRename: (
     oldFileName: String,
     newFileName: String,
@@ -309,7 +309,8 @@ fun EditImportedModelDialog(
               onRename(existingModel.fileName, newFileName, editedStem) { renamed ->
                 isSaving = false
                 if (renamed) {
-                  onDone(updated)
+                  val expected = existingModel.toBuilder().setFileName(newFileName).setDisplayName(editedStem).build()
+                  onDone(expected, updated)
                 } else {
                   nameError = errorRenameFailed
                 }

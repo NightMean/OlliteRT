@@ -44,6 +44,7 @@ import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
+import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
@@ -145,7 +146,9 @@ class ServerService : Service() {
         readImportedModels = {
           try {
             kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()
-          } catch (e: Exception) { Log.w(TAG, "Failed to read imported models from DataStore", e); emptyList() }
+          } catch (e: ImportedModelRecoveryException) { throw e }
+          catch (e: kotlinx.coroutines.TimeoutCancellationException) { throw ImportedModelRecoveryException(e) }
+          catch (e: Exception) { throw ImportedModelRecoveryException(e) }
         },
       )
       modelLoader = ServerModelLoader(
@@ -277,81 +280,134 @@ class ServerService : Service() {
     val thisGeneration = loadGeneration.incrementAndGet()
     loadJob?.cancel()
     loadJob = serviceScope.launch {
-      var model = pickModelByName(requestedModelName)
-      if (model == null) {
-        // Auto-start sources resolve the model from prefs, which can go stale when
-        // the model was deleted or renamed. Self-heal by falling back to any other
-        // downloaded model instead of leaving the server down until manual action.
-        if (isAutoStartSource(startSource)) {
-          model = pickFallbackModel(excludeName = requestedModelName)
-          if (model != null) {
-            val msg = "Default model '$requestedModelName' not found — falling back to '${model.name}'"
-            Log.w(TAG, msg)
-            RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = model.name, category = EventCategory.MODEL)
+      // An official catalog model does not depend on the imported registry.
+      val usesImportedRegistry = modelCatalogMerger.load().none { it.name.equals(requestedModelName, ignoreCase = true) }
+      try {
+        if (usesImportedRegistry) withTimeout(DATASTORE_READ_TIMEOUT_MS) { protoDataStoreRepository.readImportedModels() }
+      } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+        val message = getString(R.string.imported_model_recovery_error)
+        Log.e(TAG, "Timed out recovering imported models", e)
+        ServerMetrics.onServerError(message)
+        RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
+        stopSelf()
+        return@launch
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        val message = getString(R.string.imported_model_recovery_error)
+        Log.e(TAG, "Failed to recover imported models", e)
+        ServerMetrics.onServerError(message)
+        RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
+        stopSelf()
+        return@launch
+      }
+      val resolvedModelName = if (isAutoStartSource(startSource)) {
+        preferencesRepository.getDefaultModelName() ?: requestedModelName
+      } else requestedModelName
+      try {
+        var model = pickModelByName(resolvedModelName)
+        if (model == null && isAutoStartSource(startSource)) {
+          // Recovery may have completed after the preflight while resolving the old name.
+          val latestDefault = preferencesRepository.getDefaultModelName()
+          if (latestDefault != null && latestDefault != resolvedModelName) model = pickModelByName(latestDefault)
+        }
+        if (model == null) {
+          // Auto-start sources resolve the model from prefs, which can go stale when
+          // the model was deleted or renamed. Self-heal by falling back to any other
+          // downloaded model instead of leaving the server down until manual action.
+          if (isAutoStartSource(startSource)) {
+            model = pickFallbackModel(excludeName = resolvedModelName)
+            if (model != null) {
+              val msg = "Default model '$resolvedModelName' not found — falling back to '${model.name}'"
+              Log.w(TAG, msg)
+              RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = model.name, category = EventCategory.MODEL)
+            }
           }
         }
-      }
-      if (model == null) {
-        val sourcePrefix = when (startSource) {
-          SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
-          SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
-          else -> ""
+        if (model == null) {
+          val sourcePrefix = when (startSource) {
+            SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
+            SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
+            else -> ""
+          }
+          val msg = sourcePrefix + getString(R.string.error_model_not_found, resolvedModelName)
+          Log.e(TAG, "Model '$resolvedModelName' not found — cannot start server (source=$startSource)")
+          ServerMetrics.onServerError(msg)
+          ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+          RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
+          stopSelf()
+          return@launch
         }
-        val msg = sourcePrefix + getString(R.string.error_model_not_found, requestedModelName)
-        Log.e(TAG, "Model '$requestedModelName' not found — cannot start server (source=$startSource)")
-        ServerMetrics.onServerError(msg)
-        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
-        RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.MODEL)
+        // Verify model files actually exist on disk. Same stale-pref self-heal as
+        // above: the registry entry resolved but its files are gone (e.g. cleared
+        // manually) — fall back for auto-start sources before failing.
+        if (!File(model.getPath(context = this@ServerService)).exists() && isAutoStartSource(startSource)) {
+          try {
+            withTimeout(DATASTORE_READ_TIMEOUT_MS) { protoDataStoreRepository.readImportedModels() }
+          } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            throw ImportedModelRecoveryException(e)
+          } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+          } catch (e: Exception) {
+            throw ImportedModelRecoveryException(e)
+          }
+          val latestDefault = preferencesRepository.getDefaultModelName()
+          if (latestDefault != null && latestDefault != model.name) {
+            val renamed = pickModelByName(latestDefault)
+            if (renamed != null && File(renamed.getPath(context = this@ServerService)).exists()) model = renamed
+          }
+        }
+        if (!File(model.getPath(context = this@ServerService)).exists() && isAutoStartSource(startSource)) {
+          val fallback = pickFallbackModel(excludeName = resolvedModelName)
+          if (fallback != null) {
+            val msg = "Model files missing for '$resolvedModelName' — falling back to '${fallback.name}'"
+            Log.w(TAG, msg)
+            RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = fallback.name, category = EventCategory.MODEL)
+            model = fallback
+          }
+        }
+        val modelPath = model.getPath(context = this@ServerService)
+        if (!File(modelPath).exists()) {
+          val sourcePrefix = when (startSource) {
+            SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
+            SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
+            else -> ""
+          }
+          val msg = sourcePrefix + getString(R.string.error_model_file_missing)
+          Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
+          ServerMetrics.onServerError(msg)
+          ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+          RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
+          stopSelf()
+          return@launch
+        }
+
+        // Apply only after every fallback decision so settings cannot leak from the
+        // requested model into a different model selected during recovery.
+        reloadConfigOverrides?.let { overrides ->
+          if (applyReloadConfigOverrides(model, overrides)) {
+            Log.i(TAG, "Applied ${overrides.values.size} config override(s) from reload caller")
+          } else {
+            Log.w(
+              TAG,
+              "Discarded ${overrides.values.size} config override(s) for " +
+                "'${overrides.modelName}' — this load resolved to '${model.name}'",
+            )
+          }
+        }
+
+        ServerMetrics.onServerStarting(port, model.name)
+        ServerMetrics.setActiveModelSize(model.totalBytes)
+        RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
+
+        loadModelOnThread(model, thisGeneration, notifState)
+      } catch (e: ImportedModelRecoveryException) {
+        val message = getString(R.string.imported_model_recovery_error)
+        Log.e(TAG, "Failed to recover imported models during model selection", e)
+        ServerMetrics.onServerError(message)
+        RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
         stopSelf()
-        return@launch
       }
-      // Verify model files actually exist on disk. Same stale-pref self-heal as
-      // above: the registry entry resolved but its files are gone (e.g. cleared
-      // manually) — fall back for auto-start sources before failing.
-      if (!File(model.getPath(context = this@ServerService)).exists() && isAutoStartSource(startSource)) {
-        val fallback = pickFallbackModel(excludeName = requestedModelName)
-        if (fallback != null) {
-          val msg = "Model files missing for '$requestedModelName' — falling back to '${fallback.name}'"
-          Log.w(TAG, msg)
-          RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = fallback.name, category = EventCategory.MODEL)
-          model = fallback
-        }
-      }
-      val modelPath = model.getPath(context = this@ServerService)
-      if (!File(modelPath).exists()) {
-        val sourcePrefix = when (startSource) {
-          SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
-          SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
-          else -> ""
-        }
-        val msg = sourcePrefix + getString(R.string.error_model_file_missing)
-        Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
-        ServerMetrics.onServerError(msg)
-        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
-        RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
-        stopSelf()
-        return@launch
-      }
-
-      // Apply only after every fallback decision so settings cannot leak from the
-      // requested model into a different model selected during recovery.
-      reloadConfigOverrides?.let { overrides ->
-        if (applyReloadConfigOverrides(model, overrides)) {
-          Log.i(TAG, "Applied ${overrides.values.size} config override(s) from reload caller")
-        } else {
-          Log.w(
-            TAG,
-            "Discarded ${overrides.values.size} config override(s) for " +
-              "'${overrides.modelName}' — this load resolved to '${model.name}'",
-          )
-        }
-      }
-
-      ServerMetrics.onServerStarting(port, model.name)
-      ServerMetrics.setActiveModelSize(model.totalBytes)
-      RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
-
-      loadModelOnThread(model, thisGeneration, notifState)
     }
 
     return START_STICKY

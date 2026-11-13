@@ -24,6 +24,7 @@ import com.ollitert.llm.server.proto.BenchmarkResults
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.Settings
 import kotlinx.coroutines.flow.first
+import java.io.File
 import java.util.UUID
 
 internal fun BenchmarkResult.withStableBenchmarkId(): BenchmarkResult =
@@ -40,7 +41,16 @@ internal fun BenchmarkResult.withStableBenchmarkId(): BenchmarkResult =
 interface ProtoDataStoreRepository {
   suspend fun saveImportedModels(importedModels: List<ImportedModel>)
   suspend fun readImportedModels(): List<ImportedModel>
+  suspend fun replaceImportedModel(expected: ImportedModel, updated: ImportedModel, afterSave: () -> Unit)
   suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel)
+  suspend fun reserveImportedModel(fileName: String): Boolean
+  suspend fun releaseImportedModel(fileName: String)
+  /** Takes ownership of the staged file, including cleanup or recovery after failure. */
+  suspend fun finalizeImportedModel(info: ImportedModel, expected: ImportedModel?, stagedFile: File)
+  suspend fun readExistingImportedModels(): List<ImportedModel>
+  suspend fun renameImportedDisplayName(fileName: String, displayName: String): ImportedModel?
+  suspend fun removeImportedModel(fileName: String)
+  suspend fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): ImportedModel?
 
   suspend fun setHasSeenBenchmarkComparisonHelp(seen: Boolean)
   suspend fun getHasSeenBenchmarkComparisonHelp(): Boolean
@@ -62,28 +72,139 @@ interface ProtoDataStoreRepository {
   suspend fun resetRepositories()
 }
 
-class DefaultProtoDataStoreRepository(
+internal class DefaultProtoDataStoreRepository(
   private val dataStore: DataStore<Settings>,
   private val benchmarkResultsDataStore: DataStore<BenchmarkResults>,
+  private val renameStorage: ImportedRenameStorage? = null,
+  private val copyStorage: DataStoreImportedCopyStorage? = null,
 ) : ProtoDataStoreRepository {
+  private val importedRenameRecovery = renameStorage?.let { storage ->
+    ImportedRenameRecovery(storage) { copyStorage?.recover() }
+  }
+
+  private suspend fun <T> withConsistentImportedModels(operation: suspend () -> T): T {
+    val recovery = importedRenameRecovery
+    if (recovery != null) return recovery.withConsistentState(operation)
+    val settings = dataStore.data.first()
+    check(!settings.hasPendingImportedRename() && !settings.hasPendingImportedCopy()) {
+      "Imported model recovery is unavailable"
+    }
+    return operation()
+  }
 
   override suspend fun saveImportedModels(importedModels: List<ImportedModel>) {
-    dataStore.updateData { settings ->
-      settings.toBuilder().clearImportedModel().addAllImportedModel(importedModels).build()
+    withConsistentImportedModels {
+      dataStore.updateData { it.toBuilder().clearImportedModel().addAllImportedModel(importedModels).build() }
     }
   }
 
-  override suspend fun readImportedModels(): List<ImportedModel> {
-    val settings = dataStore.data.first()
-    return settings.importedModelList
+  override suspend fun readImportedModels(): List<ImportedModel> = withConsistentImportedModels {
+    dataStore.data.first().importedModelList
+  }
+
+  override suspend fun reserveImportedModel(fileName: String): Boolean =
+    (importedRenameRecovery ?: error("Imported model recovery is unavailable")).reserveImport(fileName)
+
+  override suspend fun releaseImportedModel(fileName: String) {
+    (importedRenameRecovery ?: error("Imported model recovery is unavailable")).releaseImport(fileName)
+  }
+
+  override suspend fun finalizeImportedModel(info: ImportedModel, expected: ImportedModel?, stagedFile: File) {
+    var handedToStorage = false
+    try {
+      withConsistentImportedModels {
+        check(importedRenameRecovery?.isImportReserved(info.fileName) == true) { "Model import is not reserved" }
+        val storage = checkNotNull(copyStorage) { "Imported model storage is unavailable" }
+        handedToStorage = true
+        storage.commit(info, expected, stagedFile)
+      }
+    } finally {
+      if (!handedToStorage) stagedFile.delete()
+    }
+  }
+
+  override suspend fun readExistingImportedModels(): List<ImportedModel> = withConsistentImportedModels {
+    val storage = renameStorage ?: error("Imported model storage is unavailable")
+    val snapshot = dataStore.data.first().importedModelList
+    val missing = snapshot.filterNot {
+      importedRenameRecovery?.isImportReserved(it.fileName) == true || storage.fileExists(it.fileName)
+    }.toSet()
+    if (missing.isEmpty()) snapshot else {
+      dataStore.updateData { settings ->
+        settings.toBuilder().clearImportedModel()
+          .addAllImportedModel(settings.importedModelList.filterNot { it in missing }).build()
+      }.importedModelList
+    }
+  }
+
+  override suspend fun replaceImportedModel(expected: ImportedModel, updated: ImportedModel, afterSave: () -> Unit) {
+    withConsistentImportedModels {
+      check(expected.fileName == updated.fileName) { "Model settings cannot change the file name" }
+      val storage = renameStorage ?: error("Imported model storage is unavailable")
+      if (!storage.fileExists(expected.fileName)) throw java.io.IOException("Imported model file is missing")
+      dataStore.updateData { settings ->
+        val models = settings.importedModelList.toMutableList()
+        val index = models.indexOfFirst { it.fileName == expected.fileName }
+        check(index >= 0 && models[index] == expected) { "Imported model changed while editing settings" }
+        models[index] = updated
+        settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
+      }
+      afterSave()
+    }
   }
 
   override suspend fun updateImportedModel(fileName: String, updatedModel: ImportedModel) {
-    dataStore.updateData { settings ->
-      val models = settings.importedModelList.toMutableList()
-      val index = models.indexOfFirst { it.fileName == fileName }
-      if (index >= 0) models[index] = updatedModel else models.add(updatedModel)
-      settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
+    withConsistentImportedModels {
+      if (renameStorage != null && !renameStorage.fileExists(fileName)) {
+        throw java.io.IOException("Imported model file is missing")
+      }
+      dataStore.updateData { settings ->
+        val models = settings.importedModelList.toMutableList()
+        val index = models.indexOfFirst { it.fileName == fileName }
+        if (index >= 0) models[index] = updatedModel else models.add(updatedModel)
+        settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
+      }
+    }
+  }
+
+  override suspend fun renameImportedDisplayName(fileName: String, displayName: String): ImportedModel? =
+    withConsistentImportedModels {
+      val updated = dataStore.updateData { settings ->
+        val models = settings.importedModelList.toMutableList()
+        val index = models.indexOfFirst { it.fileName == fileName }
+        if (index >= 0) models[index] = models[index].toBuilder().setDisplayName(displayName).build()
+        settings.toBuilder().clearImportedModel().addAllImportedModel(models).build()
+      }
+      updated.importedModelList.firstOrNull { it.fileName == fileName }
+    }
+
+  override suspend fun removeImportedModel(fileName: String) {
+    withConsistentImportedModels {
+      val storage = renameStorage ?: error("Imported model storage is unavailable")
+      check(importedRenameRecovery?.isImportReserved(fileName) != true) { "Model import is in progress" }
+      if (dataStore.data.first().importedModelList.none { it.fileName == fileName }) return@withConsistentImportedModels
+      storage.deleteFile(fileName)
+      dataStore.updateData { settings ->
+        settings.toBuilder().clearImportedModel()
+          .addAllImportedModel(settings.importedModelList.filterNot { it.fileName == fileName }).build()
+      }
+    }
+  }
+
+  override suspend fun renameImportedModel(oldFileName: String, newFileName: String, displayName: String): ImportedModel? {
+    val recovery = importedRenameRecovery ?: error("Imported model recovery is unavailable")
+    val original = readImportedModels().firstOrNull { it.fileName == oldFileName } ?: return null
+    val rename = ImportedRename(original, newFileName, displayName)
+    return try {
+      if (recovery.rename(rename)) rename.renamed else null
+    } catch (e: kotlinx.coroutines.CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      // A durable step can succeed before its acknowledgement is lost.
+      val completed = try { readImportedModels().any { it == rename.renamed } }
+        catch (recoveryError: kotlinx.coroutines.CancellationException) { throw recoveryError }
+        catch (recoveryError: Exception) { e.addSuppressed(recoveryError); false }
+      if (completed) rename.renamed else throw e
     }
   }
 

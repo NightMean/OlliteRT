@@ -57,6 +57,21 @@ message RepositoryEntry {
   string last_error = 7;
 }
 
+// Intent remains until the file, model record and preferences agree.
+message PendingImportedRename {
+  ImportedModel original = 1;
+  string new_file_name = 2;
+  string display_name = 3;
+}
+
+message PendingImportedCopy {
+  ImportedModel model = 1;
+  ImportedModel previous_model = 2;
+  string staged_file_name = 3;
+  bool replace_existing_file = 4;
+  int64 staged_last_modified_ms = 5;
+}
+
 message Settings {
   reserved 1, 2, 3, 6, 8, 9, 10;
   repeated ImportedModel imported_model = 4;
@@ -64,4 +79,6 @@ message Settings {
   bool is_tos_accepted = 5;
   bool has_seen_benchmark_comparison_help = 7;
   repeated RepositoryEntry repositories = 11;
+  PendingImportedRename pending_imported_rename = 12;
+  PendingImportedCopy pending_imported_copy = 13;
 }

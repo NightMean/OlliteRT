@@ -17,6 +17,7 @@ package com.ollitert.llm.server.data.repository
 
 import com.ollitert.llm.server.proto.ImportedModel
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -37,33 +38,67 @@ internal interface ImportedRenameStorage {
   suspend fun clear(rename: ImportedRename)
   suspend fun fileExists(name: String): Boolean
   suspend fun registryRecord(name: String): ImportedModel?
+  suspend fun deleteFile(name: String)
   suspend fun moveFile(oldName: String, newName: String): Boolean
   suspend fun moveRegistry(rename: ImportedRename)
   suspend fun movePreferences(rename: ImportedRename)
 }
 
-/** Serializes a rename with recovery. Ambiguous states retain the journal for inspection. */
-internal class ImportedRenameRecovery(private val storage: ImportedRenameStorage) {
-  private val mutex = Mutex()
+internal class ImportedModelRecoveryException(cause: Throwable) : IOException("Imported model recovery failed", cause)
 
-  suspend fun recover() { mutex.withLock { recoverLocked() } }
+/** Serializes a rename with recovery. Ambiguous states retain the journal for inspection. */
+internal class ImportedRenameRecovery(
+  private val storage: ImportedRenameStorage,
+  private val recoverImportCopy: suspend () -> Unit = {},
+) {
+  private val mutex = Mutex()
+  private val importsInProgress = mutableSetOf<String>()
+
+  suspend fun recover() { mutex.withLock { checkedRecover() } }
 
   /** Runs a registry operation only after recovery, under the same lock as rename. */
   suspend fun <T> withConsistentState(operation: suspend () -> T): T = mutex.withLock {
-    recoverLocked()
+    checkedRecover()
     operation()
   }
 
+  suspend fun reserveImport(name: String): Boolean = mutex.withLock {
+    checkedRecover()
+    require(validName(name))
+    importsInProgress.add(name)
+  }
+
+  suspend fun releaseImport(name: String) { mutex.withLock { importsInProgress.remove(name) } }
+
+  /** Only call while holding the consistent-state lock. */
+  fun isImportReserved(name: String): Boolean = name in importsInProgress
+
   suspend fun rename(rename: ImportedRename): Boolean = mutex.withLock {
-    recoverLocked()
+    checkedRecover()
     require(validName(rename.oldName) && validName(rename.newName) && rename.oldName != rename.newName)
+    if (rename.oldName in importsInProgress || rename.newName in importsInProgress) return@withLock false
     if (storage.registryRecord(rename.oldName) != rename.original || storage.registryRecord(rename.newName) != null ||
       !storage.fileExists(rename.oldName) || storage.fileExists(rename.newName)) return@withLock false
     storage.prepare(rename)
-    if (!storage.moveFile(rename.oldName, rename.newName)) {
-      return@withLock recoverLocked() == RecoveryResult.COMPLETED
+    val moved = try {
+      storage.moveFile(rename.oldName, rename.newName)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      // The filesystem may have completed the move before reporting an error.
+      if (checkedRecover() == RecoveryResult.COMPLETED) return@withLock true
+      throw e
     }
-    recoverLocked() == RecoveryResult.COMPLETED
+    if (!moved) return@withLock checkedRecover() == RecoveryResult.COMPLETED
+    checkedRecover() == RecoveryResult.COMPLETED
+  }
+
+  private suspend fun checkedRecover(): RecoveryResult = try {
+    recoverLocked().also { recoverImportCopy() }
+  } catch (e: CancellationException) {
+    throw e
+  } catch (e: Exception) {
+    throw ImportedModelRecoveryException(e)
   }
 
   private enum class RecoveryResult { NONE, ROLLED_BACK, COMPLETED }
