@@ -1171,7 +1171,7 @@
   <!-- InferenceRunner: error message -->
   <string name="error_model_init_failed">Model initialization failed: %1$s</string>
 
-  <string name="hf_explore_title">Explore Hugging Face</string>
+  <string name="hf_explore_title">From Hugging Face</string>
   <string name="hf_explore_back">Back</string>
   <string name="hf_explore_search">Search repositories</string>
   <string name="hf_explore_trending">Trending</string>
@@ -1189,6 +1189,10 @@
   <string name="hf_explore_download_count">%1$s downloads</string>
   <string name="hf_explore_like_count">%1$s likes</string>
   <string name="hf_explore_updated_date">Updated: %1$s</string>
+  <string name="hf_files_possible">Compatible files</string>
+  <string name="hf_files_other">May not be compatible</string>
+  <string name="hf_files_other_hint">These files may not work on this device.</string>
+  <string name="hf_files_estimate">Based on the file name and your device, these files should be compatible, but compatibility cannot be guaranteed. Check the model card for details.</string>
   <string name="hf_sheet_import">Import Model</string>
   <string name="hf_sheet_copy_link">Copy model link</string>
   <string name="hf_sheet_no_files">This repository has no supported model files.</string>
@@ -1199,7 +1203,6 @@
   <string name="hf_explore_error">Could not load Hugging Face. Check your connection or token and try again.</string>
   <string name="hf_explore_retry">Retry</string>
   <string name="hf_explore_empty">No LiteRT-LM files found.</string>
-  <string name="hf_explore_compatibility">Check the model card before adding a file. Some files need specific hardware or are not chat models.</string>
   <string name="hf_explore_unknown_size">File size unavailable</string>
   <string name="hf_explore_capabilities">Select supported features</string>
   <string name="hf_explore_accelerators">Select compatible accelerators</string>

@@ -160,7 +160,7 @@ private fun HuggingFaceModelDialog(
   onDismiss: () -> Unit,
   onAdd: (HuggingFaceFile, ImportedModel) -> Unit,
 ) {
-  var selectedPath by remember(model.id) { mutableStateOf(initialPath ?: model.modelFiles.firstOrNull()?.path) }
+  var selectedPath by remember(model.id) { mutableStateOf(initialPath) }
   var configuringFile by remember(model.id) { mutableStateOf<HuggingFaceFile?>(null) }
   val selected = model.modelFiles.firstOrNull { it.path == selectedPath }
   if (configuringFile == null) {

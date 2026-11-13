@@ -15,8 +15,10 @@
  */
 package com.ollitert.llm.server.ui.modelmanager
 
+import android.app.ActivityManager
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -45,7 +47,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,7 +85,20 @@ internal fun HuggingFaceModelDetailsSheet(
     skipPartiallyExpanded = true,
     confirmValueChange = { !currentLoading || it != SheetValue.Hidden },
   )
+  val context = LocalContext.current
+  val totalMemory = remember(context) {
+    context.getSystemService(ActivityManager::class.java)?.let { manager ->
+      ActivityManager.MemoryInfo().also { manager.getMemoryInfo(it) }.totalMem
+    }
+  }
+  val device = remember { "${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL} ${Build.BOARD} ${Build.HARDWARE}" }
   val files = model.modelFiles
+  val (possibleFiles, otherFiles) = remember(files, totalMemory, device) {
+    files.partition { mayWorkOnDevice(it.path, it.sizeBytes, totalMemory, device) }
+  }
+  LaunchedEffect(model.id, selectedPath, possibleFiles, otherFiles) {
+    if (selectedPath == null) (possibleFiles.firstOrNull() ?: otherFiles.firstOrNull())?.let { onSelect(it.path) }
+  }
   val selected = files.firstOrNull { it.path == selectedPath }
   val validRevision = model.sha?.matches(Regex("[a-fA-F0-9]{40}")) == true
   ModalBottomSheet(
@@ -104,10 +121,24 @@ internal fun HuggingFaceModelDetailsSheet(
         }
         Text(model.id.substringBefore('/'), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
         HuggingFaceModelStats(model)
-        Text(stringResource(R.string.hf_explore_compatibility), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          files.forEach { file ->
-            HuggingFaceFileRow(model, file, selectedPath == file.path, loading, validRevision) { onSelect(file.path) }
+          if (possibleFiles.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+              Text(stringResource(R.string.hf_files_possible), style = MaterialTheme.typography.titleMedium)
+              Text(stringResource(R.string.hf_files_estimate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            possibleFiles.forEach { file ->
+              HuggingFaceFileRow(model, file, selectedPath == file.path, loading, validRevision) { onSelect(file.path) }
+            }
+          }
+          if (otherFiles.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+              Text(stringResource(R.string.hf_files_other), style = MaterialTheme.typography.titleMedium)
+              Text(stringResource(R.string.hf_files_other_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            otherFiles.forEach { file ->
+              HuggingFaceFileRow(model, file, selectedPath == file.path, loading, validRevision) { onSelect(file.path) }
+            }
           }
         }
         if (files.isEmpty()) {
