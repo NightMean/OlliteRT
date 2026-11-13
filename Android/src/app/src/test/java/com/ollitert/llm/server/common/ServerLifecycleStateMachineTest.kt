@@ -151,6 +151,41 @@ class ServerLifecycleStateMachineTest {
   }
 
   @Test
+  fun repeatedErrorWithinSameFailureKeepsOccurrence() {
+    val first = stateMachine.process(ServerLifecycleEvent.ErrorOccurred("Port in use")) as ServerLifecycleState.Error
+    val repeated = stateMachine.process(ServerLifecycleEvent.ErrorOccurred("Port in use")) as ServerLifecycleState.Error
+    assertEquals(first.occurrenceId, repeated.occurrenceId)
+    stateMachine.process(ServerLifecycleEvent.StartRequested(8000, "gemma"))
+    val retry = stateMachine.process(ServerLifecycleEvent.ErrorOccurred("Port in use")) as ServerLifecycleState.Error
+    assertTrue(first.occurrenceId != retry.occurrenceId)
+  }
+
+  @Test
+  fun failedStartupRemainsVisibleAfterServiceCleanupAndRetry() {
+    ServerMetrics.resetForTesting()
+    ServerMetrics.onServerStarting(8000, "gemma")
+    ServerMetrics.onServerError("Port is already in use")
+    ServerMetrics.onServerStopped(preserveError = true)
+
+    assertEquals(ServerStatus.ERROR, ServerMetrics.status.value)
+    assertEquals("Port is already in use", ServerMetrics.lastError.value)
+    assertNull(ServerMetrics.activeModelName.value)
+    assertTrue(ServerMetrics.lifecycleState.value is ServerLifecycleState.Error)
+
+    ServerMetrics.onServerStarting(8000, "gemma")
+    assertEquals(ServerStatus.LOADING, ServerMetrics.status.value)
+    assertNull(ServerMetrics.lastError.value)
+    ServerMetrics.onServerError("Port is already in use")
+    ServerMetrics.onServerStopped(preserveError = true)
+    assertEquals(ServerStatus.ERROR, ServerMetrics.status.value)
+    assertEquals("Port is already in use", ServerMetrics.lastError.value)
+    ServerMetrics.onServerStarting(8000, "gemma")
+    ServerMetrics.onServerStopped()
+    assertEquals(ServerStatus.STOPPED, ServerMetrics.status.value)
+    assertNull(ServerMetrics.lastError.value)
+  }
+
+  @Test
   fun serverMetricsLifecycleIntegration() {
     ServerMetrics.resetForTesting()
     assertEquals(ServerLifecycleState.Stopped, ServerMetrics.lifecycleState.value)

@@ -47,6 +47,7 @@ class ServerViewModel @Inject constructor(
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) : ViewModel() {
 
+  val lifecycleState = serverStateRepository.lifecycleState
   val status = serverStateRepository.status
   val isInferring = serverStateRepository.isInferring
   val activeModelName = serverStateRepository.activeModelName

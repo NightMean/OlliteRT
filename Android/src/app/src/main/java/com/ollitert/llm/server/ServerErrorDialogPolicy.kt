@@ -24,9 +24,10 @@ internal object ServerErrorDialogPolicy {
     status: ServerStatus,
     message: String?,
     dismissedSignature: String?,
+    occurrenceId: String = "",
   ): ServerErrorDialogDecision {
     val activeSignature = if (status == ServerStatus.ERROR && !message.isNullOrBlank()) {
-      "$status:$message"
+      "$status:$message:$occurrenceId"
     } else {
       null
     }

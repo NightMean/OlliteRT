@@ -16,6 +16,12 @@ import org.junit.Test
 class ServerErrorDialogPolicyTest {
 
   @Test
+  fun identicalFailureAfterUnobservedRetryShowsAgain() {
+    val first = ServerErrorDialogPolicy.reconcile(ServerStatus.ERROR, "Port in use", null, "first")
+    val retry = ServerErrorDialogPolicy.reconcile(ServerStatus.ERROR, "Port in use", first.activeSignature, "second")
+    assertTrue(retry.shouldShow)
+  }
+  @Test
   fun identicalErrorShowsAgainAfterRecovery() {
     val firstError = ServerErrorDialogPolicy.reconcile(
       status = ServerStatus.ERROR,

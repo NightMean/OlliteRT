@@ -74,6 +74,7 @@ internal fun ActiveModelCard(
 ) {
   val isStopped = status == ServerStatus.STOPPED
   val isLoading = status == ServerStatus.LOADING
+  val hasNoActiveModel = isStopped || (status == ServerStatus.ERROR && modelName == null)
   val context = LocalContext.current
 
   Box(
@@ -109,12 +110,12 @@ internal fun ActiveModelCard(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Text(
-            text = if (isStopped) stringResource(R.string.status_no_model_loaded) else (modelName ?: stringResource(R.string.status_model_loading)),
+            text = if (hasNoActiveModel) stringResource(R.string.status_no_model_loaded) else (modelName ?: stringResource(R.string.status_model_loading)),
             style = MaterialTheme.typography.titleMedium,
             color = if (isStopped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f, fill = false),
           )
-          if (!isStopped && !isLoading) {
+          if (!hasNoActiveModel && !isLoading) {
             StatusCapabilityChips(
               accelerator = activeAccelerator,
               thinkingEnabled = thinkingEnabled,
@@ -124,7 +125,13 @@ internal fun ActiveModelCard(
         }
         Spacer(modifier = Modifier.height(2.dp))
         if (status == ServerStatus.ERROR) {
-          val errorText = formatModelError(context, lastError)
+          val errorText = if (hasNoActiveModel) {
+            when {
+              lastError.isNullOrBlank() -> stringResource(R.string.error_unknown)
+              lastError.length > 80 -> stringResource(R.string.error_server_check_logs)
+              else -> lastError
+            }
+          } else formatModelError(context, lastError)
           Text(
             text = errorText,
             style = MaterialTheme.typography.labelSmall,
@@ -179,7 +186,7 @@ internal fun ActiveModelCard(
           )
         }
       }
-      if (!isStopped) {
+      if (!hasNoActiveModel) {
         if (isLoading) {
           Box(
             modifier = Modifier

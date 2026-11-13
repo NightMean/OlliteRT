@@ -50,7 +50,7 @@ object ServerMetrics {
   private val stateMachine = ServerLifecycleStateMachine()
   val lifecycleState: StateFlow<ServerLifecycleState> = stateMachine.state
 
-  private val _status = sessionFlow(ServerStatus.STOPPED)
+  private val _status = MutableStateFlow(ServerStatus.STOPPED)
   val status: StateFlow<ServerStatus> = _status.asStateFlow()
 
   /**
@@ -226,7 +226,7 @@ object ServerMetrics {
   val inferenceSettings: StateFlow<FloatingInferenceSettings> = _inferenceSettings.asStateFlow()
 
   /** Human-readable error message when status is ERROR, or null. */
-  private val _lastError = sessionFlow<String?>(null)
+  private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
   /** Count of concurrent in-flight inference requests. */
@@ -288,10 +288,9 @@ object ServerMetrics {
   val deviceTotalRamBytes: StateFlow<Long> = _deviceTotalRamBytes.asStateFlow()
 
   private fun applyLifecycleState(state: ServerLifecycleState) {
-    _status.value = state.status
     when (state) {
       is ServerLifecycleState.Stopped -> {
-        // Clear session flows
+        _lastError.value = null
       }
       is ServerLifecycleState.Starting -> {
         _port.value = state.port
@@ -315,32 +314,42 @@ object ServerMetrics {
       is ServerLifecycleState.Error -> {
         _startedAtMs.value = 0L
         _loadingStartedAtMs.value = 0L
+        _activeModelName.value = state.modelName
         _lastError.value = state.message
         _modelLoadPhase.value = ModelLoadPhase.STARTING
       }
     }
+    _status.value = state.status
   }
 
-  fun onServerStarting(port: Int, modelName: String?) {
+  @Synchronized fun onServerStarting(port: Int, modelName: String?) {
     applyLifecycleState(stateMachine.process(ServerLifecycleEvent.StartRequested(port, modelName)))
   }
 
-  fun onServerRunning(bindAddress: String?, isLoopbackOnly: Boolean = bindAddress == null) {
+  @Synchronized fun onServerRunning(bindAddress: String?, isLoopbackOnly: Boolean = bindAddress == null) {
     applyLifecycleState(stateMachine.process(ServerLifecycleEvent.RunningEntered(bindAddress, isLoopbackOnly)))
   }
 
-  fun onServerStopped() {
-    stateMachine.process(ServerLifecycleEvent.StopRequested)
+  @Synchronized fun onServerStopped(preserveError: Boolean = false) {
+    val current = stateMachine.state.value
+    val finalState = if (preserveError && current is ServerLifecycleState.Error) {
+      current
+    } else {
+      stateMachine.process(ServerLifecycleEvent.StopRequested)
+    }
     _inferringCount.set(0)
     sessionAtomicResets.forEach { it() }
     sessionFlowResets.forEach { it() }
+    applyLifecycleState(finalState)
+    // A retained failure does not mean that its model is still held by the service.
+    if (preserveError) _activeModelName.value = null
   }
 
-  fun onServerError(message: String? = null) {
+  @Synchronized fun onServerError(message: String? = null) {
     applyLifecycleState(stateMachine.process(ServerLifecycleEvent.ErrorOccurred(message)))
   }
 
-  fun clearErrorIfModel(modelName: String) {
+  @Synchronized fun clearErrorIfModel(modelName: String) {
     val next = stateMachine.process(ServerLifecycleEvent.ClearErrorIfModel(modelName))
     if (next is ServerLifecycleState.Stopped) {
       _status.value = ServerStatus.STOPPED
@@ -488,13 +497,13 @@ object ServerMetrics {
     }
   }
 
-  fun onInferenceStarted() {
+  @Synchronized fun onInferenceStarted() {
     _inferringCount.incrementAndGet()
     _isInferring.value = true
     stateMachine.process(ServerLifecycleEvent.InferenceStarted)
   }
 
-  fun onInferenceCompleted() {
+  @Synchronized fun onInferenceCompleted() {
     val count = _inferringCount.decrementAndGet().coerceAtLeast(0)
     if (count == 0) _inferringCount.set(0)
     _isInferring.value = count > 0
@@ -503,12 +512,12 @@ object ServerMetrics {
     }
   }
 
-  fun onModelIdleUnloaded() {
+  @Synchronized fun onModelIdleUnloaded() {
     _isIdleUnloaded.value = true
     stateMachine.process(ServerLifecycleEvent.ModelIdleUnloaded)
   }
 
-  fun onModelReloadedFromIdle() {
+  @Synchronized fun onModelReloadedFromIdle() {
     _isIdleUnloaded.value = false
     stateMachine.process(ServerLifecycleEvent.ModelReloadedFromIdle)
   }
@@ -546,7 +555,7 @@ object ServerMetrics {
    * Calls [onServerStopped] (which resets server-session state) then also resets
    * app-level state that [onServerStopped] intentionally preserves.
    */
-  fun resetForTesting() {
+  @Synchronized fun resetForTesting() {
     onServerStopped()
     stateMachine.reset()
     _availableUpdateVersion.value = null

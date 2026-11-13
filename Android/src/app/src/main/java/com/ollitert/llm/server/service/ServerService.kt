@@ -78,6 +78,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 @AndroidEntryPoint
 class ServerService : Service() {
+  @Volatile private var preserveStartupError = false
 
   @Inject lateinit var protoDataStoreRepository: ProtoDataStoreRepository
   @Inject lateinit var preferencesRepository: PreferencesRepository
@@ -254,6 +255,10 @@ class ServerService : Service() {
 
     val startSource = intent.getStringExtra(EXTRA_START_SOURCE)
 
+    // Publish each attempt before binding, including failures before model resolution.
+    preserveStartupError = false
+    ServerMetrics.onServerStarting(port, requestedModelName)
+
     // ── Ktor server setup & network resolution ─────────────────────────────
     val (networkConfig, configError) = ServerNetworkMonitor.resolveConfig(this)
     if (networkConfig == null || configError != null) {
@@ -289,7 +294,7 @@ class ServerService : Service() {
         Log.e(TAG, "Timed out recovering imported models", e)
         ServerMetrics.onServerError(message)
         RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
-        stopSelf()
+        stopAfterFailure()
         return@launch
       } catch (e: kotlinx.coroutines.CancellationException) {
         throw e
@@ -298,7 +303,7 @@ class ServerService : Service() {
         Log.e(TAG, "Failed to recover imported models", e)
         ServerMetrics.onServerError(message)
         RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
-        stopSelf()
+        stopAfterFailure()
         return@launch
       }
       val resolvedModelName = if (isAutoStartSource(startSource)) {
@@ -335,7 +340,7 @@ class ServerService : Service() {
           ServerMetrics.onServerError(msg)
           ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
           RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
-          stopSelf()
+          stopAfterFailure()
           return@launch
         }
         // Verify model files actually exist on disk. Same stale-pref self-heal as
@@ -378,7 +383,7 @@ class ServerService : Service() {
           ServerMetrics.onServerError(msg)
           ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
           RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
-          stopSelf()
+          stopAfterFailure()
           return@launch
         }
 
@@ -406,7 +411,7 @@ class ServerService : Service() {
         Log.e(TAG, "Failed to recover imported models during model selection", e)
         ServerMetrics.onServerError(message)
         RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
-        stopSelf()
+        stopAfterFailure()
       }
     }
 
@@ -420,6 +425,11 @@ class ServerService : Service() {
     }
   }
 
+  private fun stopAfterFailure() {
+    preserveStartupError = true
+    stopSelf()
+  }
+
   private fun reportNetworkConfigFailure(message: String, requestedModelName: String) {
     Log.e(TAG, message)
     ServerMetrics.onServerError(message)
@@ -430,7 +440,7 @@ class ServerService : Service() {
       modelName = requestedModelName,
       category = EventCategory.SERVER,
     )
-    stopSelf()
+    stopAfterFailure()
   }
 
   /**
@@ -448,7 +458,7 @@ class ServerService : Service() {
       ServerMetrics.onServerError(probeError)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
       RequestLogStore.addEvent(probeError, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
-      stopSelf()
+      stopAfterFailure()
       return false
     }
 
@@ -488,7 +498,7 @@ class ServerService : Service() {
       ServerMetrics.onServerError(msg)
       ServerMetrics.incrementErrorCount(ErrorCategory.NETWORK)
       RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = requestedModelName, category = EventCategory.SERVER)
-      stopSelf()
+      stopAfterFailure()
       false
     }
   }
@@ -582,7 +592,7 @@ class ServerService : Service() {
 
     notificationManager.clear()
     pendingReloadAfterLoad.set(null)
-    ServerMetrics.onServerStopped()
+    ServerMetrics.onServerStopped(preserveError = preserveStartupError)
     if (modelName != null) {
       RequestLogStore.addEvent("Server stopped", modelName = modelName, category = EventCategory.SERVER)
     }

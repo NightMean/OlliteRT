@@ -1081,6 +1081,7 @@
   <string name="error_model_not_found">Model \'%1$s\' not found. Check that the model is still downloaded or update the default model in Settings.</string>
   <string name="error_model_file_missing">Model file not found on disk. The model may have been deleted — re-download or update the default model in Settings.</string>
   <string name="error_port_in_use">Port %1$d is already in use</string>
+  <string name="error_server_check_logs">Server error — check Logs for details</string>
   <string name="error_server_failed_to_start">Server failed to start: %1$s</string>
   <string name="error_invalid_bind_address">Invalid server bind address: %1$s. Enter a numeric IP address in Settings.</string>
   <string name="error_invalid_client_ip_policy">Invalid client IP access policy. Open Settings and correct the address list.</string>

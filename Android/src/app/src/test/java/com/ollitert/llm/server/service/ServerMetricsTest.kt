@@ -644,8 +644,8 @@ class ServerMetricsTest {
       field.isAccessible = true
       field.get(ServerMetrics) is MutableStateFlow<*>
     }
-    // 3 app-level flows intentionally not registered: port, availableUpdateVersion, availableUpdateUrl
-    val appLevelFlowCount = 3
+    // Status and last error are managed by the lifecycle so failed startup can survive cleanup.
+    val separatelyManagedFlowCount = 5
     val registeredFlowCount = ServerMetrics::class.java.getDeclaredField("sessionFlowResets").let {
       it.isAccessible = true
       @Suppress("UNCHECKED_CAST")
@@ -653,7 +653,7 @@ class ServerMetricsTest {
     }
     assertEquals(
       "MutableStateFlow fields not registered in sessionFlowResets (forgot sessionFlow()?)",
-      allFlowFields.size - appLevelFlowCount,
+      allFlowFields.size - separatelyManagedFlowCount,
       registeredFlowCount,
     )
 

@@ -48,6 +48,7 @@ sealed interface ServerLifecycleState {
   data class Error(
     val message: String?,
     val modelName: String? = null,
+    val occurrenceId: String = "",
   ) : ServerLifecycleState
 
   val status: ServerStatus
@@ -85,6 +86,7 @@ sealed interface ServerLifecycleEvent {
 
   data class ErrorOccurred(
     val message: String?,
+    val occurrenceId: String = java.util.UUID.randomUUID().toString(),
   ) : ServerLifecycleEvent
 
   data object StopRequested : ServerLifecycleEvent
@@ -175,7 +177,12 @@ object ServerLifecycleReducer {
           is ServerLifecycleState.Error -> currentState.modelName
           is ServerLifecycleState.Stopped -> null
         }
-        ServerLifecycleState.Error(message = event.message, modelName = model)
+        val occurrenceId = if (currentState is ServerLifecycleState.Error && currentState.message == event.message) {
+          currentState.occurrenceId
+        } else {
+          event.occurrenceId
+        }
+        ServerLifecycleState.Error(message = event.message, modelName = model, occurrenceId = occurrenceId)
       }
       is ServerLifecycleEvent.StopRequested -> {
         ServerLifecycleState.Stopped

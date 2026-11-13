@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.ollitert.llm.server.common.ServerLifecycleState
 import com.ollitert.llm.server.common.ErrorSuggestions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -111,22 +112,24 @@ fun OlliteRTApp(
   val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
   val isInferring by serverViewModel.isInferring.collectAsStateWithLifecycle()
   val modelLoadPhase by serverViewModel.modelLoadPhase.collectAsStateWithLifecycle()
-  val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
+  val lifecycleState by serverViewModel.lifecycleState.collectAsStateWithLifecycle()
+  val activeError = lifecycleState as? ServerLifecycleState.Error
   var showErrorDialog by remember { mutableStateOf(false) }
   var errorDialogMessage by remember { mutableStateOf("") }
   // A dismissal survives recreation during the same uninterrupted error, but
   // recovery clears it so a later identical failure is reported again.
   var dismissedErrorSignature by rememberSaveable { mutableStateOf<String?>(null) }
   val errorDialogDecision = ServerErrorDialogPolicy.reconcile(
-    status = serverStatus,
-    message = lastError,
+    status = lifecycleState.status,
+    message = activeError?.message,
+    occurrenceId = activeError?.occurrenceId.orEmpty(),
     dismissedSignature = dismissedErrorSignature,
   )
 
   LaunchedEffect(errorDialogDecision.activeSignature) {
     dismissedErrorSignature = errorDialogDecision.dismissedSignature
     if (errorDialogDecision.shouldShow) {
-      errorDialogMessage = lastError.orEmpty()
+      errorDialogMessage = activeError?.message.orEmpty()
       showErrorDialog = true
     } else if (errorDialogDecision.activeSignature == null) {
       showErrorDialog = false
