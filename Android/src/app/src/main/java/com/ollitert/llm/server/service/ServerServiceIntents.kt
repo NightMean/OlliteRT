@@ -29,11 +29,12 @@ import com.ollitert.llm.server.common.ServerStatus
  * These are extension functions on ServerService.Second model so every existing
  * `ServerService.start(...)`-style call site keeps compiling unchanged.
  */
-fun ServerService.Companion.start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, source: String? = null): Boolean {
+fun ServerService.Companion.start(context: Context, port: Int = DEFAULT_PORT, modelName: String? = null, source: String? = null, modelInstanceCount: Int? = null): Boolean {
       val intent = Intent(context, ServerService::class.java).apply {
         putExtra(EXTRA_PORT, port)
         if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
         if (source != null) putExtra(EXTRA_START_SOURCE, source)
+        if (modelInstanceCount != null) putExtra(EXTRA_MODEL_INSTANCE_COUNT, modelInstanceCount)
       }
       return try {
         context.startForegroundService(intent)

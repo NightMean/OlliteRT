@@ -45,6 +45,11 @@
   <string name="dismiss" translatable="false">Dismiss</string>
   <string name="download" translatable="false">Download</string>
   <string name="expand_all" translatable="false">Expand all</string>
+  <string name="instance_count_title" translatable="false">Load model</string>
+  <string name="instance_count_body" translatable="false">How many instances of this model should be loaded? Extra instances let multiple clients generate at the same time, but each one uses its own copy of the model in RAM.</string>
+  <string name="instance_count_one" translatable="false">1 (default)</string>
+  <string name="instance_count_many" translatable="false">%d (parallel)</string>
+  <string name="instance_count_start" translatable="false">Start</string>
   <string name="learn_more" translatable="false">Learn more and see model license</string>
   <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
   <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>

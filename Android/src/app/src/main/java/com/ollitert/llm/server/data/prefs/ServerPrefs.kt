@@ -45,6 +45,9 @@ private const val KEY_FLOATING_MONITOR_ENABLED = "floating_monitor_enabled"
 private const val KEY_FLOATING_MONITOR_X_FRACTION = "floating_monitor_x_fraction"
 private const val KEY_FLOATING_MONITOR_Y_FRACTION = "floating_monitor_y_fraction"
 private const val KEY_SCHEMA_INJECTION_TOOL_CALLING = "schema_injection_tool_calling"
+private const val KEY_MODEL_INSTANCE_COUNT = "model_instance_count"
+private const val DEFAULT_MODEL_INSTANCE_COUNT = 1
+private const val MAX_MODEL_INSTANCE_COUNT = 3
 
 // ═══════════════════════════════════════════════════════════════════════════
 // § Keep Alive — auto-unload model after idle timeout to free RAM
@@ -132,6 +135,7 @@ object ServerPrefs {
   private val AUTO_TRIM_PROMPTS = BoolPref(KEY_AUTO_TRIM_PROMPTS, false)
   private val KEEP_PARTIAL_RESPONSE = BoolPref(KEY_KEEP_PARTIAL_RESPONSE, false)
   private val SCHEMA_INJECTION_TOOL_CALLING = BoolPref(KEY_SCHEMA_INJECTION_TOOL_CALLING, true)
+  private val MODEL_INSTANCE_COUNT = IntPref(KEY_MODEL_INSTANCE_COUNT, DEFAULT_MODEL_INSTANCE_COUNT)
   private val SHOW_MODEL_RECOMMENDATIONS = BoolPref(KEY_SHOW_MODEL_RECOMMENDATIONS, true)
   private val FLOATING_MONITOR_ENABLED = BoolPref(KEY_FLOATING_MONITOR_ENABLED, false)
   private val FLOATING_MONITOR_X_FRACTION = FloatPref(KEY_FLOATING_MONITOR_X_FRACTION, FloatingMonitorPlacement.DEFAULT.xFraction)
@@ -261,6 +265,23 @@ object ServerPrefs {
 
   fun isSchemaInjectionToolCalling(context: Context): Boolean = get(context, SCHEMA_INJECTION_TOOL_CALLING)
   fun setSchemaInjectionToolCalling(context: Context, enabled: Boolean) = set(context, SCHEMA_INJECTION_TOOL_CALLING, enabled)
+
+  /**
+   * Number of independent engine+conversation instances to load per model.
+   * 1 = single instance (legacy behavior); >1 = concurrent requests are spread
+   * across instances so they generate in parallel. Each instance keeps its own
+   * model weights in RAM, so 2× a model ≈ 2× its memory footprint.
+   */
+  /**
+   * Server-global instance count applied to ANY model that loads (primary,
+   * second model, later switches). 1 = legacy single engine; >1 = concurrent
+   * requests spread across independent engines.
+   */
+  fun getModelInstanceCount(context: Context): Int =
+    get(context, MODEL_INSTANCE_COUNT).coerceIn(1, MAX_MODEL_INSTANCE_COUNT)
+
+  fun setModelInstanceCount(context: Context, count: Int) =
+    set(context, MODEL_INSTANCE_COUNT, count.coerceIn(1, MAX_MODEL_INSTANCE_COUNT))
 
   fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
   fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)

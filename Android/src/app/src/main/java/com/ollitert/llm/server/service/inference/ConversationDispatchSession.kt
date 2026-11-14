@@ -23,6 +23,8 @@ import com.ollitert.llm.server.data.model.isThinkingEnabled
 import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.runtime.LlmModelInstance
+import com.ollitert.llm.server.runtime.ModelInstancePool
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import java.util.concurrent.atomic.AtomicReference
 
@@ -47,6 +49,9 @@ internal class ConversationDispatchSession(
   private val incrementalReuseLabel: String,
   private val model: Model,
   private val requestId: String,
+  // Multi-instance pool: the specific instance this request was routed to
+  // (null = single-instance model; helper falls back to model.instance).
+  private val instance: LlmModelInstance? = null,
   private val images: List<ByteArray>,
   private val audioClips: List<ByteArray>,
   private val supportImage: Boolean,
@@ -137,6 +142,7 @@ internal class ConversationDispatchSession(
         initialMessages = schemaInjectionMessages,
         enableConversationConstrainedDecoding = schemaInjectionProviders.isNotEmpty(),
         conversationCacheGeneration = preparedCacheGeneration,
+        instance = instance,
       )
     }
   }
@@ -165,6 +171,7 @@ internal class ConversationDispatchSession(
       thinkingConfig = sdkThinkingConfig,
       repetitionPenaltyConfig = sdkRepetitionPenaltyConfig,
       maxOutputToken = maxOutputToken,
+      instance = instance,
     )
   }
 
@@ -207,7 +214,20 @@ internal class ConversationDispatchSession(
       tools = schemaInjectionProviders,
       initialMessages = schemaInjectionMessages,
       conversationCacheGeneration = preparedCacheGeneration,
+      instance = instance,
     )
+  }
+
+  /**
+   * Records this request's instance as the owner of the model's cached
+   * conversation (KV-cache incremental reuse). Called on inference completion:
+   * whatever conversation this instance just built/extended is now what the
+   * per-model-name cache describes, so extend-candidates must route here next.
+   * No-op for single-instance models (owner is always 0).
+   */
+  fun commitConversationOwner() {
+    val idx = instance?.index ?: return
+    ModelInstancePool.setOwner(model.name, idx)
   }
 
   /**

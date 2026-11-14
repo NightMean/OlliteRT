@@ -401,6 +401,7 @@ class ModelLifecycle(
       supportAudio = supportAudio,
       onDone = { initErr = it },
       systemInstruction = buildSystemInstruction(model.prefsKey),
+      instanceCount = ServerPrefs.getModelInstanceCount(context),
     )
     if (initErr.isEmpty()) {
       model.initializedWithVision = supportImage

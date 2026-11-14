@@ -24,6 +24,7 @@ import com.google.ai.edge.litertlm.EmbeddingOptions
 import com.google.ai.edge.litertlm.EmbeddingResponse
 import com.google.ai.edge.litertlm.InputData
 import com.ollitert.llm.server.data.repository.RequestLogStore
+import com.ollitert.llm.server.runtime.EmbeddingInstancePool
 import com.ollitert.llm.server.service.http.HttpResponse
 import com.ollitert.llm.server.service.http.KtorServer
 import com.ollitert.llm.server.service.http.httpBadRequest
@@ -115,7 +116,12 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
   // Name the model that actually serves this request in the request log
   // (the second/embedding model, not the default chat model).
   RequestLogStore.update(logId) { it.copy(modelName = model.name) }
-  val engine = model.instance as? EmbeddingEngine
+  // Multi-instance pool: round-robin across the loaded engines so concurrent
+  // requests overlap on independent native handles. The per-engine gate
+  // serializes requests that land on the SAME engine (the native SDK is not
+  // safe for two concurrent computes on one engine).
+  val slot = EmbeddingInstancePool.nextFor(model.name)
+  val engine = slot?.engine ?: (model.instance as? EmbeddingEngine)
   if (engine == null) {
     return httpJsonError(
       400,
@@ -124,42 +130,47 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
     )
   }
 
-  val options = EmbeddingOptions(normalize = normalize, outputSize = dimensions)
-  val dataEntries = buildJsonArray {
-    texts.forEachIndexed { index, text ->
-      val embedding = try {
-        computeSingleEmbedding(engine, text, options)
-      } catch (e: Exception) {
-        Log.e(TAG, "computeEmbedding failed for index $index: ${e.message}", e)
-        return httpInternalError("Embedding computation failed: ${e.message}")
-      }
-      add(
-        buildJsonObject {
-          put("object", "embedding")
-          putJsonArray("embedding") {
-            embedding.forEach { value -> add(value.toDouble()) }
+  slot?.gate?.acquire()
+  try {
+    val options = EmbeddingOptions(normalize = normalize, outputSize = dimensions)
+    val dataEntries = buildJsonArray {
+      texts.forEachIndexed { index, text ->
+        val embedding = try {
+          computeSingleEmbedding(engine, text, options)
+        } catch (e: Exception) {
+          Log.e(TAG, "computeEmbedding failed for index $index: ${e.message}", e)
+          return httpInternalError("Embedding computation failed: ${e.message}")
+        }
+        add(
+          buildJsonObject {
+            put("object", "embedding")
+            putJsonArray("embedding") {
+              embedding.forEach { value -> add(value.toDouble()) }
+            }
+            put("index", index)
           }
-          put("index", index)
-        }
-      )
+        )
+      }
     }
-  }
 
-  val promptTokens = texts.sumOf { estimateTokens(it) }
-  return httpOkJson(
-    buildJsonObject {
-      put("object", "list")
-      put("model", model.name)
-      putJsonArray("data") { dataEntries.forEach { add(it) } }
-      put(
-        "usage",
-        buildJsonObject {
-          put("prompt_tokens", promptTokens)
-          put("total_tokens", promptTokens)
-        }
-      )
-    }.toString()
-  )
+    val promptTokens = texts.sumOf { estimateTokens(it) }
+    return httpOkJson(
+      buildJsonObject {
+        put("object", "list")
+        put("model", model.name)
+        putJsonArray("data") { dataEntries.forEach { add(it) } }
+        put(
+          "usage",
+          buildJsonObject {
+            put("prompt_tokens", promptTokens)
+            put("total_tokens", promptTokens)
+          }
+        )
+      }.toString()
+    )
+  } finally {
+    slot?.gate?.release()
+  }
 }
 
 /**

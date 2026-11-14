@@ -107,10 +107,10 @@ class ServerViewModel @Inject constructor(
     hasAttemptedLaunchAutoStart = true
   }
 
-  fun startServer(port: Int = preferencesRepository.getPort(), modelName: String? = null, source: String? = null) {
+  fun startServer(port: Int = preferencesRepository.getPort(), modelName: String? = null, source: String? = null, modelInstanceCount: Int? = null) {
     if (actionInFlight) return
     setActionInFlight()
-    ServerService.start(context, port, modelName, source = source)
+    ServerService.start(context, port, modelName, source = source, modelInstanceCount = modelInstanceCount)
   }
 
   fun stopServer() {

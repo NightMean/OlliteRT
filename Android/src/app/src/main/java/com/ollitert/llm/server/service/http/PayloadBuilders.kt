@@ -21,6 +21,8 @@ import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.*
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
+import com.ollitert.llm.server.runtime.EmbeddingInstancePool
+import com.ollitert.llm.server.runtime.ModelInstancePool
 
 import android.content.Context
 import android.util.Log
@@ -47,6 +49,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -109,7 +112,7 @@ object PayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null, secondaryModelName: String? = null): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null, secondaryModelName: String? = null, context: Context? = null): String {
     val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
@@ -125,6 +128,17 @@ object PayloadBuilders {
       snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
       // Resident secondary (e.g. embedding model loaded alongside the chat model)
       secondaryModelName?.let { put("secondary_model", JsonPrimitive(it)) }
+      // Number of engine instances loaded for the active model (multi-instance mode);
+      // embedding models keep their engines in EmbeddingInstancePool, not ModelInstancePool.
+      context?.let { ctx ->
+        if (activeModel?.instance != null) {
+          val llmCount = ModelInstancePool.countFor(activeModel.name)
+          val n = if (llmCount > 0) llmCount else EmbeddingInstancePool.countFor(activeModel.name)
+          put("model_instances", JsonPrimitive(n.coerceAtLeast(1)))
+        } else {
+          put("model_instances", JsonPrimitive(ServerPrefs.getModelInstanceCount(ctx)))
+        }
+      }
       snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
       val latestVersion = ServerMetrics.availableUpdateVersion.value
@@ -258,6 +272,7 @@ object PayloadBuilders {
       put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
       put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
       put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))
+      put("model_instance_count", JsonPrimitive(ServerPrefs.getModelInstanceCount(context)))
       put("custom_prompts_enabled", JsonPrimitive(ServerPrefs.isCustomPromptsEnabled(context)))
       put("system_prompt", JsonPrimitive(ServerPrefs.getSystemPrompt(context, modelPrefsKey)))
     }

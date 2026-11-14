@@ -247,7 +247,7 @@ class KtorServer(
     withGetLogging(call) {
       val body = PayloadBuilders.serverInfo(
         defaultModel, keepAliveUnloadedModelName, modelLifecycle.modelCatalogMerger,
-        modelLifecycle.secondaryModel?.name,
+        modelLifecycle.secondaryModel?.name, serviceContext,
       )
       httpOkJson(body)
     }

@@ -46,6 +46,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -415,13 +416,20 @@ class ServerControlHandler(
       val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
       changes.add("Keep Alive Minutes: $old → $v")
     }
+    val modelInstanceCount = parseConfigInt(obj, "model_instance_count")?.also { v ->
+      if (v < 1 || v > 3) {
+        throw ConfigFieldException("model_instance_count", "integer from 1 to 3")
+      }
+      val old = ServerPrefs.getModelInstanceCount(serviceContext)
+      changes.add("Model Instance Count: $old → $v")
+    }
     val systemPrompt = parseConfigString(obj, "system_prompt")?.also { v ->
       val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
       val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
       val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
       changes.add("System Prompt: $oldDisplay → $newDisplay")
     }
-    return SpecialFieldUpdates(defaultSeed, keepAliveMinutes, systemPrompt, modelPrefsKey)
+    return SpecialFieldUpdates(defaultSeed, keepAliveMinutes, modelInstanceCount, systemPrompt, modelPrefsKey)
   }
 
   private fun applyBehaviorToggleUpdates(updates: List<BehaviorToggleUpdate>) {
@@ -436,6 +444,16 @@ class ServerControlHandler(
     updates.keepAliveMinutes?.let { minutes ->
       ServerPrefs.setKeepAliveMinutes(serviceContext, minutes)
       if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+    }
+    updates.modelInstanceCount?.let { count ->
+      val old = ServerPrefs.getModelInstanceCount(serviceContext)
+      ServerPrefs.setModelInstanceCount(serviceContext, count)
+      // Instance count only takes effect when the model (re)initializes — trigger a
+      // reload when it actually changed and a model is resident.
+      if (count != old && modelLifecycle.defaultModel?.instance != null) {
+        Log.i(TAG, "model_instance_count changed $old → $count — reloading model")
+        ServerService.reload(serviceContext, ServerPrefs.getPort(serviceContext), modelLifecycle.defaultModel?.name)
+      }
     }
     updates.systemPrompt?.let { ServerPrefs.setSystemPrompt(serviceContext, updates.modelPrefsKey, it) }
   }
@@ -452,6 +470,7 @@ private data class BehaviorToggleUpdate(val toggle: BooleanToggle, val value: Bo
 private data class SpecialFieldUpdates(
   val defaultSeed: DefaultSeedUpdate,
   val keepAliveMinutes: Int?,
+  val modelInstanceCount: Int?,
   val systemPrompt: String?,
   val modelPrefsKey: String,
 )
