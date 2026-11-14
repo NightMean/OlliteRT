@@ -20,14 +20,19 @@ import java.net.URI
 import java.net.URISyntaxException
 import java.net.URLDecoder
 
-internal data class ModelScopeLink(val repository: String, val revision: String? = null, val path: String? = null)
+internal data class ModelScopeLink(val repository: String, val revision: String? = null, val path: String? = null,
+  val site: ModelScopeSite? = null)
 
 internal fun parseModelScopeLink(value: String): ModelScopeLink? {
   val text = value.trim()
   if (isValidHuggingFaceModelId(text)) return ModelScopeLink(text)
   val uri = try { URI(text) } catch (_: URISyntaxException) { return null }
-  if (!uri.scheme.equals("https", ignoreCase = true) ||
-    uri.host?.lowercase() !in setOf("modelscope.cn", "www.modelscope.cn") || uri.userInfo != null ||
+  val site = when (uri.host?.lowercase()) {
+    "modelscope.cn", "www.modelscope.cn" -> ModelScopeSite.CHINA
+    "modelscope.ai", "www.modelscope.ai" -> ModelScopeSite.INTERNATIONAL
+    else -> return null
+  }
+  if (!uri.scheme.equals("https", ignoreCase = true) || uri.userInfo != null ||
     uri.port !in listOf(-1, 443) || uri.rawQuery != null || uri.rawFragment != null) return null
   val parts = try {
     uri.rawPath?.trimEnd('/')?.split('/')?.map { URLDecoder.decode(it.replace("+", "%2B"), Charsets.UTF_8.name()) }
@@ -36,7 +41,7 @@ internal fun parseModelScopeLink(value: String): ModelScopeLink? {
   if (parts.size < 4 || parts[0] != "" || parts[1] != "models") return null
   val repository = "${parts[2]}/${parts[3]}"
   if (!isValidHuggingFaceModelId(repository)) return null
-  if (parts.size == 4 || (parts.size == 5 && parts[4] in setOf("summary", "files"))) return ModelScopeLink(repository)
+  if (parts.size == 4 || (parts.size == 5 && parts[4] in setOf("summary", "files"))) return ModelScopeLink(repository, site = site)
   val revisionIndex = when {
     parts.size >= 7 && parts[4] == "resolve" -> 5
     parts.size >= 8 && parts[4] == "file" && parts[5] == "view" -> 6
@@ -46,5 +51,5 @@ internal fun parseModelScopeLink(value: String): ModelScopeLink? {
   if (!revision.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]*")) || revision == "." || revision == "..") return null
   val path = parts.drop(revisionIndex + 1).joinToString("/")
   if (!isSupportedHuggingFaceFile(path)) return null
-  return ModelScopeLink(repository, revision, path)
+  return ModelScopeLink(repository, revision, path, site)
 }

@@ -1086,6 +1086,8 @@
   <string name="modelscope_explore_title">From ModelScope</string>
   <string name="modelscope_explore_search">Search ModelScope models…</string>
   <string name="modelscope_sort_default">Default</string>
+  <string name="modelscope_site_international">International (.ai)</string>
+  <string name="modelscope_site_china">China (.cn)</string>
   <string name="modelscope_explore_error">ModelScope could not complete the request. Try again later.</string>
   <string name="modelscope_files_failed">Could not load model files</string>
   <string name="modelscope_files_error">ModelScope could not complete the request. Try again later.</string>

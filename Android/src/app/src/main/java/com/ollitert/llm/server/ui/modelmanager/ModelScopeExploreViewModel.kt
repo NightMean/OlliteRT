@@ -28,7 +28,9 @@ import com.ollitert.llm.server.data.allowlist.ModelScopeFile
 import com.ollitert.llm.server.data.allowlist.ModelScopeModel
 import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
 import com.ollitert.llm.server.data.allowlist.ModelScopeSort
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.parseModelScopeLink
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.proto.ImportedModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +50,8 @@ import kotlinx.coroutines.withContext
 internal data class ModelScopeExploreState(
   val query: String = "",
   val sort: ModelScopeSort = ModelScopeSort.DEFAULT,
+  val site: ModelScopeSite = ModelScopeSite.INTERNATIONAL,
+  val detailsSite: ModelScopeSite = ModelScopeSite.INTERNATIONAL,
   val models: List<ModelScopeModel> = emptyList(),
   val details: ModelScopeModel? = null,
   val openingModelId: String? = null,
@@ -75,10 +79,18 @@ internal class ModelScopeExploreViewModel internal constructor(
   private val context: Context,
   private val catalog: ModelScopeCatalog,
   private val io: CoroutineDispatcher,
+  initialSite: ModelScopeSite = ModelScopeSite.INTERNATIONAL,
+  private val catalogForSite: (ModelScopeSite) -> ModelScopeCatalog = { catalog },
+  private val saveSite: (ModelScopeSite) -> Unit = {},
 ) : ViewModel() {
-  @Inject constructor(@ApplicationContext context: Context) : this(context, ModelScopeCatalog(), Dispatchers.IO)
+  @Inject constructor(@ApplicationContext context: Context) : this(
+    context, ModelScopeCatalog(), Dispatchers.IO,
+    ModelScopeSite.entries.firstOrNull { it.name == ServerPrefs.getModelScopeSite(context) } ?: ModelScopeSite.INTERNATIONAL,
+    { site -> ModelScopeCatalog(endpoint = site.baseUrl) },
+    { site -> ServerPrefs.setModelScopeSite(context, site.name) },
+  )
 
-  private val _state = MutableStateFlow(ModelScopeExploreState())
+  private val _state = MutableStateFlow(ModelScopeExploreState(site = initialSite, detailsSite = initialSite))
   val state = _state.asStateFlow()
   private var job: Job? = null
 
@@ -93,6 +105,13 @@ internal class ModelScopeExploreViewModel internal constructor(
   fun sort(sort: ModelScopeSort) {
     if (_state.value.saving) return
     _state.update { it.copy(sort = sort) }
+    load(reset = true)
+  }
+
+  fun selectSite(site: ModelScopeSite) {
+    if (_state.value.saving || _state.value.site == site) return
+    saveSite(site)
+    _state.update { it.copy(site = site) }
     load(reset = true)
   }
 
@@ -128,7 +147,7 @@ internal class ModelScopeExploreViewModel internal constructor(
     job = viewModelScope.launch {
       try {
         if (debounce) delay(300)
-        val result = withContext(io) { catalog.search(before.query, before.sort, page) }
+        val result = withContext(io) { catalogForSite(before.site).search(before.query, before.sort, page) }
         _state.update {
           val models = if (reset) result.models else (it.models + result.models).distinctBy { model -> model.id }
           // Do not automatically request every remaining page if the provider repeats a page.
@@ -148,10 +167,11 @@ internal class ModelScopeExploreViewModel internal constructor(
   fun open(model: ModelScopeModel) {
     if (_state.value.saving) return
     job?.cancel()
-    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = model.id, error = false, rateLimited = false, failedModel = null) }
+    val site = _state.value.site
+    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = model.id, detailsSite = site, error = false, rateLimited = false, failedModel = null) }
     job = viewModelScope.launch {
       try {
-        val files = withContext(io) { catalog.files(model.id) }
+        val files = withContext(io) { catalogForSite(site).files(model.id) }
         _state.update { it.copy(details = model, files = files, selectedPath = null, openingModelId = null) }
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
@@ -171,15 +191,16 @@ internal class ModelScopeExploreViewModel internal constructor(
     if (_state.value.saving) return
     val link = parseModelScopeLink(value)
     if (link == null) { _state.update { it.copy(linkError = true, rateLimited = false) }; return }
+    val site = link.site ?: _state.value.site
     job?.cancel()
     _state.update { it.copy(linkLoading = true, linkError = false, rateLimited = false, loading = false) }
     job = viewModelScope.launch {
       try {
         val (model, files) = withContext(io) {
-          catalog.details(link.repository) to catalog.files(link.repository, link.revision ?: "master")
+          catalogForSite(site).let { it.details(link.repository) to it.files(link.repository, link.revision ?: "master") }
         }
         require(link.path == null || files.any { it.path == link.path })
-        _state.update { it.copy(details = model, files = files, selectedPath = link.path, linkLoading = false) }
+        _state.update { it.copy(details = model, detailsSite = site, files = files, selectedPath = link.path, linkLoading = false) }
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Could not open repository link", e)
@@ -217,6 +238,7 @@ internal class ModelScopeExploreViewModel internal constructor(
             displayName = info.displayName, maxTokens = config.defaultMaxTokens, topK = config.defaultTopk,
             topP = config.defaultTopp, temperature = config.defaultTemperature,
             speculativeDecoding = config.supportSpeculativeDecoding, provider = DiscoveredProvider.MODELSCOPE,
+            modelScopeSite = _state.value.detailsSite,
           )
           if (DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).add(selected)) selected.toAllowedModel().name else null
         }

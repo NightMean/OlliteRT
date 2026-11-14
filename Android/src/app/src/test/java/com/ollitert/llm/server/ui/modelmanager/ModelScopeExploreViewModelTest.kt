@@ -26,6 +26,7 @@ import com.ollitert.llm.server.data.allowlist.ModelScopeModel
 import com.ollitert.llm.server.data.allowlist.ModelScopePage
 import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
 import com.ollitert.llm.server.data.allowlist.ModelScopeSort
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import io.mockk.every
@@ -99,6 +100,53 @@ class ModelScopeExploreViewModelTest {
     advanceUntilIdle()
     assertEquals(listOf(first, second), vm.state.value.models)
     assertTrue(!vm.state.value.hasMore)
+  }
+
+  @Test fun siteChangePersistsChoiceAndReloadsTheSelectedCatalog() = runTest(dispatcher) {
+    val international = ModelScopeModel("author/international")
+    val china = ModelScopeModel("author/china")
+    val aiCatalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(listOf(international), false, false)
+    }
+    val cnCatalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(listOf(china), false, false)
+    }
+    var saved: ModelScopeSite? = null
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), aiCatalog, dispatcher,
+      catalogForSite = { if (it == ModelScopeSite.CHINA) cnCatalog else aiCatalog }, saveSite = { saved = it })
+    advanceUntilIdle()
+    assertEquals(listOf(international), vm.state.value.models)
+    vm.selectSite(ModelScopeSite.CHINA)
+    advanceUntilIdle()
+    assertEquals(ModelScopeSite.CHINA, saved)
+    assertEquals(listOf(china), vm.state.value.models)
+  }
+
+  @Test fun linkUsesItsOwnSiteAndImportedModelKeepsThatSite() = runTest(dispatcher) {
+    val directory = temporary.newFolder()
+    val context = mockk<Context> { every { getExternalFilesDir(null) } returns directory }
+    val model = ModelScopeModel("author/model")
+    val file = ModelScopeFile("model.litertlm", 123, "a".repeat(40), null)
+    val aiCatalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(emptyList(), false, false)
+    }
+    val cnCatalog = mockk<ModelScopeCatalog> {
+      every { details(model.id) } returns model
+      every { files(model.id, "master") } returns listOf(file)
+    }
+    val vm = ModelScopeExploreViewModel(context, aiCatalog, dispatcher,
+      catalogForSite = { if (it == ModelScopeSite.CHINA) cnCatalog else aiCatalog })
+    advanceUntilIdle()
+    vm.openLink("https://modelscope.cn/models/author/model")
+    advanceUntilIdle()
+    assertEquals(ModelScopeSite.CHINA, vm.state.value.detailsSite)
+    val config = LlmConfig.newBuilder().addCompatibleAccelerators("CPU").setDefaultMaxTokens(1024).build()
+    vm.add(file, ImportedModel.newBuilder().setLlmConfig(config).build())
+    advanceUntilIdle()
+    val restored = DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).read().single()
+    assertEquals(ModelScopeSite.CHINA, restored.modelScopeSite)
+    assertTrue(restored.toAllowedModel().url!!.startsWith(ModelScopeSite.CHINA.baseUrl))
+    assertEquals(ModelScopeSite.INTERNATIONAL, vm.state.value.site)
   }
 
   @Test fun failedPageKeepsResultsAndOnlyRetriesWhenRequested() = runTest(dispatcher) {

@@ -23,11 +23,14 @@ import org.junit.Test
 class ModelScopeLinkTest {
   @Test fun parsesRepositoryAndPinnedFileLinks() {
     val revision = "a".repeat(40)
-    assertEquals(ModelScopeLink("owner/model"), parseModelScopeLink("https://modelscope.cn/models/owner/model/files"))
-    assertEquals(ModelScopeLink("owner/model", "master", "model.litertlm"),
+    assertEquals(ModelScopeLink("owner/model", site = ModelScopeSite.CHINA), parseModelScopeLink("https://modelscope.cn/models/owner/model/files"))
+    assertEquals(ModelScopeLink("owner/model", "master", "model.litertlm", ModelScopeSite.CHINA),
       parseModelScopeLink("https://www.modelscope.cn/models/owner/model/file/view/master/model.litertlm"))
-    assertEquals(ModelScopeLink("owner/model", revision, "folder/model file.litertlm"),
+    assertEquals(ModelScopeLink("owner/model", revision, "folder/model file.litertlm", ModelScopeSite.CHINA),
       parseModelScopeLink("https://modelscope.cn/models/owner/model/resolve/$revision/folder/model%20file.litertlm"))
+    assertEquals(ModelScopeLink("owner/model", site = ModelScopeSite.INTERNATIONAL),
+      parseModelScopeLink("https://www.modelscope.ai/models/owner/model"))
+    assertEquals(ModelScopeLink("owner/model"), parseModelScopeLink("owner/model"))
   }
 
   @Test fun rejectsUntrustedOrUnsafeLinks() {

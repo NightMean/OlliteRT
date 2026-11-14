@@ -56,6 +56,8 @@ internal data class DiscoveredModel(
   val temperature: Float? = null,
   val speculativeDecoding: Boolean = false,
   val provider: DiscoveredProvider = DiscoveredProvider.HUGGING_FACE,
+  // Records written before site selection always came from the China site.
+  val modelScopeSite: ModelScopeSite = ModelScopeSite.CHINA,
 ) {
   fun toAllowedModel(): AllowedModel {
     require(isValidHuggingFaceModelId(repository))
@@ -86,7 +88,7 @@ internal data class DiscoveredModel(
       ),
       url = when (provider) {
         DiscoveredProvider.HUGGING_FACE -> huggingFaceFileUrl(repository, revision, path)
-        DiscoveredProvider.MODELSCOPE -> modelScopeFileUrl(repository, revision, path)
+        DiscoveredProvider.MODELSCOPE -> modelScopeFileUrl(repository, revision, path, modelScopeSite)
       },
       llmSupportImage = vision,
       llmSupportAudio = audio,
@@ -112,7 +114,7 @@ internal class DiscoveredModels(
     require(model.provider == provider)
     model.toAllowedModel()
     val entries = readLocked()
-    if (entries.any { it.repository == model.repository && it.path == model.path }) return false
+    if (entries.any { it.repository == model.repository && it.path == model.path && it.modelScopeSite == model.modelScopeSite }) return false
     writeLocked(entries + model)
     true
   }

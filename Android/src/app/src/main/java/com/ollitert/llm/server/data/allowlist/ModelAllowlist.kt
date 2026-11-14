@@ -238,8 +238,8 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = downloadedFileName,
-      learnMoreUrl = if (url?.startsWith("$MODELSCOPE_BASE_URL/models/$modelId/resolve/") == true &&
-        isValidHuggingFaceModelId(modelId)) "$MODELSCOPE_BASE_URL/models/$modelId" else
+      learnMoreUrl = ModelScopeSite.entries.firstOrNull { site -> url?.startsWith("${site.baseUrl}/models/$modelId/resolve/") == true &&
+        isValidHuggingFaceModelId(modelId) }?.let { "${it.baseUrl}/models/$modelId" } ?:
         "${GitHubConfig.HUGGINGFACE_BASE_URL}/${modelId}",
       capabilities = buildSet {
         if (llmSupportImage == true) add(ModelCapability.VISION)

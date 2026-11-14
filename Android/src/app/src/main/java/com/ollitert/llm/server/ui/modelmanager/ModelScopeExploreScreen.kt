@@ -62,7 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
 import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
-import com.ollitert.llm.server.data.allowlist.MODELSCOPE_BASE_URL
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.ModelScopeSort
 import com.ollitert.llm.server.data.allowlist.modelScopeFileUrl
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
@@ -76,7 +76,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
   val state by viewModel.state.collectAsStateWithLifecycle()
   var showLink by remember { mutableStateOf(false) }
   val listState = rememberLazyListState()
-  LaunchedEffect(state.query, state.sort) { listState.scrollToItem(0) }
+  LaunchedEffect(state.query, state.sort, state.site) { listState.scrollToItem(0) }
   LaunchedEffect(listState, state.page, state.models.size, state.hasMore, state.loading, state.openingModelId,
     state.loadingMore, state.paginationError, state.error, state.details, state.saving, showLink) {
     if (state.page > 0 && state.hasMore && !state.loading && !state.loadingMore && state.openingModelId == null &&
@@ -114,6 +114,12 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
       OlliteSearchBar(query = state.query, onQueryChange = viewModel::search,
         placeholderRes = R.string.modelscope_explore_search, clearContentDescriptionRes = R.string.models_clear_search)
+      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(ModelScopeSite.INTERNATIONAL to R.string.modelscope_site_international,
+          ModelScopeSite.CHINA to R.string.modelscope_site_china).forEach { (site, label) ->
+          ModelFilterChip(label = stringResource(label), selected = state.site == site, onClick = { viewModel.selectSite(site) })
+        }
+      }
       Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(ModelScopeSort.DEFAULT to R.string.modelscope_sort_default,
           ModelScopeSort.DOWNLOADS to R.string.hf_explore_downloads,
@@ -173,8 +179,8 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
       model = model, initialPath = state.selectedPath, loading = state.loading, error = state.error, alreadyAdded = state.alreadyAdded,
       onDismiss = viewModel::closeDetails,
       onAdd = { file, info -> state.files.firstOrNull { it.path == file.path }?.let { viewModel.add(it, info) } },
-      repositoryUrl = "$MODELSCOPE_BASE_URL/models/${details.id}",
-      fileUrl = { file -> state.files.firstOrNull { it.path == file.path }?.let { modelScopeFileUrl(details.id, it.revision, it.path) } },
+      repositoryUrl = "${state.detailsSite.baseUrl}/models/${details.id}",
+      fileUrl = { file -> state.files.firstOrNull { it.path == file.path }?.let { modelScopeFileUrl(details.id, it.revision, it.path, state.detailsSite) } },
     )
   }
 }

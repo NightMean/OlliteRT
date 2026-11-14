@@ -99,6 +99,7 @@ Tap the **+** button on the Models screen to explore Hugging Face or ModelScope,
 **From ModelScope:**
 - The ModelScope mark in the import menu is an [official brand asset](https://modelscope.cn/models/modelscope/logos); it remains the property of ModelScope.
 - Browse and search repositories tagged `litert-lm`, or open a ModelScope repository or file link with the link button.
+- Choose International (`modelscope.ai`, the default) or China (`modelscope.cn`) in the browser. The sites have separate catalogs, so results can differ. Imported models keep their original site when you change the choice.
 - Select a `.litertlm` file and configure its capabilities and accelerators. The model is added to Models; start its download there when ready.
 - ModelScope lists downloads, likes, and update dates. File variants appear after opening a repository because search results do not include its files.
 - Each selection is pinned to the file's revision. Compatibility estimates do not guarantee that a model will run. Check the model card and its license before downloading.

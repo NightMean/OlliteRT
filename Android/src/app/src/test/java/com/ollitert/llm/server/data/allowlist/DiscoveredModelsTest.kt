@@ -77,6 +77,21 @@ class DiscoveredModelsTest {
     assertEquals(listOf("modelscope-models"), failures)
   }
 
+  @Test fun modelScopeSitesPersistSeparatelyAndOldRecordsStayOnChina() {
+    val directory = temporary.newFolder()
+    val china = model().copy(provider = DiscoveredProvider.MODELSCOPE)
+    val international = china.copy(localId = java.util.UUID.randomUUID().toString(), modelScopeSite = ModelScopeSite.INTERNATIONAL)
+    val store = DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE)
+    assertTrue(store.add(china))
+    assertTrue(store.add(international))
+    val restored = DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).read()
+    assertEquals(listOf(china, international), restored)
+    assertTrue(restored[0].toAllowedModel().url!!.startsWith(ModelScopeSite.CHINA.baseUrl))
+    val allowed = restored[1].toAllowedModel()
+    assertTrue(allowed.url!!.startsWith(ModelScopeSite.INTERNATIONAL.baseUrl))
+    assertEquals("${ModelScopeSite.INTERNATIONAL.baseUrl}/models/author/model", allowed.toModel(soc = "test").learnMoreUrl)
+  }
+
   @Test fun selectedFilesSurviveRestartAndHaveDistinctIdentity() {
     val directory = temporary.newFolder()
     val store = DiscoveredModels(directory)

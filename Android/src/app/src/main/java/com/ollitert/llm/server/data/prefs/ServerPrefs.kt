@@ -140,6 +140,10 @@ object ServerPrefs {
   private val FLOATING_MONITOR_Y_FRACTION = FloatPref(KEY_FLOATING_MONITOR_Y_FRACTION, FloatingMonitorPlacement.DEFAULT.yFraction)
 
   // UI Preferences
+  private val MODELSCOPE_SITE = StringPref("modelscope_site", "INTERNATIONAL")
+
+  internal fun getModelScopeSite(context: Context): String = get(context, MODELSCOPE_SITE)
+  internal fun setModelScopeSite(context: Context, site: String) = set(context, MODELSCOPE_SITE, site)
 
   // Log Persistence
 

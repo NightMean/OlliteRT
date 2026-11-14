@@ -30,6 +30,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 internal const val MODELSCOPE_BASE_URL = "https://modelscope.cn"
+@Serializable
+internal enum class ModelScopeSite(val baseUrl: String) {
+  INTERNATIONAL("https://www.modelscope.ai"), CHINA(MODELSCOPE_BASE_URL),
+}
 private const val TREE_LIMIT = 3000
 private const val PAGE_SIZE = 50
 private const val MAX_PAGE = 3000 / PAGE_SIZE
@@ -82,12 +86,12 @@ internal enum class ModelScopeSort(val apiValue: String) {
   DEFAULT("default"), DOWNLOADS("downloads"), LIKES("likes"), RECENT("last_modified"),
 }
 
-internal fun modelScopeFileUrl(repository: String, revision: String, path: String): String {
+internal fun modelScopeFileUrl(repository: String, revision: String, path: String, site: ModelScopeSite = ModelScopeSite.CHINA): String {
   require(isValidHuggingFaceModelId(repository))
   require(revision.matches(Regex("[a-fA-F0-9]{40}")))
   require(isSupportedHuggingFaceFile(path))
   val encoded = path.split('/').joinToString("/") { URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20") }
-  return "$MODELSCOPE_BASE_URL/models/$repository/resolve/$revision/$encoded"
+  return "${site.baseUrl}/models/$repository/resolve/$revision/$encoded"
 }
 
 /** Reads public repositories without forwarding Hugging Face credentials. */
