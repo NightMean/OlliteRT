@@ -24,6 +24,7 @@ import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.allowlist.AllowedModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.model.EventCategory
@@ -79,8 +80,25 @@ class AllowlistLoadCoordinator(
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
 ) {
   @Volatile private var cachedDiscoveredModels: List<Model> = emptyList()
+  @Volatile private var cachedModelScopeModels: List<Model> = emptyList()
 
-  private fun readDiscoveredModels(appVersion: SemVer?): Pair<List<Model>, String?> = try {
+  private fun readDiscoveredModels(appVersion: SemVer?): Pair<List<Model>, String?> {
+    val (huggingFace, huggingFaceError) = readHuggingFaceModels(appVersion)
+    val (modelScope, modelScopeError) = try {
+      val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
+      val models = DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).read().map {
+        it.toAllowedModel().toModel(appVersion, repositoryName = "ModelScope", repositoryId = DiscoveredProvider.MODELSCOPE.sourceId)
+      }
+      cachedModelScopeModels = models
+      models to null
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to read ModelScope model catalog", e)
+      cachedModelScopeModels to context.getString(R.string.modelscope_catalog_error)
+    }
+    return (huggingFace + modelScope) to (huggingFaceError ?: modelScopeError)
+  }
+
+  private fun readHuggingFaceModels(appVersion: SemVer?): Pair<List<Model>, String?> = try {
     val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
     val models = DiscoveredModels(directory).read().map {
       it.toAllowedModel().toModel(appVersion, repositoryName = "Hugging Face", repositoryId = DISCOVERED_SOURCE_ID)

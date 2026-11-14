@@ -56,7 +56,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.Model
-import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
+import com.ollitert.llm.server.data.allowlist.isDiscoveredSource
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.service.ServerService
@@ -111,7 +111,7 @@ fun ModelItem(
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
 
-  val showRemove = !isIncompatible && model.sourceRepositoryId == DISCOVERED_SOURCE_ID &&
+  val showRemove = !isIncompatible && isDiscoveredSource(model.sourceRepositoryId) &&
     downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !isActiveModel && !isModelLoading
   val showDelete = !isIncompatible && model.localFileRelativeDirPathOverride.isEmpty() &&
     downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED && showDeleteButton
@@ -249,7 +249,7 @@ fun ModelItem(
     AlertDialog(
       onDismissRequest = { showRemoveDiscovered = false },
       title = { Text(stringResource(R.string.hf_remove_model)) },
-      text = { Text(stringResource(R.string.hf_remove_model_message)) },
+      text = { Text(stringResource(R.string.hf_remove_model_message, model.sourceRepository)) },
       confirmButton = {
         TextButton(onClick = {
           showRemoveDiscovered = false

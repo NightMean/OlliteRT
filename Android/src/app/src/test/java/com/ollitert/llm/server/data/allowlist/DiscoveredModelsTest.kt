@@ -33,6 +33,50 @@ class DiscoveredModelsTest {
     vision = true, accelerators = listOf("cpu", "gpu"),
   )
 
+  @Test fun legacyHuggingFaceCatalogKeepsIdentity() {
+    val directory = temporary.newFolder()
+    val id = "c2fc03b7-086f-4419-a966-0cc28c89cf02"
+    val expected = model("model.litertlm").copy(localId = id, vision = false, accelerators = listOf("cpu"))
+    File(directory, "huggingface_models.json").writeText(
+      """[{"repository":"author/model","path":"model.litertlm","revision":"${"a".repeat(40)}","size":123,"localId":"$id"}]"""
+    )
+    val restored = DiscoveredModels(directory).read().single()
+    assertEquals(expected, restored)
+    assertEquals(expected.toAllowedModel().name, restored.toAllowedModel().name)
+  }
+
+  @Test fun modelScopeAndHuggingFaceSelectionsAreIsolatedAndReachServerCatalog() {
+    val directory = temporary.newFolder()
+    val huggingFace = model()
+    val modelScope = huggingFace.copy(provider = DiscoveredProvider.MODELSCOPE)
+    val hfStore = DiscoveredModels(directory)
+    val msStore = DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE)
+    assertTrue(hfStore.add(huggingFace))
+    assertTrue(msStore.add(modelScope))
+    assertThrows(IllegalArgumentException::class.java) { hfStore.add(modelScope) }
+    assertEquals(listOf(huggingFace), DiscoveredModels(directory).read())
+    assertEquals(listOf(modelScope), DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).read())
+    val allowed = modelScope.toAllowedModel()
+    assertNotEquals(huggingFace.toAllowedModel().name, allowed.name)
+    assertTrue(allowed.url!!.startsWith("$MODELSCOPE_BASE_URL/models/"))
+    assertTrue(allowed.modelFile.startsWith("ms-"))
+    assertEquals("$MODELSCOPE_BASE_URL/models/author/model", allowed.toModel(soc = "test-soc").learnMoreUrl)
+    assertEquals(setOf(huggingFace.toAllowedModel().name, allowed.name), ModelCatalogMerger(directory).load().map { it.name }.toSet())
+    assertTrue(msStore.remove(allowed.name))
+    assertEquals(listOf(huggingFace), hfStore.read())
+  }
+
+  @Test fun corruptModelScopeCatalogDoesNotHideHuggingFaceModels() {
+    val directory = temporary.newFolder()
+    val huggingFace = model()
+    DiscoveredModels(directory).add(huggingFace)
+    File(directory, "modelscope_models.json").writeText("broken")
+    val failures = mutableListOf<String>()
+    val result = ModelCatalogMerger(directory, onError = { source, _ -> failures.add(source) }).load()
+    assertEquals(listOf(huggingFace.toAllowedModel().name), result.map { it.name })
+    assertEquals(listOf("modelscope-models"), failures)
+  }
+
   @Test fun selectedFilesSurviveRestartAndHaveDistinctIdentity() {
     val directory = temporary.newFolder()
     val store = DiscoveredModels(directory)

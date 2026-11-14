@@ -27,7 +27,15 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 internal const val DISCOVERED_SOURCE_ID = "huggingface-discovered"
-private const val CATALOG_FILENAME = "huggingface_models.json"
+internal const val MODELSCOPE_SOURCE_ID = "modelscope-discovered"
+
+internal enum class DiscoveredProvider(val sourceId: String, val catalogFile: String, val filePrefix: String) {
+  HUGGING_FACE(DISCOVERED_SOURCE_ID, "huggingface_models.json", "hf"),
+  MODELSCOPE(MODELSCOPE_SOURCE_ID, "modelscope_models.json", "ms"),
+}
+
+internal fun isDiscoveredSource(sourceId: String): Boolean =
+  DiscoveredProvider.entries.any { it.sourceId == sourceId }
 
 @Serializable
 internal data class DiscoveredModel(
@@ -47,6 +55,7 @@ internal data class DiscoveredModel(
   val topP: Float? = null,
   val temperature: Float? = null,
   val speculativeDecoding: Boolean = false,
+  val provider: DiscoveredProvider = DiscoveredProvider.HUGGING_FACE,
 ) {
   fun toAllowedModel(): AllowedModel {
     require(isValidHuggingFaceModelId(repository))
@@ -55,13 +64,16 @@ internal data class DiscoveredModel(
     require(size > 0)
     require(runCatching { UUID.fromString(localId) }.isSuccess)
     require(accelerators.isNotEmpty() && accelerators.all { it in setOf("cpu", "gpu", "npu") })
+    // Keep existing Hugging Face IDs stable while separating ModelScope identities.
+    val identity = "$repository\u0000$path\u0000$localId" +
+      if (provider == DiscoveredProvider.MODELSCOPE) "\u0000modelscope" else ""
     val digest = MessageDigest.getInstance("SHA-256")
-      .digest("$repository\u0000$path\u0000$localId".toByteArray(Charsets.UTF_8))
+      .digest(identity.toByteArray(Charsets.UTF_8))
       .joinToString("") { "%02x".format(it.toInt() and 0xff) }
     return AllowedModel(
       name = "${repository.substringAfter('/')}-${digest.take(12)}",
       modelId = repository,
-      modelFile = "hf-$digest.litertlm",
+      modelFile = "${provider.filePrefix}-$digest.litertlm",
       commitHash = revision,
       description = "$repository — $path",
       sizeInBytes = size,
@@ -72,7 +84,10 @@ internal data class DiscoveredModel(
         maxContextLength = maxTokens?.takeIf { it > MIN_MAX_TOKENS },
         topK = topK, topP = topP, temperature = temperature,
       ),
-      url = huggingFaceFileUrl(repository, revision, path),
+      url = when (provider) {
+        DiscoveredProvider.HUGGING_FACE -> huggingFaceFileUrl(repository, revision, path)
+        DiscoveredProvider.MODELSCOPE -> modelScopeFileUrl(repository, revision, path)
+      },
       llmSupportImage = vision,
       llmSupportAudio = audio,
       llmSupportThinking = thinking,
@@ -83,14 +98,18 @@ internal data class DiscoveredModel(
 }
 
 /** Owns downloaded-model metadata independently of user-managed model sources. */
-internal class DiscoveredModels(private val directory: File) {
+internal class DiscoveredModels(
+  private val directory: File,
+  private val provider: DiscoveredProvider = DiscoveredProvider.HUGGING_FACE,
+) {
   private val json = Json { ignoreUnknownKeys = true }
-  private val file = File(directory, CATALOG_FILENAME)
+  private val file = File(directory, provider.catalogFile)
 
   fun read(): List<DiscoveredModel> = synchronized(lock) { readLocked() }
 
   /** A selection remains pinned to its original revision when added again. */
   fun add(model: DiscoveredModel): Boolean = synchronized(lock) {
+    require(model.provider == provider)
     model.toAllowedModel()
     val entries = readLocked()
     if (entries.any { it.repository == model.repository && it.path == model.path }) return false
@@ -108,8 +127,8 @@ internal class DiscoveredModels(private val directory: File) {
 
   private fun writeLocked(entries: List<DiscoveredModel>) {
     val encoded = json.encodeToString(entries).toByteArray(Charsets.UTF_8)
-    require(encoded.size <= MAX_ALLOWLIST_RESPONSE_BYTES) { "Hugging Face catalog is too large" }
-    val temporary = File.createTempFile("hf-catalog-", ".tmp", directory)
+    require(encoded.size <= MAX_ALLOWLIST_RESPONSE_BYTES) { "${provider.sourceId} catalog is too large" }
+    val temporary = File.createTempFile("${provider.filePrefix}-catalog-", ".tmp", directory)
     try {
       temporary.writeBytes(encoded)
       Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
@@ -120,9 +139,9 @@ internal class DiscoveredModels(private val directory: File) {
 
   private fun readLocked(): List<DiscoveredModel> {
     if (!file.exists()) return emptyList()
-    require(file.length() <= MAX_ALLOWLIST_RESPONSE_BYTES) { "Hugging Face catalog is too large" }
+    require(file.length() <= MAX_ALLOWLIST_RESPONSE_BYTES) { "${provider.sourceId} catalog is too large" }
     return json.decodeFromString<List<DiscoveredModel>>(file.readText()).also { entries ->
-      entries.forEach { it.toAllowedModel() }
+      entries.forEach { require(it.provider == provider); it.toAllowedModel() }
     }
   }
 

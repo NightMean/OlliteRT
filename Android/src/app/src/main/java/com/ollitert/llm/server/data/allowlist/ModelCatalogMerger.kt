@@ -37,6 +37,7 @@ class ModelCatalogMerger(
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
   @Volatile private var cached: ModelAllowlist? = null
   @Volatile private var cachedDiscovered: List<AllowedModel> = emptyList()
+  @Volatile private var cachedModelScope: List<AllowedModel> = emptyList()
   @Volatile var lastSource: String = "unknown"
   @Volatile var lastContentVersion: Int = 0
 
@@ -59,7 +60,15 @@ class ModelCatalogMerger(
       onError("huggingface-models", e)
       cachedDiscovered
     }
-    return remote + local
+    val modelScope = if (externalFilesDir == null) cachedModelScope else try {
+      val dir = externalFilesDir
+      DiscoveredModels(dir, DiscoveredProvider.MODELSCOPE).read().map { it.toAllowedModel() }
+        .also { cachedModelScope = it }
+    } catch (e: Exception) {
+      onError("modelscope-models", e)
+      cachedModelScope
+    }
+    return remote + local + modelScope
   }
 
   private fun readFromFiles(): ModelAllowlist? {

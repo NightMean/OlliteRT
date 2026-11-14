@@ -19,6 +19,10 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.AllowedModel
+import com.ollitert.llm.server.data.allowlist.DiscoveredModel
+import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
+import com.ollitert.llm.server.data.allowlist.ModelAllowlist
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.allowlist.DefaultConfig
 import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
@@ -40,8 +44,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 
 class AllowlistLoadCoordinatorTest {
+  @get:Rule val temporary = TemporaryFolder()
 
   private lateinit var context: Context
   private lateinit var protoDataStoreRepository: ProtoDataStoreRepository
@@ -86,6 +93,19 @@ class AllowlistLoadCoordinatorTest {
       name = "Repo $id",
       modelCount = modelCount,
     )
+  }
+
+  @Test
+  fun loadsBothDiscoveredProvidersWithTheirOwnSourceLabels() {
+    val directory = temporary.newFolder()
+    every { context.getExternalFilesDir(null) } returns directory
+    val hf = DiscoveredModel("author/model", "file.litertlm", "a".repeat(40), 123)
+    val ms = hf.copy(provider = DiscoveredProvider.MODELSCOPE)
+    DiscoveredModels(directory).add(hf)
+    DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).add(ms)
+    val models = coordinator.loadFromRawAllowlist(ModelAllowlist()).models
+    assertEquals(setOf("Hugging Face", "ModelScope"), models.map { it.sourceRepository }.toSet())
+    assertEquals(setOf(DiscoveredProvider.HUGGING_FACE.sourceId, DiscoveredProvider.MODELSCOPE.sourceId), models.map { it.sourceRepositoryId }.toSet())
   }
 
   @Test

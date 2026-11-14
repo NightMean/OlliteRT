@@ -30,7 +30,8 @@ import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.data.allowlist.AllowedModel
-import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
+import com.ollitert.llm.server.data.allowlist.isDiscoveredSource
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
@@ -310,7 +311,7 @@ constructor(
   }
 
   fun removeDiscoveredModel(model: Model, onResult: (Boolean) -> Unit) {
-    if (!downloadInspectionAvailable || model.name in recoveringModelNames || model.sourceRepositoryId != DISCOVERED_SOURCE_ID || !downloadStartGate.tryAcquire(model.name)) {
+    if (!downloadInspectionAvailable || model.name in recoveringModelNames || !isDiscoveredSource(model.sourceRepositoryId) || !downloadStartGate.tryAcquire(model.name)) {
       onResult(false)
       return
     }
@@ -330,7 +331,7 @@ constructor(
           ModelDownloadLocks.withModel(model.name) {
             if (downloadRepository.hasUnfinishedDownload(model.name) ||
               modelStorageRepository.getModelDownloadStatus(model).status != ModelDownloadStatusType.NOT_DOWNLOADED) false
-            else DiscoveredModels(directory).remove(model.name).also { removed ->
+            else DiscoveredModels(directory, DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }).remove(model.name).also { removed ->
               if (removed) {
                 try { preferencesRepository.clearInferenceConfig(model.prefsKey) }
                 catch (e: Exception) { Log.w(TAG, "Could not clear removed model settings", e) }
@@ -353,7 +354,7 @@ constructor(
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
-        Log.e(TAG, "Failed to remove Hugging Face model", e)
+        Log.e(TAG, "Failed to remove discovered model", e)
         onResult(false)
       } finally {
         allowlistLoadGenerationGate.publishIfCurrent(removalGeneration) {
@@ -379,7 +380,7 @@ constructor(
       Log.d(TAG, "Ignoring duplicate download start for '${model.name}'")
       return false
     }
-    if (model.sourceRepositoryId == DISCOVERED_SOURCE_ID && _uiState.value.models.none { it.name == model.name }) {
+    if (isDiscoveredSource(model.sourceRepositoryId) && _uiState.value.models.none { it.name == model.name }) {
       downloadStartGate.release(model.name)
       return false
     }
@@ -426,7 +427,7 @@ constructor(
       Log.d(TAG, "Ignoring duplicate retry for '${model.name}'")
       return false
     }
-    if (model.sourceRepositoryId == DISCOVERED_SOURCE_ID && _uiState.value.models.none { it.name == model.name }) {
+    if (isDiscoveredSource(model.sourceRepositoryId) && _uiState.value.models.none { it.name == model.name }) {
       downloadStartGate.release(model.name)
       return false
     }
@@ -509,7 +510,7 @@ constructor(
         current.models.filter { it.name != model.name }
       } else {
         statusMap[model.name] = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
-        if (current.allReposDisabled && model.sourceRepositoryId != DISCOVERED_SOURCE_ID) {
+        if (current.allReposDisabled && !isDiscoveredSource(model.sourceRepositoryId)) {
           current.models.filter { it.name != model.name }
         } else {
           current.models
@@ -534,7 +535,7 @@ constructor(
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
     if (curModel.name in removingModelNames) return
-    if (curModel.sourceRepositoryId == DISCOVERED_SOURCE_ID && _uiState.value.models.none { it.name == curModel.name }) return
+    if (isDiscoveredSource(curModel.sourceRepositoryId) && _uiState.value.models.none { it.name == curModel.name }) return
     markDownloadStatusChanged(curModel.name)
     if (
       status.status == ModelDownloadStatusType.SUCCEEDED ||

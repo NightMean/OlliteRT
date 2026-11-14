@@ -238,7 +238,9 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = downloadedFileName,
-      learnMoreUrl = "${GitHubConfig.HUGGINGFACE_BASE_URL}/${modelId}",
+      learnMoreUrl = if (url?.startsWith("$MODELSCOPE_BASE_URL/models/$modelId/resolve/") == true &&
+        isValidHuggingFaceModelId(modelId)) "$MODELSCOPE_BASE_URL/models/$modelId" else
+        "${GitHubConfig.HUGGINGFACE_BASE_URL}/${modelId}",
       capabilities = buildSet {
         if (llmSupportImage == true) add(ModelCapability.VISION)
         if (llmSupportAudio == true) add(ModelCapability.AUDIO)
