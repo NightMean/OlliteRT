@@ -74,6 +74,10 @@ object ServerMetrics {
   private val _secondaryModelName = sessionFlow<String?>(null)
   val secondaryModelName: StateFlow<String?> = _secondaryModelName.asStateFlow()
 
+  /** Instance count of the resident second model (1 — single engine by design). */
+  private val _secondaryModelInstanceCount = MutableStateFlow(1)
+  val secondaryModelInstanceCount: StateFlow<Int> = _secondaryModelInstanceCount.asStateFlow()
+
   // App-level state — not reset on server stop, only on resetForTesting()
   private val _port = MutableStateFlow(SERVER_DEFAULT_PORT)
   val port: StateFlow<Int> = _port.asStateFlow()
@@ -372,6 +376,11 @@ object ServerMetrics {
   /** Updates the resident second model name (null = none). Called from ModelLifecycle. */
   fun updateSecondaryModelName(name: String?) {
     _secondaryModelName.value = name
+  }
+
+  /** Updates the resident second model's instance count. Called from ModelLifecycle. */
+  fun updateSecondaryModelInstanceCount(count: Int) {
+    _secondaryModelInstanceCount.value = count.coerceAtLeast(1)
   }
 
   fun incrementRequestCount() {

@@ -104,6 +104,7 @@ internal class ServerModelLoader(
       ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
       ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)
       ServerMetrics.setInferenceSettings(model.configValues)
+      ServerMetrics.setActiveModelInstanceCount(ServerPrefs.getModelInstanceCount(context, model))
       ServerMetrics.onServerRunning(notifState.advertisedHost, notifState.isLoopbackOnly)
       modelLifecycle.resetKeepAliveTimer()
       // Second-model restore step: the reload's onServerStopped() reset the
@@ -114,6 +115,7 @@ internal class ServerModelLoader(
       val secondary = modelLifecycle.secondaryModel
       if (secondary != null) {
         ServerMetrics.updateSecondaryModelName(secondary.name)
+        ServerMetrics.updateSecondaryModelInstanceCount(1)
       }
       RequestLogStore.addEvent(
         "Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)",

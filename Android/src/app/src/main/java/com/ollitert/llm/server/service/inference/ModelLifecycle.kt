@@ -842,6 +842,7 @@ class ModelLifecycle(
         modelCache[model.name] = model
         ServerPrefs.setSecondaryModelName(context, model.name)
         ServerMetrics.updateSecondaryModelName(model.name)
+        ServerMetrics.updateSecondaryModelInstanceCount(1)
       }
     } catch (e: Exception) {
       ServerLlmModelHelper.safeCleanup(model)
