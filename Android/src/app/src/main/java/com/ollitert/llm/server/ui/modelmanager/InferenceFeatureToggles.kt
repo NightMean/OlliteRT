@@ -17,6 +17,9 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -325,6 +328,68 @@ internal fun AcceleratorSelectionCard(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+    }
+  }
+}
+
+/**
+ * Per-model instance count selector (1-3). 1 = single engine (legacy behavior);
+ * >1 = that many independent engines so multiple clients generate at once.
+ * Each instance is a full copy of the model in RAM, so the caption says so.
+ */
+@Composable
+internal fun InstanceCountCard(
+  selectedCount: Int,
+  onSelect: (Int) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Column(
+    modifier = modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(16.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+      .padding(horizontal = 16.dp, vertical = 14.dp),
+  ) {
+    Text(
+      text = stringResource(R.string.config_label_instance_count),
+      style = MaterialTheme.typography.bodyLarge,
+      fontWeight = FontWeight.Medium,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+      text = stringResource(R.string.inference_settings_instance_count_description),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(10.dp))
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      listOf(1, 2, 3).forEach { n ->
+        val selected = n == selectedCount
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+              if (selected) OlliteRTPrimary
+              else MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+            .clickable { onSelect(n) }
+            .padding(vertical = 10.dp),
+          contentAlignment = Alignment.Center,
+        ) {
+          Text(
+            text = n.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
     }
   }
 }

@@ -36,6 +36,8 @@ import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
 import com.ollitert.llm.server.data.model.llmSupportThinking
+
+import com.ollitert.llm.server.data.prefs.instanceCount
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import kotlinx.io.readByteArray
@@ -420,7 +422,8 @@ class ServerControlHandler(
       if (v < 1 || v > 3) {
         throw ConfigFieldException("model_instance_count", "integer from 1 to 3")
       }
-      val old = ServerPrefs.getModelInstanceCount(serviceContext)
+      val old = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)?.instanceCount()
+        ?: ServerPrefs.getModelInstanceCount(serviceContext)
       changes.add("Model Instance Count: $old → $v")
     }
     val systemPrompt = parseConfigString(obj, "system_prompt")?.also { v ->
@@ -446,10 +449,15 @@ class ServerControlHandler(
       if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
     }
     updates.modelInstanceCount?.let { count ->
-      val old = ServerPrefs.getModelInstanceCount(serviceContext)
-      ServerPrefs.setModelInstanceCount(serviceContext, count)
-      // Instance count only takes effect when the model (re)initializes — trigger a
-      // reload when it actually changed and a model is resident.
+      // Per-model: stored in the target model's inference config (same map the
+      // settings sheet writes). Instance count only takes effect when the model
+      // (re)initializes — trigger a reload when it actually changed and a model
+      // is resident.
+      val prefsKey = updates.modelPrefsKey
+      val config = ServerPrefs.getInferenceConfig(serviceContext, prefsKey)?.toMutableMap() ?: mutableMapOf()
+      val old = config.instanceCount()
+      config[ConfigKeys.INSTANCE_COUNT.id] = count
+      ServerPrefs.setInferenceConfig(serviceContext, prefsKey, config)
       if (count != old && modelLifecycle.defaultModel?.instance != null) {
         Log.i(TAG, "model_instance_count changed $old → $count — reloading model")
         ServerService.reload(serviceContext, ServerPrefs.getPort(serviceContext), modelLifecycle.defaultModel?.name)

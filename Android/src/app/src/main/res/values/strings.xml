@@ -45,11 +45,6 @@
   <string name="dismiss" translatable="false">Dismiss</string>
   <string name="download" translatable="false">Download</string>
   <string name="expand_all" translatable="false">Expand all</string>
-  <string name="instance_count_title" translatable="false">Load model</string>
-  <string name="instance_count_body" translatable="false">How many instances of this model should be loaded? Extra instances let multiple clients generate at the same time, but each one uses its own copy of the model in RAM.</string>
-  <string name="instance_count_one" translatable="false">1 (default)</string>
-  <string name="instance_count_many" translatable="false">%d (parallel)</string>
-  <string name="instance_count_start" translatable="false">Start</string>
   <string name="learn_more" translatable="false">Learn more and see model license</string>
   <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
   <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
@@ -1008,6 +1003,8 @@
   <string name="config_label_enable_speculative_decoding" translatable="false">Speculative decoding</string>
   <string name="config_hint_requires_model_update" translatable="false">Requires model update to take effect</string>
   <string name="config_label_accelerator" translatable="false">Accelerator</string>
+  <string name="config_label_instance_count" translatable="false">Instances</string>
+  <string name="inference_settings_instance_count_description" translatable="false">How many engines of this model to load. More instances let multiple clients generate at once, but each is a full copy of the model in RAM. Changing this reloads the model.</string>
   <string name="config_label_vision_accelerator" translatable="false">Vision accelerator</string>
   <string name="config_label_compatible_accelerators" translatable="false">Compatible accelerators</string>
   <string name="config_label_name" translatable="false">Name</string>

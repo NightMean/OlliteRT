@@ -276,12 +276,27 @@ object ServerPrefs {
    * Server-global instance count applied to ANY model that loads (primary,
    * second model, later switches). 1 = legacy single engine; >1 = concurrent
    * requests spread across independent engines.
+   *
+   * LEGACY (pre per-model): kept for migration — [getModelInstanceCount]
+   * falls back to it when a model has no per-model value yet.
    */
   fun getModelInstanceCount(context: Context): Int =
     get(context, MODEL_INSTANCE_COUNT).coerceIn(1, MAX_MODEL_INSTANCE_COUNT)
 
   fun setModelInstanceCount(context: Context, count: Int) =
     set(context, MODEL_INSTANCE_COUNT, count.coerceIn(1, MAX_MODEL_INSTANCE_COUNT))
+
+  /**
+   * Per-model instance count: the model's own `instance_count` config value
+   * (set in the inference settings sheet). Falls back to the legacy
+   * server-global pref when it was raised above the default — that migrates
+   * counts chosen via the old start dialog — and to 1 otherwise.
+   */
+  fun getModelInstanceCount(context: Context, model: Model?): Int {
+    model?.configValues?.instanceCount()?.let { return it }
+    val legacy = get(context, MODEL_INSTANCE_COUNT)
+    return if (legacy > 1) legacy.coerceAtMost(MAX_MODEL_INSTANCE_COUNT) else DEFAULT_MODEL_INSTANCE_COUNT
+  }
 
   fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)
   fun setShowModelRecommendations(context: Context, enabled: Boolean) = set(context, SHOW_MODEL_RECOMMENDATIONS, enabled)

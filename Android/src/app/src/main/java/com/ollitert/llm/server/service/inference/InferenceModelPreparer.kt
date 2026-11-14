@@ -70,11 +70,11 @@ internal object InferenceModelPreparer {
       // Preserve the currently loaded instance count (reinit is a full reload;
       // a multi-instance model must come back with the same pool size).
       // Embedding models keep their engines in EmbeddingInstancePool.
-      // Cold start (no pool yet): the persisted pref is authoritative.
+      // Cold start (no pool yet): the model's per-model config is authoritative.
       instanceCount = when {
         ModelInstancePool.countFor(model.name) > 0 -> ModelInstancePool.countFor(model.name)
         EmbeddingInstancePool.countFor(model.name) > 0 -> EmbeddingInstancePool.countFor(model.name)
-        else -> ServerPrefs.getModelInstanceCount(context)
+        else -> ServerPrefs.getModelInstanceCount(context, model)
       },
     )
     if (err.isNotEmpty()) {

@@ -283,15 +283,6 @@ class ServerService : Service() {
     val port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT)
     val requestedModelName = intent.getStringExtra(EXTRA_MODEL_NAME)
 
-    // Persist the requested instance count (from the load dialog) BEFORE model
-    // load starts so initializeEngine() picks it up. Absent extra = keep stored
-    // pref (boot/launch auto-start reuse the user's last choice). The count is
-    // server-global: it applies to ANY model that loads.
-    val requestedInstanceCount = intent.getIntExtra(EXTRA_MODEL_INSTANCE_COUNT, 0)
-    if (requestedInstanceCount > 0) {
-      ServerPrefs.setModelInstanceCount(this, requestedInstanceCount)
-    }
-
     // If no explicit model was requested, this is likely a system restart after a crash.
     // Don't auto-load the last model to avoid crash loops (e.g. from OOM).
     // Auto-start on boot is handled separately by BootReceiver which passes EXTRA_MODEL_NAME.
@@ -653,8 +644,6 @@ class ServerService : Service() {
     internal const val TAG = "OlliteRT.Service"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
-    /** Optional: number of model instances to load (1-3). Absent = keep the stored pref. */
-    const val EXTRA_MODEL_INSTANCE_COUNT = "extra_model_instance_count"
     internal const val EXTRA_CONFIG_OVERRIDE_REQUEST_ID = "extra_config_override_request_id"
     /** Optional: identifies what triggered the start (e.g. "boot", "launch") for better error messages. */
     const val EXTRA_START_SOURCE = "extra_start_source"

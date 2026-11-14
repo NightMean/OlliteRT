@@ -39,6 +39,7 @@ import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
+import com.ollitert.llm.server.data.prefs.instanceCount
 import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.model.isThinkingEnabled
 import com.ollitert.llm.server.data.model.llmSupportAudio
@@ -136,7 +137,9 @@ object PayloadBuilders {
           val n = if (llmCount > 0) llmCount else EmbeddingInstancePool.countFor(activeModel.name)
           put("model_instances", JsonPrimitive(n.coerceAtLeast(1)))
         } else {
-          put("model_instances", JsonPrimitive(ServerPrefs.getModelInstanceCount(ctx)))
+          // Not loaded: report the count the next load will use (per-model config,
+          // legacy global pref fallback).
+          put("model_instances", JsonPrimitive(ServerPrefs.getModelInstanceCount(ctx, activeModel)))
         }
       }
       snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
@@ -272,7 +275,7 @@ object PayloadBuilders {
       put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
       put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
       put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))
-      put("model_instance_count", JsonPrimitive(ServerPrefs.getModelInstanceCount(context)))
+      put("model_instance_count", JsonPrimitive(inferenceConfig.instanceCount() ?: ServerPrefs.getModelInstanceCount(context)))
       put("custom_prompts_enabled", JsonPrimitive(ServerPrefs.isCustomPromptsEnabled(context)))
       put("system_prompt", JsonPrimitive(ServerPrefs.getSystemPrompt(context, modelPrefsKey)))
     }

@@ -1,0 +1,35 @@
+{
+  "solo_T1": {
+    "wall": 7.48,
+    "ok": true,
+    "ctok": 10
+  },
+  "conc4": {
+    "wall": 7.68,
+    "results": [
+      {
+        "wall": 0.06,
+        "ok": false,
+        "error": "HTTP Error 503: Service Unavailable"
+      },
+      {
+        "wall": 7.68,
+        "ok": true,
+        "ctok": 10
+      },
+      {
+        "wall": 0.07,
+        "ok": false,
+        "error": "HTTP Error 503: Service Unavailable"
+      },
+      {
+        "wall": 0.06,
+        "ok": false,
+        "error": "HTTP Error 503: Service Unavailable"
+      }
+    ]
+  },
+  "all_ok": false,
+  "num_503": 3,
+  "conc4_ratio_vs_T1": 1.03
+}

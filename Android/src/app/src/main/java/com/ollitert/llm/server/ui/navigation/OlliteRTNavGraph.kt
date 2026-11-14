@@ -57,7 +57,6 @@ import com.ollitert.llm.server.ui.benchmark.BenchmarkScreen
 import com.ollitert.llm.server.ui.common.DonateDialog
 import com.ollitert.llm.server.ui.common.EngagementPromptDialog
 import com.ollitert.llm.server.ui.common.GpuUnavailableDialog
-import com.ollitert.llm.server.ui.common.InstanceCountDialog
 import com.ollitert.llm.server.runtime.GpuAvailability
 import com.ollitert.llm.server.ui.gettingstarted.GettingStartedScreen
 import com.ollitert.llm.server.ui.modelmanager.ModelManagerScreen
@@ -145,17 +144,13 @@ fun OlliteRTNavHost(
   var showEngagementPrompt by remember { mutableStateOf(false) }
   var showDonateFromEngagement by remember { mutableStateOf(false) }
   var showGpuServerStartDialog by remember { mutableStateOf(false) }
-  // Pre-start instance-count dialog: shown when starting from a stopped server so
-  // the user can pick how many instances of the model to load (default 1).
-  var showInstanceCountDialog by remember { mutableStateOf(false) }
-  var pendingStartModel by remember { mutableStateOf<Model?>(null) }
 
   // Shared start path: engagement-prompt tracking, GPU-unavailable dialog, and
-  // the actual service start (with an optional explicit instance count).
-  val performStart: (Model, Int?) -> Unit = { model, count ->
+  // the actual service start.
+  val performStart: (Model) -> Unit = { model ->
     serverViewModel.incrementManualStartCount()
     manualStartPending = true
-    serverViewModel.startServer(modelName = model.name, modelInstanceCount = count)
+    serverViewModel.startServer(modelName = model.name)
     if (!GpuAvailability.isOpenClAccessible &&
       !serverViewModel.isGpuUnavailableServerStartDismissed()
     ) {
@@ -214,22 +209,6 @@ fun OlliteRTNavHost(
     )
   }
 
-  if (showInstanceCountDialog) {
-    val chosenModel = pendingStartModel
-    InstanceCountDialog(
-      onConfirm = { count ->
-        showInstanceCountDialog = false
-        pendingStartModel = null
-        chosenModel?.let { performStart(it, count) }
-      },
-      onDismiss = {
-        showInstanceCountDialog = false
-        pendingStartModel = null
-      },
-      modelName = chosenModel?.name,
-    )
-  }
-
   NavHost(
     navController = navController,
     startDestination = startDestination,
@@ -256,15 +235,9 @@ fun OlliteRTNavHost(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
         onModelSelected = { model ->
-          // Starting from a stopped/errored server: ask how many model instances
-          // to load (default 1). Switching models on a running server reuses the
-          // last chosen count (persisted pref) without interrupting the session.
-          if (serverStatus == ServerStatus.STOPPED || serverStatus == ServerStatus.ERROR) {
-            pendingStartModel = model
-            showInstanceCountDialog = true
-          } else {
-            performStart(model, null)
-          }
+          // Instance count is a per-model inference setting (settings sheet),
+          // applied silently on (re)load — no pre-start dialog.
+          performStart(model)
         },
         onBenchmarkClicked = { model ->
           navController.navigate(OlliteRTRoute.Benchmark(model.name)) { launchSingleTop = true }
