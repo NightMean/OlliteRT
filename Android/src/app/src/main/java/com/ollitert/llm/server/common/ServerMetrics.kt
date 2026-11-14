@@ -225,8 +225,16 @@ object ServerMetrics {
   private val _inferenceSettings = sessionFlow(FloatingInferenceSettings())
   val inferenceSettings: StateFlow<FloatingInferenceSettings> = _inferenceSettings.asStateFlow()
 
-  /** Human-readable error message when status is ERROR, or null. */
-  private val _lastError = sessionFlow<String?>(null)
+  /**
+   * Human-readable error message when status is ERROR, or null.
+   *
+   * Intentionally NOT session-scoped: a failed start (e.g. port in use) ends
+   * with stopSelf() -> onDestroy() -> onServerStopped(), and wiping the message
+   * there would null out the ServerErrorDialogPolicy signature, auto-dismissing
+   * the error dialog before the user can acknowledge it. Cleared by the
+   * Starting/Running transitions (and clearErrorIfModel) instead.
+   */
+  private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
   /** Count of concurrent in-flight inference requests. */
