@@ -287,13 +287,17 @@ object ServerPrefs {
     set(context, MODEL_INSTANCE_COUNT, count.coerceIn(1, MAX_MODEL_INSTANCE_COUNT))
 
   /**
-   * Per-model instance count: the model's own `instance_count` config value
-   * (set in the inference settings sheet). Falls back to the legacy
+   * Per-model instance count: the model's own saved `instance_count` config
+   * value (set in the inference settings sheet). Falls back to the legacy
    * server-global pref when it was raised above the default — that migrates
    * counts chosen via the old start dialog — and to 1 otherwise.
+   *
+   * Reads the PERSISTED config, not model.configValues: the in-memory map has
+   * materialized defaults (instance_count=1) for every model, which would mask
+   * the legacy fallback.
    */
   fun getModelInstanceCount(context: Context, model: Model?): Int {
-    model?.configValues?.instanceCount()?.let { return it }
+    model?.let { m -> getInferenceConfig(context, m.prefsKey)?.instanceCount()?.let { return it } }
     val legacy = get(context, MODEL_INSTANCE_COUNT)
     return if (legacy > 1) legacy.coerceAtMost(MAX_MODEL_INSTANCE_COUNT) else DEFAULT_MODEL_INSTANCE_COUNT
   }
