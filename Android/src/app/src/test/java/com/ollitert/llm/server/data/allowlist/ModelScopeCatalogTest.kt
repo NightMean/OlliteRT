@@ -73,6 +73,21 @@ class ModelScopeCatalogTest {
     verify { redirect.disconnect() }
   }
 
+  @Test fun rateLimitResponseIsDistinguishedFromOtherForbiddenResponses() {
+    val limited = connection("")
+    every { limited.responseCode } returns 403
+    every { limited.errorStream } returns """{"Code":10013201001,"Success":false}""".byteInputStream()
+    assertThrows(ModelScopeRateLimitException::class.java) {
+      ModelScopeCatalog(openConnection = { limited }).files("author/model")
+    }
+    val forbidden = connection("")
+    every { forbidden.responseCode } returns 403
+    every { forbidden.errorStream } returns """{"Code":123,"Success":false}""".byteInputStream()
+    assertThrows(IOException::class.java) {
+      ModelScopeCatalog(openConnection = { forbidden }).files("author/model")
+    }.also { assertTrue(it !is ModelScopeRateLimitException) }
+  }
+
   @Test fun unsafeRepositoryAndPathsAreRejected() {
     assertThrows(IllegalArgumentException::class.java) { ModelScopeCatalog().files("../model") }
     assertThrows(IllegalArgumentException::class.java) { ModelScopeCatalog().search("", ModelScopeSort.LIKES, 61) }

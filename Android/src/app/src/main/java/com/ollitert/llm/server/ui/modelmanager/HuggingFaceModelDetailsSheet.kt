@@ -79,6 +79,10 @@ internal fun HuggingFaceModelDetailsSheet(
   onSelect: (String) -> Unit,
   onDismiss: () -> Unit,
   onContinue: () -> Unit,
+  repositoryUrl: String = "${GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}",
+  fileUrl: (HuggingFaceFile) -> String? = { file ->
+    model.sha?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }?.let { huggingFaceFileUrl(model.id, it, file.path) }
+  },
 ) {
   val currentLoading by rememberUpdatedState(loading)
   val sheetState = rememberModalBottomSheetState(
@@ -100,7 +104,7 @@ internal fun HuggingFaceModelDetailsSheet(
     if (selectedPath == null) (possibleFiles.firstOrNull() ?: otherFiles.firstOrNull())?.let { onSelect(it.path) }
   }
   val selected = files.firstOrNull { it.path == selectedPath }
-  val validRevision = model.sha?.matches(Regex("[a-fA-F0-9]{40}")) == true
+  val validRevision = selected?.let(fileUrl) != null
   ModalBottomSheet(
     onDismissRequest = { if (!loading) onDismiss() },
     sheetState = sheetState,
@@ -113,7 +117,7 @@ internal fun HuggingFaceModelDetailsSheet(
       ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           Text(
-            buildTrackableUrlAnnotatedString("${GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}", model.id.substringAfter('/')),
+            buildTrackableUrlAnnotatedString(repositoryUrl, model.id.substringAfter('/')),
             modifier = Modifier.weight(1f, fill = false),
             style = MaterialTheme.typography.titleLarge,
           )
@@ -128,7 +132,7 @@ internal fun HuggingFaceModelDetailsSheet(
               Text(stringResource(R.string.hf_files_estimate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             possibleFiles.forEach { file ->
-              HuggingFaceFileRow(model, file, selectedPath == file.path, loading, validRevision) { onSelect(file.path) }
+              HuggingFaceFileRow(file, selectedPath == file.path, loading, fileUrl(file)) { onSelect(file.path) }
             }
           }
           if (otherFiles.isNotEmpty()) {
@@ -137,7 +141,7 @@ internal fun HuggingFaceModelDetailsSheet(
               Text(stringResource(R.string.hf_files_other_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             otherFiles.forEach { file ->
-              HuggingFaceFileRow(model, file, selectedPath == file.path, loading, validRevision) { onSelect(file.path) }
+              HuggingFaceFileRow(file, selectedPath == file.path, loading, fileUrl(file)) { onSelect(file.path) }
             }
           }
         }
@@ -161,11 +165,10 @@ internal fun HuggingFaceModelDetailsSheet(
 
 @Composable
 private fun HuggingFaceFileRow(
-  model: HuggingFaceModel,
   file: HuggingFaceFile,
   selected: Boolean,
   loading: Boolean,
-  validRevision: Boolean,
+  url: String?,
   onSelect: () -> Unit,
 ) {
   val context = LocalContext.current
@@ -186,12 +189,11 @@ private fun HuggingFaceFileRow(
       TooltipIconButton(
         icon = Icons.Outlined.ContentCopy,
         tooltip = copyLabel,
-        enabled = !loading && validRevision && isValidHuggingFaceModelId(model.id),
+        enabled = !loading && url != null,
         onClick = {
           val clipboard = context.getSystemService(ClipboardManager::class.java)
-          val revision = model.sha
-          if (clipboard != null && revision != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Model URL", huggingFaceFileUrl(model.id, revision, file.path)))
+          if (clipboard != null && url != null) {
+            clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Model URL", url))
             Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
           }
         },

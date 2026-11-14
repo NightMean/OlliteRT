@@ -105,6 +105,7 @@ fun ModelManagerScreen(
   onNavigateToSettings: () -> Unit = {},
   onNavigateToRepositories: () -> Unit = {},
   onExploreHuggingFace: () -> Unit = {},
+  onExploreModelScope: () -> Unit = {},
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   lastError: String? = null,
@@ -530,36 +531,14 @@ fun ModelManagerScreen(
         item(key = "empty_state") {
           if (uiState.loadingModelAllowlistError.isNotEmpty()) {
             // Allowlist failed to load — show error with retry
-            Column(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 48.dp),
-              horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-              Text(
-                text = stringResource(R.string.models_failed_to_load),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-              )
-              Spacer(modifier = Modifier.height(8.dp))
-              Text(
-                text = uiState.loadingModelAllowlistError,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp),
-              )
-              Spacer(modifier = Modifier.height(16.dp))
-              Button(
-                onClick = {
-                  viewModel.clearLoadModelAllowlistError()
-                  viewModel.loadModelAllowlist()
-                },
-              ) {
-                Text(stringResource(R.string.retry))
-              }
-            }
+            ModelListError(
+              title = stringResource(R.string.models_failed_to_load),
+              message = uiState.loadingModelAllowlistError,
+              onRetry = {
+                viewModel.clearLoadModelAllowlistError()
+                viewModel.loadModelAllowlist()
+              },
+            )
           } else {
             val hasActiveSearchOrFilter = searchQuery.isNotEmpty() ||
               activeFilter != ModelFilter.ALL ||
@@ -573,19 +552,7 @@ fun ModelManagerScreen(
                 stringResource(R.string.no_models_empty_source)
               else -> stringResource(R.string.no_models_not_compatible)
             }
-            Box(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 64.dp),
-              contentAlignment = Alignment.Center,
-            ) {
-              Text(
-                text = emptyText,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-              )
-            }
+            ModelListEmpty(emptyText)
           }
         }
       }
@@ -640,6 +607,7 @@ fun ModelManagerScreen(
     activeModelName = activeModelName,
     onSwitchModel = onSwitchModel,
     onExploreHuggingFace = onExploreHuggingFace,
+    onExploreModelScope = onExploreModelScope,
   )
 }
 

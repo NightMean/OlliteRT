@@ -127,7 +127,7 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
       }
       LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(state.models, key = { it.id }) { model ->
-          HuggingFaceModelCard(model = model, onClick = { viewModel.open(model) })
+          HuggingFaceModelCard(model = model, loading = state.openingModelId == model.id, onClick = { viewModel.open(model) })
         }
       }
     }
@@ -151,7 +151,7 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
 }
 
 @Composable
-private fun HuggingFaceModelDialog(
+internal fun HuggingFaceModelDialog(
   model: HuggingFaceModel,
   initialPath: String?,
   loading: Boolean,
@@ -159,6 +159,12 @@ private fun HuggingFaceModelDialog(
   alreadyAdded: Boolean,
   onDismiss: () -> Unit,
   onAdd: (HuggingFaceFile, ImportedModel) -> Unit,
+  repositoryUrl: String = "${com.ollitert.llm.server.common.GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}",
+  fileUrl: (HuggingFaceFile) -> String? = { file ->
+    model.sha?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }?.let {
+      com.ollitert.llm.server.data.allowlist.huggingFaceFileUrl(model.id, it, file.path)
+    }
+  },
 ) {
   var selectedPath by remember(model.id) { mutableStateOf(initialPath) }
   var configuringFile by remember(model.id) { mutableStateOf<HuggingFaceFile?>(null) }
@@ -168,6 +174,7 @@ private fun HuggingFaceModelDialog(
       model = model, selectedPath = selectedPath, loading = loading, error = error,
       alreadyAdded = alreadyAdded, onSelect = { selectedPath = it }, onDismiss = onDismiss,
       onContinue = { configuringFile = selected },
+      repositoryUrl = repositoryUrl, fileUrl = fileUrl,
     )
   }
   configuringFile?.let { file ->

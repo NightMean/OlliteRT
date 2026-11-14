@@ -322,7 +322,8 @@ fun OlliteRTApp(
   val isLogs = currentDestination?.hasRoute<OlliteRTRoute.Logs>() == true
   val isGettingStarted = currentDestination?.hasRoute<OlliteRTRoute.GettingStarted>() == true
   val isBenchmark = currentDestination?.hasRoute<OlliteRTRoute.Benchmark>() == true
-  val isHuggingFaceExplore = currentDestination?.hasRoute<OlliteRTRoute.HuggingFaceExplore>() == true
+  val isHuggingFaceExplore = currentDestination?.hasRoute<OlliteRTRoute.HuggingFaceExplore>() == true ||
+    currentDestination?.hasRoute<OlliteRTRoute.ModelScopeExplore>() == true
 
   val showNav = isModels || isStatus || isLogs
   val showTopBar = currentDestination != null && !isGettingStarted && !isBenchmark && !isHuggingFaceExplore

@@ -25,11 +25,17 @@ import java.net.URLEncoder
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 internal const val MODELSCOPE_BASE_URL = "https://modelscope.cn"
 private const val TREE_LIMIT = 3000
 private const val PAGE_SIZE = 50
 private const val MAX_PAGE = 3000 / PAGE_SIZE
+private const val RATE_LIMIT_CODE = 10013201001L
+
+internal class ModelScopeRateLimitException : IOException("ModelScope rate limit exceeded")
 
 @Serializable
 internal data class ModelScopeModel(
@@ -54,6 +60,7 @@ internal data class ModelScopeFile(
   @SerialName("Type") val type: String? = null,
 )
 @Serializable private data class ModelListResponse(val success: Boolean, val data: ModelListData? = null)
+@Serializable private data class ModelDetailResponse(val success: Boolean, val data: ModelScopeModel? = null)
 @Serializable private data class ModelListData(
   val models: List<ModelScopeModel>,
   @SerialName("total_count") val totalCount: Int,
@@ -104,11 +111,20 @@ internal class ModelScopeCatalog(
     )
   }
 
-  fun files(repository: String): List<ModelScopeFile> {
+  fun details(repository: String): ModelScopeModel {
     require(isValidHuggingFaceModelId(repository)) { "Invalid model repository ID" }
+    val response = json.decodeFromString<ModelDetailResponse>(get("$endpoint/openapi/v1/models/$repository"))
+    if (!response.success || response.data == null || response.data.id != repository) throw IOException("ModelScope repository request failed")
+    return response.data
+  }
+
+  fun files(repository: String, revision: String = "master"): List<ModelScopeFile> {
+    require(isValidHuggingFaceModelId(repository)) { "Invalid model repository ID" }
+    require(revision.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]*")) && revision != "." && revision != "..") { "Invalid model revision" }
     val response = json.decodeFromString<FileListResponse>(
-      get("$endpoint/api/v1/models/$repository/repo/files?Revision=master&Recursive=True")
+      get("$endpoint/api/v1/models/$repository/repo/files?Revision=$revision&Recursive=True")
     )
+    if (response.code == RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
     if (!response.success || response.data == null) throw IOException("ModelScope file listing failed (code ${response.code})")
     // The legacy API silently truncates large trees; never present a partial list as complete.
     if (response.data.files.size >= TREE_LIMIT) throw IOException("ModelScope file listing is incomplete")
@@ -130,7 +146,13 @@ internal class ModelScopeCatalog(
       connection.instanceFollowRedirects = false
       connection.setRequestProperty("User-Agent", "OlliteRT")
       val status = connection.responseCode
-      if (status != HttpURLConnection.HTTP_OK) throw IOException("ModelScope returned HTTP $status")
+      if (status != HttpURLConnection.HTTP_OK) {
+        // The legacy API reports rate limits as HTTP 403 with a provider-specific code.
+        val error = connection.errorStream?.bufferedReader()?.use { it.readTextLimited(4096) }
+        val code = error?.let { runCatching { json.parseToJsonElement(it).jsonObject["Code"]?.jsonPrimitive?.longOrNull }.getOrNull() }
+        if (status == 429 || code == RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+        throw IOException("ModelScope returned HTTP $status")
+      }
       return connection.inputStream.bufferedReader().use { reader ->
         val result = StringBuilder()
         val buffer = CharArray(8192)
@@ -146,4 +168,15 @@ internal class ModelScopeCatalog(
       connection.disconnect()
     }
   }
+}
+
+private fun java.io.Reader.readTextLimited(limit: Int): String {
+  val chars = CharArray(limit)
+  val result = StringBuilder()
+  while (result.length < limit) {
+    val count = read(chars, 0, limit - result.length)
+    if (count < 0) break
+    result.append(chars, 0, count)
+  }
+  return result.toString()
 }

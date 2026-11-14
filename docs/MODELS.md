@@ -80,11 +80,11 @@ When a conversation exceeds the context window, OlliteRT can automatically compa
 
 ## Favorite Models
 
-Tap the heart on a model card to add it to Favorites. Favorite models appear at the top of Models, and the Favorites filter appears when at least one model is marked. Tap the heart again to remove a favorite. Deleting a downloaded file keeps its favorite if the model remains in the catalog.
+Tap the star on a model card to add it to Favorites. Favorite models appear at the top of Models, and the Favorites filter appears when at least one model is marked. Tap the star again to remove a favorite. Deleting a downloaded file keeps its favorite if the model remains in the catalog.
 
 ## Importing Your Own Models
 
-Tap the **+** button on the Models screen to explore Hugging Face or import your own models.
+Tap the **+** button on the Models screen to explore Hugging Face or ModelScope, or import your own models.
 
 **Explore Hugging Face:**
 - The Hugging Face mark in the import menu is an [official brand asset](https://huggingface.co/brand); it remains the property of Hugging Face.
@@ -95,6 +95,14 @@ Tap the **+** button on the Models screen to explore Hugging Face or import your
 - Some repositories require a Hugging Face token and acceptance of their terms before download. Configure the token in Settings and accept the terms on the model card if required.
 - The selected revision stays fixed. To select another revision or change the selected capabilities, delete its downloaded file, remove the entry from Models, and add it again. Added models are independent of model sources and their automatic updates.
 - The search only includes repositories tagged `litert-lm`. A matching file is not guaranteed to support chat or to run on your device. Web model files are excluded.
+
+**From ModelScope:**
+- The ModelScope mark in the import menu is an [official brand asset](https://modelscope.cn/models/modelscope/logos); it remains the property of ModelScope.
+- Browse and search repositories tagged `litert-lm`, or open a ModelScope repository or file link with the link button.
+- Select a `.litertlm` file and configure its capabilities and accelerators. The model is added to Models; start its download there when ready.
+- ModelScope lists downloads, likes, and update dates. File variants appear after opening a repository because search results do not include its files.
+- Each selection is pinned to the file's revision. Compatibility estimates do not guarantee that a model will run. Check the model card and its license before downloading.
+- Only public ModelScope repositories are supported. ModelScope can rate-limit requests; retry if a repository cannot be opened.
 
 **From a local `.litertlm` file:**
 - Select a `.litertlm` model file from your device storage

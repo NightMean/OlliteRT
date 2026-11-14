@@ -111,6 +111,7 @@ fun ModelManagerDialogs(
   activeModelName: String?,
   onSwitchModel: (String) -> Unit,
   onExploreHuggingFace: () -> Unit,
+  onExploreModelScope: () -> Unit,
 ) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -173,6 +174,15 @@ fun ModelManagerDialogs(
         onClick = {
           state.showImportModelSheet = false
           onExploreHuggingFace()
+        },
+      )
+      BottomSheetActionRow(
+        iconRes = R.drawable.modelscope_logo,
+        labelRes = R.string.modelscope_explore_title,
+        contentDescriptionRes = R.string.modelscope_explore_title,
+        onClick = {
+          state.showImportModelSheet = false
+          onExploreModelScope()
         },
       )
       BottomSheetActionRow(

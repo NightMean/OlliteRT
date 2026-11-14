@@ -1,0 +1,231 @@
+/*
+ * Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.ollitert.llm.server.ui.modelmanager
+
+import android.content.Context
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ollitert.llm.server.data.allowlist.DiscoveredModel
+import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
+import com.ollitert.llm.server.data.allowlist.ModelScopeCatalog
+import com.ollitert.llm.server.data.allowlist.ModelScopeFile
+import com.ollitert.llm.server.data.allowlist.ModelScopeModel
+import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
+import com.ollitert.llm.server.data.allowlist.ModelScopeSort
+import com.ollitert.llm.server.data.allowlist.parseModelScopeLink
+import com.ollitert.llm.server.proto.ImportedModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+internal data class ModelScopeExploreState(
+  val query: String = "",
+  val sort: ModelScopeSort = ModelScopeSort.DEFAULT,
+  val models: List<ModelScopeModel> = emptyList(),
+  val details: ModelScopeModel? = null,
+  val openingModelId: String? = null,
+  val files: List<ModelScopeFile> = emptyList(),
+  val loading: Boolean = false,
+  val loadingMore: Boolean = false,
+  val paginationError: Boolean = false,
+  val paginationStalled: Boolean = false,
+  val saving: Boolean = false,
+  val error: Boolean = false,
+  val rateLimited: Boolean = false,
+  val alreadyAdded: Boolean = false,
+  val hasMore: Boolean = false,
+  val searchLimitReached: Boolean = false,
+  val page: Int = 0,
+  val addedModelName: String? = null,
+  val linkLoading: Boolean = false,
+  val linkError: Boolean = false,
+  val selectedPath: String? = null,
+  val failedModel: ModelScopeModel? = null,
+)
+
+@HiltViewModel
+internal class ModelScopeExploreViewModel internal constructor(
+  private val context: Context,
+  private val catalog: ModelScopeCatalog,
+  private val io: CoroutineDispatcher,
+) : ViewModel() {
+  @Inject constructor(@ApplicationContext context: Context) : this(context, ModelScopeCatalog(), Dispatchers.IO)
+
+  private val _state = MutableStateFlow(ModelScopeExploreState())
+  val state = _state.asStateFlow()
+  private var job: Job? = null
+
+  init { refresh() }
+
+  fun search(query: String) {
+    if (_state.value.saving) return
+    _state.update { it.copy(query = query) }
+    load(reset = true, debounce = true)
+  }
+
+  fun sort(sort: ModelScopeSort) {
+    if (_state.value.saving) return
+    _state.update { it.copy(sort = sort) }
+    load(reset = true)
+  }
+
+  fun refresh() = load(reset = true)
+  fun loadMore() {
+    val current = _state.value
+    if (current.hasMore && !current.loading && !current.loadingMore && current.openingModelId == null && !current.paginationError &&
+      !current.error && !current.saving && !current.linkLoading && current.details == null) load(reset = false)
+  }
+
+  fun retryLoadMore() {
+    val current = _state.value
+    if (current.paginationError && !current.loading && !current.loadingMore && current.openingModelId == null && !current.saving) load(reset = false)
+  }
+
+  fun retryError() {
+    val failed = _state.value.failedModel
+    if (failed != null) open(failed) else refresh()
+  }
+
+  private fun load(reset: Boolean, debounce: Boolean = false) {
+    if (_state.value.saving) return
+    job?.cancel()
+    val before = _state.value
+    val page = if (reset) 1 else before.page + 1
+    _state.update {
+      it.copy(loading = reset, loadingMore = !reset, openingModelId = null, error = false, rateLimited = false, paginationError = false, paginationStalled = false, failedModel = null, details = null,
+        models = if (reset) emptyList() else it.models,
+        page = if (reset) 0 else it.page,
+        hasMore = if (reset) false else it.hasMore,
+        searchLimitReached = if (reset) false else it.searchLimitReached)
+    }
+    job = viewModelScope.launch {
+      try {
+        if (debounce) delay(300)
+        val result = withContext(io) { catalog.search(before.query, before.sort, page) }
+        _state.update {
+          val models = if (reset) result.models else (it.models + result.models).distinctBy { model -> model.id }
+          // Do not automatically request every remaining page if the provider repeats a page.
+          val stalled = !reset && models.size == it.models.size && result.hasMore
+          it.copy(models = models, page = page, hasMore = result.hasMore,
+            searchLimitReached = result.searchLimitReached, loading = false, loadingMore = false,
+            paginationError = stalled, paginationStalled = stalled)
+        }
+      } catch (e: CancellationException) { throw e }
+      catch (e: Exception) {
+        Log.w("OlliteRT.ModelScope", "Model search failed", e)
+        _state.update { it.copy(loading = false, loadingMore = false, error = reset, paginationError = !reset, rateLimited = e is ModelScopeRateLimitException) }
+      }
+    }
+  }
+
+  fun open(model: ModelScopeModel) {
+    if (_state.value.saving) return
+    job?.cancel()
+    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = model.id, error = false, rateLimited = false, failedModel = null) }
+    job = viewModelScope.launch {
+      try {
+        val files = withContext(io) { catalog.files(model.id) }
+        _state.update { it.copy(details = model, files = files, selectedPath = null, openingModelId = null) }
+      } catch (e: CancellationException) { throw e }
+      catch (e: Exception) {
+        Log.w("OlliteRT.ModelScope", "Model file listing failed", e)
+        _state.update { it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException) }
+      }
+    }
+  }
+
+  fun beginLink() {
+    if (_state.value.saving) return
+    job?.cancel()
+    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = null, error = false, rateLimited = false, failedModel = null, linkError = false) }
+  }
+
+  fun openLink(value: String) {
+    if (_state.value.saving) return
+    val link = parseModelScopeLink(value)
+    if (link == null) { _state.update { it.copy(linkError = true, rateLimited = false) }; return }
+    job?.cancel()
+    _state.update { it.copy(linkLoading = true, linkError = false, rateLimited = false, loading = false) }
+    job = viewModelScope.launch {
+      try {
+        val (model, files) = withContext(io) {
+          catalog.details(link.repository) to catalog.files(link.repository, link.revision ?: "master")
+        }
+        require(link.path == null || files.any { it.path == link.path })
+        _state.update { it.copy(details = model, files = files, selectedPath = link.path, linkLoading = false) }
+      } catch (e: CancellationException) { throw e }
+      catch (e: Exception) {
+        Log.w("OlliteRT.ModelScope", "Could not open repository link", e)
+        _state.update { it.copy(linkLoading = false, linkError = true, rateLimited = e is ModelScopeRateLimitException) }
+      }
+    }
+  }
+
+  fun closeLink() {
+    if (_state.value.linkLoading) job?.cancel()
+    _state.update { it.copy(linkLoading = false, linkError = false) }
+    if (_state.value.page == 0) refresh()
+  }
+
+  fun closeDetails() {
+    if (_state.value.saving) return
+    _state.update { it.copy(details = null, alreadyAdded = false, error = false) }
+    if (_state.value.page == 0) refresh()
+  }
+  fun consumeImportedModel() { _state.update { it.copy(addedModelName = null) } }
+
+  fun add(file: ModelScopeFile, info: ImportedModel) {
+    val model = _state.value.details ?: return
+    if (_state.value.loading) return
+    _state.update { it.copy(loading = true, saving = true, error = false, alreadyAdded = false) }
+    job = viewModelScope.launch {
+      try {
+        val inserted = withContext(io) {
+          val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
+          val config = info.llmConfig
+          val selected = DiscoveredModel(
+            repository = model.id, path = file.path, revision = file.revision, size = file.size,
+            vision = config.supportImage, audio = config.supportAudio, thinking = config.supportThinking,
+            tools = config.supportTools, accelerators = config.compatibleAcceleratorsList.map { it.trim().lowercase(Locale.ROOT) },
+            displayName = info.displayName, maxTokens = config.defaultMaxTokens, topK = config.defaultTopk,
+            topP = config.defaultTopp, temperature = config.defaultTemperature,
+            speculativeDecoding = config.supportSpeculativeDecoding, provider = DiscoveredProvider.MODELSCOPE,
+          )
+          if (DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).add(selected)) selected.toAllowedModel().name else null
+        }
+        _state.update { it.copy(loading = false, saving = inserted != null, addedModelName = inserted, alreadyAdded = inserted == null) }
+      } catch (e: CancellationException) { throw e }
+      catch (e: Exception) {
+        Log.w("OlliteRT.ModelScope", "Could not save model", e)
+        _state.update { it.copy(loading = false, saving = false, error = true) }
+      }
+    }
+  }
+}

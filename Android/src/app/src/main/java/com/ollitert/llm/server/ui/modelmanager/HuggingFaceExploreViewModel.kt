@@ -50,6 +50,7 @@ internal data class HuggingFaceExploreState(
   val sort: HuggingFaceSort = HuggingFaceSort.TRENDING,
   val models: List<HuggingFaceModel> = emptyList(),
   val details: HuggingFaceModel? = null,
+  val openingModelId: String? = null,
   val loading: Boolean = false,
   val error: Boolean = false,
   val addedModelName: String? = null,
@@ -95,7 +96,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
     job?.cancel()
     val query = _state.value.query
     val sort = _state.value.sort
-    _state.update { it.copy(loading = true, error = false, details = null) }
+    _state.update { it.copy(loading = true, error = false, details = null, openingModelId = null) }
     job = viewModelScope.launch {
       try {
         if (debounce) delay(300)
@@ -113,17 +114,17 @@ internal class HuggingFaceExploreViewModel internal constructor(
   fun open(model: HuggingFaceModel) {
     if (_state.value.saving) return
     job?.cancel()
-    _state.update { it.copy(loading = true, error = false) }
+    _state.update { it.copy(loading = false, openingModelId = model.id, error = false) }
     job = viewModelScope.launch {
       try {
         val details = withContext(ioDispatcher) { client.details(model.id, preferences.getHfToken()) }
         require(details.id.equals(model.id, ignoreCase = true) && isValidHuggingFaceModelId(details.id)) { "Invalid repository details" }
-        _state.update { it.copy(details = details, selectedPath = null, loading = false) }
+        _state.update { it.copy(details = details, selectedPath = null, openingModelId = null) }
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
         Log.w("OlliteRT.HFExplore", "Model details failed", e)
-        _state.update { it.copy(loading = false, error = true) }
+        _state.update { it.copy(openingModelId = null, error = true) }
       }
     }
   }
@@ -131,7 +132,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
   fun beginLink() {
     if (_state.value.saving) return
     job?.cancel()
-    _state.update { it.copy(loading = false, error = false, linkError = false) }
+    _state.update { it.copy(loading = false, openingModelId = null, error = false, linkError = false) }
   }
 
   fun openLink(value: String) {

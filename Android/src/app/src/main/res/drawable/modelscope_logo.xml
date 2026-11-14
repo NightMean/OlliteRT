@@ -1,0 +1,33 @@
+<!--
+  Vector conversion Copyright 2025-2026 @NightMean (https://github.com/NightMean)
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  The ModelScope mark is an official asset and remains the property of ModelScope:
+  https://modelscope.cn/models/modelscope/logos
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#624AFF"
+        android:pathData="M2.667,5.3H8v2.667H5.333v2.666H2.667V8.467H0.5v2.166h2.167V13.3H0V7.967h2.667V5.3zM2.667,13.3h2.666v2.667H8v2.666H2.667V13.3zM8,10.633h2.667V13.3H8v-2.667zM13.333,13.3v2.667h-2.666V13.3h2.666zM13.333,13.3v-2.667H16V13.3h-2.667z" />
+    <path
+        android:fillColor="#624AFF"
+        android:fillType="evenOdd"
+        android:pathData="M21.333,13.3v-2.667h-2.666V7.967H16V5.3h5.333v2.667H24V13.3h-2.667zm0,-2.667H23.5V8.467h-2.167v2.166z" />
+    <path
+        android:fillColor="#624AFF"
+        android:pathData="M21.333,13.3v5.333H16v-2.666h2.667V13.3h2.666z" />
+</vector>

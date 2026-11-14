@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +44,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
@@ -57,7 +59,7 @@ import java.util.Date
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HuggingFaceModelCard(model: HuggingFaceModel, onClick: () -> Unit) {
+internal fun HuggingFaceModelCard(model: HuggingFaceModel, showVariants: Boolean = true, loading: Boolean = false, onClick: () -> Unit) {
   val owner = model.id.substringBefore('/')
   val name = model.id.substringAfter('/')
   Card(
@@ -69,14 +71,18 @@ internal fun HuggingFaceModelCard(model: HuggingFaceModel, onClick: () -> Unit) 
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
       Text(owner, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      HuggingFaceModelStats(model)
+      HuggingFaceModelStats(model, showVariants)
+      if (loading) {
+        val description = stringResource(R.string.repository_loading_files)
+        LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = description })
+      }
     }
   }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HuggingFaceModelStats(model: HuggingFaceModel) {
+internal fun HuggingFaceModelStats(model: HuggingFaceModel, showVariants: Boolean = true) {
   val date = remember(model.lastModified) { formatHuggingFaceUpdatedDate(model.lastModified) }
   val downloads = NumberFormat.getIntegerInstance().format(model.downloads)
   val likes = NumberFormat.getIntegerInstance().format(model.likes)
@@ -88,8 +94,10 @@ internal fun HuggingFaceModelStats(model: HuggingFaceModel) {
       val updated = stringResource(R.string.hf_explore_updated_date, date)
       RepositoryStat(Icons.Rounded.Schedule, updated, updated)
     }
-    val variants = pluralStringResource(R.plurals.hf_explore_variants, variantCount, variantCount)
-    RepositoryStat(Icons.Outlined.Layers, variants, variants)
+    if (showVariants) {
+      val variants = pluralStringResource(R.plurals.hf_explore_variants, variantCount, variantCount)
+      RepositoryStat(Icons.Outlined.Layers, variants, variants)
+    }
   }
 }
 
