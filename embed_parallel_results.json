@@ -1,0 +1,12 @@
+{
+  "note": "OlliteRT /v1/embeddings `parallel` (computeEmbeddingBatch) measurement. P8P GPU, ~800-word (~1000-tok) docs, 768-dim. build 1228 / 876afa49, 2026-11-12.",
+  "models": ["EmbeddingGemma-2-740M"],
+  "solo_1doc_p1":  { "wall": 0.709 },
+  "b2_p1":         { "wall": 1.319, "ratio_vs_solo": 1.86 },
+  "b2_p2":         { "wall": 1.399, "ratio_vs_solo": 1.97 },
+  "b4_p4":         { "wall": 2.453, "ratio_vs_solo": 3.46 },
+  "b4_p2":         { "wall": 2.445, "ratio_vs_solo": 3.45 },
+  "short4_p4":     { "wall": 0.649 },
+  "VERDICT": "GPU-SERIALIZED: parallel is NEUTRAL for 1024-tok docs (~N x solo, tiny pipelining overlap, no 2x/4x win). Short-doc bursts get modest overlap.",
+  "WHY": "llama.cpp --parallel batches tokens from all slots into ONE forward pass (amortizes weight loads). LiteRT computeEmbeddingBatch runs N SEPARATE forward passes that time-slice the one Mali-G715; token-batching is not in LiteRT's public API. 1024-tok docs are GPU-compute-bound on the P8P."
+}

@@ -23,8 +23,10 @@ import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.RequestLogEntry
 import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultRequestLogStoreRepository
+import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.data.repository.RequestLogStoreRepository
+import com.ollitert.llm.server.data.repository.ServerStateRepository
 import com.ollitert.llm.server.di.DefaultDispatcher
 import com.ollitert.llm.server.ui.server.logs.LogFilter
 import com.ollitert.llm.server.ui.server.logs.StatusRange
@@ -51,10 +53,22 @@ class LogsViewModel @Inject constructor(
   @param:ApplicationContext private val context: Context,
   private val requestLogStoreRepository: RequestLogStoreRepository = DefaultRequestLogStoreRepository(),
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
+  private val serverStateRepository: ServerStateRepository = DefaultServerStateRepository(),
   @param:DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
   val entries: StateFlow<List<RequestLogEntry>> = requestLogStoreRepository.entries
+
+  /** Currently loaded model names (primary first) — options for the model filter dropdown. */
+  val modelFilterOptions: StateFlow<List<String>> = combine(
+    serverStateRepository.activeModelName,
+    serverStateRepository.secondaryModelName,
+  ) { primary, secondary ->
+    buildList {
+      primary?.takeIf { it.isNotEmpty() }?.let(::add)
+      secondary?.takeIf { it.isNotEmpty() && it != primary }?.let(::add)
+    }
+  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   private val _filter = MutableStateFlow(LogFilter())
   val filter: StateFlow<LogFilter> = _filter.asStateFlow()
@@ -133,6 +147,10 @@ class LogsViewModel @Inject constructor(
 
   fun toggleLevel(level: LogLevel) {
     _filter.value = _filter.value.copy(levels = _filter.value.levels.toggle(level))
+  }
+
+  fun setModelFilter(modelName: String?) {
+    _filter.value = _filter.value.copy(modelName = modelName)
   }
 
   fun setShowClearConfirmDialog(show: Boolean) {

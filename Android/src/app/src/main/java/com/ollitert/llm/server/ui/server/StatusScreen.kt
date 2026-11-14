@@ -92,6 +92,7 @@ fun StatusScreen(
   val isIdleUnloaded by serverViewModel.isIdleUnloaded.collectAsStateWithLifecycle()
   val loadingStartedAtMs by serverViewModel.loadingStartedAtMs.collectAsStateWithLifecycle()
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
+  val secondaryModelName by serverViewModel.secondaryModelName.collectAsStateWithLifecycle()
 
   val isStopped = status == ServerStatus.STOPPED
 
@@ -194,6 +195,7 @@ fun StatusScreen(
         isIdleUnloaded = isIdleUnloaded,
         loadingElapsedSeconds = loadingElapsedSeconds,
         lastError = lastError,
+        secondaryModelName = secondaryModelName,
         onReloadClick = { showReloadDialog = true },
       )
 

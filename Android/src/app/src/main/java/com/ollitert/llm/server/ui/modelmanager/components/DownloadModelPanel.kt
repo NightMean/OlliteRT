@@ -61,7 +61,9 @@ fun DownloadModelPanel(
   showBenchmarkButton: Boolean = false,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  isSecondModelLoaded: Boolean = false,
   onStopServer: () -> Unit = {},
+  onStopSecondary: () -> Unit = {},
 ) {
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   Row(
@@ -173,7 +175,9 @@ fun DownloadModelPanel(
       modifierWhenExpanded = Modifier.weight(1f),
       serverStatus = serverStatus,
       activeModelName = activeModelName,
+      isSecondModelLoaded = isSecondModelLoaded,
       onStopServer = onStopServer,
+      onStopSecondary = onStopSecondary,
     )
   }
 }

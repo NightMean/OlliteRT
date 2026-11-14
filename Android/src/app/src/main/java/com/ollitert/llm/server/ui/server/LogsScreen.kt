@@ -98,6 +98,7 @@ import com.ollitert.llm.server.ui.server.logs.SegmentedToggleGroup
 import com.ollitert.llm.server.ui.server.logs.StatusRange
 import com.ollitert.llm.server.ui.server.logs.copyAllLogsToClipboard
 import com.ollitert.llm.server.ui.server.logs.exportLogsAsJson
+import com.ollitert.llm.server.ui.server.logs.LogModelFilterDropdown
 import com.ollitert.llm.server.ui.theme.OlliteRTCancelledAmber
 import com.ollitert.llm.server.ui.theme.OlliteRTContextOverflowRed
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
@@ -126,6 +127,7 @@ fun LogsScreen(
   val searchBarVisible by viewModel.searchBarVisible.collectAsStateWithLifecycle()
   val showClearConfirmDialog by viewModel.showClearConfirmDialog.collectAsStateWithLifecycle()
   val showClearActiveDialog by viewModel.showClearActiveDialog.collectAsStateWithLifecycle()
+  val modelFilterOptions by viewModel.modelFilterOptions.collectAsStateWithLifecycle()
 
   val context = LocalContext.current
   val autoExpand = remember { viewModel.autoExpand }
@@ -239,6 +241,21 @@ fun LogsScreen(
 
       // ── Filter segmented groups ─────────────────────────────────────────
       if (entries.isNotEmpty()) {
+        // Model filter dropdown — only meaningful with two loaded models
+        if (modelFilterOptions.size >= 2) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 4.dp),
+          ) {
+            LogModelFilterDropdown(
+              options = modelFilterOptions,
+              selected = filter.modelName,
+              onSelected = { viewModel.setModelFilter(it) },
+              modifier = Modifier.widthIn(max = 240.dp),
+            )
+          }
+        }
         BoxWithConstraints(
           modifier = Modifier
             .fillMaxWidth()

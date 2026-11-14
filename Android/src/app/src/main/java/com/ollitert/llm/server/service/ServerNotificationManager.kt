@@ -51,6 +51,7 @@ data class LoadNotificationState(
 
 private data class RunningNotificationState(
   val modelName: String,
+  val instanceCount: Int,
   val contentIntent: PendingIntent,
   val stopIntent: PendingIntent,
   val copyIntent: PendingIntent,
@@ -143,22 +144,31 @@ class ServerNotificationManager(private val context: Context) {
 
   /** Updates notification intents and displays the running notification. */
   fun updateToRunning(model: Model, notifState: LoadNotificationState) {
+    val instanceCount = ServerPrefs.getModelInstanceCount(context, model)
     runningNotificationState = RunningNotificationState(
       modelName = model.name,
+      instanceCount = instanceCount,
       contentIntent = notifState.contentIntent,
       stopIntent = notifState.stopIntent,
       copyIntent = notifState.copyIntent,
       resetPositionIntent = notifState.resetPositionIntent,
       endpointUrl = notifState.endpointUrl,
     )
+    val modelDisplay = formatModelDisplayName(model.name, instanceCount)
     val initialText = buildString {
       if (ServerPrefs.isNotifShowRequestCount(context)) {
         append(context.resources.getQuantityString(R.plurals.notif_server_body_requests, 0, 0))
         append("\n")
       }
-      append(context.getString(R.string.notif_server_body_model, model.name))
-      append("\n")
       append(context.getString(R.string.notif_server_body_url, notifState.endpointUrl))
+      append("\n")
+      append(context.getString(R.string.notif_server_body_model, modelDisplay))
+      // A second model can be resident across a reload (its engine survives the
+      // chat-model teardown) — reflect it in the initial running notification.
+      ServerMetrics.secondaryModelName.value?.let { name ->
+        append("\n")
+        append(context.getString(R.string.notif_server_body_second_model, name, ServerMetrics.secondaryModelInstanceCount.value))
+      }
     }
     NotificationHelper.update(
       context = context,
@@ -186,15 +196,18 @@ class ServerNotificationManager(private val context: Context) {
   /** Update the foreground notification with the current request count and optional update badge. */
   fun refreshRunning() {
     val state = runningNotificationState ?: return
+    val modelDisplay = formatModelDisplayName(state.modelName, state.instanceCount)
     NotificationHelper.refreshRunning(
       context = context,
-      modelName = state.modelName,
+      modelName = modelDisplay,
       endpointUrl = state.endpointUrl,
       contentIntent = state.contentIntent,
       stopIntent = state.stopIntent,
       copyIntent = state.copyIntent,
       resetPositionIntent = state.resetPositionIntent,
       cachedUpdateVersion = ServerMetrics.availableUpdateVersion.value,
+      // Read live: the second model can load/unload at any time after server start.
+      secondaryModelName = ServerMetrics.secondaryModelName.value,
     )
   }
 
@@ -253,6 +266,10 @@ class ServerNotificationManager(private val context: Context) {
     }
 
     ServerPrefs.clearCorruptedDataStores(context)
+  }
+
+  private fun formatModelDisplayName(modelName: String, instanceCount: Int): String {
+    return if (instanceCount > 1) "$modelName ($instanceCount)" else modelName
   }
 
   companion object {

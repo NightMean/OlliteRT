@@ -21,6 +21,8 @@ import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.*
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
+import com.ollitert.llm.server.runtime.EmbeddingInstancePool
+import com.ollitert.llm.server.runtime.ModelInstancePool
 
 import android.content.Context
 import android.util.Log
@@ -37,6 +39,7 @@ import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
+import com.ollitert.llm.server.data.prefs.instanceCount
 import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.model.isThinkingEnabled
 import com.ollitert.llm.server.data.model.llmSupportAudio
@@ -47,6 +50,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -109,7 +113,7 @@ object PayloadBuilders {
    * Includes server identity, version, status, loaded model, uptime, update
    * availability, and the full list of supported endpoints.
    */
-  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null): String {
+  fun serverInfo(activeModel: Model?, idleUnloadedModelName: String? = null, modelCatalogMerger: ModelCatalogMerger? = null, secondaryModelName: String? = null, context: Context? = null): String {
     val snapshot = serverStatusSnapshot(activeModel, idleUnloadedModelName)
     val info = buildMap {
       put("name", JsonPrimitive("OlliteRT"))
@@ -123,6 +127,21 @@ object PayloadBuilders {
       }
       put("status", JsonPrimitive(statusStr))
       snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      // Resident secondary (e.g. embedding model loaded alongside the chat model)
+      secondaryModelName?.let { put("secondary_model", JsonPrimitive(it)) }
+      // Number of engine instances loaded for the active model (multi-instance mode);
+      // embedding models keep their engines in EmbeddingInstancePool, not ModelInstancePool.
+      context?.let { ctx ->
+        if (activeModel?.instance != null) {
+          val llmCount = ModelInstancePool.countFor(activeModel.name)
+          val n = if (llmCount > 0) llmCount else EmbeddingInstancePool.countFor(activeModel.name)
+          put("model_instances", JsonPrimitive(n.coerceAtLeast(1)))
+        } else {
+          // Not loaded: report the count the next load will use (per-model config,
+          // legacy global pref fallback).
+          put("model_instances", JsonPrimitive(ServerPrefs.getModelInstanceCount(ctx, activeModel)))
+        }
+      }
       snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface cached update info from background UpdateCheckWorker (if a newer version was found)
       val latestVersion = ServerMetrics.availableUpdateVersion.value
@@ -146,6 +165,13 @@ object PayloadBuilders {
         JsonPrimitive("/v1/audio/transcriptions"),
         JsonPrimitive("/v1/models"),
         JsonPrimitive("/v1/models/{id}"),
+        // Model-slot routes: stable per-model URLs (slot 1 = primary, slot 2 = second)
+        JsonPrimitive("/v1/model/1"),
+        JsonPrimitive("/v1/model/2"),
+        JsonPrimitive("/v1/model/1/chat/completions"),
+        JsonPrimitive("/v1/model/2/chat/completions"),
+        JsonPrimitive("/v1/model/1/embeddings"),
+        JsonPrimitive("/v1/model/2/embeddings"),
         JsonPrimitive("/health"),
         JsonPrimitive("/metrics"),
         JsonPrimitive("/ping"),
@@ -249,6 +275,7 @@ object PayloadBuilders {
       put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
       put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
       put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))
+      put("model_instance_count", JsonPrimitive(inferenceConfig.instanceCount() ?: ServerPrefs.getModelInstanceCount(context)))
       put("custom_prompts_enabled", JsonPrimitive(ServerPrefs.isCustomPromptsEnabled(context)))
       put("system_prompt", JsonPrimitive(ServerPrefs.getSystemPrompt(context, modelPrefsKey)))
     }
@@ -282,21 +309,29 @@ object PayloadBuilders {
    * Reports the active model, or the idle-unloaded model name if keep_alive has
    * unloaded the model but the server is still running.
    */
-  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json): String {
-    if (activeModel == null) {
+  fun modelsList(activeModel: Model?, idleUnloadedModelName: String?, json: Json, secondaryModel: Model? = null): String {
+    val items = mutableListOf<LlmHttpModelItem>()
+    activeModel?.let { items.add(it.toModelItem()) }
+    secondaryModel?.let { secondary ->
+      // Never list the secondary twice when it IS the active model (e.g. the
+      // user started the server directly on the embedding model).
+      if (activeModel == null || !secondary.name.equals(activeModel.name, ignoreCase = true)) {
+        items.add(secondary.toModelItem())
+      }
+    }
+    if (items.isEmpty()) {
       // If model is idle-unloaded (keep_alive), still report it so clients know
       // which model will serve their next request (after auto-reload).
       val idleName = idleUnloadedModelName
       if (idleName != null) {
         Log.d(TAG, "Models list: model idle-unloaded (keep_alive), reporting $idleName")
-        val item = LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value)
-        return json.encodeToString(LlmHttpModelList(data = listOf(item)))
+        items.add(LlmHttpModelItem(id = idleName, created = ServerMetrics.modelCreatedAtEpoch.value))
+      } else {
+        Log.d(TAG, "Models list: no model loaded")
       }
-      Log.d(TAG, "Models list: no model loaded")
-      return json.encodeToString(LlmHttpModelList(data = emptyList()))
     }
-    Log.d(TAG, "Models list: active model=${activeModel.name}")
-    return json.encodeToString(LlmHttpModelList(data = listOf(activeModel.toModelItem())))
+    Log.d(TAG, "Models list: ${items.map { it.id }}")
+    return json.encodeToString(LlmHttpModelList(data = items))
   }
 
   /**

@@ -73,6 +73,7 @@ import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.llmSupportThinking
 import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.prefs.DEFAULT_INSTANCE_COUNT
 import com.ollitert.llm.server.data.prefs.DEFAULT_THINKING_BUDGET_TOKENS
 import com.ollitert.llm.server.data.prefs.NumberSliderConfig
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
@@ -80,6 +81,7 @@ import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
+import com.ollitert.llm.server.data.prefs.instanceCount
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import com.ollitert.llm.server.runtime.GpuAvailability
@@ -132,6 +134,9 @@ fun InferenceSettingsSheet(
   }
   var enableSpeculativeDecoding by remember {
     mutableStateOf(configValues.configSpeculativeDecodingEnabled() ?: false)
+  }
+  var instanceCount by remember {
+    mutableIntStateOf(configValues.instanceCount() ?: DEFAULT_INSTANCE_COUNT)
   }
 
   val availableAccelerators = model.accelerators.ifEmpty { listOf(Accelerator.GPU) }
@@ -351,6 +356,11 @@ fun InferenceSettingsSheet(
         onShowGpuInfo = { showGpuInfoDialog = true },
       )
 
+      InstanceCountCard(
+        selectedCount = instanceCount,
+        onSelect = { instanceCount = it },
+      )
+
       // Advanced section — custom system prompt
       if (customPromptsEnabled) {
         Spacer(modifier = Modifier.height(4.dp))
@@ -450,6 +460,7 @@ fun InferenceSettingsSheet(
           }
           newValues[ConfigKeys.ENABLE_SPECULATIVE_DECODING.id] = enableSpeculativeDecoding
           newValues[ConfigKeys.ACCELERATOR.id] = selectedAccelerator.label
+          newValues[ConfigKeys.INSTANCE_COUNT.id] = instanceCount
           onApply(newValues, systemPrompt, false)
         },
         modifier = Modifier

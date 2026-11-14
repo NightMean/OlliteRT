@@ -159,6 +159,23 @@
         "maxTokens": 4096,
         "accelerators": "gpu,cpu"
       }
+    },
+    {
+      "name": "EmbeddingGemma-2-740M",
+      "modelId": "litert-community/embeddinggemma-2-740m-litert-lm",
+      "modelFile": "embeddinggemma-2-740m.litertlm",
+      "description": "Multimodal embedding model (text/image/audio) for on-device semantic search and RAG. Serves OpenAI-compatible /v1/embeddings. Matryoshka output: 768/512/256/128 dimensions.",
+      "sizeInBytes": 484622336,
+      "minDeviceMemoryInGb": 6,
+      "commitHash": "66011bd4f00a8b36a1d3c4ae7bf908b4891b4881",
+      "minAppVersion": "0.9.8",
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "maxTokens": 512,
+        "accelerators": "gpu,cpu"
+      }
     }
   ]
 }

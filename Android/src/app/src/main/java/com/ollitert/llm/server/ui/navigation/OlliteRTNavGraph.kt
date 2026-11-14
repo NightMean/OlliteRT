@@ -145,6 +145,19 @@ fun OlliteRTNavHost(
   var showDonateFromEngagement by remember { mutableStateOf(false) }
   var showGpuServerStartDialog by remember { mutableStateOf(false) }
 
+  // Shared start path: engagement-prompt tracking, GPU-unavailable dialog, and
+  // the actual service start.
+  val performStart: (Model) -> Unit = { model ->
+    serverViewModel.incrementManualStartCount()
+    manualStartPending = true
+    serverViewModel.startServer(modelName = model.name)
+    if (!GpuAvailability.isOpenClAccessible &&
+      !serverViewModel.isGpuUnavailableServerStartDismissed()
+    ) {
+      showGpuServerStartDialog = true
+    }
+  }
+
   LaunchedEffect(engagementServerStatus) {
     if (engagementServerStatus == ServerStatus.RUNNING && manualStartPending) {
       manualStartPending = false
@@ -216,26 +229,22 @@ fun OlliteRTNavHost(
       }
       val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
+      val secondaryModelName by serverViewModel.secondaryModelName.collectAsStateWithLifecycle()
       val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
       ModelManagerScreen(
         viewModel = modelManagerViewModel,
         navigateUp = { navController.navigateUp() },
         onModelSelected = { model ->
-          // Track manual server starts for the engagement prompt (counter lives in prefs,
-          // observer lives at NavHost level so it fires regardless of which screen is active)
-          serverViewModel.incrementManualStartCount()
-          manualStartPending = true
-          serverViewModel.startServer(modelName = model.name)
-          if (!GpuAvailability.isOpenClAccessible &&
-              !serverViewModel.isGpuUnavailableServerStartDismissed()) {
-            showGpuServerStartDialog = true
-          }
+          // Instance count is a per-model inference setting (settings sheet),
+          // applied silently on (re)load — no pre-start dialog.
+          performStart(model)
         },
         onBenchmarkClicked = { model ->
           navController.navigate(OlliteRTRoute.Benchmark(model.name)) { launchSingleTop = true }
         },
         serverStatus = serverStatus,
         activeModelName = activeModelName,
+        secondaryModelName = secondaryModelName,
         lastError = lastError,
         onStopServer = { serverViewModel.stopServer() },
         onSwitchModel = { modelName ->
@@ -243,6 +252,12 @@ fun OlliteRTNavHost(
           serverViewModel.incrementManualStartCount()
           manualStartPending = true
           serverViewModel.switchModel(modelName)
+        },
+        onLoadSecondary = { modelName ->
+          serverViewModel.loadSecondaryModel(modelName)
+        },
+        onStopSecondary = { modelName ->
+          serverViewModel.unloadSecondaryModel(modelName)
         },
         onNavigateToSettings = { navController.navigate(OlliteRTRoute.Settings) { launchSingleTop = true } },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },

@@ -62,6 +62,22 @@ object ServerMetrics {
   private val _activeModelName = sessionFlow<String?>(null)
   val activeModelName: StateFlow<String?> = _activeModelName.asStateFlow()
 
+  /** Instance count for the active model (1 = single instance, >1 = concurrent instances). */
+  private val _activeModelInstanceCount = sessionFlow(1)
+  val activeModelInstanceCount: StateFlow<Int> = _activeModelInstanceCount.asStateFlow()
+
+  /**
+   * Name of the pinned second model (e.g. an embedding model) resident alongside
+   * the active chat model, or null when none is loaded. Set by [com.ollitert.llm.server.service.inference.ModelLifecycle]
+   * on second model publish/unload; cleared with the session when the server stops.
+   */
+  private val _secondaryModelName = sessionFlow<String?>(null)
+  val secondaryModelName: StateFlow<String?> = _secondaryModelName.asStateFlow()
+
+  /** Instance count of the resident second model (1 — single engine by design). */
+  private val _secondaryModelInstanceCount = MutableStateFlow(1)
+  val secondaryModelInstanceCount: StateFlow<Int> = _secondaryModelInstanceCount.asStateFlow()
+
   // App-level state — not reset on server stop, only on resetForTesting()
   private val _port = MutableStateFlow(SERVER_DEFAULT_PORT)
   val port: StateFlow<Int> = _port.asStateFlow()
@@ -225,8 +241,16 @@ object ServerMetrics {
   private val _inferenceSettings = sessionFlow(FloatingInferenceSettings())
   val inferenceSettings: StateFlow<FloatingInferenceSettings> = _inferenceSettings.asStateFlow()
 
-  /** Human-readable error message when status is ERROR, or null. */
-  private val _lastError = sessionFlow<String?>(null)
+  /**
+   * Human-readable error message when status is ERROR, or null.
+   *
+   * Intentionally NOT session-scoped: a failed start (e.g. port in use) ends
+   * with stopSelf() -> onDestroy() -> onServerStopped(), and wiping the message
+   * there would null out the ServerErrorDialogPolicy signature, auto-dismissing
+   * the error dialog before the user can acknowledge it. Cleared by the
+   * Starting/Running transitions (and clearErrorIfModel) instead.
+   */
+  private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
   /** Count of concurrent in-flight inference requests. */
@@ -349,6 +373,16 @@ object ServerMetrics {
     }
   }
 
+  /** Updates the resident second model name (null = none). Called from ModelLifecycle. */
+  fun updateSecondaryModelName(name: String?) {
+    _secondaryModelName.value = name
+  }
+
+  /** Updates the resident second model's instance count. Called from ModelLifecycle. */
+  fun updateSecondaryModelInstanceCount(count: Int) {
+    _secondaryModelInstanceCount.value = count.coerceAtLeast(1)
+  }
+
   fun incrementRequestCount() {
     _requestCountFlow.value = _requestCount.incrementAndGet()
   }
@@ -393,6 +427,10 @@ object ServerMetrics {
 
   fun setActiveModelSize(bytes: Long) {
     _activeModelSize.value = bytes
+  }
+
+  fun setActiveModelInstanceCount(count: Int) {
+    _activeModelInstanceCount.value = count.coerceAtLeast(1)
   }
 
   fun setActiveAccelerator(accelerator: String?) {

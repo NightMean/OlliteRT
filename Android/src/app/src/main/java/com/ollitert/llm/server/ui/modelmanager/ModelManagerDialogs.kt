@@ -35,11 +35,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -107,6 +108,7 @@ fun ModelManagerDialogs(
   serverStatus: ServerStatus,
   activeModelName: String?,
   onSwitchModel: (String) -> Unit,
+  onLoadSecondary: (String) -> Unit = {},
 ) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -290,48 +292,63 @@ fun ModelManagerDialogs(
     )
   }
 
-  // Confirmation dialog when switching models while server is running
+  // Choice sheet when starting a second model while the server is running:
+  // replace the active model, or load the tapped model as a second model.
   val switchModel = state.pendingSwitchModel
   if (state.showSwitchModelDialog && switchModel != null) {
-    AlertDialog(
-      onDismissRequest = {
-        state.showSwitchModelDialog = false
-        state.pendingSwitchModel = null
-      },
-      title = { Text(stringResource(R.string.dialog_switch_model_title)) },
-      text = {
-        Text(
-          stringResource(
-            R.string.dialog_switch_model_body,
-            activeModelName ?: stringResource(R.string.label_current_model),
-            switchModel.displayName.ifEmpty { switchModel.name },
-          )
-        )
-      },
-      confirmButton = {
-        Button(onClick = {
-          state.showSwitchModelDialog = false
-          state.pendingSwitchModel = null
+    val closeSheet = {
+      state.showSwitchModelDialog = false
+      state.pendingSwitchModel = null
+    }
+    ModalBottomSheet(
+      onDismissRequest = closeSheet,
+      sheetState = sheetState,
+      sheetMaxWidth = SHEET_MAX_WIDTH,
+    ) {
+      Text(
+        stringResource(
+          R.string.dialog_second_model_title,
+          switchModel.displayName.ifEmpty { switchModel.name },
+        ),
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+      )
+      Text(
+        stringResource(
+          R.string.dialog_second_model_body,
+          switchModel.displayName.ifEmpty { switchModel.name },
+          activeModelName ?: stringResource(R.string.label_current_model),
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+      )
+      BottomSheetActionRow(
+        icon = Icons.Outlined.Refresh,
+        labelRes = R.string.button_replace,
+        contentDescriptionRes = R.string.cd_replace_model,
+        onClick = {
+          closeSheet()
           onSwitchModel(switchModel.name)
-        }) {
-          Text(stringResource(R.string.button_switch))
-        }
-      },
-      dismissButton = {
-        Button(
-          onClick = {
-            state.showSwitchModelDialog = false
-            state.pendingSwitchModel = null
-          },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-          ),
-        ) {
-          Text(stringResource(R.string.cancel))
-        }
-      },
-    )
+        },
+      )
+      BottomSheetActionRow(
+        icon = Icons.Outlined.Group,
+        labelRes = R.string.button_load_second_model,
+        contentDescriptionRes = R.string.cd_load_second_model,
+        onClick = {
+          closeSheet()
+          Toast.makeText(context, context.getString(R.string.toast_second_model_loading), Toast.LENGTH_SHORT).show()
+          onLoadSecondary(switchModel.name)
+        },
+      )
+      BottomSheetActionRow(
+        icon = Icons.Outlined.Close,
+        labelRes = R.string.cancel,
+        contentDescriptionRes = R.string.cancel,
+        onClick = closeSheet,
+      )
+    }
   }
 }
 

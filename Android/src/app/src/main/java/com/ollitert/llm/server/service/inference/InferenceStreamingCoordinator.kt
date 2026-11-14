@@ -31,6 +31,7 @@ import com.ollitert.llm.server.data.prefs.STREAM_OUTER_TIMEOUT_SAFETY_BUFFER_SEC
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.llmSupportAudio
 import com.ollitert.llm.server.data.model.llmSupportImage
+import com.ollitert.llm.server.runtime.ModelInstancePool
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.formats.StreamingFormat
 import com.ollitert.llm.server.service.http.HttpResponse
@@ -94,6 +95,15 @@ internal class InferenceStreamingCoordinator(
     val cancellationBridge = RequestCancellationBridge()
     val channelRef = AtomicReference<Channel<StreamEvent>?>(null)
     val inferenceControl = AtomicReference<InferenceGateway.InferenceControl?>(null)
+
+    // Multi-instance routing: extend-candidates are pinned to the owner instance
+    // (the conversation they extend lives there); everything else round-robins.
+    val instanceSlot = ModelInstancePool.route(
+      model.name,
+      isCacheCandidate = ServerLlmModelHelper.getCachedTurns(model.name) != null &&
+        images.isEmpty() && audioClips.isEmpty(),
+    )
+    val effectiveInferenceLock = instanceSlot?.instance?.inferenceLock ?: inferenceLock
     if (logId != null) {
       RequestLogStore.registerCancellation(logId) {
         when (cancellationBridge.request()) {
@@ -112,6 +122,7 @@ internal class InferenceStreamingCoordinator(
       incrementalReuseLabel = "INCREMENTAL_REUSE",
       model = model,
       requestId = requestId,
+      instance = instanceSlot?.instance,
       images = images,
       audioClips = audioClips,
       supportImage = supportImage,
@@ -205,14 +216,14 @@ internal class InferenceStreamingCoordinator(
         prompt = prompt,
         timeoutSeconds = timeoutSeconds,
         executor = executor,
-        inferenceLock = inferenceLock,
+        inferenceLock = effectiveInferenceLock,
         resetConversation = {
           session.resetConversation(cancellationBridge.cancellationWasAccepted()) {
             state.markStarted()
           }
         },
         runInference = session::runInference,
-        cancelInference = { ServerLlmModelHelper.stopResponse(model) },
+        cancelInference = { ServerLlmModelHelper.stopResponse(model, instanceSlot?.instance) },
         recoverConversation = session::recoverConversation,
         onToken = { partial, done, thought ->
           channel.trySend(StreamEvent.Token(partial, done, thought))
@@ -222,6 +233,7 @@ internal class InferenceStreamingCoordinator(
         },
         onInferenceFinished = {
           session.restoreOriginalConfigIfLoaded()
+          session.commitConversationOwner()
           state.markMetricsCompleted()
         },
         onCaughtThrowable = { t -> emitDebugStackTrace(t, format.sourceTag, model.name) },

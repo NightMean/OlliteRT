@@ -27,6 +27,10 @@ import android.os.SystemClock
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.EmbeddingEngine
+import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.ModelInfo
+import com.google.ai.edge.litertlm.ModelType
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.IMPORTS_DIR
@@ -81,6 +85,24 @@ class ModelLifecycle(
 
   /** Currently loaded model. Null when idle-unloaded or before first load. */
   @Volatile var defaultModel: Model? = null
+
+  /**
+   * Pinned secondary — a second resident model loaded alongside [defaultModel]
+   * any model type; routable by name via the request's model field). Unlike [defaultModel] it is exempt from keep-alive
+   * idle unload and from reload teardown, so e.g. an embedding model stays warm
+   * while the chat model is swapped. Null when no secondary is loaded.
+   */
+  @Volatile var secondaryModel: Model? = null
+
+  /**
+   * Generation counter guarding concurrent secondary loads: a load publishes only
+   * if its generation is still current, mirroring ServerModelLoader's load-generation
+   * pattern. Bumped on every [loadSecondaryModel] start and on [destroy].
+   */
+  private val secondaryLoadGeneration = java.util.concurrent.atomic.AtomicLong(0)
+
+  /** Name of a secondary currently initializing (null = no load in flight). */
+  private val secondaryLoadingName = java.util.concurrent.atomic.AtomicReference<String?>(null)
 
   /** Cache of Model objects built from the allowlist, keyed by name. */
   val modelCache: MutableMap<String, Model> = java.util.concurrent.ConcurrentHashMap()
@@ -207,6 +229,11 @@ class ModelLifecycle(
     synchronized(keepAliveLock) {
       isDestroyed = true
       cancelKeepAliveTimer()
+      // Invalidate any in-flight secondary load so it cleans up after itself
+      // instead of publishing a model onto a dead lifecycle.
+      secondaryLoadGeneration.incrementAndGet()
+      secondaryLoadingName.set(null)
+      ServerMetrics.updateSecondaryModelName(null)
       // Service shutdown has already stopped request admission and interrupted
       // inference, so a deferred OOM cleanup must not remain blocked on old leases.
       emergencyUnloadState?.cleanupReady?.countDown()
@@ -270,13 +297,28 @@ class ModelLifecycle(
    * receive a retryable rejection until cleanup completes.
    */
   fun emergencyUnloadOnOom() {
+    var secondary: Model? = null
     val emergency = synchronized(keepAliveLock) {
       if (isDestroyed || emergencyUnloadState != null) return
       val model = defaultModel ?: return
-      Log.w(TAG, "OOM: emergency-unloading model ${model.name}")
+      // Free the secondary's RAM too: under OOM pressure the smaller resident
+      // engine is the cheap one to drop, and it restores itself on next load.
+      secondary = secondaryModel
+      Log.w(TAG, "OOM: emergency-unloading model ${model.name}" +
+        (if (secondary != null) " and secondary ${secondary.name}" else ""))
       keepAliveUnloadedRef.set(model.name to model.prefsKey)
       defaultModel = null
       modelCache.remove(model.name, model)
+      if (secondary != null) {
+        secondaryModel = null
+        modelCache.remove(secondary.name, secondary)
+        ServerPrefs.setSecondaryModelName(context, null)
+        secondaryLoadGeneration.incrementAndGet()
+        // Service keeps running after OOM — a stale loading flag would wedge
+        // all future secondary loads with "already loading".
+        secondaryLoadingName.set(null)
+        ServerMetrics.updateSecondaryModelName(null)
+      }
       ServerMetrics.onModelIdleUnloaded()
       val cleanupReady = CountDownLatch(1)
       val cleanupFinished = CountDownLatch(1)
@@ -295,6 +337,7 @@ class ModelLifecycle(
       awaitLatchUninterruptibly(emergency.cleanupReady)
       try {
         ServerLlmModelHelper.safeCleanup(emergency.model)
+        secondary?.let { ServerLlmModelHelper.safeCleanup(it) }
       } finally {
         synchronized(keepAliveLock) {
           if (emergencyUnloadState === emergency) emergencyUnloadState = null
@@ -358,6 +401,7 @@ class ModelLifecycle(
       supportAudio = supportAudio,
       onDone = { initErr = it },
       systemInstruction = buildSystemInstruction(model.prefsKey),
+      instanceCount = ServerPrefs.getModelInstanceCount(context, model),
     )
     if (initErr.isEmpty()) {
       model.initializedWithVision = supportImage
@@ -648,13 +692,212 @@ class ModelLifecycle(
       if (requestedKey == activeKey || requestedKey == legacyStorageKey) {
         return ModelSelection.Ok(active)
       }
-      // The requested model doesn't match the active model. Return a descriptive error.
+      // The requested model doesn't match the active model — check the resident
+      // second model. A pinned second model is reachable by name from any
+      // inference route (OpenAI-style model= routing).
+      val secondary = secondaryModel
+      if (secondary != null) {
+        val secondaryKey = BridgeUtils.normalizeModelKey(secondary.name)
+        val secondaryLegacy = if (secondary.imported) {
+          BridgeUtils.normalizeModelKey(secondary.storageFileName)
+        } else {
+          null
+        }
+        if (requestedKey == secondaryKey || requestedKey == secondaryLegacy) {
+          return ModelSelection.Ok(secondary)
+        }
+      }
+      // The requested model matches neither resident model.
       return ModelSelection.Error(
         400,
-        "Model '${requested}' is not loaded. Currently loaded: '${active.name}'. " +
-          "Please select '${active.name}' in your client or load the requested model on the device first."
+        "Model '${requested}' is not loaded. Currently loaded: '${active.name}'" +
+          (secondary?.let { " and '${it.name}'" } ?: "") +
+          ". Please select a loaded model in your client or load the requested model on the device first."
       )
     }
+  }
+
+  // ── Second model (second resident model; any model type, routable by name) ─
+
+  /**
+   * Resolves the embedding model for an /v1/embeddings request. Looks at BOTH
+   * resident models (secondary first, then default) so a chat model can be the
+   * active default while a pinned embedding model serves embeddings.
+   *
+   * [requestedModel] is the client's `model` field: blank/"local"/"default"
+   * resolves to whichever loaded model has an embedding engine; any other value
+   * must name-match a loaded embedding model (same normalization rules as
+   * [selectModel]).
+   */
+  fun selectEmbeddingModel(requestedModel: String?): ModelSelection {
+    synchronized(keepAliveLock) {
+      val candidates = listOfNotNull(secondaryModel, defaultModel)
+      if (candidates.isEmpty()) {
+        return ModelSelection.Error(
+          503,
+          "No model is loaded. Load an embedding model first (POST /v1/server/models/load)."
+        )
+      }
+      val requested = requestedModel?.trim().orEmpty()
+      if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
+        requested.equals("default", ignoreCase = true)
+      ) {
+        val any = candidates.firstOrNull { (it.instance as? EmbeddingEngine) != null }
+          ?: return ModelSelection.Error(
+            400,
+            "No embedding model is loaded. Loaded: " +
+              candidates.joinToString { it.name } +
+              ". Load one via POST /v1/server/models/load."
+          )
+        return ModelSelection.Ok(any)
+      }
+      val requestedKey = BridgeUtils.normalizeModelKey(requested)
+      for (candidate in candidates) {
+        if ((candidate.instance as? EmbeddingEngine) == null) continue
+        val key = BridgeUtils.normalizeModelKey(candidate.name)
+        val legacyStorageKey = if (candidate.imported) {
+          BridgeUtils.normalizeModelKey(candidate.storageFileName)
+        } else null
+        if (requestedKey == key || requestedKey == legacyStorageKey) {
+          return ModelSelection.Ok(candidate)
+        }
+      }
+      return ModelSelection.Error(
+        400,
+        "Model '$requested' is not a loaded embedding model. Loaded: " +
+          candidates.joinToString { it.name }
+      )
+    }
+  }
+
+  /** Probes the model file's LiteRT model type; false on any probe failure. */
+  @OptIn(ExperimentalApi::class)
+  private fun isEmbeddingModelFile(model: Model): Boolean {
+    return try {
+      val info = ModelInfo.from(model.getPath(context))
+      val isEmbedding = info.modelType == ModelType.EMBEDDING
+      try { info.close() } catch (_: Exception) { }
+      isEmbedding
+    } catch (e: Exception) {
+      Log.w(TAG, "ModelInfo probe failed for secondary check on '${model.name}': ${e.message}")
+      false
+    }
+  }
+
+  /**
+   * Loads [name] as the pinned secondary alongside the active chat model.
+   * Embedding-only in v1. Blocking: native engine init runs 10-60s and must be
+   * called from a background thread (route handler thread is fine — it is a CIO
+   * worker, not the main looper).
+   *
+   * Native init runs OUTSIDE [keepAliveLock] (mirroring ServerModelLoader's
+   * initial-load path) so a secondary load never blocks chat request selection;
+   * state publication happens under the lock and is guarded by the load
+   * generation so a superseded load cleans up after itself.
+   *
+   * Returns an error message, or "" on success / already loaded.
+   */
+  fun loadSecondaryModel(name: String): String {
+    val requestedKey = BridgeUtils.normalizeModelKey(name)
+    val model: Model
+    val generation: Long
+    synchronized(keepAliveLock) {
+      if (isDestroyed) return "Server is shutting down"
+      val existing = secondaryModel
+      if (existing != null && existing.instance != null) {
+        val existingKey = BridgeUtils.normalizeModelKey(existing.name)
+        return if (existingKey == requestedKey) ""
+        else "Second model '${existing.name}' is already loaded — unload it first (POST /v1/server/models/unload)"
+      }
+      val inFlight = secondaryLoadingName.get()
+      if (inFlight != null) {
+        return "Second model '$inFlight' is already loading — retry shortly"
+      }
+      val active = defaultModel
+      if (active != null && BridgeUtils.normalizeModelKey(active.name) == requestedKey) {
+        return "Model '$name' is the active chat model — the secondary must be a different model"
+      }
+      model = pickModelByName(name)
+        ?: return "Model '$name' not found (not in the allowlist or imports registry)"
+      secondaryLoadingName.set(model.name)
+      generation = secondaryLoadGeneration.incrementAndGet()
+    }
+    try {
+      val initErr = initializeEngine(model)
+      if (initErr.isNotEmpty()) {
+        ServerLlmModelHelper.safeCleanup(model)
+        return "Second model load failed: $initErr"
+      }
+      synchronized(keepAliveLock) {
+        if (isDestroyed) {
+          ServerLlmModelHelper.safeCleanup(model)
+          return "Server is shutting down"
+        }
+        if (secondaryLoadGeneration.get() != generation) {
+          // A newer load request (or destroy) superseded this one.
+          ServerLlmModelHelper.safeCleanup(model)
+          return "Second model load superseded by a newer request — retry"
+        }
+        secondaryModel = model
+        modelCache[model.name] = model
+        ServerPrefs.setSecondaryModelName(context, model.name)
+        ServerMetrics.updateSecondaryModelName(model.name)
+        ServerMetrics.updateSecondaryModelInstanceCount(1)
+      }
+    } catch (e: Exception) {
+      ServerLlmModelHelper.safeCleanup(model)
+      return "Second model load failed: ${e.message}"
+    } finally {
+      // Clear the loading flag on EVERY path (success, init failure, destroy,
+      // supersede). compareAndSet: only clear it if we still own it — a newer
+      // load may have already replaced it with its own name under the lock.
+      secondaryLoadingName.compareAndSet(model.name, null)
+    }
+    RequestLogStore.addEvent(
+      "Second model loaded: ${model.name} (resident alongside active model)",
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
+    return ""
+  }
+
+  /**
+   * Unloads the pinned secondary. When [name] is given, unloads only if it
+   * matches the current secondary. Returns an error message, or "" on success.
+   */
+  fun unloadSecondaryModel(name: String?): String {
+    val model = synchronized(keepAliveLock) {
+      val current = secondaryModel ?: return "No secondary is loaded"
+      // Never close a native engine under in-flight requests: an embedding call
+      // mid-compute would hit a freed engine. Embedding calls are short (~0.5s),
+      // so a retryable rejection is the right call.
+      if (activeRequestAdmissions > 0 || ServerMetrics.isInferring.value) {
+        return "A request is in flight on the secondary — retry shortly"
+      }
+      if (name != null && name.isNotBlank()) {
+        val key = BridgeUtils.normalizeModelKey(name)
+        val currentKey = BridgeUtils.normalizeModelKey(current.name)
+        val legacyStorageKey = if (current.imported) {
+          BridgeUtils.normalizeModelKey(current.storageFileName)
+        } else null
+        if (key != currentKey && key != legacyStorageKey) {
+          return "Second model is '${current.name}', not '$name'"
+        }
+      }
+      secondaryModel = null
+      modelCache.remove(current.name, current)
+      current
+    }
+    ServerPrefs.setSecondaryModelName(context, null)
+    ServerMetrics.updateSecondaryModelName(null)
+    // Native close outside the lock — state transition is already published.
+    ServerLlmModelHelper.safeCleanup(model)
+    RequestLogStore.addEvent(
+      "Second model unloaded: ${model.name}",
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
+    return ""
   }
 
   // ── Utilities ──────────────────────────────────────────────────────────────

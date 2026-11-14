@@ -130,6 +130,7 @@ internal object ServerCleanupCoordinator {
     loadJob: kotlinx.coroutines.Job?,
     inferenceExecutor: java.util.concurrent.ExecutorService?,
     source: String,
+    keepSecondary: Boolean = false,
   ) {
     val modelsToCleanUp = linkedSetOf<com.ollitert.llm.server.data.model.Model>()
     synchronized(modelLifecycle.keepAliveLock) {
@@ -137,6 +138,22 @@ internal object ServerCleanupCoordinator {
       modelLifecycle.defaultModel = null
       modelsToCleanUp.addAll(modelLifecycle.modelCache.values.filter { it.instance != null })
       modelLifecycle.modelCache.clear()
+      if (keepSecondary) {
+        // Reload path: the pinned secondary survives the chat model
+        // teardown and is re-published by the next load's restore step.
+        // Clearing it here would orphan its native engine (leak).
+        // modelCache was just cleared, so restore the secondary's entry —
+        // name-based lookups must keep finding it across the swap.
+        val secondary = modelLifecycle.secondaryModel
+        if (secondary != null) {
+          modelsToCleanUp.remove(secondary)
+          modelLifecycle.modelCache[secondary.name] = secondary
+        }
+      } else {
+        // Destroy path: tear the secondary down too.
+        modelLifecycle.secondaryModel?.let(modelsToCleanUp::add)
+        modelLifecycle.secondaryModel = null
+      }
     }
     if (
       loadJob != null || inferenceExecutor != null || modelsToCleanUp.isNotEmpty() ||

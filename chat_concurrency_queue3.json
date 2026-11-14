@@ -1,0 +1,29 @@
+{
+  "solo_T1": 7.54,
+  "conc4_wall": 31.23,
+  "results": [
+    {
+      "wall": 7.63,
+      "ok": true,
+      "ctok": 10
+    },
+    {
+      "wall": 23.15,
+      "ok": true,
+      "ctok": 10
+    },
+    {
+      "wall": 15.26,
+      "ok": true,
+      "ctok": 10
+    },
+    {
+      "wall": 31.22,
+      "ok": true,
+      "ctok": 10
+    }
+  ],
+  "all_ok": true,
+  "num_503": 0,
+  "conc4_ratio_vs_T1": 4.14
+}

@@ -53,7 +53,12 @@ object ServerServicePipelineFactory {
     emitDebugStackTrace: (Throwable, String, String?) -> Unit,
     buildSystemInstruction: (String) -> Contents?,
   ): ServerPipeline {
-    val executor = Executors.newSingleThreadExecutor()
+    // Cached pool (not single-thread): with multi-instance models, concurrent
+    // requests are routed to different engine instances and MUST be able to run
+    // on different threads — per-instance inference locks serialize work on the
+    // SAME instance only. Idle threads are reaped after 60s, so no steady-state
+    // cost for the common single-request case.
+    val executor = Executors.newCachedThreadPool()
     val runner = InferenceRunner(
       context = context,
       executor = executor,

@@ -49,6 +49,7 @@ import com.ollitert.llm.server.data.model.llmSupportAudio
 import com.ollitert.llm.server.data.model.llmSupportImage
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.data.prefs.maxTokensLong
+import com.ollitert.llm.server.runtime.ModelInstancePool
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.formats.AnthropicMessagesFormat
 import com.ollitert.llm.server.service.formats.ChatCompletionsFormat
@@ -173,11 +174,21 @@ class InferenceRunner(
       }
     }
 
+    // Multi-instance routing: extend-candidates are pinned to the owner instance
+    // (the conversation they extend lives there); everything else round-robins.
+    val instanceSlot = ModelInstancePool.route(
+      model.name,
+      isCacheCandidate = ServerLlmModelHelper.getCachedTurns(model.name) != null &&
+        images.isEmpty() && audioClips.isEmpty(),
+    )
+    val effectiveInferenceLock = instanceSlot?.instance?.inferenceLock ?: inferenceLock
+
     val session = ConversationDispatchSession(
       debugLogTag = TAG,
       incrementalReuseLabel = "INCREMENTAL_REUSE_BLOCKING",
       model = model,
       requestId = requestId,
+      instance = instanceSlot?.instance,
       images = images,
       audioClips = audioClips,
       supportImage = supportImage,
@@ -204,7 +215,7 @@ class InferenceRunner(
       prompt = prompt,
       timeoutSeconds = timeoutSeconds,
       executor = executor,
-      inferenceLock = inferenceLock,
+      inferenceLock = effectiveInferenceLock,
       resetConversation = {
         session.resetConversation(cancellationBridge.cancellationWasAccepted()) {
           inferenceActuallyStarted.set(true)
@@ -212,10 +223,11 @@ class InferenceRunner(
         }
       },
       runInference = session::runInference,
-      cancelInference = { ServerLlmModelHelper.stopResponse(model) },
+      cancelInference = { ServerLlmModelHelper.stopResponse(model, instanceSlot?.instance) },
       recoverConversation = session::recoverConversation,
       onInferenceFinished = {
         session.restoreOriginalConfigIfLoaded()
+        session.commitConversationOwner()
         if (inferenceActuallyStarted.get()) ServerMetrics.onInferenceCompleted()
       },
       elapsedMs = { SystemClock.elapsedRealtime() },

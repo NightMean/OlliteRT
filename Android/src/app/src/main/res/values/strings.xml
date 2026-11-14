@@ -157,14 +157,24 @@
   <string name="button_import_anyway">Import Anyway</string>
   <string name="label_loading_model">Loading Model</string>
   <string name="button_stop_server">Stop Server</string>
+  <string name="second_model_loaded">Second Model</string>
+  <string name="second_model_loaded_toast">Already loaded as a second model alongside the active model</string>
   <string name="dialog_unsupported_file_type_title">Unsupported file type</string>
   <string name="dialog_unsupported_file_type_body">Only \".litertlm\" file type is supported.</string>
   <string name="dialog_unsupported_web_model_title">Unsupported model type</string>
   <string name="dialog_unsupported_web_model_body">Looks like the model is a web-only model and is not supported by the app.</string>
-  <string name="dialog_switch_model_title">Switch model?</string>
-  <string name="dialog_switch_model_body">This will unload \"%1$s\" and load \"%2$s\".\n\nThe server will restart.\n\nNote: switching between large models on devices with limited RAM may fail because the LiteRT runtime cannot always release native GPU memory between models. If the app crashes or the new model fails to load, fully restart the app (or the device) and try loading the new model directly.</string>
+  <string name="dialog_second_model_title">Start %1$s?</string>
+  <string name="dialog_second_model_body">The server is running with %2$s.\n\nReplace it with %1$s, or load %1$s as a second model alongside %2$s.\n\nA second model is reachable from clients by its name in the request\'s model field.\n\nNote: replacing a large model on devices with limited RAM may fail because the LiteRT runtime cannot always release native GPU memory between models. If the app crashes or the new model fails to load, fully restart the app (or the device) and try loading the new model directly.</string>
   <string name="label_current_model">current model</string>
   <string name="button_switch">Switch</string>
+  <string name="button_load_second_model">Load as Second Model</string>
+  <string name="button_stop_second_model">Stop Second Model</string>
+  <string name="notif_server_body_second_model">Second model: %1$s (%2$d)</string>
+  <string name="status_second_model_loaded">Second model: %1$s</string>
+  <string name="cd_replace_model">Replace the active model</string>
+  <string name="cd_load_second_model">Load as a second model</string>
+  <string name="cd_stop_second_model">Stop the second model</string>
+  <string name="toast_second_model_loading">Loading second model…</string>
   <string name="label_import_model">Import model</string>
   <string name="label_import_from_local_file">From local model file (.litertlm)</string>
   <string name="label_import_from_model_list">From model list file (.json)</string>
@@ -993,6 +1003,8 @@
   <string name="config_label_enable_speculative_decoding" translatable="false">Speculative decoding</string>
   <string name="config_hint_requires_model_update" translatable="false">Requires model update to take effect</string>
   <string name="config_label_accelerator" translatable="false">Accelerator</string>
+  <string name="config_label_instance_count" translatable="false">Instances</string>
+  <string name="inference_settings_instance_count_description" translatable="false">How many engines of this model to load. More instances let multiple clients generate at once, but each is a full copy of the model in RAM. Changing this reloads the model.</string>
   <string name="config_label_vision_accelerator" translatable="false">Vision accelerator</string>
   <string name="config_label_compatible_accelerators" translatable="false">Compatible accelerators</string>
   <string name="config_label_name" translatable="false">Name</string>

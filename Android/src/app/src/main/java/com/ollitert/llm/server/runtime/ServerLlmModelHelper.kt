@@ -20,6 +20,7 @@ package com.ollitert.llm.server.runtime
 import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.EmbeddingEngine
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.ExperimentalApi
@@ -51,6 +52,21 @@ internal class ModelLoadDiagnosticState {
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation) {
   /** Diagnostics scoped to this loaded Engine, preserved across Conversation resets. */
   internal val diagnostics = ModelLoadDiagnosticState()
+
+  /**
+   * Position in the model's multi-instance pool (assigned by
+   * [com.ollitert.llm.server.runtime.ModelInstancePool] at registration; 0 for
+   * single-instance models).
+   */
+  var index: Int = 0
+
+  /**
+   * Per-instance serialization lock. The native SDK is not thread-safe per
+   * Engine, so concurrent requests are spread across instances and each
+   * instance's generations are serialized on this lock (requests on DIFFERENT
+   * instances run in parallel on different executor threads).
+   */
+  val inferenceLock = Any()
 }
 
 /**
@@ -104,6 +120,7 @@ object ServerLlmModelHelper {
     enableConversationConstrainedDecoding: Boolean = false,
     coroutineScope: CoroutineScope? = null,
     configOverrides: Map<String, Any>? = null,
+    instanceCount: Int = 1,
   ) {
     LiteRtEngineFactory.createAndInitEngine(
       context = context,
@@ -116,6 +133,7 @@ object ServerLlmModelHelper {
       initialMessages = initialMessages,
       enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
       onDone = onDone,
+      instanceCount = instanceCount,
     )
   }
 
@@ -129,9 +147,10 @@ object ServerLlmModelHelper {
     initialMessages: List<Message> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     conversationCacheGeneration: Long? = null,
+    instance: LlmModelInstance? = null,
   ) {
     try {
-      Log.d(TAG, "Resetting conversation for model '${model.name}'")
+      Log.d(TAG, "Resetting conversation for model '${model.name}'${if (instance != null) " (multi-instance target)" else ""}")
 
       if (conversationCacheGeneration != null) {
         discardCachedTurns(model.name, conversationCacheGeneration)
@@ -139,22 +158,28 @@ object ServerLlmModelHelper {
         invalidateCachedTurns(model.name)
       }
 
-      val instance = model.instance as? LlmModelInstance ?: return
+      // Per-request target when the model runs multiple instances; otherwise
+      // reset every loaded instance of the model.
+      val targets = instance?.let { listOf(it) }
+        ?: ModelInstancePool.instancesFor(model.name)
+          .ifEmpty { listOfNotNull(model.instance as? LlmModelInstance) }
 
-      try {
-        instance.conversation.close()
-      } catch (e: Exception) {
-        Log.w(TAG, "Old conversation close failed (proceeding with new): ${e.message}")
+      for (inst in targets) {
+        try {
+          inst.conversation.close()
+        } catch (e: Exception) {
+          Log.w(TAG, "Old conversation close failed (proceeding with new): ${e.message}")
+        }
+
+        inst.conversation = LiteRtEngineFactory.createConversation(
+          engine = inst.engine,
+          model = model,
+          systemInstruction = systemInstruction,
+          tools = tools,
+          initialMessages = initialMessages,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        )
       }
-
-      instance.conversation = LiteRtEngineFactory.createConversation(
-        engine = instance.engine,
-        model = model,
-        systemInstruction = systemInstruction,
-        tools = tools,
-        initialMessages = initialMessages,
-        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-      )
 
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
@@ -164,9 +189,12 @@ object ServerLlmModelHelper {
         level = LogLevel.ERROR,
         modelName = model.name,
       )
-      try { (model.instance as? LlmModelInstance)?.engine?.close() } catch (closeEx: Exception) {
-        Log.w(TAG, "Engine.close() failed during conversation reset", closeEx)
+      for (inst in ModelInstancePool.instancesFor(model.name).ifEmpty { listOfNotNull(model.instance as? LlmModelInstance) }) {
+        try { inst.engine.close() } catch (closeEx: Exception) {
+          Log.w(TAG, "Engine.close() failed during conversation reset", closeEx)
+        }
       }
+      ModelInstancePool.clear(model.name)
       cleanUpListeners.remove(model.name)?.invoke()
       model.instance = null
       System.gc()
@@ -186,20 +214,42 @@ object ServerLlmModelHelper {
   }
 
   fun cleanUp(model: Model, onDone: () -> Unit) {
-    val instance = model.instance as? LlmModelInstance ?: return
+    // Embedding models store a bare EmbeddingEngine in instance (no conversation),
+    // possibly several (multi-instance pool).
+    (model.instance as? EmbeddingEngine)?.let { primaryEngine ->
+      for (embeddingEngine in EmbeddingInstancePool.instancesFor(model.name).ifEmpty { listOf(primaryEngine) }) {
+        try {
+          embeddingEngine.close()
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to close the embedding engine: ${e.message}")
+        }
+      }
+      EmbeddingInstancePool.clear(model.name)
+      model.instance = null
+      onDone()
+      Log.d(TAG, "Clean up done (embedding engine).")
+      return
+    }
+    // Close every loaded instance of the model (multi-instance pools), not just
+    // the primary one in model.instance.
+    val instances = ModelInstancePool.instancesFor(model.name)
+      .ifEmpty { listOfNotNull(model.instance as? LlmModelInstance) }
 
-    try {
-      instance.conversation.close()
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to close the conversation: ${e.message}")
+    for (inst in instances) {
+      try {
+        inst.conversation.close()
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to close the conversation: ${e.message}")
+      }
+
+      try {
+        inst.engine.close()
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to close the engine: ${e.message}")
+      }
     }
 
-    try {
-      instance.engine.close()
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to close the engine: ${e.message}")
-    }
-
+    ModelInstancePool.clear(model.name)
     cleanUpListeners.remove(model.name)?.invoke()
     model.instance = null
 
@@ -207,12 +257,21 @@ object ServerLlmModelHelper {
     Log.d(TAG, "Clean up done.")
   }
 
-  fun stopResponse(model: Model) {
-    val instance = model.instance as? LlmModelInstance ?: return
-    try {
-      instance.conversation.cancelProcess()
-    } catch (_: IllegalStateException) {
-      Log.d(TAG, "stopResponse: conversation already closed, skipping cancel")
+  /**
+   * Cancels in-flight generation. When [instance] is given (per-request routing
+   * with multiple instances) only that instance's conversation is cancelled;
+   * otherwise every loaded instance is cancelled (legacy stop-all behavior).
+   */
+  fun stopResponse(model: Model, instance: LlmModelInstance? = null) {
+    val targets = instance?.let { listOf(it) }
+      ?: ModelInstancePool.instancesFor(model.name)
+        .ifEmpty { listOfNotNull(model.instance as? LlmModelInstance) }
+    for (inst in targets) {
+      try {
+        inst.conversation.cancelProcess()
+      } catch (_: IllegalStateException) {
+        Log.d(TAG, "stopResponse: conversation already closed, skipping cancel")
+      }
     }
   }
 
@@ -241,15 +300,17 @@ object ServerLlmModelHelper {
     // Per-turn output token cap applied natively on top of the engine-level
     // maxNumTokens so client max_tokens requests are honored exactly.
     maxOutputToken: Int? = null,
+    // Multi-instance pools: run on this specific instance's conversation.
+    instance: LlmModelInstance? = null,
   ) {
-    val instance = model.instance as? LlmModelInstance
-    if (instance == null) {
+    val target = instance ?: (model.instance as? LlmModelInstance)
+    if (target == null) {
       onError("LlmModelInstance is not initialized.")
       return
     }
 
     cleanUpListeners.putIfAbsent(model.name, cleanUpListener)
-    val conversation = instance.conversation
+    val conversation = target.conversation
     val sdkResponseFormat = responseFormatSchema?.let {
       com.google.ai.edge.litertlm.ResponseFormat.json(it)
     }
