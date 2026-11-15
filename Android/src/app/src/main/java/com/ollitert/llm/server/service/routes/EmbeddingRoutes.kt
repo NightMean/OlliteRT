@@ -17,12 +17,14 @@
 
 package com.ollitert.llm.server.service.routes
 
+import android.os.SystemClock
 import android.util.Log
 import com.google.ai.edge.litertlm.EmbeddingCallback
 import com.google.ai.edge.litertlm.EmbeddingEngine
 import com.google.ai.edge.litertlm.EmbeddingOptions
 import com.google.ai.edge.litertlm.EmbeddingResponse
 import com.google.ai.edge.litertlm.InputData
+import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.runtime.EmbeddingInstancePool
 import com.ollitert.llm.server.service.http.HttpResponse
@@ -132,6 +134,15 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
 
   slot?.gate?.acquire()
   try {
+    // Surface embedding traffic in the Status screen / /metrics counters. The chat
+    // path records these in the inference runner, but embeddings bypass it entirely,
+    // so without this the request/token/latency counters never move for
+    // /v1/embeddings traffic.
+    val promptTokens = texts.sumOf { estimateTokens(it) }
+    val startMs = SystemClock.elapsedRealtime()
+    ServerMetrics.incrementRequestCount()
+    ServerMetrics.recordModality(hasImages = false, hasAudio = false)
+    ServerMetrics.addTokensIn(promptTokens.toLong())
     val options = EmbeddingOptions(normalize = normalize, outputSize = dimensions)
     val dataEntries = buildJsonArray {
       texts.forEachIndexed { index, text ->
@@ -153,7 +164,7 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
       }
     }
 
-    val promptTokens = texts.sumOf { estimateTokens(it) }
+    ServerMetrics.recordLatency(SystemClock.elapsedRealtime() - startMs)
     return httpOkJson(
       buildJsonObject {
         put("object", "list")
