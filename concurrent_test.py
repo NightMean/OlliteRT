@@ -12,7 +12,7 @@ import time
 import urllib.request
 
 BASE = "http://192.168.0.35:8000"
-CHAT_MODEL = "Gemma-4-E4B-it"
+CHAT_MODEL = "Gemma-4-E2B-it"
 EMBED_MODEL = "EmbeddingGemma-2-740M"
 CHAT_PROMPT = (
     "Write a short descriptive paragraph (about 150 words) about a lighthouse "
