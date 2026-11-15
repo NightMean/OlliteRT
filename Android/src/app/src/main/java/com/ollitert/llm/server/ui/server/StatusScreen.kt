@@ -64,6 +64,7 @@ fun StatusScreen(
 ) {
   val status by serverViewModel.status.collectAsStateWithLifecycle()
   val modelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
+  val modelInstanceCount by serverViewModel.activeModelInstanceCount.collectAsStateWithLifecycle()
   val modelSizeBytes by serverViewModel.activeModelSize.collectAsStateWithLifecycle()
   val port by serverViewModel.port.collectAsStateWithLifecycle()
   val bindAddress by serverViewModel.bindAddress.collectAsStateWithLifecycle()
@@ -95,6 +96,10 @@ fun StatusScreen(
   val secondaryModelName by serverViewModel.secondaryModelName.collectAsStateWithLifecycle()
 
   val isStopped = status == ServerStatus.STOPPED
+
+  val modelDisplayName = remember(modelName, modelInstanceCount) {
+    if (modelName != null && modelInstanceCount > 1) "$modelName ($modelInstanceCount)" else modelName
+  }
 
   // Live uptime ticker
   var uptimeSeconds by remember { mutableLongStateOf(0L) }
@@ -186,7 +191,7 @@ fun StatusScreen(
       // Active model card
       ActiveModelCard(
         status = status,
-        modelName = modelName,
+        modelName = modelDisplayName,
         modelSizeBytes = modelSizeBytes,
         activeAccelerator = activeAccelerator,
         thinkingEnabled = thinkingEnabled,
@@ -237,7 +242,7 @@ fun StatusScreen(
 
   if (showReloadDialog) {
     ReloadModelConfirmDialog(
-      modelName = modelName,
+      modelName = modelDisplayName,
       onConfirm = {
         showReloadDialog = false
         onReloadModel()

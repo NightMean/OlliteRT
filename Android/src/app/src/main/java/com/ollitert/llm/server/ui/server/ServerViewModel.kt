@@ -52,6 +52,7 @@ class ServerViewModel @Inject constructor(
   val status = serverStateRepository.status
   val isInferring = serverStateRepository.isInferring
   val activeModelName = serverStateRepository.activeModelName
+  val activeModelInstanceCount = serverStateRepository.activeModelInstanceCount
   val secondaryModelName = serverStateRepository.secondaryModelName
   val activeModelSize = serverStateRepository.activeModelSize
   val port = serverStateRepository.port
