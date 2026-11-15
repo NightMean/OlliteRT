@@ -159,6 +159,7 @@ fun DownloadAndTryButton(
   var showStorageWarning by remember { mutableStateOf(false) }
   var showWifiWarning by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
+  var isStarting by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
   val downloadGate = remember { DownloadGateCoordinator.forViewModel(modelManagerViewModel) }
 
@@ -177,6 +178,15 @@ fun DownloadAndTryButton(
   LaunchedEffect(downloadStatus?.status, checkingToken) {
     if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
       downloadStarted = false
+    }
+  }
+
+  // Reset starting indicator once server status moves away from STOPPED.
+  // isStarting is a key so the "load as second model" case (server already
+  // RUNNING, status never leaves STOPPED) also resets immediately.
+  LaunchedEffect(serverStatus, isThisModelActive, isStarting) {
+    if (isStarting && serverStatus != ServerStatus.STOPPED) {
+      isStarting = false
     }
   }
   val showDownloadProgress =
@@ -259,6 +269,7 @@ fun DownloadAndTryButton(
           if (!isWifiConnected(context)) {
             showWifiWarning = true
           } else {
+            isStarting = true
             onClicked()
           }
         }
@@ -282,7 +293,7 @@ fun DownloadAndTryButton(
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
 
-    if (isThisModelLoading) {
+    if (isThisModelLoading || isStarting) {
       Button(
         modifier = buttonModifier,
         colors = ButtonDefaults.buttonColors(
