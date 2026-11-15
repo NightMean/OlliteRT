@@ -87,6 +87,8 @@ class InferenceRunner(
   private val logEvent: (String) -> Unit,
   private val emitDebugStackTrace: (Throwable, source: String, modelName: String?) -> Unit,
   private val buildSystemInstruction: (modelName: String) -> Contents?,
+  private val isEmbeddingModel: (model: Model) -> Boolean = { false },
+  private val initializeEngine: (model: Model) -> String = { "" },
 ) {
 
   private val runtimeHealth = InferenceRuntimeHealth()
@@ -494,7 +496,13 @@ class InferenceRunner(
   // Safe to use runBlocking: only called from OlliteRT-ModelLoad thread, never main thread.
   @WorkerThread
   fun warmUpModel(model: Model) {
-    InferenceWarmupHelper.warmUpModel(context, model) { m, p, reqId, ep, timeout, eagerVision ->
+    InferenceWarmupHelper.warmUpModel(
+      context,
+      model,
+      isEmbeddingModel = { m -> isEmbeddingModel(m) },
+      initializeEngine = { m -> initializeEngine(m) },
+      buildSystemInstruction = { key -> buildSystemInstruction(key) },
+    ) { m, p, reqId, ep, timeout, eagerVision ->
       runLlm(m, p, reqId, ep, timeoutSeconds = timeout, eagerVisionInit = eagerVision)
     }
   }

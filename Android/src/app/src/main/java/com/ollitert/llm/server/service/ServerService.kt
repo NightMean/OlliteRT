@@ -147,6 +147,17 @@ class ServerService : Service() {
             kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()
           } catch (e: Exception) { Log.w(TAG, "Failed to read imported models from DataStore", e); emptyList() }
         },
+        // Burns the first-invoke failure (Status Code 13) on the load paths that
+        // initialize the engine directly (keep-alive wake, second model) so the
+        // first real request after any (re)load does not 500. inferenceRunner is
+        // resolved lazily — it is created later, per server start. Chat warmup is
+        // skipped for embedding models: they have no chat conversation, and
+        // forcing one through runLlm would re-init them as a chat engine.
+        onModelReady = { model ->
+          if (ServerPrefs.isWarmupEnabled(this) && !modelLifecycle.isEmbeddingModel(model)) {
+            inferenceRunner?.warmUpModel(model)
+          }
+        },
       )
       modelLoader = ServerModelLoader(
         context = this,

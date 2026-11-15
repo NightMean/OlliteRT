@@ -147,18 +147,69 @@ internal class ConversationDispatchSession(
     }
   }
 
+  /**
+   * Deferred retry executor. The SDK's onError callback fires on a native
+   * thread — calling Conversation.close() from inside that frame deadlocks
+   * (the native side waits for the callback to return before completing the
+   * close). Recovery + the retry invoke must run OUTSIDE the callback frame.
+   */
+  private companion object {
+    val RETRY_EXECUTOR = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+      Thread(r, "OlliteRT-FirstInvokeRetry").apply { isDaemon = true }
+    }
+  }
+
   /** Runs one native inference turn on the executor thread. Signature matches [InferenceGateway.InferenceFn]. */
   fun runInference(
     input: String,
     onPartial: (partial: String, done: Boolean, thought: String?) -> Unit,
     onError: (message: String) -> Unit,
   ) {
+    var attempt = 0
+    var emittedAny = false
     ServerLlmModelHelper.runInference(
       model = model,
       input = input,
-      resultListener = { partial, done, thought -> onPartial(partial, done, thought) },
+      resultListener = { partial, done, thought ->
+        if (partial.isNotEmpty() || thought?.isNotEmpty() == true) emittedAny = true
+        if (done) {
+          val idx = instance?.index
+          if (idx != null) ModelInstancePool.recordSuccess(model.name, idx)
+        }
+        onPartial(partial, done, thought)
+      },
       cleanUpListener = {},
-      onError = onError,
+      onError = { message ->
+        // Native first-invoke failure ("Failed to invoke the compiled model",
+        // Status 13): the GPU executor transiently refuses a fresh
+        // conversation's first invoke right after engine init — first
+        // request after load/reload hits it. No tokens have been emitted,
+        // so reset the (possibly half-initialized) conversation and retry
+        // the SAME request once. Covers blocking + streaming paths.
+        if (!emittedAny && attempt == 0 && isNativeFirstInvokeFailure(message)) {
+          attempt = 1
+          val idx = instance?.index
+          if (idx != null) ModelInstancePool.recordFailure(model.name, idx)
+          Log.i(
+            debugLogTag,
+            "Native first-invoke failure (${message.take(80)}) — resetting conversation and retrying once (requestId=$requestId, model=${model.name}, instance=${instance?.index})",
+          )
+          RequestLogStore.addEvent(
+            "First-invoke native failure — transparent retry (model=${model.name})",
+            modelName = model.name,
+            category = com.ollitert.llm.server.data.model.EventCategory.MODEL,
+          )
+          // Deferred: recovery closes a conversation, which deadlocks if
+          // called from inside the SDK callback frame (see RETRY_EXECUTOR).
+          RETRY_EXECUTOR.execute {
+            scheduleFirstInvokeRetry(input, onPartial, onError, message)
+          }
+        } else {
+          val idx = instance?.index
+          if (idx != null) ModelInstancePool.recordFailure(model.name, idx)
+          onError(message)
+        }
+      },
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,
@@ -174,6 +225,111 @@ internal class ConversationDispatchSession(
       instance = instance,
     )
   }
+
+  /**
+   * First-invoke-failure retry, run on the [RETRY_EXECUTOR] thread (never the
+   * SDK callback frame, where closing a conversation deadlocks). When the
+   * failed instance was just marked unhealthy (repeated failures — its GPU
+   * allocation is broken for the life of the pool), its native resources are
+   * freed here and the retry re-routes to a healthy sibling instance;
+   * otherwise the same instance's conversation is recovered and re-invoked.
+   */
+  private fun scheduleFirstInvokeRetry(
+    input: String,
+    onPartial: (partial: String, done: Boolean, thought: String?) -> Unit,
+    onError: (message: String) -> Unit,
+    originalError: String,
+  ) {
+    val failed = instance
+    var retryTarget = failed
+    var recovered = false
+    if (failed != null && failed.markedUnhealthy && ModelInstancePool.countFor(model.name) > 1) {
+      // This engine fails every invoke — free its native resources (routing
+      // now skips it, and the GPU memory comes back) and retry on a sibling.
+      try { failed.conversation.close() } catch (_: Exception) {}
+      try { failed.engine.close() } catch (_: Exception) {}
+      Log.i(
+        debugLogTag,
+        "Evicting unhealthy instance ${failed.index} of '${model.name}' (native resources freed, retrying on sibling) (requestId=$requestId)",
+      )
+      RequestLogStore.addEvent(
+        "Evicted unhealthy instance ${failed.index} of '${model.name}'",
+        level = com.ollitert.llm.server.data.model.LogLevel.WARNING,
+        modelName = model.name,
+        category = com.ollitert.llm.server.data.model.EventCategory.MODEL,
+      )
+      val sibling = ModelInstancePool.nextFor(model.name)?.instance
+      if (sibling != null) {
+        try {
+          // Fresh conversation on the sibling; the null cache generation also
+          // invalidates the stale per-model cache entry that described the
+          // evicted conversation.
+          ServerLlmModelHelper.resetConversation(
+            model,
+            supportImage = supportImage,
+            supportAudio = supportAudio,
+            systemInstruction = resolveSystemInstruction(),
+            tools = schemaInjectionProviders,
+            initialMessages = schemaInjectionMessages,
+            enableConversationConstrainedDecoding = schemaInjectionProviders.isNotEmpty(),
+            conversationCacheGeneration = null,
+            instance = sibling,
+          )
+          retryTarget = sibling
+          recovered = true
+        } catch (siblingFailure: Exception) {
+          Log.w(debugLogTag, "Sibling instance reset before retry failed: ${siblingFailure.message}")
+        }
+      }
+    }
+    if (!recovered) {
+      recovered = try {
+        recoverConversation()
+        true
+      } catch (recoveryFailure: Exception) {
+        Log.w(debugLogTag, "Conversation recovery before retry failed: ${recoveryFailure.message}")
+        false
+      }
+    }
+    if (!recovered) {
+      onError(originalError)
+      return
+    }
+    ServerLlmModelHelper.runInference(
+      model = model,
+      input = input,
+      resultListener = { partial, done, thought ->
+        if (done) {
+          val idx = retryTarget?.index
+          if (idx != null) ModelInstancePool.recordSuccess(model.name, idx)
+        }
+        onPartial(partial, done, thought)
+      },
+      cleanUpListener = {},
+      onError = { msg ->
+        val idx = retryTarget?.index
+        if (idx != null) ModelInstancePool.recordFailure(model.name, idx)
+        onError(msg)
+      },
+      images = images,
+      audioClips = audioClips,
+      extraContext = extraContext,
+      incrementalUserText = preparedIncrementalUserText,
+      conversationCacheGeneration = if (retryTarget === instance) preparedCacheGeneration else null,
+      onNativeToolCalls = if (schemaInjectionProviders.isNotEmpty()) { calls ->
+        capturedNativeToolCalls.set(calls)
+      } else null,
+      responseFormatSchema = responseFormatSchema,
+      thinkingConfig = sdkThinkingConfig,
+      repetitionPenaltyConfig = sdkRepetitionPenaltyConfig,
+      maxOutputToken = maxOutputToken,
+      instance = retryTarget,
+    )
+  }
+
+  /** True for the native "Failed to invoke the compiled model" first-invoke failure. */
+  private fun isNativeFirstInvokeFailure(message: String): Boolean =
+    message.contains("Failed to invoke the compiled model")
 
   /**
    * Native per-turn thinking channel config.

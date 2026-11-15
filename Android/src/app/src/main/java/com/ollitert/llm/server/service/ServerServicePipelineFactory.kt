@@ -66,6 +66,8 @@ object ServerServicePipelineFactory {
       logEvent = logEvent,
       emitDebugStackTrace = emitDebugStackTrace,
       buildSystemInstruction = buildSystemInstruction,
+      isEmbeddingModel = { model -> modelLifecycle.isEmbeddingModel(model) },
+      initializeEngine = { model -> modelLifecycle.initializeEngine(model) },
     )
     val handlers = EndpointHandlers(
       context = context,

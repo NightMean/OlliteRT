@@ -18,6 +18,7 @@
 package com.ollitert.llm.server.runtime
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.EmbeddingEngine
@@ -43,6 +44,14 @@ typealias CleanUpListener = () -> Unit
 
 private const val TAG = "OlliteRT.ModelHelper"
 
+/**
+ * Minimum gap (ms) between a conversation close on an Engine and the next
+ * invoke of a fresh conversation on that Engine. Measured: invokes starting
+ * within ~2.3s of a close fail with Status 13; after ~3.8s they succeed.
+ * 3500ms sits between the two.
+ */
+private const val INVOKE_SETTLE_MIN_GAP_MS = 3500L
+
 internal class ModelLoadDiagnosticState {
   private val gpuSamplerWarningClaimed = AtomicBoolean(false)
 
@@ -67,6 +76,26 @@ data class LlmModelInstance(val engine: Engine, var conversation: Conversation) 
    * instances run in parallel on different executor threads).
    */
   val inferenceLock = Any()
+
+  /**
+   * Monotonic timestamp of the last conversation close on this Engine (or
+   * engine init, at construction). The native executor fails a fresh
+   * conversation's first invoke (Status 13) when it starts within ~3s of a
+   * conversation close on the same Engine — buffer teardown is async — so
+   * [runInference] settles (waits) when this is recent.
+   */
+  var lastConversationClosedAtMs: Long = SystemClock.elapsedRealtime()
+
+  /** Consecutive native invoke failures; reset to 0 by any successful invoke. */
+  val consecutiveInvokeFailures = java.util.concurrent.atomic.AtomicInteger(0)
+
+  /**
+   * Set by [com.ollitert.llm.server.runtime.ModelInstancePool.recordFailure]
+   * once this instance has accumulated enough consecutive failures to be
+   * considered broken (GPU allocation failure at init, etc.). Round-robin
+   * and owner routing skip marked instances.
+   */
+  @Volatile var markedUnhealthy: Boolean = false
 }
 
 /**
@@ -170,6 +199,9 @@ object ServerLlmModelHelper {
         } catch (e: Exception) {
           Log.w(TAG, "Old conversation close failed (proceeding with new): ${e.message}")
         }
+        // Close is async in the native layer — record it so the next invoke
+        // on this Engine settles if it starts before teardown finishes.
+        inst.lastConversationClosedAtMs = SystemClock.elapsedRealtime()
 
         inst.conversation = LiteRtEngineFactory.createConversation(
           engine = inst.engine,
@@ -275,6 +307,68 @@ object ServerLlmModelHelper {
     }
   }
 
+  /**
+   * Burns one instance's first-invoke failure (the deterministic Status Code 13
+   * "Failed to invoke the compiled model" on the first conversation of a freshly
+   * loaded engine). The engine settles after any one of its conversations is
+   * invoked, so each pool instance needs its own throwaway conversation to fail
+   * (or pass) — a reset + fresh conversation afterwards is healthy. The returned
+   * conversation is the one real requests will use, so it is left UNINVOKED: the
+   * engine is warm, the conversation is fresh.
+   *
+   * Must run under [LlmModelInstance.inferenceLock] (native SDK is not
+   * thread-safe per engine). Best-effort: logs and returns false on failure.
+   */
+  @OptIn(ExperimentalApi::class)
+  fun burnFirstInvoke(
+    model: Model,
+    instance: LlmModelInstance,
+    prompt: String,
+    systemInstruction: Contents? = null,
+  ): Boolean {
+    try {
+      resetConversation(
+        model = model,
+        systemInstruction = systemInstruction,
+        instance = instance,
+      )
+      var invokeError: String? = null
+      val latch = java.util.concurrent.CountDownLatch(1)
+      try {
+        runInference(
+          model = model,
+          input = prompt,
+          resultListener = { _, done, _ -> if (done) latch.countDown() },
+          cleanUpListener = {},
+          onError = { msg ->
+            invokeError = msg
+            latch.countDown()
+          },
+          instance = instance,
+        )
+        latch.await(120, java.util.concurrent.TimeUnit.SECONDS)
+      } catch (e: Exception) {
+        invokeError = e.message
+      }
+      // Reset again: the conversation that just (may have) failed is discarded
+      // and a fresh one is in place for real requests.
+      resetConversation(
+        model = model,
+        systemInstruction = systemInstruction,
+        instance = instance,
+      )
+      Log.i(
+        TAG,
+        "First-invoke burn for '${model.name}' instance ${instance.index}: " +
+          if (invokeError == null) "passed" else "failed (${invokeError?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}), engine settled"
+      )
+      return invokeError == null
+    } catch (e: Exception) {
+      Log.w(TAG, "First-invoke burn failed for '${model.name}' instance ${instance.index}: ${e.message}")
+      return false
+    }
+  }
+
   fun runInference(
     model: Model,
     input: String,
@@ -307,6 +401,22 @@ object ServerLlmModelHelper {
     if (target == null) {
       onError("LlmModelInstance is not initialized.")
       return
+    }
+
+    // Native settle guard: a fresh conversation's first invoke fails
+    // (Status 13) when it starts within ~3s of a conversation close on the
+    // same Engine (async buffer teardown). Interactive requests are spaced
+    // further apart, so this only costs latency in tight sequences —
+    // first request after load/reload, warmup burns, rapid-fire.
+    val sinceCloseMs = SystemClock.elapsedRealtime() - target.lastConversationClosedAtMs
+    if (sinceCloseMs < INVOKE_SETTLE_MIN_GAP_MS) {
+      val settleMs = INVOKE_SETTLE_MIN_GAP_MS - sinceCloseMs
+      Log.i(
+        TAG,
+        "Settling ${settleMs}ms before invoke on '${model.name}' instance ${target.index} " +
+          "(conversation closed ${sinceCloseMs}ms ago)",
+      )
+      Thread.sleep(settleMs)
     }
 
     cleanUpListeners.putIfAbsent(model.name, cleanUpListener)

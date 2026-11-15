@@ -16,8 +16,11 @@
 
 package com.ollitert.llm.server.runtime
 
+import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+
+private const val TAG = "OlliteRT.InstancePool"
 
 /**
  * Registry of concurrently loaded [LlmModelInstance]s for a single model.
@@ -39,6 +42,16 @@ internal object ModelInstancePool {
 
   /** One loaded instance plus its position in the pool. */
   data class Slot(val instance: LlmModelInstance, val index: Int)
+
+  /**
+   * Consecutive native invoke failures after which an instance is marked
+   * unhealthy and routing skips it. Measured: an engine whose GPU allocation
+   * fails at init fails EVERY invoke (Status 13) for the life of the pool,
+   * while its sibling instances serve fine — so 2 consecutive failures is
+   * treated as "broken", and a single transient failure recovers (the count
+   * resets on any success).
+   */
+  private const val UNHEALTHY_FAILURE_THRESHOLD = 2
 
   private class Entry(
     val instances: List<LlmModelInstance>,
@@ -63,11 +76,18 @@ internal object ModelInstancePool {
 
   fun countFor(modelName: String): Int = pools[modelName]?.instances?.size ?: 0
 
-  /** Round-robin pick for a fresh (non cache-extend) request. */
+  /** Round-robin pick for a fresh (non cache-extend) request; skips unhealthy instances. */
   fun nextFor(modelName: String): Slot? {
     val entry = pools[modelName] ?: return null
     val n = entry.instances.size
     if (n == 1) return Slot(entry.instances[0], 0)
+    // Skip unhealthy instances; if ALL are marked (e.g. both engines flaky),
+    // fall back to plain round-robin — trying is better than a 503.
+    for (step in 0 until n) {
+      val i = Math.floorMod(entry.counter.getAndIncrement(), n)
+      val inst = entry.instances[i]
+      if (!inst.markedUnhealthy) return Slot(inst, i)
+    }
     val i = Math.floorMod(entry.counter.getAndIncrement(), n)
     return Slot(entry.instances[i], i)
   }
@@ -76,7 +96,36 @@ internal object ModelInstancePool {
   fun ownerFor(modelName: String): Slot? {
     val entry = pools[modelName] ?: return null
     val i = Math.floorMod(entry.owner.get(), entry.instances.size)
-    return Slot(entry.instances[i], i)
+    val inst = entry.instances[i]
+    // A broken owner can't serve its cached conversation — route fresh.
+    return if (inst.markedUnhealthy) nextFor(modelName) else Slot(inst, i)
+  }
+
+  /**
+   * Records a native invoke failure for [index]. Returns true once the
+   * instance crossed the threshold and was marked unhealthy. The CALLER is
+   * responsible for freeing the engine's native resources — NOT here,
+   * because this runs on the SDK callback thread where closing a
+   * conversation deadlocks.
+   */
+  fun recordFailure(modelName: String, index: Int): Boolean {
+    val entry = pools[modelName] ?: return false
+    val inst = entry.instances.getOrNull(index) ?: return false
+    val failures = inst.consecutiveInvokeFailures.incrementAndGet()
+    if (failures >= UNHEALTHY_FAILURE_THRESHOLD && !inst.markedUnhealthy) {
+      inst.markedUnhealthy = true
+      Log.w(
+        TAG,
+        "Instance $index of '$modelName' marked unhealthy after $failures consecutive " +
+          "invoke failures — routing around it",
+      )
+    }
+    return inst.markedUnhealthy
+  }
+
+  /** Records a successful invoke; clears the consecutive-failure count. */
+  fun recordSuccess(modelName: String, index: Int) {
+    pools[modelName]?.instances?.getOrNull(index)?.consecutiveInvokeFailures?.set(0)
   }
 
   /**

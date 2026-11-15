@@ -73,6 +73,15 @@ class ModelLifecycle(
   val modelCatalogMerger: ModelCatalogMerger,
   /** Reads imported models from DataStore. Provided by the service via Hilt EntryPoint. */
   private val readImportedModels: () -> List<ImportedModel> = { emptyList() },
+  /**
+   * Optional post-load warmup hook, invoked on the (worker) thread that loaded the model.
+   * Used to burn the first-invoke failure that makes the FIRST request after any load
+   * return 500 (Status Code 13, kv_cache buffer requirements). The primary load path
+   * warms up via ServerModelLoader; this hook covers the paths that initialize the
+   * engine directly: keep-alive wake-from-idle reloads and secondary model loads.
+   * Must not throw to fail the load — callers treat it as best-effort.
+   */
+  private val onModelReady: ((Model) -> Unit)? = null,
 ) {
 
   private val payloadDecoder = MultimodalPayloadDecoder(context) { defaultModel?.name }
@@ -470,6 +479,22 @@ class ModelLifecycle(
           modelName = model.name,
           category = EventCategory.MODEL,
         )
+        // Burn the first-invoke failure (Status Code 13) before returning to the
+        // waiting request — without this, the request that woke the model 500s.
+        // Best-effort: a warmup failure must not fail the wake-up itself.
+        onModelReady?.let { hook ->
+          try {
+            hook(model)
+          } catch (e: Exception) {
+            Log.w(TAG, "Keep-alive reload warmup failed for '${model.name}': ${e.message}")
+            RequestLogStore.addEvent(
+              "Keep-alive reload warmup failed: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}",
+              level = LogLevel.WARNING,
+              modelName = model.name,
+              category = EventCategory.MODEL,
+            )
+          }
+        }
         // Reset keep-alive timer for the next idle period
         resetKeepAliveTimer()
         return model
@@ -772,6 +797,10 @@ class ModelLifecycle(
 
   /** Probes the model file's LiteRT model type; false on any probe failure. */
   @OptIn(ExperimentalApi::class)
+  fun isEmbeddingModel(model: Model): Boolean = isEmbeddingModelFile(model)
+
+  /** Probes the model file's LiteRT model type; false on any probe failure. */
+  @OptIn(ExperimentalApi::class)
   private fun isEmbeddingModelFile(model: Model): Boolean {
     return try {
       val info = ModelInfo.from(model.getPath(context))
@@ -843,6 +872,25 @@ class ModelLifecycle(
         ServerPrefs.setSecondaryModelName(context, model.name)
         ServerMetrics.updateSecondaryModelName(model.name)
         ServerMetrics.updateSecondaryModelInstanceCount(1)
+        // First-invoke burn: the first native inference on a freshly loaded model
+        // can fail (Status Code 13, kv_cache buffer requirements). The primary
+        // load path warms up in ServerModelLoader; the secondary path never did,
+        // so its first real request 500'd. Run the same warmup pass here (it
+        // retries once with a conversation reset on a native invoke failure).
+        // Warmup is best-effort: a failure must not fail the load.
+        onModelReady?.let { hook ->
+          try {
+            hook(model)
+          } catch (e: Exception) {
+            Log.w(TAG, "Second model warmup failed for '${model.name}': ${e.message}")
+            RequestLogStore.addEvent(
+              "Second model warmup failed: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}",
+              level = LogLevel.WARNING,
+              modelName = model.name,
+              category = EventCategory.MODEL,
+            )
+          }
+        }
       }
     } catch (e: Exception) {
       ServerLlmModelHelper.safeCleanup(model)

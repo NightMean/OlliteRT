@@ -66,6 +66,9 @@ internal object EmbeddingInstancePool {
 
   fun countFor(modelName: String): Int = pools[modelName]?.slots?.size ?: 0
 
+  /** All slots for [modelName] (warmup burns each engine once after load). */
+  fun slotsFor(modelName: String): List<Slot> = pools[modelName]?.slots ?: emptyList()
+
   /** Round-robin pick for an incoming request. */
   fun nextFor(modelName: String): Slot? {
     val entry = pools[modelName] ?: return null
