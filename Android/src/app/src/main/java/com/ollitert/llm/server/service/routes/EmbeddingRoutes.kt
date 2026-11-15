@@ -24,6 +24,7 @@ import com.google.ai.edge.litertlm.EmbeddingEngine
 import com.google.ai.edge.litertlm.EmbeddingOptions
 import com.google.ai.edge.litertlm.EmbeddingResponse
 import com.google.ai.edge.litertlm.InputData
+import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.runtime.EmbeddingInstancePool
@@ -137,12 +138,14 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
     // Surface embedding traffic in the Status screen / /metrics counters. The chat
     // path records these in the inference runner, but embeddings bypass it entirely,
     // so without this the request/token/latency counters never move for
-    // /v1/embeddings traffic.
+    // /v1/embeddings traffic. Per-model variant: the Status screen's model filter
+    // reads these, and the "All" view keeps using the global counters.
     val promptTokens = texts.sumOf { estimateTokens(it) }
     val startMs = SystemClock.elapsedRealtime()
     ServerMetrics.incrementRequestCount()
-    ServerMetrics.recordModality(hasImages = false, hasAudio = false)
-    ServerMetrics.addTokensIn(promptTokens.toLong())
+    ServerMetrics.recordModelRequest(model.name)
+    ServerMetrics.recordModality(hasImages = false, hasAudio = false, modelName = model.name)
+    ServerMetrics.addTokensIn(promptTokens.toLong(), modelName = model.name)
     val options = EmbeddingOptions(normalize = normalize, outputSize = dimensions)
     val dataEntries = buildJsonArray {
       texts.forEachIndexed { index, text ->
@@ -150,6 +153,7 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
           computeSingleEmbedding(engine, text, options)
         } catch (e: Exception) {
           Log.e(TAG, "computeEmbedding failed for index $index: ${e.message}", e)
+          ServerMetrics.incrementErrorCount(ErrorCategory.INFERENCE, model.name)
           return httpInternalError("Embedding computation failed: ${e.message}")
         }
         add(
@@ -164,7 +168,12 @@ internal suspend fun KtorServer.handleEmbeddingsRequest(body: String, logId: Str
       }
     }
 
-    ServerMetrics.recordLatency(SystemClock.elapsedRealtime() - startMs)
+    val elapsedMs = SystemClock.elapsedRealtime() - startMs
+    ServerMetrics.recordLatency(elapsedMs, modelName = model.name)
+    // Prefill speed = input tokens / elapsed: for an embedding request that IS
+    // the throughput (no decode phase), so the Status "Prefill Speed" tile
+    // reflects live embedding speed.
+    ServerMetrics.recordInferenceMetrics(promptTokens.toLong(), 0, elapsedMs, 0, modelName = model.name)
     return httpOkJson(
       buildJsonObject {
         put("object", "list")

@@ -381,7 +381,7 @@ class ServerService : Service() {
         val msg = sourcePrefix + getString(R.string.error_model_file_missing)
         Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
         ServerMetrics.onServerError(msg)
-        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD, model.name)
         RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
         stopSelf()
         return@launch

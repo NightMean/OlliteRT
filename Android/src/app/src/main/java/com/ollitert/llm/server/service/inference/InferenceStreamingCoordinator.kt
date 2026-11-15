@@ -85,8 +85,10 @@ internal class InferenceStreamingCoordinator(
     maxOutputToken: Int? = null,
   ): HttpResponse {
     val streamStartMs = SystemClock.elapsedRealtime()
-    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
-    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
+    ServerMetrics.addTokensIn(estimateTokensLong(prompt), model.name)
+    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty(), modelName = model.name)
+    // Per-model request count (the entry counter in nextRequestId fires before the model is known)
+    ServerMetrics.recordModelRequest(model.name)
 
     val eagerVision = prefs?.eagerVisionInit ?: ServerPrefs.isEagerVisionInit(context)
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVision)

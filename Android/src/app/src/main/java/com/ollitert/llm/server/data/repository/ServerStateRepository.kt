@@ -18,6 +18,7 @@ package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.common.ServerLifecycleState
 import com.ollitert.llm.server.common.ModelLoadPhase
+import com.ollitert.llm.server.common.ModelMetricsSnapshot
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.prefs.isLoopbackOnly
 
@@ -74,6 +75,8 @@ interface ServerStateRepository {
   val deviceTotalRamBytes: StateFlow<Long>
   val availableUpdateVersion: StateFlow<String?>
   val availableUpdateUrl: StateFlow<String?>
+  /** Per-model metrics (key = model name) for the Status screen's model filter. */
+  val modelMetrics: StateFlow<Map<String, ModelMetricsSnapshot>>
 
   fun setAvailableUpdate(version: String?, url: String?)
   fun clearErrorIfModel(modelName: String)
@@ -134,6 +137,7 @@ class DefaultServerStateRepository @Inject constructor() : ServerStateRepository
   override val deviceTotalRamBytes: StateFlow<Long> get() = ServerMetrics.deviceTotalRamBytes
   override val availableUpdateVersion: StateFlow<String?> get() = ServerMetrics.availableUpdateVersion
   override val availableUpdateUrl: StateFlow<String?> get() = ServerMetrics.availableUpdateUrl
+  override val modelMetrics: StateFlow<Map<String, ModelMetricsSnapshot>> get() = ServerMetrics.modelMetrics
 
   override fun setAvailableUpdate(version: String?, url: String?) = ServerMetrics.setAvailableUpdate(version, url)
   override fun clearErrorIfModel(modelName: String) = ServerMetrics.clearErrorIfModel(modelName)

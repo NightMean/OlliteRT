@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.service.inference
 
+import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.*
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
@@ -70,6 +71,9 @@ class AudioTranscriptionHandler(
     prefs: RequestPrefsSnapshot = RequestPrefsSnapshot(),
   ): HttpResponse {
     val startMs = SystemClock.elapsedRealtime()
+    // HTTP entry counter — this handler bypasses nextRequestId (no request ID is minted),
+    // so count it here to keep the global "All models" total consistent with per-model buckets.
+    ServerMetrics.incrementRequestCount()
 
     if (fileBytes == null) {
       return httpBadRequest("Missing required 'file' field in multipart form data.")

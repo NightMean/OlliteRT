@@ -158,11 +158,19 @@ class InferenceRunner(
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
     maxOutputToken: Int? = null,
+    // True for internal warmup calibration passes — their tokens/latency/requests are
+    // excluded from ServerMetrics so a fresh server shows no stats until real traffic.
+    isWarmup: Boolean = false,
   ): Pair<String?, String?> {
-    // Track input tokens (rough estimate: ~4 chars per token)
-    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
-    // Track request modality
-    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
+    // Warmup passes are internal engine calibration — exclude them from all stats.
+    if (!isWarmup) {
+      // Track input tokens (rough estimate: ~4 chars per token)
+      ServerMetrics.addTokensIn(estimateTokensLong(prompt), model.name)
+      // Track request modality
+      ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty(), modelName = model.name)
+      // Per-model request count (the entry counter in nextRequestId fires before the model is known)
+      ServerMetrics.recordModelRequest(model.name)
+    }
 
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
     val supportAudio = model.llmSupportAudio
@@ -262,11 +270,13 @@ class InferenceRunner(
       val inputTokens = estimateTokensLong(prompt)
       val outputTokens = estimateTokensLongByLength(outputLen)
       val maxCtx = model.configValues.maxTokensLong() ?: 0L
-      ServerMetrics.addTokens(outputTokens)
-      ServerMetrics.recordLatency(result.totalMs)
-      ServerMetrics.recordTtfb(result.ttfbMs)
-      if (result.ttfbMs > 0) {
-        ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx)
+      if (!isWarmup) {
+        ServerMetrics.addTokens(outputTokens, model.name)
+        ServerMetrics.recordLatency(result.totalMs, modelName = model.name)
+        ServerMetrics.recordTtfb(result.ttfbMs, modelName = model.name)
+        if (result.ttfbMs > 0) {
+          ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx, modelName = model.name)
+        }
       }
       emitDebugInferenceLog(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, result.totalMs, model.name, prefs)
       logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
@@ -503,7 +513,7 @@ class InferenceRunner(
       initializeEngine = { m -> initializeEngine(m) },
       buildSystemInstruction = { key -> buildSystemInstruction(key) },
     ) { m, p, reqId, ep, timeout, eagerVision ->
-      runLlm(m, p, reqId, ep, timeoutSeconds = timeout, eagerVisionInit = eagerVision)
+      runLlm(m, p, reqId, ep, timeoutSeconds = timeout, eagerVisionInit = eagerVision, isWarmup = true)
     }
   }
 

@@ -236,7 +236,7 @@ internal class ServerModelLoader(
     val msg = t.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS) ?: context.getString(R.string.error_model_init_unknown)
     val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
     ServerMetrics.onServerError(msg)
-    ServerMetrics.incrementErrorCount(category)
+    ServerMetrics.incrementErrorCount(category, model.name)
     RequestLogStore.addEvent(
       "Model load failed: $msg",
       level = LogLevel.ERROR,

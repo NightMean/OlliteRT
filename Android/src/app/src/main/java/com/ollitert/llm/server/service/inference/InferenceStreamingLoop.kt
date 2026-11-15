@@ -263,11 +263,11 @@ internal class StreamState(
     val totalLatencyMs = elapsedMs()
     val ttfbMs = if (firstTokenMs > 0) firstTokenMs - streamStartMs else 0L
     val maxCtx = model.configValues.maxTokensLong() ?: 0L
-    ServerMetrics.addTokens(outputTokens)
-    ServerMetrics.recordLatency(totalLatencyMs)
-    ServerMetrics.recordTtfb(ttfbMs)
+    ServerMetrics.addTokens(outputTokens, model.name)
+    ServerMetrics.recordLatency(totalLatencyMs, modelName = model.name)
+    ServerMetrics.recordTtfb(ttfbMs, modelName = model.name)
     if (firstTokenMs > 0) {
-      ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx)
+      ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, ttfbMs, totalLatencyMs - ttfbMs, maxCtx, modelName = model.name)
     }
     InferenceMetricsCollector.logVerboseInferenceDetails(
       context = context,
@@ -346,7 +346,7 @@ internal class StreamState(
     if (logId != null) RequestLogStore.unregisterCancellation(logId)
     markCompleted()
     val (enrichedError, kind) = InferenceMetricsCollector.enrichLlmError(error, context)
-    ServerMetrics.incrementErrorCount(kind.category)
+    ServerMetrics.incrementErrorCount(kind.category, model.name)
     onLogEvent("request_error id=$requestId endpoint=$endpoint error=${error.take(200)} streaming=true")
     val suggestion = ErrorSuggestions.suggest(kind, context)
     val oaiErrorJson = ResponseRenderer.renderJsonError(enrichedError, suggestion, kind)

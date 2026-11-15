@@ -1,0 +1,27 @@
+[
+ {
+  "cycle": 1,
+  "mode": "immediate",
+  "ok": false
+ },
+ {
+  "cycle": 2,
+  "mode": "immediate",
+  "ok": false
+ },
+ {
+  "cycle": 3,
+  "mode": "immediate",
+  "ok": false
+ },
+ {
+  "cycle": 4,
+  "mode": "idle60",
+  "ok": false
+ },
+ {
+  "cycle": 4,
+  "mode": "idle60-retry",
+  "ok": true
+ }
+]
