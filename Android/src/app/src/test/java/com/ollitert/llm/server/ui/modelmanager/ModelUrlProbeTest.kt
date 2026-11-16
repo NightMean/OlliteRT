@@ -54,4 +54,45 @@ class ModelUrlProbeTest {
     verify { initialConnection.disconnect() }
     verify { redirectConnection.disconnect() }
   }
+
+  @Test fun redirectWithoutLocationIsNotAnAuthenticationFailure() {
+    val connection = mockk<HttpURLConnection>(relaxed = true)
+    every { connection.responseCode } returns HttpURLConnection.HTTP_MOVED_TEMP
+    every { connection.getHeaderField("Location") } returns null
+    assertEquals(ModelUrlResult.UnexpectedResponse, probeModelUrl("https://example.com/model", null) { connection })
+  }
+
+  @Test fun htmlErrorKeepsItsActualStatus() {
+    val initial = mockk<HttpURLConnection>(relaxed = true)
+    val redirect = mockk<HttpURLConnection>(relaxed = true)
+    every { initial.responseCode } returns HttpURLConnection.HTTP_MOVED_TEMP
+    every { initial.getHeaderField("Location") } returns "https://cdn.example/model"
+    every { redirect.responseCode } returns HttpURLConnection.HTTP_INTERNAL_ERROR
+    every { redirect.contentType } returns "text/html"
+    assertEquals(ModelUrlResult.Success(HttpURLConnection.HTTP_INTERNAL_ERROR),
+      probeModelUrl("https://example.com/model", null) { if (it.contains("cdn.example")) redirect else initial })
+  }
+
+  @Test fun successfulHtmlIsNotTreatedAsAModelOrAuthenticationFailure() {
+    val initial = mockk<HttpURLConnection>(relaxed = true)
+    val redirect = mockk<HttpURLConnection>(relaxed = true)
+    every { initial.responseCode } returns HttpURLConnection.HTTP_MOVED_TEMP
+    every { initial.getHeaderField("Location") } returns "https://cdn.example/model"
+    every { redirect.responseCode } returns HttpURLConnection.HTTP_OK
+    every { redirect.contentType } returns "text/html"
+    assertEquals(ModelUrlResult.UnexpectedResponse,
+      probeModelUrl("https://example.com/model", "example") { if (it.contains("cdn.example")) redirect else initial })
+  }
+
+  @Test fun redirectedAuthenticationErrorsDoNotDiagnoseTheProviderToken() {
+    val initial = mockk<HttpURLConnection>(relaxed = true)
+    val redirect = mockk<HttpURLConnection>(relaxed = true)
+    every { initial.responseCode } returns HttpURLConnection.HTTP_MOVED_TEMP
+    every { initial.getHeaderField("Location") } returns "https://cdn.example/model"
+    for (status in listOf(HttpURLConnection.HTTP_UNAUTHORIZED, HttpURLConnection.HTTP_FORBIDDEN)) {
+      every { redirect.responseCode } returns status
+      assertEquals(ModelUrlResult.UnexpectedResponse,
+        probeModelUrl("https://example.com/model", null) { if (it.contains("cdn.example")) redirect else initial })
+    }
+  }
 }

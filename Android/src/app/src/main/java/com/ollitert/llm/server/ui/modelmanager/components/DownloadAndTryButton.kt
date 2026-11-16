@@ -151,6 +151,7 @@ fun DownloadAndTryButton(
   var checkingToken by remember { mutableStateOf(false) }
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
+  var showAccessErrorDialog by remember { mutableStateOf(false) }
   var showModelNotFoundDialog by remember { mutableStateOf(false) }
   var showStopActiveDialog by remember { mutableStateOf(false) }
   var hfTokenDialogReason by remember { mutableStateOf<HfTokenDialogReason?>(null) }
@@ -243,6 +244,11 @@ fun DownloadAndTryButton(
             checkingToken = false
             downloadStarted = false
             showErrorDialog = true
+          }
+          DownloadGateOutcome.AccessError -> {
+            checkingToken = false
+            downloadStarted = false
+            showAccessErrorDialog = true
           }
           DownloadGateOutcome.ModelNotFound -> {
             checkingToken = false
@@ -513,6 +519,15 @@ fun DownloadAndTryButton(
       title = stringResource(R.string.dialog_network_error_title),
       text = stringResource(R.string.dialog_network_error_body),
       onDismiss = { showErrorDialog = false },
+      confirmLabel = stringResource(R.string.close),
+    )
+  }
+
+  if (showAccessErrorDialog) {
+    ErrorAlertDialog(
+      title = stringResource(R.string.dialog_model_access_error_title),
+      text = stringResource(R.string.dialog_model_access_error_body),
+      onDismiss = { showAccessErrorDialog = false },
       confirmLabel = stringResource(R.string.close),
     )
   }

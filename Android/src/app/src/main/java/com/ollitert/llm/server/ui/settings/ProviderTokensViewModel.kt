@@ -16,6 +16,10 @@
 
 package com.ollitert.llm.server.ui.settings
 
+import com.ollitert.llm.server.data.allowlist.ProviderTokenVerifier
+import com.ollitert.llm.server.data.allowlist.ProviderToken
+import com.ollitert.llm.server.data.allowlist.TokenCheck
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.di.IoDispatcher
@@ -29,8 +33,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-
-internal enum class ProviderToken { HUGGING_FACE, MODELSCOPE_AI, MODELSCOPE_CN }
 
 internal data class ProviderTokensState(val saved: Map<ProviderToken, String>, val current: Map<ProviderToken, String>, val checks: Map<ProviderToken, TokenCheck> = emptyMap()) {
   val hasChanges get() = current != saved

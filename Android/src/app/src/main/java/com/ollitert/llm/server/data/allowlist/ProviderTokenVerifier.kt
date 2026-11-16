@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package com.ollitert.llm.server.ui.settings
+package com.ollitert.llm.server.data.allowlist
 
 import com.ollitert.llm.server.common.GitHubConfig
-import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.prefs.HTTP_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.prefs.HTTP_READ_TIMEOUT_MS
 import java.io.IOException
@@ -28,6 +27,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+
+internal enum class ProviderToken { HUGGING_FACE, MODELSCOPE_AI, MODELSCOPE_CN }
 
 internal enum class TokenCheck { TESTING, ACCEPTED, REJECTED, DENIED, RATE_LIMITED, UNAVAILABLE }
 

@@ -118,6 +118,7 @@ fun fetchBoundedResult(
 sealed class ModelUrlResult {
   data class Success(val code: Int) : ModelUrlResult()
   data class Error(val message: String) : ModelUrlResult()
+  data object UnexpectedResponse : ModelUrlResult()
 }
 
 internal fun probeModelUrl(
@@ -142,22 +143,22 @@ internal fun probeModelUrl(
     val responseCode = connection.responseCode
     if (responseCode in 300..399) {
       val redirectUrl = connection.getHeaderField("Location")
-        ?: return ModelUrlResult.Success(
-          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
-        )
+        ?: return ModelUrlResult.UnexpectedResponse
       redirectConnection = openConnection(redirectUrl)
       redirectConnection.requestMethod = "HEAD"
       redirectConnection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
       redirectConnection.readTimeout = HTTP_READ_TIMEOUT_MS
       redirectConnection.instanceFollowRedirects = true
       redirectConnection.connect()
-      val contentType = redirectConnection.contentType ?: ""
-      if (contentType.contains("text/html", ignoreCase = true)) {
-        return ModelUrlResult.Success(
-          if (accessToken != null) HttpURLConnection.HTTP_UNAUTHORIZED else HttpURLConnection.HTTP_FORBIDDEN
-        )
+      val redirectCode = redirectConnection.responseCode
+      // CDN or signed-link authentication errors do not establish whether the provider token works.
+      if (redirectCode == HttpURLConnection.HTTP_UNAUTHORIZED || redirectCode == HttpURLConnection.HTTP_FORBIDDEN) {
+        return ModelUrlResult.UnexpectedResponse
       }
-      return ModelUrlResult.Success(redirectConnection.responseCode)
+      if (redirectCode !in 200..299) return ModelUrlResult.Success(redirectCode)
+      val contentType = redirectConnection.contentType ?: ""
+      if (contentType.contains("text/html", ignoreCase = true)) return ModelUrlResult.UnexpectedResponse
+      return ModelUrlResult.Success(redirectCode)
     }
     return ModelUrlResult.Success(responseCode)
   } catch (e: Exception) {

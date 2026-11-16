@@ -18,6 +18,7 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
+import com.ollitert.llm.server.data.allowlist.TokenCheck
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.ui.modelmanager.components.HfTokenDialogReason
 import kotlinx.coroutines.test.runTest
@@ -37,9 +38,11 @@ class DownloadGateCoordinatorTest {
   private fun coordinator(
     probe: (Model, String?) -> ModelUrlResult,
     storedToken: String? = null,
+    tokenCheck: TokenCheck = TokenCheck.REJECTED,
   ) = DownloadGateCoordinator(
     probeUrl = { model, token -> probe(model, token) },
     storedHfToken = { storedToken },
+    verifyHfToken = { tokenCheck },
   )
 
   @Test
@@ -151,5 +154,36 @@ class DownloadGateCoordinatorTest {
       storedToken = "tok",
     )
     assertEquals(DownloadGateOutcome.NetworkError("timeout"), gate.resolveDownloadAccess(hfModel))
+  }
+
+  @Test fun blankTokenIsMissing() = runTest {
+    val gate = coordinator(probe = { _, _ -> ModelUrlResult.Success(HttpURLConnection.HTTP_UNAUTHORIZED) }, storedToken = "  ")
+    assertEquals(DownloadGateOutcome.NeedsHfToken(HfTokenDialogReason.MISSING), gate.resolveDownloadAccess(hfModel))
+  }
+
+  @Test fun unavailableServerDoesNotMeanMissingToken() = runTest {
+    val gate = coordinator(probe = { _, _ -> ModelUrlResult.Success(HttpURLConnection.HTTP_INTERNAL_ERROR) })
+    assertEquals(DownloadGateOutcome.AccessError, gate.resolveDownloadAccess(hfModel))
+  }
+
+  @Test fun rejectedModelAccessWithValidTokenDoesNotMeanInvalidToken() = runTest {
+    val gate = coordinator(probe = { _, _ -> ModelUrlResult.Success(HttpURLConnection.HTTP_UNAUTHORIZED) },
+      storedToken = "valid", tokenCheck = TokenCheck.ACCEPTED)
+    assertEquals(DownloadGateOutcome.AccessError, gate.resolveDownloadAccess(hfModel))
+  }
+
+  @Test fun unavailableIdentityCheckDoesNotMeanInvalidToken() = runTest {
+    val gate = coordinator(probe = { _, _ -> ModelUrlResult.Success(HttpURLConnection.HTTP_UNAUTHORIZED) },
+      storedToken = "unknown", tokenCheck = TokenCheck.UNAVAILABLE)
+    assertEquals(DownloadGateOutcome.AccessError, gate.resolveDownloadAccess(hfModel))
+  }
+
+  @Test fun unexpectedRedirectIsNotReportedAsMissingOrInvalid() = runTest {
+    val anonymous = coordinator(probe = { _, _ -> ModelUrlResult.UnexpectedResponse })
+    assertEquals(DownloadGateOutcome.AccessError, anonymous.resolveDownloadAccess(hfModel))
+    val authenticated = coordinator(probe = { _, token ->
+      if (token == null) ModelUrlResult.Success(HttpURLConnection.HTTP_UNAUTHORIZED) else ModelUrlResult.UnexpectedResponse
+    }, storedToken = "example")
+    assertEquals(DownloadGateOutcome.AccessError, authenticated.resolveDownloadAccess(hfModel))
   }
 }

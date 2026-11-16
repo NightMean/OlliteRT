@@ -121,7 +121,7 @@ internal fun HfTokenRequiredDialog(
     text = { Text(stringResource(bodyRes)) },
     onDismissRequest = onDismiss,
     confirmButton = {
-      TextButton(onClick = { onDismiss(); onNavigateToProviderTokens() }) {
+      Button(onClick = { onDismiss(); onNavigateToProviderTokens() }) {
         Text(stringResource(R.string.button_go_to_provider_tokens))
       }
     },

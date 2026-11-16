@@ -19,6 +19,9 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.util.Log
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
+import com.ollitert.llm.server.data.allowlist.ProviderToken
+import com.ollitert.llm.server.data.allowlist.ProviderTokenVerifier
+import com.ollitert.llm.server.data.allowlist.TokenCheck
 import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.ui.modelmanager.components.HfTokenDialogReason
@@ -37,6 +40,9 @@ internal sealed class DownloadGateOutcome {
 
   /** Remote URL resolves to nothing — model removed or renamed upstream. */
   data object ModelNotFound : DownloadGateOutcome()
+
+  /** The provider did not establish whether the model or token can be accessed. */
+  data object AccessError : DownloadGateOutcome()
 
   /** Gated model whose license agreement has not been accepted yet. */
   data object NeedsAgreement : DownloadGateOutcome()
@@ -58,6 +64,7 @@ internal sealed class DownloadGateOutcome {
 internal class DownloadGateCoordinator(
   private val probeUrl: suspend (model: Model, accessToken: String?) -> ModelUrlResult,
   private val storedHfToken: () -> String?,
+  private val verifyHfToken: (String) -> TokenCheck,
 ) {
   /**
    * Resolves what should happen when the user requests downloading [model].
@@ -71,6 +78,10 @@ internal class DownloadGateCoordinator(
 
     Log.d(TAG, "Model '${model.name}' is from HuggingFace. Checking if auth is required")
     return when (val firstResult = probeUrl(model, null)) {
+      ModelUrlResult.UnexpectedResponse -> {
+        Log.w(TAG, "Model access probe received an unexpected response")
+        DownloadGateOutcome.AccessError
+      }
       is ModelUrlResult.Error -> {
         Log.e(TAG, "Network error: ${firstResult.message}")
         DownloadGateOutcome.NetworkError(firstResult.message)
@@ -84,13 +95,17 @@ internal class DownloadGateCoordinator(
           Log.d(TAG, "Model '${model.name}' returned 404 — model not found.")
           DownloadGateOutcome.ModelNotFound
         }
-        else -> resolveWithStoredToken(model)
+        HttpURLConnection.HTTP_UNAUTHORIZED, HttpURLConnection.HTTP_FORBIDDEN -> resolveWithStoredToken(model)
+        else -> {
+          Log.w(TAG, "Model access probe returned HTTP ${firstResult.code}")
+          DownloadGateOutcome.AccessError
+        }
       }
     }
   }
 
   private suspend fun resolveWithStoredToken(model: Model): DownloadGateOutcome {
-    val token = storedHfToken()
+    val token = storedHfToken()?.trim()?.takeIf { it.isNotEmpty() }
     if (token == null) {
       Log.d(TAG, "No HF token stored. Prompting user to set one in Settings.")
       return DownloadGateOutcome.NeedsHfToken(HfTokenDialogReason.MISSING)
@@ -98,6 +113,10 @@ internal class DownloadGateCoordinator(
 
     Log.d(TAG, "Trying stored HF token from Settings...")
     return when (val hfResult = probeUrl(model, token)) {
+      ModelUrlResult.UnexpectedResponse -> {
+        Log.w(TAG, "Model access probe received an unexpected response")
+        DownloadGateOutcome.AccessError
+      }
       is ModelUrlResult.Error -> {
         Log.e(TAG, "Network error checking HF token: ${hfResult.message}")
         DownloadGateOutcome.NetworkError(hfResult.message)
@@ -115,9 +134,16 @@ internal class DownloadGateCoordinator(
           Log.d(TAG, "Model needs license agreement. Opening agreement page...")
           DownloadGateOutcome.NeedsAgreement
         }
+        HttpURLConnection.HTTP_UNAUTHORIZED -> when (val result = verifyHfToken(token)) {
+          TokenCheck.REJECTED -> DownloadGateOutcome.NeedsHfToken(HfTokenDialogReason.INVALID)
+          else -> {
+            Log.w(TAG, "Token identity check did not establish model access: $result")
+            DownloadGateOutcome.AccessError
+          }
+        }
         else -> {
-          Log.d(TAG, "Stored HF token is invalid (response=${hfResult.code}).")
-          DownloadGateOutcome.NeedsHfToken(HfTokenDialogReason.INVALID)
+          Log.w(TAG, "Authenticated model access probe returned HTTP ${hfResult.code}")
+          DownloadGateOutcome.AccessError
         }
       }
     }
@@ -131,6 +157,7 @@ internal class DownloadGateCoordinator(
       DownloadGateCoordinator(
         probeUrl = { model, accessToken -> viewModel.getModelUrlResponse(model = model, accessToken = accessToken) },
         storedHfToken = { configuredHfTokenOrNull(viewModel.getHfToken()) },
+        verifyHfToken = { ProviderTokenVerifier().verify(ProviderToken.HUGGING_FACE, it) },
       )
   }
 }
