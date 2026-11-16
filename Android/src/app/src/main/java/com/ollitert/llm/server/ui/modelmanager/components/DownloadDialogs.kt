@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.prefs.bytesToGb
 import com.ollitert.llm.server.data.repository.RequestLogStore
@@ -112,22 +113,54 @@ internal fun HfTokenRequiredDialog(
   val isInvalid = reason == HfTokenDialogReason.INVALID
   val titleRes = if (isInvalid) R.string.dialog_hf_token_invalid_title else R.string.dialog_hf_token_required_title
   val bodyRes = if (isInvalid) R.string.dialog_hf_token_invalid_body else R.string.dialog_hf_token_required_body
-  val icon = if (isInvalid) Icons.Outlined.ErrorOutline else Icons.Outlined.Key
-  val iconTint = if (isInvalid) MaterialTheme.colorScheme.error else OlliteRTPrimary
 
+  ProviderAccessDialog(
+    title = stringResource(titleRes),
+    message = stringResource(bodyRes),
+    showError = isInvalid,
+    onNavigateToProviderTokens = onNavigateToProviderTokens,
+    onDismiss = onDismiss,
+  )
+}
+
+@Composable
+internal fun ProviderAccessDialog(
+  title: String,
+  message: String,
+  showError: Boolean,
+  onNavigateToProviderTokens: () -> Unit,
+  onDismiss: () -> Unit,
+) {
   AlertDialog(
-    icon = { Icon(icon, contentDescription = null, tint = iconTint) },
-    title = { Text(stringResource(titleRes)) },
-    text = { Text(stringResource(bodyRes)) },
+    icon = { Icon(if (showError) Icons.Outlined.ErrorOutline else Icons.Outlined.Key,
+      contentDescription = null, tint = if (showError) MaterialTheme.colorScheme.error else OlliteRTPrimary) },
+    title = { Text(title) },
+    text = { Text(message) },
     onDismissRequest = onDismiss,
     confirmButton = {
       Button(onClick = { onDismiss(); onNavigateToProviderTokens() }) {
         Text(stringResource(R.string.button_go_to_provider_tokens))
       }
     },
-    dismissButton = {
-      TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-    },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+  )
+}
+
+@Composable
+internal fun ModelScopeAccessDialog(
+  site: ModelScopeSite,
+  tokenMissing: Boolean,
+  onNavigateToProviderTokens: () -> Unit,
+  onDismiss: () -> Unit,
+) {
+  val siteName = stringResource(if (site == ModelScopeSite.CHINA)
+    R.string.modelscope_site_china else R.string.modelscope_site_international)
+  ProviderAccessDialog(
+    title = stringResource(if (tokenMissing) R.string.modelscope_token_missing_title else R.string.modelscope_access_denied_title, siteName),
+    message = stringResource(if (tokenMissing) R.string.modelscope_token_missing_body else R.string.modelscope_token_denied_body, siteName),
+    showError = !tokenMissing,
+    onNavigateToProviderTokens = onNavigateToProviderTokens,
+    onDismiss = onDismiss,
   )
 }
 

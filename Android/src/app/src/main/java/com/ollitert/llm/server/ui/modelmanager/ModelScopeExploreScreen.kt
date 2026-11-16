@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -55,16 +56,18 @@ import com.ollitert.llm.server.data.allowlist.ModelScopeSort
 import com.ollitert.llm.server.data.allowlist.ModelScopeModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.modelScopeFileUrl
+import com.ollitert.llm.server.ui.modelmanager.components.ModelScopeAccessDialog
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.UrlInputDialog
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
+internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTokens: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
   val viewModel: ModelScopeExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
-  val modelError = if (state.error && state.details == null && state.failedModel != null) stringResource(
+  val showAccessDialog = state.accessDenied && state.accessDeniedSequence > state.acknowledgedAccessSequence
+  val modelError = if (state.error && !state.accessDenied && state.details == null && state.failedModel != null) stringResource(
     if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_files_error
   ) else null
   val errorSnackbar = rememberRepositoryErrorSnackbar(modelError, viewModel::retryError, viewModel::dismissModelError)
@@ -73,7 +76,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
   val imports = importsState.items
   val importedGroups = matchingImportedRepositories(imports.filter { it.record.modelScopeSite == state.site }, state.query)
   val available = state.models.filterNot { it.id in importedGroups }
-  var showLink by remember { mutableStateOf(false) }
+  var showLink by rememberSaveable { mutableStateOf(false) }
   val listState = rememberLazyListState()
   LaunchedEffect(state.query, state.sort, state.site) { listState.scrollToItem(0) }
   LaunchedEffect(listState, state.page, available.size, importedGroups.size, importsState.ready, state.hasMore, state.loading, state.openingModelId,
@@ -200,6 +203,14 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
       repositoryUrl = "${state.detailsSite.baseUrl}/models/${details.id}",
       fileUrl = { path -> importedFileUrl(imports, details.id, path, state.detailsSite)
         ?: state.files.firstOrNull { it.path == path }?.let { modelScopeFileUrl(details.id, it.revision, path, state.detailsSite) } },
+    )
+  }
+  if (showAccessDialog) {
+    ModelScopeAccessDialog(
+      site = state.accessDeniedSite,
+      tokenMissing = !viewModel.hasToken(state.accessDeniedSite),
+      onNavigateToProviderTokens = onNavigateToProviderTokens,
+      onDismiss = viewModel::acknowledgeAccessDenied,
     )
   }
 }

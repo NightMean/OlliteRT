@@ -262,7 +262,9 @@ fun OlliteRTNavHost(
     }
 
     composable<OlliteRTRoute.ModelScopeExplore> {
-      ModelScopeExploreScreen(onBack = { navController.navigateUp() }, modelManagerViewModel = modelManagerViewModel)
+      ModelScopeExploreScreen(onBack = { navController.navigateUp() },
+        onNavigateToProviderTokens = { navController.navigate(OlliteRTRoute.ProviderTokens) { launchSingleTop = true } },
+        modelManagerViewModel = modelManagerViewModel)
     }
 
     // Status tab

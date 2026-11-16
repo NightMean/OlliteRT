@@ -20,6 +20,7 @@ import android.content.Context
 import android.util.Log
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
+import com.ollitert.llm.server.data.allowlist.ModelScopeAccessException
 import com.ollitert.llm.server.data.allowlist.ModelScopeCatalog
 import com.ollitert.llm.server.data.allowlist.ModelScopeFile
 import com.ollitert.llm.server.data.allowlist.ModelScopeModel
@@ -418,5 +419,46 @@ class ModelScopeExploreViewModelTest {
     assertEquals(listOf(model), vm.state.value.models)
     assertEquals(1, vm.state.value.page)
     assertTrue(!vm.state.value.loading)
+  }
+
+  @Test fun deniedChinaLinkIdentifiesTheLinkSiteAndEachFailure() = runTest(dispatcher) {
+    val ai = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(emptyList(), false, false)
+    }
+    val china = mockk<ModelScopeCatalog> {
+      every { details("author/model") } throws ModelScopeAccessException()
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), ai, dispatcher,
+      catalogForSite = { if (it == ModelScopeSite.CHINA) china else ai })
+    advanceUntilIdle()
+    repeat(2) { attempt ->
+      vm.openLink("https://modelscope.cn/models/author/model")
+      advanceUntilIdle()
+      assertTrue(vm.state.value.accessDenied)
+      assertEquals(ModelScopeSite.CHINA, vm.state.value.accessDeniedSite)
+      assertEquals((attempt + 1).toLong(), vm.state.value.accessDeniedSequence)
+      assertEquals(attempt.toLong(), vm.state.value.acknowledgedAccessSequence)
+      vm.acknowledgeAccessDenied()
+      assertEquals(vm.state.value.accessDeniedSequence, vm.state.value.acknowledgedAccessSequence)
+    }
+    assertEquals(ModelScopeSite.INTERNATIONAL, vm.state.value.site)
+  }
+
+  @Test fun deniedRemoteFilesAllowOnlyLocalManagementAndExposeAccessFailure() = runTest(dispatcher) {
+    val model = ModelScopeModel("author/model")
+    val catalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(listOf(model), false, false)
+      every { files(model.id, any()) } throws ModelScopeAccessException()
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), catalog, dispatcher, initialSite = ModelScopeSite.CHINA)
+    advanceUntilIdle()
+    vm.open(model, hasLocalImports = true)
+    advanceUntilIdle()
+    assertEquals(model, vm.state.value.details)
+    assertTrue(vm.state.value.files.isEmpty())
+    assertTrue(vm.state.value.detailsOffline)
+    assertTrue(vm.state.value.accessDenied)
+    assertEquals(ModelScopeSite.CHINA, vm.state.value.accessDeniedSite)
+    assertEquals(1L, vm.state.value.accessDeniedSequence)
   }
 }

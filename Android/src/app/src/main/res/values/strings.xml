@@ -161,7 +161,7 @@
   <string name="dialog_network_error_body">Please check your internet connection.</string>
   <string name="dialog_model_not_found_title">Model not found</string>
   <string name="dialog_model_not_found_body">The model could not be found on HuggingFace. Verify that the model ID and commit hash in your model list are correct.</string>
-  <string name="button_go_to_provider_tokens">Open Provider Token Settings</string>
+  <string name="button_go_to_provider_tokens">Open Token Settings</string>
   <string name="dialog_model_access_error_title">Could Not Check Model Access</string>
   <string name="dialog_model_access_error_body">The model could not be accessed. Check its access requirements and try again later.</string>
   <string name="dialog_hf_token_required_title">Hugging Face Token Missing</string>
@@ -1118,7 +1118,11 @@
   <string name="modelscope_more_failed">Could not load more models</string>
   <string name="modelscope_more_error">ModelScope could not complete the request. Try again later.</string>
   <string name="modelscope_rate_limited">ModelScope is receiving too many requests. Please try again later.</string>
-  <string name="modelscope_access_denied">ModelScope denied access. Check your site token and the model’s access requirements.</string>
+  <string name="modelscope_token_missing_title">ModelScope %1$s Token Missing</string>
+  <string name="modelscope_access_denied_title">ModelScope %1$s Access Denied</string>
+  <string name="modelscope_token_missing_body">No token has been added for ModelScope %1$s. The requested content may require a token or access approval.\n\nPlease check your token in Settings &gt; Provider Tokens.</string>
+  <string name="modelscope_token_denied_body">ModelScope %1$s denied access. Check your token and the access requirements. A token alone may not grant access.\n\nPlease check your token in Settings &gt; Provider Tokens.</string>
+  <string name="modelscope_access_denied">ModelScope denied access. Check your site token and the access requirements.</string>
   <string name="repository_loading_files">Loading model files</string>
   <string name="repository_loading_models">Loading models</string>
   <string name="modelscope_page_empty">No new models on this page</string>

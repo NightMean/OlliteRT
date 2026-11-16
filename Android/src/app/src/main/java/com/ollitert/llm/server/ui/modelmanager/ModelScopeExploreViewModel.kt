@@ -65,6 +65,9 @@ internal data class ModelScopeExploreState(
   val error: Boolean = false,
   val rateLimited: Boolean = false,
   val accessDenied: Boolean = false,
+  val accessDeniedSite: ModelScopeSite = ModelScopeSite.INTERNATIONAL,
+  val accessDeniedSequence: Long = 0,
+  val acknowledgedAccessSequence: Long = 0,
   val alreadyAdded: Boolean = false,
   val hasMore: Boolean = false,
   val searchLimitReached: Boolean = false,
@@ -118,6 +121,12 @@ internal class ModelScopeExploreViewModel internal constructor(
     load(reset = true)
   }
 
+  fun acknowledgeAccessDenied() {
+    _state.update { it.copy(acknowledgedAccessSequence = it.accessDeniedSequence) }
+  }
+
+  fun hasToken(site: ModelScopeSite): Boolean = ServerPrefs.getModelScopeToken(context, site == ModelScopeSite.INTERNATIONAL).isNotBlank()
+
   fun refresh() = load(reset = true)
   fun loadMore() {
     val current = _state.value
@@ -166,7 +175,7 @@ internal class ModelScopeExploreViewModel internal constructor(
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Model search failed", e)
-        _state.update { it.copy(loading = false, loadingMore = false, error = reset, paginationError = !reset, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
+        _state.update { it.copy(loading = false, loadingMore = false, error = reset, paginationError = !reset, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException, accessDeniedSite = before.site, accessDeniedSequence = it.accessDeniedSequence + if (e is ModelScopeAccessException) 1 else 0) }
       }
     }
   }
@@ -183,8 +192,10 @@ internal class ModelScopeExploreViewModel internal constructor(
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Model file listing failed", e)
-        _state.update { if (hasLocalImports) it.copy(openingModelId = null, details = model, detailsOffline = true, files = emptyList(), selectedPath = null)
-          else it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
+        _state.update { if (hasLocalImports) it.copy(openingModelId = null, details = model, detailsOffline = true, files = emptyList(), selectedPath = null,
+          accessDenied = e is ModelScopeAccessException, accessDeniedSite = site,
+          accessDeniedSequence = it.accessDeniedSequence + if (e is ModelScopeAccessException) 1 else 0)
+          else it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException, accessDeniedSite = site, accessDeniedSequence = it.accessDeniedSequence + if (e is ModelScopeAccessException) 1 else 0) }
       }
     }
   }
@@ -216,7 +227,7 @@ internal class ModelScopeExploreViewModel internal constructor(
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Could not open repository link", e)
-        _state.update { it.copy(linkLoading = false, linkError = true, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
+        _state.update { it.copy(linkLoading = false, linkError = true, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException, accessDeniedSite = site, accessDeniedSequence = it.accessDeniedSequence + if (e is ModelScopeAccessException) 1 else 0) }
       }
     }
   }
