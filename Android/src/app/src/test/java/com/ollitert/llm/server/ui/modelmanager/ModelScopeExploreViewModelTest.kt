@@ -57,6 +57,26 @@ class ModelScopeExploreViewModelTest {
   @Before fun setup() { Dispatchers.setMain(dispatcher); mockkStatic(Log::class); every { Log.w(any(), any(), any<Throwable>()) } returns 0 }
   @After fun teardown() { unmockkStatic(Log::class); Dispatchers.resetMain() }
 
+  @Test fun dismissingModelErrorAllowsMorePages() = runTest(dispatcher) {
+    val model = ModelScopeModel("author/model")
+    val next = ModelScopeModel("author/next")
+    val catalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), 1) } returns ModelScopePage(listOf(model), true, false)
+      every { search(any(), any(), 2) } returns ModelScopePage(listOf(next), false, false)
+      every { files(model.id, any()) } throws IOException("unavailable")
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), catalog, dispatcher)
+    advanceUntilIdle()
+    vm.open(model)
+    advanceUntilIdle()
+    assertTrue(vm.state.value.error)
+    vm.dismissModelError()
+    vm.loadMore()
+    advanceUntilIdle()
+    assertTrue(!vm.state.value.error)
+    assertEquals(listOf(model, next), vm.state.value.models)
+  }
+
   @Test fun selectionIsSavedBeforeImportCompletes() = runTest(dispatcher) {
     val directory = temporary.newFolder()
     val context = mockk<Context> { every { getExternalFilesDir(null) } returns directory }

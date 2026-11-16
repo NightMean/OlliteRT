@@ -121,6 +121,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
   fun refresh() = load(debounce = false, refresh = true)
   fun retrySearch() { if (!_state.value.searchLimitReached && !_state.value.searchInvalidPagination) load(debounce = false, resume = true) }
   fun retryError() { _state.value.failedModel?.let { open(it) } ?: refresh() }
+  fun dismissModelError() { _state.update { if (it.failedModel != null) it.copy(error = false, failedModel = null) else it } }
   fun loadMore() {
     val state = _state.value
     if (!state.loading && !state.loadingMore && !state.searchError && !state.error && !state.saving &&

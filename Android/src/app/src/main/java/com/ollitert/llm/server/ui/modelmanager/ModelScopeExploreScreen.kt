@@ -32,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +64,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
   val viewModel: ModelScopeExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
+  val modelError = if (state.error && state.details == null && state.failedModel != null) stringResource(
+    if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_files_error
+  ) else null
+  val errorSnackbar = rememberRepositoryErrorSnackbar(modelError, viewModel::retryError, viewModel::dismissModelError)
   var importsRetry by remember { mutableStateOf(0) }
   val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.MODELSCOPE, importsRetry)
   val imports = importsState.items
@@ -92,7 +97,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
       viewModel.consumeImportedModel()
     }
   }
-  Scaffold(topBar = {
+  Scaffold(snackbarHost = { SnackbarHost(errorSnackbar) }, topBar = {
     RepositoryExploreTopBar(
       title = stringResource(R.string.modelscope_explore_title),
       linkLabel = stringResource(R.string.modelscope_link_title),
@@ -121,9 +126,8 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
       }
       if (importsState.error) ModelListError(title = stringResource(R.string.models_failed_to_load),
         message = stringResource(R.string.repository_imports_error), onRetry = { importsRetry++ }, verticalPadding = 16.dp)
-      if (!importsState.ready && !importsState.error) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
-      if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
-      if (state.error && state.details == null) {
+      RepositoryLoadingIndicator((!importsState.ready && !importsState.error) || state.loading)
+      if (state.error && state.details == null && state.failedModel == null) {
         ModelListError(
           title = stringResource(if (state.failedModel == null) R.string.models_failed_to_load else R.string.modelscope_files_failed),
           message = stringResource(if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else if (state.failedModel == null) R.string.modelscope_explore_error else R.string.modelscope_files_error),

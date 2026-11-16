@@ -33,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,6 +64,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
   val viewModel: HuggingFaceExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
+  val modelError = if (state.error && state.details == null && state.failedModel != null) stringResource(R.string.hf_model_files_error) else null
+  val errorSnackbar = rememberRepositoryErrorSnackbar(modelError, viewModel::retryError, viewModel::dismissModelError)
   var importsRetry by remember { mutableStateOf(0) }
   val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.HUGGING_FACE, importsRetry)
   val imports = importsState.items
@@ -95,7 +98,7 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
       viewModel.consumeImportedModel()
     }
   }
-  Scaffold(topBar = {
+  Scaffold(snackbarHost = { SnackbarHost(errorSnackbar) }, topBar = {
     RepositoryExploreTopBar(
       title = stringResource(R.string.hf_explore_title),
       linkLabel = stringResource(R.string.hf_link_title),
@@ -125,17 +128,12 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
       }
       if (importsState.error) ModelListError(title = stringResource(R.string.models_failed_to_load),
         message = stringResource(R.string.repository_imports_error), onRetry = { importsRetry++ }, verticalPadding = 16.dp)
-      if (!importsState.ready && !importsState.error) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
-      if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
+      RepositoryLoadingIndicator((!importsState.ready && !importsState.error) || state.loading)
       if (state.searchError) {
         Text(stringResource(if (state.searchLimitReached) R.string.hf_search_limit else if (state.searchInvalidPagination) R.string.hf_search_invalid_pagination else R.string.hf_explore_error), color = MaterialTheme.colorScheme.error)
         if (!state.searchLimitReached) TextButton(onClick = if (state.searchInvalidPagination) viewModel::refresh else viewModel::retrySearch) {
           Text(stringResource(if (state.searchInvalidPagination) R.string.hf_search_refresh else R.string.hf_explore_retry))
         }
-      }
-      if (state.error && state.details == null) {
-        Text(stringResource(R.string.hf_model_files_error), color = MaterialTheme.colorScheme.error)
-        TextButton(onClick = viewModel::retryError) { Text(stringResource(R.string.hf_explore_retry)) }
       }
       if (importsState.ready) LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (importedGroups.isNotEmpty()) {

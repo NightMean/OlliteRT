@@ -134,6 +134,10 @@ internal class ModelScopeExploreViewModel internal constructor(
     if (failed != null) open(failed) else refresh()
   }
 
+  fun dismissModelError() {
+    _state.update { if (it.failedModel != null) it.copy(error = false, failedModel = null, rateLimited = false, accessDenied = false) else it }
+  }
+
   private fun load(reset: Boolean, debounce: Boolean = false) {
     if (_state.value.saving) return
     job?.cancel()

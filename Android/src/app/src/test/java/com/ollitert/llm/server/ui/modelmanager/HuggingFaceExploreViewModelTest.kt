@@ -53,6 +53,29 @@ class HuggingFaceExploreViewModelTest {
   @Before fun setup() { Dispatchers.setMain(dispatcher); mockkStatic(Log::class); every { Log.w(any(), any(), any<Throwable>()) } returns 0 }
   @After fun teardown() { unmockkStatic(Log::class); Dispatchers.resetMain() }
 
+  @Test fun dismissingModelErrorAllowsMorePages() = runTest(dispatcher) {
+    val model = HuggingFaceModel("author/model")
+    val initial = HuggingFaceSearchProgress(emptyList(), "first")
+    val page = HuggingFaceSearchProgress(listOf(model), "next")
+    val prefs = mockk<PreferencesRepository> { every { getHfToken() } returns "" }
+    val catalog = mockk<HuggingFaceCatalog> {
+      every { initialSearch(any(), any()) } returns initial
+      every { searchPage(initial, any()) } returns page
+      every { searchPage(page, any()) } returns page.copy(nextUrl = null)
+      every { details(model.id, "", null) } throws IOException("unavailable")
+    }
+    val vm = HuggingFaceExploreViewModel(mockk(relaxed = true), prefs, catalog, dispatcher)
+    advanceUntilIdle()
+    vm.open(model)
+    advanceUntilIdle()
+    assertTrue(vm.state.value.error)
+    vm.dismissModelError()
+    vm.loadMore()
+    advanceUntilIdle()
+    assertFalse(vm.state.value.error)
+    assertTrue(vm.state.value.searchComplete)
+  }
+
   @Test fun loadsOnePageAndReusesCachedSortWithItsCursor() = runTest(dispatcher) {
     val trending = HuggingFaceSearchProgress(emptyList(), "trending")
     val downloads = HuggingFaceSearchProgress(emptyList(), "downloads")

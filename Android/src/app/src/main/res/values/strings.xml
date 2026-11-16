@@ -1114,6 +1114,7 @@
   <string name="modelscope_rate_limited">ModelScope is receiving too many requests. Please try again later.</string>
   <string name="modelscope_access_denied">ModelScope denied access. Check your site token and the model’s access requirements.</string>
   <string name="repository_loading_files">Loading model files</string>
+  <string name="repository_loading_models">Loading models</string>
   <string name="modelscope_page_empty">No new models on this page</string>
   <string name="modelscope_page_continue">Continue to check the next page.</string>
   <string name="modelscope_continue">Continue</string>
