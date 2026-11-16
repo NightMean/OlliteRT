@@ -1234,7 +1234,11 @@
     <item quantity="one">%d variant</item>
     <item quantity="other">%d variants</item>
   </plurals>
-  <string name="hf_explore_error">Could not load Hugging Face. Check your connection or token and try again.</string>
+  <string name="hf_explore_error">Could not finish loading Hugging Face models. Try again.</string>
+  <string name="hf_search_limit">Too many results to load safely. Refine your search.</string>
+  <string name="hf_search_invalid_pagination">Could not finish loading results. Refresh or refine your search.</string>
+  <string name="hf_search_refresh">Refresh results</string>
+  <string name="hf_model_files_error">Could not load this model’s files. Try again.</string>
   <string name="hf_explore_retry">Retry</string>
   <string name="hf_explore_empty">No LiteRT-LM files found.</string>
   <string name="hf_explore_unknown_size">File size unavailable</string>

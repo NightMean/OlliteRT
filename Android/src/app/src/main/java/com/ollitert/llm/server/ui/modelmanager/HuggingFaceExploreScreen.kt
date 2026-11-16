@@ -20,12 +20,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -50,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -63,6 +66,7 @@ import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
 import com.ollitert.llm.server.data.allowlist.HuggingFaceSort
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +74,19 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
   val viewModel: HuggingFaceExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
   var showLink by remember { mutableStateOf(false) }
+  val listState = rememberLazyListState()
+  LaunchedEffect(state.query, state.sort) { listState.scrollToItem(0) }
+  LaunchedEffect(listState, state.query, state.sort, state.models.size, state.searchComplete, state.searchError,
+    state.error, state.loading, state.loadingMore, state.openingModelId, state.details, state.saving, showLink) {
+    if (!state.searchComplete && !state.searchError && !state.error && !state.loading && !state.loadingMore &&
+      state.openingModelId == null && state.details == null && !state.saving && !showLink) {
+      if (state.models.isEmpty()) viewModel.loadMore() else {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull { it.index < state.models.size }?.index ?: -1 }
+          .distinctUntilChanged()
+          .collect { if (it >= (state.models.size - 3).coerceAtLeast(0)) viewModel.loadMore() }
+      }
+    }
+  }
   LaunchedEffect(state.details) { if (state.details != null) showLink = false }
   BackHandler(enabled = state.saving) { }
   LaunchedEffect(state.addedModelName) {
@@ -119,15 +136,25 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
         }
       }
       if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
-      if (state.error) {
-        Text(stringResource(R.string.hf_explore_error), color = MaterialTheme.colorScheme.error)
-        TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.hf_explore_retry)) }
-      } else if (!state.loading && state.models.isEmpty()) {
+      if (state.searchError) {
+        Text(stringResource(if (state.searchLimitReached) R.string.hf_search_limit else if (state.searchInvalidPagination) R.string.hf_search_invalid_pagination else R.string.hf_explore_error), color = MaterialTheme.colorScheme.error)
+        if (!state.searchLimitReached) TextButton(onClick = if (state.searchInvalidPagination) viewModel::refresh else viewModel::retrySearch) {
+          Text(stringResource(if (state.searchInvalidPagination) R.string.hf_search_refresh else R.string.hf_explore_retry))
+        }
+      }
+      if (state.error && state.details == null) {
+        Text(stringResource(R.string.hf_model_files_error), color = MaterialTheme.colorScheme.error)
+        TextButton(onClick = viewModel::retryError) { Text(stringResource(R.string.hf_explore_retry)) }
+      }
+      if (!state.searchError && !state.error && !state.loading && state.models.isEmpty()) {
         Text(stringResource(R.string.hf_explore_empty), modifier = Modifier.padding(vertical = 20.dp))
       }
-      LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(state.models, key = { it.id }) { model ->
           HuggingFaceModelCard(model = model, loading = state.openingModelId == model.id, onClick = { viewModel.open(model) })
+        }
+        if (state.loadingMore) item(key = "loading_more") {
+          Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         }
       }
     }
@@ -146,7 +173,7 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
     )
   }
   state.details?.takeIf { state.addedModelName == null }?.let { model ->
-    HuggingFaceModelDialog(model, state.selectedPath, state.loading, state.error, state.alreadyAdded, viewModel::closeDetails, viewModel::add)
+    HuggingFaceModelDialog(model, state.selectedPath, state.saving, state.error, state.alreadyAdded, viewModel::closeDetails, viewModel::add)
   }
 }
 
