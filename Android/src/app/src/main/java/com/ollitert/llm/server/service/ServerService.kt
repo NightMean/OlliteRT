@@ -372,7 +372,9 @@ class ServerService : Service() {
           }
         }
         val modelPath = model.getPath(context = this@ServerService)
-        if (!File(modelPath).exists()) {
+        val selectedModelName = model.name
+        val modelReady = reserveModelForServer(selectedModelName, File(modelPath), port)
+        if (!modelReady) {
           val sourcePrefix = when (startSource) {
             SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
             SOURCE_LAUNCH -> getString(R.string.error_autostart_launch_prefix)
@@ -401,7 +403,6 @@ class ServerService : Service() {
           }
         }
 
-        ServerMetrics.onServerStarting(port, model.name)
         ServerMetrics.setActiveModelSize(model.totalBytes)
         RequestLogStore.addEvent("Loading model: ${model.name}", modelName = model.name, category = EventCategory.MODEL)
 

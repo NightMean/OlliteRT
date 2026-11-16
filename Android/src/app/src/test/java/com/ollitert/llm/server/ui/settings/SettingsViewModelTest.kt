@@ -58,6 +58,25 @@ import com.ollitert.llm.server.service.updateClientIpAccessPolicy
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
+  @Test fun staleChangedDefaultCannotRestoreRemovedModel() {
+    val name = "removed-${java.util.UUID.randomUUID()}"
+    vm.defaultModelEntry.update(name)
+    com.ollitert.llm.server.data.prefs.DefaultModelGuard.beginRemoval(name)
+    try {
+      assertTrue(vm.save(ServerStatus.STOPPED) is SettingsViewModel.SaveResult.ValidationError)
+      assertEquals(null, fakePreferences.getDefaultModelName())
+    } finally {
+      com.ollitert.llm.server.data.prefs.DefaultModelGuard.finishRemoval(name, true)
+    }
+  }
+
+  @Test fun unrelatedSettingsSavePreservesNewerDefault() {
+    fakePreferences.setDefaultModelName("newer")
+    assertTrue(vm.save(ServerStatus.STOPPED) is SettingsViewModel.SaveResult.Success)
+    assertEquals("newer", fakePreferences.getDefaultModelName())
+    assertEquals("newer", vm.defaultModelEntry.current)
+  }
+
   private val testDispatcher = StandardTestDispatcher()
   private val mockContext: Context = mockk(relaxed = true)
   private val mockPersistence: RequestLogRepository = mockk(relaxed = true)

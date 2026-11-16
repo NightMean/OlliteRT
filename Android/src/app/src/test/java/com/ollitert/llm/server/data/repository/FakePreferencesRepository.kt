@@ -95,7 +95,8 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun getBearerToken(): String = _bearerToken
   override fun setBearerToken(token: String) { this._bearerToken = token }
   override fun getDefaultModelName(): String? = _defaultModelName
-  override fun setDefaultModelName(name: String?) { this._defaultModelName = name }
+  override fun setDefaultModelName(name: String?): Boolean =
+    com.ollitert.llm.server.data.prefs.DefaultModelGuard.assign(name) { this._defaultModelName = name }
   override fun isAutoStartOnBoot(): Boolean = _autoStartOnBoot
   override fun setAutoStartOnBoot(enabled: Boolean) { this._autoStartOnBoot = enabled }
   override fun isKeepScreenOn(): Boolean = _keepScreenOn
@@ -128,6 +129,11 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setUpdateCheckIntervalHours(hours: Int) { this._updateCheckIntervalHours = hours }
   override fun getHfToken(): String = _hfToken
   override fun setHfToken(token: String) { this._hfToken = token }
+  override fun clearDefaultModelIfMatches(name: String): Boolean {
+    if (!_defaultModelName.equals(name, ignoreCase = true)) return false
+    _defaultModelName = null
+    return true
+  }
   override fun getModelScopeToken(international: Boolean): String = if (international) _modelScopeAiToken else _modelScopeCnToken
   override fun setModelScopeToken(international: Boolean, token: String) {
     if (international) _modelScopeAiToken = token else _modelScopeCnToken = token

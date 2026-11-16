@@ -360,6 +360,7 @@
   <!-- Settings: Auto-Launch &amp; Behavior card -->
   <string name="settings_card_auto_launch" translatable="false">Auto-Launch &amp; Behavior</string>
   <string name="settings_default_model_label" translatable="false">Default Model</string>
+  <string name="settings_default_model_unavailable">This model is no longer available. Select another default model.</string>
   <string name="settings_no_downloaded_models" translatable="false">No downloaded models. Download a model first from the Models tab</string>
   <string name="settings_none_manual_start" translatable="false">None (manual start)</string>
   <string name="settings_default_model_desc" translatable="false">Automatically load this model when the app is launched</string>

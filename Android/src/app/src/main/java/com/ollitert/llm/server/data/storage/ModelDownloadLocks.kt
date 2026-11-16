@@ -18,9 +18,14 @@ package com.ollitert.llm.server.data.storage
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 
 /** Keeps a model lock alive while a worker or removal operation holds or waits for it. */
 internal object ModelDownloadLocks {
+  // Shared with service teardown so removal waits until native engines release their files.
+  val cleanupLatch = AtomicReference<CountDownLatch?>(null)
+  fun isCleanupPending(): Boolean = cleanupLatch.get()?.count?.let { it > 0 } == true
   private data class Entry(val mutex: Mutex = Mutex(), var users: Int = 0)
   private val locks = mutableMapOf<String, Entry>()
 

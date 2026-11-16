@@ -49,6 +49,7 @@ class ServerPrefsMigrationTest {
     every { editor.putBoolean(any(), any()) } returns editor
     every { editor.remove(any()) } returns editor
     every { editor.apply() } returns Unit
+    every { editor.commit() } returns true
 
     // Reset cached prefs via reflection to ensure test isolation
     ServerPrefs.resetToDefaults(context)
@@ -57,6 +58,31 @@ class ServerPrefsMigrationTest {
   @After
   fun tearDown() {
     unmockkStatic(Log::class)
+  }
+
+  @Test fun clearDefaultOnlyWhenItStillMatchesTheRemovedModel() {
+    every { prefs.getString(any(), null) } returns "Model-A"
+    assertTrue(ServerPrefs.clearDefaultModelIfMatches(context, "model-a"))
+    verify(exactly = 1) { editor.remove(any()) }
+    every { prefs.getString(any(), null) } returns "Model-B"
+    org.junit.Assert.assertFalse(ServerPrefs.clearDefaultModelIfMatches(context, "model-a"))
+    verify(exactly = 1) { editor.remove(any()) }
+  }
+
+  @Test fun failedDefaultClearRestoresMemorySoRetryWritesAgain() {
+    var current: String? = "model-a"
+    var commits = 0
+    every { prefs.getString(any(), null) } answers { current }
+    every { editor.remove(any()) } answers { current = null; editor }
+    every { editor.putString(any(), any()) } answers { current = secondArg(); editor }
+    every { editor.commit() } answers { ++commits != 1 }
+    org.junit.Assert.assertThrows(java.io.IOException::class.java) {
+      ServerPrefs.clearDefaultModelIfMatches(context, "model-a")
+    }
+    assertEquals("model-a", current)
+    assertTrue(ServerPrefs.clearDefaultModelIfMatches(context, "model-a"))
+    assertEquals(null, current)
+    assertEquals(3, commits)
   }
 
   // ── migratePerModelKeys ───────────────────────────────────────────────────

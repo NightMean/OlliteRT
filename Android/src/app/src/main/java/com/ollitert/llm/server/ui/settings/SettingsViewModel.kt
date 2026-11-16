@@ -343,6 +343,10 @@ class SettingsViewModel @Inject constructor(
       is NetworkPolicyCoordinator.BuildResult.Success -> network.config
       is NetworkPolicyCoordinator.BuildResult.Invalid -> return SaveResult.ValidationError(network.message)
     }
+    if (defaultModelEntry.isChanged && !preferencesRepository.setDefaultModelName(defaultModelEntry.current)) {
+      return SaveResult.ValidationError(context.getString(R.string.settings_default_model_unavailable))
+    }
+    if (!defaultModelEntry.isChanged) defaultModelEntry.reset(preferencesRepository.getDefaultModelName())
     customBindAddressEntry.update(config.bindConfig.customAddress)
     clientIpRulesEntry.update(config.compiledPolicy.normalizedRulesText)
 
@@ -372,7 +376,7 @@ class SettingsViewModel @Inject constructor(
     preferencesRepository.setClientIpPolicyConfig(config.policyConfig)
     // All non-Custom settings: persist via the definition's write lambda
     for (def in allSettingDefs) {
-      if (def.key in networkPolicy.settingKeys || def.key == "bearer_token") continue // handled above
+      if (def.key in networkPolicy.settingKeys || def.key == "bearer_token" || def.key == "default_model") continue // handled above
       val entry = entryByKey[def.key] ?: continue
       persistViaDefinition(def, entry)
     }

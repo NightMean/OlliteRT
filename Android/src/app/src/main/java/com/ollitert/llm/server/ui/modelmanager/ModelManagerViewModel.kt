@@ -34,6 +34,9 @@ import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.isDiscoveredSource
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
+import com.ollitert.llm.server.data.prefs.DefaultModelGuard
+import com.ollitert.llm.server.data.storage.DiscoveredModelRemoval
+import com.ollitert.llm.server.data.storage.canRemoveDiscoveredModel
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.UnregisteredImportFileException
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
@@ -122,6 +125,8 @@ data class ModelManagerUiState(
   val droppedByVersionFilter: Int = 0,
   val totalBeforeFilters: Int = 0,
 )
+
+internal data class DiscoveredRemovalInspection(val diskStatus: ModelDownloadStatusType, val isDefault: Boolean)
 
 internal fun preserveActiveDownloadStatuses(
   loaded: Map<String, ModelDownloadStatus>,
@@ -310,13 +315,37 @@ constructor(
     }
   }
 
-  fun removeDiscoveredModel(model: Model, onResult: (Boolean) -> Unit) {
+  internal fun inspectDiscoveredModelRemoval(model: Model, onResult: (DiscoveredRemovalInspection?) -> Unit) {
+    if (!downloadInspectionAvailable || !isDiscoveredSource(model.sourceRepositoryId)) { onResult(null); return }
+    viewModelScope.launch(mainDispatcher) {
+      val inspection = try {
+        withContext(ioDispatcher) {
+          val directory = externalFilesDir ?: error("Model storage unavailable")
+          ModelDownloadLocks.withModel(model.name) {
+            val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
+            val exists = DiscoveredModels(directory, provider).read().any { it.toAllowedModel().name == model.name }
+            val status = modelStorageRepository.getModelDownloadStatus(model).status
+            if (!exists || !canRemoveDiscoveredModel(model.name, status, serverStateRepository.activeModelName.value,
+                serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(),
+                downloadRepository.hasUnfinishedDownload(model.name), status)) null
+            else DiscoveredRemovalInspection(status, preferencesRepository.getDefaultModelName().equals(model.name, ignoreCase = true))
+          }
+        }
+      } catch (e: CancellationException) { throw e }
+      catch (e: Exception) { Log.w(TAG, "Could not inspect discovered model removal", e); null }
+      onResult(inspection)
+    }
+  }
+
+  fun removeDiscoveredModel(model: Model, confirmedStatus: ModelDownloadStatusType = ModelDownloadStatusType.NOT_DOWNLOADED,
+    onResult: (Boolean) -> Unit) {
     if (!downloadInspectionAvailable || model.name in recoveringModelNames || !isDiscoveredSource(model.sourceRepositoryId) || !downloadStartGate.tryAcquire(model.name)) {
       onResult(false)
       return
     }
     val status = _uiState.value.modelDownloadStatus[model.name]?.status
-    if (status != ModelDownloadStatusType.NOT_DOWNLOADED) {
+    if (status !in setOf(ModelDownloadStatusType.NOT_DOWNLOADED, ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
+        ModelDownloadStatusType.SUCCEEDED, ModelDownloadStatusType.FAILED)) {
       downloadStartGate.release(model.name)
       onResult(false)
       return
@@ -329,18 +358,35 @@ constructor(
         val removed = withContext(ioDispatcher) {
           val directory = externalFilesDir ?: error("Model storage unavailable")
           ModelDownloadLocks.withModel(model.name) {
-            if (downloadRepository.hasUnfinishedDownload(model.name) ||
-              modelStorageRepository.getModelDownloadStatus(model).status != ModelDownloadStatusType.NOT_DOWNLOADED) false
-            else DiscoveredModels(directory, DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }).remove(model.name).also { removed ->
-              if (removed) {
-                try { preferencesRepository.clearInferenceConfig(model.prefsKey) }
-                catch (e: Exception) { Log.w(TAG, "Could not clear removed model settings", e) }
+            val statusOnDisk = modelStorageRepository.getModelDownloadStatus(model).status
+            if (!canRemoveDiscoveredModel(model.name, statusOnDisk, serverStateRepository.activeModelName.value,
+                serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(),
+                downloadRepository.hasUnfinishedDownload(model.name), confirmedStatus)) false
+            else {
+              DefaultModelGuard.beginRemoval(model.name)
+              var removed = false
+              val store = DiscoveredModels(directory, DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId })
+              try {
+                removed = DiscoveredModelRemoval(directory, store)
+                  .remove(model.name, model.normalizedName) { preferencesRepository.clearDefaultModelIfMatches(model.name) }
+                if (removed) {
+                  try { preferencesRepository.clearInferenceConfig(model.prefsKey) }
+                  catch (e: Exception) { Log.w(TAG, "Could not clear removed model settings", e) }
+                }
+                removed
+              } finally {
+                val usable = !removed && runCatching {
+                  store.read().any { it.toAllowedModel().name == model.name } &&
+                    modelStorageRepository.getModelDownloadStatus(model).status == ModelDownloadStatusType.SUCCEEDED
+                }.getOrDefault(false)
+                DefaultModelGuard.finishRemoval(model.name, usable)
               }
             }
           }
         }
         if (removed) {
           removeFavorite(model.name)
+          notifyStorageChanged()
           allowlistLoadJob?.cancel()
           removalGeneration = allowlistLoadGenerationGate.beginLoad()
           _uiState.update { current ->
@@ -349,12 +395,18 @@ constructor(
               modelDownloadStatus = current.modelDownloadStatus - model.name,
             )
           }
+        } else {
+          // File removal can fail partway; reload the authoritative disk status.
+          notifyStorageChanged()
+          loadModelAllowlist()
         }
         onResult(removed)
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to remove discovered model", e)
+        notifyStorageChanged()
+        loadModelAllowlist()
         onResult(false)
       } finally {
         allowlistLoadGenerationGate.publishIfCurrent(removalGeneration) {

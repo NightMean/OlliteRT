@@ -137,7 +137,7 @@ val DEFAULT_MODEL = SettingDef.Dropdown(
   resetDefault = "",
   prefsKey = "default_model_name",
   read = { it.getDefaultModelName() },
-  write = { repo, v -> repo.setDefaultModelName(v) },
+  write = { repo, v -> repo.setDefaultModelName(v); Unit },
 )
 
 val START_ON_BOOT = SettingDef.Toggle(

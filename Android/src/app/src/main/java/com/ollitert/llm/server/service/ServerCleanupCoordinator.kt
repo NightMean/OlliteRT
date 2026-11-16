@@ -24,7 +24,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.prefs.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.prefs.bytesToMb
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicReference
+import com.ollitert.llm.server.data.storage.ModelDownloadLocks
 
 private const val TAG = "OlliteRT.Service"
 
@@ -43,7 +43,7 @@ internal object ServerCleanupCoordinator {
    * nulled out between the new instance's read and wait. The latch is never nulled — once
    * counted down, it stays counted-down and await() returns immediately.
    */
-  val cleanupLatch = AtomicReference<CountDownLatch?>(null)
+  val cleanupLatch get() = ModelDownloadLocks.cleanupLatch
 
   /** Checks available storage before native model init to avoid SIGABRT from LiteRT. */
   fun checkStorageBeforeLoad(context: Context) {

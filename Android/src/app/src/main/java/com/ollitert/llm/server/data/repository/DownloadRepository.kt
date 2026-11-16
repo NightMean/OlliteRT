@@ -31,6 +31,7 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_N
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_DATA_URLS
 import com.ollitert.llm.server.data.storage.KEY_MODEL_IS_ZIP
 import com.ollitert.llm.server.data.storage.KEY_MODEL_NAME
+import com.ollitert.llm.server.data.storage.KEY_MODEL_SOURCE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
@@ -83,6 +84,7 @@ internal fun buildDownloadRequestData(model: Model): Data {
   val builder =
     Data.Builder()
       .putString(KEY_MODEL_NAME, model.name)
+      .putString(KEY_MODEL_SOURCE, model.sourceRepositoryId)
       .putString(KEY_MODEL_URL, model.url)
       .putString(KEY_MODEL_COMMIT_HASH, model.version)
       .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)

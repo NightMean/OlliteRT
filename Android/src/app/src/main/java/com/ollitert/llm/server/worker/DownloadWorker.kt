@@ -56,6 +56,9 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_N
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_DATA_URLS
 import com.ollitert.llm.server.data.storage.KEY_MODEL_IS_ZIP
 import com.ollitert.llm.server.data.storage.KEY_MODEL_NAME
+import com.ollitert.llm.server.data.storage.KEY_MODEL_SOURCE
+import com.ollitert.llm.server.data.storage.discoveredDownloadIsRegistered
+import com.ollitert.llm.server.data.prefs.DefaultModelGuard
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
@@ -156,6 +159,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       } else if (externalFilesDir == null) {
         Result.failure(workDataOf("error" to "External storage unavailable"))
       } else {
+        // A stale activity can enqueue work after another activity removes the import.
+        // The worker holds the same model lock as removal while checking the registry.
+        if (!discoveredDownloadIsRegistered(externalFilesDir, inputData.getString(KEY_MODEL_SOURCE), modelName)) {
+          return@withContext Result.failure(workDataOf(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE to "Model is no longer imported"))
+        }
         // Track all .tmp files created during this download session so we can
         // clean them up if the failure is disk-space related (see catch block).
         val createdTmpFiles: MutableList<File> = mutableListOf()
@@ -408,6 +416,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               zipFile.delete()
             }
           }
+          // The worker holds the model lock; a successful download makes a
+          // previously interrupted removal's model usable as a default again.
+          DefaultModelGuard.finishRemoval(modelName, true)
           Result.success()
         } catch (e: CancellationException) {
           throw e

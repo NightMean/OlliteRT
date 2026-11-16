@@ -25,6 +25,9 @@ import kotlinx.coroutines.yield
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import java.util.concurrent.CountDownLatch
 
 class ModelDownloadLocksTest {
   @Test fun removalWaitsForWorkerToLeaveModelLock() = runBlocking {
@@ -62,5 +65,44 @@ class ModelDownloadLocksTest {
     release.complete(Unit)
     worker.join()
     assertTrue(next.await())
+  }
+
+  @Test fun removalSeesModelUsePublishedByStartupUnderTheSameLock() = runBlocking {
+    val published = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    var active: String? = null
+    var status = ServerStatus.STOPPED
+    val startup = launch {
+      ModelDownloadLocks.withModel("example") {
+        active = "example"
+        status = ServerStatus.LOADING
+        published.complete(Unit)
+        release.await()
+      }
+    }
+    published.await()
+    val removal = async {
+      ModelDownloadLocks.withModel("example") {
+        canRemoveDiscoveredModel("example", ModelDownloadStatusType.SUCCEEDED, active, status, false, false, ModelDownloadStatusType.SUCCEEDED)
+      }
+    }
+    yield()
+    assertFalse(removal.isCompleted)
+    release.complete(Unit)
+    startup.join()
+    assertFalse(removal.await())
+  }
+
+  @Test fun cleanupLatchReportsPendingUntilNativeCleanupCompletes() {
+    val previous = ModelDownloadLocks.cleanupLatch.get()
+    val latch = CountDownLatch(1)
+    try {
+      ModelDownloadLocks.cleanupLatch.set(latch)
+      assertTrue(ModelDownloadLocks.isCleanupPending())
+      latch.countDown()
+      assertFalse(ModelDownloadLocks.isCleanupPending())
+    } finally {
+      ModelDownloadLocks.cleanupLatch.set(previous)
+    }
   }
 }

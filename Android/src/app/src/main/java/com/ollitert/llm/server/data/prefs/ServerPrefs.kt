@@ -229,11 +229,27 @@ object ServerPrefs {
     prefs(context)
       .getString(KEY_DEFAULT_MODEL_NAME, null)
 
-  @Synchronized fun setDefaultModelName(context: Context, modelName: String?) {
-    prefs(context).edit {
-      if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
-      else remove(KEY_DEFAULT_MODEL_NAME)
+  fun setDefaultModelName(context: Context, modelName: String?): Boolean =
+    DefaultModelGuard.assign(modelName) {
+      synchronized(this) {
+        prefs(context).edit {
+          if (modelName != null) putString(KEY_DEFAULT_MODEL_NAME, modelName)
+          else remove(KEY_DEFAULT_MODEL_NAME)
+        }
+      }
     }
+
+  @Synchronized fun clearDefaultModelIfMatches(context: Context, modelName: String): Boolean {
+    val preferences = prefs(context)
+    val previous = preferences.getString(KEY_DEFAULT_MODEL_NAME, null)
+    if (!previous.equals(modelName, ignoreCase = true)) return false
+    if (!preferences.edit().remove(KEY_DEFAULT_MODEL_NAME).commit()) {
+      // SharedPreferences changes memory even when its disk write fails. Restore
+      // the value so a retry cannot mistake that failed write for durable removal.
+      preferences.edit().putString(KEY_DEFAULT_MODEL_NAME, previous).commit()
+      throw java.io.IOException("Could not clear default model")
+    }
+    return true
   }
 
   fun isWarmupEnabled(context: Context): Boolean = get(context, WARMUP_ENABLED)
