@@ -102,7 +102,7 @@ fun ModelManagerScreen(
   onModelSelected: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
-  onNavigateToSettings: () -> Unit = {},
+  onNavigateToProviderTokens: () -> Unit = {},
   onNavigateToRepositories: () -> Unit = {},
   onExploreHuggingFace: () -> Unit = {},
   onExploreModelScope: () -> Unit = {},
@@ -281,7 +281,7 @@ fun ModelManagerScreen(
       activeModelName = activeModelName,
       lastError = lastError,
       onStopServer = onStopServer,
-      onNavigateToSettings = onNavigateToSettings,
+      onNavigateToProviderTokens = onNavigateToProviderTokens,
       searchQuery = searchQuery,
       showRecommendations = showRecommendations,
     )

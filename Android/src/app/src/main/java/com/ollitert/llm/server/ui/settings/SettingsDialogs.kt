@@ -154,29 +154,16 @@ internal fun SettingsDialogs(
 
   // Discard unsaved changes dialog
   if (vm.showDiscardDialog) {
-    AlertDialog(
-      onDismissRequest = { vm.showDiscardDialog = false },
-      title = { Text(stringResource(R.string.dialog_unsaved_changes_title)) },
-      text = { Text(stringResource(R.string.dialog_unsaved_changes_body)) },
-      confirmButton = {
-        Button(onClick = {
-          vm.showDiscardDialog = false
-          performSave()
-          onBackClick()
-        }) {
-          Text(stringResource(R.string.button_save))
-        }
+    UnsavedSettingsChangesDialog(
+      onDismiss = { vm.showDiscardDialog = false },
+      onSave = {
+        vm.showDiscardDialog = false
+        performSave()
+        onBackClick()
       },
-      dismissButton = {
-        Button(onClick = {
-          vm.showDiscardDialog = false
-          onBackClick()
-        },
-        colors = ButtonDefaults.buttonColors(
-          containerColor = MaterialTheme.colorScheme.error,
-        )) {
-          Text(stringResource(R.string.button_discard))
-        }
+      onDiscard = {
+        vm.showDiscardDialog = false
+        onBackClick()
       },
     )
   }
@@ -272,4 +259,22 @@ internal fun SettingsDialogs(
       onDismiss = { vm.showDonateDialog = false },
     )
   }
+}
+
+@Composable
+internal fun UnsavedSettingsChangesDialog(onDismiss: () -> Unit, onSave: () -> Unit, onDiscard: () -> Unit) {
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(stringResource(R.string.dialog_unsaved_changes_title)) },
+    text = { Text(stringResource(R.string.dialog_unsaved_changes_body)) },
+    confirmButton = {
+      Button(onClick = onSave) { Text(stringResource(R.string.button_save)) }
+    },
+    dismissButton = {
+      Button(
+        onClick = onDiscard,
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+      ) { Text(stringResource(R.string.button_discard)) }
+    },
+  )
 }

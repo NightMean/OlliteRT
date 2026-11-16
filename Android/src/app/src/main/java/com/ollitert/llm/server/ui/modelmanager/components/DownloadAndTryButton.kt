@@ -134,7 +134,7 @@ fun DownloadAndTryButton(
   modelManagerViewModel: ModelManagerViewModel,
   onClicked: () -> Unit,
   modifier: Modifier = Modifier,
-  onNavigateToSettings: () -> Unit = {},
+  onNavigateToProviderTokens: () -> Unit = {},
   modifierWhenExpanded: Modifier = Modifier,
   compact: Boolean = false,
   canShowTryIt: Boolean = true,
@@ -539,7 +539,7 @@ fun DownloadAndTryButton(
   hfTokenDialogReason?.let { reason ->
     HfTokenRequiredDialog(
       reason = reason,
-      onNavigateToSettings = onNavigateToSettings,
+      onNavigateToProviderTokens = onNavigateToProviderTokens,
       onDismiss = { hfTokenDialogReason = null },
     )
   }

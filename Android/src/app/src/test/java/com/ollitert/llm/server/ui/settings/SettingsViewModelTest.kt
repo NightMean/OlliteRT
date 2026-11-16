@@ -58,6 +58,16 @@ import com.ollitert.llm.server.service.updateClientIpAccessPolicy
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
+  @Test fun savingOtherSettingsDoesNotOverwriteProviderTokens() {
+    fakePreferences.setHfToken("new-hf")
+    fakePreferences.setModelScopeToken(true, "new-ai")
+    fakePreferences.setModelScopeToken(false, "new-cn")
+    assertTrue(vm.save(ServerStatus.STOPPED) is SettingsViewModel.SaveResult.Success)
+    assertEquals("new-hf", fakePreferences.getHfToken())
+    assertEquals("new-ai", fakePreferences.getModelScopeToken(true))
+    assertEquals("new-cn", fakePreferences.getModelScopeToken(false))
+  }
+
   @Test fun staleChangedDefaultCannotRestoreRemovedModel() {
     val name = "removed-${java.util.UUID.randomUUID()}"
     vm.defaultModelEntry.update(name)

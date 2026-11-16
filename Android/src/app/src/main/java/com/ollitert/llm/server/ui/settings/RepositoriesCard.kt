@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -57,46 +58,56 @@ internal fun RepositoriesCard(
     else -> stringResource(R.string.repo_card_enabled_disabled, enabledCount, disabledCount)
   }
 
-  Column(
+  SettingsNavigationCard(Icons.Outlined.Inventory2, stringResource(R.string.settings_card_repositories), statusLine,
+    stringResource(R.string.repo_card_tap_hint), searchQuery, onNavigateToRepositories)
+}
+
+@Composable
+internal fun SettingsNavigationCard(icon: ImageVector, title: String, description: String, hint: String,
+  searchQuery: String, onClick: () -> Unit) {
+  Row(
     modifier = Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(24.dp))
       .background(MaterialTheme.colorScheme.surfaceContainerLow)
-      .clickable { onNavigateToRepositories() }
+      .clickable { onClick() }
       .padding(20.dp),
+    verticalAlignment = Alignment.CenterVertically,
   ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(
-        imageVector = Icons.Outlined.Inventory2,
-        contentDescription = null,
-        tint = OlliteRTPrimary,
-        modifier = Modifier.size(20.dp),
-      )
-      Spacer(modifier = Modifier.width(8.dp))
+    Column(modifier = Modifier.weight(1f)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+          imageVector = icon,
+          contentDescription = null,
+          tint = OlliteRTPrimary,
+          modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = highlightSearchMatches(title, searchQuery, OlliteRTPrimary),
+          style = MaterialTheme.typography.titleSmall,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      Spacer(modifier = Modifier.height(12.dp))
       Text(
-        text = highlightSearchMatches(stringResource(R.string.settings_card_repositories), searchQuery, OlliteRTPrimary),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.weight(1f),
+        text = description,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
-      Icon(
-        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-        contentDescription = null,
-        modifier = Modifier.size(24.dp),
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(
+        text = hint,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
       )
     }
-    Spacer(modifier = Modifier.height(12.dp))
-    Text(
-      text = statusLine,
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-    Text(
-      text = stringResource(R.string.repo_card_tap_hint),
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+    Spacer(modifier = Modifier.width(12.dp))
+    Icon(
+      Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+      contentDescription = null,
+      modifier = Modifier.size(24.dp),
+      tint = MaterialTheme.colorScheme.onSurfaceVariant,
     )
   }
 }

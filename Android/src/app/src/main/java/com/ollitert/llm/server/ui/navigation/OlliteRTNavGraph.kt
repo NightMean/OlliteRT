@@ -72,6 +72,7 @@ import com.ollitert.llm.server.ui.modelrepos.RepositoryDetailScreen
 import com.ollitert.llm.server.ui.modelrepos.RepositoryListScreen
 import com.ollitert.llm.server.ui.modelrepos.RepositoryViewModel
 import com.ollitert.llm.server.ui.settings.SettingsScreen
+import com.ollitert.llm.server.ui.settings.ProviderTokensScreen
 import com.ollitert.llm.server.ui.settings.SettingsViewModel
 import com.ollitert.llm.server.ui.server.StatusScreen
 
@@ -246,7 +247,7 @@ fun OlliteRTNavHost(
           manualStartPending = true
           serverViewModel.switchModel(modelName)
         },
-        onNavigateToSettings = { navController.navigate(OlliteRTRoute.Settings) { launchSingleTop = true } },
+        onNavigateToProviderTokens = { navController.navigate(OlliteRTRoute.ProviderTokens) { launchSingleTop = true } },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
         onExploreHuggingFace = { navController.navigate(OlliteRTRoute.HuggingFaceExplore) { launchSingleTop = true } },
         onExploreModelScope = { navController.navigate(OlliteRTRoute.ModelScopeExplore) { launchSingleTop = true } },
@@ -332,7 +333,12 @@ fun OlliteRTNavHost(
           modelManagerViewModel.refreshFavoriteModels()
         },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },
+        onNavigateToProviderTokens = { navController.navigate(OlliteRTRoute.ProviderTokens) { launchSingleTop = true } },
       )
+    }
+
+    composable<OlliteRTRoute.ProviderTokens>(enterTransition = { slideInLeft() }, exitTransition = { slideOutRight() }) {
+      ProviderTokensScreen(onBack = { navController.popBackStack() }, onSetTopBarTrailingContent = onSetTopBarTrailingContent)
     }
 
     // Repository list

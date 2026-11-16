@@ -101,12 +101,12 @@ internal fun GatedAgreementSheet(
 }
 
 /**
- * Dialog prompting user to configure or fix their HuggingFace API token in Settings.
+ * Dialog prompting user to configure or fix their Hugging Face API token.
  */
 @Composable
 internal fun HfTokenRequiredDialog(
   reason: HfTokenDialogReason,
-  onNavigateToSettings: () -> Unit,
+  onNavigateToProviderTokens: () -> Unit,
   onDismiss: () -> Unit,
 ) {
   val isInvalid = reason == HfTokenDialogReason.INVALID
@@ -121,8 +121,8 @@ internal fun HfTokenRequiredDialog(
     text = { Text(stringResource(bodyRes)) },
     onDismissRequest = onDismiss,
     confirmButton = {
-      TextButton(onClick = { onDismiss(); onNavigateToSettings() }) {
-        Text(stringResource(R.string.button_go_to_settings))
+      TextButton(onClick = { onDismiss(); onNavigateToProviderTokens() }) {
+        Text(stringResource(R.string.button_go_to_provider_tokens))
       }
     },
     dismissButton = {

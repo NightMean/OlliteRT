@@ -45,6 +45,9 @@ sealed interface OlliteRTRoute {
   data object Repositories : OlliteRTRoute
 
   @Serializable
+  data object ProviderTokens : OlliteRTRoute
+
+  @Serializable
   data object HuggingFaceExplore : OlliteRTRoute
 
   @Serializable

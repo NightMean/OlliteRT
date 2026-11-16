@@ -161,10 +161,11 @@
   <string name="dialog_network_error_body">Please check your internet connection.</string>
   <string name="dialog_model_not_found_title">Model not found</string>
   <string name="dialog_model_not_found_body">The model could not be found on HuggingFace. Verify that the model ID and commit hash in your model list are correct.</string>
+  <string name="button_go_to_provider_tokens">Go to Provider Tokens</string>
   <string name="dialog_hf_token_required_title">HuggingFace Token Required</string>
-  <string name="dialog_hf_token_required_body">This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Settings.</string>
+  <string name="dialog_hf_token_required_body">This model is gated and requires a HuggingFace access token to download.\n\nPlease add your token in Provider Tokens.</string>
   <string name="dialog_hf_token_invalid_title">HuggingFace Token Invalid</string>
-  <string name="dialog_hf_token_invalid_body">Your HuggingFace token was rejected by the server. It may be expired, revoked, or incorrect.\n\nPlease check your token in Settings.</string>
+  <string name="dialog_hf_token_invalid_body">Your HuggingFace token was rejected by the server. It may be expired, revoked, or incorrect.\n\nPlease check your token in Provider Tokens.</string>
   <string name="button_go_to_settings">Go to Settings</string>
   <string name="button_go_to_model_sources">Go to Model Sources</string>
   <string name="dialog_storage_warning_title">Not Enough Storage</string>
@@ -316,6 +317,9 @@
 
   <!-- Settings: Hugging Face Token card -->
   <string name="settings_card_hf_token" translatable="false">Provider Tokens</string>
+  <string name="settings_provider_tokens_summary">Manage access tokens for Hugging Face and ModelScope.</string>
+  <string name="settings_provider_tokens_hint">Tap to manage provider tokens</string>
+  <string name="settings_modelscope_token_placeholder">ms-…</string>
   <string name="settings_huggingface_token_label">Hugging Face token</string>
   <string name="settings_modelscope_ai_token">ModelScope International token</string>
   <string name="settings_modelscope_cn_token">ModelScope China token</string>

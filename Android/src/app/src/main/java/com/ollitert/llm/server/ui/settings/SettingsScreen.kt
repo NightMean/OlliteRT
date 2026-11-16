@@ -45,6 +45,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -73,7 +74,6 @@ import com.ollitert.llm.server.ui.settings.CardId
 import com.ollitert.llm.server.ui.settings.ContextManagementCard
 import com.ollitert.llm.server.ui.settings.DeveloperCard
 import com.ollitert.llm.server.ui.settings.GeneralCard
-import com.ollitert.llm.server.ui.settings.HfTokenCard
 import com.ollitert.llm.server.ui.settings.HomeAssistantCard
 import com.ollitert.llm.server.ui.settings.LogPersistenceCard
 import com.ollitert.llm.server.ui.settings.MetricsCard
@@ -98,6 +98,7 @@ fun SettingsScreen(
   onSetTopBarTrailingContent: ((@Composable () -> Unit)?) -> Unit = {},
   onSettingsSaved: () -> Unit = {},
   onNavigateToRepositories: () -> Unit = {},
+  onNavigateToProviderTokens: () -> Unit = {},
 ) {
   val context = LocalContext.current
 
@@ -219,7 +220,9 @@ fun SettingsScreen(
       )
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.HF_TOKEN), enter = expandVertically(), exit = shrinkVertically()) {
-      HfTokenCard(vm, context)
+      SettingsNavigationCard(Icons.Outlined.Key, stringResource(R.string.settings_card_hf_token),
+        stringResource(R.string.settings_provider_tokens_summary), stringResource(R.string.settings_provider_tokens_hint),
+        vm.searchQuery, onNavigateToProviderTokens)
     }
     AnimatedVisibility(visible = vm.cardVisible(CardId.GENERAL), enter = expandVertically(), exit = shrinkVertically()) {
       GeneralCard(vm)

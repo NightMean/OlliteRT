@@ -376,7 +376,7 @@ class SettingsViewModel @Inject constructor(
     preferencesRepository.setClientIpPolicyConfig(config.policyConfig)
     // All non-Custom settings: persist via the definition's write lambda
     for (def in allSettingDefs) {
-      if (def.key in networkPolicy.settingKeys || def.key == "bearer_token" || def.key == "default_model") continue // handled above
+      if (def.key in networkPolicy.settingKeys || def.key == "bearer_token" || def.key == "default_model" || def.card == CardId.HF_TOKEN) continue // managed separately
       val entry = entryByKey[def.key] ?: continue
       persistViaDefinition(def, entry)
     }

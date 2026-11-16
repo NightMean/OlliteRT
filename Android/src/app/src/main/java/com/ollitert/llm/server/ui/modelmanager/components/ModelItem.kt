@@ -92,7 +92,7 @@ fun ModelItem(
   activeModelName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
-  onNavigateToSettings: () -> Unit = {},
+  onNavigateToProviderTokens: () -> Unit = {},
   searchQuery: String = "",
   showRecommendations: Boolean = true,
 ) {
@@ -172,7 +172,7 @@ fun ModelItem(
         modelManagerViewModel = modelManagerViewModel,
         onTryItClicked = { onModelClicked(model) },
         onBenchmarkClicked = { onBenchmarkClicked(model) },
-        onNavigateToSettings = onNavigateToSettings,
+        onNavigateToProviderTokens = onNavigateToProviderTokens,
         showBenchmarkButton = showBenchmarkButton,
         serverStatus = serverStatus,
         activeModelName = activeModelName,
