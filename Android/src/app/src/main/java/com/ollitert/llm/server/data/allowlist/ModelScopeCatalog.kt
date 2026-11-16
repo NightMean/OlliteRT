@@ -22,6 +22,9 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -56,7 +59,7 @@ private const val PAGE_SIZE = 50
 private const val MAX_PAGE = 3000 / PAGE_SIZE
 internal const val MODELSCOPE_RATE_LIMIT_CODE = 10013201001L
 
-internal class ModelScopeRateLimitException : IOException("ModelScope rate limit exceeded")
+internal class ModelScopeRateLimitException(val retryAfterMillis: Long? = null) : IOException("ModelScope rate limit exceeded")
 internal class ModelScopeAccessException : IOException("ModelScope denied access")
 private class ModelScopeNotFoundException : IOException("ModelScope repository not found")
 
@@ -167,10 +170,9 @@ internal class ModelScopeCatalog(
   fun files(repository: String, revision: String = "master"): List<ModelScopeFile> {
     require(isValidHuggingFaceModelId(repository)) { "Invalid model repository ID" }
     require(revision.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]*")) && revision != "." && revision != "..") { "Invalid model revision" }
-    val response = json.decodeFromString<FileListResponse>(
-      get("$endpoint/api/v1/models/$repository/repo/files?Revision=$revision&Recursive=True")
-    )
-    if (response.code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+    val result = getResponse("$endpoint/api/v1/models/$repository/repo/files?Revision=$revision&Recursive=True")
+    val response = json.decodeFromString<FileListResponse>(result.body)
+    if (response.code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException(result.retryAfterMillis)
     if (!response.success || response.data == null) throw IOException("ModelScope file listing failed (code ${response.code})")
     // The legacy API silently truncates large trees; never present a partial list as complete.
     if (response.data.files.size >= TREE_LIMIT) throw IOException("ModelScope file listing is incomplete")
@@ -184,7 +186,11 @@ internal class ModelScopeCatalog(
     }
   }
 
-  private fun get(url: String, withCredentials: Boolean = true): String {
+  private data class Response(val body: String, val retryAfterMillis: Long?)
+
+  private fun get(url: String): String = getResponse(url).body
+
+  private fun getResponse(url: String, withCredentials: Boolean = true): Response {
     val connection = openConnection(url)
     try {
       connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
@@ -196,22 +202,23 @@ internal class ModelScopeCatalog(
       }
       val status = connection.responseCode
       if (status != HttpURLConnection.HTTP_OK) {
+        if (status == 429) throw ModelScopeRateLimitException(parseRetryAfter(connection.getHeaderField("Retry-After")))
         // The legacy API reports rate limits as HTTP 403 with a provider-specific code.
         val error = connection.errorStream?.bufferedReader()?.use { it.readTextLimited(4096) }
         val code = error?.let { runCatching { json.parseToJsonElement(it).jsonObject["Code"]?.jsonPrimitive?.longOrNull }.getOrNull() }
-        if (status == 429 || code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+        if (code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException(parseRetryAfter(connection.getHeaderField("Retry-After")))
         if (status == HttpURLConnection.HTTP_NOT_FOUND) throw ModelScopeNotFoundException()
         if (status == HttpURLConnection.HTTP_UNAUTHORIZED || status == HttpURLConnection.HTTP_FORBIDDEN) {
           // An invalid token must not hide repositories available anonymously.
           if (withCredentials && !token.isNullOrBlank()) {
-            return try { get(url, withCredentials = false) }
+            return try { getResponse(url, withCredentials = false) }
             catch (_: ModelScopeNotFoundException) { throw ModelScopeAccessException() }
           }
           throw ModelScopeAccessException()
         }
         throw IOException("ModelScope returned HTTP $status")
       }
-      return connection.inputStream.bufferedReader().use { reader ->
+      val body = connection.inputStream.bufferedReader().use { reader ->
         val result = StringBuilder()
         val buffer = CharArray(8192)
         while (true) {
@@ -222,10 +229,25 @@ internal class ModelScopeCatalog(
         }
         result.toString()
       }
+      return Response(body, parseRetryAfter(connection.getHeaderField("Retry-After")))
     } finally {
       connection.disconnect()
     }
   }
+}
+
+/** Unknown or overflowing cooldowns disable automatic retry rather than retrying too early. */
+internal fun parseRetryAfter(value: String?, now: Instant = Instant.now()): Long? {
+  val text = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+  if (text.all { it in '0'..'9' }) {
+    val seconds = text.toLongOrNull() ?: return Long.MAX_VALUE
+    return if (seconds > Long.MAX_VALUE / 1000) Long.MAX_VALUE else seconds * 1000
+  }
+  return try {
+    val target = ZonedDateTime.parse(text, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()
+    java.time.Duration.between(now, target).toMillis().coerceAtLeast(0)
+  } catch (_: java.time.DateTimeException) { Long.MAX_VALUE }
+    catch (_: ArithmeticException) { Long.MAX_VALUE }
 }
 
 internal fun java.io.Reader.readTextLimited(limit: Int): String {

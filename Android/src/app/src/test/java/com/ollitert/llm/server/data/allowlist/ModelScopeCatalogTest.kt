@@ -21,6 +21,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -30,6 +31,32 @@ class ModelScopeCatalogTest {
   private fun connection(body: String): HttpURLConnection = mockk<HttpURLConnection>(relaxed = true).also {
     every { it.responseCode } returns 200
     every { it.inputStream } returns body.byteInputStream()
+  }
+
+  @Test fun retryAfterSupportsSecondsDatesAndOverflow() {
+    val now = Instant.parse("2026-11-16T12:00:00Z")
+    assertEquals(3_000L, parseRetryAfter("3", now))
+    assertEquals(5_000L, parseRetryAfter("Mon, 16 Nov 2026 12:00:05 GMT", now))
+    assertEquals(0L, parseRetryAfter("Mon, 16 Nov 2026 11:59:55 GMT", now))
+    assertEquals(Long.MAX_VALUE, parseRetryAfter("999999999999999999999", now))
+    assertEquals(Long.MAX_VALUE, parseRetryAfter("invalid", now))
+    assertEquals(null, parseRetryAfter(null, now))
+  }
+
+  @Test fun retryAfterIsRetainedForHttpAndProviderBodyRateLimits() {
+    val http = connection("")
+    every { http.responseCode } returns 429
+    every { http.getHeaderField("Retry-After") } returns "3"
+    val httpError = assertThrows(ModelScopeRateLimitException::class.java) {
+      ModelScopeCatalog(openConnection = { http }).files("author/model")
+    }
+    assertEquals(3_000L, httpError.retryAfterMillis)
+    val body = connection("""{"Success":false,"Code":10013201001}""")
+    every { body.getHeaderField("Retry-After") } returns "5"
+    val bodyError = assertThrows(ModelScopeRateLimitException::class.java) {
+      ModelScopeCatalog(openConnection = { body }).files("author/model")
+    }
+    assertEquals(5_000L, bodyError.retryAfterMillis)
   }
 
   @Test fun searchUsesTaggedCatalogAndPreservesMetadata() {

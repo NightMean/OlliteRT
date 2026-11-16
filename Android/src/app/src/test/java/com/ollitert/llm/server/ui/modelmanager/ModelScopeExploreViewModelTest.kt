@@ -40,6 +40,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -56,6 +57,69 @@ class ModelScopeExploreViewModelTest {
   private val dispatcher = StandardTestDispatcher()
   @Before fun setup() { Dispatchers.setMain(dispatcher); mockkStatic(Log::class); every { Log.w(any(), any(), any<Throwable>()) } returns 0 }
   @After fun teardown() { unmockkStatic(Log::class); Dispatchers.resetMain() }
+
+  @Test fun modelFilesRecoverAfterTemporaryRateLimit() = runTest(dispatcher) {
+    val model = ModelScopeModel("author/model")
+    val file = ModelScopeFile("model.litertlm", 123, "a".repeat(40), null)
+    var attempts = 0
+    val catalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(listOf(model), false, false)
+      every { files(model.id, any()) } answers { if (++attempts < 4) throw ModelScopeRateLimitException() else listOf(file) }
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), catalog, dispatcher, initialSite = ModelScopeSite.CHINA)
+    advanceUntilIdle()
+    vm.open(model)
+    advanceUntilIdle()
+    assertEquals(4, attempts)
+    assertEquals(model, vm.state.value.details)
+    assertEquals(listOf(file), vm.state.value.files)
+    assertEquals(ModelScopeSite.CHINA, vm.state.value.detailsSite)
+  }
+
+  @Test fun chinaLinkRetriesMetadataAndFilesOnItsOwnSite() = runTest(dispatcher) {
+    val model = ModelScopeModel("author/model")
+    val file = ModelScopeFile("model.litertlm", 123, "a".repeat(40), null)
+    var metadataAttempts = 0
+    var fileAttempts = 0
+    val aiCatalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(emptyList(), false, false)
+    }
+    val cnCatalog = mockk<ModelScopeCatalog> {
+      every { details(model.id) } answers { if (++metadataAttempts == 1) throw ModelScopeRateLimitException() else model }
+      every { files(model.id, "master") } answers { if (++fileAttempts == 1) throw ModelScopeRateLimitException() else listOf(file) }
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), aiCatalog, dispatcher,
+      catalogForSite = { if (it == ModelScopeSite.CHINA) cnCatalog else aiCatalog })
+    advanceUntilIdle()
+    vm.openLink("https://modelscope.cn/models/author/model")
+    advanceUntilIdle()
+    assertEquals(2, metadataAttempts)
+    assertEquals(2, fileAttempts)
+    assertEquals(ModelScopeSite.CHINA, vm.state.value.detailsSite)
+    assertEquals(listOf(file), vm.state.value.files)
+  }
+
+  @Test fun closingChinaLinkCancelsThePendingRetry() = runTest(dispatcher) {
+    val model = ModelScopeModel("author/model")
+    var attempts = 0
+    val aiCatalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(emptyList(), false, false)
+    }
+    val cnCatalog = mockk<ModelScopeCatalog> {
+      every { details(model.id) } returns model
+      every { files(model.id, "master") } answers { attempts++; throw ModelScopeRateLimitException() }
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), aiCatalog, dispatcher,
+      catalogForSite = { if (it == ModelScopeSite.CHINA) cnCatalog else aiCatalog })
+    advanceUntilIdle()
+    vm.openLink("https://modelscope.cn/models/author/model")
+    runCurrent()
+    assertEquals(1, attempts)
+    vm.closeLink()
+    advanceUntilIdle()
+    assertEquals(1, attempts)
+    assertTrue(!vm.state.value.linkLoading)
+  }
 
   @Test fun dismissingModelErrorAllowsMorePages() = runTest(dispatcher) {
     val model = ModelScopeModel("author/model")

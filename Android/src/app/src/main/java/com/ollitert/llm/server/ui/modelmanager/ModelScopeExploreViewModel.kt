@@ -30,6 +30,7 @@ import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
 import com.ollitert.llm.server.data.allowlist.ModelScopeSort
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.parseModelScopeLink
+import com.ollitert.llm.server.data.allowlist.retryModelScopeRateLimit
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.proto.ImportedModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -177,7 +178,7 @@ internal class ModelScopeExploreViewModel internal constructor(
     _state.update { it.copy(loading = false, loadingMore = false, openingModelId = model.id, detailsSite = site, error = false, rateLimited = false, accessDenied = false, failedModel = null) }
     job = viewModelScope.launch {
       try {
-        val files = withContext(io) { catalogForSite(site).files(model.id) }
+        val files = withContext(io) { retryModelScopeRateLimit { catalogForSite(site).files(model.id) } }
         _state.update { it.copy(details = model, detailsOffline = false, files = files, selectedPath = null, openingModelId = null) }
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
@@ -204,7 +205,11 @@ internal class ModelScopeExploreViewModel internal constructor(
     job = viewModelScope.launch {
       try {
         val (model, files) = withContext(io) {
-          catalogForSite(site).let { it.details(link.repository) to it.files(link.repository, link.revision ?: "master") }
+          catalogForSite(site).let { catalog ->
+            val model = retryModelScopeRateLimit { catalog.details(link.repository) }
+            val files = retryModelScopeRateLimit { catalog.files(link.repository, link.revision ?: "master") }
+            model to files
+          }
         }
         require(link.path == null || files.any { it.path == link.path })
         _state.update { it.copy(details = model, detailsSite = site, detailsOffline = false, files = files, selectedPath = link.path, linkLoading = false) }
