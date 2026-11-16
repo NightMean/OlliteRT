@@ -104,8 +104,19 @@ internal class ServerModelLoader(
       ServerMetrics.setThinkingEnabled(model.isThinkingEnabled)
       ServerMetrics.setSpeculativeDecodingEnabled(model.isSpeculativeDecodingEnabled)
       ServerMetrics.setInferenceSettings(model.configValues)
+      ServerMetrics.setActiveModelInstanceCount(ServerPrefs.getModelInstanceCount(context, model))
       ServerMetrics.onServerRunning(notifState.advertisedHost, notifState.isLoopbackOnly)
       modelLifecycle.resetKeepAliveTimer()
+      // Second-model restore step: the reload's onServerStopped() reset the
+      // session flows (including secondaryModelName), but the pinned
+      // secondary's native engine survived the teardown. Re-publish it so
+      // the UI (secondary controls, notification, monitor) stays in sync
+      // with the resident engine.
+      val secondary = modelLifecycle.secondaryModel
+      if (secondary != null) {
+        ServerMetrics.updateSecondaryModelName(secondary.name)
+        ServerMetrics.updateSecondaryModelInstanceCount(ServerPrefs.getModelInstanceCount(context, secondary))
+      }
       RequestLogStore.addEvent(
         "Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)",
         modelName = model.name,
@@ -225,7 +236,7 @@ internal class ServerModelLoader(
     val msg = t.message?.take(LOG_ERROR_PREVIEW_LONG_CHARS) ?: context.getString(R.string.error_model_init_unknown)
     val category = if (t is OutOfMemoryError) ErrorCategory.SYSTEM else ErrorCategory.MODEL_LOAD
     ServerMetrics.onServerError(msg)
-    ServerMetrics.incrementErrorCount(category)
+    ServerMetrics.incrementErrorCount(category, model.name)
     RequestLogStore.addEvent(
       "Model load failed: $msg",
       level = LogLevel.ERROR,

@@ -54,6 +54,7 @@ object ConfigKeys {
   val THINKING_BUDGET = ConfigKey("thinking_budget", "Thinking budget", R.string.config_label_thinking_budget)
   val ENABLE_SPECULATIVE_DECODING = ConfigKey("enable_speculative_decoding", "Speculative decoding", R.string.config_label_enable_speculative_decoding)
   val ACCELERATOR = ConfigKey("accelerator", "Accelerator", R.string.config_label_accelerator)
+  val INSTANCE_COUNT = ConfigKey("instance_count", "Instances", R.string.config_label_instance_count)
   val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "Vision accelerator", R.string.config_label_vision_accelerator)
   val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators", R.string.config_label_compatible_accelerators)
   val NAME = ConfigKey("name", "Name", R.string.config_label_name)
@@ -102,6 +103,14 @@ const val MAX_THINKING_BUDGET_TOKENS = 32_000
 /** Read [ConfigKeys.ENABLE_SPECULATIVE_DECODING] as [Boolean], or null if absent/non-boolean. */
 fun Map<String, Any>.configSpeculativeDecodingEnabled(): Boolean? =
   this[ConfigKeys.ENABLE_SPECULATIVE_DECODING.id] as? Boolean
+
+/** Default and bounds for [ConfigKeys.INSTANCE_COUNT] (engines of one model). */
+const val DEFAULT_INSTANCE_COUNT = 1
+const val MAX_INSTANCE_COUNT = 3
+
+/** Read [ConfigKeys.INSTANCE_COUNT] as [Int] clamped to 1..3, or null if absent/non-numeric. */
+fun Map<String, Any>.instanceCount(): Int? =
+  (this[ConfigKeys.INSTANCE_COUNT.id] as? Number)?.toInt()?.coerceIn(1, MAX_INSTANCE_COUNT)
 
 /**
  * Base class for configuration settings.
@@ -295,6 +304,15 @@ fun createLlmChatConfigs(
           defaultValue = accelerators.sortedBy { preferredAcceleratorOrder(it) }.first().label,
           options = accelerators.sortedBy { preferredAcceleratorOrder(it) }.map { it.label },
         ),
+        // Number of independent engine instances for this model (per-model;
+        // 1 = legacy single engine). Takes effect on model (re)initialization.
+        NumberSliderConfig(
+          key = ConfigKeys.INSTANCE_COUNT,
+          sliderMin = DEFAULT_INSTANCE_COUNT.toFloat(),
+          sliderMax = MAX_INSTANCE_COUNT.toFloat(),
+          defaultValue = DEFAULT_INSTANCE_COUNT.toFloat(),
+          valueType = ValueType.INT,
+        ),
       )
       .toMutableList()
 
@@ -322,6 +340,13 @@ fun createLlmChatConfigsForNpuModel(
       key = ConfigKeys.ACCELERATOR,
       defaultValue = accelerators.sortedBy { preferredAcceleratorOrder(it) }.first().label,
       options = accelerators.sortedBy { preferredAcceleratorOrder(it) }.map { it.label },
+    ),
+    NumberSliderConfig(
+      key = ConfigKeys.INSTANCE_COUNT,
+      sliderMin = DEFAULT_INSTANCE_COUNT.toFloat(),
+      sliderMax = MAX_INSTANCE_COUNT.toFloat(),
+      defaultValue = DEFAULT_INSTANCE_COUNT.toFloat(),
+      valueType = ValueType.INT,
     ),
   )
 }

@@ -1,0 +1,60 @@
+{
+  "model": "EmbeddingGemma-2-740M",
+  "secondary": null,
+  "model_instances": null,
+  "models_listed": [
+    "EmbeddingGemma-2-740M"
+  ],
+  "SINGLE_MODEL": false,
+  "warmup": {
+    "wall": 0.857,
+    "n": 1,
+    "dim": 768,
+    "norm0": 1.0,
+    "per_doc": 0.857,
+    "usage": {
+      "prompt_tokens": 1277,
+      "total_tokens": 1277
+    }
+  },
+  "doc_1024_solo": {
+    "wall": 0.788,
+    "n": 1,
+    "dim": 768,
+    "norm0": 1.0,
+    "per_doc": 0.788,
+    "usage": {
+      "prompt_tokens": 1277,
+      "total_tokens": 1277
+    }
+  },
+  "batch_846_short": {
+    "wall": 97.641,
+    "n": 846,
+    "dim": 768,
+    "norm0": 1.0,
+    "per_doc": 0.115,
+    "usage": {
+      "prompt_tokens": 14586,
+      "total_tokens": 14586
+    }
+  },
+  "batch_224kb_size_kb": 79.8,
+  "batch_224kb": {
+    "wall": 9.736,
+    "n": 16,
+    "dim": 768,
+    "norm0": 1.0,
+    "per_doc": 0.609,
+    "usage": {
+      "prompt_tokens": 20435,
+      "total_tokens": 20435
+    }
+  },
+  "vs_baseline": {
+    "doc_1024_solo": "0.788s vs 0.79s (0%)",
+    "batch_846_short": "97.641s vs 41.9s (133%)",
+    "batch_224kb": "9.736s vs 55.3s (-82%)"
+  },
+  "REGRESSION": "POSSIBLE in ['batch_846_short']"
+}

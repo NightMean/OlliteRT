@@ -36,6 +36,8 @@ import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
 import com.ollitert.llm.server.data.model.llmSupportThinking
+
+import com.ollitert.llm.server.data.prefs.instanceCount
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import kotlinx.io.readByteArray
@@ -46,6 +48,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -106,6 +109,64 @@ class ServerControlHandler(
       put("model", modelName)
     }
     return httpOkJson(result.toString())
+  }
+
+  /**
+   * Handles POST /v1/server/models/load — pins a second (embedding) model to
+   * stay resident alongside the active chat model. Blocking: native engine init
+   * runs 10-60s on the CIO worker thread (never the main looper).
+   */
+  fun handleModelLoad(body: String): HttpResponse {
+    val obj = try {
+      if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
+    val name = obj?.get("name")?.jsonPrimitive?.content?.trim().orEmpty()
+    if (name.isEmpty()) {
+      return httpBadRequest("Missing required field: name (e.g. {\"name\": \"EmbeddingGemma-2-740M\"})")
+    }
+    return try {
+      val err = modelLifecycle.loadSecondaryModel(name)
+      if (err.isEmpty()) {
+        // API-driven load: re-post the foreground notification so the second
+        // model line appears without a GUI round-trip (same as the intent path).
+        ServerService.refreshRunningNotification(serviceContext)
+        httpOkJson(buildJsonObject {
+          put("success", true)
+          put("message", "Second model loaded")
+          put("model", modelLifecycle.secondaryModel?.name ?: name)
+        }.toString())
+      } else {
+        httpJsonError(400, err)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Second model load failed", e)
+      httpInternalError("Second model load failed: ${e.message}")
+    }
+  }
+
+  /** Handles POST /v1/server/models/unload — releases the pinned second model. */
+  fun handleModelUnload(body: String): HttpResponse {
+    val obj = try {
+      if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
+    val name = obj?.get("name")?.jsonPrimitive?.content?.trim()?.ifEmpty { null }
+    return try {
+      val err = modelLifecycle.unloadSecondaryModel(name)
+      if (err.isEmpty()) {
+        // Mirror the load path: drop the second model line from the notification.
+        ServerService.refreshRunningNotification(serviceContext)
+        httpOkJson("""{"success":true,"message":"Second model unloaded"}""")
+      } else {
+        httpJsonError(400, err)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Second model unload failed", e)
+      httpInternalError("Second model unload failed: ${e.message}")
+    }
   }
 
   private data class ModelContext(
@@ -357,13 +418,21 @@ class ServerControlHandler(
       val old = ServerPrefs.getKeepAliveMinutes(serviceContext)
       changes.add("Keep Alive Minutes: $old → $v")
     }
+    val modelInstanceCount = parseConfigInt(obj, "model_instance_count")?.also { v ->
+      if (v < 1 || v > 3) {
+        throw ConfigFieldException("model_instance_count", "integer from 1 to 3")
+      }
+      val old = ServerPrefs.getInferenceConfig(serviceContext, modelPrefsKey)?.instanceCount()
+        ?: ServerPrefs.getModelInstanceCount(serviceContext)
+      changes.add("Model Instance Count: $old → $v")
+    }
     val systemPrompt = parseConfigString(obj, "system_prompt")?.also { v ->
       val old = ServerPrefs.getSystemPrompt(serviceContext, modelPrefsKey)
       val oldDisplay = if (old.isBlank()) "(empty)" else "\"${old.take(40)}${if (old.length > 40) "…" else ""}\""
       val newDisplay = if (v.isBlank()) "(empty)" else "\"${v.take(40)}${if (v.length > 40) "…" else ""}\""
       changes.add("System Prompt: $oldDisplay → $newDisplay")
     }
-    return SpecialFieldUpdates(defaultSeed, keepAliveMinutes, systemPrompt, modelPrefsKey)
+    return SpecialFieldUpdates(defaultSeed, keepAliveMinutes, modelInstanceCount, systemPrompt, modelPrefsKey)
   }
 
   private fun applyBehaviorToggleUpdates(updates: List<BehaviorToggleUpdate>) {
@@ -378,6 +447,21 @@ class ServerControlHandler(
     updates.keepAliveMinutes?.let { minutes ->
       ServerPrefs.setKeepAliveMinutes(serviceContext, minutes)
       if (ServerPrefs.isKeepAliveEnabled(serviceContext)) modelLifecycle.resetKeepAliveTimer()
+    }
+    updates.modelInstanceCount?.let { count ->
+      // Per-model: stored in the target model's inference config (same map the
+      // settings sheet writes). Instance count only takes effect when the model
+      // (re)initializes — trigger a reload when it actually changed and a model
+      // is resident.
+      val prefsKey = updates.modelPrefsKey
+      val config = ServerPrefs.getInferenceConfig(serviceContext, prefsKey)?.toMutableMap() ?: mutableMapOf()
+      val old = config.instanceCount()
+      config[ConfigKeys.INSTANCE_COUNT.id] = count
+      ServerPrefs.setInferenceConfig(serviceContext, prefsKey, config)
+      if (count != old && modelLifecycle.defaultModel?.instance != null) {
+        Log.i(TAG, "model_instance_count changed $old → $count — reloading model")
+        ServerService.reload(serviceContext, ServerPrefs.getPort(serviceContext), modelLifecycle.defaultModel?.name)
+      }
     }
     updates.systemPrompt?.let { ServerPrefs.setSystemPrompt(serviceContext, updates.modelPrefsKey, it) }
   }
@@ -394,6 +478,7 @@ private data class BehaviorToggleUpdate(val toggle: BooleanToggle, val value: Bo
 private data class SpecialFieldUpdates(
   val defaultSeed: DefaultSeedUpdate,
   val keepAliveMinutes: Int?,
+  val modelInstanceCount: Int?,
   val systemPrompt: String?,
   val modelPrefsKey: String,
 )

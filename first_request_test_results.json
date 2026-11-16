@@ -1,0 +1,18 @@
+[
+  {
+    "test": "load_secondary",
+    "status": 200
+  },
+  {
+    "test": "T1 first chat after 2nd-model load",
+    "status": 200,
+    "first_request_ok": true,
+    "wall_s": 4.02
+  },
+  {
+    "test": "T2 first chat after primary reload",
+    "status": 200,
+    "first_request_ok": true,
+    "wall_s": 3.92
+  }
+]

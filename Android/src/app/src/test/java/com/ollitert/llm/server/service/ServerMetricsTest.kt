@@ -636,6 +636,19 @@ class ServerMetricsTest {
     assertNull(ServerMetrics.lastError.value)
   }
 
+  @Test
+  fun lastErrorSurvivesServerStoppedAfterFailedStart() {
+    ServerMetrics.onServerStarting(port = 8000, modelName = "gemma")
+    ServerMetrics.onServerError("Server failed to start: Port 8000 is already in use")
+    assertEquals(ServerStatus.ERROR, ServerMetrics.status.value)
+    // A failed start ends with stopSelf() -> onDestroy() -> onServerStopped().
+    ServerMetrics.onServerStopped()
+    assertEquals(ServerStatus.STOPPED, ServerMetrics.status.value)
+    // The message must survive so the port-in-use dialog stays visible until
+    // explicitly dismissed (ServerErrorDialogPolicy).
+    assertEquals("Server failed to start: Port 8000 is already in use", ServerMetrics.lastError.value)
+  }
+
   // ── Registry completeness guard ─────────────────────────────────────────
 
   @Test
@@ -644,8 +657,10 @@ class ServerMetricsTest {
       field.isAccessible = true
       field.get(ServerMetrics) is MutableStateFlow<*>
     }
-    // 3 app-level flows intentionally not registered: port, availableUpdateVersion, availableUpdateUrl
-    val appLevelFlowCount = 3
+    // 4 app-level flows intentionally not registered: port, availableUpdateVersion,
+    // availableUpdateUrl, lastError (must survive onServerStopped so the
+    // port-in-use dialog stays visible until explicitly dismissed)
+    val appLevelFlowCount = 4
     val registeredFlowCount = ServerMetrics::class.java.getDeclaredField("sessionFlowResets").let {
       it.isAccessible = true
       @Suppress("UNCHECKED_CAST")

@@ -29,12 +29,20 @@ import com.ollitert.llm.server.service.ServerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.ollitert.llm.server.service.queueReloadAfterLoad
 import com.ollitert.llm.server.service.reload
 import com.ollitert.llm.server.service.start
 import com.ollitert.llm.server.service.stop
+import com.ollitert.llm.server.service.loadSecondary
+import com.ollitert.llm.server.service.unloadSecondary
 
 /**
  * ViewModel that exposes server state to the UI layer.
@@ -50,6 +58,10 @@ class ServerViewModel @Inject constructor(
   val status = serverStateRepository.status
   val isInferring = serverStateRepository.isInferring
   val activeModelName = serverStateRepository.activeModelName
+  val activeModelInstanceCount = serverStateRepository.activeModelInstanceCount
+  val secondaryModelName = serverStateRepository.secondaryModelName
+  val secondaryModelLoadingName = serverStateRepository.secondaryModelLoadingName
+  val secondaryModelInstanceCount = serverStateRepository.secondaryModelInstanceCount
   val activeModelSize = serverStateRepository.activeModelSize
   val port = serverStateRepository.port
   val bindAddress = serverStateRepository.bindAddress
@@ -85,6 +97,24 @@ class ServerViewModel @Inject constructor(
   val appTotalPssBytes = serverStateRepository.appTotalPssBytes
   val deviceAvailRamBytes = serverStateRepository.deviceAvailRamBytes
   val deviceTotalRamBytes = serverStateRepository.deviceTotalRamBytes
+  val modelMetrics = serverStateRepository.modelMetrics
+
+  // Model filter for the Status metrics grid (null = All models, like the Logs tab)
+  private val _statusModelFilter = MutableStateFlow<String?>(null)
+  val statusModelFilter: StateFlow<String?> = _statusModelFilter.asStateFlow()
+
+  fun setStatusModelFilter(modelName: String?) {
+    _statusModelFilter.value = modelName
+  }
+
+  val statusModelFilterOptions: StateFlow<List<String>> =
+    combine(serverStateRepository.activeModelName, serverStateRepository.secondaryModelName) { primary, secondary ->
+      buildList {
+        primary?.takeIf { it.isNotEmpty() }?.let(::add)
+        secondary?.takeIf { it.isNotEmpty() && it != primary }?.let(::add)
+      }
+    }
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   /** Debounce guard to prevent duplicate start/stop/reload intents from rapid taps. */
   private var actionInFlight = false
@@ -142,6 +172,20 @@ class ServerViewModel @Inject constructor(
     if (actionInFlight) return
     setActionInFlight()
     ServerService.reload(context, port, modelName)
+  }
+
+  /**
+   * Pins [modelName] as the second model alongside the running chat model
+   * (embedding models in this version). The service does the blocking native
+   * init on its own IO scope; state appears in [secondaryModelName] when done.
+   */
+  fun loadSecondaryModel(modelName: String) {
+    ServerService.loadSecondary(context, modelName)
+  }
+
+  /** Unloads the pinned second model; the chat model keeps serving. */
+  fun unloadSecondaryModel(modelName: String? = null) {
+    ServerService.unloadSecondary(context, modelName)
   }
 
   fun getBearerToken(): String = preferencesRepository.getBearerToken()

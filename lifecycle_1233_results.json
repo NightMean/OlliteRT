@@ -1,0 +1,89 @@
+{
+  "T0_baseline": {
+    "chat": {
+      "status": 200,
+      "wall_s": 4.0,
+      "content": "pong"
+    },
+    "embed": {
+      "status": 200,
+      "wall_s": 0.56,
+      "n_vectors": 4,
+      "norms": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "pass": true
+  },
+  "T1_unload": {
+    "unload_status": 400,
+    "models_after": [
+      "EmbeddingGemma-2-740M"
+    ],
+    "chat_unloaded_status": 400,
+    "chat_unloaded_body": "{\"error\": {\"message\": \"Model 'Gemma-4-E2B-it' is not loaded. Currently loaded: 'EmbeddingGemma-2-740M'. Please select a loaded model in your client or load the ",
+    "slot2_probe": {
+      "status": 404,
+      "body": "{\"error\": {\"message\": \"not_found\", \"type\": \"not_found_error\", \"param\": null, \"co"
+    },
+    "pass": false
+  },
+  "T2_load_first_request": {
+    "load_status": 200,
+    "first_chat_status": 200,
+    "first_chat_wall_s": 4.1,
+    "content": "pong",
+    "pass": true
+  },
+  "T3_concurrent": {
+    "solo": {
+      "status": 200,
+      "wall_s": 15.6,
+      "tokens": 184,
+      "tok_s": 11.78,
+      "content_len": 739,
+      "valid": true
+    },
+    "concurrent_wall_s": 14.5,
+    "chat": {
+      "status": 200,
+      "wall_s": 14.5,
+      "tokens": 179,
+      "tok_s": 12.32,
+      "content_len": 718,
+      "valid": true
+    },
+    "embed": {
+      "status": 200,
+      "wall_s": 0.65,
+      "n_vectors": 4,
+      "dims": 768,
+      "valid": true
+    },
+    "throughput_delta_pct": -4.6,
+    "pass": true
+  },
+  "T4_reload_first_request": {
+    "reload_status": 200,
+    "ready_via_poll": true,
+    "note": "",
+    "models_after": [
+      "EmbeddingGemma-2-740M",
+      "Gemma-4-E2B-it"
+    ],
+    "first_chat_status": 200,
+    "first_chat_wall_s": 4.0,
+    "content": "pong",
+    "pass": true
+  },
+  "summary": {
+    "T0_baseline": true,
+    "T1_unload": false,
+    "T2_load_first_request": true,
+    "T3_concurrent": true,
+    "T4_reload_first_request": true
+  }
+}

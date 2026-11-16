@@ -1,0 +1,79 @@
+{
+  "model": "Gemma-4-E4B-it",
+  "prompt": "Count from 1 to 20, one number per line. Nothing else.",
+  "max_tokens": 40,
+  "temp": 0,
+  "solo_T1": {
+    "wall": 7.41,
+    "ok": true,
+    "chars": 41,
+    "ctok": 10
+  },
+  "seq2": {
+    "wall": 15.11,
+    "a": {
+      "wall": 7.51,
+      "ok": true,
+      "chars": 41,
+      "ctok": 10
+    },
+    "b": {
+      "wall": 7.6,
+      "ok": true,
+      "chars": 41,
+      "ctok": 10
+    },
+    "ratio_vs_T1": 2.04
+  },
+  "conc2": {
+    "wall": 15.24,
+    "ok": true,
+    "n": 2,
+    "results": [
+      {
+        "wall": 15.24,
+        "ok": true,
+        "chars": 41,
+        "ctok": 10
+      },
+      {
+        "wall": 7.64,
+        "ok": true,
+        "chars": 41,
+        "ctok": 10
+      }
+    ],
+    "ratio_vs_T1": 2.06
+  },
+  "conc4": {
+    "wall": 15.37,
+    "ok": false,
+    "n": 4,
+    "results": [
+      {
+        "wall": 0.06,
+        "ok": false,
+        "error": "HTTPError: HTTP Error 503: Service Unavailable"
+      },
+      {
+        "wall": 7.72,
+        "ok": true,
+        "chars": 41,
+        "ctok": 10
+      },
+      {
+        "wall": 0.06,
+        "ok": false,
+        "error": "HTTPError: HTTP Error 503: Service Unavailable"
+      },
+      {
+        "wall": 15.37,
+        "ok": true,
+        "chars": 41,
+        "ctok": 10
+      }
+    ],
+    "ratio_vs_T1": 2.07
+  },
+  "VERDICT": "PARTIAL overlap"
+}

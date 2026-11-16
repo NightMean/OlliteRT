@@ -1,0 +1,34 @@
+{
+  "solo_chat": {
+    "status": 200,
+    "wall_s": 23.7,
+    "tokens": 183,
+    "tok_s": 7.71,
+    "content_len": 732,
+    "valid": true
+  },
+  "concurrent_wall_s": 23.2,
+  "concurrent_chat": {
+    "status": 200,
+    "wall_s": 23.2,
+    "tokens": 179,
+    "tok_s": 7.72,
+    "content_len": 717,
+    "valid": true
+  },
+  "concurrent_embed": {
+    "status": 200,
+    "wall_s": 1.11,
+    "n_vectors": 4,
+    "dims": 768,
+    "norms": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "valid": true
+  },
+  "throughput_delta_pct": -0.1,
+  "PASS": true
+}

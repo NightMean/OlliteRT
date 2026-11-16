@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Refresh
@@ -138,7 +139,10 @@ fun DownloadAndTryButton(
   canShowTryIt: Boolean = true,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  isSecondModelLoaded: Boolean = false,
+  isSecondModelLoading: Boolean = false,
   onStopServer: () -> Unit = {},
+  onStopSecondary: () -> Unit = {},
 ) {
   val isThisModelActive = activeModelName != null &&
     activeModelName.equals(model.name, ignoreCase = true)
@@ -156,6 +160,7 @@ fun DownloadAndTryButton(
   var showStorageWarning by remember { mutableStateOf(false) }
   var showWifiWarning by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
+  var isStarting by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
   val downloadGate = remember { DownloadGateCoordinator.forViewModel(modelManagerViewModel) }
 
@@ -174,6 +179,15 @@ fun DownloadAndTryButton(
   LaunchedEffect(downloadStatus?.status, checkingToken) {
     if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
       downloadStarted = false
+    }
+  }
+
+  // Reset starting indicator once server status moves away from STOPPED.
+  // isStarting is a key so the "load as second model" case (server already
+  // RUNNING, status never leaves STOPPED) also resets immediately.
+  LaunchedEffect(serverStatus, isThisModelActive, isStarting) {
+    if (isStarting && serverStatus != ServerStatus.STOPPED) {
+      isStarting = false
     }
   }
   val showDownloadProgress =
@@ -256,6 +270,7 @@ fun DownloadAndTryButton(
           if (!isWifiConnected(context)) {
             showWifiWarning = true
           } else {
+            isStarting = true
             onClicked()
           }
         }
@@ -279,7 +294,39 @@ fun DownloadAndTryButton(
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
 
-    if (isThisModelLoading) {
+    if (isSecondModelLoading) {
+      // Second model's native init in flight (loaded alongside the running chat model):
+      // explicit loading state until it becomes resident and shows the loaded badge.
+      Button(
+        modifier = buttonModifier,
+        colors = ButtonDefaults.buttonColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        enabled = false,
+        onClick = {},
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            strokeWidth = 2.dp,
+          )
+          if (!compact) {
+            Text(
+              stringResource(R.string.toast_second_model_loading),
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              style = MaterialTheme.typography.titleMedium,
+              maxLines = 1,
+              autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+            )
+          }
+        }
+      }
+    } else if (isThisModelLoading || isStarting) {
       Button(
         modifier = buttonModifier,
         colors = ButtonDefaults.buttonColors(
@@ -341,6 +388,85 @@ fun DownloadAndTryButton(
               maxLines = 1,
               autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
+          }
+        }
+      }
+    } else if (isSecondModelLoaded) {
+      // Resident second model (e.g. embedding model alongside the chat model):
+      // keep the "Second model Loaded" state visible and offer an explicit stop.
+      if (compact) {
+        Button(
+          modifier = buttonModifier,
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+          ),
+          contentPadding = PaddingValues(horizontal = 12.dp),
+          onClick = { onStopSecondary() },
+        ) {
+          Icon(
+            Icons.Outlined.StopCircle,
+            contentDescription = stringResource(R.string.cd_stop_second_model),
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+          )
+        }
+      } else {
+        Row(
+          modifier = buttonModifier,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Button(
+            modifier = Modifier.weight(1f),
+            enabled = false,
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+              disabledContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            onClick = {},
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+              )
+              Text(
+                stringResource(R.string.second_model_loaded),
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              )
+            }
+          }
+          Button(
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.errorContainer,
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            onClick = { onStopSecondary() },
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                Icons.Outlined.StopCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+              )
+              Text(
+                stringResource(R.string.button_stop_second_model),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              )
+            }
           }
         }
       }

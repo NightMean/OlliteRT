@@ -84,8 +84,11 @@ fun ModelItem(
   showBenchmarkButton: Boolean = false,
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
+  secondaryModelName: String? = null,
+  secondaryModelLoadingName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
+  onStopSecondary: () -> Unit = {},
   onNavigateToSettings: () -> Unit = {},
   searchQuery: String = "",
   showRecommendations: Boolean = true,
@@ -97,6 +100,12 @@ fun ModelItem(
 
   val isIncompatible = model.incompatibilityReason != null
   val isServerRunning = serverStatus == ServerStatus.RUNNING
+  // Resident second model (e.g. embedding model loaded alongside the chat model).
+  val isSecondModelLoaded = isServerRunning &&
+    secondaryModelName != null && secondaryModelName.equals(model.name, ignoreCase = true)
+  // Second model whose native init is in flight — the card shows a loading state.
+  val isSecondModelLoading = secondaryModelLoadingName != null &&
+    secondaryModelLoadingName.equals(model.name, ignoreCase = true)
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
@@ -155,7 +164,10 @@ fun ModelItem(
         showBenchmarkButton = showBenchmarkButton,
         serverStatus = serverStatus,
         activeModelName = activeModelName,
+        isSecondModelLoaded = isSecondModelLoaded,
+        isSecondModelLoading = isSecondModelLoading,
         onStopServer = onStopServer,
+        onStopSecondary = onStopSecondary,
       )
 
       // Loading hint / error text

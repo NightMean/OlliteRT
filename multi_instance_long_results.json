@@ -1,0 +1,33 @@
+{
+  "model_instances": 2,
+  "solo": {
+    "wall": 0.708,
+    "norm": 1.0
+  },
+  "conc2": {
+    "req1": 1.202,
+    "req2": 1.148,
+    "ok": true,
+    "wall_max": 1.202
+  },
+  "conc4": {
+    "walls": [
+      1.207,
+      1.262,
+      1.835,
+      0.717
+    ],
+    "ok": true,
+    "errors": [],
+    "wall_max": 1.835
+  },
+  "conc2_ratio": 1.7,
+  "conc4_ratio": 2.59,
+  "VERDICT": "PARTIAL OVERLAP (GPU time-sliced)",
+  "rest_roundtrip": {
+    "set1_ok": true,
+    "after_set1": 1,
+    "set2_ok": true,
+    "after_set2": 2
+  }
+}

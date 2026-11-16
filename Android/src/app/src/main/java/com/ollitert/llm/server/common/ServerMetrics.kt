@@ -22,8 +22,39 @@ import com.ollitert.llm.server.data.prefs.thinkingBudgetTokens
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * Immutable per-model metric snapshot for the Status screen's model filter.
+ * Mirrors the global counters (request count, tokens, modality, latency, speeds)
+ * for a single model. Entries persist for the process lifetime — a value frozen
+ * after the model is unloaded is harmless, same as the Logs model filter.
+ */
+data class ModelMetricsSnapshot(
+  val requestCount: Long = 0,
+  val tokensIn: Long = 0,
+  val tokensGenerated: Long = 0,
+  val textRequests: Long = 0,
+  val imageRequests: Long = 0,
+  val audioRequests: Long = 0,
+  val lastLatencyMs: Long = 0,
+  val avgLatencyMs: Long = 0,
+  val peakLatencyMs: Long = 0,
+  val lastTtfbMs: Long = 0,
+  val avgTtfbMs: Long = 0,
+  val lastDecodeSpeed: Double = 0.0,
+  val peakDecodeSpeed: Double = 0.0,
+  val lastPrefillSpeed: Double = 0.0,
+  val lastItlMs: Double = 0.0,
+  val errorCount: Long = 0,
+  // Accumulators backing the average values above.
+  val totalLatencyMs: Long = 0,
+  val latencyCount: Long = 0,
+  val totalTtfbMs: Long = 0,
+  val ttfbCount: Long = 0,
+)
 
 /**
  * Singleton holding live server metrics. Written by [ServerService], read by the UI layer.
@@ -61,6 +92,52 @@ object ServerMetrics {
    */
   private val _activeModelName = sessionFlow<String?>(null)
   val activeModelName: StateFlow<String?> = _activeModelName.asStateFlow()
+
+  /** Instance count for the active model (1 = single instance, >1 = concurrent instances). */
+  private val _activeModelInstanceCount = sessionFlow(1)
+  val activeModelInstanceCount: StateFlow<Int> = _activeModelInstanceCount.asStateFlow()
+
+  /**
+   * Name of the pinned second model (e.g. an embedding model) resident alongside
+   * the active chat model, or null when none is loaded. Set by [com.ollitert.llm.server.service.inference.ModelLifecycle]
+   * on second model publish/unload; cleared with the session when the server stops.
+   */
+  private val _secondaryModelName = sessionFlow<String?>(null)
+  val secondaryModelName: StateFlow<String?> = _secondaryModelName.asStateFlow()
+
+  /** Loading name of the resident second model, null when not loading. */
+  private val _secondaryModelLoadingName = MutableStateFlow<String?>(null)
+  val secondaryModelLoadingName: StateFlow<String?> = _secondaryModelLoadingName.asStateFlow()
+
+  /** Instance count of the resident second model (1 — single engine by design). */
+  private val _secondaryModelInstanceCount = MutableStateFlow(1)
+  val secondaryModelInstanceCount: StateFlow<Int> = _secondaryModelInstanceCount.asStateFlow()
+
+  /**
+   * Per-model metrics (key = model name) for the Status screen's model filter.
+   * The "All" view keeps using the global counters above; a selected model reads
+   * its entry here. Reset with the session in [onServerStopped].
+   */
+  private val _modelMetrics = MutableStateFlow<Map<String, ModelMetricsSnapshot>>(emptyMap())
+  val modelMetrics: StateFlow<Map<String, ModelMetricsSnapshot>> = _modelMetrics.asStateFlow()
+
+  private fun updateModelMetrics(modelName: String?, transform: (ModelMetricsSnapshot) -> ModelMetricsSnapshot) {
+    if (modelName == null) return
+    _modelMetrics.update { current ->
+      val entry = current[modelName] ?: ModelMetricsSnapshot()
+      current + (modelName to transform(entry))
+    }
+  }
+
+  /**
+   * Per-model request counter. Called after model resolution — the entry counter
+   * in [incrementRequestCount] (nextRequestId) fires before the model is known, so
+   * the global count and per-model counts intentionally differ (All also includes
+   * requests rejected before a model was resolved).
+   */
+  fun recordModelRequest(modelName: String) {
+    updateModelMetrics(modelName) { it.copy(requestCount = it.requestCount + 1) }
+  }
 
   // App-level state — not reset on server stop, only on resetForTesting()
   private val _port = MutableStateFlow(SERVER_DEFAULT_PORT)
@@ -225,8 +302,16 @@ object ServerMetrics {
   private val _inferenceSettings = sessionFlow(FloatingInferenceSettings())
   val inferenceSettings: StateFlow<FloatingInferenceSettings> = _inferenceSettings.asStateFlow()
 
-  /** Human-readable error message when status is ERROR, or null. */
-  private val _lastError = sessionFlow<String?>(null)
+  /**
+   * Human-readable error message when status is ERROR, or null.
+   *
+   * Intentionally NOT session-scoped: a failed start (e.g. port in use) ends
+   * with stopSelf() -> onDestroy() -> onServerStopped(), and wiping the message
+   * there would null out the ServerErrorDialogPolicy signature, auto-dismissing
+   * the error dialog before the user can acknowledge it. Cleared by the
+   * Starting/Running transitions (and clearErrorIfModel) instead.
+   */
+  private val _lastError = MutableStateFlow<String?>(null)
   val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
   /** Count of concurrent in-flight inference requests. */
@@ -334,6 +419,7 @@ object ServerMetrics {
     _inferringCount.set(0)
     sessionAtomicResets.forEach { it() }
     sessionFlowResets.forEach { it() }
+    _modelMetrics.value = emptyMap()
   }
 
   fun onServerError(message: String? = null) {
@@ -349,19 +435,36 @@ object ServerMetrics {
     }
   }
 
+  /** Updates the resident second model name (null = none). Called from ModelLifecycle. */
+  fun updateSecondaryModelName(name: String?) {
+    _secondaryModelName.value = name
+  }
+
+  /** Updates the resident second model's loading name, null when not loading. */
+  fun updateSecondaryModelLoadingName(name: String?) {
+    _secondaryModelLoadingName.value = name
+  }
+
+  /** Updates the resident second model's instance count. Called from ModelLifecycle. */
+  fun updateSecondaryModelInstanceCount(count: Int) {
+    _secondaryModelInstanceCount.value = count.coerceAtLeast(1)
+  }
+
   fun incrementRequestCount() {
     _requestCountFlow.value = _requestCount.incrementAndGet()
   }
 
-  fun addTokens(count: Long) {
+  fun addTokens(count: Long, modelName: String? = null) {
     _tokensGeneratedFlow.value = _tokensGenerated.addAndGet(count)
+    updateModelMetrics(modelName) { it.copy(tokensGenerated = it.tokensGenerated + count) }
   }
 
-  fun addTokensIn(count: Long) {
+  fun addTokensIn(count: Long, modelName: String? = null) {
     _tokensInFlow.value = _tokensIn.addAndGet(count)
+    updateModelMetrics(modelName) { it.copy(tokensIn = it.tokensIn + count) }
   }
 
-  fun recordLatency(ms: Long) {
+  fun recordLatency(ms: Long, modelName: String? = null) {
     _lastLatencyMs.value = ms
     // Synchronized: MutableStateFlow.value read-compare-write isn't atomic without explicit locking.
     synchronized(this) {
@@ -370,29 +473,52 @@ object ServerMetrics {
     val totalMs = _totalLatencyMs.addAndGet(ms)
     val count = _latencyCount.incrementAndGet()
     _avgLatencyMs.value = totalMs / count
+    updateModelMetrics(modelName) { m ->
+      val newTotal = m.totalLatencyMs + ms
+      val newCount = m.latencyCount + 1
+      m.copy(
+        lastLatencyMs = ms,
+        peakLatencyMs = maxOf(m.peakLatencyMs, ms),
+        totalLatencyMs = newTotal,
+        latencyCount = newCount,
+        avgLatencyMs = newTotal / newCount,
+      )
+    }
   }
 
-  fun recordModality(hasImages: Boolean, hasAudio: Boolean) {
+  fun recordModality(hasImages: Boolean, hasAudio: Boolean, modelName: String? = null) {
     when {
       hasImages -> _imageRequestsFlow.value = _imageRequests.incrementAndGet()
       hasAudio -> _audioRequestsFlow.value = _audioRequests.incrementAndGet()
       else -> _textRequestsFlow.value = _textRequests.incrementAndGet()
     }
+    updateModelMetrics(modelName) { m ->
+      when {
+        hasImages -> m.copy(imageRequests = m.imageRequests + 1)
+        hasAudio -> m.copy(audioRequests = m.audioRequests + 1)
+        else -> m.copy(textRequests = m.textRequests + 1)
+      }
+    }
   }
 
   /** Increment both the aggregate and per-category error counters. */
-  fun incrementErrorCount(category: ErrorCategory) {
+  fun incrementErrorCount(category: ErrorCategory, modelName: String? = null) {
     _errorCountFlow.value = _errorCount.incrementAndGet()
     when (category) {
+      ErrorCategory.NETWORK -> _networkErrorsFlow.value = _networkErrors.incrementAndGet()
       ErrorCategory.MODEL_LOAD -> _modelLoadErrorsFlow.value = _modelLoadErrors.incrementAndGet()
       ErrorCategory.INFERENCE -> _inferenceErrorsFlow.value = _inferenceErrors.incrementAndGet()
-      ErrorCategory.NETWORK -> _networkErrorsFlow.value = _networkErrors.incrementAndGet()
       ErrorCategory.SYSTEM -> _systemErrorsFlow.value = _systemErrors.incrementAndGet()
     }
+    updateModelMetrics(modelName) { it.copy(errorCount = it.errorCount + 1) }
   }
 
   fun setActiveModelSize(bytes: Long) {
     _activeModelSize.value = bytes
+  }
+
+  fun setActiveModelInstanceCount(count: Int) {
+    _activeModelInstanceCount.value = count.coerceAtLeast(1)
   }
 
   fun setActiveAccelerator(accelerator: String?) {
@@ -434,12 +560,17 @@ object ServerMetrics {
   }
 
   /** Record time to first token in milliseconds. Values <= 0 are ignored. */
-  fun recordTtfb(ms: Long) {
+  fun recordTtfb(ms: Long, modelName: String? = null) {
     if (ms <= 0) return
     _lastTtfbMs.value = ms
     val totalMs = _totalTtfbMs.addAndGet(ms)
     val count = _ttfbCount.incrementAndGet()
     _avgTtfbMs.value = totalMs / count
+    updateModelMetrics(modelName) { m ->
+      val newTotal = m.totalTtfbMs + ms
+      val newCount = m.ttfbCount + 1
+      m.copy(lastTtfbMs = ms, totalTtfbMs = newTotal, ttfbCount = newCount, avgTtfbMs = newTotal / newCount)
+    }
   }
 
   /**
@@ -458,6 +589,7 @@ object ServerMetrics {
     ttfbMs: Long,
     generationMs: Long,
     maxContextTokens: Long = 0,
+    modelName: String? = null,
   ) {
     // Accumulate cumulative timing for Prometheus counters
     if (ttfbMs > 0) _totalPrefillMs.addAndGet(ttfbMs)
@@ -485,6 +617,23 @@ object ServerMetrics {
     // Context utilization: input tokens as % of max context window
     if (maxContextTokens > 0 && inputTokens > 0) {
       _lastContextUtilization.value = (inputTokens.toDouble() / maxContextTokens.toDouble()) * 100.0
+    }
+
+    // Per-model speeds: an embedding request (outputTokens = 0) records prefill
+    // speed only — that IS its throughput, since it has no decode phase.
+    updateModelMetrics(modelName) { m ->
+      var next = m
+      if (outputTokens > 0 && generationMs > 0) {
+        val decodeSpeed = outputTokens.toDouble() / (generationMs.toDouble() / 1000.0)
+        next = next.copy(lastDecodeSpeed = decodeSpeed, peakDecodeSpeed = maxOf(next.peakDecodeSpeed, decodeSpeed))
+      }
+      if (inputTokens > 0 && ttfbMs > 0) {
+        next = next.copy(lastPrefillSpeed = inputTokens.toDouble() / (ttfbMs.toDouble() / 1000.0))
+      }
+      if (outputTokens > 1 && generationMs > 0) {
+        next = next.copy(lastItlMs = generationMs.toDouble() / (outputTokens.toDouble() - 1))
+      }
+      next
     }
   }
 

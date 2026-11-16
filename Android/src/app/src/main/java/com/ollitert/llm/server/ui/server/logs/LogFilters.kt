@@ -55,16 +55,18 @@ data class LogFilter(
   val methods: Set<String> = emptySet(),
   val statusRanges: Set<StatusRange> = emptySet(),
   val levels: Set<LogLevel> = emptySet(),
+  val modelName: String? = null,
 ) {
   /** True when any filter is active — used to show the result count banner. */
   val isActive: Boolean
     get() = query.isNotEmpty() || methods.isNotEmpty() ||
-      statusRanges.isNotEmpty() || levels.isNotEmpty()
+      statusRanges.isNotEmpty() || levels.isNotEmpty() || modelName != null
 }
 
-/** Check chip-only filters (method, status range, log level). */
+/** Check chip-only filters (method, status range, log level, model). */
 internal fun RequestLogEntry.matchesChipFilters(filter: LogFilter): Boolean {
   if (filter.methods.isNotEmpty() && method !in filter.methods) return false
+  if (filter.modelName != null && modelName != filter.modelName) return false
   // Status range filters (2xx/4xx/5xx) only apply to HTTP request entries.
   // EVENT entries have no status code — they should be excluded when status
   // filters are active unless the EVENT method is also explicitly selected.

@@ -25,8 +25,12 @@ internal object ServerErrorDialogPolicy {
     message: String?,
     dismissedSignature: String?,
   ): ServerErrorDialogDecision {
+    val isPortInUse = !message.isNullOrBlank() && message.contains("Port") && message.contains("already in use")
     val activeSignature = if (status == ServerStatus.ERROR && !message.isNullOrBlank()) {
       "$status:$message"
+    } else if (isPortInUse && !message.isNullOrBlank()) {
+      // Keep port-in-use errors visible until explicitly dismissed, even if status leaves ERROR
+      "PORT_IN_USE:$message"
     } else {
       null
     }

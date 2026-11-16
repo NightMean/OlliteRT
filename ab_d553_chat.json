@@ -1,0 +1,33 @@
+{
+  "model": "Gemma-4-E4B-it",
+  "secondary": null,
+  "model_instances": null,
+  "models_listed": [
+    "Gemma-4-E4B-it"
+  ],
+  "SINGLE_MODEL": false,
+  "warmup": {
+    "ttft": 2.292,
+    "e2e": 2.679,
+    "tokens": 3,
+    "tok_s": 7.76
+  },
+  "run1": {
+    "ttft": 11.312,
+    "e2e": 17.543,
+    "tokens": 70,
+    "tok_s": 11.23
+  },
+  "run2": {
+    "ttft": 11.27,
+    "e2e": 15.324,
+    "tokens": 58,
+    "tok_s": 14.31
+  },
+  "vs_baseline": {
+    "ttft": "11.27s vs 3.3s (242%)",
+    "e2e": "15.324s vs 19.7s (-22%)",
+    "tok_s": "14.31 vs 8.4 (70%)"
+  },
+  "REGRESSION": "POSSIBLE \u2014 inspect"
+}

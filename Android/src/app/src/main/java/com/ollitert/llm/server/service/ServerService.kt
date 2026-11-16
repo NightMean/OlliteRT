@@ -147,6 +147,17 @@ class ServerService : Service() {
             kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()
           } catch (e: Exception) { Log.w(TAG, "Failed to read imported models from DataStore", e); emptyList() }
         },
+        // Burns the first-invoke failure (Status Code 13) on the load paths that
+        // initialize the engine directly (keep-alive wake, second model) so the
+        // first real request after any (re)load does not 500. inferenceRunner is
+        // resolved lazily — it is created later, per server start. Chat warmup is
+        // skipped for embedding models: they have no chat conversation, and
+        // forcing one through runLlm would re-init them as a chat engine.
+        onModelReady = { model ->
+          if (ServerPrefs.isWarmupEnabled(this) && !modelLifecycle.isEmbeddingModel(model)) {
+            inferenceRunner?.warmUpModel(model)
+          }
+        },
       )
       modelLoader = ServerModelLoader(
         context = this,
@@ -209,6 +220,49 @@ class ServerService : Service() {
 
     if (intent?.action == ACTION_REFRESH_RUNNING_NOTIFICATION) {
       notificationManager.refreshRunning()
+      return START_STICKY
+    }
+
+    // Second model load/unload — lightweight actions while the server keeps running.
+    // Both run on the service's IO scope: the second model's native init is blocking
+    // (10-60s cold) and must never touch the main thread.
+    if (intent?.action == ACTION_LOAD_SECONDARY) {
+      val name = intent.getStringExtra(EXTRA_MODEL_NAME)
+      if (name == null) {
+        Log.w(TAG, "Second model load intent without model name — ignoring")
+        return START_STICKY
+      }
+      serviceScope.launch {
+        val err = modelLifecycle.loadSecondaryModel(name)
+        if (err.isNotEmpty()) {
+          Log.w(TAG, "Second model load from UI failed for '$name': $err")
+          RequestLogStore.addEvent(
+            "Second model load failed: $err",
+            level = LogLevel.WARNING,
+            modelName = name,
+            category = EventCategory.MODEL,
+          )
+        }
+        // Refresh the running notification so the second model shows up immediately.
+        notificationManager.refreshRunning()
+      }
+      return START_STICKY
+    }
+    if (intent?.action == ACTION_UNLOAD_SECONDARY) {
+      val name = intent.getStringExtra(EXTRA_MODEL_NAME)
+      serviceScope.launch {
+        val err = modelLifecycle.unloadSecondaryModel(name)
+        if (err.isNotEmpty()) {
+          Log.w(TAG, "Second model unload from UI failed for '$name': $err")
+          RequestLogStore.addEvent(
+            "Second model unload failed: $err",
+            level = LogLevel.WARNING,
+            category = EventCategory.MODEL,
+          )
+        }
+        // Refresh the running notification so the second model line disappears immediately.
+        notificationManager.refreshRunning()
+      }
       return START_STICKY
     }
 
@@ -327,7 +381,7 @@ class ServerService : Service() {
         val msg = sourcePrefix + getString(R.string.error_model_file_missing)
         Log.e(TAG, "Model files not found at $modelPath for ${model.name} — cannot start server (source=$startSource)")
         ServerMetrics.onServerError(msg)
-        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD)
+        ServerMetrics.incrementErrorCount(ErrorCategory.MODEL_LOAD, model.name)
         RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = model.name, category = EventCategory.MODEL)
         stopSelf()
         return@launch
@@ -609,6 +663,8 @@ class ServerService : Service() {
     const val DEFAULT_PORT = com.ollitert.llm.server.data.prefs.DEFAULT_PORT
     const val ACTION_STOP = "com.ollitert.llm.server.STOP_SERVER"
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
+    const val ACTION_LOAD_SECONDARY = "com.ollitert.llm.server.LOAD_SECONDARY"
+    const val ACTION_UNLOAD_SECONDARY = "com.ollitert.llm.server.UNLOAD_SECONDARY"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     const val ACTION_RESET_FLOATING_MONITOR_POSITION = "com.ollitert.llm.server.RESET_FLOATING_MONITOR_POSITION"
     const val ACTION_REFRESH_RUNNING_NOTIFICATION = "com.ollitert.llm.server.REFRESH_RUNNING_NOTIFICATION"

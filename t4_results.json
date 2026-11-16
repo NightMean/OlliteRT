@@ -1,0 +1,72 @@
+[
+ {
+  "check": "slot probe /v1/model/2 -> E2B",
+  "ok": true,
+  "detail": "{'slot': 2, 'model': 'Gemma-4-E2B-it'}"
+ },
+ {
+  "check": "slot probe /v1/model/1 -> embed",
+  "ok": true,
+  "detail": "{'slot': 1, 'model': 'EmbeddingGemma-2-740M'}"
+ },
+ {
+  "check": "chat by full name -> 200",
+  "ok": false,
+  "detail": "2.6s ''"
+ },
+ {
+  "check": "short/case-variant name -> 400 (exact match rule)",
+  "ok": true,
+  "detail": "st=400 "
+ },
+ {
+  "check": "bogus name -> 400 listing BOTH models",
+  "ok": false,
+  "detail": "st=400 "
+ },
+ {
+  "check": "slot-2 route wins over model field",
+  "ok": true,
+  "detail": "'pong'"
+ },
+ {
+  "check": "slot-1 embed route wins over model field",
+  "ok": true,
+  "detail": "st=200"
+ },
+ {
+  "check": "concurrent embed+chat both 200",
+  "ok": true,
+  "detail": "embed 2/768dim 0.30s | chat st=200 6.8s | wall 6.8s"
+ },
+ {
+  "check": "unload during in-flight chat -> 400 busy",
+  "ok": true,
+  "detail": "st=400 {'error': {'message': 'A request is in flight on the secondary \u2014 retry shortly', 'type': 'A_request_is_in_flig"
+ },
+ {
+  "check": "in-flight chat completed",
+  "ok": true,
+  "detail": "st=200 26.0s len=371"
+ },
+ {
+  "check": "unload when idle -> 200",
+  "ok": true,
+  "detail": "st=200 {'success': True, 'message': 'Second model unloaded'}"
+ },
+ {
+  "check": "E2B gone from /v1/models",
+  "ok": true,
+  "detail": "{'object': 'list', 'data': [{'id': 'EmbeddingGemma-2-740M', 'object': 'model', 'created': "
+ },
+ {
+  "check": "reload E2B (final state)",
+  "ok": true,
+  "detail": "st=200"
+ },
+ {
+  "check": "server uptime healthy",
+  "ok": true,
+  "detail": "uptime=257s"
+ }
+]

@@ -346,6 +346,12 @@ suspend fun withRequestLogging(
   modelLifecycle: ModelLifecycle,
   admitModelRequest: Boolean = false,
   anthropicRequest: Boolean = false,
+  /**
+   * Optional transform applied to the raw body after it is received and before
+   * it is logged/handled. Used by the model-slot routes to pin the request's
+   * `model` field to the slot's resident model.
+   */
+  bodyTransform: ((String) -> String)? = null,
   handler: suspend (
     body: String,
     captureBody: (String) -> Unit,
@@ -366,6 +372,7 @@ suspend fun withRequestLogging(
       emitDebugStackTrace = emitDebugStackTrace,
       modelLifecycle = modelLifecycle,
       anthropicRequest = anthropicRequest,
+      bodyTransform = bodyTransform,
       handler = handler,
     ) {
       if (!admitModelRequest) {
@@ -389,6 +396,7 @@ private suspend fun withRequestLoggingBody(
   emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   modelLifecycle: ModelLifecycle,
   anthropicRequest: Boolean,
+  bodyTransform: ((String) -> String)? = null,
   handler: suspend (
     body: String,
     captureBody: (String) -> Unit,
@@ -446,7 +454,7 @@ private suspend fun withRequestLoggingBody(
       return
     }
 
-    val body = try {
+    val rawBody = try {
       withTimeoutOrNull(REQUEST_BODY_READ_TIMEOUT_MS) { withContext(Dispatchers.IO) { call.receiveText() } }
         ?: run {
           val message = "Request body took too long to receive"
@@ -470,6 +478,10 @@ private suspend fun withRequestLoggingBody(
       call.respondHttpResponse(oomResponse)
       return
     }
+
+    // Slot routes pin the model field to the slot's resident model here, so the
+    // rewritten body is what gets logged, compacted, and handed to the handler.
+    val body = bodyTransform?.invoke(rawBody) ?: rawBody
 
     val compactImages = prefs.compactImageData
     val captureBody = { rawBody: String ->
@@ -585,7 +597,10 @@ fun finalizeLogEntry(
       latencyMs = if (isStreaming) it.latencyMs else elapsedMs,
       isStreaming = isStreaming,
       isThinking = isThinking,
-      modelName = defaultModelName,
+      // A route may have resolved the model that actually served the request
+      // (e.g. the second model embedding model for /v1/embeddings) and updated the
+      // entry before finalize. Keep that name; only fall back to the default.
+      modelName = if (it.modelName != null && it.modelName != defaultModelName) it.modelName else defaultModelName,
       level = level,
       isPending = if (isStreaming) it.isPending else false,
       inputTokenEstimate = actualTokens?.first ?: it.inputTokenEstimate,

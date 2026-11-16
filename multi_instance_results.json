@@ -1,0 +1,38 @@
+{
+  "models": [
+    "EmbeddingGemma-2-740M"
+  ],
+  "model_instances_reported": 2,
+  "solo_1st": {
+    "wall": 0.743
+  },
+  "solo": {
+    "wall": 0.693
+  },
+  "conc2": {
+    "req1": 1.214,
+    "req2": 1.166,
+    "ok": true,
+    "wall_max": 1.214
+  },
+  "conc4": {
+    "walls": [
+      1.161,
+      0.737,
+      1.776,
+      1.224
+    ],
+    "ok": true,
+    "wall_max": 1.776
+  },
+  "conc2_ratio": 1.75,
+  "conc4_ratio": 2.56,
+  "VERDICT": "SINGLE-ENGINE / GPU-SERIALIZED (conc2 ~= 2x solo)",
+  "cos_paraphrase": 0.889,
+  "cos_unrelated": 0.512,
+  "norm0": 1.0,
+  "slot1": {
+    "slot": 1,
+    "model": "EmbeddingGemma-2-740M"
+  }
+}

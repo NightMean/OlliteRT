@@ -22,7 +22,8 @@ import android.os.Environment
 import android.os.StatFs
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.Capabilities
+import com.google.ai.edge.litertlm.EmbeddingEngine
+import com.google.ai.edge.litertlm.EmbeddingEngineConfig
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -31,6 +32,8 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.ModelInfo
+import com.google.ai.edge.litertlm.ModelType
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import com.ollitert.llm.server.R
@@ -236,12 +239,13 @@ object LiteRtEngineFactory {
     model: Model,
     supportImage: Boolean,
     supportAudio: Boolean,
-    configOverrides: Map<String, Any>?,
-    systemInstruction: Contents?,
-    tools: List<ToolProvider>,
-    initialMessages: List<Message>,
-    enableConversationConstrainedDecoding: Boolean,
+    configOverrides: Map<String, Any>? = null,
+    systemInstruction: Contents? = null,
+    tools: List<ToolProvider> = listOf(),
+    initialMessages: List<Message> = listOf(),
+    enableConversationConstrainedDecoding: Boolean = false,
     onDone: (String) -> Unit,
+    instanceCount: Int = 1,
   ) {
     val validationError = validateModelFileAndStorage(context, model)
     if (validationError != null) {
@@ -287,13 +291,39 @@ object LiteRtEngineFactory {
         else null,
     )
 
-    var supportsSpeculativeDecoding = false
-    try {
-      Capabilities(modelPath).use {
-        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
-      }
+    val modelInfo: ModelInfo? = try {
+      ModelInfo.from(modelPath)
     } catch (e: Exception) {
-      Log.w(TAG, "Capabilities probe failed for '${model.name}': ${e.message}")
+      Log.w(TAG, "ModelInfo probe failed for '${model.name}': ${e.message}")
+      null
+    }
+
+    val isEmbeddingModel = modelInfo?.modelType == ModelType.EMBEDDING
+    var supportsSpeculativeDecoding = false
+    modelInfo?.let { info ->
+      try {
+        supportsSpeculativeDecoding = (info as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport() ?: false
+      } catch (e: Exception) {
+        Log.w(TAG, "Spec-decode capability probe failed for '${model.name}': ${e.message}")
+      } finally {
+        try { info.close() } catch (_: Exception) { }
+      }
+    }
+
+    if (isEmbeddingModel) {
+      initEmbeddingEngine(
+        context = context,
+        model = model,
+        modelPath = modelPath,
+        preferredBackend = preferredBackend,
+        visionBackend = visionBackend,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        canFallbackToCpu = canFallbackToCpu,
+        instanceCount = instanceCount,
+        onDone = onDone,
+      )
+      return
     }
 
     val specDecUserEnabled = configOverrides?.configSpeculativeDecodingEnabled()
@@ -303,29 +333,57 @@ object LiteRtEngineFactory {
       ModelCapability.SPECULATIVE_DECODING in model.capabilities &&
       specDecUserEnabled
 
+    // Creates [count] independent engine+conversation instances of the same model
+    // (multi-instance pool: concurrent requests run in parallel across instances).
+    // Rolls every created instance back if any of them fails.
+    fun createInstances(count: Int, backend: Backend, vision: Backend, specDecoding: Boolean): List<LlmModelInstance> {
+      val created = ArrayList<LlmModelInstance>(count)
+      try {
+        repeat(count) { _ ->
+          created.add(
+            initEngineWithConversation(
+              engineConfig = engineConfigFor(backend, vision),
+              enableSpeculativeDecoding = specDecoding,
+              enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+              topK = topK,
+              topP = topP,
+              temperature = temperature,
+              seed = seed,
+              systemInstruction = systemInstruction,
+              tools = tools,
+              initialMessages = initialMessages,
+            ),
+          )
+        }
+      } catch (t: Throwable) {
+        for (inst in created) {
+          try { inst.conversation.close() } catch (_: Exception) { }
+          try { inst.engine.close() } catch (_: Exception) { }
+        }
+        System.gc()
+        throw t
+      }
+      return created
+    }
+
+    val wantedInstances = instanceCount.coerceAtLeast(1)
+
     try {
-      model.instance = initEngineWithConversation(
-        engineConfig = engineConfigFor(preferredBackend, visionBackend),
-        enableSpeculativeDecoding = enableSpeculativeDecoding,
-        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-        topK = topK,
-        topP = topP,
-        temperature = temperature,
-        seed = seed,
-        systemInstruction = systemInstruction,
-        tools = tools,
-        initialMessages = initialMessages,
-      )
+      val instances = createInstances(wantedInstances, preferredBackend, visionBackend, enableSpeculativeDecoding)
+      model.instance = instances.first()
+      ModelInstancePool.set(model.name, instances)
       Log.i(TAG, "Engine initialized successfully on ${preferredBackend::class.simpleName} for '${model.name}'" +
-        " (speculative_decoding=$enableSpeculativeDecoding)")
+        " (speculative_decoding=$enableSpeculativeDecoding, instances=${instances.size})")
       RequestLogStore.addEvent(
         "Engine initialized on ${preferredBackend::class.simpleName}" +
-          if (enableSpeculativeDecoding) " (MTP enabled)" else "",
+          if (enableSpeculativeDecoding) " (MTP enabled)" else "" +
+          if (instances.size > 1) " (${instances.size} instances)" else "",
         level = LogLevel.INFO,
         modelName = model.name,
         category = EventCategory.MODEL,
       )
     } catch (e: Exception) {
+      ModelInstancePool.clear(model.name)
       Log.e(TAG, "Engine init failed for '${model.name}' with ${preferredBackend::class.simpleName}: " +
         "[${e::class.simpleName}] ${e.message}", e)
       // Safety-net: retry with CPU fallback if GPU init failed
@@ -339,21 +397,12 @@ object LiteRtEngineFactory {
           category = EventCategory.MODEL,
         )
         try {
-          model.instance = initEngineWithConversation(
-            // CPU fallback also forces the vision backend to CPU — a GPU that just failed
-            // for the main backend is unlikely to succeed for vision either.
-            engineConfig = engineConfigFor(Backend.CPU(), Backend.CPU()),
-            enableSpeculativeDecoding = false,
-            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-            topK = topK,
-            topP = topP,
-            temperature = temperature,
-            seed = seed,
-            systemInstruction = systemInstruction,
-            tools = tools,
-            initialMessages = initialMessages,
-          )
-          Log.i(TAG, "CPU fallback successful for '${model.name}'")
+          val instances = createInstances(wantedInstances, Backend.CPU(), Backend.CPU(), false)
+          model.instance = instances.first()
+          ModelInstancePool.set(model.name, instances)
+          // CPU fallback also forces the vision backend to CPU — a GPU that just failed
+          // for the main backend is unlikely to succeed for vision either.
+          Log.i(TAG, "CPU fallback successful for '${model.name}' (${instances.size} instances)")
           RequestLogStore.addEvent(
             "Model loaded on CPU (GPU unavailable on this device)",
             level = LogLevel.INFO,
@@ -384,6 +433,106 @@ object LiteRtEngineFactory {
       onDone(cleanUpLiteRtErrorMessage(e.message ?: context.getString(R.string.error_unknown)))
       return
     }
+    onDone("")
+  }
+
+  /**
+   * Creates and initializes [instanceCount] independent [EmbeddingEngine]s for an
+   * embedding model (detected via [ModelInfo]), storing the first in [Model.instance]
+   * and the whole set in [EmbeddingInstancePool]. Mirrors the chat path's
+   * multi-instance pool, GPU→CPU fallback, and logging, minus
+   * conversations/samplers (not applicable to embeddings). The first engine
+   * decides the backend (preferred, CPU fallback if that fails); the rest use
+   * the same backend. Rolls every created engine back if any of them fails.
+   */
+  @OptIn(ExperimentalApi::class)
+  private fun initEmbeddingEngine(
+    context: Context,
+    model: Model,
+    modelPath: String,
+    preferredBackend: Backend,
+    visionBackend: Backend,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    canFallbackToCpu: Boolean,
+    instanceCount: Int = 1,
+    onDone: (String) -> Unit,
+  ) {
+    fun embeddingConfigFor(backend: Backend, vision: Backend) = EmbeddingEngineConfig(
+      modelPath = modelPath,
+      backend = backend,
+      visionBackend = if (supportImage) vision else null,
+      audioBackend = if (supportAudio) Backend.CPU() else null,
+      cacheDir =
+        if (modelPath.startsWith("/data/local/tmp"))
+          context.getExternalFilesDir(null)?.absolutePath
+        else null,
+    )
+
+    fun attempt(backend: Backend, vision: Backend): EmbeddingEngine? = try {
+      val engine = EmbeddingEngine(embeddingConfigFor(backend, vision))
+      engine.initialize()
+      engine
+    } catch (e: Exception) {
+      Log.e(TAG, "Embedding engine init failed for '${model.name}' with ${backend::class.simpleName}: " +
+        "[${e::class.simpleName}] ${e.message}", e)
+      null
+    }
+
+    val wanted = instanceCount.coerceAtLeast(1)
+    val engines = ArrayList<EmbeddingEngine>(wanted)
+    var backend = preferredBackend
+    var vision = visionBackend
+    try {
+      repeat(wanted) { i ->
+        val engine = if (i == 0) {
+          attempt(backend, vision)
+            ?: if (backend is Backend.GPU && canFallbackToCpu) {
+              Log.w(TAG, "GPU embedding init failed, retrying with CPU backend for '${model.name}'")
+              ServerMetrics.onCpuFallbackStarted()
+              backend = Backend.CPU()
+              vision = Backend.CPU()
+              attempt(backend, vision)
+            } else null
+        } else {
+          attempt(backend, vision)
+        }
+        if (engine == null) {
+          throw Exception(
+            "Embedding engine init failed for '${model.name}' on ${backend::class.simpleName} " +
+              "(instance ${i + 1} of $wanted)"
+          )
+        }
+        engines.add(engine)
+      }
+    } catch (e: Exception) {
+      for (eng in engines) {
+        try { eng.close() } catch (_: Exception) { }
+      }
+      System.gc()
+      Log.e(TAG, "Embedding engine init failed for '${model.name}' ($wanted instances): " +
+        "[${e::class.simpleName}] ${e.message}", e)
+      RequestLogStore.addEvent(
+        "Embedding engine init failed: ${e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS)}",
+        level = LogLevel.ERROR,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      onDone(context.getString(R.string.error_unknown))
+      return
+    }
+
+    model.instance = engines.first()
+    EmbeddingInstancePool.set(model.name, engines)
+    Log.i(TAG, "Embedding engine initialized on ${backend::class.simpleName} for '${model.name}'" +
+      " (${engines.size} instances)")
+    RequestLogStore.addEvent(
+      "Embedding engine initialized" +
+        if (engines.size > 1) " (${engines.size} instances)" else "",
+      level = LogLevel.INFO,
+      modelName = model.name,
+      category = EventCategory.MODEL,
+    )
     onDone("")
   }
 

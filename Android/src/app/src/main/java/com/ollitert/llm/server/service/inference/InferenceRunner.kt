@@ -49,6 +49,7 @@ import com.ollitert.llm.server.data.model.llmSupportAudio
 import com.ollitert.llm.server.data.model.llmSupportImage
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 import com.ollitert.llm.server.data.prefs.maxTokensLong
+import com.ollitert.llm.server.runtime.ModelInstancePool
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import com.ollitert.llm.server.service.formats.AnthropicMessagesFormat
 import com.ollitert.llm.server.service.formats.ChatCompletionsFormat
@@ -86,6 +87,8 @@ class InferenceRunner(
   private val logEvent: (String) -> Unit,
   private val emitDebugStackTrace: (Throwable, source: String, modelName: String?) -> Unit,
   private val buildSystemInstruction: (modelName: String) -> Contents?,
+  private val isEmbeddingModel: (model: Model) -> Boolean = { false },
+  private val initializeEngine: (model: Model) -> String = { "" },
 ) {
 
   private val runtimeHealth = InferenceRuntimeHealth()
@@ -155,11 +158,19 @@ class InferenceRunner(
     frequencyPenalty: Double? = null,
     presencePenalty: Double? = null,
     maxOutputToken: Int? = null,
+    // True for internal warmup calibration passes — their tokens/latency/requests are
+    // excluded from ServerMetrics so a fresh server shows no stats until real traffic.
+    isWarmup: Boolean = false,
   ): Pair<String?, String?> {
-    // Track input tokens (rough estimate: ~4 chars per token)
-    ServerMetrics.addTokensIn(estimateTokensLong(prompt))
-    // Track request modality
-    ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty())
+    // Warmup passes are internal engine calibration — exclude them from all stats.
+    if (!isWarmup) {
+      // Track input tokens (rough estimate: ~4 chars per token)
+      ServerMetrics.addTokensIn(estimateTokensLong(prompt), model.name)
+      // Track request modality
+      ServerMetrics.recordModality(hasImages = images.isNotEmpty(), hasAudio = audioClips.isNotEmpty(), modelName = model.name)
+      // Per-model request count (the entry counter in nextRequestId fires before the model is known)
+      ServerMetrics.recordModelRequest(model.name)
+    }
 
     val supportImage = model.llmSupportImage && (images.isNotEmpty() || eagerVisionInit)
     val supportAudio = model.llmSupportAudio
@@ -173,11 +184,21 @@ class InferenceRunner(
       }
     }
 
+    // Multi-instance routing: extend-candidates are pinned to the owner instance
+    // (the conversation they extend lives there); everything else round-robins.
+    val instanceSlot = ModelInstancePool.route(
+      model.name,
+      isCacheCandidate = ServerLlmModelHelper.getCachedTurns(model.name) != null &&
+        images.isEmpty() && audioClips.isEmpty(),
+    )
+    val effectiveInferenceLock = instanceSlot?.instance?.inferenceLock ?: inferenceLock
+
     val session = ConversationDispatchSession(
       debugLogTag = TAG,
       incrementalReuseLabel = "INCREMENTAL_REUSE_BLOCKING",
       model = model,
       requestId = requestId,
+      instance = instanceSlot?.instance,
       images = images,
       audioClips = audioClips,
       supportImage = supportImage,
@@ -204,7 +225,7 @@ class InferenceRunner(
       prompt = prompt,
       timeoutSeconds = timeoutSeconds,
       executor = executor,
-      inferenceLock = inferenceLock,
+      inferenceLock = effectiveInferenceLock,
       resetConversation = {
         session.resetConversation(cancellationBridge.cancellationWasAccepted()) {
           inferenceActuallyStarted.set(true)
@@ -212,10 +233,11 @@ class InferenceRunner(
         }
       },
       runInference = session::runInference,
-      cancelInference = { ServerLlmModelHelper.stopResponse(model) },
+      cancelInference = { ServerLlmModelHelper.stopResponse(model, instanceSlot?.instance) },
       recoverConversation = session::recoverConversation,
       onInferenceFinished = {
         session.restoreOriginalConfigIfLoaded()
+        session.commitConversationOwner()
         if (inferenceActuallyStarted.get()) ServerMetrics.onInferenceCompleted()
       },
       elapsedMs = { SystemClock.elapsedRealtime() },
@@ -248,11 +270,13 @@ class InferenceRunner(
       val inputTokens = estimateTokensLong(prompt)
       val outputTokens = estimateTokensLongByLength(outputLen)
       val maxCtx = model.configValues.maxTokensLong() ?: 0L
-      ServerMetrics.addTokens(outputTokens)
-      ServerMetrics.recordLatency(result.totalMs)
-      ServerMetrics.recordTtfb(result.ttfbMs)
-      if (result.ttfbMs > 0) {
-        ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx)
+      if (!isWarmup) {
+        ServerMetrics.addTokens(outputTokens, model.name)
+        ServerMetrics.recordLatency(result.totalMs, modelName = model.name)
+        ServerMetrics.recordTtfb(result.ttfbMs, modelName = model.name)
+        if (result.ttfbMs > 0) {
+          ServerMetrics.recordInferenceMetrics(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, maxCtx, modelName = model.name)
+        }
       }
       emitDebugInferenceLog(inputTokens, outputTokens, result.ttfbMs, result.totalMs - result.ttfbMs, result.totalMs, model.name, prefs)
       logEvent("request_done id=$requestId endpoint=$endpoint totalMs=${result.totalMs} ttfbMs=${result.ttfbMs} outputChars=$outputLen")
@@ -482,8 +506,14 @@ class InferenceRunner(
   // Safe to use runBlocking: only called from OlliteRT-ModelLoad thread, never main thread.
   @WorkerThread
   fun warmUpModel(model: Model) {
-    InferenceWarmupHelper.warmUpModel(context, model) { m, p, reqId, ep, timeout, eagerVision ->
-      runLlm(m, p, reqId, ep, timeoutSeconds = timeout, eagerVisionInit = eagerVision)
+    InferenceWarmupHelper.warmUpModel(
+      context,
+      model,
+      isEmbeddingModel = { m -> isEmbeddingModel(m) },
+      initializeEngine = { m -> initializeEngine(m) },
+      buildSystemInstruction = { key -> buildSystemInstruction(key) },
+    ) { m, p, reqId, ep, timeout, eagerVision ->
+      runLlm(m, p, reqId, ep, timeoutSeconds = timeout, eagerVisionInit = eagerVision, isWarmup = true)
     }
   }
 

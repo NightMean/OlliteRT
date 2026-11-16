@@ -28,8 +28,10 @@ import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.routes.audioRoutes
 import com.ollitert.llm.server.service.routes.chatRoutes
+import com.ollitert.llm.server.service.routes.embeddingRoutes
 import com.ollitert.llm.server.service.routes.managementRoutes
 import com.ollitert.llm.server.service.routes.modelRoutes
+import com.ollitert.llm.server.service.routes.modelSlotRoutes
 import com.ollitert.llm.server.service.routes.serverControlRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -119,6 +121,8 @@ class KtorServer(
         managementRoutes(this@KtorServer)
         modelRoutes(this@KtorServer)
         chatRoutes(this@KtorServer)
+        embeddingRoutes(this@KtorServer)
+        modelSlotRoutes(this@KtorServer)
         audioRoutes(this@KtorServer)
         serverControlRoutes(this@KtorServer)
       }
@@ -182,6 +186,7 @@ class KtorServer(
     admitModelRequest: Boolean = false,
     inferenceRequest: Boolean = false,
     anthropicRequest: Boolean = false,
+    bodyTransform: ((String) -> String)? = null,
     handler: suspend (
       body: String,
       captureBody: (String) -> Unit,
@@ -211,6 +216,7 @@ class KtorServer(
         modelLifecycle = modelLifecycle,
         admitModelRequest = admitModelRequest,
         anthropicRequest = anthropicRequest,
+        bodyTransform = bodyTransform,
         handler = handler,
       )
     } finally {
@@ -231,12 +237,17 @@ class KtorServer(
   internal fun handleServerConfig(body: String): HttpResponse =
     serverControlHandler.handleServerConfig(body, defaultModel, keepAliveUnloadedModelName)
 
+  internal fun handleModelLoad(body: String): HttpResponse = serverControlHandler.handleModelLoad(body)
+
+  internal fun handleModelUnload(body: String): HttpResponse = serverControlHandler.handleModelUnload(body)
+
   // ── Shared route handlers ─────────────────────────────────────────────────
 
   internal suspend fun handleServerInfo(call: ApplicationCall) {
     withGetLogging(call) {
       val body = PayloadBuilders.serverInfo(
         defaultModel, keepAliveUnloadedModelName, modelLifecycle.modelCatalogMerger,
+        modelLifecycle.secondaryModel?.name, serviceContext,
       )
       httpOkJson(body)
     }
@@ -251,7 +262,7 @@ class KtorServer(
       val body = if (call.request.headers["anthropic-version"] != null) {
         PayloadBuilders.anthropicModelsList(defaultModel, keepAliveUnloadedModelName)
       } else {
-        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json)
+        PayloadBuilders.modelsList(defaultModel, keepAliveUnloadedModelName, json, modelLifecycle.secondaryModel)
       }
       httpOkJson(body)
     }

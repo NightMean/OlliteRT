@@ -19,7 +19,7 @@ package com.ollitert.llm.server.service.http
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal const val MAX_IN_FLIGHT_INFERENCE_REQUESTS = 2
+internal const val MAX_IN_FLIGHT_INFERENCE_REQUESTS = 3
 internal const val MAX_IN_FLIGHT_CONTROL_REQUESTS = 1
 internal const val REQUEST_BODY_READ_TIMEOUT_MS = 120_000L
 

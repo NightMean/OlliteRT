@@ -58,6 +58,7 @@ internal data class FloatingMonitorSnapshot(
   val errorCount: Long = 0L,
   val startedAtMs: Long = 0L,
   val inferenceSettings: FloatingInferenceSettings = FloatingInferenceSettings(),
+  val secondaryModelName: String? = null,
 )
 
 @Singleton
@@ -79,6 +80,7 @@ class FloatingMonitorController @Inject constructor(
     observe(ServerMetrics.modelLoadPhase) { snapshot = snapshot.copy(modelLoadPhase = it) }
     observe(ServerMetrics.isInferring) { snapshot = snapshot.copy(isInferring = it) }
     observe(ServerMetrics.activeModelName) { snapshot = snapshot.copy(modelName = it) }
+    observe(ServerMetrics.secondaryModelName) { snapshot = snapshot.copy(secondaryModelName = it) }
     observe(ServerMetrics.activeAccelerator) { snapshot = snapshot.copy(accelerator = it) }
     observe(ServerMetrics.thinkingEnabled) { snapshot = snapshot.copy(thinkingEnabled = it) }
     observe(ServerMetrics.speculativeDecodingEnabled) { snapshot = snapshot.copy(mtpEnabled = it) }

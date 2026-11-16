@@ -21,6 +21,8 @@ import android.util.Log
 import com.google.ai.edge.litertlm.Contents
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.prefs.ServerPrefs
+import com.ollitert.llm.server.runtime.EmbeddingInstancePool
+import com.ollitert.llm.server.runtime.ModelInstancePool
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 
 internal data class ConversationPreparation(
@@ -65,6 +67,15 @@ internal object InferenceModelPreparer {
       onDone = { err = it },
       systemInstruction = buildSystemInstruction(model.prefsKey),
       configOverrides = initConfig,
+      // Preserve the currently loaded instance count (reinit is a full reload;
+      // a multi-instance model must come back with the same pool size).
+      // Embedding models keep their engines in EmbeddingInstancePool.
+      // Cold start (no pool yet): the model's per-model config is authoritative.
+      instanceCount = when {
+        ModelInstancePool.countFor(model.name) > 0 -> ModelInstancePool.countFor(model.name)
+        EmbeddingInstancePool.countFor(model.name) > 0 -> EmbeddingInstancePool.countFor(model.name)
+        else -> ServerPrefs.getModelInstanceCount(context, model)
+      },
     )
     if (err.isNotEmpty()) {
       model.instance = null

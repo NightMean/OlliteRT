@@ -25,11 +25,13 @@ import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.model.Accelerator
 import com.ollitert.llm.server.data.prefs.ConfigKeys
+import com.ollitert.llm.server.data.prefs.DEFAULT_INSTANCE_COUNT
 import com.ollitert.llm.server.data.prefs.configSpeculativeDecodingEnabled
 import com.ollitert.llm.server.data.prefs.configTemperature
 import com.ollitert.llm.server.data.prefs.configThinkingEnabled
 import com.ollitert.llm.server.data.prefs.configTopK
 import com.ollitert.llm.server.data.prefs.configTopP
+import com.ollitert.llm.server.data.prefs.instanceCount
 import com.ollitert.llm.server.data.prefs.maxTokensInt
 
 @Composable
@@ -79,6 +81,7 @@ internal fun InferenceResetConfirmDialog(
         newValues[ConfigKeys.ENABLE_THINKING.id] = defThinking
         newValues[ConfigKeys.ENABLE_SPECULATIVE_DECODING.id] = defSpecDec
         newValues[ConfigKeys.ACCELERATOR.id] = defAccelerator.label
+        newValues[ConfigKeys.INSTANCE_COUNT.id] = defaults.instanceCount() ?: DEFAULT_INSTANCE_COUNT
 
         onResetConfirmed(
           defTemp,
