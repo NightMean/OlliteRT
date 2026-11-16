@@ -33,11 +33,29 @@ internal fun parseModelScopeLink(value: String): ModelScopeLink? {
     else -> return null
   }
   if (!uri.scheme.equals("https", ignoreCase = true) || uri.userInfo != null ||
-    uri.port !in listOf(-1, 443) || uri.rawQuery != null || uri.rawFragment != null) return null
+    uri.port !in listOf(-1, 443) || uri.rawFragment != null) return null
   val parts = try {
     uri.rawPath?.trimEnd('/')?.split('/')?.map { URLDecoder.decode(it.replace("+", "%2B"), Charsets.UTF_8.name()) }
   } catch (_: IllegalArgumentException) { return null } ?: return null
   if (parts.any { '/' in it || '\\' in it }) return null
+  if (parts.size == 7 && parts.take(4) == listOf("", "api", "v1", "models") && parts[6] == "repo") {
+    val repository = "${parts[4]}/${parts[5]}"
+    if (!isValidHuggingFaceModelId(repository)) return null
+    val query = uri.rawQuery ?: return null
+    val pairs = try { query.split('&').map { part ->
+      val pair = part.split('=', limit = 2)
+      if (pair.size != 2) return null
+      URLDecoder.decode(pair[0], Charsets.UTF_8.name()) to URLDecoder.decode(pair[1], Charsets.UTF_8.name())
+    } } catch (_: IllegalArgumentException) { return null }
+    if (pairs.size != 2 || pairs.map { it.first }.toSet() != setOf("Revision", "FilePath")) return null
+    val values = pairs.toMap()
+    val revision = values["Revision"] ?: return null
+    val path = values["FilePath"] ?: return null
+    if (!revision.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]*")) || revision == "." || revision == ".." ||
+      !isSupportedHuggingFaceFile(path)) return null
+    return ModelScopeLink(repository, revision, path, site)
+  }
+  if (uri.rawQuery != null) return null
   if (parts.size < 4 || parts[0] != "" || parts[1] != "models") return null
   val repository = "${parts[2]}/${parts[3]}"
   if (!isValidHuggingFaceModelId(repository)) return null

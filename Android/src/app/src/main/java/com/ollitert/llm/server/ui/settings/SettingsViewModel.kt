@@ -137,6 +137,8 @@ class SettingsViewModel @Inject constructor(
   val clientIpRulesEntry get() = entry<String>("client_ip_rules")
   val bearerTokenEntry get() = entry<String>("bearer_token")
   val hfTokenEntry get() = entry<String>("hf_token")
+  val modelScopeAiTokenEntry get() = entry<String>("modelscope_ai_token")
+  val modelScopeCnTokenEntry get() = entry<String>("modelscope_cn_token")
   val defaultModelEntry get() = entry<String?>("default_model")
   val corsAllowedOriginsEntry get() = entry<String>("cors_origins")
   val keepScreenOnEntry get() = entry<Boolean>("keep_screen_awake")
@@ -197,7 +199,6 @@ class SettingsViewModel @Inject constructor(
   // ─── UI State (non-persisted) ────────────────────────────────────────────
 
   var portText by mutableStateOf(portEntry.saved.toString())
-  var hfTokenVisible by mutableStateOf(false)
 
   /** Validation errors keyed by setting key. Compose-observable — reads trigger recomposition. */
   val validationErrors = mutableStateMapOf<String, String>()

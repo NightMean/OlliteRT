@@ -58,7 +58,7 @@ class DiscoveredModelsTest {
     assertEquals(listOf(modelScope), DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).read())
     val allowed = modelScope.toAllowedModel()
     assertNotEquals(huggingFace.toAllowedModel().name, allowed.name)
-    assertTrue(allowed.url!!.startsWith("$MODELSCOPE_BASE_URL/models/"))
+    assertTrue(allowed.url!!.startsWith("$MODELSCOPE_BASE_URL/api/v1/models/"))
     assertTrue(allowed.modelFile.startsWith("ms-"))
     assertEquals("$MODELSCOPE_BASE_URL/models/author/model", allowed.toModel(soc = "test-soc").learnMoreUrl)
     assertEquals(setOf(huggingFace.toAllowedModel().name, allowed.name), ModelCatalogMerger(directory).load().map { it.name }.toSet())

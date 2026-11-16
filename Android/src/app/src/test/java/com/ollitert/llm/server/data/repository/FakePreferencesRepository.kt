@@ -47,6 +47,8 @@ class FakePreferencesRepository : PreferencesRepository {
   private var _updateCheckEnabled: Boolean = true
   private var _updateCheckIntervalHours: Int = 24
   private var _hfToken: String = ""
+  private var _modelScopeAiToken: String = ""
+  private var _modelScopeCnToken: String = ""
   private var _customPromptsEnabled: Boolean = false
   private var _autoTruncateHistory: Boolean = false
   private var _autoTrimPrompts: Boolean = false
@@ -126,6 +128,10 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setUpdateCheckIntervalHours(hours: Int) { this._updateCheckIntervalHours = hours }
   override fun getHfToken(): String = _hfToken
   override fun setHfToken(token: String) { this._hfToken = token }
+  override fun getModelScopeToken(international: Boolean): String = if (international) _modelScopeAiToken else _modelScopeCnToken
+  override fun setModelScopeToken(international: Boolean, token: String) {
+    if (international) _modelScopeAiToken = token else _modelScopeCnToken = token
+  }
   override fun isCustomPromptsEnabled(): Boolean = _customPromptsEnabled
   override fun setCustomPromptsEnabled(enabled: Boolean) { this._customPromptsEnabled = enabled }
   override fun isAutoTruncateHistory(): Boolean = _autoTruncateHistory

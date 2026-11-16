@@ -31,6 +31,9 @@ class ModelScopeLinkTest {
     assertEquals(ModelScopeLink("owner/model", site = ModelScopeSite.INTERNATIONAL),
       parseModelScopeLink("https://www.modelscope.ai/models/owner/model"))
     assertEquals(ModelScopeLink("owner/model"), parseModelScopeLink("owner/model"))
+    val fileUrl = modelScopeFileUrl("owner/model", revision, "folder/model file.litertlm", ModelScopeSite.INTERNATIONAL)
+    assertEquals(ModelScopeLink("owner/model", revision, "folder/model file.litertlm", ModelScopeSite.INTERNATIONAL),
+      parseModelScopeLink(fileUrl))
   }
 
   @Test fun rejectsUntrustedOrUnsafeLinks() {
@@ -39,5 +42,11 @@ class ModelScopeLinkTest {
     assertNull(parseModelScopeLink("http://modelscope.cn/models/owner/model"))
     assertNull(parseModelScopeLink("https://modelscope.cn/models/owner/model/resolve/../model.litertlm"))
     assertNull(parseModelScopeLink("https://modelscope.cn/models/owner/model/resolve/${"a".repeat(40)}/../model.litertlm"))
+    assertNull(parseModelScopeLink("https://modelscope.cn/api/v1/models/owner/model/repo?Revision=master&FilePath=../bad.litertlm"))
+    assertNull(parseModelScopeLink("https://modelscope.cn/api/v1/models/owner/model/repo?Revision=master&Revision=other&FilePath=a.litertlm"))
+    assertNull(parseModelScopeLink("https://modelscope.cn/api/v1/models/owner/model/repo?Revision=master&FilePath=a.litertlm&extra=x"))
+    assertNull(parseModelScopeLink("https://modelscope.cn.example.test/api/v1/models/owner/model/repo?Revision=master&FilePath=a.litertlm"))
+    val plus = modelScopeFileUrl("owner/model", "a".repeat(40), "nested/model+v1.litertlm")
+    assertEquals(ModelScopeLink("owner/model", "a".repeat(40), "nested/model+v1.litertlm", ModelScopeSite.CHINA), parseModelScopeLink(plus))
   }
 }

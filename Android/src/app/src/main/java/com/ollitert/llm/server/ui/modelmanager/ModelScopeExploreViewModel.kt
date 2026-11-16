@@ -24,6 +24,7 @@ import com.ollitert.llm.server.data.allowlist.DiscoveredModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.ModelScopeCatalog
+import com.ollitert.llm.server.data.allowlist.ModelScopeAccessException
 import com.ollitert.llm.server.data.allowlist.ModelScopeFile
 import com.ollitert.llm.server.data.allowlist.ModelScopeModel
 import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
@@ -63,6 +64,7 @@ internal data class ModelScopeExploreState(
   val saving: Boolean = false,
   val error: Boolean = false,
   val rateLimited: Boolean = false,
+  val accessDenied: Boolean = false,
   val alreadyAdded: Boolean = false,
   val hasMore: Boolean = false,
   val searchLimitReached: Boolean = false,
@@ -86,7 +88,8 @@ internal class ModelScopeExploreViewModel internal constructor(
   @Inject constructor(@ApplicationContext context: Context) : this(
     context, ModelScopeCatalog(), Dispatchers.IO,
     ModelScopeSite.entries.firstOrNull { it.name == ServerPrefs.getModelScopeSite(context) } ?: ModelScopeSite.INTERNATIONAL,
-    { site -> ModelScopeCatalog(endpoint = site.baseUrl) },
+    { site -> ModelScopeCatalog(endpoint = site.baseUrl,
+      token = ServerPrefs.getModelScopeToken(context, site == ModelScopeSite.INTERNATIONAL)) },
     { site -> ServerPrefs.setModelScopeSite(context, site.name) },
   )
 
@@ -138,7 +141,7 @@ internal class ModelScopeExploreViewModel internal constructor(
     val before = _state.value
     val page = if (reset) 1 else before.page + 1
     _state.update {
-      it.copy(loading = reset, loadingMore = !reset, openingModelId = null, error = false, rateLimited = false, paginationError = false, paginationStalled = false, failedModel = null, details = null,
+      it.copy(loading = reset, loadingMore = !reset, openingModelId = null, error = false, rateLimited = false, accessDenied = false, paginationError = false, paginationStalled = false, failedModel = null, details = null,
         models = if (reset) emptyList() else it.models,
         page = if (reset) 0 else it.page,
         hasMore = if (reset) false else it.hasMore,
@@ -159,7 +162,7 @@ internal class ModelScopeExploreViewModel internal constructor(
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Model search failed", e)
-        _state.update { it.copy(loading = false, loadingMore = false, error = reset, paginationError = !reset, rateLimited = e is ModelScopeRateLimitException) }
+        _state.update { it.copy(loading = false, loadingMore = false, error = reset, paginationError = !reset, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
       }
     }
   }
@@ -168,7 +171,7 @@ internal class ModelScopeExploreViewModel internal constructor(
     if (_state.value.saving) return
     job?.cancel()
     val site = _state.value.site
-    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = model.id, detailsSite = site, error = false, rateLimited = false, failedModel = null) }
+    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = model.id, detailsSite = site, error = false, rateLimited = false, accessDenied = false, failedModel = null) }
     job = viewModelScope.launch {
       try {
         val files = withContext(io) { catalogForSite(site).files(model.id) }
@@ -176,7 +179,7 @@ internal class ModelScopeExploreViewModel internal constructor(
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Model file listing failed", e)
-        _state.update { it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException) }
+        _state.update { it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
       }
     }
   }
@@ -184,16 +187,16 @@ internal class ModelScopeExploreViewModel internal constructor(
   fun beginLink() {
     if (_state.value.saving) return
     job?.cancel()
-    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = null, error = false, rateLimited = false, failedModel = null, linkError = false) }
+    _state.update { it.copy(loading = false, loadingMore = false, openingModelId = null, error = false, rateLimited = false, accessDenied = false, failedModel = null, linkError = false) }
   }
 
   fun openLink(value: String) {
     if (_state.value.saving) return
     val link = parseModelScopeLink(value)
-    if (link == null) { _state.update { it.copy(linkError = true, rateLimited = false) }; return }
+    if (link == null) { _state.update { it.copy(linkError = true, rateLimited = false, accessDenied = false) }; return }
     val site = link.site ?: _state.value.site
     job?.cancel()
-    _state.update { it.copy(linkLoading = true, linkError = false, rateLimited = false, loading = false) }
+    _state.update { it.copy(linkLoading = true, linkError = false, rateLimited = false, accessDenied = false, loading = false) }
     job = viewModelScope.launch {
       try {
         val (model, files) = withContext(io) {
@@ -204,7 +207,7 @@ internal class ModelScopeExploreViewModel internal constructor(
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Could not open repository link", e)
-        _state.update { it.copy(linkLoading = false, linkError = true, rateLimited = e is ModelScopeRateLimitException) }
+        _state.update { it.copy(linkLoading = false, linkError = true, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
       }
     }
   }

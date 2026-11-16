@@ -141,9 +141,15 @@ object ServerPrefs {
 
   // UI Preferences
   private val MODELSCOPE_SITE = StringPref("modelscope_site", "INTERNATIONAL")
+  private val MODELSCOPE_AI_TOKEN = StringPref("modelscope_ai_token", "")
+  private val MODELSCOPE_CN_TOKEN = StringPref("modelscope_cn_token", "")
 
   internal fun getModelScopeSite(context: Context): String = get(context, MODELSCOPE_SITE)
   internal fun setModelScopeSite(context: Context, site: String) = set(context, MODELSCOPE_SITE, site)
+  fun getModelScopeToken(context: Context, international: Boolean): String =
+    get(context, if (international) MODELSCOPE_AI_TOKEN else MODELSCOPE_CN_TOKEN)
+  fun setModelScopeToken(context: Context, international: Boolean, token: String) =
+    set(context, if (international) MODELSCOPE_AI_TOKEN else MODELSCOPE_CN_TOKEN, token.trim())
 
   // Log Persistence
 
@@ -489,7 +495,7 @@ object ServerPrefs {
     cachedPrefs = null
   }
 
-  private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN, KEY_CLIENT_IP_RULES)
+  private val SENSITIVE_KEYS = setOf(KEY_BEARER_TOKEN, KEY_HF_TOKEN, KEY_CLIENT_IP_RULES, "modelscope_ai_token", "modelscope_cn_token")
   private val SENSITIVE_PREFIXES = listOf(KEY_PREFIX_SYSTEM_PROMPT, KEY_PREFIX_INFERENCE_CONFIG)
 
   private fun isSensitiveKey(key: String): Boolean =

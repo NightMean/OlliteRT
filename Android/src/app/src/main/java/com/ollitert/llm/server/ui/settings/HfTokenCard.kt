@@ -34,6 +34,10 @@ import androidx.compose.material3.OutlinedTextField
 import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
@@ -53,13 +57,13 @@ import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 @Composable
 internal fun HfTokenCard(vm: SettingsViewModel, context: Context) {
   val hfTokenLinkText = stringResource(R.string.settings_hf_token_link_text)
-  val tokenClearedText = stringResource(R.string.toast_token_cleared)
 
   SettingsCard(
     icon = Icons.Outlined.Key,
     title = stringResource(R.string.settings_card_hf_token),
     searchQuery = vm.searchQuery,
   ) {
+    Text(stringResource(R.string.settings_huggingface_token_label), style = MaterialTheme.typography.titleMedium)
     Text(
       text = stringResource(R.string.settings_hf_token_desc),
       style = MaterialTheme.typography.bodySmall,
@@ -84,43 +88,51 @@ internal fun HfTokenCard(vm: SettingsViewModel, context: Context) {
       style = MaterialTheme.typography.bodySmall,
     )
     Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-      value = vm.hfTokenEntry.current,
-      onValueChange = { vm.hfTokenEntry.update(it.trim()) },
-      singleLine = true,
-      visualTransformation = if (vm.hfTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
-      placeholder = {
-        Text(
-          stringResource(R.string.settings_hf_token_placeholder),
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-        )
-      },
-      trailingIcon = {
-        Row {
-          IconButton(onClick = { vm.hfTokenVisible = !vm.hfTokenVisible }) {
-            Icon(
-              imageVector = if (vm.hfTokenVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-              contentDescription = stringResource(if (vm.hfTokenVisible) R.string.settings_hf_token_hide else R.string.settings_hf_token_show),
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
-          if (vm.hfTokenEntry.current.isNotBlank()) {
-            IconButton(onClick = {
-              vm.hfTokenEntry.update("")
-              Toast.makeText(context, tokenClearedText, Toast.LENGTH_SHORT).show()
-            }) {
-              Icon(
-                imageVector = Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.settings_hf_token_clear),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-            }
-          }
-        }
-      },
-      colors = olliteTextFieldColors(),
-      modifier = Modifier.fillMaxWidth(),
-    )
+    ProviderTokenField(vm.hfTokenEntry, context, stringResource(R.string.settings_hf_token_placeholder))
+    SettingDivider()
+    ModelScopeTokenField(vm.modelScopeAiTokenEntry, context, stringResource(R.string.settings_modelscope_ai_token),
+      "https://www.modelscope.ai/my/access/token")
+    SettingDivider()
+    ModelScopeTokenField(vm.modelScopeCnTokenEntry, context, stringResource(R.string.settings_modelscope_cn_token),
+      "https://modelscope.cn/my/access/token")
   }
+}
+
+@Composable
+private fun ModelScopeTokenField(entry: SettingEntry<String>, context: Context, label: String, tokenUrl: String) {
+  Text(label, style = MaterialTheme.typography.titleMedium)
+  Text(stringResource(R.string.settings_modelscope_token_desc), style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(buildAnnotatedString {
+    withLink(LinkAnnotation.Url(tokenUrl, styles = TextLinkStyles(style = SpanStyle(
+      color = OlliteRTPrimary, textDecoration = TextDecoration.Underline)))) {
+      append(tokenUrl.removePrefix("https://"))
+    }
+  }, style = MaterialTheme.typography.bodySmall)
+  Spacer(Modifier.height(8.dp))
+  ProviderTokenField(entry, context)
+}
+
+@Composable
+private fun ProviderTokenField(entry: SettingEntry<String>, context: Context, placeholder: String = "") {
+  var visible by remember { mutableStateOf(false) }
+  val tokenClearedText = stringResource(R.string.toast_token_cleared)
+  OutlinedTextField(value = entry.current, onValueChange = { entry.update(it.trim()) }, singleLine = true,
+    visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+    placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
+    trailingIcon = {
+      Row {
+        IconButton(onClick = { visible = !visible }) {
+          Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+            contentDescription = stringResource(if (visible) R.string.settings_hf_token_hide else R.string.settings_hf_token_show))
+        }
+        if (entry.current.isNotEmpty()) IconButton(onClick = {
+          entry.update("")
+          Toast.makeText(context, tokenClearedText, Toast.LENGTH_SHORT).show()
+        }) {
+          Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.settings_hf_token_clear))
+        }
+      }
+    }, colors = olliteTextFieldColors(), modifier = Modifier.fillMaxWidth())
 }

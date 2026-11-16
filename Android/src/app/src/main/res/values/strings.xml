@@ -302,8 +302,12 @@
   <string name="settings_reject_when_busy_desc" translatable="false">Return an error immediately when a request is already being processed, instead of queueing</string>
 
   <!-- Settings: Hugging Face Token card -->
-  <string name="settings_card_hf_token" translatable="false">Hugging Face Token</string>
-  <string name="settings_hf_token_desc" translatable="false">Required for downloading models from Hugging Face. Get your token from</string>
+  <string name="settings_card_hf_token" translatable="false">Provider Tokens</string>
+  <string name="settings_huggingface_token_label">Hugging Face token</string>
+  <string name="settings_modelscope_ai_token">ModelScope International token</string>
+  <string name="settings_modelscope_cn_token">ModelScope China token</string>
+  <string name="settings_modelscope_token_desc">Use a read token from the matching ModelScope site for private or gated models.</string>
+  <string name="settings_hf_token_desc" translatable="false">Required for some private or gated Hugging Face models. Get your token from</string>
   <string name="settings_hf_token_link_text" translatable="false">huggingface.co/settings/tokens</string>
   <string name="settings_hf_token_placeholder" translatable="false">hf_…</string>
   <string name="settings_hf_token_hide" translatable="false">Hide token</string>
@@ -1094,6 +1098,7 @@
   <string name="modelscope_more_failed">Could not load more models</string>
   <string name="modelscope_more_error">ModelScope could not complete the request. Try again later.</string>
   <string name="modelscope_rate_limited">ModelScope is receiving too many requests. Please try again later.</string>
+  <string name="modelscope_access_denied">ModelScope denied access. Check your site token and the model’s access requirements.</string>
   <string name="repository_loading_files">Loading model files</string>
   <string name="modelscope_page_empty">No new models on this page</string>
   <string name="modelscope_page_continue">Continue to check the next page.</string>
@@ -1103,7 +1108,7 @@
   <string name="modelscope_link_title">Open ModelScope link</string>
   <string name="modelscope_link_label">ModelScope URL</string>
   <string name="modelscope_link_help">Paste a ModelScope repository or model file link.</string>
-  <string name="modelscope_link_error">Could not open this ModelScope link. Check the link and try again.</string>
+  <string name="modelscope_link_error">Could not open this ModelScope link. Check the link, site token, and model access requirements.</string>
   <string name="error_server_failed_to_start">Server failed to start: %1$s</string>
   <string name="error_invalid_bind_address">Invalid server bind address: %1$s. Enter a numeric IP address in Settings.</string>
   <string name="error_invalid_client_ip_policy">Invalid client IP access policy. Open Settings and correct the address list.</string>

@@ -132,7 +132,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
       if (state.error && state.details == null) {
         ModelListError(
           title = stringResource(if (state.failedModel == null) R.string.models_failed_to_load else R.string.modelscope_files_failed),
-          message = stringResource(if (state.rateLimited) R.string.modelscope_rate_limited else if (state.failedModel == null) R.string.modelscope_explore_error else R.string.modelscope_files_error),
+          message = stringResource(if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else if (state.failedModel == null) R.string.modelscope_explore_error else R.string.modelscope_files_error),
           onRetry = viewModel::retryError,
           verticalPadding = if (state.models.isEmpty()) 48.dp else 16.dp,
         )
@@ -157,7 +157,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
         }
         if (state.paginationError) item(key = "page_error") {
           ModelListError(title = stringResource(if (state.paginationStalled) R.string.modelscope_page_empty else R.string.modelscope_more_failed),
-            message = stringResource(if (state.paginationStalled) R.string.modelscope_page_continue else if (state.rateLimited) R.string.modelscope_rate_limited else R.string.modelscope_more_error),
+            message = stringResource(if (state.paginationStalled) R.string.modelscope_page_continue else if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_more_error),
             onRetry = viewModel::retryLoadMore, verticalPadding = 16.dp,
             retryLabel = stringResource(if (state.paginationStalled) R.string.modelscope_continue else R.string.retry))
         }
@@ -169,7 +169,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
     UrlInputDialog(title = stringResource(R.string.modelscope_link_title), label = stringResource(R.string.modelscope_link_label),
       helperText = stringResource(R.string.modelscope_link_help), confirmText = stringResource(R.string.hf_link_open),
       loadingText = stringResource(R.string.hf_link_loading), isLoading = state.linkLoading,
-      error = if (state.linkError) stringResource(if (state.rateLimited) R.string.modelscope_rate_limited else R.string.modelscope_link_error) else null,
+      error = if (state.linkError) stringResource(if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_link_error) else null,
       onDismiss = { showLink = false; viewModel.closeLink() }, onConfirm = viewModel::openLink)
   }
   state.details?.takeIf { state.addedModelName == null }?.let { details ->

@@ -782,7 +782,7 @@ constructor(
             if (uiState.value.models.none { it.name == model.name } ||
               partialStatus?.status != ModelDownloadStatusType.PARTIALLY_DOWNLOADED ||
               model.name in removingModelNames || !downloadStartGate.tryAcquire(model.name)) continue
-            model.accessToken = configuredToken
+            model.accessToken = if (com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl(model.url) != null) null else configuredToken
             setDownloadStatus(model, ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS))
             try {
               enqueueModelDownload(model)

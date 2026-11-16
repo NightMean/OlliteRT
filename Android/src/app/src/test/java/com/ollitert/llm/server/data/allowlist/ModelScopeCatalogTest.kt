@@ -49,6 +49,61 @@ class ModelScopeCatalogTest {
     verify(exactly = 0) { connection.setRequestProperty("Authorization", any()) }
   }
 
+  @Test fun catalogUsesSiteScopedCredentialsAndRejectsUnsafeHosts() {
+    val connection = connection("""{"success":true,"data":{"models":[],"total_count":0}}""")
+    ModelScopeCatalog(openConnection = { connection }, endpoint = ModelScopeSite.INTERNATIONAL.baseUrl,
+      token = "ms-example").search("", ModelScopeSort.DEFAULT)
+    verify { connection.setRequestProperty("Authorization", "Bearer ms-example") }
+    verify { connection.setRequestProperty("Cookie", "m_session_id=ms-example") }
+    assertEquals(null, modelScopeSiteForUrl("https://modelscope.cn.example.test/models/a/b"))
+    assertEquals(null, modelScopeSiteForUrl("http://modelscope.cn/models/a/b"))
+    assertEquals(null, modelScopeSiteForUrl("https://user@modelscope.cn/models/a/b"))
+    assertThrows(IllegalArgumentException::class.java) { setModelScopeCredentials(connection, "bad;cookie") }
+  }
+
+  @Test fun rejectedTokenRetriesPublicCatalogWithoutCredentials() {
+    val rejected = connection("")
+    every { rejected.responseCode } returns 401
+    every { rejected.errorStream } returns "{}".byteInputStream()
+    val public = connection("""{"success":true,"data":{"models":[],"total_count":0}}""")
+    var calls = 0
+    val result = ModelScopeCatalog(openConnection = { if (calls++ == 0) rejected else public }, token = "ms-example")
+      .search("", ModelScopeSort.DEFAULT)
+    assertTrue(result.models.isEmpty())
+    verify(exactly = 0) { public.setRequestProperty("Authorization", any()) }
+    verify(exactly = 0) { public.setRequestProperty("Cookie", any()) }
+  }
+
+  @Test fun deniedFilesHiddenFromAnonymousCallerPreserveAccessError() {
+    val denied = connection("")
+    every { denied.responseCode } returns 403
+    every { denied.errorStream } returns "{}".byteInputStream()
+    val hidden = connection("")
+    every { hidden.responseCode } returns 404
+    every { hidden.errorStream } returns null
+    var calls = 0
+    val catalog = ModelScopeCatalog(openConnection = { if (calls++ == 0) denied else hidden }, token = "ms-example")
+    assertThrows(ModelScopeAccessException::class.java) { catalog.files("author/model") }
+  }
+
+  @Test fun missingOpenApiDetailsFallBackToLegacyPrivateMetadata() {
+    val missing = connection("")
+    every { missing.responseCode } returns 404
+    every { missing.errorStream } returns null
+    val legacy = connection("""{"Success":true,"Data":{"Path":"author","Name":"model","Downloads":7,"Stars":2}}""")
+    val requested = mutableListOf<String>()
+    val catalog = ModelScopeCatalog(openConnection = { url ->
+      requested.add(url)
+      if (requested.size == 1) missing else legacy
+    }, token = "ms-example")
+    val result = catalog.details("author/model")
+    assertEquals("author/model", result.id)
+    assertEquals(7, result.downloads)
+    assertTrue(requested[0].contains("/openapi/v1/models/"))
+    assertTrue(requested[1].contains("/api/v1/models/"))
+    verify { legacy.setRequestProperty("Cookie", "m_session_id=ms-example") }
+  }
+
   @Test fun filesUsePerFileRevisionAndSkipUnsupportedEntries() {
     val revision = "a".repeat(40)
     val connection = connection("""{"Success":true,"Code":200,"Data":{"Files":[
@@ -61,7 +116,7 @@ class ModelScopeCatalogTest {
     val file = ModelScopeCatalog(openConnection = { connection }).files("author/model").single()
     assertEquals("folder/model.litertlm", file.path)
     assertEquals(revision, file.revision)
-    assertEquals("$MODELSCOPE_BASE_URL/models/author/model/resolve/$revision/folder/model.litertlm", modelScopeFileUrl("author/model", revision, file.path))
+    assertEquals("$MODELSCOPE_BASE_URL/api/v1/models/author/model/repo?Revision=$revision&FilePath=folder%2Fmodel.litertlm", modelScopeFileUrl("author/model", revision, file.path))
   }
 
   @Test fun applicationErrorsAndRedirectsAreFailures() {

@@ -40,6 +40,10 @@ import com.ollitert.llm.server.data.storage.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
 import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
+import com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
+import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
+import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.storage.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
@@ -89,6 +93,7 @@ private class InvalidArtifactException(val problem: ArtifactProblem) : IOExcepti
 private class HttpErrorException(
   val statusCode: Int,
   val isRepoNotFound: Boolean = false,
+  val isModelScope: Boolean = false,
 ) : IOException("HTTP error code: $statusCode")
 
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
@@ -196,26 +201,26 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             createdTmpFiles.add(outputTmpFile)
             val outputFileBytes = outputTmpFile.length()
 
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
-            connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+            val originalSite = modelScopeSiteForUrl(file.url)
+            // Resolve the current site token at execution time, including resumed work.
+            val siteToken = originalSite?.let {
+              ServerPrefs.getModelScopeToken(applicationContext, it == ModelScopeSite.INTERNATIONAL).trim().takeIf(String::isNotEmpty)
+            }
+            val connection = if (originalSite != null) openModelScopeDownloadConnection(url, siteToken, outputFileBytes)
+              else url.openConnection() as HttpURLConnection
             try {
-              // Scope the credential to huggingface.co — download URLs can point
-              // to third-party hosts declared by user-added repos.
-              if (accessToken != null && isHuggingFaceUrl(file.url)) {
-                Log.d(TAG, "Using access token: configured (redacted)")
-                connection.setRequestProperty("Authorization", "Bearer $accessToken")
+              if (originalSite == null) {
+                connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
+                connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+                if (accessToken != null && isHuggingFaceUrl(file.url)) {
+                  connection.setRequestProperty("Authorization", "Bearer $accessToken")
+                }
+                if (outputFileBytes > 0) {
+                  connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
+                  connection.setRequestProperty("Accept-Encoding", "identity")
+                }
+                connection.connect()
               }
-              if (outputFileBytes > 0) {
-                Log.d(
-                  TAG,
-                  "File '${outputTmpFile.name}' partial size: ${outputFileBytes}. Trying to resume download",
-                )
-                connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
-                // Force the server to send non-compressed data to make download resuming work.
-                connection.setRequestProperty("Accept-Encoding", "identity")
-              }
-              connection.connect()
               Log.d(TAG, "response code: ${connection.responseCode}")
 
               if (
@@ -253,12 +258,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                   }
                 }
               } else {
-                val errorBody = try {
+                val errorBody = if (originalSite != null) null else try {
                   connection.errorStream?.bufferedReader()?.use { it.readText() }
                 } catch (_: Exception) { null }
                 val repoNotFound = errorBody?.contains("Repository Not Found", ignoreCase = true) == true
                 Log.w(TAG, "HTTP ${connection.responseCode}: $errorBody")
-                throw HttpErrorException(connection.responseCode, isRepoNotFound = repoNotFound)
+                throw HttpErrorException(connection.responseCode, isRepoNotFound = repoNotFound, isModelScope = originalSite != null)
               }
 
               val appendMode = outputTmpFile.exists() && outputTmpFile.length() > 0
@@ -468,9 +473,13 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               )
               is DownloadFinalizationException ->
                 applicationContext.getString(R.string.download_error_finalize)
+              is ModelScopeRateLimitException -> applicationContext.getString(R.string.modelscope_rate_limited)
+              is ModelScopeDownloadAccessException -> applicationContext.getString(R.string.modelscope_access_denied)
               is HttpErrorException -> when {
                 e.isRepoNotFound -> applicationContext.getString(R.string.download_error_not_found)
                 e.statusCode == HttpURLConnection.HTTP_NOT_FOUND -> applicationContext.getString(R.string.download_error_not_found)
+                e.isModelScope && (e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || e.statusCode == HttpURLConnection.HTTP_FORBIDDEN) ->
+                  applicationContext.getString(R.string.modelscope_access_denied)
                 e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || e.statusCode == HttpURLConnection.HTTP_FORBIDDEN ->
                   applicationContext.getString(R.string.download_error_unauthorized)
                 else -> applicationContext.getString(R.string.download_error_server, e.statusCode)

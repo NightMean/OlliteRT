@@ -40,6 +40,19 @@ val HF_TOKEN = SettingDef.TextInput(
   write = { repo, v -> repo.setHfToken(v) },
 )
 
+val MODELSCOPE_AI_TOKEN = SettingDef.TextInput(
+  key = "modelscope_ai_token", labelRes = R.string.settings_modelscope_ai_token,
+  descriptionRes = R.string.settings_modelscope_token_desc, card = CardId.HF_TOKEN,
+  default = "", prefsKey = "modelscope_ai_token", isPassword = true,
+  read = { it.getModelScopeToken(true) }, write = { repo, value -> repo.setModelScopeToken(true, value) },
+)
+val MODELSCOPE_CN_TOKEN = SettingDef.TextInput(
+  key = "modelscope_cn_token", labelRes = R.string.settings_modelscope_cn_token,
+  descriptionRes = R.string.settings_modelscope_token_desc, card = CardId.HF_TOKEN,
+  default = "", prefsKey = "modelscope_cn_token", isPassword = true,
+  read = { it.getModelScopeToken(false) }, write = { repo, value -> repo.setModelScopeToken(false, value) },
+)
+
 // ─── Model Behaviour Card ─────────────────────────────────────────────
 
 val CUSTOM_PROMPTS = SettingDef.Toggle(

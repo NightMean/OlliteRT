@@ -103,7 +103,7 @@ Tap the **+** button on the Models screen to explore Hugging Face or ModelScope,
 - Select a `.litertlm` file and configure its capabilities and accelerators. The model is added to Models; start its download there when ready.
 - ModelScope lists downloads, likes, and update dates. File variants appear after opening a repository because search results do not include its files.
 - Each selection is pinned to the file's revision. Compatibility estimates do not guarantee that a model will run. Check the model card and its license before downloading.
-- Only public ModelScope repositories are supported. ModelScope can rate-limit requests; retry if a repository cannot be opened.
+- Public repositories can be opened without a token. For private or gated repositories, add a read token in **Settings → Provider Tokens** for the matching site and complete any access approval on ModelScope. The two sites use separate tokens. ModelScope can rate-limit requests even with a token; retry later if needed.
 
 **From a local `.litertlm` file:**
 - Select a `.litertlm` model file from your device storage

@@ -34,12 +34,31 @@ internal const val MODELSCOPE_BASE_URL = "https://modelscope.cn"
 internal enum class ModelScopeSite(val baseUrl: String) {
   INTERNATIONAL("https://www.modelscope.ai"), CHINA(MODELSCOPE_BASE_URL),
 }
+
+internal fun modelScopeSiteForUrl(url: String): ModelScopeSite? {
+  val uri = try { java.net.URI(url) } catch (_: java.net.URISyntaxException) { return null }
+  if (!uri.scheme.equals("https", true) || uri.userInfo != null || uri.port !in listOf(-1, 443)) return null
+  return when (uri.host?.lowercase(java.util.Locale.ROOT)) {
+    "modelscope.ai", "www.modelscope.ai" -> ModelScopeSite.INTERNATIONAL
+    "modelscope.cn", "www.modelscope.cn" -> ModelScopeSite.CHINA
+    else -> null
+  }
+}
+
+internal fun setModelScopeCredentials(connection: HttpURLConnection, token: String?) {
+  val value = token?.trim()?.takeIf { it.isNotEmpty() } ?: return
+  require(value.all { it.code in 0x21..0x7e && it !in ";,\\\"" }) { "Invalid ModelScope token" }
+  connection.setRequestProperty("Authorization", "Bearer $value")
+  connection.setRequestProperty("Cookie", "m_session_id=$value")
+}
 private const val TREE_LIMIT = 3000
 private const val PAGE_SIZE = 50
 private const val MAX_PAGE = 3000 / PAGE_SIZE
-private const val RATE_LIMIT_CODE = 10013201001L
+internal const val MODELSCOPE_RATE_LIMIT_CODE = 10013201001L
 
 internal class ModelScopeRateLimitException : IOException("ModelScope rate limit exceeded")
+internal class ModelScopeAccessException : IOException("ModelScope denied access")
+private class ModelScopeNotFoundException : IOException("ModelScope repository not found")
 
 @Serializable
 internal data class ModelScopeModel(
@@ -64,7 +83,18 @@ internal data class ModelScopeFile(
   @SerialName("Type") val type: String? = null,
 )
 @Serializable private data class ModelListResponse(val success: Boolean, val data: ModelListData? = null)
-@Serializable private data class ModelDetailResponse(val success: Boolean, val data: ModelScopeModel? = null)
+@Serializable private data class OpenModelDetailResponse(val success: Boolean, val data: ModelScopeModel? = null)
+@Serializable private data class ModelDetailResponse(
+  @SerialName("Success") val success: Boolean,
+  @SerialName("Data") val data: ModelDetailData? = null,
+)
+@Serializable private data class ModelDetailData(
+  @SerialName("Path") val owner: String,
+  @SerialName("Name") val name: String,
+  @SerialName("Downloads") val downloads: Long = 0,
+  @SerialName("Stars") val likes: Long = 0,
+  @SerialName("LastUpdatedTime") val lastUpdated: Long? = null,
+)
 @Serializable private data class ModelListData(
   val models: List<ModelScopeModel>,
   @SerialName("total_count") val totalCount: Int,
@@ -90,14 +120,15 @@ internal fun modelScopeFileUrl(repository: String, revision: String, path: Strin
   require(isValidHuggingFaceModelId(repository))
   require(revision.matches(Regex("[a-fA-F0-9]{40}")))
   require(isSupportedHuggingFaceFile(path))
-  val encoded = path.split('/').joinToString("/") { URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20") }
-  return "${site.baseUrl}/models/$repository/resolve/$revision/$encoded"
+  val encoded = URLEncoder.encode(path, Charsets.UTF_8.name()).replace("+", "%20")
+  return "${site.baseUrl}/api/v1/models/$repository/repo?Revision=$revision&FilePath=$encoded"
 }
 
 /** Reads public repositories without forwarding Hugging Face credentials. */
 internal class ModelScopeCatalog(
   private val openConnection: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection },
   private val endpoint: String = MODELSCOPE_BASE_URL,
+  private val token: String? = null,
 ) {
   private val json = Json { ignoreUnknownKeys = true }
 
@@ -117,9 +148,20 @@ internal class ModelScopeCatalog(
 
   fun details(repository: String): ModelScopeModel {
     require(isValidHuggingFaceModelId(repository)) { "Invalid model repository ID" }
-    val response = json.decodeFromString<ModelDetailResponse>(get("$endpoint/openapi/v1/models/$repository"))
-    if (!response.success || response.data == null || response.data.id != repository) throw IOException("ModelScope repository request failed")
-    return response.data
+    try {
+      val response = json.decodeFromString<OpenModelDetailResponse>(get("$endpoint/openapi/v1/models/$repository"))
+      if (!response.success || response.data == null || response.data.id != repository) throw IOException("ModelScope repository request failed")
+      return response.data
+    } catch (_: ModelScopeNotFoundException) {
+      // OpenAPI can hide private repositories that the legacy endpoint can access.
+    } catch (_: ModelScopeAccessException) {
+      // Legacy metadata may grant access when the OpenAPI endpoint does not.
+    }
+    val response = json.decodeFromString<ModelDetailResponse>(get("$endpoint/api/v1/models/$repository"))
+    val detail = response.data
+    if (!response.success || detail == null || "${detail.owner}/${detail.name}" != repository) throw IOException("ModelScope repository request failed")
+    return ModelScopeModel(repository, detail.downloads, detail.likes,
+      detail.lastUpdated?.let { java.time.Instant.ofEpochSecond(it).toString() })
   }
 
   fun files(repository: String, revision: String = "master"): List<ModelScopeFile> {
@@ -128,7 +170,7 @@ internal class ModelScopeCatalog(
     val response = json.decodeFromString<FileListResponse>(
       get("$endpoint/api/v1/models/$repository/repo/files?Revision=$revision&Recursive=True")
     )
-    if (response.code == RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+    if (response.code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
     if (!response.success || response.data == null) throw IOException("ModelScope file listing failed (code ${response.code})")
     // The legacy API silently truncates large trees; never present a partial list as complete.
     if (response.data.files.size >= TREE_LIMIT) throw IOException("ModelScope file listing is incomplete")
@@ -142,19 +184,31 @@ internal class ModelScopeCatalog(
     }
   }
 
-  private fun get(url: String): String {
+  private fun get(url: String, withCredentials: Boolean = true): String {
     val connection = openConnection(url)
     try {
       connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
       connection.readTimeout = HTTP_READ_TIMEOUT_MS
       connection.instanceFollowRedirects = false
       connection.setRequestProperty("User-Agent", "OlliteRT")
+      if (withCredentials && modelScopeSiteForUrl(url) != null && modelScopeSiteForUrl(url) == modelScopeSiteForUrl(endpoint)) {
+        setModelScopeCredentials(connection, token)
+      }
       val status = connection.responseCode
       if (status != HttpURLConnection.HTTP_OK) {
         // The legacy API reports rate limits as HTTP 403 with a provider-specific code.
         val error = connection.errorStream?.bufferedReader()?.use { it.readTextLimited(4096) }
         val code = error?.let { runCatching { json.parseToJsonElement(it).jsonObject["Code"]?.jsonPrimitive?.longOrNull }.getOrNull() }
-        if (status == 429 || code == RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+        if (status == 429 || code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+        if (status == HttpURLConnection.HTTP_NOT_FOUND) throw ModelScopeNotFoundException()
+        if (status == HttpURLConnection.HTTP_UNAUTHORIZED || status == HttpURLConnection.HTTP_FORBIDDEN) {
+          // An invalid token must not hide repositories available anonymously.
+          if (withCredentials && !token.isNullOrBlank()) {
+            return try { get(url, withCredentials = false) }
+            catch (_: ModelScopeNotFoundException) { throw ModelScopeAccessException() }
+          }
+          throw ModelScopeAccessException()
+        }
         throw IOException("ModelScope returned HTTP $status")
       }
       return connection.inputStream.bufferedReader().use { reader ->
@@ -174,7 +228,7 @@ internal class ModelScopeCatalog(
   }
 }
 
-private fun java.io.Reader.readTextLimited(limit: Int): String {
+internal fun java.io.Reader.readTextLimited(limit: Int): String {
   val chars = CharArray(limit)
   val result = StringBuilder()
   while (result.length < limit) {
