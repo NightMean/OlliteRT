@@ -75,7 +75,7 @@ internal fun ProviderTokensScreen(onBack: () -> Unit, onSetTopBarTrailingContent
         .padding(horizontal = 20.dp, vertical = 16.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      HfTokenCard(state, vm::update, context)
+      HfTokenCard(state, vm::update, vm::test, context)
     }
   }
   if (showDiscard) {

@@ -17,6 +17,12 @@
 package com.ollitert.llm.server.ui.settings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ollitert.llm.server.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -26,13 +32,16 @@ import kotlinx.coroutines.flow.update
 
 internal enum class ProviderToken { HUGGING_FACE, MODELSCOPE_AI, MODELSCOPE_CN }
 
-internal data class ProviderTokensState(val saved: Map<ProviderToken, String>, val current: Map<ProviderToken, String>) {
+internal data class ProviderTokensState(val saved: Map<ProviderToken, String>, val current: Map<ProviderToken, String>, val checks: Map<ProviderToken, TokenCheck> = emptyMap()) {
   val hasChanges get() = current != saved
   override fun toString(): String = "ProviderTokensState(redacted)"
 }
 
 @HiltViewModel
-internal class ProviderTokensViewModel @Inject constructor(private val preferences: PreferencesRepository) : ViewModel() {
+internal class ProviderTokensViewModel @Inject constructor(private val preferences: PreferencesRepository,
+  private val verifier: ProviderTokenVerifier,
+  @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) : ViewModel() {
   private val initial = mapOf(
     ProviderToken.HUGGING_FACE to preferences.getHfToken(),
     ProviderToken.MODELSCOPE_AI to preferences.getModelScopeToken(true),
@@ -41,8 +50,22 @@ internal class ProviderTokensViewModel @Inject constructor(private val preferenc
   private val _state = MutableStateFlow(ProviderTokensState(initial, initial))
   val state = _state.asStateFlow()
 
+  private val jobs = mutableMapOf<ProviderToken, Job>()
+
   fun update(provider: ProviderToken, value: String) {
-    _state.update { it.copy(current = it.current + (provider to value.trim())) }
+    jobs.remove(provider)?.cancel()
+    _state.update { it.copy(current = it.current + (provider to value.trim()), checks = it.checks - provider) }
+  }
+
+  fun test(provider: ProviderToken) {
+    val token = _state.value.current.getValue(provider)
+    if (token.isBlank()) return
+    jobs.remove(provider)?.cancel()
+    _state.update { it.copy(checks = it.checks + (provider to TokenCheck.TESTING)) }
+    jobs[provider] = viewModelScope.launch {
+      val result = withContext(ioDispatcher) { verifier.verify(provider, token) }
+      _state.update { it.copy(checks = it.checks + (provider to result)) }
+    }
   }
 
   fun save() {

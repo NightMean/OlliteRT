@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Visibility
@@ -32,11 +35,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -44,7 +50,9 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -59,7 +67,7 @@ import com.ollitert.llm.server.ui.common.olliteTextFieldColors
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 
 @Composable
-internal fun HfTokenCard(state: ProviderTokensState, onChange: (ProviderToken, String) -> Unit, context: Context) {
+internal fun HfTokenCard(state: ProviderTokensState, onChange: (ProviderToken, String) -> Unit, onTest: (ProviderToken) -> Unit, context: Context) {
   val hfTokenLinkText = stringResource(R.string.settings_hf_token_link_text)
 
   SettingsCard(
@@ -92,18 +100,18 @@ internal fun HfTokenCard(state: ProviderTokensState, onChange: (ProviderToken, S
       style = MaterialTheme.typography.bodySmall,
     )
     Spacer(modifier = Modifier.height(8.dp))
-    ProviderTokenField(state.current.getValue(ProviderToken.HUGGING_FACE), { onChange(ProviderToken.HUGGING_FACE, it) }, context, stringResource(R.string.settings_hf_token_placeholder), stringResource(R.string.settings_huggingface_token_label))
+    ProviderTokenField(state.current.getValue(ProviderToken.HUGGING_FACE), { onChange(ProviderToken.HUGGING_FACE, it) }, context, stringResource(R.string.settings_hf_token_placeholder), stringResource(R.string.settings_huggingface_token_label), state.checks[ProviderToken.HUGGING_FACE], { onTest(ProviderToken.HUGGING_FACE) })
     SettingDivider()
     ModelScopeTokenField(state.current.getValue(ProviderToken.MODELSCOPE_AI), { onChange(ProviderToken.MODELSCOPE_AI, it) }, context, stringResource(R.string.settings_modelscope_ai_token),
-      "https://www.modelscope.ai/my/access/token")
+      "https://www.modelscope.ai/my/access/token", state.checks[ProviderToken.MODELSCOPE_AI], { onTest(ProviderToken.MODELSCOPE_AI) })
     SettingDivider()
     ModelScopeTokenField(state.current.getValue(ProviderToken.MODELSCOPE_CN), { onChange(ProviderToken.MODELSCOPE_CN, it) }, context, stringResource(R.string.settings_modelscope_cn_token),
-      "https://modelscope.cn/my/access/token")
+      "https://modelscope.cn/my/access/token", state.checks[ProviderToken.MODELSCOPE_CN], { onTest(ProviderToken.MODELSCOPE_CN) })
   }
 }
 
 @Composable
-private fun ModelScopeTokenField(value: String, onChange: (String) -> Unit, context: Context, label: String, tokenUrl: String) {
+private fun ModelScopeTokenField(value: String, onChange: (String) -> Unit, context: Context, label: String, tokenUrl: String, check: TokenCheck?, onTest: () -> Unit) {
   Text(label, style = MaterialTheme.typography.titleMedium)
   Text(stringResource(R.string.settings_modelscope_token_desc), style = MaterialTheme.typography.bodySmall,
     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -114,11 +122,11 @@ private fun ModelScopeTokenField(value: String, onChange: (String) -> Unit, cont
     }
   }, style = MaterialTheme.typography.bodySmall)
   Spacer(Modifier.height(8.dp))
-  ProviderTokenField(value, onChange, context, stringResource(R.string.settings_modelscope_token_placeholder), label)
+  ProviderTokenField(value, onChange, context, stringResource(R.string.settings_modelscope_token_placeholder), label, check, onTest)
 }
 
 @Composable
-private fun ProviderTokenField(value: String, onChange: (String) -> Unit, context: Context, placeholder: String, label: String) {
+private fun ProviderTokenField(value: String, onChange: (String) -> Unit, context: Context, placeholder: String, label: String, check: TokenCheck?, onTest: () -> Unit) {
   var visible by remember { mutableStateOf(false) }
   val tokenClearedText = stringResource(R.string.toast_token_cleared)
   OutlinedTextField(value = value, onValueChange = onChange, singleLine = true,
@@ -147,4 +155,30 @@ private fun ProviderTokenField(value: String, onChange: (String) -> Unit, contex
         }
       }
     }, colors = olliteTextFieldColors(), modifier = Modifier.fillMaxWidth().semantics { contentDescription = label })
+  val testDescription = stringResource(R.string.provider_token_test_description, label)
+  TextButton(onClick = onTest, enabled = value.isNotBlank() && check != TokenCheck.TESTING,
+    modifier = Modifier.semantics { contentDescription = testDescription }) {
+    Text(stringResource(R.string.provider_token_test))
+  }
+  if (check == TokenCheck.TESTING) LinearProgressIndicator(Modifier.fillMaxWidth())
+  else if (check != null) Row(
+    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    if (check == TokenCheck.ACCEPTED) {
+      Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = OlliteRTPrimary, modifier = Modifier.size(18.dp))
+      Spacer(Modifier.width(8.dp))
+    }
+    Text(
+      stringResource(when (check) {
+        TokenCheck.ACCEPTED -> R.string.provider_token_accepted
+        TokenCheck.REJECTED -> R.string.provider_token_rejected
+        TokenCheck.DENIED -> R.string.provider_token_denied
+        TokenCheck.RATE_LIMITED -> R.string.provider_token_rate_limited
+        else -> R.string.provider_token_unavailable
+      }),
+      style = MaterialTheme.typography.bodySmall,
+      color = if (check == TokenCheck.ACCEPTED) OlliteRTPrimary else MaterialTheme.colorScheme.error,
+    )
+  }
 }

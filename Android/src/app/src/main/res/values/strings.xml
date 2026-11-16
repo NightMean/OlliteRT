@@ -1279,4 +1279,11 @@
   <string name="hf_explore_already_added">This file is already in Models.</string>
   <string name="hf_explore_add">Add to Models</string>
   <string name="hf_explore_cancel">Cancel</string>
+    <string name="provider_token_test">Test</string>
+    <string name="provider_token_accepted">Token is valid. Access to individual models may vary.</string>
+    <string name="provider_token_rejected">Invalid token. Check the token and try again.</string>
+    <string name="provider_token_denied">The provider denied access to this token check.</string>
+    <string name="provider_token_test_description">Test %1$s</string>
+    <string name="provider_token_rate_limited">Too many requests. Try again later.</string>
+    <string name="provider_token_unavailable">Could not test the token. Try again later.</string>
 </resources>
