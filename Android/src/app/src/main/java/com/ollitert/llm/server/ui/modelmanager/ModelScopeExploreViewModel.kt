@@ -20,7 +20,6 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.allowlist.DiscoveredModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.ModelScopeCatalog
@@ -36,7 +35,6 @@ import com.ollitert.llm.server.proto.ImportedModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +53,7 @@ internal data class ModelScopeExploreState(
   val detailsSite: ModelScopeSite = ModelScopeSite.INTERNATIONAL,
   val models: List<ModelScopeModel> = emptyList(),
   val details: ModelScopeModel? = null,
+  val detailsOffline: Boolean = false,
   val openingModelId: String? = null,
   val files: List<ModelScopeFile> = emptyList(),
   val loading: Boolean = false,
@@ -167,7 +166,7 @@ internal class ModelScopeExploreViewModel internal constructor(
     }
   }
 
-  fun open(model: ModelScopeModel) {
+  fun open(model: ModelScopeModel, hasLocalImports: Boolean = false) {
     if (_state.value.saving) return
     job?.cancel()
     val site = _state.value.site
@@ -175,11 +174,12 @@ internal class ModelScopeExploreViewModel internal constructor(
     job = viewModelScope.launch {
       try {
         val files = withContext(io) { catalogForSite(site).files(model.id) }
-        _state.update { it.copy(details = model, files = files, selectedPath = null, openingModelId = null) }
+        _state.update { it.copy(details = model, detailsOffline = false, files = files, selectedPath = null, openingModelId = null) }
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Model file listing failed", e)
-        _state.update { it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
+        _state.update { if (hasLocalImports) it.copy(openingModelId = null, details = model, detailsOffline = true, files = emptyList(), selectedPath = null)
+          else it.copy(openingModelId = null, error = true, failedModel = model, rateLimited = e is ModelScopeRateLimitException, accessDenied = e is ModelScopeAccessException) }
       }
     }
   }
@@ -203,7 +203,7 @@ internal class ModelScopeExploreViewModel internal constructor(
           catalogForSite(site).let { it.details(link.repository) to it.files(link.repository, link.revision ?: "master") }
         }
         require(link.path == null || files.any { it.path == link.path })
-        _state.update { it.copy(details = model, detailsSite = site, files = files, selectedPath = link.path, linkLoading = false) }
+        _state.update { it.copy(details = model, detailsSite = site, detailsOffline = false, files = files, selectedPath = link.path, linkLoading = false) }
       } catch (e: CancellationException) { throw e }
       catch (e: Exception) {
         Log.w("OlliteRT.ModelScope", "Could not open repository link", e)
@@ -220,30 +220,22 @@ internal class ModelScopeExploreViewModel internal constructor(
 
   fun closeDetails() {
     if (_state.value.saving) return
-    _state.update { it.copy(details = null, alreadyAdded = false, error = false) }
+    _state.update { it.copy(details = null, detailsOffline = false, alreadyAdded = false, error = false) }
     if (_state.value.page == 0) refresh()
   }
   fun consumeImportedModel() { _state.update { it.copy(addedModelName = null) } }
 
   fun add(file: ModelScopeFile, info: ImportedModel) {
-    val model = _state.value.details ?: return
-    if (_state.value.loading) return
+    val current = _state.value
+    val model = current.details ?: return
+    if (current.loading || current.saving || current.detailsOffline || file !in current.files) return
     _state.update { it.copy(loading = true, saving = true, error = false, alreadyAdded = false) }
     job = viewModelScope.launch {
       try {
         val inserted = withContext(io) {
           val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
-          val config = info.llmConfig
-          val selected = DiscoveredModel(
-            repository = model.id, path = file.path, revision = file.revision, size = file.size,
-            vision = config.supportImage, audio = config.supportAudio, thinking = config.supportThinking,
-            tools = config.supportTools, accelerators = config.compatibleAcceleratorsList.map { it.trim().lowercase(Locale.ROOT) },
-            displayName = info.displayName, maxTokens = config.defaultMaxTokens, topK = config.defaultTopk,
-            topP = config.defaultTopp, temperature = config.defaultTemperature,
-            speculativeDecoding = config.supportSpeculativeDecoding, provider = DiscoveredProvider.MODELSCOPE,
-            modelScopeSite = _state.value.detailsSite,
-          )
-          if (DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).add(selected)) selected.toAllowedModel().name else null
+          DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE)
+            .addConfiguredFile(model.id, file.path, file.revision, file.size, info, current.detailsSite)
         }
         _state.update { it.copy(loading = false, saving = inserted != null, addedModelName = inserted, alreadyAdded = inserted == null) }
       } catch (e: CancellationException) { throw e }

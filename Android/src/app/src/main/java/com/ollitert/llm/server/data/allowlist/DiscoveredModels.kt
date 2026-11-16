@@ -17,11 +17,13 @@
 package com.ollitert.llm.server.data.allowlist
 
 import com.ollitert.llm.server.data.prefs.MIN_MAX_TOKENS
+import com.ollitert.llm.server.proto.ImportedModel
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.Locale
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -108,6 +110,37 @@ internal class DiscoveredModels(
   private val file = File(directory, provider.catalogFile)
 
   fun read(): List<DiscoveredModel> = synchronized(lock) { readLocked() }
+
+  fun addConfiguredFile(
+    repository: String,
+    path: String,
+    revision: String,
+    size: Long,
+    info: ImportedModel,
+    site: ModelScopeSite = ModelScopeSite.CHINA,
+  ): String? {
+    val config = info.llmConfig
+    val model = DiscoveredModel(
+      repository = repository,
+      path = path,
+      revision = revision,
+      size = size,
+      vision = config.supportImage,
+      audio = config.supportAudio,
+      thinking = config.supportThinking,
+      tools = config.supportTools,
+      accelerators = config.compatibleAcceleratorsList.map { it.trim().lowercase(Locale.ROOT) },
+      displayName = info.displayName,
+      maxTokens = config.defaultMaxTokens,
+      topK = config.defaultTopk,
+      topP = config.defaultTopp,
+      temperature = config.defaultTemperature,
+      speculativeDecoding = config.supportSpeculativeDecoding,
+      provider = provider,
+      modelScopeSite = site,
+    )
+    return if (add(model)) model.toAllowedModel().name else null
+  }
 
   /** A selection remains pinned to its original revision when added again. */
   fun add(model: DiscoveredModel): Boolean = synchronized(lock) {

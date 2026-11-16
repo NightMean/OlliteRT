@@ -160,6 +160,32 @@ class HuggingFaceExploreViewModelTest {
     assertTrue(vm.state.value.saving)
   }
 
+  @Test fun savedDetailsStayManagementOnlyWhenRemoteFilesCannotBeRead() = runTest(dispatcher) {
+    val directory = temporary.newFolder()
+    val context = mockk<Context> { every { getExternalFilesDir(null) } returns directory }
+    val preferences = mockk<PreferencesRepository> { every { getHfToken() } returns "" }
+    val file = HuggingFaceFile("second.litertlm", size = 123)
+    val fallback = HuggingFaceModel("author/model", sha = "a".repeat(40), siblings = listOf(file))
+    val result = HuggingFaceSearchProgress(emptyList(), null)
+    val catalog = mockk<HuggingFaceCatalog> {
+      every { initialSearch(any(), any()) } returns result
+      every { searchPage(any(), any()) } returns result
+      every { details(fallback.id, "", null) } throws java.io.IOException("Offline")
+    }
+    val vm = HuggingFaceExploreViewModel(context, preferences, catalog, dispatcher)
+    advanceUntilIdle()
+    vm.open(fallback, fallback)
+    advanceUntilIdle()
+
+    val config = LlmConfig.newBuilder().addCompatibleAccelerators("CPU").build()
+    vm.add(file, ImportedModel.newBuilder().setLlmConfig(config).build())
+    advanceUntilIdle()
+
+    assertTrue(vm.state.value.detailsOffline)
+    assertNull(vm.state.value.addedModelName)
+    assertTrue(DiscoveredModels(directory).read().isEmpty())
+  }
+
   @Test fun failedLaterPageKeepsResultsAndRetryResumesFromCursor() = runTest(dispatcher) {
     val model = HuggingFaceModel("author/model")
     val initial = HuggingFaceSearchProgress(emptyList(), "first")

@@ -612,14 +612,14 @@ fun ModelManagerScreen(
 }
 
 @Composable
-private fun ModelSectionHeader(title: String, count: Int, modifier: Modifier = Modifier) {
-  val description = stringResource(R.string.model_section_with_count, title, count)
+internal fun ModelSectionHeader(title: String, count: Int, modifier: Modifier = Modifier, complete: Boolean = true) {
+  val description = if (complete) stringResource(R.string.model_section_with_count, title, count) else "$title, ${stringResource(R.string.repository_count_incomplete, count)}"
   Row(
     modifier = modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Text(title, Modifier.weight(1f).padding(end = 12.dp), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
-    Text(count.toString(), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
+    Text(if (complete) count.toString() else stringResource(R.string.repository_count_incomplete, count), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
   }
 }
 

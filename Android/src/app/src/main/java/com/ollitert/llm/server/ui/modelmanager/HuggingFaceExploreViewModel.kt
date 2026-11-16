@@ -20,7 +20,6 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.allowlist.DiscoveredModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.HuggingFaceCatalog
 import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
@@ -33,7 +32,6 @@ import com.ollitert.llm.server.data.allowlist.isValidHuggingFaceModelId
 import com.ollitert.llm.server.data.allowlist.parseHuggingFaceLink
 import com.ollitert.llm.server.data.repository.PreferencesRepository
 import com.ollitert.llm.server.proto.ImportedModel
-import java.util.Locale
 import java.security.MessageDigest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,6 +57,7 @@ internal data class HuggingFaceExploreState(
   val sort: HuggingFaceSort = HuggingFaceSort.TRENDING,
   val models: List<HuggingFaceModel> = emptyList(),
   val details: HuggingFaceModel? = null,
+  val detailsOffline: Boolean = false,
   val openingModelId: String? = null,
   val loading: Boolean = false,
   val loadingMore: Boolean = false,
@@ -189,7 +188,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
     }
   }
 
-  fun open(model: HuggingFaceModel) {
+  fun open(model: HuggingFaceModel, localFallback: HuggingFaceModel? = null) {
     if (_state.value.saving) return
     job?.cancel()
     _state.update { it.copy(openingModelId = model.id, error = false, failedModel = null) }
@@ -197,12 +196,13 @@ internal class HuggingFaceExploreViewModel internal constructor(
       try {
         val details = withContext(ioDispatcher) { client.details(model.id, preferences.getHfToken()) }
         require(details.id.equals(model.id, ignoreCase = true) && isValidHuggingFaceModelId(details.id)) { "Invalid repository details" }
-        _state.update { it.copy(details = details, selectedPath = null, openingModelId = null) }
+        _state.update { it.copy(details = details, detailsOffline = false, selectedPath = null, openingModelId = null) }
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
         Log.w("OlliteRT.HFExplore", "Model details failed", e)
-        _state.update { it.copy(openingModelId = null, error = true, failedModel = model) }
+        _state.update { if (localFallback != null) it.copy(openingModelId = null, details = localFallback, detailsOffline = true, selectedPath = null)
+          else it.copy(openingModelId = null, error = true, failedModel = model) }
       }
     }
   }
@@ -228,7 +228,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
         val details = withContext(ioDispatcher) { client.details(link.repository, preferences.getHfToken(), link.revision) }
         require(details.id.equals(link.repository, ignoreCase = true) && isValidHuggingFaceModelId(details.id))
         require(link.path == null || details.modelFiles.any { it.path == link.path })
-        _state.update { it.copy(details = details, selectedPath = link.path, linkLoading = false) }
+        _state.update { it.copy(details = details, detailsOffline = false, selectedPath = link.path, linkLoading = false) }
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
@@ -247,30 +247,20 @@ internal class HuggingFaceExploreViewModel internal constructor(
 
   fun closeDetails() {
     if (_state.value.saving) return
-    _state.update { it.copy(details = null, error = false, alreadyAdded = false) }
+    _state.update { it.copy(details = null, detailsOffline = false, error = false, alreadyAdded = false) }
   }
 
   fun add(file: HuggingFaceFile, info: ImportedModel) {
     val details = _state.value.details ?: return
     val revision = details.sha ?: return
     val size = file.sizeBytes ?: return
-    if (_state.value.saving) return
+    if (_state.value.saving || _state.value.detailsOffline || file !in details.modelFiles) return
     _state.update { it.copy(saving = true, error = false, alreadyAdded = false) }
     job = viewModelScope.launch {
       try {
         val inserted = withContext(ioDispatcher) {
           val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
-          val config = info.llmConfig
-          val discovered = DiscoveredModel(
-            repository = details.id, path = file.path, revision = revision, size = size,
-            vision = config.supportImage, audio = config.supportAudio, thinking = config.supportThinking,
-            tools = config.supportTools, accelerators = config.compatibleAcceleratorsList.map { it.trim().lowercase(Locale.ROOT) },
-            displayName = info.displayName, maxTokens = config.defaultMaxTokens, topK = config.defaultTopk,
-            topP = config.defaultTopp, temperature = config.defaultTemperature,
-            speculativeDecoding = config.supportSpeculativeDecoding,
-          )
-          val inserted = DiscoveredModels(directory).add(discovered)
-          if (inserted) discovered.toAllowedModel().name else null
+          DiscoveredModels(directory).addConfiguredFile(details.id, file.path, revision, size, info)
         }
         _state.update { it.copy(saving = inserted != null, addedModelName = inserted, alreadyAdded = inserted == null) }
       } catch (e: CancellationException) {

@@ -89,6 +89,7 @@ Tap the **+** button on the Models screen to explore Hugging Face or ModelScope,
 **Explore Hugging Face:**
 - The Hugging Face mark in the import menu is an [official brand asset](https://huggingface.co/brand); it remains the property of Hugging Face.
 - Search and sort LiteRT-LM repositories, then select a repository and a `.litertlm` file. The link button also accepts a repository ID, model page, or direct file URL.
+- A direct file link selects that file. If it is already imported, choose another file manually. When a provider is offline, you can manage saved files. Connect to the provider to import a variant.
 - Check the model card for device compatibility. Select the accelerators and capabilities that the file supports, then tap **Import Model**. The model appears on Models, where you can start its download when ready.
 - Files are grouped using filename hints and a device-memory estimate. This does not test whether a file will run; all files remain selectable.
 - LiteRT Community repositories appear first within the results returned by Hugging Face. Check each model card for device compatibility.

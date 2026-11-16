@@ -52,6 +52,19 @@
   <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
   <string name="model_section_with_count">%1$s, %2$d</string>
+  <string name="repository_count_incomplete">%1$d+</string>
+  <string name="repository_available">Available</string>
+  <string name="repository_imported">Imported</string>
+  <string name="repository_offline_details" translatable="false">Showing saved files. Connect to the repository to import a variant.</string>
+  <string name="repository_already_imported">Already imported</string>
+  <string name="repository_already_downloaded">Already imported and downloaded</string>
+  <string name="repository_remove_title">Delete imported model?</string>
+  <string name="repository_remove_imported">This will remove the imported model. If it is selected as the default model, that selection will also be cleared.</string>
+  <string name="repository_remove_downloaded">This will remove the imported model and delete its downloaded files. If it is selected as the default model, that selection will also be cleared.</string>
+  <string name="repository_remove_partial">This will remove the imported model and delete its partial download. If it is selected as the default model, that selection will also be cleared.</string>
+  <string name="repository_remove_unavailable">This model cannot be removed now. Stop the server or wait for the download to finish, then try again.</string>
+  <string name="repository_imports_error">Could not read imported models. Check model storage and try again.</string>
+  <string name="repository_remove_failed">Could not remove the model. Check its status and try again.</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_content_fail" translatable="false">Model "%s" could not be downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>

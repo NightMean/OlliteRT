@@ -48,7 +48,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.time.Instant
@@ -57,9 +56,19 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.Date
 
+internal data class RepositoryModelSummary(
+  val id: String,
+  val downloads: Long,
+  val likes: Long,
+  val lastModified: String?,
+  val variantCount: Int? = null,
+)
+
+internal data class RepositoryFileVariant(val path: String, val sizeBytes: Long?)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HuggingFaceModelCard(model: HuggingFaceModel, showVariants: Boolean = true, loading: Boolean = false, onClick: () -> Unit) {
+internal fun RepositoryModelCard(model: RepositoryModelSummary, loading: Boolean = false, showStats: Boolean = true, onClick: () -> Unit) {
   val owner = model.id.substringBefore('/')
   val name = model.id.substringAfter('/')
   Card(
@@ -71,7 +80,7 @@ internal fun HuggingFaceModelCard(model: HuggingFaceModel, showVariants: Boolean
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
       Text(owner, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      HuggingFaceModelStats(model, showVariants)
+      if (showStats) RepositoryModelStats(model)
       if (loading) {
         val description = stringResource(R.string.repository_loading_files)
         LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = description })
@@ -82,11 +91,11 @@ internal fun HuggingFaceModelCard(model: HuggingFaceModel, showVariants: Boolean
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HuggingFaceModelStats(model: HuggingFaceModel, showVariants: Boolean = true) {
-  val date = remember(model.lastModified) { formatHuggingFaceUpdatedDate(model.lastModified) }
+internal fun RepositoryModelStats(model: RepositoryModelSummary) {
+  val date = remember(model.lastModified) { formatRepositoryUpdatedDate(model.lastModified) }
   val downloads = NumberFormat.getIntegerInstance().format(model.downloads)
   val likes = NumberFormat.getIntegerInstance().format(model.likes)
-  val variantCount = model.modelFiles.size
+  val variantCount = model.variantCount
   FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     RepositoryStat(Icons.Rounded.CloudDownload, downloads, stringResource(R.string.hf_explore_download_count, downloads))
     RepositoryStat(Icons.Rounded.Favorite, likes, stringResource(R.string.hf_explore_like_count, likes))
@@ -94,7 +103,7 @@ internal fun HuggingFaceModelStats(model: HuggingFaceModel, showVariants: Boolea
       val updated = stringResource(R.string.hf_explore_updated_date, date)
       RepositoryStat(Icons.Rounded.Schedule, updated, updated)
     }
-    if (showVariants) {
+    if (variantCount != null) {
       val variants = pluralStringResource(R.plurals.hf_explore_variants, variantCount, variantCount)
       RepositoryStat(Icons.Outlined.Layers, variants, variants)
     }
@@ -113,7 +122,7 @@ private fun RepositoryStat(icon: ImageVector, text: String, description: String)
   }
 }
 
-internal fun formatHuggingFaceUpdatedDate(value: String?, locale: Locale = Locale.getDefault(), zone: TimeZone = TimeZone.getDefault()): String? {
+internal fun formatRepositoryUpdatedDate(value: String?, locale: Locale = Locale.getDefault(), zone: TimeZone = TimeZone.getDefault()): String? {
   if (value == null) return null
   return try {
     DateFormat.getDateInstance(DateFormat.MEDIUM, locale).apply { timeZone = zone }.format(Date.from(Instant.parse(value)))

@@ -16,25 +16,28 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import android.app.ActivityManager
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.os.Build
-import android.widget.Toast
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -45,6 +48,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,31 +62,35 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.common.humanReadableSize
-import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
-import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
-import com.ollitert.llm.server.data.allowlist.huggingFaceFileUrl
-import com.ollitert.llm.server.data.allowlist.isValidHuggingFaceModelId
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.buildTrackableUrlAnnotatedString
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
+import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun HuggingFaceModelDetailsSheet(
-  model: HuggingFaceModel,
+internal fun RepositoryModelDetailsSheet(
+  model: RepositoryModelSummary,
+  files: List<RepositoryFileVariant>,
+  managementOnly: Boolean,
   selectedPath: String?,
   loading: Boolean,
   error: Boolean,
   alreadyAdded: Boolean,
-  onSelect: (String) -> Unit,
+  onSelect: (String?) -> Unit,
   onDismiss: () -> Unit,
   onContinue: () -> Unit,
-  repositoryUrl: String = "${GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}",
-  fileUrl: (HuggingFaceFile) -> String? = { file ->
-    model.sha?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }?.let { huggingFaceFileUrl(model.id, it, file.path) }
-  },
+  imports: List<RepositoryImport> = emptyList(),
+  importsReady: Boolean = true,
+  importsError: Boolean = false,
+  onRetryImports: () -> Unit = {},
+  onDelete: (RepositoryImport) -> Unit = {},
+  repositoryUrl: String,
+  fileUrl: (String) -> String?,
 ) {
   val currentLoading by rememberUpdatedState(loading)
   val sheetState = rememberModalBottomSheetState(
@@ -96,17 +104,22 @@ internal fun HuggingFaceModelDetailsSheet(
     }
   }
   val device = remember { "${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL} ${Build.BOARD} ${Build.HARDWARE}" }
-  val files = model.modelFiles
   val (possibleFiles, otherFiles) = remember(files, totalMemory, device) {
     files.partition { mayWorkOnDevice(it.path, it.sizeBytes, totalMemory, device) }
   }
-  LaunchedEffect(model.id, selectedPath, possibleFiles, otherFiles) {
-    if (selectedPath == null) (possibleFiles.firstOrNull() ?: otherFiles.firstOrNull())?.let { onSelect(it.path) }
+  LaunchedEffect(model.id, selectedPath, possibleFiles, otherFiles, imports, importsReady) {
+    if (importsReady && !managementOnly && selectedPath == null) {
+      val next = selectRepositoryPath(selectedPath, (possibleFiles + otherFiles).map { it.path }, imports)
+      if (selectedPath != next) onSelect(next)
+    }
   }
   val selected = files.firstOrNull { it.path == selectedPath }
-  val validRevision = selected?.let(fileUrl) != null
+  val validRevision = selected?.path?.let(fileUrl) != null
   ModalBottomSheet(
     onDismissRequest = { if (!loading) onDismiss() },
+    // Reserve the top inset before Material measures the drag anchors. Padding that
+    // depends on the drag offset can move the expanded anchor during nested scroll.
+    modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
     sheetState = sheetState,
     sheetMaxWidth = SHEET_MAX_WIDTH,
   ) {
@@ -124,7 +137,12 @@ internal fun HuggingFaceModelDetailsSheet(
           Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         }
         Text(model.id.substringBefore('/'), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-        HuggingFaceModelStats(model)
+        if (model.downloads >= 0) RepositoryModelStats(model)
+        if (managementOnly) Text(stringResource(R.string.repository_offline_details))
+        if (importsError) {
+          Text(stringResource(R.string.repository_imports_error), color = MaterialTheme.colorScheme.error)
+          TextButton(onClick = onRetryImports) { Text(stringResource(R.string.retry)) }
+        }
         Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
           if (possibleFiles.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -132,7 +150,7 @@ internal fun HuggingFaceModelDetailsSheet(
               Text(stringResource(R.string.hf_files_estimate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             possibleFiles.forEach { file ->
-              HuggingFaceFileRow(file, selectedPath == file.path, loading, fileUrl(file)) { onSelect(file.path) }
+              RepositoryFileRow(file, selectedPath == file.path, loading || !importsReady, managementOnly, fileUrl(file.path), imports.firstOrNull { it.record.path == file.path }, onDelete) { onSelect(file.path) }
             }
           }
           if (otherFiles.isNotEmpty()) {
@@ -141,62 +159,67 @@ internal fun HuggingFaceModelDetailsSheet(
               Text(stringResource(R.string.hf_files_other_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             otherFiles.forEach { file ->
-              HuggingFaceFileRow(file, selectedPath == file.path, loading, fileUrl(file)) { onSelect(file.path) }
+              RepositoryFileRow(file, selectedPath == file.path, loading || !importsReady, managementOnly, fileUrl(file.path), imports.firstOrNull { it.record.path == file.path }, onDelete) { onSelect(file.path) }
             }
           }
         }
-        if (files.isEmpty()) {
+        if (files.isEmpty() && importsReady && !managementOnly) {
           Text(stringResource(R.string.hf_sheet_no_files), color = MaterialTheme.colorScheme.error)
-        } else if (selected?.sizeBytes == null || !validRevision) {
+        } else if (!managementOnly && selected != null && (selected.sizeBytes == null || !validRevision)) {
           Text(stringResource(R.string.hf_explore_metadata_unavailable))
         }
         if (error) Text(stringResource(R.string.hf_explore_save_error), color = MaterialTheme.colorScheme.error)
         if (alreadyAdded) Text(stringResource(R.string.hf_explore_already_added))
       }
-      HorizontalDivider(Modifier.padding(top = 12.dp))
-      Button(
-        enabled = !loading && selected?.sizeBytes != null && validRevision,
-        onClick = onContinue,
-        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
-      ) { Text(stringResource(R.string.hf_sheet_import)) }
+      if (!managementOnly) {
+        HorizontalDivider(Modifier.padding(top = 12.dp))
+        Button(
+          enabled = !loading && importsReady && selected?.sizeBytes != null && validRevision && imports.none { it.record.path == selected.path },
+          onClick = onContinue,
+          modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
+        ) { Text(stringResource(R.string.hf_sheet_import)) }
+      }
     }
   }
 }
 
 @Composable
-private fun HuggingFaceFileRow(
-  file: HuggingFaceFile,
+private fun RepositoryFileRow(
+  file: RepositoryFileVariant,
   selected: Boolean,
   loading: Boolean,
+  managementOnly: Boolean,
   url: String?,
+  imported: RepositoryImport?,
+  onDelete: (RepositoryImport) -> Unit,
   onSelect: () -> Unit,
 ) {
   val context = LocalContext.current
-  val copied = stringResource(R.string.toast_copied_to_clipboard)
   val copyLabel = stringResource(R.string.hf_sheet_copy_link)
   Surface(
     shape = RoundedCornerShape(24.dp),
-    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    modifier = Modifier.fillMaxWidth().selectable(selected = selected, enabled = !loading, role = Role.RadioButton, onClick = onSelect),
+    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (imported != null) 0.4f else 1f),
+    modifier = Modifier.fillMaxWidth().selectable(selected = selected, enabled = !loading && !managementOnly && imported == null, role = Role.RadioButton, onClick = onSelect),
   ) {
     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-      RadioButton(selected = selected, onClick = null, enabled = !loading)
+      RadioButton(selected = selected, onClick = null, enabled = !loading && !managementOnly && imported == null)
       Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-        Text(file.path, style = MaterialTheme.typography.bodyMedium)
+        val alpha = if (imported != null) 0.4f else 1f
+        Text(file.path, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
         Text(file.sizeBytes?.humanReadableSize() ?: stringResource(R.string.hf_explore_unknown_size),
-          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha))
+        if (imported != null) Text(stringResource(if (imported.status == ModelDownloadStatusType.SUCCEEDED) R.string.repository_already_downloaded else R.string.repository_already_imported), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+      if (imported != null) {
+        val tint = if (imported.status == ModelDownloadStatusType.SUCCEEDED || imported.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) OlliteRTDeleteRed else OlliteRTPrimary
+        TooltipIconButton(icon = Icons.Outlined.Delete, tooltip = stringResource(R.string.model_tooltip_delete),
+          modifier = Modifier.padding(end = 8.dp), tint = tint, backgroundColor = tint.copy(alpha = 0.12f), enabled = !loading && imported.model != null && imported.status != null, onClick = { onDelete(imported) })
       }
       TooltipIconButton(
         icon = Icons.Outlined.ContentCopy,
         tooltip = copyLabel,
         enabled = !loading && url != null,
-        onClick = {
-          val clipboard = context.getSystemService(ClipboardManager::class.java)
-          if (clipboard != null && url != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("OlliteRT Model URL", url))
-            Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
-          }
-        },
+        onClick = { if (url != null) copyToClipboard(context, "OlliteRT Model URL", url) },
       )
     }
   }

@@ -29,23 +29,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,12 +49,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.data.allowlist.huggingFaceFileUrl
 import com.ollitert.llm.server.ui.common.UrlInputDialog
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
-import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
-import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
 import com.ollitert.llm.server.data.allowlist.HuggingFaceSort
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,17 +63,26 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
   val viewModel: HuggingFaceExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
-  var showLink by remember { mutableStateOf(false) }
+  var importsRetry by remember { mutableStateOf(0) }
+  val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.HUGGING_FACE, importsRetry)
+  val imports = importsState.items
+  val importedGroups = matchingImportedRepositories(imports, state.query)
+  val available = state.models.filterNot { it.id in importedGroups }
   val listState = rememberLazyListState()
+  var showLink by remember { mutableStateOf(false) }
   LaunchedEffect(state.query, state.sort) { listState.scrollToItem(0) }
-  LaunchedEffect(listState, state.query, state.sort, state.models.size, state.searchComplete, state.searchError,
-    state.error, state.loading, state.loadingMore, state.openingModelId, state.details, state.saving, showLink) {
-    if (!state.searchComplete && !state.searchError && !state.error && !state.loading && !state.loadingMore &&
+  LaunchedEffect(listState, state.query, state.sort, available.size, importedGroups.size, importsState.ready,
+    state.searchComplete, state.searchError, state.error, state.loading, state.loadingMore, state.openingModelId, state.details, state.saving, showLink) {
+    if (importsState.ready && !state.searchComplete && !state.searchError && !state.error && !state.loading && !state.loadingMore &&
       state.openingModelId == null && state.details == null && !state.saving && !showLink) {
-      if (state.models.isEmpty()) viewModel.loadMore() else {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull { it.index < state.models.size }?.index ?: -1 }
-          .distinctUntilChanged()
-          .collect { if (it >= (state.models.size - 3).coerceAtLeast(0)) viewModel.loadMore() }
+      if (available.isEmpty() && importedGroups.isEmpty()) viewModel.loadMore()
+      else if (available.isEmpty()) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.index == importedGroups.size } }
+          .distinctUntilChanged().collect { if (it) viewModel.loadMore() }
+      } else {
+        val first = (if (importedGroups.isNotEmpty()) importedGroups.size + 1 else 0) + 1
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull { it.index in first until first + available.size }?.index ?: -1 }
+          .distinctUntilChanged().collect { if (shouldLoadRepositoryPage(it, importedGroups.size, available.size)) viewModel.loadMore() }
       }
     }
   }
@@ -97,24 +96,13 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
     }
   }
   Scaffold(topBar = {
-    TopAppBar(
-      title = { Text(stringResource(R.string.hf_explore_title)) },
-      actions = {
-        TooltipBox(
-          positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-          tooltip = { PlainTooltip { Text(stringResource(R.string.hf_link_title)) } },
-          state = rememberTooltipState(),
-        ) {
-          IconButton(onClick = { viewModel.beginLink(); showLink = true }, enabled = !state.saving) {
-            Icon(Icons.Outlined.Link, contentDescription = stringResource(R.string.hf_link_title))
-          }
-        }
-      },
-      navigationIcon = {
-        IconButton(onClick = onBack, enabled = !state.saving) {
-          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.hf_explore_back))
-        }
-      },
+    RepositoryExploreTopBar(
+      title = stringResource(R.string.hf_explore_title),
+      linkLabel = stringResource(R.string.hf_link_title),
+      linkEnabled = !state.saving && importsState.ready,
+      backEnabled = !state.saving,
+      onOpenLink = { viewModel.beginLink(); showLink = true },
+      onBack = onBack,
     )
   }) { padding ->
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
@@ -135,6 +123,9 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
           ModelFilterChip(label = stringResource(label), selected = state.sort == sort, onClick = { viewModel.sort(sort) })
         }
       }
+      if (importsState.error) ModelListError(title = stringResource(R.string.models_failed_to_load),
+        message = stringResource(R.string.repository_imports_error), onRetry = { importsRetry++ }, verticalPadding = 16.dp)
+      if (!importsState.ready && !importsState.error) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
       if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
       if (state.searchError) {
         Text(stringResource(if (state.searchLimitReached) R.string.hf_search_limit else if (state.searchInvalidPagination) R.string.hf_search_invalid_pagination else R.string.hf_explore_error), color = MaterialTheme.colorScheme.error)
@@ -146,12 +137,23 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
         Text(stringResource(R.string.hf_model_files_error), color = MaterialTheme.colorScheme.error)
         TextButton(onClick = viewModel::retryError) { Text(stringResource(R.string.hf_explore_retry)) }
       }
-      if (!state.searchError && !state.error && !state.loading && state.models.isEmpty()) {
-        Text(stringResource(R.string.hf_explore_empty), modifier = Modifier.padding(vertical = 20.dp))
-      }
-      LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        items(state.models, key = { it.id }) { model ->
-          HuggingFaceModelCard(model = model, loading = state.openingModelId == model.id, onClick = { viewModel.open(model) })
+      if (importsState.ready) LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (importedGroups.isNotEmpty()) {
+          item(key = "imported_header") { ModelSectionHeader(stringResource(R.string.repository_imported), importedGroups.size, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)) }
+          items(importedGroups.keys.toList(), key = { "imported:$it" }) { id ->
+            val remote = state.models.firstOrNull { it.id == id }
+            val fallback = HuggingFaceModel(id = id, downloads = -1)
+            RepositoryModelCard((remote ?: fallback).toRepositorySummary(), showStats = remote != null,
+              loading = state.openingModelId == id, onClick = { viewModel.open(remote ?: fallback, fallback) })
+          }
+        }
+        item(key = "available_header") { ModelSectionHeader(stringResource(R.string.repository_available), available.size,
+          Modifier.padding(horizontal = 16.dp).padding(top = if (importedGroups.isEmpty()) 8.dp else 24.dp, bottom = 8.dp), complete = state.searchComplete) }
+        if (state.searchComplete && !state.searchError && !state.error && !state.loading && state.models.isEmpty() && importedGroups.isEmpty()) item(key = "empty") {
+          ModelListEmpty(stringResource(if (state.query.isNotBlank()) R.string.no_models_match_search else R.string.hf_explore_empty))
+        }
+        items(available, key = { "available:${it.id}" }) { model ->
+          RepositoryModelCard(model = model.toRepositorySummary(), loading = state.openingModelId == model.id, onClick = { viewModel.open(model) })
         }
         if (state.loadingMore) item(key = "loading_more") {
           Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -173,47 +175,31 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
     )
   }
   state.details?.takeIf { state.addedModelName == null }?.let { model ->
-    HuggingFaceModelDialog(model, state.selectedPath, state.saving, state.error, state.alreadyAdded, viewModel::closeDetails, viewModel::add)
-  }
-}
-
-@Composable
-internal fun HuggingFaceModelDialog(
-  model: HuggingFaceModel,
-  initialPath: String?,
-  loading: Boolean,
-  error: Boolean,
-  alreadyAdded: Boolean,
-  onDismiss: () -> Unit,
-  onAdd: (HuggingFaceFile, ImportedModel) -> Unit,
-  repositoryUrl: String = "${com.ollitert.llm.server.common.GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}",
-  fileUrl: (HuggingFaceFile) -> String? = { file ->
-    model.sha?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }?.let {
-      com.ollitert.llm.server.data.allowlist.huggingFaceFileUrl(model.id, it, file.path)
-    }
-  },
-) {
-  var selectedPath by remember(model.id) { mutableStateOf(initialPath) }
-  var configuringFile by remember(model.id) { mutableStateOf<HuggingFaceFile?>(null) }
-  val selected = model.modelFiles.firstOrNull { it.path == selectedPath }
-  if (configuringFile == null) {
-    HuggingFaceModelDetailsSheet(
-      model = model, selectedPath = selectedPath, loading = loading, error = error,
-      alreadyAdded = alreadyAdded, onSelect = { selectedPath = it }, onDismiss = onDismiss,
-      onContinue = { configuringFile = selected },
-      repositoryUrl = repositoryUrl, fileUrl = fileUrl,
+    val files = if (state.detailsOffline) emptyList() else model.modelFiles
+    val revision = model.sha?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }
+    RepositoryModelDialog(
+      model = model.toRepositorySummary(),
+      remoteFiles = files.map { RepositoryFileVariant(it.path, it.sizeBytes) },
+      managementOnly = state.detailsOffline,
+      initialPath = state.selectedPath,
+      loading = state.saving,
+      error = state.error,
+      alreadyAdded = state.alreadyAdded,
+      onDismiss = viewModel::closeDetails,
+      onAdd = { path, info -> files.firstOrNull { it.path == path }?.let { viewModel.add(it, info) } },
+      manager = modelManagerViewModel,
+      imports = imports.filter { it.record.repository == model.id },
+      importsReady = importsState.ready,
+      importsError = importsState.error,
+      onRetryImports = { importsRetry++ },
+      repositoryUrl = "${GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}",
+      fileUrl = { path ->
+        importedFileUrl(imports, model.id, path)
+          ?: revision?.takeIf { files.any { file -> file.path == path } }?.let { huggingFaceFileUrl(model.id, it, path) }
+      },
     )
   }
-  configuringFile?.let { file ->
-    val size = file.sizeBytes
-    if (size != null) {
-      ModelImportSettingsDialog(
-        sourceFileName = file.path.substringAfterLast('/'), sourceFileSize = size,
-        onDismiss = { configuringFile = null },
-        onDone = { info -> configuringFile = null; onAdd(file, info) },
-        remote = true,
-      )
-    }
-  }
-
 }
+
+private fun HuggingFaceModel.toRepositorySummary() =
+  RepositoryModelSummary(id, downloads, likes, lastModified, modelFiles.size)

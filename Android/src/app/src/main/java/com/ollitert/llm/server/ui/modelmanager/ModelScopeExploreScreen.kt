@@ -29,21 +29,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,10 +49,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
-import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.ModelScopeSort
+import com.ollitert.llm.server.data.allowlist.ModelScopeModel
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.modelScopeFileUrl
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.UrlInputDialog
@@ -74,17 +63,23 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
   val viewModel: ModelScopeExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
+  var importsRetry by remember { mutableStateOf(0) }
+  val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.MODELSCOPE, importsRetry)
+  val imports = importsState.items
+  val importedGroups = matchingImportedRepositories(imports.filter { it.record.modelScopeSite == state.site }, state.query)
+  val available = state.models.filterNot { it.id in importedGroups }
   var showLink by remember { mutableStateOf(false) }
   val listState = rememberLazyListState()
   LaunchedEffect(state.query, state.sort, state.site) { listState.scrollToItem(0) }
-  LaunchedEffect(listState, state.page, state.models.size, state.hasMore, state.loading, state.openingModelId,
+  LaunchedEffect(listState, state.page, available.size, importedGroups.size, importsState.ready, state.hasMore, state.loading, state.openingModelId,
     state.loadingMore, state.paginationError, state.error, state.details, state.saving, showLink) {
-    if (state.page > 0 && state.hasMore && !state.loading && !state.loadingMore && state.openingModelId == null &&
+    if (importsState.ready && state.page > 0 && state.hasMore && !state.loading && !state.loadingMore && state.openingModelId == null &&
       !state.paginationError && !state.error && state.details == null && !state.saving && !showLink) {
-      if (state.models.isEmpty()) viewModel.loadMore() else {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull { it.index < state.models.size }?.index ?: -1 }
+      if (available.isEmpty()) viewModel.loadMore() else {
+        val availableStart = (if (importedGroups.isNotEmpty()) importedGroups.size + 1 else 0) + 1
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull { it.index in availableStart until availableStart + available.size }?.index ?: -1 }
           .distinctUntilChanged()
-          .collect { lastVisible -> if (lastVisible >= (state.models.size - 3).coerceAtLeast(0)) viewModel.loadMore() }
+          .collect { lastVisible -> if (shouldLoadRepositoryPage(lastVisible, importedGroups.size, available.size)) viewModel.loadMore() }
       }
     }
   }
@@ -98,18 +93,14 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
     }
   }
   Scaffold(topBar = {
-    TopAppBar(title = { Text(stringResource(R.string.modelscope_explore_title)) }, actions = {
-      TooltipBox(positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = { PlainTooltip { Text(stringResource(R.string.modelscope_link_title)) } }, state = rememberTooltipState()) {
-        IconButton(onClick = { viewModel.beginLink(); showLink = true }, enabled = !state.saving) {
-          Icon(Icons.Outlined.Link, contentDescription = stringResource(R.string.modelscope_link_title))
-        }
-      }
-    }, navigationIcon = {
-      IconButton(onClick = onBack, enabled = !state.saving) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.hf_explore_back))
-      }
-    })
+    RepositoryExploreTopBar(
+      title = stringResource(R.string.modelscope_explore_title),
+      linkLabel = stringResource(R.string.modelscope_link_title),
+      linkEnabled = !state.saving && importsState.ready,
+      backEnabled = !state.saving,
+      onOpenLink = { viewModel.beginLink(); showLink = true },
+      onBack = onBack,
+    )
   }) { padding ->
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
       OlliteSearchBar(query = state.query, onQueryChange = viewModel::search,
@@ -128,6 +119,9 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
           ModelFilterChip(label = stringResource(label), selected = state.sort == sort, onClick = { viewModel.sort(sort) })
         }
       }
+      if (importsState.error) ModelListError(title = stringResource(R.string.models_failed_to_load),
+        message = stringResource(R.string.repository_imports_error), onRetry = { importsRetry++ }, verticalPadding = 16.dp)
+      if (!importsState.ready && !importsState.error) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
       if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
       if (state.error && state.details == null) {
         ModelListError(
@@ -138,14 +132,25 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
         )
       }
       val loadingMoreDescription = stringResource(R.string.modelscope_loading_more)
-      LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (!state.error && !state.loading && !state.loadingMore && !state.hasMore && !state.paginationError && state.models.isEmpty()) item(key = "empty") {
+      if (importsState.ready) LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (importedGroups.isNotEmpty()) {
+          item(key = "imported_header") { ModelSectionHeader(stringResource(R.string.repository_imported), importedGroups.size, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)) }
+          items(importedGroups.keys.toList(), key = { "imported:$it" }) { id ->
+            val remote = state.models.firstOrNull { it.id == id }
+            val source = remote ?: ModelScopeModel(id, downloads = -1)
+            RepositoryModelCard(source.toRepositorySummary(),
+              showStats = remote != null, loading = state.openingModelId == id,
+              onClick = { viewModel.open(source, hasLocalImports = true) })
+          }
+        }
+        item(key = "available_header") { ModelSectionHeader(stringResource(R.string.repository_available), available.size,
+          Modifier.padding(horizontal = 16.dp).padding(top = if (importedGroups.isEmpty()) 8.dp else 24.dp, bottom = 8.dp), complete = !state.hasMore && !state.loading && !state.loadingMore && !state.searchLimitReached && !state.paginationError && !state.error) }
+        if (!state.error && !state.loading && !state.loadingMore && !state.hasMore && !state.paginationError && state.models.isEmpty() && importedGroups.isEmpty()) item(key = "empty") {
           ModelListEmpty(stringResource(if (state.query.isNotBlank()) R.string.no_models_match_search else R.string.hf_explore_empty))
         }
-        items(state.models, key = { it.id }) { model ->
-          HuggingFaceModelCard(
-            HuggingFaceModel(id = model.id, downloads = model.downloads, likes = model.likes, lastModified = model.lastModified),
-            showVariants = false,
+        items(available, key = { "available:${it.id}" }) { model ->
+          RepositoryModelCard(
+            model = model.toRepositorySummary(),
             loading = state.openingModelId == model.id,
             onClick = { viewModel.open(model) },
           )
@@ -173,14 +178,27 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, modelManagerViewModel: 
       onDismiss = { showLink = false; viewModel.closeLink() }, onConfirm = viewModel::openLink)
   }
   state.details?.takeIf { state.addedModelName == null }?.let { details ->
-    val model = HuggingFaceModel(id = details.id, downloads = details.downloads, likes = details.likes,
-      lastModified = details.lastModified, siblings = state.files.map { HuggingFaceFile(path = it.path, size = it.size) })
-    HuggingFaceModelDialog(
-      model = model, initialPath = state.selectedPath, loading = state.loading, error = state.error, alreadyAdded = state.alreadyAdded,
+    RepositoryModelDialog(
+      model = details.toRepositorySummary(state.files.size.takeUnless { state.detailsOffline }),
+      remoteFiles = state.files.map { RepositoryFileVariant(it.path, it.size) },
+      managementOnly = state.detailsOffline,
+      initialPath = state.selectedPath,
+      loading = state.saving,
+      error = state.error,
+      alreadyAdded = state.alreadyAdded,
       onDismiss = viewModel::closeDetails,
-      onAdd = { file, info -> state.files.firstOrNull { it.path == file.path }?.let { viewModel.add(it, info) } },
+      onAdd = { path, info -> state.files.firstOrNull { it.path == path }?.let { viewModel.add(it, info) } },
+      manager = modelManagerViewModel,
+      imports = imports.filter { it.record.repository == details.id && it.record.modelScopeSite == state.detailsSite },
+      importsReady = importsState.ready,
+      importsError = importsState.error,
+      onRetryImports = { importsRetry++ },
       repositoryUrl = "${state.detailsSite.baseUrl}/models/${details.id}",
-      fileUrl = { file -> state.files.firstOrNull { it.path == file.path }?.let { modelScopeFileUrl(details.id, it.revision, it.path, state.detailsSite) } },
+      fileUrl = { path -> importedFileUrl(imports, details.id, path, state.detailsSite)
+        ?: state.files.firstOrNull { it.path == path }?.let { modelScopeFileUrl(details.id, it.revision, path, state.detailsSite) } },
     )
   }
 }
+
+private fun ModelScopeModel.toRepositorySummary(variantCount: Int? = null) =
+  RepositoryModelSummary(id, downloads, likes, lastModified, variantCount)

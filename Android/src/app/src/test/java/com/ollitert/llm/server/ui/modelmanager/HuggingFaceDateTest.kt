@@ -23,9 +23,9 @@ import org.junit.Test
 
 class HuggingFaceDateTest {
   @Test fun handlesInvalidAndOutOfRangeDates() {
-    assertNull(formatHuggingFaceUpdatedDate(null))
-    assertNull(formatHuggingFaceUpdatedDate("invalid"))
-    assertNull(formatHuggingFaceUpdatedDate("+999999999-12-31T23:59:59Z"))
-    assertEquals("Nov 10, 2026", formatHuggingFaceUpdatedDate("2026-11-10T03:56:06Z", Locale.US, TimeZone.getTimeZone("UTC")))
+    assertNull(formatRepositoryUpdatedDate(null))
+    assertNull(formatRepositoryUpdatedDate("invalid"))
+    assertNull(formatRepositoryUpdatedDate("+999999999-12-31T23:59:59Z"))
+    assertEquals("Nov 10, 2026", formatRepositoryUpdatedDate("2026-11-10T03:56:06Z", Locale.US, TimeZone.getTimeZone("UTC")))
   }
 }
