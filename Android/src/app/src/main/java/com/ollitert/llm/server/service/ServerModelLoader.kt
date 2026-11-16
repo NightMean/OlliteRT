@@ -115,7 +115,7 @@ internal class ServerModelLoader(
       val secondary = modelLifecycle.secondaryModel
       if (secondary != null) {
         ServerMetrics.updateSecondaryModelName(secondary.name)
-        ServerMetrics.updateSecondaryModelInstanceCount(1)
+        ServerMetrics.updateSecondaryModelInstanceCount(ServerPrefs.getModelInstanceCount(context, secondary))
       }
       RequestLogStore.addEvent(
         "Model ready: ${model.name} (${SystemClock.elapsedRealtime() - loadStart}ms)",

@@ -140,6 +140,7 @@ fun DownloadAndTryButton(
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   isSecondModelLoaded: Boolean = false,
+  isSecondModelLoading: Boolean = false,
   onStopServer: () -> Unit = {},
   onStopSecondary: () -> Unit = {},
 ) {
@@ -293,7 +294,39 @@ fun DownloadAndTryButton(
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
 
-    if (isThisModelLoading || isStarting) {
+    if (isSecondModelLoading) {
+      // Second model's native init in flight (loaded alongside the running chat model):
+      // explicit loading state until it becomes resident and shows the loaded badge.
+      Button(
+        modifier = buttonModifier,
+        colors = ButtonDefaults.buttonColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        enabled = false,
+        onClick = {},
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            strokeWidth = 2.dp,
+          )
+          if (!compact) {
+            Text(
+              stringResource(R.string.toast_second_model_loading),
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              style = MaterialTheme.typography.titleMedium,
+              maxLines = 1,
+              autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+            )
+          }
+        }
+      }
+    } else if (isThisModelLoading || isStarting) {
       Button(
         modifier = buttonModifier,
         colors = ButtonDefaults.buttonColors(

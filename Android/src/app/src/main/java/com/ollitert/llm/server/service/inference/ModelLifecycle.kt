@@ -243,6 +243,7 @@ class ModelLifecycle(
       secondaryLoadGeneration.incrementAndGet()
       secondaryLoadingName.set(null)
       ServerMetrics.updateSecondaryModelName(null)
+      ServerMetrics.updateSecondaryModelLoadingName(null)
       // Service shutdown has already stopped request admission and interrupted
       // inference, so a deferred OOM cleanup must not remain blocked on old leases.
       emergencyUnloadState?.cleanupReady?.countDown()
@@ -327,6 +328,7 @@ class ModelLifecycle(
         // all future secondary loads with "already loading".
         secondaryLoadingName.set(null)
         ServerMetrics.updateSecondaryModelName(null)
+        ServerMetrics.updateSecondaryModelLoadingName(null)
       }
       ServerMetrics.onModelIdleUnloaded()
       val cleanupReady = CountDownLatch(1)
@@ -849,6 +851,7 @@ class ModelLifecycle(
       model = pickModelByName(name)
         ?: return "Model '$name' not found (not in the allowlist or imports registry)"
       secondaryLoadingName.set(model.name)
+      ServerMetrics.updateSecondaryModelLoadingName(model.name)
       generation = secondaryLoadGeneration.incrementAndGet()
     }
     try {
@@ -871,7 +874,9 @@ class ModelLifecycle(
         modelCache[model.name] = model
         ServerPrefs.setSecondaryModelName(context, model.name)
         ServerMetrics.updateSecondaryModelName(model.name)
-        ServerMetrics.updateSecondaryModelInstanceCount(1)
+        ServerMetrics.updateSecondaryModelInstanceCount(ServerPrefs.getModelInstanceCount(context, model))
+        ServerMetrics.updateSecondaryModelLoadingName(null)
+        secondaryLoadingName.set(null)
         // First-invoke burn: the first native inference on a freshly loaded model
         // can fail (Status Code 13, kv_cache buffer requirements). The primary
         // load path warms up in ServerModelLoader; the secondary path never did,
@@ -899,7 +904,9 @@ class ModelLifecycle(
       // Clear the loading flag on EVERY path (success, init failure, destroy,
       // supersede). compareAndSet: only clear it if we still own it — a newer
       // load may have already replaced it with its own name under the lock.
-      secondaryLoadingName.compareAndSet(model.name, null)
+      if (secondaryLoadingName.compareAndSet(model.name, null)) {
+        ServerMetrics.updateSecondaryModelLoadingName(null)
+      }
     }
     RequestLogStore.addEvent(
       "Second model loaded: ${model.name} (resident alongside active model)",

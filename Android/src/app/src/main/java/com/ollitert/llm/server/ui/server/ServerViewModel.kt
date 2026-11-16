@@ -60,6 +60,8 @@ class ServerViewModel @Inject constructor(
   val activeModelName = serverStateRepository.activeModelName
   val activeModelInstanceCount = serverStateRepository.activeModelInstanceCount
   val secondaryModelName = serverStateRepository.secondaryModelName
+  val secondaryModelLoadingName = serverStateRepository.secondaryModelLoadingName
+  val secondaryModelInstanceCount = serverStateRepository.secondaryModelInstanceCount
   val activeModelSize = serverStateRepository.activeModelSize
   val port = serverStateRepository.port
   val bindAddress = serverStateRepository.bindAddress

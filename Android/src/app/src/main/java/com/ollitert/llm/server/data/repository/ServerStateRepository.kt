@@ -38,6 +38,10 @@ interface ServerStateRepository {
   val activeModelName: StateFlow<String?>
   val activeModelInstanceCount: StateFlow<Int>
   val secondaryModelName: StateFlow<String?>
+  /** Name of the second model currently loading (null = no second-model load in flight). */
+  val secondaryModelLoadingName: StateFlow<String?>
+  /** Engine instance count of the resident second model. */
+  val secondaryModelInstanceCount: StateFlow<Int>
   val activeModelSize: StateFlow<Long>
   val port: StateFlow<Int>
   val bindAddress: StateFlow<String?>
@@ -100,6 +104,8 @@ class DefaultServerStateRepository @Inject constructor() : ServerStateRepository
   override val activeModelName: StateFlow<String?> get() = ServerMetrics.activeModelName
   override val activeModelInstanceCount: StateFlow<Int> get() = ServerMetrics.activeModelInstanceCount
   override val secondaryModelName: StateFlow<String?> get() = ServerMetrics.secondaryModelName
+  override val secondaryModelLoadingName: StateFlow<String?> get() = ServerMetrics.secondaryModelLoadingName
+  override val secondaryModelInstanceCount: StateFlow<Int> get() = ServerMetrics.secondaryModelInstanceCount
   override val activeModelSize: StateFlow<Long> get() = ServerMetrics.activeModelSize
   override val port: StateFlow<Int> get() = ServerMetrics.port
   override val bindAddress: StateFlow<String?> get() = ServerMetrics.bindAddress

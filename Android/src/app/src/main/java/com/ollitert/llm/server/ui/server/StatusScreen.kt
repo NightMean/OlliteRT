@@ -96,6 +96,7 @@ fun StatusScreen(
   val loadingStartedAtMs by serverViewModel.loadingStartedAtMs.collectAsStateWithLifecycle()
   val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
   val secondaryModelName by serverViewModel.secondaryModelName.collectAsStateWithLifecycle()
+  val secondaryModelInstanceCount by serverViewModel.secondaryModelInstanceCount.collectAsStateWithLifecycle()
 
   // Model filter for the metrics grid (null = All models, like the Logs tab)
   val statusModelFilter by serverViewModel.statusModelFilter.collectAsStateWithLifecycle()
@@ -125,6 +126,11 @@ fun StatusScreen(
 
   val modelDisplayName = remember(modelName, modelInstanceCount) {
     if (modelName != null && modelInstanceCount > 1) "$modelName ($modelInstanceCount)" else modelName
+  }
+
+  // Second model line gets the same (N) suffix when it runs multiple engine instances.
+  val secondaryModelDisplayName = remember(secondaryModelName, secondaryModelInstanceCount) {
+    if (secondaryModelName != null && secondaryModelInstanceCount > 1) "$secondaryModelName ($secondaryModelInstanceCount)" else secondaryModelName
   }
 
   // Live uptime ticker
@@ -226,7 +232,7 @@ fun StatusScreen(
         isIdleUnloaded = isIdleUnloaded,
         loadingElapsedSeconds = loadingElapsedSeconds,
         lastError = lastError,
-        secondaryModelName = secondaryModelName,
+        secondaryModelName = secondaryModelDisplayName,
         onReloadClick = { showReloadDialog = true },
       )
 

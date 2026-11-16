@@ -105,6 +105,10 @@ object ServerMetrics {
   private val _secondaryModelName = sessionFlow<String?>(null)
   val secondaryModelName: StateFlow<String?> = _secondaryModelName.asStateFlow()
 
+  /** Loading name of the resident second model, null when not loading. */
+  private val _secondaryModelLoadingName = MutableStateFlow<String?>(null)
+  val secondaryModelLoadingName: StateFlow<String?> = _secondaryModelLoadingName.asStateFlow()
+
   /** Instance count of the resident second model (1 — single engine by design). */
   private val _secondaryModelInstanceCount = MutableStateFlow(1)
   val secondaryModelInstanceCount: StateFlow<Int> = _secondaryModelInstanceCount.asStateFlow()
@@ -434,6 +438,11 @@ object ServerMetrics {
   /** Updates the resident second model name (null = none). Called from ModelLifecycle. */
   fun updateSecondaryModelName(name: String?) {
     _secondaryModelName.value = name
+  }
+
+  /** Updates the resident second model's loading name, null when not loading. */
+  fun updateSecondaryModelLoadingName(name: String?) {
+    _secondaryModelLoadingName.value = name
   }
 
   /** Updates the resident second model's instance count. Called from ModelLifecycle. */

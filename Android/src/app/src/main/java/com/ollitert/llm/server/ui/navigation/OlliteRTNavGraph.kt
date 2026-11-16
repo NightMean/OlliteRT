@@ -230,6 +230,7 @@ fun OlliteRTNavHost(
       val serverStatus by serverViewModel.status.collectAsStateWithLifecycle()
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val secondaryModelName by serverViewModel.secondaryModelName.collectAsStateWithLifecycle()
+      val secondaryModelLoadingName by serverViewModel.secondaryModelLoadingName.collectAsStateWithLifecycle()
       val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
       ModelManagerScreen(
         viewModel = modelManagerViewModel,
@@ -245,6 +246,7 @@ fun OlliteRTNavHost(
         serverStatus = serverStatus,
         activeModelName = activeModelName,
         secondaryModelName = secondaryModelName,
+        secondaryModelLoadingName = secondaryModelLoadingName,
         lastError = lastError,
         onStopServer = { serverViewModel.stopServer() },
         onSwitchModel = { modelName ->

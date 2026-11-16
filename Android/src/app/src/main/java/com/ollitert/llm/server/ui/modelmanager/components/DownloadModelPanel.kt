@@ -62,6 +62,7 @@ fun DownloadModelPanel(
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   isSecondModelLoaded: Boolean = false,
+  isSecondModelLoading: Boolean = false,
   onStopServer: () -> Unit = {},
   onStopSecondary: () -> Unit = {},
 ) {
@@ -176,6 +177,7 @@ fun DownloadModelPanel(
       serverStatus = serverStatus,
       activeModelName = activeModelName,
       isSecondModelLoaded = isSecondModelLoaded,
+      isSecondModelLoading = isSecondModelLoading,
       onStopServer = onStopServer,
       onStopSecondary = onStopSecondary,
     )

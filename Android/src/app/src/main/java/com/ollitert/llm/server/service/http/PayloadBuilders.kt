@@ -128,7 +128,13 @@ object PayloadBuilders {
       put("status", JsonPrimitive(statusStr))
       snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
       // Resident secondary (e.g. embedding model loaded alongside the chat model)
-      secondaryModelName?.let { put("secondary_model", JsonPrimitive(it)) }
+      secondaryModelName?.let {
+        put("secondary_model", JsonPrimitive(it))
+        put("secondary_model_instances", JsonPrimitive(ServerMetrics.secondaryModelInstanceCount.value.coerceAtLeast(1)))
+      }
+      ServerMetrics.secondaryModelLoadingName.value?.let {
+        put("secondary_model_loading", JsonPrimitive(it))
+      }
       // Number of engine instances loaded for the active model (multi-instance mode);
       // embedding models keep their engines in EmbeddingInstancePool, not ModelInstancePool.
       context?.let { ctx ->
@@ -208,6 +214,9 @@ object PayloadBuilders {
       }
       put("status", JsonPrimitive(statusStr))
       snapshot.modelName?.let { put("model", JsonPrimitive(it)) }
+      ServerMetrics.secondaryModelName.value?.let { put("secondary_model", JsonPrimitive(it)) }
+      ServerMetrics.secondaryModelLoadingName.value?.let { put("secondary_model_loading", JsonPrimitive(it)) }
+      ServerMetrics.secondaryModelName.value?.let { put("secondary_model_instances", JsonPrimitive(ServerMetrics.secondaryModelInstanceCount.value.coerceAtLeast(1))) }
       snapshot.uptimeSeconds?.let { put("uptime_seconds", JsonPrimitive(it)) }
       // Surface update availability in health response — lightweight boolean for monitoring dashboards
       put("update_available", JsonPrimitive(ServerMetrics.availableUpdateVersion.value != null))

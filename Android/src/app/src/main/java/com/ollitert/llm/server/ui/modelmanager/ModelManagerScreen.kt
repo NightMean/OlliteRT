@@ -105,6 +105,7 @@ fun ModelManagerScreen(
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   secondaryModelName: String? = null,
+  secondaryModelLoadingName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
   onSwitchModel: (String) -> Unit = {},
@@ -238,7 +239,17 @@ fun ModelManagerScreen(
       // the chat model) is NOT a switch target — tapping it must not offer a replace.
       val isSecondModelLoaded = isServerActive &&
         secondaryModelName != null && secondaryModelName.equals(model.name, ignoreCase = true)
-      if (isSecondModelLoaded) {
+      // A second-model load in flight is not a switch target either — the card shows
+      // its own loading state; tapping it must not open the switch sheet.
+      val isSecondModelLoading = secondaryModelLoadingName != null &&
+        secondaryModelLoadingName.equals(model.name, ignoreCase = true)
+      if (isSecondModelLoading) {
+        Toast.makeText(
+          context,
+          context.getString(R.string.toast_second_model_loading),
+          Toast.LENGTH_SHORT,
+        ).show()
+      } else if (isSecondModelLoaded) {
         Toast.makeText(
           context,
           context.getString(R.string.second_model_loaded_toast),
@@ -424,6 +435,7 @@ fun ModelManagerScreen(
           serverStatus = serverStatus,
           activeModelName = activeModelName,
           secondaryModelName = secondaryModelName,
+          secondaryModelLoadingName = secondaryModelLoadingName,
           lastError = lastError,
           onStopServer = onStopServer,
           onStopSecondary = { onStopSecondary(model.name) },
@@ -465,6 +477,7 @@ fun ModelManagerScreen(
             serverStatus = serverStatus,
             activeModelName = activeModelName,
             secondaryModelName = secondaryModelName,
+            secondaryModelLoadingName = secondaryModelLoadingName,
             lastError = lastError,
             onStopServer = onStopServer,
             onStopSecondary = { onStopSecondary(model.name) },

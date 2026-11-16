@@ -85,6 +85,7 @@ fun ModelItem(
   serverStatus: ServerStatus = ServerStatus.STOPPED,
   activeModelName: String? = null,
   secondaryModelName: String? = null,
+  secondaryModelLoadingName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
   onStopSecondary: () -> Unit = {},
@@ -102,6 +103,9 @@ fun ModelItem(
   // Resident second model (e.g. embedding model loaded alongside the chat model).
   val isSecondModelLoaded = isServerRunning &&
     secondaryModelName != null && secondaryModelName.equals(model.name, ignoreCase = true)
+  // Second model whose native init is in flight — the card shows a loading state.
+  val isSecondModelLoading = secondaryModelLoadingName != null &&
+    secondaryModelLoadingName.equals(model.name, ignoreCase = true)
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
@@ -161,6 +165,7 @@ fun ModelItem(
         serverStatus = serverStatus,
         activeModelName = activeModelName,
         isSecondModelLoaded = isSecondModelLoaded,
+        isSecondModelLoading = isSecondModelLoading,
         onStopServer = onStopServer,
         onStopSecondary = onStopSecondary,
       )
