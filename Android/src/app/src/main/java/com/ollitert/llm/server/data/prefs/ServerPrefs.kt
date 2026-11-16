@@ -273,12 +273,10 @@ object ServerPrefs {
    * model weights in RAM, so 2× a model ≈ 2× its memory footprint.
    */
   /**
-   * Server-global instance count applied to ANY model that loads (primary,
-   * second model, later switches). 1 = legacy single engine; >1 = concurrent
-   * requests spread across independent engines.
-   *
-   * LEGACY (pre per-model): kept for migration — [getModelInstanceCount]
-   * falls back to it when a model has no per-model value yet.
+   * Server-global instance count (pre per-model). LEGACY: no longer read by
+   * any load path — kept only so old pref values stay readable. Do NOT wire
+   * this back in as a default: a stale global >1 once cold-started E4B at 2×
+   * (7.4GB of GPU weights) and OOM-killed the phone.
    */
   fun getModelInstanceCount(context: Context): Int =
     get(context, MODEL_INSTANCE_COUNT).coerceIn(1, MAX_MODEL_INSTANCE_COUNT)
@@ -288,18 +286,20 @@ object ServerPrefs {
 
   /**
    * Per-model instance count: the model's own saved `instance_count` config
-   * value (set in the inference settings sheet). Falls back to the legacy
-   * server-global pref when it was raised above the default — that migrates
-   * counts chosen via the old start dialog — and to 1 otherwise.
+   * value (set in the inference settings sheet). Defaults to 1 when the model
+   * has no saved value — the legacy server-global pref is deliberately NOT a
+   * fallback (see the note above).
    *
    * Reads the PERSISTED config, not model.configValues: the in-memory map has
    * materialized defaults (instance_count=1) for every model, which would mask
-   * the legacy fallback.
+   * a missing saved value.
    */
   fun getModelInstanceCount(context: Context, model: Model?): Int {
-    model?.let { m -> getInferenceConfig(context, m.prefsKey)?.instanceCount()?.let { return it } }
-    val legacy = get(context, MODEL_INSTANCE_COUNT)
-    return if (legacy > 1) legacy.coerceAtMost(MAX_MODEL_INSTANCE_COUNT) else DEFAULT_MODEL_INSTANCE_COUNT
+    model?.let { m ->
+      getInferenceConfig(context, m.prefsKey)?.instanceCount()
+        ?.let { return it.coerceIn(1, MAX_MODEL_INSTANCE_COUNT) }
+    }
+    return DEFAULT_MODEL_INSTANCE_COUNT
   }
 
   fun isShowModelRecommendations(context: Context): Boolean = get(context, SHOW_MODEL_RECOMMENDATIONS)

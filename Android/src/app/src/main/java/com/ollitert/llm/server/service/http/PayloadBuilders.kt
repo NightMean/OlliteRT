@@ -284,7 +284,10 @@ object PayloadBuilders {
       put("warmup_enabled", JsonPrimitive(ServerPrefs.isWarmupEnabled(context)))
       put("keep_alive_enabled", JsonPrimitive(ServerPrefs.isKeepAliveEnabled(context)))
       put("keep_alive_minutes", JsonPrimitive(ServerPrefs.getKeepAliveMinutes(context)))
-      put("model_instance_count", JsonPrimitive(inferenceConfig.instanceCount() ?: ServerPrefs.getModelInstanceCount(context)))
+      // Default 1 when the model has no saved value (matches the load-path
+      // default in ServerPrefs.getModelInstanceCount — the legacy global pref
+      // is NOT a fallback).
+      put("model_instance_count", JsonPrimitive(inferenceConfig.instanceCount() ?: 1))
       put("custom_prompts_enabled", JsonPrimitive(ServerPrefs.isCustomPromptsEnabled(context)))
       put("system_prompt", JsonPrimitive(ServerPrefs.getSystemPrompt(context, modelPrefsKey)))
     }
