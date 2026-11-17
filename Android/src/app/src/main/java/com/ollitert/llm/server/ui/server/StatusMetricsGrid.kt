@@ -30,16 +30,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.ui.common.PlainTooltipIconButton
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,20 +90,13 @@ internal fun StatusMetricsGrid(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(modifier = Modifier.weight(1f))
-      TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = { PlainTooltip { Text(stringResource(R.string.status_metrics_info_tooltip)) } },
-        state = rememberTooltipState(),
-      ) {
-        IconButton(onClick = { showMetricsInfoDialog = true }, modifier = Modifier.size(32.dp)) {
-          Icon(
-            imageVector = Icons.Outlined.Info,
-            contentDescription = stringResource(R.string.status_metrics_info_tooltip),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-          )
-        }
-      }
+      PlainTooltipIconButton(
+        icon = Icons.Outlined.Info,
+        tooltip = stringResource(R.string.status_metrics_info_tooltip),
+        onClick = { showMetricsInfoDialog = true },
+        modifier = Modifier.size(32.dp),
+        iconSize = 20.dp,
+      )
     }
 
     if (showMetricsInfoDialog) {

@@ -17,19 +17,24 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import android.app.ActivityManager
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +43,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -53,6 +60,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -64,12 +73,15 @@ import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.copyToClipboard
 import com.ollitert.llm.server.common.humanReadableSize
+import com.ollitert.llm.server.ui.common.PlainTooltipIconButton
 import com.ollitert.llm.server.ui.common.SHEET_MAX_WIDTH
+import com.ollitert.llm.server.ui.modelmanager.components.ModelFeatureChip
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.buildTrackableUrlAnnotatedString
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
+import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +104,7 @@ internal fun RepositoryModelDetailsSheet(
   repositoryUrl: String,
   fileUrl: (String) -> String?,
 ) {
+  var compatibilityInfo by remember { mutableStateOf<Boolean?>(null) }
   val currentLoading by rememberUpdatedState(loading)
   val sheetState = rememberModalBottomSheetState(
     skipPartiallyExpanded = true,
@@ -145,21 +158,27 @@ internal fun RepositoryModelDetailsSheet(
         }
         Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
           if (possibleFiles.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-              Text(stringResource(R.string.hf_files_possible), style = MaterialTheme.typography.titleMedium)
-              Text(stringResource(R.string.hf_files_estimate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            possibleFiles.forEach { file ->
-              RepositoryFileRow(file, selectedPath == file.path, loading || !importsReady, managementOnly, fileUrl(file.path), imports.firstOrNull { it.record.path == file.path }, onDelete) { onSelect(file.path) }
+            RepositoryFileSection(
+              title = stringResource(R.string.hf_files_possible),
+              description = stringResource(R.string.hf_files_estimate),
+              warning = false,
+              onShowInfo = { compatibilityInfo = false },
+            ) {
+              possibleFiles.forEach { file ->
+                RepositoryFileRow(file, selectedPath == file.path, loading || !importsReady, managementOnly, fileUrl(file.path), imports.firstOrNull { it.record.path == file.path }, onDelete) { onSelect(file.path) }
+              }
             }
           }
           if (otherFiles.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-              Text(stringResource(R.string.hf_files_other), style = MaterialTheme.typography.titleMedium)
-              Text(stringResource(R.string.hf_files_other_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            otherFiles.forEach { file ->
-              RepositoryFileRow(file, selectedPath == file.path, loading || !importsReady, managementOnly, fileUrl(file.path), imports.firstOrNull { it.record.path == file.path }, onDelete) { onSelect(file.path) }
+            RepositoryFileSection(
+              title = stringResource(R.string.hf_files_other),
+              description = stringResource(R.string.hf_files_other_hint),
+              warning = true,
+              onShowInfo = { compatibilityInfo = true },
+            ) {
+              otherFiles.forEach { file ->
+                RepositoryFileRow(file, selectedPath == file.path, loading || !importsReady, managementOnly, fileUrl(file.path), imports.firstOrNull { it.record.path == file.path }, onDelete) { onSelect(file.path) }
+              }
             }
           }
         }
@@ -180,6 +199,49 @@ internal fun RepositoryModelDetailsSheet(
         ) { Text(stringResource(R.string.hf_sheet_import)) }
       }
     }
+  }
+  compatibilityInfo?.let { warning ->
+    AlertDialog(
+      onDismissRequest = { compatibilityInfo = null },
+      title = { Text(stringResource(R.string.hf_compatibility_info_title)) },
+      text = { Text(stringResource(if (warning) R.string.hf_compatibility_info_body else R.string.hf_compatible_info_body)) },
+      confirmButton = { TextButton(onClick = { compatibilityInfo = null }) { Text(stringResource(R.string.ok)) } },
+    )
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RepositoryFileSection(
+  title: String,
+  description: String,
+  warning: Boolean,
+  onShowInfo: (() -> Unit)? = null,
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  val accent = if (warning) OlliteRTWarningText else OlliteRTPrimary
+  Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+      Box(Modifier.width(3.dp).height(24.dp).background(accent, RoundedCornerShape(2.dp)))
+      ModelFeatureChip(
+        label = title,
+        modifier = Modifier.weight(1f, fill = false),
+        textColor = accent,
+        textStyle = MaterialTheme.typography.titleMedium,
+        maxLines = 2,
+      )
+      if (onShowInfo != null) {
+        PlainTooltipIconButton(
+          icon = Icons.Outlined.Info,
+          tooltip = stringResource(R.string.hf_compatibility_info_tooltip),
+          onClick = onShowInfo,
+          modifier = Modifier.size(32.dp),
+          iconSize = 20.dp,
+        )
+      }
+    }
+    Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    content()
   }
 }
 

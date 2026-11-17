@@ -16,20 +16,17 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.ui.common.TooltipIconButton
+import com.ollitert.llm.server.ui.common.PlainTooltipIconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,27 +38,23 @@ internal fun RepositoryExploreTopBar(
   onOpenLink: () -> Unit,
   onBack: () -> Unit,
 ) {
-  val iconColor = MaterialTheme.colorScheme.onSurfaceVariant
   TopAppBar(
     title = { Text(title) },
     actions = {
-      TooltipIconButton(
+      PlainTooltipIconButton(
         icon = Icons.Outlined.Link,
         tooltip = linkLabel,
         onClick = onOpenLink,
         enabled = linkEnabled,
-        tint = iconColor.copy(alpha = if (linkEnabled) 1f else 0.38f),
-        modifier = Modifier.padding(end = 12.dp),
       )
     },
     navigationIcon = {
-      TooltipIconButton(
-        icon = Icons.AutoMirrored.Filled.ArrowBack,
+      PlainTooltipIconButton(
+        icon = Icons.AutoMirrored.Outlined.ArrowBack,
         tooltip = stringResource(R.string.hf_explore_back),
         onClick = onBack,
         enabled = backEnabled,
-        tint = iconColor.copy(alpha = if (backEnabled) 1f else 0.38f),
-        modifier = Modifier.padding(horizontal = 8.dp),
+        tint = MaterialTheme.colorScheme.onSurface,
       )
     },
   )

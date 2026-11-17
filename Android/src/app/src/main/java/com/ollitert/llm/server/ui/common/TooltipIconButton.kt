@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 
 /**
  * 40dp icon action button with a long-press tooltip shown below the button.
@@ -53,15 +56,7 @@ fun TooltipIconButton(
   backgroundColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
   enabled: Boolean = true,
 ) {
-  TooltipBox(
-    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-    tooltip = {
-      PlainTooltip {
-        Text(tooltip)
-      }
-    },
-    state = rememberTooltipState(),
-  ) {
+  IconTooltip(tooltip) {
     Box(
       modifier = modifier
         .size(40.dp)
@@ -78,4 +73,37 @@ fun TooltipIconButton(
       )
     }
   }
+}
+
+@Composable
+internal fun PlainTooltipIconButton(
+  icon: ImageVector,
+  tooltip: String,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+  iconSize: Dp = 24.dp,
+  enabled: Boolean = true,
+) {
+  IconTooltip(tooltip) {
+    IconButton(
+      onClick = onClick,
+      modifier = modifier,
+      enabled = enabled,
+      colors = IconButtonDefaults.iconButtonColors(contentColor = tint),
+    ) {
+      Icon(icon, contentDescription = tooltip, modifier = Modifier.size(iconSize))
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IconTooltip(tooltip: String, content: @Composable () -> Unit) {
+  TooltipBox(
+    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+    tooltip = { PlainTooltip { Text(tooltip) } },
+    state = rememberTooltipState(),
+    content = content,
+  )
 }

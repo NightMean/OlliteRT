@@ -1250,8 +1250,12 @@
   <string name="hf_explore_updated_date">Updated: %1$s</string>
   <string name="hf_files_possible">Compatible files</string>
   <string name="hf_files_other">May not be compatible</string>
+  <string name="hf_compatibility_info_tooltip">About compatibility checks</string>
+  <string name="hf_compatibility_info_title">Compatibility checks</string>
+  <string name="hf_compatible_info_body">OlliteRT compares the model file\'s size with half of your device\'s total memory and looks for hardware names in the filename. These are estimates only. OlliteRT does not run the model on your device to verify that it works with your phone\'s hardware.\n\nCheck the model page for requirements.</string>
+  <string name="hf_compatibility_info_body">A model file may appear here if it is larger than half of your device\'s total memory or its name suggests different hardware. These are estimates only. OlliteRT does not run the model on your device to verify that it works with your phone\'s hardware. Files in either section may still work or fail.\n\nCheck the model page for requirements.</string>
   <string name="hf_files_other_hint">These files may not work on this device.</string>
-  <string name="hf_files_estimate">Based on the file name and your device, these files should be compatible, but compatibility cannot be guaranteed. Check the model card for details.</string>
+  <string name="hf_files_estimate">Based on the file name and your device, these files should be compatible, but compatibility cannot be guaranteed. Check the model page for details.</string>
   <string name="hf_sheet_import">Import Model</string>
   <string name="hf_sheet_copy_link">Copy model link</string>
   <string name="hf_sheet_no_files">This repository has no supported model files.</string>
