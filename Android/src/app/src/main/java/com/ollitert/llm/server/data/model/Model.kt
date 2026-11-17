@@ -377,6 +377,8 @@ data class ModelDownloadStatus(
   val totalBytes: Long = 0,
   val receivedBytes: Long = 0,
   val errorMessage: String = "",
+  val modelScopeAccessDeniedSite: String = "",
+  val failureId: String = "",
   val bytesPerSecond: Long = 0,
 )
 

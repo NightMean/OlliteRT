@@ -22,6 +22,7 @@ import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
+import com.ollitert.llm.server.data.storage.KEY_MODELSCOPE_ACCESS_DENIED_SITE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_MODEL_DIR
@@ -266,6 +267,9 @@ class DownloadRepository @Inject constructor(
                 ModelDownloadStatus(
                   status = status,
                   errorMessage = errorMessage,
+                  modelScopeAccessDeniedSite = if (status == ModelDownloadStatusType.FAILED)
+                    workInfo.outputData.getString(KEY_MODELSCOPE_ACCESS_DENIED_SITE).orEmpty() else "",
+                  failureId = if (status == ModelDownloadStatusType.FAILED) workInfo.id.toString() else "",
                   receivedBytes = if (status == ModelDownloadStatusType.FAILED) lastReceivedBytes else 0L,
                   totalBytes = if (status == ModelDownloadStatusType.FAILED) lastTotalBytes else 0L,
                 ),

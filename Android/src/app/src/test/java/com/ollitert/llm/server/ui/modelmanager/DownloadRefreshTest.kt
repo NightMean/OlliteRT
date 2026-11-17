@@ -50,4 +50,12 @@ class DownloadRefreshTest {
     val cancelled = ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)
     assertEquals(cancelled, preserveActiveDownloadStatuses(mapOf("m" to partial), mapOf("m" to cancelled), mapOf("m" to 1L), mapOf("m" to 3L))["m"])
   }
+
+  @Test fun refreshPreservesModelScopeAccessFailureUntilAnotherStatusReplacesIt() {
+    val failed = ModelDownloadStatus(ModelDownloadStatusType.FAILED, modelScopeAccessDeniedSite = "CHINA", failureId = "one")
+    val disk = ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)
+    assertEquals(failed, preserveActiveDownloadStatuses(mapOf("m" to disk), mapOf("m" to failed), emptyMap(), emptyMap())["m"])
+    val downloaded = ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
+    assertEquals(downloaded, preserveActiveDownloadStatuses(mapOf("m" to downloaded), mapOf("m" to failed), emptyMap(), emptyMap())["m"])
+  }
 }

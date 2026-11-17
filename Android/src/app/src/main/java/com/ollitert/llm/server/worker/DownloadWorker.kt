@@ -47,6 +47,7 @@ import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.storage.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
+import com.ollitert.llm.server.data.storage.KEY_MODELSCOPE_ACCESS_DENIED_SITE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_MODEL_DIR
@@ -101,6 +102,12 @@ private class HttpErrorException(
 
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
 private var channelCreated = false
+
+internal fun mayBeDiskWriteFailure(error: IOException): Boolean =
+  error !is DownloadFinalizationException && error !is InvalidArtifactException &&
+    error !is ModelScopeDownloadAccessException && error !is ModelScopeRateLimitException &&
+    error !is HttpErrorException && error !is SocketException &&
+    error !is SocketTimeoutException && error !is UnknownHostException
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
@@ -447,7 +454,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           // to give the user their storage back. For network errors (where space
           // is still available), keep .tmp files so downloads can resume.
           val isDiskFull =
-            if (e is DownloadFinalizationException || e is InvalidArtifactException) {
+            if (!mayBeDiskWriteFailure(e)) {
               false
             } else {
               try {
@@ -490,7 +497,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 e.isRepoNotFound -> applicationContext.getString(R.string.download_error_not_found)
                 e.statusCode == HttpURLConnection.HTTP_NOT_FOUND -> applicationContext.getString(R.string.download_error_not_found)
                 e.isModelScope && (e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || e.statusCode == HttpURLConnection.HTTP_FORBIDDEN) ->
-                  applicationContext.getString(R.string.modelscope_access_denied)
+                  applicationContext.getString(R.string.download_error_server, e.statusCode)
                 e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED || e.statusCode == HttpURLConnection.HTTP_FORBIDDEN ->
                   applicationContext.getString(R.string.download_error_unauthorized)
                 else -> applicationContext.getString(R.string.download_error_server, e.statusCode)
@@ -502,8 +509,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
           }
 
+          val deniedSite = if (!isDiskFull) (e as? ModelScopeDownloadAccessException)?.site?.name else null
           Result.failure(
-            Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage).build()
+            Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage)
+              .putString(KEY_MODELSCOPE_ACCESS_DENIED_SITE, deniedSite).build()
           )
         } catch (e: Exception) {
           Log.e(TAG, "Unexpected error during download: ${e.message}", e)

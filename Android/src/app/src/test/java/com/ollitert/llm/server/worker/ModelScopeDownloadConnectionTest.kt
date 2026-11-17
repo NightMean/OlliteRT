@@ -124,4 +124,31 @@ class ModelScopeDownloadConnectionTest {
       openModelScopeDownloadConnection(URL("https://modelscope.cn/file"), "ms-example", 0) { loop }
     }
   }
+
+
+
+  @Test fun storageAccessDenialIsNotReportedAsProviderTokenDenial() {
+    val origin = connection(302, "https://storage.example.test/file")
+    val storage = connection(403)
+    val result = openModelScopeDownloadConnection(URL("https://modelscope.cn/file"), null, 0) {
+      if (it.host == "modelscope.cn") origin else storage
+    }
+    assertSame(storage, result)
+  }
+
+  @Test fun accessDenialRecordsTheSiteThatRejectedTheRequest() {
+    val denied = connection(403)
+    every { denied.errorStream } returns "{}".byteInputStream()
+    val error = assertThrows(ModelScopeDownloadAccessException::class.java) {
+      openModelScopeDownloadConnection(URL("https://modelscope.cn/file"), null, 0) { denied }
+    }
+    org.junit.Assert.assertEquals(com.ollitert.llm.server.data.allowlist.ModelScopeSite.CHINA, error.site)
+  }
+
+  @Test fun providerDenialsAndRateLimitsAreNeverInferredToBeDiskFailures() {
+    val site = com.ollitert.llm.server.data.allowlist.ModelScopeSite.CHINA
+    org.junit.Assert.assertFalse(mayBeDiskWriteFailure(ModelScopeDownloadAccessException(site)))
+    org.junit.Assert.assertFalse(mayBeDiskWriteFailure(ModelScopeRateLimitException()))
+    org.junit.Assert.assertTrue(mayBeDiskWriteFailure(IOException("write failed")))
+  }
 }

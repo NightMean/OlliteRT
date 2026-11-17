@@ -136,6 +136,8 @@ internal fun preserveActiveDownloadStatuses(
 ): Map<String, ModelDownloadStatus> = loaded.mapValues { (name, diskStatus) ->
   previous[name]?.takeIf {
     it.status == ModelDownloadStatusType.IN_PROGRESS || it.status == ModelDownloadStatusType.UNZIPPING ||
+      (it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty() &&
+        diskStatus.status != ModelDownloadStatusType.SUCCEEDED) ||
       (currentRevisions[name] ?: 0L) != (revisionsAtLoadStart[name] ?: 0L)
   } ?: diskStatus
 }
@@ -282,6 +284,15 @@ constructor(
   fun setInferenceConfig(prefsKey: String, configValues: Map<String, Any>) = preferencesRepository.setInferenceConfig(prefsKey, configValues)
   fun getPort(): Int = preferencesRepository.getPort()
   fun getHfToken(): String = preferencesRepository.getHfToken()
+
+  internal fun hasModelScopeToken(international: Boolean): Boolean =
+    preferencesRepository.getModelScopeToken(international).isNotBlank()
+
+  internal fun acknowledgeModelScopeFailure(id: String) {
+    _uiState.update { state -> state.copy(modelDownloadStatus = state.modelDownloadStatus.mapValues { (_, status) ->
+      if (status.failureId == id) status.copy(modelScopeAccessDeniedSite = "") else status
+    }) }
+  }
 
   private fun notifyStorageChanged() {
     _uiState.update { it.copy(storageUpdateTrigger = System.currentTimeMillis()) }

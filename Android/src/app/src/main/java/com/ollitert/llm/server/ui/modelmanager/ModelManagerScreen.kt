@@ -89,6 +89,9 @@ import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.SCREEN_CONTENT_MAX_WIDTH
 import com.ollitert.llm.server.ui.common.ShimmerModelCard
 import com.ollitert.llm.server.ui.common.matchesSearchQuery
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
+import com.ollitert.llm.server.ui.modelmanager.components.ModelScopeAccessDialog
 import com.ollitert.llm.server.ui.modelmanager.components.ModelItem
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import kotlinx.coroutines.delay
@@ -609,6 +612,29 @@ fun ModelManagerScreen(
     onExploreHuggingFace = onExploreHuggingFace,
     onExploreModelScope = onExploreModelScope,
   )
+  var acknowledgedAccessFailures by rememberSaveable { mutableStateOf(emptyList<String>()) }
+  val pendingAccess = nextModelScopeAccessFailure(uiState.modelDownloadStatus.values, acknowledgedAccessFailures)
+  pendingAccess?.let { failure ->
+    val site = ModelScopeSite.entries.first { it.name == failure.modelScopeAccessDeniedSite }
+    ModelScopeAccessDialog(
+      site = site,
+      tokenMissing = !viewModel.hasModelScopeToken(site == ModelScopeSite.INTERNATIONAL),
+      onNavigateToProviderTokens = onNavigateToProviderTokens,
+      onDismiss = {
+        acknowledgedAccessFailures = (acknowledgedAccessFailures + failure.failureId).takeLast(50)
+        viewModel.acknowledgeModelScopeFailure(failure.failureId)
+      },
+    )
+  }
+
+}
+
+internal fun nextModelScopeAccessFailure(
+  statuses: Collection<ModelDownloadStatus>,
+  acknowledgedIds: Collection<String>,
+): ModelDownloadStatus? = statuses.firstOrNull {
+  it.status == ModelDownloadStatusType.FAILED && it.failureId.isNotEmpty() && it.failureId !in acknowledgedIds &&
+    ModelScopeSite.entries.any { site -> site.name == it.modelScopeAccessDeniedSite }
 }
 
 @Composable

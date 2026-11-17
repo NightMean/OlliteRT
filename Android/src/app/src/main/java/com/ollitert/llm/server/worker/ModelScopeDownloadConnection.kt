@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.worker
 
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl
 import com.ollitert.llm.server.data.allowlist.setModelScopeCredentials
 import com.ollitert.llm.server.data.allowlist.MODELSCOPE_RATE_LIMIT_CODE
@@ -31,7 +32,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-internal class ModelScopeDownloadAccessException : IOException("ModelScope denied access")
+internal class ModelScopeDownloadAccessException(val site: ModelScopeSite) : IOException("ModelScope denied access")
 
 /** Follows HTTPS redirects without forwarding a site's token to another site or storage host. */
 internal fun openModelScopeDownloadConnection(
@@ -66,9 +67,9 @@ internal fun openModelScopeDownloadConnection(
           rejectedCredentials = true
           continue
         }
-        throw ModelScopeDownloadAccessException()
+        throw ModelScopeDownloadAccessException(site)
       }
-      if (rejectedCredentials && connection.responseCode in listOf(401, 403, 404)) throw ModelScopeDownloadAccessException()
+      if (rejectedCredentials && modelScopeSiteForUrl(current.toString()) == site && connection.responseCode in listOf(401, 403, 404)) throw ModelScopeDownloadAccessException(site)
       if (connection.responseCode !in 300..399) return connection
       if (++redirects > 5) throw IOException("Too many ModelScope download redirects")
       val location = connection.getHeaderField("Location") ?: throw IOException("ModelScope download redirect has no location")
