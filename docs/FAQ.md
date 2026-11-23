@@ -72,7 +72,7 @@ See the [Client Setup Guide](CLIENT_SETUP.md) for step-by-step instructions for 
 
 ### Is my data private / does it work offline?
 
-Yes to both. All processing runs on-device — no data leaves your phone. No telemetry, no analytics, no cloud. After downloading a model, the app works fully offline.
+Inference runs on your device. After you download or import a model, you can run it offline. The app uses the network for provider browsing, token checks, downloads, and update checks. See the [Privacy Policy](PRIVACY_POLICY.md#network-connections).
 
 ---
 
@@ -139,7 +139,7 @@ If the server stops unexpectedly during heavy use, see [Troubleshooting → Serv
 
 ### Why does importing a model use double the storage?
 
-Android's scoped storage doesn't allow LiteRT to read files directly from outside the app storage, so imported models are copied to the app's private directory. Models downloaded from HuggingFace go directly to app storage — no duplication.
+Android's scoped storage prevents LiteRT from reading files directly from outside app storage, so OlliteRT copies local imports to its private directory. Models downloaded from Hugging Face or ModelScope go directly to app storage.
 
 > [!TIP]
 > The original imported file can be safely deleted after import to reclaim storage.

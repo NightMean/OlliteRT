@@ -31,7 +31,7 @@ OlliteRT uses the following outbound connections.
 |:-----------|:-----|:------------|:----------------|
 | **Hugging Face and ModelScope browsing** | When you search or open a repository in Models | Search text, sort and page information, or the repository ID and revision, as needed. If configured, the provider token is sent to the matching service. | Import models from local storage |
 | **Model downloads** | When you check access or download a file | Repository, revision, file path and, for resumed downloads, a byte range. The provider can redirect the file request to its storage service. A configured token is sent when the request uses the matching provider. | Import models from local storage |
-| **Provider token checks** | When you tap **Test** in Settings → Provider Tokens | The token entered for Hugging Face or the selected ModelScope site, sent to that service's account endpoint | Skip the test |
+| **Provider token checks** | When you tap **Test** in Settings → Provider Tokens. OlliteRT also checks a saved Hugging Face token when an authenticated download access check returns HTTP 401. | The provider token, sent to that service's account endpoint | Skip the manual test. Remove the saved Hugging Face token to prevent automatic token checks. |
 | **GitHub update check** | Periodically (configurable) | HTTP request to GitHub Releases API | Disable in Settings → App Updates |
 | **Model source refresh** | Periodically (~24 hours) and on pull-to-refresh | HTTPS request to each enabled model source URL to fetch the model list JSON | Remove the source in Settings → Model Sources |
 
@@ -53,7 +53,7 @@ When the server is running, OlliteRT listens for incoming HTTP connections on yo
 
 ## Data Storage
 
-| Data | Storage Location | Encryption | User Control |
+| Data | Storage Location | Protection | User Control |
 |:-----|:-----------------|:-----------|:-------------|
 | Model files | App-private storage (`getExternalFilesDir`) | Android app sandbox | Delete from Models screen |
 | Server settings | SharedPreferences | Android app sandbox | Reset in Settings |
