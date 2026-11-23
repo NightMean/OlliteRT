@@ -159,7 +159,6 @@ fun DownloadAndTryButton(
   var showMemoryWarning by remember { mutableStateOf(false) }
   var showStorageWarning by remember { mutableStateOf(false) }
   var showWifiWarning by remember { mutableStateOf(false) }
-  var downloadStarted by remember { mutableStateOf(false) }
   var useHuggingFaceToken by rememberSaveable(model.name) { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
   val downloadGate = remember { DownloadGateCoordinator.forViewModel(modelManagerViewModel) }
@@ -168,37 +167,29 @@ fun DownloadAndTryButton(
   val needToDownloadFirst =
     (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED || isFailed) &&
       model.localFileRelativeDirPathOverride.isEmpty()
-  val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
+  val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS ||
+    downloadStatus?.status == ModelDownloadStatusType.UNZIPPING
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val failedWithProgress =
     isFailed && downloadStatus.receivedBytes > 0L && downloadStatus.totalBytes > 0L
-  // Reset the optimistic "download started" flag once the store confirms the
-  // model is back to NOT_DOWNLOADED (e.g. after deletion). This must run as an
-  // effect — writing snapshot state during composition can loop invalidation.
-  LaunchedEffect(downloadStatus?.status, checkingToken) {
-    if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED && !checkingToken) {
-      downloadStarted = false
-    }
-  }
   val showDownloadProgress =
     !downloadSucceeded &&
-      (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded || failedWithProgress)
+      (checkingToken || inProgress || isPartiallyDownloaded || failedWithProgress)
   var curDownloadProgress: Float
 
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-      if (!modelManagerViewModel.downloadModel(model, useHuggingFaceToken)) downloadStarted = false
+      modelManagerViewModel.downloadModel(model, useHuggingFaceToken)
     }
 
   val startDownload: (Boolean) -> Unit = { requiresToken ->
     useHuggingFaceToken = requiresToken
-    val accepted = checkNotificationPermissionAndStartDownload(
+    checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
       startDownload = { modelManagerViewModel.downloadModel(model, requiresToken) },
     )
-    if (!accepted) downloadStarted = false
     checkingToken = false
   }
 
@@ -224,7 +215,6 @@ fun DownloadAndTryButton(
             startDownload(token != null)
           } else {
             Log.d(TAG, "Agreement not accepted. Resetting.")
-            downloadStarted = false
             checkingToken = false
           }
         }
@@ -234,8 +224,6 @@ fun DownloadAndTryButton(
   val handleClickButton = {
     scope.launch {
       if (needToDownloadFirst) {
-        downloadStarted = true
-        // Optimistic flag so the progress row shows "Checking access…" during probes.
         checkingToken = isHuggingFaceUrl(model.url)
         val outcome = withContext(Dispatchers.IO) { downloadGate.resolveDownloadAccess(model) }
         when (outcome) {
@@ -243,17 +231,14 @@ fun DownloadAndTryButton(
           is DownloadGateOutcome.NetworkError -> {
             Log.e(TAG, "Network error while checking access: ${outcome.message}")
             checkingToken = false
-            downloadStarted = false
             showErrorDialog = true
           }
           DownloadGateOutcome.AccessError -> {
             checkingToken = false
-            downloadStarted = false
             showAccessErrorDialog = true
           }
           DownloadGateOutcome.ModelNotFound -> {
             checkingToken = false
-            downloadStarted = false
             showModelNotFoundDialog = true
           }
           DownloadGateOutcome.NeedsAgreement -> {
@@ -262,7 +247,6 @@ fun DownloadAndTryButton(
           }
           is DownloadGateOutcome.NeedsHfToken -> {
             checkingToken = false
-            downloadStarted = false
             hfTokenDialogReason = outcome.reason
           }
         }
@@ -472,7 +456,7 @@ fun DownloadAndTryButton(
           val cbRetry = stringResource(R.string.cd_retry_download_icon)
           IconButton(
             onClick = {
-              downloadStarted = modelManagerViewModel.retryDownloadModel(model = model)
+              modelManagerViewModel.retryDownloadModel(model = model)
             },
             colors = IconButtonDefaults.iconButtonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -485,7 +469,6 @@ fun DownloadAndTryButton(
         val cbStop = stringResource(R.string.cd_stop_icon)
         IconButton(
           onClick = {
-            downloadStarted = false
             modelManagerViewModel.cancelDownloadModel(model = model)
           },
           colors = IconButtonDefaults.iconButtonColors(
@@ -510,7 +493,6 @@ fun DownloadAndTryButton(
       onDismiss = {
         showAgreementAckSheet = false
         checkingToken = false
-        downloadStarted = false
       },
     )
   }

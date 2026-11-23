@@ -62,4 +62,12 @@ class UnfinishedModelWorkersTest {
     assertEquals(ModelScopeSite.CHINA.name, recovered.modelScopeAccessDeniedSite)
     assertEquals(emptyMap<String, Any>(), modelDownloadWork(listOf(queued, failure)).accessDenied)
   }
+
+  @Test fun canceledAttemptIsKeptForPartialFileReconciliation() {
+    val stopped = mockk<WorkInfo> {
+      every { state } returns WorkInfo.State.CANCELLED
+      every { tags } returns setOf("modelName:example")
+    }
+    assertEquals(setOf("example"), modelDownloadWork(listOf(stopped)).canceledModels)
+  }
 }

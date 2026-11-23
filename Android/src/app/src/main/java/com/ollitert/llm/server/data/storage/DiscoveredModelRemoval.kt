@@ -18,6 +18,7 @@ package com.ollitert.llm.server.data.storage
 
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.modelStorageDirectoryName
 import com.ollitert.llm.server.common.ServerStatus
 import java.io.File
 
@@ -36,7 +37,8 @@ internal fun canRemoveModelFiles(
 ): Boolean = diskStatus in setOf(ModelDownloadStatusType.NOT_DOWNLOADED, ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
   ModelDownloadStatusType.SUCCEEDED) && diskStatus == confirmedStatus &&
   !cleanupPending && !unfinishedDownload &&
-  !(activeModelName.equals(modelName, ignoreCase = true) && serverStatus != ServerStatus.STOPPED)
+  (serverStatus == ServerStatus.STOPPED || activeModelName == null ||
+    !modelStorageDirectoryName(activeModelName).equals(modelStorageDirectoryName(modelName), ignoreCase = true))
 
 /** Removes files before the registry entry so interrupted removals remain retryable. */
 internal class DiscoveredModelRemoval(

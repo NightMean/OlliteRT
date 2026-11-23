@@ -37,6 +37,7 @@ import com.ollitert.llm.server.data.repository.ModelDownloadWork
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
+import com.ollitert.llm.server.data.storage.TMP_FILE_EXT
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import io.mockk.coEvery
@@ -185,6 +186,14 @@ class ModelManagerViewModelDisabledSourcesTest {
     recreated.loadModelAllowlist()
     advanceUntilIdle()
     assertEquals(complete, recreated.uiState.value.modelDownloadStatus[model.name])
+
+    every { storage.getModelDownloadStatus(model) } returns partial
+    every { downloads.getModelDownloadWork() } returns ModelDownloadWork(canceledModels = setOf(model.name))
+    val afterCancellation = newOwner()
+    afterCancellation.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(ModelDownloadStatusType.FAILED, afterCancellation.uiState.value.modelDownloadStatus[model.name]?.status)
+    assertEquals(partial.receivedBytes, afterCancellation.uiState.value.modelDownloadStatus[model.name]?.receivedBytes)
     verify(exactly = 0) { downloads.cancelDownloads(any(), any()) }
   }
 
@@ -243,7 +252,17 @@ class ModelManagerViewModelDisabledSourcesTest {
     advanceUntilIdle()
     assertTrue(artifact.isFile)
 
+    model.updatable = true
+    owner.downloadModel(model)
+    advanceUntilIdle()
+    assertTrue(artifact.isFile)
+    model.updatable = false
+
     liveStatus.value = ServerStatus.STOPPED
+    owner.cancelDownloadModel(model)
+    advanceUntilIdle()
+    assertTrue(artifact.isFile)
+
     every { downloads.hasUnfinishedDownload(model.name) } returns true
     owner.deleteModelAndRefreshStorage(model)
     advanceUntilIdle()
@@ -266,7 +285,12 @@ class ModelManagerViewModelDisabledSourcesTest {
     assertEquals(listOf(model.name), owner.uiState.value.models.map { it.name })
     assertEquals(setOf(model.name), preferences.getFavoriteModels())
     assertEquals(model.name, preferences.getDefaultModelName())
-    verify(exactly = 0) { downloads.cancelDownloadModel(any()) }
+    val temporary = File(model.getPath(context, "${model.downloadFileName}.$TMP_FILE_EXT"))
+      .apply { parentFile?.mkdirs(); writeText("partial") }
+    owner.cancelDownloadModel(model)
+    advanceUntilIdle()
+    assertFalse(temporary.exists())
+    verify(exactly = 2) { downloads.cancelUnfinishedModelDownload(model.name) }
   }
 
   @Test

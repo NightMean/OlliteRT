@@ -16,6 +16,7 @@
 
 package com.ollitert.llm.server.data.storage
 
+import com.ollitert.llm.server.data.model.modelStorageDirectoryName
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.CountDownLatch
@@ -30,17 +31,19 @@ internal object ModelDownloadLocks {
   private val locks = mutableMapOf<String, Entry>()
 
   suspend fun <T> withModel(modelName: String, action: suspend () -> T): T {
-    val entry = retain(modelName)
+    val key = modelStorageDirectoryName(modelName).lowercase()
+    val entry = retain(key)
     return try {
       entry.mutex.withLock { action() }
     } finally {
-      release(modelName, entry)
+      release(key, entry)
     }
   }
 
   /** Returns immediately when a download, startup, or removal owns this model. */
   suspend fun <T> tryWithModel(modelName: String, action: suspend () -> T): T? {
-    val entry = retain(modelName)
+    val key = modelStorageDirectoryName(modelName).lowercase()
+    val entry = retain(key)
     try {
       if (!entry.mutex.tryLock()) return null
       return try {
@@ -49,7 +52,7 @@ internal object ModelDownloadLocks {
         entry.mutex.unlock()
       }
     } finally {
-      release(modelName, entry)
+      release(key, entry)
     }
   }
 

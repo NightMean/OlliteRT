@@ -59,6 +59,8 @@ data class ModelDataFile(
 const val IMPORTS_DIR = "__imports"
 private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
+internal fun modelStorageDirectoryName(name: String): String = NORMALIZE_NAME_REGEX.replace(name, "_")
+
 @Serializable
 enum class RuntimeType {
   @SerialName("unknown") UNKNOWN,
@@ -266,7 +268,7 @@ data class Model(
   var latestModelFile: ModelFile? = null,
 ) {
   init {
-    normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
+    normalizedName = modelStorageDirectoryName(name)
   }
 
   /** The actual filename used for storage and imported-model registry operations. */

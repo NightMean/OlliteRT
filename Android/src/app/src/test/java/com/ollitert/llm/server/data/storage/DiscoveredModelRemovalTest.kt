@@ -74,6 +74,8 @@ class DiscoveredModelRemovalTest {
     assertFalse(allowed(ModelDownloadStatusType.SUCCEEDED, cleanup = true))
     assertFalse(allowed(ModelDownloadStatusType.SUCCEEDED, unfinished = true))
     assertFalse(allowed(ModelDownloadStatusType.SUCCEEDED, confirmed = ModelDownloadStatusType.NOT_DOWNLOADED))
+    assertFalse(canRemoveModelFiles("Model-A", ModelDownloadStatusType.SUCCEEDED, "model_a",
+      ServerStatus.RUNNING, false, false, ModelDownloadStatusType.SUCCEEDED))
   }
 
   @Test fun downloadedFilesAndRecordAreRemovedTogether() {

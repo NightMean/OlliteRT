@@ -71,11 +71,13 @@ internal data class QueuedDownload(val id: UUID, val enqueue: Operation)
 internal data class ModelDownloadWork(
   val activeWorkers: Map<String, UUID> = emptyMap(),
   val accessDenied: Map<String, ModelDownloadStatus> = emptyMap(),
+  val canceledModels: Set<String> = emptySet(),
 )
 
 internal fun modelDownloadWork(work: List<WorkInfo>): ModelDownloadWork {
   val activeWorkers = mutableMapOf<String, UUID>()
   val accessDenied = mutableMapOf<String, ModelDownloadStatus>()
+  val canceledModels = mutableSetOf<String>()
   for (info in work) {
     val name = info.tags.firstOrNull { it.startsWith("$MODEL_NAME_TAG:") }
       ?.removePrefix("$MODEL_NAME_TAG:")?.takeIf { it.isNotEmpty() } ?: continue
@@ -86,9 +88,11 @@ internal fun modelDownloadWork(work: List<WorkInfo>): ModelDownloadWork {
       if (ModelScopeSite.entries.any { it.name == failure.modelScopeAccessDeniedSite }) {
         accessDenied[name] = failure
       }
+    } else if (info.state == WorkInfo.State.CANCELLED) {
+      canceledModels.add(name)
     }
   }
-  return ModelDownloadWork(activeWorkers, accessDenied - activeWorkers.keys)
+  return ModelDownloadWork(activeWorkers, accessDenied - activeWorkers.keys, canceledModels - activeWorkers.keys)
 }
 
 private fun WorkInfo.failedDownloadStatus(receivedBytes: Long = 0L, totalBytes: Long = 0L): ModelDownloadStatus {
@@ -163,18 +167,25 @@ class DownloadRepository @Inject constructor(
     return QueuedDownload(request.id, workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, request))
   }
 
-  fun cancelDownloadModel(model: Model) {
-    workManager.cancelAllWorkByTag("$MODEL_NAME_TAG:${model.name}")
+  /** Cancel the attempts observed now, without canceling a later replacement by name. */
+  internal fun cancelUnfinishedModelDownload(modelName: String) {
+    unfinishedWorkForModel(modelName).forEach { info ->
+      workManager.cancelWorkById(info.id).result.get(10, TimeUnit.SECONDS)
+    }
   }
 
   /** Called on an IO dispatcher while the model's download lock is held. */
   fun hasUnfinishedDownload(modelName: String): Boolean =
-    workManager.getWorkInfosForUniqueWork(modelName).get(10, TimeUnit.SECONDS).any { !it.state.isFinished }
+    unfinishedWorkForModel(modelName).isNotEmpty()
+
+  private fun unfinishedWorkForModel(modelName: String): List<WorkInfo> =
+    workManager.getWorkInfosForUniqueWork(modelName).get(10, TimeUnit.SECONDS).filterNot { it.state.isFinished }
 
   /** Reads pending work and terminal provider access failures in one WorkManager snapshot. */
   internal fun getModelDownloadWork(): ModelDownloadWork {
     val query = WorkQuery.Builder.fromTags(listOf(DownloadWorker::class.java.name))
-      .addStates(listOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED, WorkInfo.State.FAILED))
+      .addStates(listOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED,
+        WorkInfo.State.FAILED, WorkInfo.State.CANCELLED))
       .build()
     // REPLACE removes the previous record for this model when a new attempt is enqueued.
     return modelDownloadWork(workManager.getWorkInfos(query).get(10, TimeUnit.SECONDS))
