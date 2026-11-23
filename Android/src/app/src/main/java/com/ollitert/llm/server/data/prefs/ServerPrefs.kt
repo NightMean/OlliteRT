@@ -156,9 +156,18 @@ object ServerPrefs {
     get(context, ACKNOWLEDGED_MODELSCOPE_FAILURES).split(',').filter(String::isNotEmpty)
 
   @Synchronized internal fun acknowledgeModelScopeFailure(context: Context, id: String): List<String> {
-    val recent = (getAcknowledgedModelScopeFailures(context).filterNot { it == id } + id).takeLast(50)
-    set(context, ACKNOWLEDGED_MODELSCOPE_FAILURES, recent.joinToString(","))
-    return recent
+    val acknowledged = getAcknowledgedModelScopeFailures(context)
+    if (id in acknowledged) return acknowledged
+    val updated = acknowledged + id
+    set(context, ACKNOWLEDGED_MODELSCOPE_FAILURES, updated.joinToString(","))
+    return updated
+  }
+
+  @Synchronized internal fun forgetModelScopeFailureAcknowledgements(context: Context, obsoleteFailures: Set<String>) {
+    if (obsoleteFailures.isEmpty()) return
+    val acknowledged = getAcknowledgedModelScopeFailures(context)
+    val remaining = acknowledged.filterNot(obsoleteFailures::contains)
+    if (remaining != acknowledged) set(context, ACKNOWLEDGED_MODELSCOPE_FAILURES, remaining.joinToString(","))
   }
 
   // Log Persistence

@@ -102,6 +102,20 @@ class ServerPrefsMigrationTest {
     verify(exactly = 0) { editor.remove("default_model_name") }
   }
 
+  @Test fun allAcknowledgementsAreKeptWhileTheirDownloadFailuresCanBeRestored() {
+    var stored = ""
+    val key = "acknowledged_modelscope_failures"
+    every { prefs.getString(key, "") } answers { stored }
+    every { editor.putString(key, any()) } answers { stored = secondArg(); editor }
+    val failures = List(51) { "failure-$it" }
+
+    failures.forEach { ServerPrefs.acknowledgeModelScopeFailure(context, it) }
+
+    assertEquals(failures, ServerPrefs.getAcknowledgedModelScopeFailures(context))
+    ServerPrefs.forgetModelScopeFailureAcknowledgements(context, setOf(failures.first()))
+    assertEquals(failures.drop(1), ServerPrefs.getAcknowledgedModelScopeFailures(context))
+  }
+
   // ── migratePerModelKeys ───────────────────────────────────────────────────
 
   @Test

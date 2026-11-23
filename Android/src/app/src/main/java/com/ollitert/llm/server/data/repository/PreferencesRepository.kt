@@ -168,6 +168,7 @@ interface PreferencesRepository {
   fun getModelScopeToken(international: Boolean): String
   fun getAcknowledgedModelScopeFailures(): List<String>
   fun acknowledgeModelScopeFailure(id: String): List<String>
+  fun forgetModelScopeFailureAcknowledgements(obsoleteFailures: Set<String>)
   fun setModelScopeToken(international: Boolean, token: String)
   fun getDefaultModelName(): String?
   fun setDefaultModelName(name: String?): Boolean
@@ -312,6 +313,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun getModelScopeToken(international: Boolean): String = ServerPrefs.getModelScopeToken(context, international)
   override fun getAcknowledgedModelScopeFailures(): List<String> = ServerPrefs.getAcknowledgedModelScopeFailures(context)
   override fun acknowledgeModelScopeFailure(id: String): List<String> = ServerPrefs.acknowledgeModelScopeFailure(context, id)
+  override fun forgetModelScopeFailureAcknowledgements(obsoleteFailures: Set<String>) =
+    ServerPrefs.forgetModelScopeFailureAcknowledgements(context, obsoleteFailures)
   override fun setModelScopeToken(international: Boolean, token: String) = ServerPrefs.setModelScopeToken(context, international, token)
   override fun getDefaultModelName(): String? = ServerPrefs.getDefaultModelName(context)
   override fun setDefaultModelName(name: String?) = ServerPrefs.setDefaultModelName(context, name)

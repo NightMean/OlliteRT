@@ -141,6 +141,9 @@ class FakePreferencesRepository : PreferencesRepository {
     acknowledgedModelScopeFailures.add(id)
     return getAcknowledgedModelScopeFailures()
   }
+  override fun forgetModelScopeFailureAcknowledgements(obsoleteFailures: Set<String>) {
+    acknowledgedModelScopeFailures.removeAll(obsoleteFailures)
+  }
   override fun setModelScopeToken(international: Boolean, token: String) {
     if (international) _modelScopeAiToken = token else _modelScopeCnToken = token
   }

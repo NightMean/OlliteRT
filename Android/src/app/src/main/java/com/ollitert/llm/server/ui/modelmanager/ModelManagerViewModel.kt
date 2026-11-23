@@ -157,7 +157,9 @@ internal fun preserveActiveDownloadStatuses(
   } else {
     // WorkManager does not retain progress after failure. Use the actual bytes on disk for Retry.
     recoveredFailures[name]?.copy(receivedBytes = diskStatus.receivedBytes, totalBytes = diskStatus.totalBytes)
-      ?: previous[name]?.takeIf { it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty() }
+      ?: previous[name]?.takeIf {
+        inspectedActiveNames == null && it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty()
+      }
       ?: diskStatus
   }
 }
@@ -1055,6 +1057,9 @@ internal constructor(
     val generation = allowlistLoadGenerationGate.beginLoad()
     allowlistLoadJob = viewModelScope.launch(mainDispatcher) {
       val downloadRevisionsAtStart = downloadStatusRevisionSnapshot()
+      val displayedFailures = uiState.value.modelDownloadStatus.values.mapNotNullTo(mutableSetOf()) {
+        it.failureId.takeIf { _ -> it.modelScopeAccessDeniedSite.isNotEmpty() }
+      }
       val preparedLoad = try {
         withContext(ioDispatcher) {
           var toastError: String? = null
@@ -1063,7 +1068,14 @@ internal constructor(
             onToastError = { message -> toastError = message },
           )
           val downloadWork = try {
-            downloadRepository.getModelDownloadWork()
+            val acknowledgedBeforeInspection = preferencesRepository.getAcknowledgedModelScopeFailures()
+            val work = downloadRepository.getModelDownloadWork()
+            // Only prune IDs seen before a successful snapshot so a concurrent dismissal survives.
+            val retainedIds = work.accessDenied.values.mapTo(mutableSetOf()) { it.failureId }
+            preferencesRepository.forgetModelScopeFailureAcknowledgements(
+              acknowledgedBeforeInspection.toSet() - retainedIds - displayedFailures,
+            )
+            work
           } catch (e: CancellationException) {
             throw e
           } catch (e: Exception) {
@@ -1135,6 +1147,9 @@ internal constructor(
     preparedLoad.toastError?.let(_toastErrorChannel::trySend)
     val downloadWork = preparedLoad.downloadWork
     downloadInspectionAvailable = downloadWork != null
+    if (downloadInspectionAvailable) {
+      _acknowledgedModelScopeFailures.value = preferencesRepository.getAcknowledgedModelScopeFailures()
+    }
 
     when {
       result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist -> {
