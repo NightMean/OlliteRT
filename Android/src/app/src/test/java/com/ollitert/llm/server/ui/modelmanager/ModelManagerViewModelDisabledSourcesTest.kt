@@ -270,6 +270,58 @@ class ModelManagerViewModelDisabledSourcesTest {
   }
 
   @Test
+  fun localModelsRemainVisibleWhenTheCatalogIsUnavailable() = runTest(testDispatcher) {
+    val local = ImportedModel.newBuilder()
+      .setFileName("Local.litertlm")
+      .setLlmConfig(LlmConfig.newBuilder().addCompatibleAccelerators("CPU"))
+      .build()
+    val warning = "Could not load the catalog"
+    val context = mockk<Context>(relaxed = true) {
+      every { getExternalFilesDir(null) } returns externalFilesDir
+      every { getString(R.string.error_model_list_load_failed_detail, any()) } returns warning
+    }
+    val storage = mockk<ModelStorageRepository>(relaxed = true) {
+      every { readTestAllowlist() } returns null
+    }
+    val catalog = mockk<RepositoryManager>(relaxed = true) {
+      coEvery { refreshAll(storage) } throws IOException("Catalog unavailable")
+    }
+    val owner = ModelManagerViewModel(
+      downloadRepository = mockk(relaxed = true) { every { getModelDownloadWork() } returns ModelDownloadWork() },
+      protoDataStoreRepository = mockk(relaxed = true) {
+        coEvery { readExistingImportedModels() } returns listOf(local)
+      },
+      lifecycleProvider = mockk(relaxed = true),
+      repositoryManager = catalog,
+      context = context,
+      preferencesRepository = FakePreferencesRepository(),
+      serverStateRepository = mockk(relaxed = true),
+      modelStorageRepository = storage,
+      ioDispatcher = testDispatcher,
+      mainDispatcher = testDispatcher,
+    )
+    owner.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(listOf("Local"), owner.uiState.value.models.map { it.name })
+    assertEquals(warning, owner.uiState.value.loadingModelAllowlistError)
+
+    val availableModel = Model(name = "Online catalog")
+    every { storage.getModelDownloadStatus(availableModel) } returns ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)
+    coEvery { catalog.refreshAll(storage) } returns RefreshResult(emptySet())
+    coEvery { catalog.loadAll(any(), storage, ignoreDisabled = false, modelFilter = any()) } returns
+      LoadResult(models = listOf(availableModel), repositories = emptyList())
+    owner.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(listOf(availableModel.name, "Local"), owner.uiState.value.models.map { it.name })
+
+    coEvery { catalog.refreshAll(storage) } throws IOException("Catalog unavailable again")
+    owner.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(listOf(availableModel.name, "Local"), owner.uiState.value.models.map { it.name })
+    assertEquals(warning, owner.uiState.value.loadingModelAllowlistError)
+  }
+
+  @Test
   fun importedModelsRemainVisibleWhenEveryRepositoryIsDisabled() = runTest(testDispatcher) {
     val imported = ImportedModel.newBuilder()
       .setFileName("Local-Model.litertlm")

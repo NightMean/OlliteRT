@@ -45,6 +45,7 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.SOC
 import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.PreferencesRepository
+import kotlinx.coroutines.CancellationException
 
 private const val TAG = "OlliteRT.AllowlistCoord"
 
@@ -184,6 +185,8 @@ class AllowlistLoadCoordinator internal constructor(
         droppedByVersionFilter = loadResult.droppedByVersionFilter,
         totalBeforeFilters = loadResult.totalBeforeVersionFilter,
       )
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       Log.e(TAG, "Failed to load model allowlist", e)
       val detail = e.message?.take(LOG_ERROR_PREVIEW_SHORT_CHARS) ?: context.getString(R.string.error_unknown)

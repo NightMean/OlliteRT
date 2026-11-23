@@ -1036,7 +1036,7 @@ internal constructor(
 
   private data class PreparedAllowlistLoad(
     val result: AllowlistLoadResult,
-    val loadedUiState: ModelManagerUiState?,
+    val loadedUiState: ModelManagerUiState,
     val toastError: String?,
     val downloadRevisionsAtStart: Map<String, Long>,
     val downloadWork: ModelDownloadWork?,
@@ -1116,11 +1116,7 @@ internal constructor(
     }
   }
 
-  private suspend fun prepareLoadedUiState(result: AllowlistLoadResult): ModelManagerUiState? {
-    if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
-      return null
-    }
-
+  private suspend fun prepareLoadedUiState(result: AllowlistLoadResult): ModelManagerUiState {
     processModels(result.models)
     val loadedState = createUiState(result.models).let { state ->
       state.copy(
@@ -1151,45 +1147,45 @@ internal constructor(
       _acknowledgedModelScopeFailures.value = preferencesRepository.getAcknowledgedModelScopeFailures()
     }
 
-    when {
-      result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist -> {
-        _uiState.update {
-          it.copy(
-            loadingModelAllowlist = false,
-            loadingModelAllowlistError = result.errorMessage,
-          )
-        }
-      }
-
-      else -> {
-        val loaded = checkNotNull(preparedLoad.loadedUiState)
-        val inspectedActiveNames = downloadWork?.let { work ->
-          work.activeWorkers.keys + downloadObservers.filterValues { it.isActive }.keys
-        }
-        _uiState.value = loaded.copy(
-          loadingModelAllowlistError = if (downloadInspectionAvailable) loaded.loadingModelAllowlistError
-            else listOf(loaded.loadingModelAllowlistError, context.getString(R.string.model_download_inspection_failed))
-              .filter(String::isNotEmpty).joinToString("\n"),
-          modelDownloadStatus = preserveActiveDownloadStatuses(
-            loaded.modelDownloadStatus, _uiState.value.modelDownloadStatus,
-            preparedLoad.downloadRevisionsAtStart, downloadStatusRevisionSnapshot(),
-            inspectedActiveNames,
-            downloadWork?.accessDenied.orEmpty(),
-          ),
-        )
-        val currentRevisions = downloadStatusRevisionSnapshot()
-        for ((name, workerId) in downloadWork?.activeWorkers.orEmpty()) {
-          if ((currentRevisions[name] ?: 0L) != (preparedLoad.downloadRevisionsAtStart[name] ?: 0L)) continue
-          val model = _uiState.value.models.firstOrNull { it.name == name } ?: continue
-          if (name in removingModelNames || !downloadStartGate.tryAcquire(name)) continue
-          val generation = invalidateDownloadObservation(name)
-          setDownloadStatus(model, ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS))
-          observeDownload(model, workerId, generation)
-        }
-        notifyStorageChanged()
-        if (downloadWork != null) processPendingDownloads()
-      }
+    val previous = _uiState.value
+    val freshlyLoaded = preparedLoad.loadedUiState
+    val loaded = if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
+      // A failed catalog refresh can keep its last known rows while local imports refresh independently.
+      val cachedCatalog = previous.models.filterNot { it.imported }
+      val cachedNames = cachedCatalog.mapTo(mutableSetOf()) { it.name }
+      previous.copy(
+        models = cachedCatalog + freshlyLoaded.models,
+        modelDownloadStatus = previous.modelDownloadStatus.filterKeys(cachedNames::contains) + freshlyLoaded.modelDownloadStatus,
+        modelInitializationStatus = previous.modelInitializationStatus.filterKeys(cachedNames::contains) + freshlyLoaded.modelInitializationStatus,
+        loadingModelAllowlist = false,
+        loadingModelAllowlistError = freshlyLoaded.loadingModelAllowlistError,
+      )
+    } else freshlyLoaded
+    val inspectedActiveNames = downloadWork?.let { work ->
+      work.activeWorkers.keys + downloadObservers.filterValues { it.isActive }.keys
     }
+    _uiState.value = loaded.copy(
+      loadingModelAllowlistError = if (downloadInspectionAvailable) loaded.loadingModelAllowlistError
+        else listOf(loaded.loadingModelAllowlistError, context.getString(R.string.model_download_inspection_failed))
+          .filter(String::isNotEmpty).joinToString("\n"),
+      modelDownloadStatus = preserveActiveDownloadStatuses(
+        loaded.modelDownloadStatus, previous.modelDownloadStatus,
+        preparedLoad.downloadRevisionsAtStart, downloadStatusRevisionSnapshot(),
+        inspectedActiveNames,
+        downloadWork?.accessDenied.orEmpty(),
+      ),
+    )
+    val currentRevisions = downloadStatusRevisionSnapshot()
+    for ((name, workerId) in downloadWork?.activeWorkers.orEmpty()) {
+      if ((currentRevisions[name] ?: 0L) != (preparedLoad.downloadRevisionsAtStart[name] ?: 0L)) continue
+      val model = _uiState.value.models.firstOrNull { it.name == name } ?: continue
+      if (name in removingModelNames || !downloadStartGate.tryAcquire(name)) continue
+      val generation = invalidateDownloadObservation(name)
+      setDownloadStatus(model, ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS))
+      observeDownload(model, workerId, generation)
+    }
+    notifyStorageChanged()
+    if (downloadWork != null) processPendingDownloads()
   }
 
   fun clearLoadModelAllowlistError() {
