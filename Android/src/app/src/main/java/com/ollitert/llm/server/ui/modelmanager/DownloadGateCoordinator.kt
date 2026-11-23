@@ -17,12 +17,12 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import android.util.Log
-import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
 import com.ollitert.llm.server.data.allowlist.ProviderToken
 import com.ollitert.llm.server.data.allowlist.ProviderTokenVerifier
 import com.ollitert.llm.server.data.allowlist.TokenCheck
 import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
+import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.ui.modelmanager.components.HfTokenDialogReason
 import java.net.HttpURLConnection
@@ -32,8 +32,8 @@ import java.net.HttpURLConnection
  * maps each outcome to its dialog/action; all probing and branching lives here.
  */
 internal sealed class DownloadGateOutcome {
-  /** Access confirmed — start the download with this token (null = anonymous). */
-  data class StartDownload(val accessToken: String?) : DownloadGateOutcome()
+  /** Access confirmed. The worker uses the current credential only when it is required. */
+  data class StartDownload(val useHuggingFaceToken: Boolean) : DownloadGateOutcome()
 
   /** Network failure while probing access; message is safe for the error dialog. */
   data class NetworkError(val message: String) : DownloadGateOutcome()
@@ -71,9 +71,9 @@ internal class DownloadGateCoordinator(
    * Performs network probes — call from a background dispatcher.
    */
   suspend fun resolveDownloadAccess(model: Model): DownloadGateOutcome {
-    if (!model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)) {
+    if (!isHuggingFaceUrl(model.url)) {
       Log.d(TAG, "Model '${model.name}' is not from HuggingFace. Start downloading...")
-      return DownloadGateOutcome.StartDownload(null)
+      return DownloadGateOutcome.StartDownload(useHuggingFaceToken = false)
     }
 
     Log.d(TAG, "Model '${model.name}' is from HuggingFace. Checking if auth is required")
@@ -89,7 +89,7 @@ internal class DownloadGateCoordinator(
       is ModelUrlResult.Success -> when (firstResult.code) {
         HttpURLConnection.HTTP_OK -> {
           Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading...")
-          DownloadGateOutcome.StartDownload(null)
+          DownloadGateOutcome.StartDownload(useHuggingFaceToken = false)
         }
         HttpURLConnection.HTTP_NOT_FOUND -> {
           Log.d(TAG, "Model '${model.name}' returned 404 — model not found.")
@@ -124,7 +124,7 @@ internal class DownloadGateCoordinator(
       is ModelUrlResult.Success -> when (hfResult.code) {
         HttpURLConnection.HTTP_OK -> {
           Log.d(TAG, "Stored HF token works. Start downloading...")
-          DownloadGateOutcome.StartDownload(token)
+          DownloadGateOutcome.StartDownload(useHuggingFaceToken = true)
         }
         HttpURLConnection.HTTP_NOT_FOUND -> {
           Log.d(TAG, "Model '${model.name}' returned 404 with token — model not found.")

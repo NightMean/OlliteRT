@@ -45,9 +45,9 @@ import com.ollitert.llm.server.data.repository.UnregisteredImportFileException
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.repository.ModelDownloadWork
+import com.ollitert.llm.server.data.storage.HuggingFaceDownloadAccess
 import com.ollitert.llm.server.data.model.EMPTY_MODEL
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
-import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
 import com.ollitert.llm.server.data.allowlist.probeModelUrl
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
 import com.ollitert.llm.server.data.allowlist.LoadResult
@@ -363,9 +363,9 @@ internal constructor(
   private var recoveringModelNames: Set<String> = emptySet()
   private var downloadInspectionAvailable = false
 
-  private fun enqueueModelDownload(model: Model) {
+  private fun enqueueModelDownload(model: Model, huggingFaceAccess: HuggingFaceDownloadAccess) {
     val generation = invalidateDownloadObservation(model.name)
-    val request = downloadRepository.downloadModel(model)
+    val request = downloadRepository.downloadModel(model, huggingFaceAccess)
     observeDownload(model, request.id, generation, request.enqueue)
   }
 
@@ -508,7 +508,7 @@ internal constructor(
     }
   }
 
-  fun downloadModel(model: Model): Boolean {
+  fun downloadModel(model: Model, useHuggingFaceToken: Boolean = false): Boolean {
     if (!downloadInspectionAvailable) {
       _toastErrorChannel.trySend(context.getString(R.string.model_download_inspection_failed))
       return false
@@ -539,7 +539,8 @@ internal constructor(
     )
 
     try {
-      enqueueModelDownload(model)
+      val access = if (useHuggingFaceToken) HuggingFaceDownloadAccess.AUTHENTICATED else HuggingFaceDownloadAccess.ANONYMOUS
+      enqueueModelDownload(model, access)
       return true
     } catch (failure: Throwable) {
       downloadStartGate.release(model.name)
@@ -578,7 +579,7 @@ internal constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
     try {
-      enqueueModelDownload(model)
+      enqueueModelDownload(model, HuggingFaceDownloadAccess.IF_REQUIRED)
       return true
     } catch (failure: Throwable) {
       downloadStartGate.release(model.name)
@@ -918,16 +919,14 @@ internal constructor(
             }
             return@launch
           }
-          val configuredToken = configuredHfTokenOrNull(preferencesRepository.getHfToken())
           for (model in pending) {
             val partialStatus = uiState.value.modelDownloadStatus[model.name]
             if (uiState.value.models.none { it.name == model.name } ||
               partialStatus?.status != ModelDownloadStatusType.PARTIALLY_DOWNLOADED ||
               model.name in removingModelNames || !downloadStartGate.tryAcquire(model.name)) continue
-            model.accessToken = if (com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl(model.url) != null) null else configuredToken
             setDownloadStatus(model, ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS))
             try {
-              enqueueModelDownload(model)
+              enqueueModelDownload(model, HuggingFaceDownloadAccess.IF_REQUIRED)
             } catch (e: Exception) {
               downloadStartGate.release(model.name)
               Log.e(TAG, "Could not resume model download", e)

@@ -32,7 +32,7 @@ import java.net.HttpURLConnection
  */
 class DownloadGateCoordinatorTest {
 
-  private val hfModel = Model(name = "hf-model", url = "${GitHubConfig.HUGGINGFACE_BASE_URL}org/repo")
+  private val hfModel = Model(name = "hf-model", url = "${GitHubConfig.HUGGINGFACE_BASE_URL}/org/repo")
   private val plainModel = Model(name = "plain", url = "https://example.com/model.task")
 
   private fun coordinator(
@@ -49,7 +49,7 @@ class DownloadGateCoordinatorTest {
   fun nonHuggingFaceUrlStartsDownloadWithoutProbe() = runTest {
     var probes = 0
     val gate = coordinator(probe = { _, _ -> probes++; error("must not probe") })
-    assertEquals(DownloadGateOutcome.StartDownload(null), gate.resolveDownloadAccess(plainModel))
+    assertEquals(DownloadGateOutcome.StartDownload(useHuggingFaceToken = false), gate.resolveDownloadAccess(plainModel))
     assertEquals(0, probes)
   }
 
@@ -59,7 +59,7 @@ class DownloadGateCoordinatorTest {
       assertEquals(null, token)
       ModelUrlResult.Success(HttpURLConnection.HTTP_OK)
     })
-    assertEquals(DownloadGateOutcome.StartDownload(null), gate.resolveDownloadAccess(hfModel))
+    assertEquals(DownloadGateOutcome.StartDownload(useHuggingFaceToken = false), gate.resolveDownloadAccess(hfModel))
   }
 
   @Test
@@ -101,7 +101,7 @@ class DownloadGateCoordinatorTest {
       },
       storedToken = "tok",
     )
-    assertEquals(DownloadGateOutcome.StartDownload("tok"), gate.resolveDownloadAccess(hfModel))
+    assertEquals(DownloadGateOutcome.StartDownload(useHuggingFaceToken = true), gate.resolveDownloadAccess(hfModel))
   }
 
   @Test

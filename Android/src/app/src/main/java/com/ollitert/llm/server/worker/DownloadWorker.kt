@@ -35,12 +35,11 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ollitert.llm.server.MainActivity
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_FOREGROUND_UPDATE_INTERVAL_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
-import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
 import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
+import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
 import com.ollitert.llm.server.data.allowlist.readErrorPrefix
 import com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
@@ -48,7 +47,6 @@ import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.storage.DOWNLOAD_UNZIP_BUFFER_SIZE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
-import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.ollitert.llm.server.data.storage.KEY_MODELSCOPE_ACCESS_DENIED_SITE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_FILE_NAME
@@ -187,7 +185,7 @@ class DownloadWorker @AssistedInject internal constructor(
       if (extraDataFileUrls.isEmpty()) totalBytes else 0L,
     )
     val extraFileBytes = inputData.getString(KEY_MODEL_EXTRA_FILE_BYTES)?.split(",") ?: emptyList()
-    val accessToken = inputData.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN)
+    val hfAccess = huggingFaceDownloadAccess(inputData)
 
     return withContext(Dispatchers.IO) {
       if (fileUrl == null || fileName == null) {
@@ -262,21 +260,14 @@ class DownloadWorker @AssistedInject internal constructor(
             val siteToken = originalSite?.let {
               ServerPrefs.getModelScopeToken(applicationContext, it == ModelScopeSite.INTERNATIONAL).trim().takeIf(String::isNotEmpty)
             }
-            val connection = if (originalSite != null) openModelScopeDownloadConnection(url, siteToken, outputFileBytes)
-              else url.openConnection() as HttpURLConnection
+            val connection = when {
+              originalSite != null -> openModelScopeDownloadConnection(url, siteToken, outputFileBytes)
+              isHuggingFaceUrl(file.url) -> openHuggingFaceDownloadConnection(url, outputFileBytes, hfAccess, getToken = {
+                configuredHfTokenOrNull(ServerPrefs.getHfToken(applicationContext))
+              })
+              else -> (url.openConnection() as HttpURLConnection).apply { configureDownloadRequest(outputFileBytes) }
+            }
             try {
-              if (originalSite == null) {
-                connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
-                connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
-                if (accessToken != null && isHuggingFaceUrl(file.url)) {
-                  connection.setRequestProperty("Authorization", "Bearer $accessToken")
-                }
-                if (outputFileBytes > 0) {
-                  connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
-                  connection.setRequestProperty("Accept-Encoding", "identity")
-                }
-                connection.connect()
-              }
               Log.d(TAG, "response code: ${connection.responseCode}")
 
               if (

@@ -21,8 +21,6 @@ import com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl
 import com.ollitert.llm.server.data.allowlist.setModelScopeCredentials
 import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
 import com.ollitert.llm.server.data.allowlist.hasModelScopeLegacyRateLimit
-import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
-import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -42,15 +40,10 @@ internal fun openModelScopeDownloadConnection(
   while (true) {
     val connection = open(current)
     try {
-      connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
-      connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+      connection.configureDownloadRequest(offset)
       connection.instanceFollowRedirects = false
       val onOriginalSite = modelScopeSiteForUrl(current.toString()) == site
       if (useCredentials && onOriginalSite) setModelScopeCredentials(connection, token)
-      if (offset > 0) {
-        connection.setRequestProperty("Range", "bytes=$offset-")
-        connection.setRequestProperty("Accept-Encoding", "identity")
-      }
       connection.connect()
       val status = connection.responseCode
       if (onOriginalSite && status in listOf(401, 403, 429)) {

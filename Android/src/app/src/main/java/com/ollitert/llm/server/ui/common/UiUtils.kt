@@ -26,8 +26,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.model.Model
-import com.ollitert.llm.server.ui.modelmanager.ModelManagerViewModel
 
 // ── Shared UI dimension constants ──────────────────────────────────────────────
 /** Max width for ModalBottomSheet content across the app. */
@@ -48,14 +46,13 @@ val SMALL_BUTTON_CONTENT_PADDING =
 fun checkNotificationPermissionAndStartDownload(
   context: Context,
   launcher: ManagedActivityResultLauncher<String, Boolean>,
-  modelManagerViewModel: ModelManagerViewModel,
-  model: Model,
+  startDownload: () -> Boolean,
 ): Boolean {
   // Check permission
   when (PackageManager.PERMISSION_GRANTED) {
     // Already got permission. Call the lambda.
     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) -> {
-      return modelManagerViewModel.downloadModel(model = model)
+      return startDownload()
     }
 
     // Otherwise, ask for permission

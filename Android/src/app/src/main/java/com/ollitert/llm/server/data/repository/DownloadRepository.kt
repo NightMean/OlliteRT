@@ -18,10 +18,12 @@
 package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
+import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
-import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
+import com.ollitert.llm.server.data.storage.HuggingFaceDownloadAccess
+import com.ollitert.llm.server.data.storage.KEY_HUGGING_FACE_DOWNLOAD_ACCESS
 import com.ollitert.llm.server.data.storage.KEY_MODELSCOPE_ACCESS_DENIED_SITE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_FILE_NAME
@@ -102,7 +104,10 @@ private fun WorkInfo.failedDownloadStatus(receivedBytes: Long = 0L, totalBytes: 
 }
 
 /** Serializes the stable worker-input contract for one model download. */
-internal fun buildDownloadRequestData(model: Model): Data {
+internal fun buildDownloadRequestData(
+  model: Model,
+  huggingFaceAccess: HuggingFaceDownloadAccess = HuggingFaceDownloadAccess.ANONYMOUS,
+): Data {
   val builder =
     Data.Builder()
       .putString(KEY_MODEL_NAME, model.name)
@@ -126,7 +131,11 @@ internal fun buildDownloadRequestData(model: Model): Data {
         model.extraDataFiles.joinToString(",") { it.downloadFileName },
       )
   }
-  model.accessToken?.let { builder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, it) }
+  if (huggingFaceAccess != HuggingFaceDownloadAccess.ANONYMOUS &&
+    (isHuggingFaceUrl(model.url) || model.extraDataFiles.any { isHuggingFaceUrl(it.url) })
+  ) {
+    builder.putString(KEY_HUGGING_FACE_DOWNLOAD_ACCESS, huggingFaceAccess.name)
+  }
   return builder.build()
 }
 
@@ -143,10 +152,10 @@ class DownloadRepository @Inject constructor(
 ) {
   private val workManager = WorkManager.getInstance(context)
 
-  internal fun downloadModel(model: Model): QueuedDownload {
+  internal fun downloadModel(model: Model, huggingFaceAccess: HuggingFaceDownloadAccess): QueuedDownload {
     val request = OneTimeWorkRequestBuilder<DownloadWorker>()
       .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-      .setInputData(buildDownloadRequestData(model))
+      .setInputData(buildDownloadRequestData(model, huggingFaceAccess))
       // Keep terminal access results available when the app returns after a background failure.
       .keepResultsForAtLeast(7, TimeUnit.DAYS)
       .addTag("$MODEL_NAME_TAG:${model.name}")

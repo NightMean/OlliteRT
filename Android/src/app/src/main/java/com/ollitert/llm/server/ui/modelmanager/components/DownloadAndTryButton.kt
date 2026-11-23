@@ -64,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,7 +78,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.common.GitHubConfig
+import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.isWifiConnected
 import com.ollitert.llm.server.data.model.Model
@@ -159,6 +160,7 @@ fun DownloadAndTryButton(
   var showStorageWarning by remember { mutableStateOf(false) }
   var showWifiWarning by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
+  var useHuggingFaceToken by rememberSaveable(model.name) { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
   val downloadGate = remember { DownloadGateCoordinator.forViewModel(modelManagerViewModel) }
 
@@ -186,16 +188,15 @@ fun DownloadAndTryButton(
 
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-      if (!modelManagerViewModel.downloadModel(model = model)) downloadStarted = false
+      if (!modelManagerViewModel.downloadModel(model, useHuggingFaceToken)) downloadStarted = false
     }
 
-  val startDownload: (accessToken: String?) -> Unit = { accessToken ->
-    model.accessToken = accessToken
+  val startDownload: (Boolean) -> Unit = { requiresToken ->
+    useHuggingFaceToken = requiresToken
     val accepted = checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
-      modelManagerViewModel = modelManagerViewModel,
-      model = model,
+      startDownload = { modelManagerViewModel.downloadModel(model, requiresToken) },
     )
     if (!accepted) downloadStarted = false
     checkingToken = false
@@ -220,7 +221,7 @@ fun DownloadAndTryButton(
         withContext(Dispatchers.Main) {
           if (urlResult is ModelUrlResult.Success && urlResult.code == HttpURLConnection.HTTP_OK) {
             Log.d(TAG, "Agreement accepted. Starting download.")
-            startDownload(token)
+            startDownload(token != null)
           } else {
             Log.d(TAG, "Agreement not accepted. Resetting.")
             downloadStarted = false
@@ -235,10 +236,10 @@ fun DownloadAndTryButton(
       if (needToDownloadFirst) {
         downloadStarted = true
         // Optimistic flag so the progress row shows "Checking access…" during probes.
-        checkingToken = model.url.startsWith(GitHubConfig.HUGGINGFACE_BASE_URL)
+        checkingToken = isHuggingFaceUrl(model.url)
         val outcome = withContext(Dispatchers.IO) { downloadGate.resolveDownloadAccess(model) }
         when (outcome) {
-          is DownloadGateOutcome.StartDownload -> startDownload(outcome.accessToken)
+          is DownloadGateOutcome.StartDownload -> startDownload(outcome.useHuggingFaceToken)
           is DownloadGateOutcome.NetworkError -> {
             Log.e(TAG, "Network error while checking access: ${outcome.message}")
             checkingToken = false

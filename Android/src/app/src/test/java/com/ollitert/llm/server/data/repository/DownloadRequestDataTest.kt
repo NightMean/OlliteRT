@@ -15,10 +15,26 @@ import com.ollitert.llm.server.data.model.ModelDataFile
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
+import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
+import com.ollitert.llm.server.data.storage.KEY_HUGGING_FACE_DOWNLOAD_ACCESS
+import com.ollitert.llm.server.data.storage.HuggingFaceDownloadAccess
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DownloadRequestDataTest {
+  @Test fun workInputDoesNotPersistTheModelCredential() {
+    val customModel = Model(name = "custom", url = "https://example.test/model")
+    val customWork = buildDownloadRequestData(customModel, HuggingFaceDownloadAccess.IF_REQUIRED)
+    assertNull(customWork.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN))
+    assertNull(customWork.getString(KEY_HUGGING_FACE_DOWNLOAD_ACCESS))
+
+    val hubModel = Model(name = "hub", url = "https://huggingface.co/org/model/resolve/main/model.litertlm")
+    val hubWork = buildDownloadRequestData(hubModel, HuggingFaceDownloadAccess.AUTHENTICATED)
+    assertNull(hubWork.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN))
+    assertEquals(HuggingFaceDownloadAccess.AUTHENTICATED.name, hubWork.getString(KEY_HUGGING_FACE_DOWNLOAD_ACCESS))
+  }
+
   @Test
   fun buildDownloadRequestDataUsesCanonicalTotalIncludingExtraFilesOnce() {
     val model =

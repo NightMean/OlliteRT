@@ -258,7 +258,6 @@ data class Model(
   @Volatile var initializedWithVision: Boolean = false,
   @Volatile var configValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
-  var accessToken: String? = null,
 
   /** Set to true when a stale version is found on disk and a newer version is available. */
   var updatable: Boolean = false,
