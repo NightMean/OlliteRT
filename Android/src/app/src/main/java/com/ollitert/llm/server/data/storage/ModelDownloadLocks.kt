@@ -30,14 +30,37 @@ internal object ModelDownloadLocks {
   private val locks = mutableMapOf<String, Entry>()
 
   suspend fun <T> withModel(modelName: String, action: suspend () -> T): T {
-    val entry = synchronized(locks) { locks.getOrPut(modelName) { Entry() }.also { it.users++ } }
+    val entry = retain(modelName)
     return try {
       entry.mutex.withLock { action() }
     } finally {
-      synchronized(locks) {
-        entry.users--
-        if (entry.users == 0) locks.remove(modelName)
+      release(modelName, entry)
+    }
+  }
+
+  /** Returns immediately when a download, startup, or removal owns this model. */
+  suspend fun <T> tryWithModel(modelName: String, action: suspend () -> T): T? {
+    val entry = retain(modelName)
+    try {
+      if (!entry.mutex.tryLock()) return null
+      return try {
+        action()
+      } finally {
+        entry.mutex.unlock()
       }
+    } finally {
+      release(modelName, entry)
+    }
+  }
+
+  private fun retain(modelName: String): Entry = synchronized(locks) {
+    locks.getOrPut(modelName) { Entry() }.also { it.users++ }
+  }
+
+  private fun release(modelName: String, entry: Entry) {
+    synchronized(locks) {
+      entry.users--
+      if (entry.users == 0) locks.remove(modelName)
     }
   }
 }

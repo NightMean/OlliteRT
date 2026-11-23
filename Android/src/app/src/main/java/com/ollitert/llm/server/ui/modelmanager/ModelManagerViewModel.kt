@@ -34,6 +34,7 @@ import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.isDiscoveredSource
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
+import com.ollitert.llm.server.data.storage.canInspectDiscoveredRemoval
 import com.ollitert.llm.server.data.prefs.DefaultModelGuard
 import com.ollitert.llm.server.data.storage.DiscoveredModelRemoval
 import com.ollitert.llm.server.data.storage.canRemoveDiscoveredModel
@@ -327,12 +328,17 @@ constructor(
   }
 
   internal fun inspectDiscoveredModelRemoval(model: Model, onResult: (DiscoveredRemovalInspection?) -> Unit) {
-    if (!downloadInspectionAvailable || !isDiscoveredSource(model.sourceRepositoryId)) { onResult(null); return }
+    if (!downloadInspectionAvailable || !isDiscoveredSource(model.sourceRepositoryId) ||
+      !canInspectDiscoveredRemoval(uiState.value.modelDownloadStatus[model.name]?.status)
+    ) {
+      onResult(null)
+      return
+    }
     viewModelScope.launch(mainDispatcher) {
       val inspection = try {
         withContext(ioDispatcher) {
           val directory = externalFilesDir ?: error("Model storage unavailable")
-          ModelDownloadLocks.withModel(model.name) {
+          ModelDownloadLocks.tryWithModel(model.name) {
             val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
             val exists = DiscoveredModels(directory, provider).read().any { it.toAllowedModel().name == model.name }
             val status = modelStorageRepository.getModelDownloadStatus(model).status
@@ -355,8 +361,7 @@ constructor(
       return
     }
     val status = _uiState.value.modelDownloadStatus[model.name]?.status
-    if (status !in setOf(ModelDownloadStatusType.NOT_DOWNLOADED, ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
-        ModelDownloadStatusType.SUCCEEDED, ModelDownloadStatusType.FAILED)) {
+    if (!canInspectDiscoveredRemoval(status)) {
       downloadStartGate.release(model.name)
       onResult(false)
       return
@@ -368,7 +373,7 @@ constructor(
       try {
         val removed = withContext(ioDispatcher) {
           val directory = externalFilesDir ?: error("Model storage unavailable")
-          ModelDownloadLocks.withModel(model.name) {
+          ModelDownloadLocks.tryWithModel(model.name) {
             val statusOnDisk = modelStorageRepository.getModelDownloadStatus(model).status
             if (!canRemoveDiscoveredModel(model.name, statusOnDisk, serverStateRepository.activeModelName.value,
                 serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(),
@@ -395,7 +400,7 @@ constructor(
             }
           }
         }
-        if (removed) {
+        if (removed == true) {
           removeFavorite(model.name)
           notifyStorageChanged()
           allowlistLoadJob?.cancel()
@@ -411,7 +416,7 @@ constructor(
           notifyStorageChanged()
           loadModelAllowlist()
         }
-        onResult(removed)
+        onResult(removed == true)
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {

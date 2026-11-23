@@ -28,6 +28,14 @@ internal fun discoveredDownloadIsRegistered(directory: File, sourceId: String?, 
   return DiscoveredModels(directory, provider).read().any { it.toAllowedModel().name == name }
 }
 
+internal fun canInspectDiscoveredRemoval(status: ModelDownloadStatusType?): Boolean = when (status) {
+  ModelDownloadStatusType.NOT_DOWNLOADED,
+  ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
+  ModelDownloadStatusType.SUCCEEDED,
+  ModelDownloadStatusType.FAILED -> true
+  else -> false
+}
+
 internal fun canRemoveDiscoveredModel(
   modelName: String, diskStatus: ModelDownloadStatusType?, activeModelName: String?,
   serverStatus: ServerStatus, cleanupPending: Boolean, unfinishedDownload: Boolean,

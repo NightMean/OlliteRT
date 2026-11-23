@@ -23,13 +23,49 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.CountDownLatch
 
 class ModelDownloadLocksTest {
+  @Test fun removalInspectionRejectsBusyModelWithoutWaiting() = runTest {
+    val entered = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    val worker = launch {
+      ModelDownloadLocks.withModel("active model") {
+        entered.complete(Unit)
+        release.await()
+      }
+    }
+    entered.await()
+    try {
+      val inspection = withTimeout(100) {
+        ModelDownloadLocks.tryWithModel("active model") { error("Busy inspection ran") }
+      }
+      assertNull(inspection)
+      assertTrue(ModelDownloadLocks.tryWithModel("another model") { true } == true)
+    } finally {
+      release.complete(Unit)
+      worker.join()
+    }
+    assertTrue(ModelDownloadLocks.tryWithModel("active model") { true } == true)
+  }
+
+  @Test fun onlyIdleDownloadStatusesPermitRemovalInspection() {
+    assertFalse(canInspectDiscoveredRemoval(null))
+    assertFalse(canInspectDiscoveredRemoval(ModelDownloadStatusType.IN_PROGRESS))
+    assertFalse(canInspectDiscoveredRemoval(ModelDownloadStatusType.UNZIPPING))
+    assertTrue(canInspectDiscoveredRemoval(ModelDownloadStatusType.NOT_DOWNLOADED))
+    assertTrue(canInspectDiscoveredRemoval(ModelDownloadStatusType.PARTIALLY_DOWNLOADED))
+    assertTrue(canInspectDiscoveredRemoval(ModelDownloadStatusType.SUCCEEDED))
+    assertTrue(canInspectDiscoveredRemoval(ModelDownloadStatusType.FAILED))
+  }
+
   @Test fun removalWaitsForWorkerToLeaveModelLock() = runBlocking {
     val workerEntered = CompletableDeferred<Unit>()
     val workerMayFinish = CompletableDeferred<Unit>()

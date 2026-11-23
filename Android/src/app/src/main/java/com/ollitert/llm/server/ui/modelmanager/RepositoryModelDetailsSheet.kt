@@ -79,6 +79,7 @@ import com.ollitert.llm.server.ui.modelmanager.components.ModelFeatureChip
 import com.ollitert.llm.server.ui.common.TooltipIconButton
 import com.ollitert.llm.server.ui.common.buildTrackableUrlAnnotatedString
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.storage.canInspectDiscoveredRemoval
 import com.ollitert.llm.server.ui.theme.OlliteRTPrimary
 import com.ollitert.llm.server.ui.theme.OlliteRTDeleteRed
 import com.ollitert.llm.server.ui.theme.OlliteRTWarningText
@@ -275,7 +276,9 @@ private fun RepositoryFileRow(
       if (imported != null) {
         val tint = if (imported.status == ModelDownloadStatusType.SUCCEEDED || imported.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) OlliteRTDeleteRed else OlliteRTPrimary
         TooltipIconButton(icon = Icons.Outlined.Delete, tooltip = stringResource(R.string.model_tooltip_delete),
-          modifier = Modifier.padding(end = 8.dp), tint = tint, backgroundColor = tint.copy(alpha = 0.12f), enabled = !loading && imported.model != null && imported.status != null, onClick = { onDelete(imported) })
+          modifier = Modifier.padding(end = 8.dp), tint = tint, backgroundColor = tint.copy(alpha = 0.12f),
+          enabled = !loading && imported.model != null && canInspectDiscoveredRemoval(imported.status),
+          onClick = { onDelete(imported) })
       }
       TooltipIconButton(
         icon = Icons.Outlined.ContentCopy,
