@@ -77,7 +77,10 @@ internal data class ModelScopeExploreState(
   val linkError: Boolean = false,
   val selectedPath: String? = null,
   val failedModel: ModelScopeModel? = null,
-)
+) {
+  val showAccessDialog get() = accessDenied && accessDeniedSequence > acknowledgedAccessSequence
+  val showModelError get() = error && !showAccessDialog && details == null && failedModel != null
+}
 
 @HiltViewModel
 internal class ModelScopeExploreViewModel internal constructor(

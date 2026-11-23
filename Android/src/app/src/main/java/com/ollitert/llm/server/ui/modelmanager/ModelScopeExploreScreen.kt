@@ -66,8 +66,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTokens: () -> Unit, modelManagerViewModel: ModelManagerViewModel) {
   val viewModel: ModelScopeExploreViewModel = hiltViewModel()
   val state by viewModel.state.collectAsStateWithLifecycle()
-  val showAccessDialog = state.accessDenied && state.accessDeniedSequence > state.acknowledgedAccessSequence
-  val modelError = if (state.error && !state.accessDenied && state.details == null && state.failedModel != null) stringResource(
+  val modelError = if (state.showModelError) stringResource(
     if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_files_error
   ) else null
   val errorSnackbar = rememberRepositoryErrorSnackbar(modelError, viewModel::retryError, viewModel::dismissModelError)
@@ -205,7 +204,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTok
         ?: state.files.firstOrNull { it.path == path }?.let { modelScopeFileUrl(details.id, it.revision, path, state.detailsSite) } },
     )
   }
-  if (showAccessDialog) {
+  if (state.showAccessDialog) {
     ModelScopeAccessDialog(
       site = state.accessDeniedSite,
       tokenMissing = !viewModel.hasToken(state.accessDeniedSite),

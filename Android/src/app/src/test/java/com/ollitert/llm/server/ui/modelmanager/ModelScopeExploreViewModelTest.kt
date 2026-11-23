@@ -460,5 +460,43 @@ class ModelScopeExploreViewModelTest {
     assertTrue(vm.state.value.accessDenied)
     assertEquals(ModelScopeSite.CHINA, vm.state.value.accessDeniedSite)
     assertEquals(1L, vm.state.value.accessDeniedSequence)
+    vm.acknowledgeAccessDenied()
+    assertTrue(!vm.state.value.showModelError)
+  }
+
+  @Test fun acknowledgingAccessDenialAllowsRetryingTheSameCard() = runTest(dispatcher) {
+    val model = ModelScopeModel("author/model")
+    val file = ModelScopeFile("model.litertlm", 12, "a".repeat(40), null)
+    var accessGranted = false
+    val catalog = mockk<ModelScopeCatalog> {
+      every { search(any(), any(), any()) } returns ModelScopePage(listOf(model), true, false)
+      every { files(model.id, any()) } answers {
+        if (!accessGranted) throw ModelScopeAccessException()
+        listOf(file)
+      }
+    }
+    val vm = ModelScopeExploreViewModel(mockk(relaxed = true), catalog, dispatcher)
+    advanceUntilIdle()
+    vm.open(model)
+    advanceUntilIdle()
+    assertTrue(vm.state.value.showAccessDialog)
+    assertTrue(!vm.state.value.showModelError)
+
+    vm.acknowledgeAccessDenied()
+    assertTrue(!vm.state.value.showAccessDialog)
+    assertTrue(vm.state.value.showModelError)
+    vm.retryError()
+    advanceUntilIdle()
+    assertTrue(vm.state.value.showAccessDialog)
+    assertTrue(!vm.state.value.showModelError)
+
+    vm.acknowledgeAccessDenied()
+    accessGranted = true
+    vm.retryError()
+    advanceUntilIdle()
+    assertEquals(model, vm.state.value.details)
+    assertEquals(listOf(file), vm.state.value.files)
+    assertTrue(!vm.state.value.showModelError)
+    assertTrue(!vm.state.value.showAccessDialog)
   }
 }
