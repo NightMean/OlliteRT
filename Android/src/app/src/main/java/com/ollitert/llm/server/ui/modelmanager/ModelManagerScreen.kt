@@ -614,7 +614,7 @@ fun ModelManagerScreen(
     onExploreHuggingFace = onExploreHuggingFace,
     onExploreModelScope = onExploreModelScope,
   )
-  var acknowledgedAccessFailures by rememberSaveable { mutableStateOf(emptyList<String>()) }
+  val acknowledgedAccessFailures by viewModel.acknowledgedModelScopeFailures.collectAsStateWithLifecycle()
   val pendingAccess = nextModelScopeAccessFailure(uiState.modelDownloadStatus.values, acknowledgedAccessFailures)
   pendingAccess?.let { failure ->
     val site = ModelScopeSite.entries.first { it.name == failure.modelScopeAccessDeniedSite }
@@ -623,7 +623,6 @@ fun ModelManagerScreen(
       tokenMissing = !viewModel.hasModelScopeToken(site == ModelScopeSite.INTERNATIONAL),
       onNavigateToProviderTokens = onNavigateToProviderTokens,
       onDismiss = {
-        acknowledgedAccessFailures = (acknowledgedAccessFailures + failure.failureId).takeLast(50)
         viewModel.acknowledgeModelScopeFailure(failure.failureId)
       },
     )

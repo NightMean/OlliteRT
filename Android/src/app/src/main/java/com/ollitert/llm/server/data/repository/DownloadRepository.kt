@@ -17,6 +17,7 @@
 
 package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
@@ -65,12 +66,39 @@ private const val MODEL_NAME_TAG = "modelName"
 
 internal data class QueuedDownload(val id: UUID, val enqueue: Operation)
 
-internal fun unfinishedModelWorkers(work: List<WorkInfo>): Map<String, UUID> = buildMap {
-  work.filterNot { it.state.isFinished }.forEach { info ->
+internal data class ModelDownloadWork(
+  val activeWorkers: Map<String, UUID> = emptyMap(),
+  val accessDenied: Map<String, ModelDownloadStatus> = emptyMap(),
+)
+
+internal fun modelDownloadWork(work: List<WorkInfo>): ModelDownloadWork {
+  val activeWorkers = mutableMapOf<String, UUID>()
+  val accessDenied = mutableMapOf<String, ModelDownloadStatus>()
+  for (info in work) {
     val name = info.tags.firstOrNull { it.startsWith("$MODEL_NAME_TAG:") }
-      ?.removePrefix("$MODEL_NAME_TAG:")?.takeIf { it.isNotEmpty() }
-    if (name != null) put(name, info.id)
+      ?.removePrefix("$MODEL_NAME_TAG:")?.takeIf { it.isNotEmpty() } ?: continue
+    if (!info.state.isFinished) {
+      activeWorkers[name] = info.id
+    } else if (info.state == WorkInfo.State.FAILED) {
+      val failure = info.failedDownloadStatus()
+      if (ModelScopeSite.entries.any { it.name == failure.modelScopeAccessDeniedSite }) {
+        accessDenied[name] = failure
+      }
+    }
   }
+  return ModelDownloadWork(activeWorkers, accessDenied - activeWorkers.keys)
+}
+
+private fun WorkInfo.failedDownloadStatus(receivedBytes: Long = 0L, totalBytes: Long = 0L): ModelDownloadStatus {
+  val output = outputData
+  return ModelDownloadStatus(
+    status = ModelDownloadStatusType.FAILED,
+    errorMessage = output.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE).orEmpty(),
+    modelScopeAccessDeniedSite = output.getString(KEY_MODELSCOPE_ACCESS_DENIED_SITE).orEmpty(),
+    failureId = id.toString(),
+    receivedBytes = receivedBytes,
+    totalBytes = totalBytes,
+  )
 }
 
 /** Serializes the stable worker-input contract for one model download. */
@@ -119,6 +147,8 @@ class DownloadRepository @Inject constructor(
     val request = OneTimeWorkRequestBuilder<DownloadWorker>()
       .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
       .setInputData(buildDownloadRequestData(model))
+      // Keep terminal access results available when the app returns after a background failure.
+      .keepResultsForAtLeast(7, TimeUnit.DAYS)
       .addTag("$MODEL_NAME_TAG:${model.name}")
       .build()
     return QueuedDownload(request.id, workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, request))
@@ -132,12 +162,13 @@ class DownloadRepository @Inject constructor(
   fun hasUnfinishedDownload(modelName: String): Boolean =
     workManager.getWorkInfosForUniqueWork(modelName).get(10, TimeUnit.SECONDS).any { !it.state.isFinished }
 
-  /** Finds work from a previous process, including requests that have not created a file yet. */
-  fun getUnfinishedModelDownloads(): Map<String, UUID> {
-    val query = WorkQuery.Builder.fromStates(
-      listOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED),
-    ).build()
-    return unfinishedModelWorkers(workManager.getWorkInfos(query).get(10, TimeUnit.SECONDS))
+  /** Reads pending work and terminal provider access failures in one WorkManager snapshot. */
+  internal fun getModelDownloadWork(): ModelDownloadWork {
+    val query = WorkQuery.Builder.fromTags(listOf(DownloadWorker::class.java.name))
+      .addStates(listOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED, WorkInfo.State.FAILED))
+      .build()
+    // REPLACE removes the previous record for this model when a new attempt is enqueued.
+    return modelDownloadWork(workManager.getWorkInfos(query).get(10, TimeUnit.SECONDS))
   }
 
   fun cancelDownloads(modelNames: List<String>, onComplete: (Boolean) -> Unit) {
@@ -186,14 +217,7 @@ internal fun modelDownloadStatuses(work: Flow<WorkInfo?>, totalBytes: Long): Flo
         }
       }
       WorkInfo.State.SUCCEEDED -> ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED)
-      WorkInfo.State.FAILED -> ModelDownloadStatus(
-        status = ModelDownloadStatusType.FAILED,
-        errorMessage = info.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE).orEmpty(),
-        modelScopeAccessDeniedSite = info.outputData.getString(KEY_MODELSCOPE_ACCESS_DENIED_SITE).orEmpty(),
-        failureId = info.id.toString(),
-        receivedBytes = receivedBytes,
-        totalBytes = totalBytes,
-      )
+      WorkInfo.State.FAILED -> info.failedDownloadStatus(receivedBytes, totalBytes)
       WorkInfo.State.CANCELLED -> ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
       WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> null
     }

@@ -135,6 +135,13 @@ class FakePreferencesRepository : PreferencesRepository {
     return true
   }
   override fun getModelScopeToken(international: Boolean): String = if (international) _modelScopeAiToken else _modelScopeCnToken
+  private val acknowledgedModelScopeFailures = mutableListOf<String>()
+  override fun getAcknowledgedModelScopeFailures(): List<String> = acknowledgedModelScopeFailures.toList()
+  override fun acknowledgeModelScopeFailure(id: String): List<String> {
+    acknowledgedModelScopeFailures.remove(id)
+    acknowledgedModelScopeFailures.add(id)
+    return getAcknowledgedModelScopeFailures()
+  }
   override fun setModelScopeToken(international: Boolean, token: String) {
     if (international) _modelScopeAiToken = token else _modelScopeCnToken = token
   }

@@ -166,6 +166,8 @@ interface PreferencesRepository {
   fun getHfToken(): String
   fun setHfToken(token: String)
   fun getModelScopeToken(international: Boolean): String
+  fun getAcknowledgedModelScopeFailures(): List<String>
+  fun acknowledgeModelScopeFailure(id: String): List<String>
   fun setModelScopeToken(international: Boolean, token: String)
   fun getDefaultModelName(): String?
   fun setDefaultModelName(name: String?): Boolean
@@ -308,6 +310,8 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun getHfToken(): String = ServerPrefs.getHfToken(context)
   override fun setHfToken(token: String) = ServerPrefs.setHfToken(context, token)
   override fun getModelScopeToken(international: Boolean): String = ServerPrefs.getModelScopeToken(context, international)
+  override fun getAcknowledgedModelScopeFailures(): List<String> = ServerPrefs.getAcknowledgedModelScopeFailures(context)
+  override fun acknowledgeModelScopeFailure(id: String): List<String> = ServerPrefs.acknowledgeModelScopeFailure(context, id)
   override fun setModelScopeToken(international: Boolean, token: String) = ServerPrefs.setModelScopeToken(context, international, token)
   override fun getDefaultModelName(): String? = ServerPrefs.getDefaultModelName(context)
   override fun setDefaultModelName(name: String?) = ServerPrefs.setDefaultModelName(context, name)

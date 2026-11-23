@@ -20,6 +20,7 @@ import android.content.Context
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.LoadResult
+import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import com.ollitert.llm.server.data.model.IMPORTS_DIR
@@ -30,6 +31,7 @@ import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.repository.FakePreferencesRepository
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
+import com.ollitert.llm.server.data.repository.ModelDownloadWork
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
@@ -38,6 +40,7 @@ import com.ollitert.llm.server.proto.LlmConfig
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.io.File
 import java.io.IOException
 import kotlin.io.path.createTempDirectory
@@ -97,7 +100,9 @@ class ModelManagerViewModelDisabledSourcesTest {
         LoadResult(models = listOf(model), repositories = emptyList())
     }
     val viewModel = ModelManagerViewModel(
-      downloadRepository = mockk(relaxed = true),
+      downloadRepository = mockk(relaxed = true) {
+        every { getModelDownloadWork() } returns ModelDownloadWork()
+      },
       protoDataStoreRepository = protoRepository,
       lifecycleProvider = mockk(relaxed = true),
       repositoryManager = manager,
@@ -120,6 +125,63 @@ class ModelManagerViewModelDisabledSourcesTest {
     advanceUntilIdle()
     assertEquals(listOf(model.name, "Local"), viewModel.uiState.value.models.map { it.name })
     assertEquals("", viewModel.uiState.value.loadingModelAllowlistError)
+  }
+
+  @Test
+  fun restoresTheModelScopeAccessFailureBeforeResumingPartialFiles() = runTest(testDispatcher) {
+    val model = Model(name = "Catalog model")
+    val partial = ModelDownloadStatus(ModelDownloadStatusType.PARTIALLY_DOWNLOADED, receivedBytes = 40L, totalBytes = 100L)
+    val failure = ModelDownloadStatus(ModelDownloadStatusType.FAILED, errorMessage = "Access denied",
+      modelScopeAccessDeniedSite = ModelScopeSite.CHINA.name, failureId = "work-id")
+    val downloads = mockk<DownloadRepository>(relaxed = true) {
+      every { getModelDownloadWork() } returns ModelDownloadWork(accessDenied = mapOf(model.name to failure))
+    }
+    val context = mockk<Context>(relaxed = true) {
+      every { getExternalFilesDir(null) } returns externalFilesDir
+    }
+    val storage = mockk<ModelStorageRepository>(relaxed = true) {
+      every { readTestAllowlist() } returns null
+      every { getModelDownloadStatus(model) } returns partial
+    }
+    val manager = mockk<RepositoryManager>(relaxed = true) {
+      coEvery { refreshAll(storage) } returns RefreshResult(emptySet())
+      coEvery { loadAll(any(), storage, ignoreDisabled = false, modelFilter = any()) } returns
+        LoadResult(models = listOf(model), repositories = emptyList())
+    }
+    val preferences = FakePreferencesRepository()
+    fun newOwner() = ModelManagerViewModel(
+      downloadRepository = downloads,
+      protoDataStoreRepository = mockk(relaxed = true),
+      lifecycleProvider = mockk(relaxed = true),
+      repositoryManager = manager,
+      context = context,
+      preferencesRepository = preferences,
+      serverStateRepository = mockk(relaxed = true),
+      modelStorageRepository = storage,
+      ioDispatcher = testDispatcher,
+      mainDispatcher = testDispatcher,
+    )
+    val owner = newOwner()
+    owner.loadModelAllowlist()
+    advanceUntilIdle()
+    val expected = failure.copy(receivedBytes = 40L, totalBytes = 100L)
+    assertEquals(expected, owner.uiState.value.modelDownloadStatus[model.name])
+    assertEquals(expected, nextModelScopeAccessFailure(owner.uiState.value.modelDownloadStatus.values, emptyList()))
+    owner.acknowledgeModelScopeFailure(failure.failureId)
+    val recreated = newOwner()
+    recreated.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(expected, recreated.uiState.value.modelDownloadStatus[model.name])
+    assertEquals(null, nextModelScopeAccessFailure(
+      recreated.uiState.value.modelDownloadStatus.values, recreated.acknowledgedModelScopeFailures.value,
+    ))
+
+    val complete = ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
+    every { storage.getModelDownloadStatus(model) } returns complete
+    recreated.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(complete, recreated.uiState.value.modelDownloadStatus[model.name])
+    verify(exactly = 0) { downloads.cancelDownloads(any(), any()) }
   }
 
   @Test
@@ -169,7 +231,9 @@ class ModelManagerViewModelDisabledSourcesTest {
     } returns LoadResult(models = emptyList(), repositories = listOf(disabledOfficial))
 
     val viewModel = ModelManagerViewModel(
-      downloadRepository = mockk<DownloadRepository>(relaxed = true),
+      downloadRepository = mockk<DownloadRepository>(relaxed = true) {
+        every { getModelDownloadWork() } returns ModelDownloadWork()
+      },
       protoDataStoreRepository = protoRepository,
       lifecycleProvider = mockk<OlliteRTLifecycleProvider>(relaxed = true),
       repositoryManager = repositoryManager,

@@ -143,6 +143,7 @@ object ServerPrefs {
   private val MODELSCOPE_SITE = StringPref("modelscope_site", "INTERNATIONAL")
   private val MODELSCOPE_AI_TOKEN = StringPref("modelscope_ai_token", "")
   private val MODELSCOPE_CN_TOKEN = StringPref("modelscope_cn_token", "")
+  private val ACKNOWLEDGED_MODELSCOPE_FAILURES = StringPref("acknowledged_modelscope_failures", "")
 
   internal fun getModelScopeSite(context: Context): String = get(context, MODELSCOPE_SITE)
   internal fun setModelScopeSite(context: Context, site: String) = set(context, MODELSCOPE_SITE, site)
@@ -150,6 +151,15 @@ object ServerPrefs {
     get(context, if (international) MODELSCOPE_AI_TOKEN else MODELSCOPE_CN_TOKEN)
   fun setModelScopeToken(context: Context, international: Boolean, token: String) =
     set(context, if (international) MODELSCOPE_AI_TOKEN else MODELSCOPE_CN_TOKEN, token.trim())
+
+  internal fun getAcknowledgedModelScopeFailures(context: Context): List<String> =
+    get(context, ACKNOWLEDGED_MODELSCOPE_FAILURES).split(',').filter(String::isNotEmpty)
+
+  @Synchronized internal fun acknowledgeModelScopeFailure(context: Context, id: String): List<String> {
+    val recent = (getAcknowledgedModelScopeFailures(context).filterNot { it == id } + id).takeLast(50)
+    set(context, ACKNOWLEDGED_MODELSCOPE_FAILURES, recent.joinToString(","))
+    return recent
+  }
 
   // Log Persistence
 

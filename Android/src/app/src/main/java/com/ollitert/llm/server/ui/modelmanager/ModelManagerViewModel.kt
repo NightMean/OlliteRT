@@ -44,6 +44,7 @@ import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.UnregisteredImportFileException
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
+import com.ollitert.llm.server.data.repository.ModelDownloadWork
 import com.ollitert.llm.server.data.model.EMPTY_MODEL
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
 import com.ollitert.llm.server.data.allowlist.configuredHfTokenOrNull
@@ -145,14 +146,21 @@ internal fun preserveActiveDownloadStatuses(
   revisionsAtLoadStart: Map<String, Long>,
   currentRevisions: Map<String, Long>,
   inspectedActiveNames: Set<String>?,
+  recoveredFailures: Map<String, ModelDownloadStatus> = emptyMap(),
 ): Map<String, ModelDownloadStatus> = loaded.mapValues { (name, diskStatus) ->
-  previous[name]?.takeIf {
+  val recent = previous[name]?.takeIf {
     val active = it.status == ModelDownloadStatusType.IN_PROGRESS || it.status == ModelDownloadStatusType.UNZIPPING
     (active && (inspectedActiveNames == null || name in inspectedActiveNames)) ||
-      (it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty() &&
-        diskStatus.status != ModelDownloadStatusType.SUCCEEDED) ||
       (!active && (currentRevisions[name] ?: 0L) != (revisionsAtLoadStart[name] ?: 0L))
-  } ?: diskStatus
+  }
+  recent ?: if (diskStatus.status == ModelDownloadStatusType.SUCCEEDED || inspectedActiveNames?.contains(name) == true) {
+    diskStatus
+  } else {
+    // WorkManager does not retain progress after failure. Use the actual bytes on disk for Retry.
+    recoveredFailures[name]?.copy(receivedBytes = diskStatus.receivedBytes, totalBytes = diskStatus.totalBytes)
+      ?: previous[name]?.takeIf { it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty() }
+      ?: diskStatus
+  }
 }
 
 /**
@@ -322,10 +330,11 @@ internal constructor(
   internal fun hasModelScopeToken(international: Boolean): Boolean =
     preferencesRepository.getModelScopeToken(international).isNotBlank()
 
+  private val _acknowledgedModelScopeFailures = MutableStateFlow(preferencesRepository.getAcknowledgedModelScopeFailures())
+  internal val acknowledgedModelScopeFailures = _acknowledgedModelScopeFailures.asStateFlow()
+
   internal fun acknowledgeModelScopeFailure(id: String) {
-    _uiState.update { state -> state.copy(modelDownloadStatus = state.modelDownloadStatus.mapValues { (_, status) ->
-      if (status.failureId == id) status.copy(modelScopeAccessDeniedSite = "") else status
-    }) }
+    _acknowledgedModelScopeFailures.value = preferencesRepository.acknowledgeModelScopeFailure(id)
   }
 
   private fun notifyStorageChanged() {
@@ -963,7 +972,7 @@ internal constructor(
     val loadedUiState: ModelManagerUiState?,
     val toastError: String?,
     val downloadRevisionsAtStart: Map<String, Long>,
-    val unfinishedDownloads: Map<String, UUID>?,
+    val downloadWork: ModelDownloadWork?,
   )
 
   fun loadModelAllowlist(isManualRetry: Boolean = false) {
@@ -988,8 +997,10 @@ internal constructor(
             isManualRetry = isManualRetry,
             onToastError = { message -> toastError = message },
           )
-          val unfinished = try {
-            downloadRepository.getUnfinishedModelDownloads()
+          val downloadWork = try {
+            downloadRepository.getModelDownloadWork()
+          } catch (e: CancellationException) {
+            throw e
           } catch (e: Exception) {
             Log.e(TAG, "Could not inspect pending downloads", e)
             toastError = context.getString(R.string.model_download_inspection_failed)
@@ -1003,7 +1014,7 @@ internal constructor(
             loadedUiState = loadedUiState,
             toastError = toastError,
             downloadRevisionsAtStart = downloadRevisionsAtStart,
-            unfinishedDownloads = unfinished,
+            downloadWork = downloadWork,
           )
         }
       } catch (e: CancellationException) {
@@ -1057,7 +1068,8 @@ internal constructor(
   private fun publishAllowlistLoad(preparedLoad: PreparedAllowlistLoad) {
     val result = preparedLoad.result
     preparedLoad.toastError?.let(_toastErrorChannel::trySend)
-    downloadInspectionAvailable = preparedLoad.unfinishedDownloads != null
+    val downloadWork = preparedLoad.downloadWork
+    downloadInspectionAvailable = downloadWork != null
 
     when {
       result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist -> {
@@ -1071,8 +1083,8 @@ internal constructor(
 
       else -> {
         val loaded = checkNotNull(preparedLoad.loadedUiState)
-        val inspectedActiveNames = preparedLoad.unfinishedDownloads?.let { workers ->
-          workers.keys + downloadObservers.filterValues { it.isActive }.keys
+        val inspectedActiveNames = downloadWork?.let { work ->
+          work.activeWorkers.keys + downloadObservers.filterValues { it.isActive }.keys
         }
         _uiState.value = loaded.copy(
           loadingModelAllowlistError = if (downloadInspectionAvailable) loaded.loadingModelAllowlistError
@@ -1082,10 +1094,11 @@ internal constructor(
             loaded.modelDownloadStatus, _uiState.value.modelDownloadStatus,
             preparedLoad.downloadRevisionsAtStart, downloadStatusRevisionSnapshot(),
             inspectedActiveNames,
+            downloadWork?.accessDenied.orEmpty(),
           ),
         )
         val currentRevisions = downloadStatusRevisionSnapshot()
-        for ((name, workerId) in preparedLoad.unfinishedDownloads.orEmpty()) {
+        for ((name, workerId) in downloadWork?.activeWorkers.orEmpty()) {
           if ((currentRevisions[name] ?: 0L) != (preparedLoad.downloadRevisionsAtStart[name] ?: 0L)) continue
           val model = _uiState.value.models.firstOrNull { it.name == name } ?: continue
           if (name in removingModelNames || !downloadStartGate.tryAcquire(name)) continue
@@ -1094,7 +1107,7 @@ internal constructor(
           observeDownload(model, workerId, generation)
         }
         notifyStorageChanged()
-        if (preparedLoad.unfinishedDownloads != null) processPendingDownloads()
+        if (downloadWork != null) processPendingDownloads()
       }
     }
   }
