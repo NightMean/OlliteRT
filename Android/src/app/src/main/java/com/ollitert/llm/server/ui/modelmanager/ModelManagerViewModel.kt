@@ -535,7 +535,7 @@ internal constructor(
     }
   }
 
-  fun downloadModel(model: Model, useHuggingFaceToken: Boolean = false): Boolean {
+  fun downloadModel(model: Model, useHuggingFaceToken: Boolean? = null): Boolean {
     if (!downloadInspectionAvailable) {
       _toastErrorChannel.trySend(context.getString(R.string.model_download_inspection_failed))
       return false
@@ -570,7 +570,12 @@ internal constructor(
     )
 
     try {
-      val access = if (useHuggingFaceToken) HuggingFaceDownloadAccess.AUTHENTICATED else HuggingFaceDownloadAccess.ANONYMOUS
+      val access = when (useHuggingFaceToken) {
+        true -> HuggingFaceDownloadAccess.AUTHENTICATED
+        false -> HuggingFaceDownloadAccess.ANONYMOUS
+        // Update actions can start directly without a fresh access probe.
+        null -> HuggingFaceDownloadAccess.IF_REQUIRED
+      }
       enqueueModelDownload(model, access)
       return true
     } catch (failure: Throwable) {

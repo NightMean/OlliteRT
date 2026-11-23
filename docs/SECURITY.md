@@ -51,7 +51,7 @@ Requests without a valid token receive a `401 Unauthorized` response. See [Troub
 
 ### Credential Storage
 
-OlliteRT stores the server bearer token and the provider tokens in SharedPreferences. Downloads can store a copy of the Hugging Face token in the app's local WorkManager database with the download request. ModelScope downloads read the matching International or China token from settings when the worker requests the file. Android's app sandbox provides isolation for these values.
+OlliteRT stores the server bearer token and the provider tokens in SharedPreferences. Download workers read current provider tokens from Settings when needed. ModelScope downloads use the token for the matching International or China site. New Hugging Face download requests store the access mode in WorkManager. Older requests may retain an unused token copy until WorkManager replaces or prunes them. Android's app sandbox provides isolation for these values.
 
 > [!IMPORTANT]
 > The diagnostic settings snapshot in Logcat redacts the server bearer token and all provider tokens.

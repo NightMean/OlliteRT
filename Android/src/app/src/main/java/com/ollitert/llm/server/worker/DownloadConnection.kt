@@ -17,6 +17,7 @@
 package com.ollitert.llm.server.worker
 
 import androidx.work.Data
+import com.ollitert.llm.server.data.allowlist.hasSameOriginAs
 import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
@@ -64,7 +65,7 @@ internal fun openHuggingFaceDownloadConnection(
       connection.instanceFollowRedirects = false
       if (authenticatedOrigin && token != null) connection.setRequestProperty("Authorization", "Bearer $token")
       val status = connection.responseCode
-      if (redirects == 0 && token == null && access == HuggingFaceDownloadAccess.IF_REQUIRED &&
+      if (authenticatedOrigin && token == null && access == HuggingFaceDownloadAccess.IF_REQUIRED &&
         (status == HttpURLConnection.HTTP_UNAUTHORIZED || status == HttpURLConnection.HTTP_FORBIDDEN)
       ) {
         token = getToken()
@@ -80,8 +81,7 @@ internal fun openHuggingFaceDownloadConnection(
       val next = URL(current, location)
       if (next.protocol != "https" || next.userInfo != null) throw IOException("Unsafe Hugging Face download redirect")
       // Signed storage links have their own credentials. Send ours only on the original origin.
-      authenticatedOrigin = authenticatedOrigin && next.host.equals(url.host, ignoreCase = true) &&
-        next.effectivePort() == url.effectivePort()
+      authenticatedOrigin = authenticatedOrigin && next.hasSameOriginAs(url)
       current = next
     } catch (e: Exception) {
       connection.disconnect()
@@ -90,5 +90,3 @@ internal fun openHuggingFaceDownloadConnection(
     connection.disconnect()
   }
 }
-
-private fun URL.effectivePort(): Int = if (port == -1) defaultPort else port

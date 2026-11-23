@@ -137,52 +137,59 @@ internal fun probeModelUrl(
   accessToken: String?,
   openConnection: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection },
 ): ModelUrlResult {
-  var connection: HttpURLConnection? = null
-  var redirectConnection: HttpURLConnection? = null
   try {
-    connection = openConnection(modelUrl)
-    connection.requestMethod = "HEAD"
-    connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-    connection.readTimeout = HTTP_READ_TIMEOUT_MS
-    connection.instanceFollowRedirects = false
-    // Scope the credential to huggingface.co — the probe URL can point anywhere.
-    val isHuggingFace = isHuggingFaceUrl(modelUrl)
-    if (accessToken != null && isHuggingFace) {
-      connection.setRequestProperty("Authorization", "Bearer $accessToken")
-    }
-    connection.connect()
+    val original = URL(modelUrl)
+    var current = original
+    var trustedHubOrigin = isHuggingFaceUrl(modelUrl)
+    var redirects = 0
+    while (true) {
+      val connection = openConnection(current.toString())
+      try {
+        connection.requestMethod = "HEAD"
+        connection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+        connection.readTimeout = HTTP_READ_TIMEOUT_MS
+        connection.instanceFollowRedirects = false
+        if (trustedHubOrigin && accessToken != null) {
+          connection.setRequestProperty("Authorization", "Bearer $accessToken")
+        }
 
-    val responseCode = connection.responseCode
-    if (responseCode in 300..399) {
-      val redirectUrl = connection.getHeaderField("Location")
-        ?: return ModelUrlResult.UnexpectedResponse
-      redirectConnection = openConnection(redirectUrl)
-      redirectConnection.requestMethod = "HEAD"
-      redirectConnection.connectTimeout = HTTP_CONNECT_TIMEOUT_MS
-      redirectConnection.readTimeout = HTTP_READ_TIMEOUT_MS
-      redirectConnection.instanceFollowRedirects = true
-      redirectConnection.connect()
-      val redirectCode = redirectConnection.responseCode
-      // CDN or signed-link authentication errors do not establish whether the provider token works.
-      if (redirectCode == HttpURLConnection.HTTP_UNAUTHORIZED || redirectCode == HttpURLConnection.HTTP_FORBIDDEN) {
-        return ModelUrlResult.UnexpectedResponse
+        val code = connection.responseCode
+        if (code in 300..399) {
+          if (++redirects > MAX_REDIRECTS) return ModelUrlResult.UnexpectedResponse
+          val location = connection.getHeaderField("Location") ?: return ModelUrlResult.UnexpectedResponse
+          val next = URL(current, location)
+          if (next.userInfo != null || next.protocol !in listOf("http", "https") ||
+            (current.protocol == "https" && next.protocol != "https")
+          ) return ModelUrlResult.UnexpectedResponse
+          // Once a link goes to storage, a subsequent redirect cannot regain provider credentials.
+          trustedHubOrigin = trustedHubOrigin && next.hasSameOriginAs(original)
+          current = next
+          continue
+        }
+
+        if (redirects > 0 && !trustedHubOrigin &&
+          (code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN)
+        ) return ModelUrlResult.UnexpectedResponse
+        if (redirects > 0 && code in 200..299 && connection.contentType.orEmpty().contains("text/html", ignoreCase = true)) {
+          return ModelUrlResult.UnexpectedResponse
+        }
+
+        val gatedRepository = trustedHubOrigin && code == HttpURLConnection.HTTP_FORBIDDEN &&
+          connection.getHeaderField("X-Error-Code") == "GatedRepo"
+        return ModelUrlResult.Success(code, gatedRepository)
+      } finally {
+        connection.disconnect()
       }
-      if (redirectCode !in 200..299) return ModelUrlResult.Success(redirectCode)
-      val contentType = redirectConnection.contentType ?: ""
-      if (contentType.contains("text/html", ignoreCase = true)) return ModelUrlResult.UnexpectedResponse
-      return ModelUrlResult.Success(redirectCode)
     }
-    // Only the original Hugging Face response can report a repository access gate.
-    val gatedRepository = isHuggingFace && responseCode == HttpURLConnection.HTTP_FORBIDDEN &&
-      connection.getHeaderField("X-Error-Code") == "GatedRepo"
-    return ModelUrlResult.Success(responseCode, gatedRepository)
   } catch (e: Exception) {
     return ModelUrlResult.Error(e.message ?: "Unknown network error")
-  } finally {
-    connection?.disconnect()
-    redirectConnection?.disconnect()
   }
 }
+
+internal fun URL.hasSameOriginAs(other: URL): Boolean =
+  protocol == other.protocol && host.equals(other.host, ignoreCase = true) && effectivePort() == other.effectivePort()
+
+private fun URL.effectivePort(): Int = if (port == -1) defaultPort else port
 
 // ── Token helpers ────────────────────────────────────────────────────────
 
@@ -203,7 +210,8 @@ internal fun isHuggingFaceUrl(url: String): Boolean {
     return false
   }
   val host = endpoint.host.lowercase()
-  return endpoint.protocol == "https" && (host == "huggingface.co" || host.endsWith(".huggingface.co"))
+  return endpoint.protocol == "https" && endpoint.userInfo == null &&
+    (host == "huggingface.co" || host.endsWith(".huggingface.co"))
 }
 
 private fun defaultOpenConnection(url: String): HttpURLConnection =

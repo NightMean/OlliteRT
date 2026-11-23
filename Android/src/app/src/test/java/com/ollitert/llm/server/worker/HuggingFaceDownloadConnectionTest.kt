@@ -86,6 +86,21 @@ class HuggingFaceDownloadConnectionTest {
     verify(exactly = 0) { denied.setRequestProperty("Authorization", any()) }
   }
 
+  @Test fun resumedDownloadCanAuthenticateAfterASameOriginRename() {
+    val renamed = response(HttpURLConnection.HTTP_MOVED_TEMP)
+    every { renamed.getHeaderField("Location") } returns "/org/new/resolve/main/model.litertlm"
+    val denied = response(HttpURLConnection.HTTP_UNAUTHORIZED)
+    val granted = response(HttpURLConnection.HTTP_PARTIAL)
+    val attempts = listOf(renamed, denied, granted).iterator()
+    assertSame(granted, openHuggingFaceDownloadConnection(
+      hubUrl, 64L, HuggingFaceDownloadAccess.IF_REQUIRED, getToken = { "current value" },
+      open = { attempts.next() },
+    ))
+    verify(exactly = 0) { denied.setRequestProperty("Authorization", any()) }
+    verify { denied.disconnect() }
+    verify { granted.setRequestProperty("Authorization", "Bearer current value") }
+  }
+
   private fun response(status: Int): HttpURLConnection = mockk(relaxed = true) {
     every { responseCode } returns status
   }

@@ -112,4 +112,21 @@ class ModelUrlProbeTest {
     }
     verify(exactly = 1) { connection.setRequestProperty("Authorization", "Bearer example") }
   }
+
+  @Test fun aRelativeRenameKeepsTheTrustedHubAccessDecision() {
+    val original = "https://huggingface.co/org/old/resolve/main/model"
+    val renamed = "https://huggingface.co/org/new/resolve/main/model"
+    val initial = mockk<HttpURLConnection>(relaxed = true)
+    val redirect = mockk<HttpURLConnection>(relaxed = true)
+    every { initial.responseCode } returns HttpURLConnection.HTTP_MOVED_TEMP
+    every { initial.getHeaderField("Location") } returns "/org/new/resolve/main/model"
+    every { redirect.responseCode } returns HttpURLConnection.HTTP_FORBIDDEN
+    every { redirect.getHeaderField("X-Error-Code") } returns "GatedRepo"
+    assertEquals(ModelUrlResult.Success(HttpURLConnection.HTTP_FORBIDDEN, gatedRepository = true),
+      probeModelUrl(original, "example") { if (it == original) initial else {
+        assertEquals(renamed, it)
+        redirect
+      } })
+    verify { redirect.setRequestProperty("Authorization", "Bearer example") }
+  }
 }

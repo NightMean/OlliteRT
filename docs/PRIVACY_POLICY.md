@@ -57,7 +57,7 @@ When the server is running, OlliteRT listens for incoming HTTP connections on yo
 |:-----|:-----------------|:-----------|:-------------|
 | Model files | App-private storage (`getExternalFilesDir`) | Android app sandbox | Delete from Models screen |
 | Server settings | SharedPreferences | Android app sandbox | Reset in Settings |
-| Hugging Face token | SharedPreferences. A download request can also store a copy in the local WorkManager database. | Android app sandbox | Add or remove in Settings → Provider Tokens |
+| Hugging Face token | SharedPreferences. Older download requests may retain a copy in the local WorkManager database until the request is replaced or pruned. | Android app sandbox | Add or remove in Settings → Provider Tokens |
 | ModelScope International and China tokens | Separate entries in SharedPreferences | Android app sandbox | Add or remove in Settings → Provider Tokens |
 | Imported repository metadata | Local files in app-private storage | Android app sandbox | Remove the import from Models or from the provider's repository page |
 | Request logs | Room database (on-device) | Android app sandbox | Auto-delete configurable, manual clear available |
