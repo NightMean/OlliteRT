@@ -57,7 +57,6 @@ internal fun setModelScopeCredentials(connection: HttpURLConnection, token: Stri
 private const val TREE_LIMIT = 3000
 private const val PAGE_SIZE = 50
 private const val MAX_PAGE = 3000 / PAGE_SIZE
-private const val LEGACY_ERROR_PREFIX_CHARS = 4096
 internal const val MODELSCOPE_RATE_LIMIT_CODE = 10013201001L
 
 internal fun isModelScopeLegacyRateLimit(body: String?): Boolean {
@@ -71,9 +70,7 @@ internal fun isModelScopeLegacyRateLimit(body: String?): Boolean {
 }
 
 internal fun HttpURLConnection.hasModelScopeLegacyRateLimit(): Boolean =
-  isModelScopeLegacyRateLimit(
-    errorStream?.bufferedReader()?.use { it.readBoundedText(LEGACY_ERROR_PREFIX_CHARS, allowTruncation = true) },
-  )
+  isModelScopeLegacyRateLimit(readErrorPrefix())
 
 internal class ModelScopeRateLimitException(val retryAfterMillis: Long? = null) : IOException("ModelScope rate limit exceeded")
 internal class ModelScopeAccessException : IOException("ModelScope denied access")

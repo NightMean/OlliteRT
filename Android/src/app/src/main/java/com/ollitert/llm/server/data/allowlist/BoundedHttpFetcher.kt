@@ -26,6 +26,14 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 private const val TAG = "OlliteRT.HttpFetcher"
+private const val HTTP_ERROR_PREFIX_CHARS = 4096
+
+/** Error bodies are optional hints. A read failure must preserve the HTTP status. */
+internal fun HttpURLConnection.readErrorPrefix(): String? = try {
+  errorStream?.bufferedReader()?.use { it.readBoundedText(HTTP_ERROR_PREFIX_CHARS, allowTruncation = true) }
+} catch (_: IOException) {
+  null
+}
 
 /** Returns null when the response exceeds the limit, unless the caller only needs a prefix. */
 internal fun Reader.readBoundedText(maxChars: Int, allowTruncation: Boolean = false): String? {

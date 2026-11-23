@@ -41,6 +41,7 @@ import com.ollitert.llm.server.data.storage.DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.storage.DOWNLOAD_SPEED_ROLLING_BUFFER_SIZE
 import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
+import com.ollitert.llm.server.data.allowlist.readErrorPrefix
 import com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
@@ -313,11 +314,9 @@ class DownloadWorker @AssistedInject internal constructor(
                   }
                 }
               } else {
-                val errorBody = if (originalSite != null) null else try {
-                  connection.errorStream?.bufferedReader()?.use { it.readText() }
-                } catch (_: Exception) { null }
-                val repoNotFound = errorBody?.contains("Repository Not Found", ignoreCase = true) == true
-                Log.w(TAG, "HTTP ${connection.responseCode}: $errorBody")
+                val repoNotFound = originalSite == null &&
+                  connection.readErrorPrefix()?.contains("Repository Not Found", ignoreCase = true) == true
+                Log.w(TAG, "Download failed: HTTP ${connection.responseCode}")
                 throw HttpErrorException(connection.responseCode, isRepoNotFound = repoNotFound, isModelScope = originalSite != null)
               }
 

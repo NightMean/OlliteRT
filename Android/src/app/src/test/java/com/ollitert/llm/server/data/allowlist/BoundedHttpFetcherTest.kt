@@ -26,6 +26,7 @@ import io.mockk.unmockkStatic
 import io.mockk.verify
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -35,6 +36,26 @@ import org.junit.Before
 import org.junit.Test
 
 class BoundedHttpFetcherTest {
+  @Test fun unreadableLegacyErrorBodyLeavesTheHttpStatusAvailable() {
+    every { mockConnection.errorStream } returns object : InputStream() {
+      override fun read(): Int = throw IOException("Error stream closed")
+    }
+    assertEquals(false, mockConnection.hasModelScopeLegacyRateLimit())
+  }
+
+  @Test fun legacyErrorBodyReadsOnlyABoundedPrefixAndClosesTheStream() {
+    var closed = false
+    val body = "Repository Not Found" + "x".repeat(32_768)
+    val stream = object : ByteArrayInputStream(body.toByteArray()) {
+      override fun close() { closed = true }
+    }
+    every { mockConnection.errorStream } returns stream
+    val prefix = mockConnection.readErrorPrefix()
+    assertEquals(body.take(4096), prefix)
+    assertTrue(stream.available() > 0)
+    assertTrue(closed)
+  }
+
   @Test fun boundedTextDistinguishesExactLengthOverflowAndPrefix() {
     assertEquals("abc", "abc".reader().readBoundedText(3))
     assertEquals("abc", "abc".reader().readBoundedText(4))
