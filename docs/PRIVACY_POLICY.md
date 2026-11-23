@@ -25,17 +25,21 @@ OlliteRT runs large language models (LLMs) directly on your Android device using
 
 ## Network Connections
 
-OlliteRT makes outbound network connections only for the following purposes:
+OlliteRT uses the following outbound connections.
 
 | Connection | When | What's Sent | Can Be Disabled |
 |:-----------|:-----|:------------|:----------------|
-| **HuggingFace model download** | When you download a model | HTTP request to `huggingface.co` | Don't download models (import from local storage instead) |
+| **Hugging Face and ModelScope browsing** | When you search or open a repository in Models | Search text, sort and page information, or the repository ID and revision, as needed. If configured, the provider token is sent to the matching service. | Import models from local storage |
+| **Model downloads** | When you check access or download a file | Repository, revision, file path and, for resumed downloads, a byte range. The provider can redirect the file request to its storage service. A configured token is sent when the request uses the matching provider. | Import models from local storage |
+| **Provider token checks** | When you tap **Test** in Settings → Provider Tokens | The token entered for Hugging Face or the selected ModelScope site, sent to that service's account endpoint | Skip the test |
 | **GitHub update check** | Periodically (configurable) | HTTP request to GitHub Releases API | Disable in Settings → App Updates |
 | **Model source refresh** | Periodically (~24 hours) and on pull-to-refresh | HTTPS request to each enabled model source URL to fetch the model list JSON | Remove the source in Settings → Model Sources |
 
 Custom model sources are fetched from URLs you configure. The built-in Official source points to a JSON file hosted on GitHub. If you add a custom model source, OlliteRT will periodically fetch its URL — only the HTTP request itself is sent; no device data, usage metrics, or personal information is included.
 
-The app **does not** make any other network connections. There are no analytics endpoints, crash reporters, or telemetry services.
+ModelScope International and China use separate tokens. ModelScope's catalog and download requests can send the matching token in an authorization header and a session cookie. The token check uses an authorization header. The app sends each ModelScope token only to its matching site.
+
+OlliteRT has no analytics endpoints, crash reporters, or telemetry services.
 
 ---
 
@@ -53,7 +57,9 @@ When the server is running, OlliteRT listens for incoming HTTP connections on yo
 |:-----|:-----------------|:-----------|:-------------|
 | Model files | App-private storage (`getExternalFilesDir`) | Android app sandbox | Delete from Models screen |
 | Server settings | SharedPreferences | Android app sandbox | Reset in Settings |
-| HuggingFace token | SharedPreferences | Android app sandbox | Add or remove in Settings |
+| Hugging Face token | SharedPreferences. A download request can also store a copy in the local WorkManager database. | Android app sandbox | Add or remove in Settings → Provider Tokens |
+| ModelScope International and China tokens | Separate entries in SharedPreferences | Android app sandbox | Add or remove in Settings → Provider Tokens |
+| Imported repository metadata | Local files in app-private storage | Android app sandbox | Remove the import from Models or from the provider's repository page |
 | Request logs | Room database (on-device) | Android app sandbox | Auto-delete configurable, manual clear available |
 | Bearer token | SharedPreferences | Android app sandbox | Change or disable in Settings |
 
@@ -66,7 +72,7 @@ All data is stored in Android's app-private directories, which are not accessibl
 | `FOREGROUND_SERVICE` | Keeps the HTTP server running when the app is in the background |
 | `FOREGROUND_SERVICE_DATA_SYNC` | Foreground service type for the HTTP server (required by Android 14+) |
 | `FOREGROUND_SERVICE_CONNECTED_DEVICE` | Foreground service type for serving network clients (required by Android 14+) |
-| `INTERNET` | Model downloads, update checks, and model source refresh |
+| `INTERNET` | Provider browsing and token checks, model downloads, update checks, and model source refresh |
 | `ACCESS_NETWORK_STATE` | Detect network availability before model downloads and source refresh |
 | `ACCESS_WIFI_STATE` | Read the device's local IP address for the Status screen endpoint display |
 | `CHANGE_NETWORK_STATE` | Request network connectivity for model downloads |
@@ -81,7 +87,8 @@ The app does **not** request: camera, microphone, location, contacts, phone, SMS
 
 | Service | Purpose | Privacy Policy |
 |:--------|:--------|:---------------|
-| HuggingFace | Model hosting and downloads | [huggingface.co/privacy](https://huggingface.co/privacy) |
+| Hugging Face | Repository browsing, token checks, and model downloads | [Hugging Face privacy policy](https://huggingface.co/privacy) |
+| ModelScope | Repository browsing, token checks, and model downloads | [International privacy policy](https://modelscope.ai/protocol/Privacy-Policy), [China privacy policy](https://modelscope.cn/protocol/%E9%9A%90%E7%A7%81%E6%94%BF%E7%AD%96) |
 | GitHub | Update checks, release downloads | [docs.github.com/privacy](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) |
 
 If you add custom model sources, OlliteRT will make network requests to whatever URLs you configure. Review the privacy practices of any third-party model source you add.

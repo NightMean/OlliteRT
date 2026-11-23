@@ -149,8 +149,8 @@
   <string name="dialog_trim_prompt_warning_body">This will hard-cut prompts that exceed the context window, discarding content from the beginning — including system prompts, tool definitions, and earlier conversation history.\n\nThe model will receive incomplete context, which typically results in incoherent, off-topic, or nonsensical responses.\n\nOnly enable this if requests are being rejected for exceeding context limits and no other strategy (truncate history, compact schemas) is sufficient.</string>
   <string name="button_enable_anyway">Enable Anyway</string>
   <string name="dialog_reset_defaults_title">Reset to Defaults</string>
-  <string name="dialog_reset_defaults_body">This will reset all settings to their default values, including port, bearer token, HuggingFace token, inference configs, system prompts, and all toggles.</string>
-  <string name="dialog_reset_defaults_body_server_active">This will reset all settings to their default values, including port, bearer token, HuggingFace token, inference configs, system prompts, and all toggles.\n\nThe server will be stopped.</string>
+  <string name="dialog_reset_defaults_body">This will reset all settings to their default values, including port, server bearer token, Hugging Face and ModelScope tokens, inference settings, system prompts, and all toggles.</string>
+  <string name="dialog_reset_defaults_body_server_active">This will reset all settings to their default values, including port, server bearer token, Hugging Face and ModelScope tokens, inference settings, system prompts, and all toggles.\n\nThe server will be stopped.</string>
   <string name="button_reset">Reset</string>
   <string name="dialog_reset_inference_title">Reset to Defaults</string>
   <string name="dialog_reset_inference_body">This will reset all inference settings to their default values for this model. The model will reload to apply the changes.</string>

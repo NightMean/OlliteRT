@@ -51,10 +51,10 @@ Requests without a valid token receive a `401 Unauthorized` response. See [Troub
 
 ### Credential Storage
 
-The bearer token is stored in SharedPreferences (read synchronously on every HTTP request for auth checking) and the HuggingFace token in Proto DataStore (accessed asynchronously during model downloads). Both are private to the app, not accessible by other apps. Neither is encrypted at rest — Android's app sandbox provides the isolation.
+OlliteRT stores the server bearer token and the provider tokens in SharedPreferences. Downloads can store a copy of the Hugging Face token in the app's local WorkManager database with the download request. ModelScope downloads read the matching International or China token from settings when the worker starts. Android's app sandbox provides isolation for these values.
 
 > [!IMPORTANT]
-> Both the bearer token and HuggingFace token are automatically redacted when exporting logs.
+> The diagnostic settings snapshot in Logcat redacts the server bearer token and all provider tokens.
 
 ## Network Exposure
 
