@@ -62,6 +62,8 @@ import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.repository.isDownloadRegistered
 import com.ollitert.llm.server.data.prefs.DefaultModelGuard
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
+import com.ollitert.llm.server.data.storage.KEY_MODEL_STAGE_UPDATE
+import com.ollitert.llm.server.data.storage.KEY_MODEL_UPDATE_IN_PLACE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
@@ -180,6 +182,8 @@ class DownloadWorker @AssistedInject internal constructor(
     val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)
       ?: return DownloadOutcome.Failed(workDataOf("error" to "Missing model directory in download input"))
     val isZip = inputData.getBoolean(KEY_MODEL_IS_ZIP, false)
+    val stageUpdate = inputData.getBoolean(KEY_MODEL_STAGE_UPDATE, false)
+    val updateInPlace = inputData.getBoolean(KEY_MODEL_UPDATE_IN_PLACE, false)
     val unzippedDir = inputData.getString(KEY_MODEL_UNZIPPED_DIR)
     val extraDataFileUrls = inputData.getString(KEY_MODEL_EXTRA_DATA_URLS)?.split(",") ?: listOf()
     val extraDataFileNames =
@@ -234,30 +238,30 @@ class DownloadWorker @AssistedInject internal constructor(
           }
           Log.d(TAG, "Starting download of ${allFiles.size} file(s)")
 
+          val modelDirectory = File(externalFilesDir, modelDir)
+          val update = if (stageUpdate) ModelUpdateFiles(modelDirectory, version, updateInPlace) else null
+          val extractedDirectory = unzippedDir?.takeIf { isZip && it.isNotEmpty() }
+          if (update?.isPublished(fileName, extractedDirectory, extraDataFileNames) == true) {
+            DefaultModelGuard.finishRemoval(modelName, true)
+            return@withContext DownloadOutcome.Completed
+          }
+          val outputDir = update?.stagingDirectory ?: File(modelDirectory, version)
+          if (!outputDir.isDirectory && !outputDir.mkdirs()) throw IOException("Could not create download directory")
+
           // Sequential download -- parallel would speed up multi-file models but complicates progress tracking
           var downloadedBytes = 0L
           val bytesReadSizeBuffer: MutableList<Long> = mutableListOf()
           val bytesReadLatencyBuffer: MutableList<Long> = mutableListOf()
           for (file in allFiles) {
+            val originalFile = File(outputDir, file.fileName)
+            if (update != null && originalFile.isFile && validateDownloadedArtifact(originalFile, file.expectedBytes) == null) {
+              downloadedBytes += originalFile.length()
+              continue
+            }
             val url = URL(file.url)
 
-            // Prepare output file's dir.
-            val outputDir =
-              File(
-                applicationContext.getExternalFilesDir(null),
-                listOf(modelDir, version).joinToString(separator = File.separator),
-              )
-            if (!outputDir.exists()) {
-              outputDir.mkdirs()
-            }
-
             // Read the tmp file and see if it is partially downloaded.
-            val outputTmpFile =
-              File(
-                applicationContext.getExternalFilesDir(null),
-                listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
-                  .joinToString(separator = File.separator),
-              )
+            val outputTmpFile = File(outputDir, "${file.fileName}.$TMP_FILE_EXT")
             createdTmpFiles.add(outputTmpFile)
             val outputFileBytes = outputTmpFile.length()
 
@@ -387,78 +391,17 @@ class DownloadWorker @AssistedInject internal constructor(
 
             // Same-directory atomic replacement preserves a previous valid file
             // if finalization fails and keeps the staging file resumable.
-            val originalFilePath = outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT")
-            val originalFile = File(originalFilePath)
             currentCoroutineContext().ensureActive()
             finalizeDownloadedFile(outputTmpFile, originalFile)
             Log.d(TAG, "Download done")
 
-            // Unzip if the downloaded file is a zip.
-            if (isZip && unzippedDir != null) {
-              setProgress(Data.Builder().putBoolean(KEY_MODEL_START_UNZIPPING, true).build())
-
-              // Prepare target dir.
-              val destDir =
-                File(
-                  externalFilesDir,
-                  listOf(modelDir, version, unzippedDir).joinToString(File.separator),
-                )
-              // Extract into a sibling temp dir and rename into place only on
-              // success. A process death mid-unzip then cannot leave a partial
-              // directory that ModelFileManager would mistake for a fully
-              // downloaded model ("phantom downloaded" state with no repair).
-              // Any pre-existing dir is stale by definition here — the zip was
-              // just downloaded fresh.
-              val tmpExtractDir = File("${destDir.absolutePath}.$TMP_EXTRACT_EXT")
-              if (tmpExtractDir.exists()) tmpExtractDir.deleteRecursively()
-              tmpExtractDir.mkdirs()
-
-              // Unzip.
-              val unzipBuffer = ByteArray(DOWNLOAD_UNZIP_BUFFER_SIZE)
-              val zipFilePath =
-                "${externalFilesDir}${File.separator}$modelDir${File.separator}$version${File.separator}${fileName}"
-              try {
-                ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath))).use { zipIn ->
-                var zipEntry: ZipEntry? = zipIn.nextEntry
-
-                while (zipEntry != null) {
-                  val destFile = File(tmpExtractDir, zipEntry.name).canonicalFile
-                  if (!destFile.path.startsWith(tmpExtractDir.canonicalPath + File.separator)) {
-                    throw SecurityException("Zip entry outside target dir: ${zipEntry.name}")
-                  }
-                  val filePath = destFile.path
-
-                  // Extract files.
-                  if (!zipEntry.isDirectory) {
-                    FileOutputStream(filePath).use { curBos ->
-                      var len: Int
-                      while (zipIn.read(unzipBuffer).also { len = it } > 0) {
-                        curBos.write(unzipBuffer, 0, len)
-                      }
-                    }
-                  }
-                  // Create dir.
-                  else {
-                    val dir = File(filePath)
-                    dir.mkdirs()
-                  }
-
-                  zipIn.closeEntry()
-                  zipEntry = zipIn.nextEntry
-                }
-                }
-
-                finalizeExtractedDirectory(tmpExtractDir, destDir)
-              } finally {
-                // No-op on success (renamed away); cleans partial extraction on failure.
-                if (tmpExtractDir.exists()) tmpExtractDir.deleteRecursively()
-              }
-
-              // Delete the original file.
-              val zipFile = File(zipFilePath)
-              zipFile.delete()
-            }
           }
+          if (extractedDirectory != null) {
+            setProgress(Data.Builder().putBoolean(KEY_MODEL_START_UNZIPPING, true).build())
+            extractDownloadedModel(File(outputDir, fileName), File(outputDir, extractedDirectory))
+          }
+          currentCoroutineContext().ensureActive()
+          update?.publish(extractedDirectory ?: fileName, extraDataFileNames)
           // The worker holds the model lock; a successful download makes a
           // previously interrupted removal's model usable as a default again.
           DefaultModelGuard.finishRemoval(modelName, true)
@@ -561,6 +504,36 @@ class DownloadWorker @AssistedInject internal constructor(
         }
       }
     }
+  }
+
+  private suspend fun extractDownloadedModel(archive: File, destination: File) {
+    val staging = File("${destination.absolutePath}.$TMP_EXTRACT_EXT")
+    if (staging.exists()) staging.deleteRecursively()
+    if (!staging.mkdirs()) throw IOException("Could not create archive extraction directory")
+    try {
+      val parent = staging.canonicalPath + File.separator
+      ZipInputStream(BufferedInputStream(FileInputStream(archive))).use { input ->
+        var entry: ZipEntry? = input.nextEntry
+        while (entry != null) {
+          currentCoroutineContext().ensureActive()
+          val target = File(staging, entry.name).canonicalFile
+          if (!target.path.startsWith(parent)) throw SecurityException("Zip entry outside target directory")
+          if (entry.isDirectory) {
+            target.mkdirs()
+          } else {
+            target.parentFile?.mkdirs()
+            FileOutputStream(target).use { output -> input.copyTo(output, DOWNLOAD_UNZIP_BUFFER_SIZE) }
+          }
+          input.closeEntry()
+          entry = input.nextEntry
+        }
+      }
+      currentCoroutineContext().ensureActive()
+      finalizeDownloadedDirectory(staging, destination)
+    } finally {
+      if (staging.exists()) staging.deleteRecursively()
+    }
+    archive.delete()
   }
 
   override suspend fun getForegroundInfo(): ForegroundInfo {

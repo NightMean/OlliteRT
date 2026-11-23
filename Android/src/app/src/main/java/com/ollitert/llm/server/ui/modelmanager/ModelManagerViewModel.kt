@@ -47,16 +47,19 @@ import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.repository.ModelDownloadWork
 import com.ollitert.llm.server.data.storage.HuggingFaceDownloadAccess
+import com.ollitert.llm.server.data.storage.modelUpdateStagingDirectory
 import com.ollitert.llm.server.data.model.EMPTY_MODEL
 import com.ollitert.llm.server.data.allowlist.ModelUrlResult
 import com.ollitert.llm.server.data.allowlist.probeModelUrl
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
 import com.ollitert.llm.server.data.allowlist.LoadResult
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.pendingUpdateFile
 import com.ollitert.llm.server.data.allowlist.ModelAllowlist
 import com.ollitert.llm.server.data.allowlist.ModelAllowlistJson
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.ModelFile
 import com.ollitert.llm.server.data.allowlist.ModelListImportManager
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.model.Repository
@@ -103,6 +106,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import java.util.UUID
+import java.io.File
 import java.io.IOException
 
 private const val TAG = "OlliteRT.ModelVM"
@@ -148,21 +152,27 @@ internal fun preserveActiveDownloadStatuses(
   currentRevisions: Map<String, Long>,
   inspectedActiveNames: Set<String>?,
   recoveredFailures: Map<String, ModelDownloadStatus> = emptyMap(),
+  pendingUpdates: Map<String, ModelFile> = emptyMap(),
 ): Map<String, ModelDownloadStatus> = loaded.mapValues { (name, diskStatus) ->
   val recent = previous[name]?.takeIf {
     val active = it.status == ModelDownloadStatusType.IN_PROGRESS || it.status == ModelDownloadStatusType.UNZIPPING
     (active && (inspectedActiveNames == null || name in inspectedActiveNames)) ||
       (!active && (currentRevisions[name] ?: 0L) != (revisionsAtLoadStart[name] ?: 0L))
   }
-  recent ?: if (diskStatus.status == ModelDownloadStatusType.SUCCEEDED || inspectedActiveNames?.contains(name) == true) {
-    diskStatus
-  } else {
+  val failure = recoveredFailures[name]
+  recent ?: when {
+    inspectedActiveNames?.contains(name) == true -> diskStatus
+    diskStatus.status == ModelDownloadStatusType.SUCCEEDED -> {
+      if (failure?.updateTarget != null && pendingUpdates[name] == failure.updateTarget) {
+        diskStatus.copy(modelScopeAccessDeniedSite = failure.modelScopeAccessDeniedSite, failureId = failure.failureId,
+          updateTarget = failure.updateTarget)
+      } else diskStatus
+    }
     // WorkManager does not retain progress after failure. Use the actual bytes on disk for Retry.
-    recoveredFailures[name]?.copy(receivedBytes = diskStatus.receivedBytes, totalBytes = diskStatus.totalBytes)
+    else -> failure?.copy(receivedBytes = diskStatus.receivedBytes, totalBytes = diskStatus.totalBytes)
       ?: previous[name]?.takeIf {
         inspectedActiveNames == null && it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty()
-      }
-      ?: diskStatus
+      } ?: diskStatus
   }
 }
 
@@ -413,7 +423,7 @@ internal constructor(
           if (downloadCallbackGate.isCurrent(name, generation)) {
             // Cancellation describes work, not the state of its files.
             if (status.status == ModelDownloadStatusType.NOT_DOWNLOADED) workerCanceled = true
-            else setDownloadStatus(model, status)
+            else publishWorkerDownloadStatus(model, status, generation)
           }
         }
       } catch (e: CancellationException) {
@@ -426,6 +436,7 @@ internal constructor(
           downloadStartGate.release(name)
           val message = context.getString(R.string.model_download_inspection_failed)
           _uiState.update { it.copy(loadingModelAllowlistError = message) }
+          if (model.updatable && enqueue != null) loadModelAllowlist()
         }
       } finally {
         if (downloadObservers[name] === currentCoroutineContext()[Job]) {
@@ -441,6 +452,52 @@ internal constructor(
     }
     downloadObservers.put(name, observer)?.cancel()
     observer.start()
+  }
+
+  private suspend fun publishWorkerDownloadStatus(model: Model, status: ModelDownloadStatus, generation: Long) {
+    val catalogModel = uiState.value.models.firstOrNull { it.name == model.name } ?: model
+    val latest = catalogModel.latestModelFile
+    if ((!model.updatable && !catalogModel.updatable) || latest == null ||
+      (status.status != ModelDownloadStatusType.SUCCEEDED && status.status != ModelDownloadStatusType.FAILED)
+    ) {
+      setDownloadStatus(model, status)
+      return
+    }
+    val resolved = catalogModel.copy(version = latest.commitHash, downloadFileName = latest.fileName, configs = emptyList())
+    val onDisk = withContext(ioDispatcher) { modelStorageRepository.getModelDownloadStatus(resolved) }
+    if (!downloadCallbackGate.isCurrent(model.name, generation)) return
+
+    if (onDisk.status == ModelDownloadStatusType.SUCCEEDED) {
+      // A catalog refresh may have changed the target version while this worker was active.
+      val shown = uiState.value.models.firstOrNull { it.name == model.name && it.latestModelFile == latest }
+      if (model.latestModelFile == latest) applyInstalledVersion(model, resolved)
+      if (shown != null && shown !== model) applyInstalledVersion(shown, resolved)
+      if (status.status == ModelDownloadStatusType.FAILED) {
+        _toastErrorChannel.trySend(context.getString(R.string.model_update_kept_installed, status.errorMessage))
+        val stillPending = status.updateTarget != null && status.updateTarget == resolved.pendingUpdateFile()
+        setDownloadStatus(model, if (stillPending) onDisk.copy(
+          modelScopeAccessDeniedSite = status.modelScopeAccessDeniedSite,
+          failureId = status.failureId,
+          updateTarget = status.updateTarget,
+        ) else onDisk)
+        return
+      }
+    }
+    if (status.status == ModelDownloadStatusType.SUCCEEDED && onDisk.status != ModelDownloadStatusType.SUCCEEDED) {
+      val message = context.getString(R.string.download_error_finalize)
+      setDownloadStatus(model, onDisk.copy(status = ModelDownloadStatusType.FAILED, errorMessage = message))
+    } else {
+      setDownloadStatus(model, if (status.status == ModelDownloadStatusType.SUCCEEDED) onDisk else status)
+      if (status.status == ModelDownloadStatusType.SUCCEEDED) startModelAllowlistLoad(isManualRetry = false)
+    }
+  }
+
+  private fun applyInstalledVersion(target: Model, resolved: Model) {
+    target.version = resolved.version
+    target.downloadFileName = resolved.downloadFileName
+    target.updatable = resolved.updatable
+    if (resolved.updatable) target.applyUpdateHints(context.getString(R.string.config_hint_requires_model_update))
+    else clearUpdateHints(target)
   }
 
   // The caller holds the same lock used by the download worker and server startup.
@@ -590,15 +647,25 @@ internal constructor(
     } catch (e: Exception) {
       Log.e(TAG, "Could not enqueue the model download", e)
       val message = context.getString(R.string.model_download_start_failed)
-      setDownloadStatus(model, ModelDownloadStatus(ModelDownloadStatusType.FAILED, errorMessage = message))
-      _toastErrorChannel.trySend(message)
+      if (model.pendingUpdateFile() != null) {
+        setDownloadStatus(model, ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED))
+        _toastErrorChannel.trySend(context.getString(R.string.model_update_kept_installed, message))
+      } else {
+        setDownloadStatus(model, ModelDownloadStatus(ModelDownloadStatusType.FAILED, errorMessage = message))
+        _toastErrorChannel.trySend(message)
+      }
       false
     }
   }
 
   fun downloadModel(model: Model, useHuggingFaceToken: Boolean? = null): Boolean {
     if (!reserveDownloadStart(model)) return false
-    val updating = model.updatable
+    val update = model.pendingUpdateFile()
+    if (model.updatable && update == null) {
+      downloadStartGate.release(model.name)
+      _toastErrorChannel.trySend(context.getString(R.string.model_download_start_failed))
+      return false
+    }
     val access = when (useHuggingFaceToken) {
       true -> HuggingFaceDownloadAccess.AUTHENTICATED
       false -> HuggingFaceDownloadAccess.ANONYMOUS
@@ -611,19 +678,17 @@ internal constructor(
         val reset = withContext(ioDispatcher) {
           ModelDownloadLocks.tryWithModel(model.name) {
             val diskStatus = removableDiskStatus(model) ?: return@tryWithModel false
-            if (diskStatus == ModelDownloadStatusType.SUCCEEDED && !updating) return@tryWithModel false
-            val latest = model.latestModelFile
-            if (updating && latest != null) {
+            if (update != null) {
               val latestModel = model.copy(
-                version = latest.commitHash,
-                downloadFileName = latest.fileName,
+                version = update.commitHash,
+                downloadFileName = update.fileName,
                 updatableModelFiles = emptyList(),
                 configs = emptyList(),
               )
-              if (modelStorageRepository.getModelDownloadStatus(latestModel).status == ModelDownloadStatusType.SUCCEEDED) {
-                return@tryWithModel false
-              }
+              return@tryWithModel diskStatus == ModelDownloadStatusType.SUCCEEDED &&
+                modelStorageRepository.getModelDownloadStatus(latestModel).status != ModelDownloadStatusType.SUCCEEDED
             }
+            if (diskStatus == ModelDownloadStatusType.SUCCEEDED) return@tryWithModel false
             deleteDownloadFiles(model)
             true
           }
@@ -632,11 +697,12 @@ internal constructor(
           showDownloadDeletionUnavailable()
           return@launch
         }
-        publishDownloadDeletion(model)
         if (model.name in cancelingDownloadNames) return@launch
-        if (updating) {
+        if (update != null) {
           val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
           manager?.cancel(AllowlistRefreshWorker.modelUpdateNotificationId(model.name))
+        } else {
+          publishDownloadDeletion(model)
         }
         enqueued = startReservedDownload(model, access)
       } catch (e: CancellationException) {
@@ -661,11 +727,21 @@ internal constructor(
     viewModelScope.launch(mainDispatcher) {
       try {
         val removed = withContext(ioDispatcher) {
-          downloadRepository.cancelUnfinishedModelDownload(model.name)
+          val canceledUpdates = downloadRepository.cancelUnfinishedModelDownload(model.name)
           // WorkManager can acknowledge cancellation while the worker still owns its files.
           withTimeoutOrNull(DOWNLOAD_READ_TIMEOUT_MS.toLong()) {
             ModelDownloadLocks.withModel(model.name) {
-              when (removableDiskStatus(model)) {
+              val diskStatus = removableDiskStatus(model)
+              if (canceledUpdates.isNotEmpty() && diskStatus != null) {
+                for (version in canceledUpdates) {
+                  val stage = File(model.normalizedName, modelUpdateStagingDirectory(version))
+                  if (!modelStorageRepository.deleteDirFromExternalFilesDir(stage.path)) {
+                    throw IOException("Could not remove the staged model update")
+                  }
+                }
+                return@withModel false // Reconcile the version that is still installed.
+              }
+              when (diskStatus) {
                 ModelDownloadStatusType.NOT_DOWNLOADED, ModelDownloadStatusType.PARTIALLY_DOWNLOADED -> {
                   deleteDownloadFiles(model)
                   true
@@ -729,9 +805,7 @@ internal constructor(
         model.version = it.commitHash
         model.downloadFileName = it.fileName
       }
-      for (config in model.configs) {
-        if (config.requiresModelUpdate) config.subtitle = null
-      }
+      clearUpdateHints(model)
     }
 
     if (preferencesRepository.isVerboseDebugEnabled()) {
@@ -755,6 +829,12 @@ internal constructor(
         modelDownloadStatus = current.modelDownloadStatus +
           (model.name to ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)),
       )
+    }
+  }
+
+  private fun clearUpdateHints(model: Model) {
+    for (config in model.configs) {
+      if (config.requiresModelUpdate) config.subtitle = null
     }
   }
 
@@ -1264,6 +1344,7 @@ internal constructor(
         preparedLoad.downloadRevisionsAtStart, downloadStatusRevisionSnapshot(),
         inspectedActiveNames,
         downloadWork?.accessDenied.orEmpty(),
+        loaded.models.mapNotNull { model -> model.pendingUpdateFile()?.let { model.name to it } }.toMap(),
       ),
     )
     val currentRevisions = downloadStatusRevisionSnapshot()

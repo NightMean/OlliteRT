@@ -17,6 +17,8 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import android.content.Context
+import androidx.work.Operation
+import com.google.common.util.concurrent.ListenableFuture
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
@@ -28,6 +30,7 @@ import com.ollitert.llm.server.data.model.IMPORTS_DIR
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.ModelFile
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
@@ -36,8 +39,10 @@ import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.ModelDownloadWork
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
+import com.ollitert.llm.server.data.repository.QueuedDownload
 import com.ollitert.llm.server.data.repository.ServerStateRepository
 import com.ollitert.llm.server.data.storage.TMP_FILE_EXT
+import com.ollitert.llm.server.data.storage.modelUpdateStagingDirectory
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import io.mockk.coEvery
@@ -52,6 +57,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -305,6 +311,85 @@ class ModelManagerViewModelDisabledSourcesTest {
     advanceUntilIdle()
     assertFalse(temporary.exists())
     verify(exactly = 2) { downloads.cancelUnfinishedModelDownload(model.name) }
+  }
+
+  @Test
+  fun failedUpdateKeepsTheInstalledVersionUsable() = runTest(testDispatcher) {
+    val previous = ModelFile(fileName = "installed.litertlm", commitHash = "previous")
+    val latest = ModelFile(fileName = "updated.litertlm", commitHash = "latest")
+    val model = Model(name = "Updatable model", version = latest.commitHash, downloadFileName = latest.fileName,
+      latestModelFile = latest, updatableModelFiles = listOf(previous))
+    val context = mockk<Context>(relaxed = true) {
+      every { getExternalFilesDir(null) } returns externalFilesDir
+    }
+    val installed = File(model.copy(version = previous.commitHash, downloadFileName = previous.fileName).getPath(context))
+      .apply { parentFile?.mkdirs(); writeText("working model") }
+    val realStorage = DefaultModelStorageRepository(context)
+    val storage = mockk<ModelStorageRepository>(relaxed = true) {
+      every { readTestAllowlist() } returns null
+      every { getModelDownloadStatus(any()) } answers { realStorage.getModelDownloadStatus(firstArg()) }
+      every { deleteDirFromExternalFilesDir(any()) } answers { realStorage.deleteDirFromExternalFilesDir(firstArg()) }
+    }
+    val manager = mockk<RepositoryManager>(relaxed = true) {
+      coEvery { refreshAll(storage) } returns RefreshResult(emptySet())
+      coEvery { loadAll(any(), storage, ignoreDisabled = false, modelFilter = any()) } returns
+        LoadResult(models = listOf(model), repositories = emptyList())
+    }
+    val server = mockk<ServerStateRepository>(relaxed = true) {
+      every { status } returns MutableStateFlow(ServerStatus.STOPPED)
+      every { activeModelName } returns MutableStateFlow(null)
+    }
+    val result = mockk<ListenableFuture<Operation.State.SUCCESS>> {
+      every { isDone } returns true
+      every { get() } returns Operation.SUCCESS
+    }
+    val operation = mockk<Operation> { every { this@mockk.result } returns result }
+    val workId = UUID.randomUUID()
+    val downloads = mockk<DownloadRepository>(relaxed = true) {
+      every { getModelDownloadWork() } returns ModelDownloadWork()
+      every { downloadModel(any(), any()) } returns QueuedDownload(workId, operation)
+      every { cancelUnfinishedModelDownload(model.name) } returns setOf("queued")
+      every { observeWorkerProgress(workId, any()) } returns flowOf(
+        ModelDownloadStatus(ModelDownloadStatusType.FAILED, errorMessage = "Connection interrupted")
+      )
+    }
+    val owner = ModelManagerViewModel(
+      downloadRepository = downloads, protoDataStoreRepository = mockk(relaxed = true),
+      lifecycleProvider = mockk(relaxed = true), repositoryManager = manager, context = context,
+      preferencesRepository = FakePreferencesRepository(), serverStateRepository = server,
+      modelStorageRepository = storage, ioDispatcher = testDispatcher, mainDispatcher = testDispatcher,
+    )
+    owner.loadModelAllowlist()
+    advanceUntilIdle()
+    assertTrue(model.updatable)
+    assertTrue(owner.downloadModel(model))
+    advanceUntilIdle()
+    verify(exactly = 1) { downloads.observeWorkerProgress(workId, any()) }
+    assertTrue(installed.isFile)
+    assertEquals(previous.commitHash, model.version)
+    assertEquals(ModelDownloadStatusType.SUCCEEDED, owner.uiState.value.modelDownloadStatus[model.name]?.status)
+    assertTrue(model.updatable)
+
+    val stagingDirectory = externalFilesDir.resolve(model.normalizedName)
+      .resolve(modelUpdateStagingDirectory("queued")).apply { mkdirs() }
+    stagingDirectory.resolve("partial").writeText("interrupted transfer")
+    owner.cancelDownloadModel(model)
+    advanceUntilIdle()
+    assertFalse(stagingDirectory.exists())
+    assertTrue(installed.isFile)
+
+    val replacement = File(model.copy(version = latest.commitHash, downloadFileName = latest.fileName).getPath(context))
+    every { downloads.observeWorkerProgress(workId, any()) } returns flow {
+      replacement.parentFile?.mkdirs()
+      replacement.writeText("replacement model")
+      emit(ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED))
+    }
+    assertTrue(owner.downloadModel(model))
+    advanceUntilIdle()
+    assertTrue(replacement.isFile)
+    assertEquals(latest.commitHash, model.version)
+    assertFalse(model.updatable)
+    assertEquals(ModelDownloadStatusType.SUCCEEDED, owner.uiState.value.modelDownloadStatus[model.name]?.status)
   }
 
   @Test

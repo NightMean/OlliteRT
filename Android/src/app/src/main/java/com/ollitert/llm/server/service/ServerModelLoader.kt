@@ -97,6 +97,7 @@ internal class ServerModelLoader(
         ServerLlmModelHelper.safeCleanup(model)
         return
       }
+      modelLifecycle.retireOlderVersionsAfterLoad(model)
       ServerMetrics.recordModelLoadTime(SystemClock.elapsedRealtime() - loadStart)
       ServerMetrics.setActiveAccelerator(
         model.configValues[com.ollitert.llm.server.data.prefs.ConfigKeys.ACCELERATOR.id]?.toString()

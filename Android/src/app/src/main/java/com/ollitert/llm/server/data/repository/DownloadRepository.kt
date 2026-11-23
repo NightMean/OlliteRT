@@ -17,6 +17,8 @@
 
 package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelFile
+import com.ollitert.llm.server.data.model.pendingUpdateFile
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.isHuggingFaceUrl
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
@@ -36,6 +38,8 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_IS_ZIP
 import com.ollitert.llm.server.data.storage.KEY_MODEL_NAME
 import com.ollitert.llm.server.data.storage.KEY_MODEL_SOURCE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
+import com.ollitert.llm.server.data.storage.KEY_MODEL_STAGE_UPDATE
+import com.ollitert.llm.server.data.storage.KEY_MODEL_UPDATE_IN_PLACE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
@@ -65,6 +69,18 @@ import javax.inject.Singleton
 
 private const val TAG = "OlliteRT.DownloadRepo"
 private const val MODEL_NAME_TAG = "modelName"
+private const val UPDATE_VERSION_TAG_PREFIX = "updateVersion:"
+private const val UPDATE_FILE_TAG_PREFIX = "updateFile:"
+
+private fun WorkInfo.updateVersion(): String? =
+  tags.firstOrNull { it.startsWith(UPDATE_VERSION_TAG_PREFIX) }?.removePrefix(UPDATE_VERSION_TAG_PREFIX)
+
+private fun WorkInfo.updateTarget(): ModelFile? {
+  val version = updateVersion() ?: return null
+  val fileName = tags.firstOrNull { it.startsWith(UPDATE_FILE_TAG_PREFIX) }?.removePrefix(UPDATE_FILE_TAG_PREFIX)
+    ?: return null
+  return ModelFile(fileName, version)
+}
 
 internal data class QueuedDownload(val id: UUID, val enqueue: Operation)
 
@@ -104,6 +120,7 @@ private fun WorkInfo.failedDownloadStatus(receivedBytes: Long = 0L, totalBytes: 
     failureId = id.toString(),
     receivedBytes = receivedBytes,
     totalBytes = totalBytes,
+    updateTarget = updateTarget(),
   )
 }
 
@@ -112,14 +129,17 @@ internal fun buildDownloadRequestData(
   model: Model,
   huggingFaceAccess: HuggingFaceDownloadAccess = HuggingFaceDownloadAccess.ANONYMOUS,
 ): Data {
+  val update = model.pendingUpdateFile()
   val builder =
     Data.Builder()
       .putString(KEY_MODEL_NAME, model.name)
       .putString(KEY_MODEL_SOURCE, model.sourceRepositoryId)
       .putString(KEY_MODEL_URL, model.url)
-      .putString(KEY_MODEL_COMMIT_HASH, model.version)
+      .putString(KEY_MODEL_COMMIT_HASH, update?.commitHash ?: model.version)
       .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
-      .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
+      .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, update?.fileName ?: model.downloadFileName)
+      .putBoolean(KEY_MODEL_STAGE_UPDATE, update != null)
+      .putBoolean(KEY_MODEL_UPDATE_IN_PLACE, update != null && (update.commitHash == model.version || update.commitHash.isEmpty()))
       .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
       .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
       // Model.preProcess() defines totalBytes as the main file plus every extra file.
@@ -157,29 +177,39 @@ class DownloadRepository @Inject constructor(
   private val workManager = WorkManager.getInstance(context)
 
   internal fun downloadModel(model: Model, huggingFaceAccess: HuggingFaceDownloadAccess): QueuedDownload {
+    val data = buildDownloadRequestData(model, huggingFaceAccess)
     val request = OneTimeWorkRequestBuilder<DownloadWorker>()
       .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-      .setInputData(buildDownloadRequestData(model, huggingFaceAccess))
+      .setInputData(data)
       // Keep terminal access results available when the app returns after a background failure.
       .keepResultsForAtLeast(7, TimeUnit.DAYS)
       .addTag("$MODEL_NAME_TAG:${model.name}")
+      .apply {
+        if (data.getBoolean(KEY_MODEL_STAGE_UPDATE, false)) {
+          addTag(UPDATE_VERSION_TAG_PREFIX + checkNotNull(data.getString(KEY_MODEL_COMMIT_HASH)))
+          addTag(UPDATE_FILE_TAG_PREFIX + checkNotNull(data.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)))
+        }
+      }
       .build()
     return QueuedDownload(request.id, workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, request))
   }
 
   /** Cancel the attempts observed now, without canceling a later replacement by name. */
-  internal fun cancelUnfinishedModelDownload(modelName: String) {
-    unfinishedWorkForModel(modelName).forEach { info ->
+  internal fun cancelUnfinishedModelDownload(modelName: String): Set<String> {
+    val attempts = workForModel(modelName)
+    attempts.filterNot { it.state.isFinished }.forEach { info ->
       workManager.cancelWorkById(info.id).result.get(10, TimeUnit.SECONDS)
     }
+    // The catalog may now point at a newer revision. Clean only stages owned by these attempts.
+    return attempts.filter { it.state != WorkInfo.State.SUCCEEDED }.mapNotNullTo(mutableSetOf()) { it.updateVersion() }
   }
 
   /** Called on an IO dispatcher while the model's download lock is held. */
   fun hasUnfinishedDownload(modelName: String): Boolean =
-    unfinishedWorkForModel(modelName).isNotEmpty()
+    workForModel(modelName).any { !it.state.isFinished }
 
-  private fun unfinishedWorkForModel(modelName: String): List<WorkInfo> =
-    workManager.getWorkInfosForUniqueWork(modelName).get(10, TimeUnit.SECONDS).filterNot { it.state.isFinished }
+  private fun workForModel(modelName: String): List<WorkInfo> =
+    workManager.getWorkInfosForUniqueWork(modelName).get(10, TimeUnit.SECONDS)
 
   /** Reads pending work and terminal provider access failures in one WorkManager snapshot. */
   internal fun getModelDownloadWork(): ModelDownloadWork {

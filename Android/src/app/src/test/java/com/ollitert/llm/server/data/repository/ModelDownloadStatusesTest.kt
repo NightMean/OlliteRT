@@ -51,6 +51,7 @@ class ModelDownloadStatusesTest {
     every { progress } returns workProgress
     every { outputData } returns output
     every { id } returns workerId
+    every { tags } returns emptySet()
   }
 
   @Test fun pendingWorkEmitsProgressAndOneFailureThenReleasesItsSubscription() = runTest {

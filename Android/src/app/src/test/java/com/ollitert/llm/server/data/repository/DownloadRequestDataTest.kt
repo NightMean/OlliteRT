@@ -12,6 +12,10 @@ package com.ollitert.llm.server.data.repository
 
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDataFile
+import com.ollitert.llm.server.data.model.ModelFile
+import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
+import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_FILE_NAME
+import com.ollitert.llm.server.data.storage.KEY_MODEL_STAGE_UPDATE
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
@@ -20,9 +24,23 @@ import com.ollitert.llm.server.data.storage.KEY_HUGGING_FACE_DOWNLOAD_ACCESS
 import com.ollitert.llm.server.data.storage.HuggingFaceDownloadAccess
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DownloadRequestDataTest {
+  @Test fun updateWorkTargetsTheReplacementWithoutChangingTheInstalledVersion() {
+    val latest = ModelFile("replacement.litertlm", "latest")
+    val model = Model(name = "Catalog model", version = "installed", downloadFileName = "original.litertlm",
+      latestModelFile = latest, updatable = true)
+
+    val data = buildDownloadRequestData(model)
+
+    assertTrue(data.getBoolean(KEY_MODEL_STAGE_UPDATE, false))
+    assertEquals(latest.commitHash, data.getString(KEY_MODEL_COMMIT_HASH))
+    assertEquals(latest.fileName, data.getString(KEY_MODEL_DOWNLOAD_FILE_NAME))
+    assertEquals("installed", model.version)
+  }
+
   @Test fun workInputDoesNotPersistTheModelCredential() {
     val customModel = Model(name = "custom", url = "https://example.test/model")
     val customWork = buildDownloadRequestData(customModel, HuggingFaceDownloadAccess.IF_REQUIRED)

@@ -40,6 +40,9 @@ import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.llmSupportAudio
 import com.ollitert.llm.server.data.model.llmSupportImage
+import com.ollitert.llm.server.data.storage.isModelUpdateStagingDirectory
+import com.ollitert.llm.server.data.storage.ModelDownloadLocks
+import com.ollitert.llm.server.data.storage.deleteModelDirectory
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
 import kotlinx.coroutines.CoroutineScope
@@ -419,6 +422,7 @@ class ModelLifecycle(
         }
         defaultModel = model
         modelCache[model.name] = model
+        retireOlderVersionsAfterLoad(model)
         keepAliveUnloadedRef.set(null to null)
         val loadMs = SystemClock.elapsedRealtime() - loadStart
         ServerMetrics.recordModelLoadTime(loadMs)
@@ -549,22 +553,24 @@ class ModelLifecycle(
 
   private fun resolveOnDiskVersion(model: Model, externalDir: File) {
     if (model.localModelFilePathOverride.isNotEmpty()) return
-    val currentPath = File(externalDir, "${model.normalizedName}/${model.version}/${model.downloadFileName}")
-    if (currentPath.exists()) {
+    val extracted = model.isZip && model.unzipDir.isNotEmpty()
+    fun artifactName(fileName: String): String = if (extracted) model.unzipDir else fileName
+    fun installed(path: File): Boolean = if (extracted) path.isDirectory else path.isFile
+    val currentPath = File(externalDir, "${model.normalizedName}/${model.version}/${artifactName(model.downloadFileName)}")
+    if (installed(currentPath)) {
       Log.i(TAG, "Model '${model.name}' found at current version ${model.version}/" +
         "${model.downloadFileName}")
-      cleanupOldVersions(model, externalDir)
       return
     }
 
     for (updatable in model.updatableModelFiles) {
       if (updatable.commitHash.isEmpty()) continue
-      val oldPath = File(externalDir, "${model.normalizedName}/${updatable.commitHash}/${updatable.fileName}")
-      if (oldPath.exists()) {
+      val oldPath = File(externalDir, "${model.normalizedName}/${updatable.commitHash}/${artifactName(updatable.fileName)}")
+      if (installed(oldPath)) {
         Log.i(TAG, "Resolved '${model.name}' to older version ${updatable.commitHash} via updatableModelFiles")
         model.version = updatable.commitHash
         model.downloadFileName = updatable.fileName
-        model.totalBytes = oldPath.length()
+        if (oldPath.isFile) model.totalBytes = oldPath.length()
         model.updatable = true
         model.applyUpdateHints(context.getString(R.string.config_hint_requires_model_update))
         return
@@ -574,30 +580,36 @@ class ModelLifecycle(
     // Last resort: scan version directories for the expected model file.
     val modelDir = File(externalDir, model.normalizedName)
     if (!modelDir.isDirectory) return
-    val versionDirs = modelDir.listFiles { f -> f.isDirectory } ?: return
+    val versionDirs = modelDir.listFiles { it.isDirectory && !isModelUpdateStagingDirectory(it.name) } ?: return
     for (dir in versionDirs) {
-      val candidate = File(dir, model.downloadFileName)
-      if (candidate.isFile && candidate.length() > 0) {
+      val candidate = File(dir, artifactName(model.downloadFileName))
+      if (installed(candidate) && (extracted || candidate.length() > 0)) {
         Log.w(TAG, "Resolved '${model.name}' via filesystem scan — found in ${dir.name}/" +
           " (not in updatableModelFiles; allowlist may be incomplete)")
         model.version = dir.name
-        model.totalBytes = candidate.length()
+        if (candidate.isFile) model.totalBytes = candidate.length()
         return
       }
     }
   }
 
-  private fun cleanupOldVersions(model: Model, externalDir: File) {
-    for (updatable in model.updatableModelFiles) {
-      if (updatable.commitHash.isEmpty()) continue
-      val oldDir = File(externalDir, "${model.normalizedName}/${updatable.commitHash}")
-      if (oldDir.isDirectory) {
-        val sizeBytes = oldDir.listFiles()?.sumOf { it.length() } ?: 0
-        if (oldDir.deleteRecursively()) {
-          Log.i(TAG, "Deleted old model version for '${model.name}': ${updatable.commitHash} " +
-            "(freed ${sizeBytes / 1_048_576}MB)")
-        } else {
-          Log.w(TAG, "Failed to delete old model version directory: ${oldDir.absolutePath}")
+  internal fun retireOlderVersionsAfterLoad(model: Model) {
+    val latest = model.latestModelFile ?: return
+    if (model.updatable || model.updatableModelFiles.isEmpty() || model.version != latest.commitHash ||
+      model.downloadFileName != latest.fileName
+    ) return
+    lifecycleScope.launch {
+      val root = context.getExternalFilesDir(null)?.resolve(model.normalizedName) ?: return@launch
+      ModelDownloadLocks.tryWithModel(model.name) {
+        if (!File(model.getPath(context)).exists()) return@tryWithModel
+        for (previous in model.updatableModelFiles) {
+          val version = previous.commitHash
+          if (version.isBlank() || version == latest.commitHash || '/' in version || '\\' in version) continue
+          try {
+            if (!root.deleteModelDirectory(version)) Log.w(TAG, "Could not remove an old version of '${model.name}'")
+          } catch (e: Exception) {
+            Log.w(TAG, "Could not remove an old version of '${model.name}'", e)
+          }
         }
       }
     }

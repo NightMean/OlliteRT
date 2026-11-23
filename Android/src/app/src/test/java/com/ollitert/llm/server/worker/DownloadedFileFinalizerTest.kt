@@ -20,6 +20,52 @@ import java.nio.file.StandardCopyOption
 import kotlin.io.path.createTempDirectory
 
 class DownloadedFileFinalizerTest {
+  @Test fun updatePublishesTheWholeVersionAndCanResumeAfterPublication() {
+    val root = createTempDirectory(prefix = "update-publish").toFile()
+    try {
+      val oldWeights = root.resolve("old").apply { mkdirs() }.resolve("weights.bin").apply { writeText("installed") }
+      val update = ModelUpdateFiles(root, "latest")
+      update.stagingDirectory.mkdirs()
+      update.stagingDirectory.resolve("weights.bin").writeText("replacement")
+      assertFalse(root.resolve("latest").exists())
+      assertFalse(update.isPublished("weights.bin", null, listOf("vision.bin")))
+      assertEquals("installed", oldWeights.readText())
+
+      update.stagingDirectory.resolve("vision.bin").writeText("vision data")
+      update.publish("weights.bin", listOf("vision.bin"))
+
+      assertFalse(update.stagingDirectory.exists())
+      assertEquals("replacement", root.resolve("latest/weights.bin").readText())
+      assertEquals("vision data", root.resolve("latest/vision.bin").readText())
+      assertEquals("installed", oldWeights.readText())
+      val recovered = ModelUpdateFiles(root, "latest")
+      assertTrue(recovered.isPublished("weights.bin", null, listOf("vision.bin")))
+      assertTrue(root.resolve("latest/vision.bin").delete())
+      assertFalse(recovered.isPublished("weights.bin", null, listOf("vision.bin")))
+    } finally {
+      root.deleteRecursively()
+    }
+  }
+
+  @Test fun variantUpdateInTheSameRevisionKeepsTheInstalledArtifact() {
+    val root = createTempDirectory(prefix = "variant-update").toFile()
+    try {
+      val installed = root.resolve("revision").apply { mkdirs() }
+      installed.resolve("original.bin").writeText("original")
+      installed.resolve("vision.bin").writeText("shared vision")
+      val update = ModelUpdateFiles(root, "revision", inPlace = true)
+      update.stagingDirectory.mkdirs()
+      update.stagingDirectory.resolve("replacement.bin").writeText("new variant")
+      update.stagingDirectory.resolve("vision.bin").writeText("staged vision")
+      update.publish("replacement.bin", listOf("vision.bin"))
+      assertEquals("original", installed.resolve("original.bin").readText())
+      assertEquals("new variant", installed.resolve("replacement.bin").readText())
+      assertEquals("shared vision", installed.resolve("vision.bin").readText())
+    } finally {
+      root.deleteRecursively()
+    }
+  }
+
   @Test
   fun atomicallyReplacesAnExistingValidArtifact() {
     val directory = createTempDirectory(prefix = "download-finalize").toFile()
@@ -70,7 +116,7 @@ class DownloadedFileFinalizerTest {
       var moveCount = 0
 
       try {
-        finalizeExtractedDirectory(stagingDirectory, finalDirectory) { source, destination ->
+        finalizeDownloadedDirectory(stagingDirectory, finalDirectory) { source, destination ->
           moveCount++
           if (moveCount == 2) throw IOException("simulated replacement rejection")
           Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE)
@@ -98,7 +144,7 @@ class DownloadedFileFinalizerTest {
       var moveCount = 0
 
       try {
-        finalizeExtractedDirectory(stagingDirectory, finalDirectory) { source, destination ->
+        finalizeDownloadedDirectory(stagingDirectory, finalDirectory) { source, destination ->
           moveCount++
           if (moveCount == 3) throw IOException("simulated failure after recovery")
           Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE)

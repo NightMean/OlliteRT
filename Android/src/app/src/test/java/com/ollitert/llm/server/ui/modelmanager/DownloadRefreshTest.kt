@@ -18,11 +18,27 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.ModelFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class DownloadRefreshTest {
+  @Test fun anUpdateDenialRestoresOnlyForTheSameReplacementFile() {
+    val installed = ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
+    val attempted = ModelFile("attempted.litertlm", "revision")
+    val failure = ModelDownloadStatus(ModelDownloadStatusType.FAILED, modelScopeAccessDeniedSite = "CHINA",
+      failureId = "attempt", updateTarget = attempted)
+    fun mergedFor(update: ModelFile) = preserveActiveDownloadStatuses(
+      mapOf("model" to installed), emptyMap(), emptyMap(), emptyMap(), emptySet(),
+      mapOf("model" to failure), mapOf("model" to update),
+    ).getValue("model")
+
+    assertEquals(installed.copy(modelScopeAccessDeniedSite = "CHINA", failureId = "attempt", updateTarget = attempted),
+      mergedFor(attempted))
+    assertEquals(installed, mergedFor(attempted.copy(fileName = "different.litertlm")))
+  }
+
   @Test fun refreshRetainsOnlyActiveStatusesForModelsStillInCatalog() {
     val partial = ModelDownloadStatus(ModelDownloadStatusType.PARTIALLY_DOWNLOADED)
     val running = ModelDownloadStatus(ModelDownloadStatusType.IN_PROGRESS, receivedBytes = 123)

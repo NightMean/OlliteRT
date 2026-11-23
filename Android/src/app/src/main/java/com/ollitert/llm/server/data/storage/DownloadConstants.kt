@@ -38,6 +38,8 @@ const val KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES = "KEY_MODEL_EXTRA_DATA_DOWNL
 const val KEY_MODEL_IS_ZIP = "KEY_MODEL_IS_ZIP"
 const val KEY_MODEL_UNZIPPED_DIR = "KEY_MODEL_UNZIPPED_DIR"
 const val KEY_MODEL_START_UNZIPPING = "KEY_MODEL_START_UNZIPPING"
+internal const val KEY_MODEL_STAGE_UPDATE = "KEY_MODEL_STAGE_UPDATE"
+internal const val KEY_MODEL_UPDATE_IN_PLACE = "KEY_MODEL_UPDATE_IN_PLACE"
 
 /** Persist the access decision in WorkManager; read credentials from Settings at execution time. */
 internal enum class HuggingFaceDownloadAccess {
@@ -53,6 +55,19 @@ const val TMP_FILE_EXT = "olliterttmp"
 // tree is renamed into its final name only after a complete, successful unzip, so
 // an interrupted extraction can never be mistaken for a downloaded model.
 const val TMP_EXTRACT_EXT = "ollitertextract"
+
+internal const val MODEL_UPDATE_STAGE_SUFFIX = ".ollitert-update"
+
+internal fun modelUpdateStagingDirectory(version: String): String {
+  require('/' !in version && '\\' !in version && version !in listOf(".", "..") &&
+    !isModelUpdateStagingDirectory(version)) { "Invalid update version directory" }
+  return version + MODEL_UPDATE_STAGE_SUFFIX
+}
+
+internal fun isModelUpdateStagingDirectory(name: String): Boolean =
+  name.endsWith(MODEL_UPDATE_STAGE_SUFFIX) || name.endsWith(DOWNLOAD_REPLACEMENT_BACKUP_SUFFIX)
+
+internal const val DOWNLOAD_REPLACEMENT_BACKUP_SUFFIX = ".replacement-backup"
 
 // Download progress reporting.
 const val DOWNLOAD_PROGRESS_UPDATE_INTERVAL_MS = 200L

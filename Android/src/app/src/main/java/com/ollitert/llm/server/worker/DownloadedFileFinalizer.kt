@@ -10,13 +10,12 @@
 
 package com.ollitert.llm.server.worker
 
+import com.ollitert.llm.server.data.storage.DOWNLOAD_REPLACEMENT_BACKUP_SUFFIX
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-
-private const val REPLACEMENT_BACKUP_SUFFIX = ".replacement-backup"
 
 internal class DownloadFinalizationException(
   message: String,
@@ -32,10 +31,10 @@ private fun moveAtomically(source: Path, destination: Path) {
   )
 }
 
-private fun performAtomicMove(
+internal fun performAtomicMove(
   source: File,
   destination: File,
-  atomicMove: (source: Path, destination: Path) -> Unit,
+  atomicMove: (source: Path, destination: Path) -> Unit = ::moveAtomically,
   failureMessage: String,
 ) {
   try {
@@ -82,23 +81,23 @@ internal fun finalizeDownloadedFile(
 }
 
 /**
- * Replaces an extracted directory while retaining a recoverable sibling backup.
+ * Publishes a completed model directory while retaining a recoverable sibling backup.
  * A prior backup is restored first after process death interrupted an earlier swap.
  */
-internal fun finalizeExtractedDirectory(
+internal fun finalizeDownloadedDirectory(
   stagingDirectory: File,
   finalDirectory: File,
   atomicMove: (source: Path, destination: Path) -> Unit = ::moveAtomically,
 ) {
   try {
     if (!stagingDirectory.isDirectory) {
-      throw DownloadFinalizationException("Extracted staging directory is missing")
+      throw DownloadFinalizationException("Download staging directory is missing")
     }
     if (stagingDirectory.canonicalFile.parentFile != finalDirectory.canonicalFile.parentFile) {
       throw DownloadFinalizationException("Staging and final directories must share a parent")
     }
 
-    val backupDirectory = File(finalDirectory.absolutePath + REPLACEMENT_BACKUP_SUFFIX)
+    val backupDirectory = File(finalDirectory.absolutePath + DOWNLOAD_REPLACEMENT_BACKUP_SUFFIX)
     if (backupDirectory.exists()) {
       if (finalDirectory.exists()) {
         if (!backupDirectory.deleteRecursively()) {

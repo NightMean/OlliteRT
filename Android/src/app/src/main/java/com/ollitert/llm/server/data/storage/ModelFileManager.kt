@@ -103,6 +103,11 @@ class ModelFileManager(
   }
 
   fun isModelDownloaded(model: Model): Boolean {
+    // The same catalog model can have been resolved to an older installed version already.
+    model.latestModelFile?.let {
+      model.version = it.commitHash
+      model.downloadFileName = it.fileName
+    }
     model.updatable = false
 
     // Check if the current (latest) version is downloaded.
@@ -165,7 +170,10 @@ class ModelFileManager(
     var receivedBytes = 0L
     var totalBytes = 0L
 
-    if (isModelPartiallyDownloaded(model = model)) {
+    if (isModelDownloaded(model = model)) {
+      status = ModelDownloadStatusType.SUCCEEDED
+      Log.d(TAG, "${model.name} has been downloaded.")
+    } else if (isModelPartiallyDownloaded(model = model)) {
       status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED
       val tmpFilePath =
         model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
@@ -173,9 +181,6 @@ class ModelFileManager(
       receivedBytes = tmpFile.length()
       totalBytes = model.totalBytes
       Log.d(TAG, "${model.name} is partially downloaded. $receivedBytes/$totalBytes")
-    } else if (isModelDownloaded(model = model)) {
-      status = ModelDownloadStatusType.SUCCEEDED
-      Log.d(TAG, "${model.name} has been downloaded.")
     } else {
       Log.d(TAG, "${model.name} has not been downloaded.")
     }

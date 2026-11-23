@@ -1286,6 +1286,7 @@
   <string name="model_download_recovery_failed">Could not resume model downloads. Retry from the Models screen.</string>
   <string name="model_download_inspection_failed">Could not check active model downloads. Refresh Models to try again.</string>
   <string name="model_download_start_failed">Could not start the model download. Refresh Models and try again.</string>
+  <string name="model_update_kept_installed">The update failed. Your installed model is still available. %1$s</string>
   <string name="model_download_delete_unavailable">This download cannot be deleted now. Refresh Models, stop the server or wait for the download to finish, then try again.</string>
   <string name="model_download_delete_failed">Could not remove the model files. Refresh Models and try again.</string>
   <string name="model_download_partial_cleanup_needed">Partial files remain after cancellation. Stop to remove them or retry the download.</string>

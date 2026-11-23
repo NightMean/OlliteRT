@@ -188,6 +188,10 @@ OlliteRT needs notification permission to show the foreground service notificati
 - **No updates available** — the background worker checks for updates approximately every 24 hours. If no newer model files exist in the source, no notification is shown
 - **Battery optimization** — if OlliteRT is battery-optimized, Android may prevent the background worker from running. See [Auto-start on boot doesn't work](#auto-start-on-boot-doesnt-work) for how to disable battery optimization
 
+### Model update fails
+
+OlliteRT keeps the installed version on disk while it downloads the replacement. If the update fails or you cancel it, you can still use the installed model. Keep enough free storage for both versions during the update. Select **Update** again to retry after resolving a connection, access, or storage error.
+
 ### Models from a deleted source still appear
 
 When you delete a model source and navigate back, the Models screen refreshes automatically — models from that source should disappear immediately. If they persist, pull-to-refresh on the Models screen. Downloaded model files are not deleted when a source is removed — only the listing is removed.

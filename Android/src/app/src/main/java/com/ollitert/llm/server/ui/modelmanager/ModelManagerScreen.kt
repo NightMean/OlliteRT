@@ -634,7 +634,8 @@ internal fun nextModelScopeAccessFailure(
   statuses: Collection<ModelDownloadStatus>,
   acknowledgedIds: Collection<String>,
 ): ModelDownloadStatus? = statuses.firstOrNull {
-  it.status == ModelDownloadStatusType.FAILED && it.failureId.isNotEmpty() && it.failureId !in acknowledgedIds &&
+  (it.status == ModelDownloadStatusType.FAILED || it.status == ModelDownloadStatusType.SUCCEEDED) &&
+    it.failureId.isNotEmpty() && it.failureId !in acknowledgedIds &&
     ModelScopeSite.entries.any { site -> site.name == it.modelScopeAccessDeniedSite }
 }
 

@@ -61,6 +61,9 @@ private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
 internal fun modelStorageDirectoryName(name: String): String = NORMALIZE_NAME_REGEX.replace(name, "_")
 
+internal fun Model.pendingUpdateFile(): ModelFile? =
+  latestModelFile?.takeIf { updatable && (it.commitHash != version || it.fileName != downloadFileName) }
+
 @Serializable
 enum class RuntimeType {
   @SerialName("unknown") UNKNOWN,
@@ -381,6 +384,7 @@ data class ModelDownloadStatus(
   val modelScopeAccessDeniedSite: String = "",
   val failureId: String = "",
   val bytesPerSecond: Long = 0,
+  val updateTarget: ModelFile? = null,
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
