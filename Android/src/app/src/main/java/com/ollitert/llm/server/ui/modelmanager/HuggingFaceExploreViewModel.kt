@@ -61,6 +61,7 @@ internal data class HuggingFaceExploreState(
   val openingModelId: String? = null,
   val loading: Boolean = false,
   val loadingMore: Boolean = false,
+  val pagesLoaded: Int = 0,
   val searchComplete: Boolean = false,
   val searchError: Boolean = false,
   val searchLimitReached: Boolean = false,
@@ -146,7 +147,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
       if (cached != null) {
         currentKey = key
         searchProgress = cached.progress
-        _state.update { it.copy(loading = false, loadingMore = false, searchComplete = cached.progress.nextUrl == null,
+        _state.update { it.copy(loading = false, loadingMore = false, pagesLoaded = cached.progress.visited.size, searchComplete = cached.progress.nextUrl == null,
           searchError = false, searchLimitReached = false, searchInvalidPagination = false, error = false, failedModel = null,
           details = null, openingModelId = null, models = cached.progress.models) }
         return
@@ -154,7 +155,8 @@ internal class HuggingFaceExploreViewModel internal constructor(
       val initial = if (resume) searchProgress ?: client.initialSearch(query, sort) else client.initialSearch(query, sort)
       currentKey = key
       searchProgress = initial
-      _state.update { it.copy(loading = !resume, loadingMore = resume, searchComplete = false, searchError = false, searchLimitReached = false, searchInvalidPagination = false,
+      _state.update { it.copy(loading = !resume, loadingMore = resume, pagesLoaded = initial.visited.size,
+        searchComplete = false, searchError = false, searchLimitReached = false, searchInvalidPagination = false,
         error = if (resume) it.error else false, failedModel = if (resume) it.failedModel else null, details = if (resume) it.details else null,
         openingModelId = if (resume) it.openingModelId else null, models = initial.models) }
       searchGeneration to initial
@@ -174,7 +176,10 @@ internal class HuggingFaceExploreViewModel internal constructor(
                 cachedSearches.remove(cachedSearches.keys.first())
               }
             } else cachedSearches.remove(key)
-            _state.update { it.copy(models = result.models, loading = false, loadingMore = false, searchComplete = result.nextUrl == null) }
+            _state.update {
+              it.copy(models = result.models, loading = false, loadingMore = false,
+                pagesLoaded = result.visited.size, searchComplete = result.nextUrl == null)
+            }
           }
         }
       } catch (e: CancellationException) {

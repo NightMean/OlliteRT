@@ -239,6 +239,28 @@ class HuggingFaceExploreViewModelTest {
     assertEquals(listOf(model), vm.state.value.models)
   }
 
+  @Test fun aPageCanAdvanceWithoutAddingVisibleModels() = runTest(dispatcher) {
+    val model = HuggingFaceModel("author/model")
+    val initial = HuggingFaceSearchProgress(emptyList(), "first")
+    val firstPage = HuggingFaceSearchProgress(listOf(model), "second", setOf("first"))
+    val secondPage = firstPage.copy(nextUrl = "third", visited = setOf("first", "second"))
+    val preferences = mockk<PreferencesRepository> { every { getHfToken() } returns "" }
+    val catalog = mockk<HuggingFaceCatalog> {
+      every { initialSearch(any(), any()) } returns initial
+      every { searchPage(initial, any()) } returns firstPage
+      every { searchPage(firstPage, any()) } returns secondPage
+    }
+    val vm = HuggingFaceExploreViewModel(mockk(relaxed = true), preferences, catalog, dispatcher)
+    advanceUntilIdle()
+    assertEquals(1, vm.state.value.pagesLoaded)
+
+    vm.loadMore()
+    advanceUntilIdle()
+    assertEquals(listOf(model), vm.state.value.models)
+    assertEquals(2, vm.state.value.pagesLoaded)
+    assertTrue(!vm.state.value.searchComplete)
+  }
+
   @Test fun openingModelDoesNotCancelAnOngoingSearch() = runTest(dispatcher) {
     val model = HuggingFaceModel("author/model")
     val initial = HuggingFaceSearchProgress(emptyList(), "first")

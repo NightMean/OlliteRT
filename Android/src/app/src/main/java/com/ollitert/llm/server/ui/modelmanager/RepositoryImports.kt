@@ -56,13 +56,6 @@ internal fun selectRepositoryPath(current: String?, paths: List<String>, imports
   return paths.firstOrNull { it !in unavailable }
 }
 
-internal fun shouldLoadRepositoryPage(lastVisible: Int, importedCount: Int, availableCount: Int): Boolean {
-  if (availableCount == 0) return true
-  val firstAvailable = (if (importedCount > 0) importedCount + 1 else 0) + 1
-  return lastVisible in firstAvailable until firstAvailable + availableCount &&
-    lastVisible >= firstAvailable + (availableCount - 3).coerceAtLeast(0)
-}
-
 @Composable
 internal fun rememberRepositoryImports(manager: ModelManagerViewModel, provider: DiscoveredProvider, retry: Int = 0): RepositoryImportsState {
   val context = LocalContext.current

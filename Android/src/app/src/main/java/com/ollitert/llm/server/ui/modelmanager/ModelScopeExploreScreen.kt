@@ -20,16 +20,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -41,12 +36,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,7 +50,6 @@ import com.ollitert.llm.server.data.allowlist.modelScopeFileUrl
 import com.ollitert.llm.server.ui.modelmanager.components.ModelScopeAccessDialog
 import com.ollitert.llm.server.ui.common.OlliteSearchBar
 import com.ollitert.llm.server.ui.common.UrlInputDialog
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,22 +64,9 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTok
   val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.MODELSCOPE, importsRetry)
   val imports = importsState.items
   val importedGroups = matchingImportedRepositories(imports.filter { it.record.modelScopeSite == state.site }, state.query)
-  val available = state.models.filterNot { it.id in importedGroups }
   var showLink by rememberSaveable { mutableStateOf(false) }
   val listState = rememberLazyListState()
   LaunchedEffect(state.query, state.sort, state.site) { listState.scrollToItem(0) }
-  LaunchedEffect(listState, state.page, available.size, importedGroups.size, importsState.ready, state.hasMore, state.loading, state.openingModelId,
-    state.loadingMore, state.paginationError, state.error, state.details, state.saving, showLink) {
-    if (importsState.ready && state.page > 0 && state.hasMore && !state.loading && !state.loadingMore && state.openingModelId == null &&
-      !state.paginationError && !state.error && state.details == null && !state.saving && !showLink) {
-      if (available.isEmpty()) viewModel.loadMore() else {
-        val availableStart = (if (importedGroups.isNotEmpty()) importedGroups.size + 1 else 0) + 1
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull { it.index in availableStart until availableStart + available.size }?.index ?: -1 }
-          .distinctUntilChanged()
-          .collect { lastVisible -> if (shouldLoadRepositoryPage(lastVisible, importedGroups.size, available.size)) viewModel.loadMore() }
-      }
-    }
-  }
   LaunchedEffect(state.details) { if (state.details != null) showLink = false }
   BackHandler(enabled = state.saving) { }
   LaunchedEffect(state.addedModelName) {
@@ -137,42 +114,39 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTok
           verticalPadding = if (state.models.isEmpty()) 48.dp else 16.dp,
         )
       }
-      val loadingMoreDescription = stringResource(R.string.modelscope_loading_more)
-      if (importsState.ready) LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (importedGroups.isNotEmpty()) {
-          item(key = "imported_header") { ModelSectionHeader(stringResource(R.string.repository_imported), importedGroups.size, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)) }
-          items(importedGroups.keys.toList(), key = { "imported:$it" }) { id ->
+      if (importsState.ready) {
+        RepositoryExploreList(
+          listState = listState,
+          remoteModels = remember(state.models) { state.models.map { it.toRepositorySummary() } },
+          importedIds = importedGroups.keys,
+          complete = !state.hasMore && !state.loading && !state.loadingMore && !state.searchLimitReached &&
+            !state.paginationError && !state.error,
+          openingModelId = state.openingModelId,
+          loadingMore = state.loadingMore,
+          mayLoadMore = state.page > 0 && state.hasMore && !state.loading && !state.loadingMore &&
+            state.openingModelId == null && !state.paginationError && !state.error && state.details == null &&
+            !state.saving && !showLink,
+          pageKey = listOf(state.site, state.query, state.sort, state.page),
+          emptyMessage = if (!state.error && !state.loading && !state.loadingMore && !state.hasMore && !state.paginationError) {
+            stringResource(if (state.query.isNotBlank()) R.string.no_models_match_search else R.string.hf_explore_empty)
+          } else null,
+          onLoadMore = viewModel::loadMore,
+          onOpen = { id, imported ->
             val remote = state.models.firstOrNull { it.id == id }
-            val source = remote ?: ModelScopeModel(id, downloads = -1)
-            RepositoryModelCard(source.toRepositorySummary(),
-              showStats = remote != null, loading = state.openingModelId == id,
-              onClick = { viewModel.open(source, hasLocalImports = true) })
+            if (imported) viewModel.open(remote ?: ModelScopeModel(id, downloads = -1), hasLocalImports = true)
+            else remote?.let { viewModel.open(it) }
+          },
+          modifier = Modifier.weight(1f),
+          loadingMoreDescription = stringResource(R.string.modelscope_loading_more),
+        ) {
+          if (state.paginationError) item(key = "page_error") {
+            ModelListError(title = stringResource(if (state.paginationStalled) R.string.modelscope_page_empty else R.string.modelscope_more_failed),
+              message = stringResource(if (state.paginationStalled) R.string.modelscope_page_continue else if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_more_error),
+              onRetry = viewModel::retryLoadMore, verticalPadding = 16.dp,
+              retryLabel = stringResource(if (state.paginationStalled) R.string.modelscope_continue else R.string.retry))
           }
+          if (state.searchLimitReached) item { Text(stringResource(R.string.modelscope_search_limit)) }
         }
-        item(key = "available_header") { ModelSectionHeader(stringResource(R.string.repository_available), available.size,
-          Modifier.padding(horizontal = 16.dp).padding(top = if (importedGroups.isEmpty()) 8.dp else 24.dp, bottom = 8.dp), complete = !state.hasMore && !state.loading && !state.loadingMore && !state.searchLimitReached && !state.paginationError && !state.error) }
-        if (!state.error && !state.loading && !state.loadingMore && !state.hasMore && !state.paginationError && state.models.isEmpty() && importedGroups.isEmpty()) item(key = "empty") {
-          ModelListEmpty(stringResource(if (state.query.isNotBlank()) R.string.no_models_match_search else R.string.hf_explore_empty))
-        }
-        items(available, key = { "available:${it.id}" }) { model ->
-          RepositoryModelCard(
-            model = model.toRepositorySummary(),
-            loading = state.openingModelId == model.id,
-            onClick = { viewModel.open(model) },
-          )
-        }
-        if (state.loadingMore) item(key = "loading_more") {
-          Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(Modifier.semantics { contentDescription = loadingMoreDescription })
-          }
-        }
-        if (state.paginationError) item(key = "page_error") {
-          ModelListError(title = stringResource(if (state.paginationStalled) R.string.modelscope_page_empty else R.string.modelscope_more_failed),
-            message = stringResource(if (state.paginationStalled) R.string.modelscope_page_continue else if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_more_error),
-            onRetry = viewModel::retryLoadMore, verticalPadding = 16.dp,
-            retryLabel = stringResource(if (state.paginationStalled) R.string.modelscope_continue else R.string.retry))
-        }
-        if (state.searchLimitReached) item { Text(stringResource(R.string.modelscope_search_limit)) }
       }
     }
   }

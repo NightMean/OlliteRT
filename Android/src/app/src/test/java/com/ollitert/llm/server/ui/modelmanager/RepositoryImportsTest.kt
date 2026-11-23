@@ -32,13 +32,17 @@ class RepositoryImportsTest {
     assertEquals(entries.take(2), result.getValue("one/Alpha"))
   }
 
-  @Test fun paginationAccountsForImportedCardsAndHeaders() {
-    assertTrue(shouldLoadRepositoryPage(-1, importedCount = 3, availableCount = 0))
-    assertFalse(shouldLoadRepositoryPage(4, importedCount = 3, availableCount = 5))
-    assertFalse(shouldLoadRepositoryPage(5, importedCount = 3, availableCount = 5))
-    assertTrue(shouldLoadRepositoryPage(7, importedCount = 3, availableCount = 5))
-    assertFalse(shouldLoadRepositoryPage(10, importedCount = 3, availableCount = 5))
-    assertTrue(shouldLoadRepositoryPage(1, importedCount = 0, availableCount = 1))
+  @Test fun paginationUsesAvailableRowKeysRegardlessOfImportedCount() {
+    val available = listOf("one", "two", "three", "four", "five")
+    val expected = setOf("available:three", "available:four", "available:five")
+    assertEquals(expected, repositoryPageTriggerKeys(importedCount = 3, available))
+    assertEquals(expected, repositoryPageTriggerKeys(importedCount = 0, available))
+    assertEquals(setOf("available:one"), repositoryPageTriggerKeys(0, available.take(1)))
+  }
+
+  @Test fun withOnlyImportedCardsPaginationWaitsForTheAvailableHeader() {
+    assertEquals(setOf("available_header"), repositoryPageTriggerKeys(3, emptyList()))
+    assertTrue(repositoryPageTriggerKeys(0, emptyList()).isEmpty())
   }
 
   @Test fun explicitSelectionDoesNotChangeWhenImportsLoadOrDisappear() {
