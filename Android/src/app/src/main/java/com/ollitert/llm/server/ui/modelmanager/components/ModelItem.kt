@@ -32,10 +32,8 @@ import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -244,22 +242,7 @@ fun ModelItem(
   }
 
   if (showRemoveDiscovered) {
-    val context = LocalContext.current
-    val failure = stringResource(R.string.hf_remove_model_error)
-    AlertDialog(
-      onDismissRequest = { showRemoveDiscovered = false },
-      title = { Text(stringResource(R.string.hf_remove_model)) },
-      text = { Text(stringResource(R.string.hf_remove_model_message, model.sourceRepository)) },
-      confirmButton = {
-        TextButton(onClick = {
-          showRemoveDiscovered = false
-          modelManagerViewModel.removeDiscoveredModel(model) { removed ->
-            if (!removed) Toast.makeText(context, failure, Toast.LENGTH_LONG).show()
-          }
-        }) { Text(stringResource(R.string.hf_remove_model)) }
-      },
-      dismissButton = { TextButton(onClick = { showRemoveDiscovered = false }) { Text(stringResource(R.string.cancel)) } },
-    )
+    DiscoveredModelRemovalDialog(model, modelManagerViewModel, onDismiss = { showRemoveDiscovered = false })
   }
 
   // Edit imported model defaults dialog

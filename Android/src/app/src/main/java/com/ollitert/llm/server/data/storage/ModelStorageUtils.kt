@@ -24,6 +24,17 @@ import java.io.File
 
 private const val TAG = "OlliteRT.Storage"
 
+internal fun File.deleteModelDirectory(
+  relativeDirectory: String,
+  deleteDirectory: (File) -> Boolean = { it.deleteRecursively() },
+): Boolean {
+  val root = canonicalFile.toPath()
+  val target = File(this, relativeDirectory).canonicalFile
+  val path = target.toPath()
+  require(path != root && path.startsWith(root)) { "Invalid model directory" }
+  return !target.exists() || (deleteDirectory(target) && !target.exists())
+}
+
 /**
  * Deletes stale .tmp files left by interrupted or crashed model imports to reclaim storage.
  * Safe to call on every app start — no-ops if the imports directory doesn't exist.

@@ -39,7 +39,7 @@ import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
 import com.ollitert.llm.server.data.storage.canInspectDiscoveredRemoval
 import com.ollitert.llm.server.data.prefs.DefaultModelGuard
-import com.ollitert.llm.server.data.storage.canRemoveDiscoveredModel
+import com.ollitert.llm.server.data.storage.canRemoveModelFiles
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.UnregisteredImportFileException
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
@@ -101,6 +101,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import java.util.UUID
+import java.io.IOException
 
 private const val TAG = "OlliteRT.ModelVM"
 data class ModelInitializationStatus(
@@ -137,8 +138,6 @@ data class ModelManagerUiState(
   val droppedByVersionFilter: Int = 0,
   val totalBeforeFilters: Int = 0,
 )
-
-internal data class DiscoveredRemovalInspection(val diskStatus: ModelDownloadStatusType, val isDefault: Boolean)
 
 internal fun preserveActiveDownloadStatuses(
   loaded: Map<String, ModelDownloadStatus>,
@@ -402,33 +401,40 @@ internal constructor(
     observer.start()
   }
 
-  internal fun inspectDiscoveredModelRemoval(model: Model, onResult: (DiscoveredRemovalInspection?) -> Unit) {
-    if (!downloadInspectionAvailable || !isDiscoveredSource(model.sourceRepositoryId) ||
-      !canInspectDiscoveredRemoval(uiState.value.modelDownloadStatus[model.name]?.status)
-    ) {
-      onResult(null)
-      return
-    }
-    viewModelScope.launch(mainDispatcher) {
-      val inspection = try {
-        withContext(ioDispatcher) {
-          ModelDownloadLocks.tryWithModel(model.name) {
-            val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
-            val exists = discoveredModelsRepository.read(provider).any { it.allowed.name == model.name }
-            val status = modelStorageRepository.getModelDownloadStatus(model).status
-            if (!exists || !canRemoveDiscoveredModel(model.name, status, serverStateRepository.activeModelName.value,
-                serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(),
-                downloadRepository.hasUnfinishedDownload(model.name), status)) null
-            else DiscoveredRemovalInspection(status, preferencesRepository.getDefaultModelName().equals(model.name, ignoreCase = true))
-          }
-        }
-      } catch (e: CancellationException) { throw e }
-      catch (e: Exception) { Log.w(TAG, "Could not inspect discovered model removal", e); null }
-      onResult(inspection)
+  // The caller holds the same lock used by the download worker and server startup.
+  private fun removableDiskStatus(model: Model, expected: ModelDownloadStatusType? = null): ModelDownloadStatusType? {
+    val unfinished = downloadRepository.hasUnfinishedDownload(model.name)
+    // The status probe can select an older version. Keep that change off the UI's model instance.
+    val status = modelStorageRepository.getModelDownloadStatus(model.copy(configs = emptyList())).status
+    return status.takeIf {
+      canRemoveModelFiles(model.name, status, serverStateRepository.activeModelName.value,
+        serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(), unfinished, expected ?: status)
     }
   }
 
-  fun removeDiscoveredModel(model: Model, confirmedStatus: ModelDownloadStatusType = ModelDownloadStatusType.NOT_DOWNLOADED,
+  internal suspend fun inspectDiscoveredModelRemoval(model: Model): ModelDownloadStatusType? {
+    if (!downloadInspectionAvailable || !isDiscoveredSource(model.sourceRepositoryId) ||
+      !canInspectDiscoveredRemoval(uiState.value.modelDownloadStatus[model.name]?.status)
+    ) {
+      return null
+    }
+    return try {
+      withContext(ioDispatcher) {
+        ModelDownloadLocks.tryWithModel(model.name) {
+          val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
+          val exists = discoveredModelsRepository.read(provider).any { it.allowed.name == model.name }
+          if (exists) removableDiskStatus(model) else null
+        }
+      }
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.w(TAG, "Could not inspect discovered model removal", e)
+      null
+    }
+  }
+
+  internal fun removeDiscoveredModel(model: Model, confirmedStatus: ModelDownloadStatusType,
     onResult: (Boolean) -> Unit) {
     if (!downloadInspectionAvailable || model.name in recoveringModelNames || !isDiscoveredSource(model.sourceRepositoryId) || !downloadStartGate.tryAcquire(model.name)) {
       onResult(false)
@@ -447,10 +453,7 @@ internal constructor(
       try {
         val removed = withContext(ioDispatcher) {
           ModelDownloadLocks.tryWithModel(model.name) {
-            val statusOnDisk = modelStorageRepository.getModelDownloadStatus(model).status
-            if (!canRemoveDiscoveredModel(model.name, statusOnDisk, serverStateRepository.activeModelName.value,
-                serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(),
-                downloadRepository.hasUnfinishedDownload(model.name), confirmedStatus)) false
+            if (removableDiskStatus(model, confirmedStatus) == null) false
             else {
               DefaultModelGuard.beginRemoval(model.name)
               var removed = false
@@ -467,7 +470,7 @@ internal constructor(
               } finally {
                 val usable = !removed && runCatching {
                   discoveredModelsRepository.read(provider).any { it.allowed.name == model.name } &&
-                    modelStorageRepository.getModelDownloadStatus(model).status == ModelDownloadStatusType.SUCCEEDED
+                    modelStorageRepository.getModelDownloadStatus(model.copy(configs = emptyList())).status == ModelDownloadStatusType.SUCCEEDED
                 }.getOrDefault(false)
                 DefaultModelGuard.finishRemoval(model.name, usable)
               }
@@ -531,7 +534,11 @@ internal constructor(
       mgr?.cancel(AllowlistRefreshWorker.modelUpdateNotificationId(model.name))
     }
 
-    deleteModel(model = model)
+    downloadRepository.cancelDownloadModel(model)
+    if (!resetModelDownload(model)) {
+      downloadStartGate.release(model.name)
+      return false
+    }
 
     setDownloadStatus(
       curModel = model,
@@ -552,8 +559,7 @@ internal constructor(
     invalidateDownloadObservation(model.name)
     downloadStartGate.release(model.name)
     downloadRepository.cancelDownloadModel(model)
-    deleteModel(model = model)
-    processPendingDownloads()
+    if (resetModelDownload(model)) processPendingDownloads()
   }
 
   fun retryDownloadModel(model: Model): Boolean {
@@ -592,36 +598,25 @@ internal constructor(
     cancelDownloadModel(model)
   }
 
-  fun deleteModel(model: Model) {
-    if (model.imported && model.name in _renamingFavoriteIds.value) return
-    downloadRepository.cancelDownloadModel(model)
-    serverStateRepository.clearErrorIfModel(model.name)
-    if (model.imported) {
-      allowlistLoadJob?.cancel()
-      allowlistLoadGenerationGate.beginLoad()
-      _uiState.update { it.copy(loadingModelAllowlist = false) }
-      viewModelScope.launch(ioDispatcher) {
-        try {
-          importedModelCoordinator.deleteImportedModelRecord(model.storageFileName)
-          removeFavorite(model.name)
-          markDownloadStatusChanged(model.name)
-          _uiState.update { current -> current.copy(
-            models = current.models.filterNot { it.name == model.name },
-            modelDownloadStatus = current.modelDownloadStatus - model.name,
-          ) }
-          notifyStorageChanged()
-          loadModelAllowlist()
-        } catch (e: CancellationException) {
-          throw e
-        } catch (e: Exception) {
-          Log.e(TAG, "Could not remove imported model", e)
-          _toastErrorChannel.trySend(context.getString(R.string.imported_model_recovery_error))
-          loadModelAllowlist()
-        }
+  private fun resetModelDownload(model: Model): Boolean {
+    if (model.imported) return false
+    try {
+      if (!modelStorageRepository.deleteDirFromExternalFilesDir(model.normalizedName)) {
+        throw IOException("Could not remove the model's download directory")
       }
-      return
+    } catch (e: IOException) {
+      reportDownloadDeletionFailed(e)
+      return false
+    } catch (e: IllegalArgumentException) {
+      reportDownloadDeletionFailed(e)
+      return false
     }
+    publishDownloadDeletion(model)
+    return true
+  }
 
+  private fun publishDownloadDeletion(model: Model) {
+    serverStateRepository.clearErrorIfModel(model.name)
     if (model.updatable) {
       model.updatable = false
       model.latestModelFile?.let {
@@ -633,12 +628,9 @@ internal constructor(
       }
     }
 
-    deleteDirFromExternalFilesDir(model.normalizedName)
-
-    val action = if (model.imported) "Imported model deleted" else "Model deleted"
     if (preferencesRepository.isVerboseDebugEnabled()) {
       RequestLogStore.addEvent(
-        "$action: ${model.name} (${model.sizeInBytes.humanReadableSize()})",
+        "Model deleted: ${model.name} (${model.sizeInBytes.humanReadableSize()})",
         level = LogLevel.DEBUG,
         modelName = model.name,
         category = EventCategory.MODEL,
@@ -647,31 +639,76 @@ internal constructor(
 
     markDownloadStatusChanged(model.name)
     _uiState.update { current ->
-      val statusMap = current.modelDownloadStatus.toMutableMap()
-      val models = if (model.imported) {
-        statusMap.remove(model.name)
+      val models = if (current.allReposDisabled && !isDiscoveredSource(model.sourceRepositoryId)) {
         current.models.filter { it.name != model.name }
       } else {
-        statusMap[model.name] = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
-        if (current.allReposDisabled && !isDiscoveredSource(model.sourceRepositoryId)) {
-          current.models.filter { it.name != model.name }
-        } else {
-          current.models
-        }
+        current.models
       }
-      current.copy(modelDownloadStatus = statusMap, models = models)
+      current.copy(
+        models = models,
+        modelDownloadStatus = current.modelDownloadStatus +
+          (model.name to ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)),
+      )
     }
   }
 
-  fun deleteModelAndRefreshStorage(model: Model) {
-    invalidateDownloadObservation(model.name)
-    downloadStartGate.release(model.name)
-    deleteModel(model = model)
+  private fun reportDownloadDeletionFailed(error: Exception) {
+    Log.e(TAG, "Could not remove model files", error)
+    _toastErrorChannel.trySend(context.getString(R.string.model_download_delete_failed))
     notifyStorageChanged()
-    viewModelScope.launch {
-      for (delaySec in listOf(2L, 5L, 10L)) {
-        kotlinx.coroutines.delay(delaySec * 1000)
+    loadModelAllowlist()
+  }
+
+  fun deleteModelAndRefreshStorage(model: Model) {
+    if (!downloadInspectionAvailable || model.name in recoveringModelNames ||
+      model.name in _renamingFavoriteIds.value || !downloadStartGate.tryAcquire(model.name)
+    ) {
+      _toastErrorChannel.trySend(context.getString(R.string.model_download_delete_unavailable))
+      return
+    }
+
+    viewModelScope.launch(mainDispatcher) {
+      try {
+        val removed = withContext(ioDispatcher) {
+          ModelDownloadLocks.tryWithModel(model.name) {
+            if (removableDiskStatus(model, ModelDownloadStatusType.SUCCEEDED) == null) return@tryWithModel false
+            if (model.imported) {
+              importedModelCoordinator.deleteImportedModelRecord(model.storageFileName)
+            } else if (!modelStorageRepository.deleteDirFromExternalFilesDir(model.normalizedName)) {
+              throw IOException("Could not remove the model's download directory")
+            }
+            true
+          }
+        }
+        if (removed != true) {
+          _toastErrorChannel.trySend(context.getString(R.string.model_download_delete_unavailable))
+          return@launch
+        }
+
+        invalidateDownloadObservation(model.name)
+        if (model.imported) {
+          allowlistLoadJob?.cancel()
+          allowlistLoadGenerationGate.beginLoad()
+          removeFavorite(model.name)
+          serverStateRepository.clearErrorIfModel(model.name)
+          markDownloadStatusChanged(model.name)
+          _uiState.update { current ->
+            current.copy(
+              models = current.models.filterNot { it.name == model.name },
+              modelDownloadStatus = current.modelDownloadStatus - model.name,
+            )
+          }
+          loadModelAllowlist()
+        } else {
+          publishDownloadDeletion(model)
+        }
         notifyStorageChanged()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        reportDownloadDeletionFailed(e)
+      } finally {
+        downloadStartGate.release(model.name)
       }
     }
   }
@@ -1190,5 +1227,4 @@ internal constructor(
   private fun getModelDownloadStatus(model: Model) = modelStorageRepository.getModelDownloadStatus(model)
 
   private fun deleteFileFromExternalFilesDir(fileName: String) = modelStorageRepository.deleteFileFromExternalFilesDir(fileName)
-  private fun deleteDirFromExternalFilesDir(dir: String) = modelStorageRepository.deleteDirFromExternalFilesDir(dir)
 }

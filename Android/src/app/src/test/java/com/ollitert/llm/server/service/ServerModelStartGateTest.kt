@@ -20,7 +20,7 @@ import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
-import com.ollitert.llm.server.data.storage.canRemoveDiscoveredModel
+import com.ollitert.llm.server.data.storage.canRemoveModelFiles
 import com.ollitert.llm.server.data.prefs.DEFAULT_PORT
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -41,7 +41,7 @@ class ServerModelStartGateTest {
     val modelFile = temp.newFile()
     assertTrue(reserveModelForServer("example", modelFile, DEFAULT_PORT))
     val allowed = ModelDownloadLocks.withModel("example") {
-      canRemoveDiscoveredModel("example", ModelDownloadStatusType.SUCCEEDED, ServerMetrics.activeModelName.value,
+      canRemoveModelFiles("example", ModelDownloadStatusType.SUCCEEDED, ServerMetrics.activeModelName.value,
         ServerMetrics.status.value, ModelDownloadLocks.isCleanupPending(), false, ModelDownloadStatusType.SUCCEEDED)
     }
     assertEquals(ServerStatus.LOADING, ServerMetrics.status.value)
@@ -64,11 +64,11 @@ class ServerModelStartGateTest {
       ServerCleanupCoordinator.enqueueCleanup("test-cleanup") { release.await(5, TimeUnit.SECONDS) }
       val cleanup = ServerCleanupCoordinator.cleanupLatch.get()!!
       ServerMetrics.onServerStopped()
-      assertFalse(canRemoveDiscoveredModel("example", ModelDownloadStatusType.SUCCEEDED, ServerMetrics.activeModelName.value,
+      assertFalse(canRemoveModelFiles("example", ModelDownloadStatusType.SUCCEEDED, ServerMetrics.activeModelName.value,
         ServerMetrics.status.value, ModelDownloadLocks.isCleanupPending(), false, ModelDownloadStatusType.SUCCEEDED))
       release.countDown()
       assertTrue(cleanup.await(5, TimeUnit.SECONDS))
-      assertTrue(canRemoveDiscoveredModel("example", ModelDownloadStatusType.SUCCEEDED, ServerMetrics.activeModelName.value,
+      assertTrue(canRemoveModelFiles("example", ModelDownloadStatusType.SUCCEEDED, ServerMetrics.activeModelName.value,
         ServerMetrics.status.value, ModelDownloadLocks.isCleanupPending(), false, ModelDownloadStatusType.SUCCEEDED))
     } finally {
       release.countDown()

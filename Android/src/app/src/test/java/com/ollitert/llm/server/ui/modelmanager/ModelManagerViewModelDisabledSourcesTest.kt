@@ -19,6 +19,7 @@ package com.ollitert.llm.server.ui.modelmanager
 import android.content.Context
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.R
+import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.allowlist.LoadResult
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.RefreshResult
@@ -28,6 +29,7 @@ import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.model.Repository
+import com.ollitert.llm.server.data.repository.DefaultModelStorageRepository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.repository.FakePreferencesRepository
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
@@ -46,6 +48,7 @@ import java.io.IOException
 import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -53,6 +56,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -182,6 +186,87 @@ class ModelManagerViewModelDisabledSourcesTest {
     advanceUntilIdle()
     assertEquals(complete, recreated.uiState.value.modelDownloadStatus[model.name])
     verify(exactly = 0) { downloads.cancelDownloads(any(), any()) }
+  }
+
+  @Test
+  fun confirmedFileDeletionRechecksLiveServerStateAndKeepsCatalogSettings() = runTest(testDispatcher) {
+    val model = Model(name = "Catalog model", downloadFileName = "model.litertlm", version = "revision")
+    val context = mockk<Context>(relaxed = true) {
+      every { getExternalFilesDir(null) } returns externalFilesDir
+    }
+    val artifact = File(model.getPath(context)).apply { parentFile?.mkdirs(); writeText("model") }
+    val realStorage = DefaultModelStorageRepository(context)
+    val storage = mockk<ModelStorageRepository>(relaxed = true) {
+      every { readTestAllowlist() } returns null
+      every { getModelDownloadStatus(any()) } answers { realStorage.getModelDownloadStatus(firstArg()) }
+      every { deleteDirFromExternalFilesDir(any()) } answers { realStorage.deleteDirFromExternalFilesDir(firstArg()) }
+    }
+    val manager = mockk<RepositoryManager>(relaxed = true) {
+      coEvery { refreshAll(storage) } returns RefreshResult(emptySet())
+      coEvery { loadAll(any(), storage, ignoreDisabled = false, modelFilter = any()) } returns
+        LoadResult(models = listOf(model), repositories = emptyList())
+    }
+    val liveStatus = MutableStateFlow(ServerStatus.STOPPED)
+    val liveModel = MutableStateFlow<String?>(null)
+    val server = mockk<ServerStateRepository>(relaxed = true) {
+      every { status } returns liveStatus
+      every { activeModelName } returns liveModel
+    }
+    val downloads = mockk<DownloadRepository>(relaxed = true) {
+      every { getModelDownloadWork() } returns ModelDownloadWork()
+      every { hasUnfinishedDownload(model.name) } returns false
+    }
+    val preferences = FakePreferencesRepository().apply {
+      setDefaultModelName(model.name)
+      setModelFavorite(model.name, true)
+    }
+    val owner = ModelManagerViewModel(
+      downloadRepository = downloads,
+      protoDataStoreRepository = mockk(relaxed = true),
+      lifecycleProvider = mockk(relaxed = true),
+      repositoryManager = manager,
+      context = context,
+      preferencesRepository = preferences,
+      serverStateRepository = server,
+      modelStorageRepository = storage,
+      ioDispatcher = testDispatcher,
+      mainDispatcher = testDispatcher,
+    )
+    owner.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(ModelDownloadStatusType.SUCCEEDED, owner.uiState.value.modelDownloadStatus[model.name]?.status)
+
+    // The user can have opened the dialog while the server was still stopped.
+    liveModel.value = model.name
+    liveStatus.value = ServerStatus.LOADING
+    owner.deleteModelAndRefreshStorage(model)
+    advanceUntilIdle()
+    assertTrue(artifact.isFile)
+
+    liveStatus.value = ServerStatus.STOPPED
+    every { downloads.hasUnfinishedDownload(model.name) } returns true
+    owner.deleteModelAndRefreshStorage(model)
+    advanceUntilIdle()
+    assertTrue(artifact.isFile)
+
+    every { downloads.hasUnfinishedDownload(model.name) } returns false
+    every { storage.deleteDirFromExternalFilesDir(model.normalizedName) } returns false
+    owner.deleteModelAndRefreshStorage(model)
+    advanceUntilIdle()
+    assertTrue(artifact.isFile)
+    assertEquals(ModelDownloadStatusType.SUCCEEDED, owner.uiState.value.modelDownloadStatus[model.name]?.status)
+
+    every { storage.deleteDirFromExternalFilesDir(model.normalizedName) } answers {
+      realStorage.deleteDirFromExternalFilesDir(firstArg())
+    }
+    owner.deleteModelAndRefreshStorage(model)
+    advanceUntilIdle()
+    assertFalse(artifact.exists())
+    assertEquals(ModelDownloadStatusType.NOT_DOWNLOADED, owner.uiState.value.modelDownloadStatus[model.name]?.status)
+    assertEquals(listOf(model.name), owner.uiState.value.models.map { it.name })
+    assertEquals(setOf(model.name), preferences.getFavoriteModels())
+    assertEquals(model.name, preferences.getDefaultModelName())
+    verify(exactly = 0) { downloads.cancelDownloadModel(any()) }
   }
 
   @Test

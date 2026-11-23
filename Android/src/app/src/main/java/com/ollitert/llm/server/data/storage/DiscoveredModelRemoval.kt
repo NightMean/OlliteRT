@@ -29,7 +29,7 @@ internal fun canInspectDiscoveredRemoval(status: ModelDownloadStatusType?): Bool
   else -> false
 }
 
-internal fun canRemoveDiscoveredModel(
+internal fun canRemoveModelFiles(
   modelName: String, diskStatus: ModelDownloadStatusType?, activeModelName: String?,
   serverStatus: ServerStatus, cleanupPending: Boolean, unfinishedDownload: Boolean,
   confirmedStatus: ModelDownloadStatusType,
@@ -45,12 +45,8 @@ internal class DiscoveredModelRemoval(
   private val deleteDirectory: (File) -> Boolean = { it.deleteRecursively() },
 ) {
   fun remove(modelName: String, relativeDirectory: String, beforeRemoveRecord: () -> Unit = {}): Boolean {
-    val rootPath = root.canonicalFile.toPath()
-    val target = File(root, relativeDirectory).canonicalFile
-    val targetPath = target.toPath()
-    require(targetPath != rootPath && targetPath.startsWith(rootPath)) { "Invalid model directory" }
     if (store.readEntries().none { it.allowed.name == modelName }) return false
-    if (target.exists() && !deleteDirectory(target)) return false
+    if (!root.deleteModelDirectory(relativeDirectory, deleteDirectory)) return false
     // Complete dependent durable state first; after a crash, an existing record can be retried.
     beforeRemoveRecord()
     return store.remove(modelName)

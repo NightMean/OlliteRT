@@ -119,7 +119,7 @@ class ModelDownloadLocksTest {
     published.await()
     val removal = async {
       ModelDownloadLocks.withModel("example") {
-        canRemoveDiscoveredModel("example", ModelDownloadStatusType.SUCCEEDED, active, status, false, false, ModelDownloadStatusType.SUCCEEDED)
+        canRemoveModelFiles("example", ModelDownloadStatusType.SUCCEEDED, active, status, false, false, ModelDownloadStatusType.SUCCEEDED)
       }
     }
     yield()

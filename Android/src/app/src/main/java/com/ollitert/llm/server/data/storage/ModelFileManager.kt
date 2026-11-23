@@ -91,12 +91,7 @@ class ModelFileManager(
     return oldFile.renameTo(newFile)
   }
 
-  fun deleteDirFromExternalFilesDir(dir: String) {
-    if (isFileInExternalFilesDir(dir)) {
-      val file = File(externalFilesDir, dir)
-      file.deleteRecursively()
-    }
-  }
+  fun deleteDirFromExternalFilesDir(dir: String): Boolean = externalFilesDir?.deleteModelDirectory(dir) == true
 
   fun isModelPartiallyDownloaded(model: Model): Boolean {
     if (model.localModelFilePathOverride.isNotEmpty()) {
@@ -133,6 +128,7 @@ class ModelFileManager(
     version: String,
     fileName: String = model.downloadFileName,
   ): Boolean {
+    if (model.imported) return fileName.isNotEmpty() && isFileInExternalFilesDir(fileName)
     val modelRelativePath =
       listOf(model.normalizedName, version, fileName)
         .joinToString(File.separator)

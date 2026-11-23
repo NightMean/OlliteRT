@@ -39,7 +39,7 @@ interface ModelStorageRepository : AllowlistLoader {
   fun deleteFileFromExternalFilesDir(fileName: String)
   fun deleteFilesFromImportDir(fileName: String)
   fun renameImportedFile(oldFileName: String, newFileName: String): Boolean
-  fun deleteDirFromExternalFilesDir(dir: String)
+  fun deleteDirFromExternalFilesDir(dir: String): Boolean
   fun isModelPartiallyDownloaded(model: Model): Boolean
   fun isModelDownloaded(model: Model): Boolean
   fun getModelDownloadStatus(model: Model): ModelDownloadStatus

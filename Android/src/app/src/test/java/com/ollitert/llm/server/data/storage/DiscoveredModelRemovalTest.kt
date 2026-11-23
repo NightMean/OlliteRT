@@ -48,7 +48,7 @@ class DiscoveredModelRemovalTest {
   @Test fun removalRequiresKnownIdleStateAndNoNativeCleanup() {
     fun allowed(status: ModelDownloadStatusType?, active: String? = null, server: ServerStatus = ServerStatus.STOPPED,
       cleanup: Boolean = false, unfinished: Boolean = false, confirmed: ModelDownloadStatusType = status ?: ModelDownloadStatusType.NOT_DOWNLOADED) =
-      canRemoveDiscoveredModel("model", status, active, server, cleanup, unfinished, confirmed)
+      canRemoveModelFiles("model", status, active, server, cleanup, unfinished, confirmed)
     assertTrue(allowed(ModelDownloadStatusType.SUCCEEDED))
     assertTrue(allowed(ModelDownloadStatusType.NOT_DOWNLOADED))
     assertFalse(allowed(null))

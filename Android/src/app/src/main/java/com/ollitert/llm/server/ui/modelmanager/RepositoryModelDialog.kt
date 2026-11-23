@@ -17,12 +17,6 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import android.widget.Toast
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,8 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.ollitert.llm.server.R
-import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.proto.ImportedModel
+import com.ollitert.llm.server.ui.modelmanager.components.DiscoveredModelRemovalDialog
 
 @Composable
 internal fun RepositoryModelDialog(
@@ -54,9 +49,8 @@ internal fun RepositoryModelDialog(
   fileUrl: (String) -> String?,
 ) {
   val context = LocalContext.current
-  var pendingRemoval by remember(repositoryUrl) { mutableStateOf<Pair<RepositoryImport, DiscoveredRemovalInspection>?>(null) }
+  var pendingRemoval by remember(repositoryUrl) { mutableStateOf<Model?>(null) }
   val unavailable = stringResource(R.string.repository_remove_unavailable)
-  val failed = stringResource(R.string.repository_remove_failed)
   val files = remoteFiles + imports.filter { item -> remoteFiles.none { it.path == item.record.path } }
     .map { RepositoryFileVariant(it.record.path, it.record.size) }
   var selectedPath by remember(repositoryUrl, initialPath, managementOnly) { mutableStateOf(initialPath) }
@@ -72,28 +66,13 @@ internal fun RepositoryModelDialog(
       imports = imports, importsReady = importsReady, importsError = importsError, onRetryImports = onRetryImports, onDelete = { item ->
         val importedModel = item.model
         if (importedModel == null) Toast.makeText(context, unavailable, Toast.LENGTH_LONG).show()
-        else manager.inspectDiscoveredModelRemoval(importedModel) { inspection ->
-          if (inspection == null) Toast.makeText(context, unavailable, Toast.LENGTH_LONG).show()
-          else pendingRemoval = item to inspection
-        }
+        else pendingRemoval = importedModel
       },
       repositoryUrl = repositoryUrl, fileUrl = fileUrl,
     )
   }
-  pendingRemoval?.let { (item, inspection) ->
-    AlertDialog(onDismissRequest = { pendingRemoval = null }, title = { Text(stringResource(R.string.repository_remove_title)) },
-      text = { Text(stringResource(when (inspection.diskStatus) {
-        ModelDownloadStatusType.SUCCEEDED -> R.string.repository_remove_downloaded
-        ModelDownloadStatusType.PARTIALLY_DOWNLOADED -> R.string.repository_remove_partial
-        else -> R.string.repository_remove_imported
-      })) },
-      confirmButton = { Button(colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), onClick = {
-        pendingRemoval = null
-        item.model?.let { manager.removeDiscoveredModel(it, inspection.diskStatus) { removed ->
-          if (!removed) Toast.makeText(context, failed, Toast.LENGTH_LONG).show()
-        } }
-      }) { Text(stringResource(R.string.model_tooltip_delete)) } },
-      dismissButton = { TextButton(onClick = { pendingRemoval = null }) { Text(stringResource(R.string.cancel)) } })
+  pendingRemoval?.let {
+    DiscoveredModelRemovalDialog(it, manager, onDismiss = { pendingRemoval = null })
   }
   configuringFile?.let { file ->
     val size = file.sizeBytes ?: return@let
