@@ -17,16 +17,9 @@
 package com.ollitert.llm.server.data.storage
 
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
-import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.common.ServerStatus
 import java.io.File
-
-/** Called while holding the model lock before a queued download starts. */
-internal fun discoveredDownloadIsRegistered(directory: File, sourceId: String?, name: String): Boolean {
-  val provider = DiscoveredProvider.entries.firstOrNull { it.sourceId == sourceId } ?: return true
-  return DiscoveredModels(directory, provider).readEntries().any { it.allowed.name == name }
-}
 
 internal fun canInspectDiscoveredRemoval(status: ModelDownloadStatusType?): Boolean = when (status) {
   ModelDownloadStatusType.NOT_DOWNLOADED,

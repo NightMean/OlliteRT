@@ -27,6 +27,7 @@ import android.os.Environment
 import android.os.StatFs
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
@@ -58,7 +59,8 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_DATA_URLS
 import com.ollitert.llm.server.data.storage.KEY_MODEL_IS_ZIP
 import com.ollitert.llm.server.data.storage.KEY_MODEL_NAME
 import com.ollitert.llm.server.data.storage.KEY_MODEL_SOURCE
-import com.ollitert.llm.server.data.storage.discoveredDownloadIsRegistered
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.isDownloadRegistered
 import com.ollitert.llm.server.data.prefs.DefaultModelGuard
 import com.ollitert.llm.server.data.storage.KEY_MODEL_START_UNZIPPING
 import com.ollitert.llm.server.data.storage.KEY_MODEL_TOTAL_BYTES
@@ -70,11 +72,13 @@ import com.ollitert.llm.server.data.storage.ModelDownloadLocks
 import com.ollitert.llm.server.data.prefs.MIN_STORAGE_FOR_MODEL_INIT_BYTES
 import com.ollitert.llm.server.data.storage.TMP_EXTRACT_EXT
 import com.ollitert.llm.server.data.storage.TMP_FILE_EXT
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
-import kotlin.coroutines.coroutineContext
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -89,6 +93,11 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
 private const val TAG = "OlliteRT.Download"
+
+private sealed interface DownloadOutcome {
+  data object Completed : DownloadOutcome
+  data class Failed(val output: Data = Data.EMPTY) : DownloadOutcome
+}
 
 data class UrlAndFileName(val url: String, val fileName: String, val expectedBytes: Long)
 
@@ -109,8 +118,13 @@ internal fun mayBeDiskWriteFailure(error: IOException): Boolean =
     error !is HttpErrorException && error !is SocketException &&
     error !is SocketTimeoutException && error !is UnknownHostException
 
-class DownloadWorker(context: Context, params: WorkerParameters) :
-  CoroutineWorker(context, params) {
+@HiltWorker
+class DownloadWorker @AssistedInject internal constructor(
+  @Assisted context: Context,
+  @Assisted params: WorkerParameters,
+  private val completionNotifier: DownloadCompletionNotifier,
+  private val discoveredModelsRepository: DiscoveredModelsRepository,
+) : CoroutineWorker(context, params) {
   private val externalFilesDir = context.getExternalFilesDir(null)
 
   private val notificationManager =
@@ -135,17 +149,31 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     }
   }
 
-  override suspend fun doWork(): Result =
-    ModelDownloadLocks.withModel(inputData.getString(KEY_MODEL_NAME) ?: "Model") { download() }
-
-  private suspend fun download(): Result {
-    val fileUrl = inputData.getString(KEY_MODEL_URL)
+  override suspend fun doWork(): Result {
     val modelName = inputData.getString(KEY_MODEL_NAME) ?: "Model"
+    val outcome = try {
+      ModelDownloadLocks.withModel(modelName) { download(modelName) }
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Model download did not complete", e)
+      DownloadOutcome.Failed(workDataOf(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE to applicationContext.getString(R.string.error_unknown)))
+    }
+    currentCoroutineContext().ensureActive()
+    if (!isStopped) completionNotifier.post(modelName, succeeded = outcome == DownloadOutcome.Completed)
+    return when (outcome) {
+      DownloadOutcome.Completed -> Result.success()
+      is DownloadOutcome.Failed -> Result.failure(outcome.output)
+    }
+  }
+
+  private suspend fun download(modelName: String): DownloadOutcome {
+    val fileUrl = inputData.getString(KEY_MODEL_URL)
     val version = inputData.getString(KEY_MODEL_COMMIT_HASH)
-      ?: return Result.failure(workDataOf("error" to "Missing commit hash in download input"))
+      ?: return DownloadOutcome.Failed(workDataOf("error" to "Missing commit hash in download input"))
     val fileName = inputData.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)
     val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)
-      ?: return Result.failure(workDataOf("error" to "Missing model directory in download input"))
+      ?: return DownloadOutcome.Failed(workDataOf("error" to "Missing model directory in download input"))
     val isZip = inputData.getBoolean(KEY_MODEL_IS_ZIP, false)
     val unzippedDir = inputData.getString(KEY_MODEL_UNZIPPED_DIR)
     val extraDataFileUrls = inputData.getString(KEY_MODEL_EXTRA_DATA_URLS)?.split(",") ?: listOf()
@@ -162,14 +190,26 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
     return withContext(Dispatchers.IO) {
       if (fileUrl == null || fileName == null) {
-        Result.failure()
+        DownloadOutcome.Failed()
       } else if (externalFilesDir == null) {
-        Result.failure(workDataOf("error" to "External storage unavailable"))
+        DownloadOutcome.Failed(workDataOf("error" to "External storage unavailable"))
       } else {
         // A stale activity can enqueue work after another activity removes the import.
         // The worker holds the same model lock as removal while checking the registry.
-        if (!discoveredDownloadIsRegistered(externalFilesDir, inputData.getString(KEY_MODEL_SOURCE), modelName)) {
-          return@withContext Result.failure(workDataOf(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE to "Model is no longer imported"))
+        val registered = try {
+          discoveredModelsRepository.isDownloadRegistered(inputData.getString(KEY_MODEL_SOURCE), modelName)
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.e(TAG, "Could not verify the registered download", e)
+          return@withContext DownloadOutcome.Failed(
+            workDataOf(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE to applicationContext.getString(R.string.repository_imports_error)),
+          )
+        }
+        if (!registered) {
+          return@withContext DownloadOutcome.Failed(
+            workDataOf(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE to applicationContext.getString(R.string.repository_download_not_registered)),
+          )
         }
         // Track all .tmp files created during this download session so we can
         // clean them up if the failure is disk-space related (see catch block).
@@ -291,7 +331,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                var lastForegroundUpdateTs: Long = 0
                var deltaBytes = 0L
               while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                coroutineContext.ensureActive()
+                currentCoroutineContext().ensureActive()
                 outputStream.write(buffer, 0, bytesRead)
                 downloadedBytes += bytesRead
                 deltaBytes += bytesRead
@@ -353,7 +393,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             // if finalization fails and keeps the staging file resumable.
             val originalFilePath = outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT")
             val originalFile = File(originalFilePath)
-            coroutineContext.ensureActive()
+            currentCoroutineContext().ensureActive()
             finalizeDownloadedFile(outputTmpFile, originalFile)
             Log.d(TAG, "Download done")
 
@@ -426,7 +466,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           // The worker holds the model lock; a successful download makes a
           // previously interrupted removal's model usable as a default again.
           DefaultModelGuard.finishRemoval(modelName, true)
-          Result.success()
+          DownloadOutcome.Completed
         } catch (e: CancellationException) {
           throw e
         } catch (e: SecurityException) {
@@ -439,7 +479,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
           }
 
-          Result.failure(
+          DownloadOutcome.Failed(
             Data.Builder().putString(
               KEY_MODEL_DOWNLOAD_ERROR_MESSAGE,
               applicationContext.getString(R.string.download_error_zip_corrupted)
@@ -510,13 +550,13 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           }
 
           val deniedSite = if (!isDiskFull) (e as? ModelScopeDownloadAccessException)?.site?.name else null
-          Result.failure(
+          DownloadOutcome.Failed(
             Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage)
               .putString(KEY_MODELSCOPE_ACCESS_DENIED_SITE, deniedSite).build()
           )
         } catch (e: Exception) {
           Log.e(TAG, "Unexpected error during download: ${e.message}", e)
-          Result.failure(
+          DownloadOutcome.Failed(
             Data.Builder().putString(
               KEY_MODEL_DOWNLOAD_ERROR_MESSAGE,
               applicationContext.getString(R.string.download_error_network)

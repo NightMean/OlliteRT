@@ -23,6 +23,8 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Operation
+import androidx.work.await
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.R
@@ -77,10 +79,12 @@ import com.ollitert.llm.server.runtime.GpuAvailability
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -140,12 +144,14 @@ internal fun preserveActiveDownloadStatuses(
   previous: Map<String, ModelDownloadStatus>,
   revisionsAtLoadStart: Map<String, Long>,
   currentRevisions: Map<String, Long>,
+  inspectedActiveNames: Set<String>?,
 ): Map<String, ModelDownloadStatus> = loaded.mapValues { (name, diskStatus) ->
   previous[name]?.takeIf {
-    it.status == ModelDownloadStatusType.IN_PROGRESS || it.status == ModelDownloadStatusType.UNZIPPING ||
+    val active = it.status == ModelDownloadStatusType.IN_PROGRESS || it.status == ModelDownloadStatusType.UNZIPPING
+    (active && (inspectedActiveNames == null || name in inspectedActiveNames)) ||
       (it.status == ModelDownloadStatusType.FAILED && it.modelScopeAccessDeniedSite.isNotEmpty() &&
         diskStatus.status != ModelDownloadStatusType.SUCCEEDED) ||
-      (currentRevisions[name] ?: 0L) != (revisionsAtLoadStart[name] ?: 0L)
+      (!active && (currentRevisions[name] ?: 0L) != (revisionsAtLoadStart[name] ?: 0L))
   } ?: diskStatus
 }
 
@@ -335,6 +341,7 @@ internal constructor(
   /** Shared by initial and retry commands until WorkManager reports a terminal state. */
   private val downloadStartGate = DownloadStartGate()
   private val downloadCallbackGate = DownloadCallbackGate()
+  private val downloadObservers = mutableMapOf<String, Job>()
   private val downloadStatusRevisions = mutableMapOf<String, Long>()
   private fun markDownloadStatusChanged(name: String) = synchronized(downloadStatusRevisions) {
     downloadStatusRevisions[name] = (downloadStatusRevisions[name] ?: 0L) + 1L
@@ -348,10 +355,42 @@ internal constructor(
   private var downloadInspectionAvailable = false
 
   private fun enqueueModelDownload(model: Model) {
-    val generation = downloadCallbackGate.next(model.name)
-    downloadRepository.downloadModel(model) { updatedModel, status ->
-      if (downloadCallbackGate.isCurrent(model.name, generation)) setDownloadStatus(updatedModel, status)
+    val generation = invalidateDownloadObservation(model.name)
+    val request = downloadRepository.downloadModel(model)
+    observeDownload(model, request.id, generation, request.enqueue)
+  }
+
+  private fun invalidateDownloadObservation(name: String): Long {
+    val generation = downloadCallbackGate.next(name)
+    downloadObservers.remove(name)?.cancel()
+    return generation
+  }
+
+  private fun observeDownload(model: Model, workerId: UUID, generation: Long, enqueue: Operation? = null) {
+    val name = model.name
+    val observer = viewModelScope.launch(mainDispatcher, start = CoroutineStart.LAZY) {
+      try {
+        enqueue?.await()
+        downloadRepository.observeWorkerProgress(workerId, model.totalBytes).collect { status ->
+          if (downloadCallbackGate.isCurrent(name, generation)) setDownloadStatus(model, status)
+        }
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e(TAG, "Could not observe download for '$name'", e)
+        if (downloadCallbackGate.isCurrent(name, generation)) {
+          // A failed status read cannot tell us whether WorkManager is still writing the file.
+          downloadInspectionAvailable = false
+          downloadStartGate.release(name)
+          val message = context.getString(R.string.model_download_inspection_failed)
+          _uiState.update { it.copy(loadingModelAllowlistError = message) }
+        }
+      } finally {
+        if (downloadObservers[name] === currentCoroutineContext()[Job]) downloadObservers.remove(name)
+      }
     }
+    downloadObservers.put(name, observer)?.cancel()
+    observer.start()
   }
 
   internal fun inspectDiscoveredModelRemoval(model: Model, onResult: (DiscoveredRemovalInspection?) -> Unit) {
@@ -500,7 +539,7 @@ internal constructor(
   }
 
   fun cancelDownloadModel(model: Model) {
-    downloadCallbackGate.next(model.name)
+    invalidateDownloadObservation(model.name)
     downloadStartGate.release(model.name)
     downloadRepository.cancelDownloadModel(model)
     deleteModel(model = model)
@@ -615,7 +654,7 @@ internal constructor(
   }
 
   fun deleteModelAndRefreshStorage(model: Model) {
-    downloadCallbackGate.next(model.name)
+    invalidateDownloadObservation(model.name)
     downloadStartGate.release(model.name)
     deleteModel(model = model)
     notifyStorageChanged()
@@ -856,7 +895,7 @@ internal constructor(
     if (pending.isEmpty()) return
     recoveringDownloads = true
     recoveringModelNames = pending.mapTo(mutableSetOf()) { it.name }
-    pending.forEach { downloadCallbackGate.next(it.name) }
+    pending.forEach { invalidateDownloadObservation(it.name) }
     downloadRepository.cancelDownloads(pending.map { it.name }) { cancelled ->
       viewModelScope.launch(mainDispatcher) {
         try {
@@ -1028,12 +1067,16 @@ internal constructor(
 
       else -> {
         val loaded = checkNotNull(preparedLoad.loadedUiState)
+        val inspectedActiveNames = preparedLoad.unfinishedDownloads?.let { workers ->
+          workers.keys + downloadObservers.filterValues { it.isActive }.keys
+        }
         _uiState.value = loaded.copy(
           loadingModelAllowlistError = if (downloadInspectionAvailable) loaded.loadingModelAllowlistError
             else context.getString(R.string.model_download_inspection_failed),
           modelDownloadStatus = preserveActiveDownloadStatuses(
             loaded.modelDownloadStatus, _uiState.value.modelDownloadStatus,
             preparedLoad.downloadRevisionsAtStart, downloadStatusRevisionSnapshot(),
+            inspectedActiveNames,
           ),
         )
         val currentRevisions = downloadStatusRevisionSnapshot()
@@ -1041,11 +1084,9 @@ internal constructor(
           if ((currentRevisions[name] ?: 0L) != (preparedLoad.downloadRevisionsAtStart[name] ?: 0L)) continue
           val model = _uiState.value.models.firstOrNull { it.name == name } ?: continue
           if (name in removingModelNames || !downloadStartGate.tryAcquire(name)) continue
-          val generation = downloadCallbackGate.next(name)
+          val generation = invalidateDownloadObservation(name)
           setDownloadStatus(model, ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS))
-          downloadRepository.observerWorkerProgress(workerId, model) { updatedModel, status ->
-            if (downloadCallbackGate.isCurrent(name, generation)) setDownloadStatus(updatedModel, status)
-          }
+          observeDownload(model, workerId, generation)
         }
         notifyStorageChanged()
         if (preparedLoad.unfinishedDownloads != null) processPendingDownloads()

@@ -56,6 +56,12 @@ internal interface DiscoveredModelsRepository {
   fun remove(provider: DiscoveredProvider, modelName: String, modelDirectory: String, beforeRemoveRecord: () -> Unit): Boolean
 }
 
+/** Called while holding the model lock before a queued download starts. */
+internal fun DiscoveredModelsRepository.isDownloadRegistered(sourceId: String?, name: String): Boolean {
+  val provider = DiscoveredProvider.entries.firstOrNull { it.sourceId == sourceId } ?: return true
+  return read(provider).any { it.allowed.name == name }
+}
+
 internal class DefaultDiscoveredModelsRepository(
   private val externalFilesDirectory: () -> File?,
 ) : DiscoveredModelsRepository {

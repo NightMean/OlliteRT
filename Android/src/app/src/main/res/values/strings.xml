@@ -64,6 +64,7 @@
   <string name="repository_remove_partial">This will remove the imported model and delete its partial download. If it is selected as the default model, that selection will also be cleared.</string>
   <string name="repository_remove_unavailable">This model cannot be removed now. Stop the server or wait for the download to finish, then try again.</string>
   <string name="repository_imports_error">Could not read imported models. Check model storage and try again.</string>
+  <string name="repository_download_not_registered">This model is no longer imported. Add it again before downloading.</string>
   <string name="repository_remove_failed">Could not remove the model. Check its status and try again.</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_content_fail" translatable="false">Model "%s" could not be downloaded</string>

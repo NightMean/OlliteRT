@@ -19,7 +19,6 @@ package com.ollitert.llm.server.data.repository
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
-import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.storage.KEY_MODEL_COMMIT_HASH
 import com.ollitert.llm.server.data.storage.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.ollitert.llm.server.data.storage.KEY_MODELSCOPE_ACCESS_DENIED_SITE
@@ -40,30 +39,22 @@ import com.ollitert.llm.server.data.storage.KEY_MODEL_EXTRA_FILE_BYTES
 import com.ollitert.llm.server.data.storage.KEY_MODEL_UNZIPPED_DIR
 import com.ollitert.llm.server.data.storage.KEY_MODEL_URL
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.edit
-import androidx.core.net.toUri
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
+import androidx.work.Operation
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
-import com.ollitert.llm.server.OlliteRTLifecycleProvider
-import com.ollitert.llm.server.R
 import com.ollitert.llm.server.worker.DownloadWorker
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -71,6 +62,8 @@ import javax.inject.Singleton
 
 private const val TAG = "OlliteRT.DownloadRepo"
 private const val MODEL_NAME_TAG = "modelName"
+
+internal data class QueuedDownload(val id: UUID, val enqueue: Operation)
 
 internal fun unfinishedModelWorkers(work: List<WorkInfo>): Map<String, UUID> = buildMap {
   work.filterNot { it.state.isFinished }.forEach { info ->
@@ -118,36 +111,17 @@ internal fun buildDownloadRequestData(model: Model): Data {
  */
 @Singleton
 class DownloadRepository @Inject constructor(
-  @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
-  private val lifecycleProvider: OlliteRTLifecycleProvider,
+  @ApplicationContext context: Context,
 ) {
   private val workManager = WorkManager.getInstance(context)
 
-  fun downloadModel(
-    model: Model,
-    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
-  ) {
-    val inputData = buildDownloadRequestData(model)
-
-    // Create worker request.
-    val downloadWorkRequest =
-      OneTimeWorkRequestBuilder<DownloadWorker>()
-        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-        .setInputData(inputData)
-        .addTag("$MODEL_NAME_TAG:${model.name}")
-        .build()
-
-    val workerId = downloadWorkRequest.id
-
-    // Start!
-    workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, downloadWorkRequest)
-
-    // Observe progress.
-    observerWorkerProgress(
-      workerId = workerId,
-      model = model,
-      onStatusUpdated = onStatusUpdated,
-    )
+  internal fun downloadModel(model: Model): QueuedDownload {
+    val request = OneTimeWorkRequestBuilder<DownloadWorker>()
+      .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+      .setInputData(buildDownloadRequestData(model))
+      .addTag("$MODEL_NAME_TAG:${model.name}")
+      .build()
+    return QueuedDownload(request.id, workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, request))
   }
 
   fun cancelDownloadModel(model: Model) {
@@ -182,161 +156,48 @@ class DownloadRepository @Inject constructor(
     }
   }
 
-  fun observerWorkerProgress(
-    workerId: UUID,
-    model: Model,
-    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
-  ) {
-    val liveData = workManager.getWorkInfoByIdLiveData(workerId)
-    var observer: androidx.lifecycle.Observer<WorkInfo?>? = null
-    // Carry last RUNNING progress into FAILED so the UI can show "failed at 47%"
-    // and offer a Retry that resumes from the existing .tmp instead of starting over.
-    var lastReceivedBytes = 0L
-    // Must match the worker's cumulative numerator. Model.totalBytes already includes
-    // both the main file and every extra data file.
-    val totalDownloadBytes = model.totalBytes
-    var lastTotalBytes = totalDownloadBytes
-    observer = androidx.lifecycle.Observer { workInfo ->
-      if (workInfo != null) {
-        when (workInfo.state) {
-          WorkInfo.State.ENQUEUED -> {
-            // No-op: state is tracked via WorkInfo; kept for exhaustive when().
+  internal fun observeWorkerProgress(workerId: UUID, totalBytes: Long): Flow<ModelDownloadStatus> =
+    modelDownloadStatuses(workManager.getWorkInfoByIdFlow(workerId), totalBytes)
+}
+
+/** Emits progress and the terminal state for one collection, then releases the WorkManager subscription. */
+internal fun modelDownloadStatuses(work: Flow<WorkInfo?>, totalBytes: Long): Flow<ModelDownloadStatus> = flow {
+  var receivedBytes = 0L
+  work.first { current ->
+    // Collection starts after a successful enqueue or against an ID from WorkManager.
+    val info = checkNotNull(current) { "The download record is no longer available" }
+    val status = when (info.state) {
+      WorkInfo.State.RUNNING -> {
+        val progress = info.progress
+        val bytes = progress.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
+        when {
+          progress.getBoolean(KEY_MODEL_START_UNZIPPING, false) ->
+            ModelDownloadStatus(status = ModelDownloadStatusType.UNZIPPING)
+          bytes > 0 -> {
+            receivedBytes = bytes
+            ModelDownloadStatus(
+              status = ModelDownloadStatusType.IN_PROGRESS,
+              totalBytes = totalBytes,
+              receivedBytes = receivedBytes,
+              bytesPerSecond = progress.getLong(KEY_MODEL_DOWNLOAD_RATE, 0L),
+            )
           }
-
-          WorkInfo.State.RUNNING -> {
-            val receivedBytes = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
-            val downloadRate = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RATE, 0L)
-            val startUnzipping = workInfo.progress.getBoolean(KEY_MODEL_START_UNZIPPING, false)
-
-            if (!startUnzipping) {
-              if (receivedBytes != 0L) {
-                lastReceivedBytes = receivedBytes
-                lastTotalBytes = totalDownloadBytes
-                onStatusUpdated(
-                  model,
-                  ModelDownloadStatus(
-                    status = ModelDownloadStatusType.IN_PROGRESS,
-                    totalBytes = totalDownloadBytes,
-                    receivedBytes = receivedBytes,
-                    bytesPerSecond = downloadRate,
-                  ),
-                )
-              }
-            } else {
-              onStatusUpdated(
-                model,
-                ModelDownloadStatus(status = ModelDownloadStatusType.UNZIPPING),
-              )
-            }
-          }
-
-          WorkInfo.State.SUCCEEDED -> {
-            try {
-              Log.d(TAG, "worker %s success".format(workerId.toString()))
-              onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
-              sendNotification(
-                title = context.getString(R.string.notification_title_success),
-                text = context.getString(R.string.notification_content_success).format(model.name),
-                isSuccess = true,
-              )
-            } finally {
-              observer?.let { liveData.removeObserver(it) }
-            }
-          }
-
-          WorkInfo.State.FAILED,
-          WorkInfo.State.CANCELLED -> {
-            try {
-              var status = ModelDownloadStatusType.FAILED
-              val errorMessage = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
-              Log.d(
-                TAG,
-                "worker %s FAILED or CANCELLED: %s".format(workerId.toString(), errorMessage),
-              )
-              if (workInfo.state == WorkInfo.State.CANCELLED) {
-                status = ModelDownloadStatusType.NOT_DOWNLOADED
-              } else {
-                sendNotification(
-                  title = context.getString(R.string.notification_title_fail),
-                  text = context.getString(R.string.notification_content_fail).format(model.name),
-                  isSuccess = false,
-                )
-              }
-              onStatusUpdated(
-                model,
-                ModelDownloadStatus(
-                  status = status,
-                  errorMessage = errorMessage,
-                  modelScopeAccessDeniedSite = if (status == ModelDownloadStatusType.FAILED)
-                    workInfo.outputData.getString(KEY_MODELSCOPE_ACCESS_DENIED_SITE).orEmpty() else "",
-                  failureId = if (status == ModelDownloadStatusType.FAILED) workInfo.id.toString() else "",
-                  receivedBytes = if (status == ModelDownloadStatusType.FAILED) lastReceivedBytes else 0L,
-                  totalBytes = if (status == ModelDownloadStatusType.FAILED) lastTotalBytes else 0L,
-                ),
-              )
-            } finally {
-              observer?.let { liveData.removeObserver(it) }
-            }
-          }
-
-          else -> {}
+          else -> null
         }
       }
-    }
-    liveData.observeForever(observer)
-  }
-
-  private fun sendNotification(title: String, text: String, isSuccess: Boolean) {
-    // Don't send notification if app is in foreground.
-    if (lifecycleProvider.isAppInForeground) {
-      return
-    }
-
-    val channelId = "download_notification"
-    val channelName = context.getString(R.string.notif_channel_download_name)
-
-    // Create the NotificationChannel (always available since minSdk 31)
-    val importance = NotificationManager.IMPORTANCE_HIGH
-    val channel = NotificationChannel(channelId, channelName, importance)
-    val notificationManager =
-      context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-    notificationManager?.createNotificationChannel(channel)
-
-    val intent: Intent = if (isSuccess) {
-      Intent(Intent.ACTION_VIEW, "com.ollitert.llm.server://global_model_manager".toUri())
-        .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-    } else {
-      context.packageManager.getLaunchIntentForPackage(context.packageName)
-        ?: Intent(context, context.javaClass)
-    }
-
-    // Create a PendingIntent
-    val pendingIntent: PendingIntent =
-      PendingIntent.getActivity(
-        context,
-        0,
-        intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+      WorkInfo.State.SUCCEEDED -> ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED)
+      WorkInfo.State.FAILED -> ModelDownloadStatus(
+        status = ModelDownloadStatusType.FAILED,
+        errorMessage = info.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE).orEmpty(),
+        modelScopeAccessDeniedSite = info.outputData.getString(KEY_MODELSCOPE_ACCESS_DENIED_SITE).orEmpty(),
+        failureId = info.id.toString(),
+        receivedBytes = receivedBytes,
+        totalBytes = totalBytes,
       )
-
-    val builder =
-      NotificationCompat.Builder(context, channelId)
-        .setSmallIcon(R.mipmap.ic_launcher_monochrome)
-        .setContentTitle(title)
-        .setContentText(text)
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setContentIntent(pendingIntent)
-        .setAutoCancel(true)
-
-    with(NotificationManagerCompat.from(context)) {
-      if (
-        ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-          PackageManager.PERMISSION_GRANTED
-      ) {
-        // POST_NOTIFICATIONS not granted -- notification silently suppressed
-        return
-      }
-      notify(1, builder.build())
+      WorkInfo.State.CANCELLED -> ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
+      WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> null
     }
+    if (status != null) emit(status)
+    info.state.isFinished
   }
 }

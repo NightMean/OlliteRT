@@ -20,6 +20,8 @@ import com.ollitert.llm.server.data.allowlist.DiscoveredModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.isDownloadRegistered
 import com.ollitert.llm.server.common.ServerStatus
 import java.io.IOException
 import org.junit.Assert.*
@@ -33,13 +35,14 @@ class DiscoveredModelRemovalTest {
   @Test fun queuedDownloadChecksTheRegistryAfterRemoval() {
     val root = temp.newFolder()
     val store = DiscoveredModels(root)
+    val repository = DefaultDiscoveredModelsRepository { root }
     val model = DiscoveredModel("owner/model", "model.litertlm", "a".repeat(40), 123)
     store.add(model)
     val name = model.toAllowedModel().name
-    assertTrue(discoveredDownloadIsRegistered(root, DiscoveredProvider.HUGGING_FACE.sourceId, name))
+    assertTrue(repository.isDownloadRegistered(DiscoveredProvider.HUGGING_FACE.sourceId, name))
     assertTrue(DiscoveredModelRemoval(root, store).remove(name, "model-dir"))
-    assertFalse(discoveredDownloadIsRegistered(root, DiscoveredProvider.HUGGING_FACE.sourceId, name))
-    assertTrue(discoveredDownloadIsRegistered(root, null, name))
+    assertFalse(repository.isDownloadRegistered(DiscoveredProvider.HUGGING_FACE.sourceId, name))
+    assertTrue(repository.isDownloadRegistered(null, name))
   }
 
   @Test fun removalRequiresKnownIdleStateAndNoNativeCleanup() {
