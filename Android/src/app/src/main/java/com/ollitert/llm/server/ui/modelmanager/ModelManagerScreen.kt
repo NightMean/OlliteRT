@@ -530,7 +530,9 @@ fun ModelManagerScreen(
       }
 
       // Empty state — distinguish between filter mismatch and allowlist load failure
-      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && filteredFavoriteModels.isEmpty() && !uiState.loadingModelAllowlist && !uiState.allReposDisabled) {
+      if (filteredBuiltInModels.isEmpty() && filteredImportedModels.isEmpty() && filteredFavoriteModels.isEmpty() &&
+        !uiState.loadingModelAllowlist && (!uiState.allReposDisabled || uiState.loadingModelAllowlistError.isNotEmpty())
+      ) {
         item(key = "empty_state") {
           if (uiState.loadingModelAllowlistError.isNotEmpty()) {
             // Allowlist failed to load — show error with retry

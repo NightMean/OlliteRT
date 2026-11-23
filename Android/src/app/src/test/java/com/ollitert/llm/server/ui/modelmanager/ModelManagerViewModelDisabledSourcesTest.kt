@@ -18,13 +18,18 @@ package com.ollitert.llm.server.ui.modelmanager
 
 import android.content.Context
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
+import com.ollitert.llm.server.R
 import com.ollitert.llm.server.data.allowlist.LoadResult
 import com.ollitert.llm.server.data.allowlist.RefreshResult
 import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import com.ollitert.llm.server.data.model.IMPORTS_DIR
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.model.Repository
 import com.ollitert.llm.server.data.repository.DownloadRepository
 import com.ollitert.llm.server.data.repository.FakePreferencesRepository
+import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.ModelStorageRepository
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.ServerStateRepository
@@ -34,6 +39,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import java.io.File
+import java.io.IOException
 import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,6 +69,57 @@ class ModelManagerViewModelDisabledSourcesTest {
   fun tearDown() {
     Dispatchers.resetMain()
     externalFilesDir.deleteRecursively()
+  }
+
+  @Test
+  fun catalogRemainsUsableAndRetryRestoresImportsAfterRecoveryFailure() = runTest(testDispatcher) {
+    val model = Model(name = "Catalog model")
+    val local = ImportedModel.newBuilder()
+      .setFileName("Local.litertlm")
+      .setLlmConfig(LlmConfig.newBuilder().addCompatibleAccelerators("CPU"))
+      .build()
+    val recoveryMessage = "Could not recover local imports"
+    val catalogStatus = ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
+    val context = mockk<Context>(relaxed = true) {
+      every { getExternalFilesDir(null) } returns externalFilesDir
+      every { getString(R.string.imported_model_recovery_error) } returns recoveryMessage
+    }
+    val protoRepository = mockk<ProtoDataStoreRepository>(relaxed = true) {
+      coEvery { readExistingImportedModels() } throws ImportedModelRecoveryException(IOException("Unavailable journal"))
+    }
+    val storage = mockk<ModelStorageRepository>(relaxed = true) {
+      every { readTestAllowlist() } returns null
+      every { getModelDownloadStatus(model) } returns catalogStatus
+    }
+    val manager = mockk<RepositoryManager>(relaxed = true) {
+      coEvery { refreshAll(storage) } returns RefreshResult(emptySet())
+      coEvery { loadAll(any(), storage, ignoreDisabled = false, modelFilter = any()) } returns
+        LoadResult(models = listOf(model), repositories = emptyList())
+    }
+    val viewModel = ModelManagerViewModel(
+      downloadRepository = mockk(relaxed = true),
+      protoDataStoreRepository = protoRepository,
+      lifecycleProvider = mockk(relaxed = true),
+      repositoryManager = manager,
+      context = context,
+      preferencesRepository = FakePreferencesRepository(),
+      serverStateRepository = mockk(relaxed = true),
+      modelStorageRepository = storage,
+      ioDispatcher = testDispatcher,
+      mainDispatcher = testDispatcher,
+    )
+
+    viewModel.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(listOf(model.name), viewModel.uiState.value.models.map { it.name })
+    assertEquals(catalogStatus, viewModel.uiState.value.modelDownloadStatus[model.name])
+    assertEquals(recoveryMessage, viewModel.uiState.value.loadingModelAllowlistError)
+
+    coEvery { protoRepository.readExistingImportedModels() } returns listOf(local)
+    viewModel.loadModelAllowlist(isManualRetry = true)
+    advanceUntilIdle()
+    assertEquals(listOf(model.name, "Local"), viewModel.uiState.value.models.map { it.name })
+    assertEquals("", viewModel.uiState.value.loadingModelAllowlistError)
   }
 
   @Test

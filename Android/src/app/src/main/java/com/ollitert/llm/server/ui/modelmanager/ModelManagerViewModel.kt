@@ -1034,14 +1034,18 @@ internal constructor(
     }
 
     processModels(result.models)
-    val loadedState = createUiState(result.models)
+    val loadedState = createUiState(result.models).let { state ->
+      state.copy(
+        loadingModelAllowlist = false,
+        loadingModelAllowlistError = listOf(result.errorMessage, state.loadingModelAllowlistError)
+          .filter(String::isNotEmpty).joinToString("\n"),
+      )
+    }
     return if (result.isRawAllowlist) {
-      loadedState.copy(loadingModelAllowlist = false, loadingModelAllowlistError = result.errorMessage)
+      loadedState
     } else {
       loadedState.copy(
-        loadingModelAllowlist = false,
         allReposDisabled = result.allReposDisabled,
-        loadingModelAllowlistError = result.errorMessage,
         emptyReason = result.emptyReason,
         requiredVersion = result.requiredVersion,
         droppedByVersionFilter = result.droppedByVersionFilter,
@@ -1072,7 +1076,8 @@ internal constructor(
         }
         _uiState.value = loaded.copy(
           loadingModelAllowlistError = if (downloadInspectionAvailable) loaded.loadingModelAllowlistError
-            else context.getString(R.string.model_download_inspection_failed),
+            else listOf(loaded.loadingModelAllowlistError, context.getString(R.string.model_download_inspection_failed))
+              .filter(String::isNotEmpty).joinToString("\n"),
           modelDownloadStatus = preserveActiveDownloadStatuses(
             loaded.modelDownloadStatus, _uiState.value.modelDownloadStatus,
             preparedLoad.downloadRevisionsAtStart, downloadStatusRevisionSnapshot(),
@@ -1136,7 +1141,17 @@ internal constructor(
     }
 
     val importedModels = mutableListOf<Model>()
-    val importedRecords = protoDataStoreRepository.readExistingImportedModels()
+    var importedModelsError = ""
+    val importedRecords = try {
+      protoDataStoreRepository.readExistingImportedModels()
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      // The catalog has its own storage and remains usable while the local registry recovers.
+      Log.e(TAG, "Could not recover local model imports", e)
+      importedModelsError = context.getString(R.string.imported_model_recovery_error)
+      emptyList()
+    }
     refreshFavoriteModels()
     for (importedModel in importedRecords) {
       Log.d(TAG, "stored imported model: $importedModel")
@@ -1156,6 +1171,7 @@ internal constructor(
       models = models + importedModels,
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
+      loadingModelAllowlistError = importedModelsError,
     )
   }
 
