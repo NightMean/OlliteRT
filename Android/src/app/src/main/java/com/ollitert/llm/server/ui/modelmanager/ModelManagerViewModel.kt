@@ -1105,8 +1105,8 @@ internal constructor(
   private val allowlistLoadGenerationGate = AllowlistLoadGenerationGate()
 
   private data class PreparedAllowlistLoad(
-    val result: AllowlistLoadResult,
     val loadedUiState: ModelManagerUiState,
+    val cachedCatalogStatuses: Map<String, ModelDownloadStatus>?,
     val toastError: String?,
     val downloadRevisionsAtStart: Map<String, Long>,
     val downloadWork: ModelDownloadWork?,
@@ -1127,6 +1127,7 @@ internal constructor(
     val generation = allowlistLoadGenerationGate.beginLoad()
     allowlistLoadJob = viewModelScope.launch(mainDispatcher) {
       val downloadRevisionsAtStart = downloadStatusRevisionSnapshot()
+      val cachedCatalog = uiState.value.models.filterNot { it.imported }
       val displayedFailures = uiState.value.modelDownloadStatus.values.mapNotNullTo(mutableSetOf()) {
         it.failureId.takeIf { _ -> it.modelScopeAccessDeniedSite.isNotEmpty() }
       }
@@ -1156,9 +1157,14 @@ internal constructor(
           // Read files after the WorkManager snapshot: an unobserved worker may
           // finish between the two reads, and its final file must win over a stale partial.
           val loadedUiState = prepareLoadedUiState(result)
+          val cachedCatalogStatuses = if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
+            // Keep cached rows, but inspect their files just as for a successful catalog refresh.
+            // The probe may change a model's selected version and update hints.
+            cachedCatalog.associate { model -> model.name to getModelDownloadStatus(model.copy(configs = emptyList())) }
+          } else null
           PreparedAllowlistLoad(
-            result = result,
             loadedUiState = loadedUiState,
+            cachedCatalogStatuses = cachedCatalogStatuses,
             toastError = toastError,
             downloadRevisionsAtStart = downloadRevisionsAtStart,
             downloadWork = downloadWork,
@@ -1209,7 +1215,6 @@ internal constructor(
   }
 
   private fun publishAllowlistLoad(preparedLoad: PreparedAllowlistLoad) {
-    val result = preparedLoad.result
     preparedLoad.toastError?.let(_toastErrorChannel::trySend)
     val downloadWork = preparedLoad.downloadWork
     downloadInspectionAvailable = downloadWork != null
@@ -1219,13 +1224,14 @@ internal constructor(
 
     val previous = _uiState.value
     val freshlyLoaded = preparedLoad.loadedUiState
-    val loaded = if (result.models.isEmpty() && result.errorMessage.isNotEmpty() && !result.isRawAllowlist) {
+    val cachedCatalogStatuses = preparedLoad.cachedCatalogStatuses
+    val loaded = if (cachedCatalogStatuses != null) {
       // A failed catalog refresh can keep its last known rows while local imports refresh independently.
       val cachedCatalog = previous.models.filterNot { it.imported }
       val cachedNames = cachedCatalog.mapTo(mutableSetOf()) { it.name }
       previous.copy(
         models = cachedCatalog + freshlyLoaded.models,
-        modelDownloadStatus = previous.modelDownloadStatus.filterKeys(cachedNames::contains) + freshlyLoaded.modelDownloadStatus,
+        modelDownloadStatus = cachedCatalogStatuses.filterKeys(cachedNames::contains) + freshlyLoaded.modelDownloadStatus,
         modelInitializationStatus = previous.modelInitializationStatus.filterKeys(cachedNames::contains) + freshlyLoaded.modelInitializationStatus,
         loadingModelAllowlist = false,
         loadingModelAllowlistError = freshlyLoaded.loadingModelAllowlistError,

@@ -330,7 +330,7 @@ class ModelManagerViewModelDisabledSourcesTest {
     assertEquals(warning, owner.uiState.value.loadingModelAllowlistError)
 
     val availableModel = Model(name = "Online catalog")
-    every { storage.getModelDownloadStatus(availableModel) } returns ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)
+    every { storage.getModelDownloadStatus(availableModel) } returns ModelDownloadStatus(ModelDownloadStatusType.SUCCEEDED)
     coEvery { catalog.refreshAll(storage) } returns RefreshResult(emptySet())
     coEvery { catalog.loadAll(any(), storage, ignoreDisabled = false, modelFilter = any()) } returns
       LoadResult(models = listOf(availableModel), repositories = emptyList())
@@ -339,9 +339,11 @@ class ModelManagerViewModelDisabledSourcesTest {
     assertEquals(listOf(availableModel.name, "Local"), owner.uiState.value.models.map { it.name })
 
     coEvery { catalog.refreshAll(storage) } throws IOException("Catalog unavailable again")
+    every { storage.getModelDownloadStatus(availableModel) } returns ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED)
     owner.loadModelAllowlist()
     advanceUntilIdle()
     assertEquals(listOf(availableModel.name, "Local"), owner.uiState.value.models.map { it.name })
+    assertEquals(ModelDownloadStatusType.NOT_DOWNLOADED, owner.uiState.value.modelDownloadStatus[availableModel.name]?.status)
     assertEquals(warning, owner.uiState.value.loadingModelAllowlistError)
   }
 
