@@ -16,6 +16,10 @@
 
 package com.ollitert.llm.server.data.allowlist
 
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.proto.ImportedModel
+import com.ollitert.llm.server.proto.LlmConfig
+
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -90,6 +94,61 @@ class DiscoveredModelsTest {
     val allowed = restored[1].toAllowedModel()
     assertTrue(allowed.url!!.startsWith(ModelScopeSite.INTERNATIONAL.baseUrl))
     assertEquals("${ModelScopeSite.INTERNATIONAL.baseUrl}/models/author/model", allowed.toModel(soc = "test").learnMoreUrl)
+  }
+
+  @Test fun aBrokenRegistryOnlyFallsBackForCatalogReads() {
+    val directory = temporary.newFolder()
+    val huggingFace = model()
+    val modelScope = model().copy(provider = DiscoveredProvider.MODELSCOPE)
+    DiscoveredModels(directory).add(huggingFace)
+    DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).add(modelScope)
+    val repository = DefaultDiscoveredModelsRepository { directory }
+
+    val cached = repository.load(DiscoveredProvider.HUGGING_FACE).entries
+    assertEquals(huggingFace, cached.single().record)
+    File(directory, DiscoveredProvider.HUGGING_FACE.catalogFile).writeText("broken")
+
+    val failedSnapshot = repository.load(DiscoveredProvider.HUGGING_FACE)
+    assertEquals(cached, failedSnapshot.entries)
+    assertTrue(failedSnapshot.failure != null)
+    assertThrows(IllegalArgumentException::class.java) { repository.read(DiscoveredProvider.HUGGING_FACE) }
+    assertEquals(modelScope, repository.load(DiscoveredProvider.MODELSCOPE).entries.single().record)
+  }
+
+  @Test fun registryRemovalInvalidatesOnlyItsProviderSnapshot() {
+    val directory = temporary.newFolder()
+    val huggingFace = model()
+    val modelScope = model().copy(provider = DiscoveredProvider.MODELSCOPE)
+    DiscoveredModels(directory).add(huggingFace)
+    DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).add(modelScope)
+    val repository = DefaultDiscoveredModelsRepository { directory }
+    val identity = repository.load(DiscoveredProvider.HUGGING_FACE).entries.single().allowed.name
+    repository.load(DiscoveredProvider.MODELSCOPE)
+
+    assertTrue(repository.remove(DiscoveredProvider.HUGGING_FACE, identity, "model-files") { })
+    assertEquals(mapOf(DiscoveredProvider.HUGGING_FACE to 1L), repository.revisions.value)
+    File(directory, DiscoveredProvider.HUGGING_FACE.catalogFile).writeText("broken")
+    assertTrue(repository.load(DiscoveredProvider.HUGGING_FACE).entries.isEmpty())
+    assertEquals(modelScope, repository.load(DiscoveredProvider.MODELSCOPE).entries.single().record)
+  }
+
+  @Test fun successfulImportPublishesARevisionAndDuplicateDoesNot() {
+    val directory = temporary.newFolder()
+    val registry = DefaultDiscoveredModelsRepository { directory }
+    val provider = DiscoveredProvider.MODELSCOPE
+    val repoFile = model()
+    val config = ImportedModel.newBuilder()
+      .setLlmConfig(LlmConfig.newBuilder().addCompatibleAccelerators("CPU"))
+      .build()
+    fun import() = registry.add(
+      provider, repoFile.repository, repoFile.path, repoFile.revision, repoFile.size, config, ModelScopeSite.INTERNATIONAL,
+    )
+
+    val name = checkNotNull(import())
+    assertEquals(mapOf(provider to 1L), registry.revisions.value)
+    assertEquals(name, registry.read(provider).single().allowed.name)
+    assertEquals(null, import())
+    assertEquals(mapOf(provider to 1L), registry.revisions.value)
   }
 
   @Test fun selectedFilesSurviveRestartAndHaveDistinctIdentity() {

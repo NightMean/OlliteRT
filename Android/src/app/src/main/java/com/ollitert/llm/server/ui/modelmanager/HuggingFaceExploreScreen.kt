@@ -58,8 +58,8 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
   val state by viewModel.state.collectAsStateWithLifecycle()
   val modelError = if (state.error && state.details == null && state.failedModel != null) stringResource(R.string.hf_model_files_error) else null
   val errorSnackbar = rememberRepositoryErrorSnackbar(modelError, viewModel::retryError, viewModel::dismissModelError)
-  var importsRetry by remember { mutableStateOf(0) }
-  val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.HUGGING_FACE, importsRetry)
+  val importsState by modelManagerViewModel.repositoryImports(DiscoveredProvider.HUGGING_FACE).collectAsStateWithLifecycle()
+  val retryImports = { modelManagerViewModel.retryRepositoryImports(DiscoveredProvider.HUGGING_FACE) }
   val imports = importsState.items
   val importedGroups = matchingImportedRepositories(imports, state.query)
   val listState = rememberLazyListState()
@@ -103,7 +103,7 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
         }
       }
       if (importsState.error) ModelListError(title = stringResource(R.string.models_failed_to_load),
-        message = stringResource(R.string.repository_imports_error), onRetry = { importsRetry++ }, verticalPadding = 16.dp)
+        message = stringResource(R.string.repository_imports_error), onRetry = retryImports, verticalPadding = 16.dp)
       RepositoryLoadingIndicator((!importsState.ready && !importsState.error) || state.loading)
       if (state.searchError) {
         Text(stringResource(if (state.searchLimitReached) R.string.hf_search_limit else if (state.searchInvalidPagination) R.string.hf_search_invalid_pagination else R.string.hf_explore_error), color = MaterialTheme.colorScheme.error)
@@ -167,7 +167,7 @@ internal fun HuggingFaceExploreScreen(onBack: () -> Unit, modelManagerViewModel:
       imports = imports.filter { it.record.repository == model.id },
       importsReady = importsState.ready,
       importsError = importsState.error,
-      onRetryImports = { importsRetry++ },
+      onRetryImports = retryImports,
       repositoryUrl = "${GitHubConfig.HUGGINGFACE_BASE_URL}/${model.id}",
       fileUrl = { path ->
         importedFileUrl(imports, model.id, path)

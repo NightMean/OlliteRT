@@ -20,7 +20,9 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.allowlist.HuggingFaceCatalog
 import com.ollitert.llm.server.data.allowlist.HuggingFaceFile
 import com.ollitert.llm.server.data.allowlist.HuggingFaceModel
@@ -78,13 +80,18 @@ internal data class HuggingFaceExploreState(
 
 @HiltViewModel
 internal class HuggingFaceExploreViewModel internal constructor(
-  private val context: Context,
+  context: Context,
   private val preferences: PreferencesRepository,
   private val client: HuggingFaceCatalog,
   private val ioDispatcher: CoroutineDispatcher,
+  private val discoveredModelsRepository: DiscoveredModelsRepository =
+    DefaultDiscoveredModelsRepository { context.getExternalFilesDir(null) },
 ) : ViewModel() {
-  @Inject constructor(@ApplicationContext context: Context, preferences: PreferencesRepository) :
-    this(context, preferences, HuggingFaceCatalog(), Dispatchers.IO)
+  @Inject constructor(
+    @ApplicationContext context: Context,
+    preferences: PreferencesRepository,
+    discoveredModelsRepository: DiscoveredModelsRepository,
+  ) : this(context, preferences, HuggingFaceCatalog(), Dispatchers.IO, discoveredModelsRepository)
   private val _state = MutableStateFlow(HuggingFaceExploreState())
   val state = _state.asStateFlow()
   private var job: Job? = null
@@ -265,8 +272,7 @@ internal class HuggingFaceExploreViewModel internal constructor(
     job = viewModelScope.launch {
       try {
         val inserted = withContext(ioDispatcher) {
-          val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
-          DiscoveredModels(directory).addConfiguredFile(details.id, file.path, revision, size, info)
+          discoveredModelsRepository.add(DiscoveredProvider.HUGGING_FACE, details.id, file.path, revision, size, info)
         }
         _state.update { it.copy(saving = inserted != null, addedModelName = inserted, alreadyAdded = inserted == null) }
       } catch (e: CancellationException) {

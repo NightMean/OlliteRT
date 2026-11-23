@@ -20,8 +20,9 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.allowlist.ModelScopeCatalog
 import com.ollitert.llm.server.data.allowlist.ModelScopeAccessException
 import com.ollitert.llm.server.data.allowlist.ModelScopeFile
@@ -90,13 +91,19 @@ internal class ModelScopeExploreViewModel internal constructor(
   initialSite: ModelScopeSite = ModelScopeSite.INTERNATIONAL,
   private val catalogForSite: (ModelScopeSite) -> ModelScopeCatalog = { catalog },
   private val saveSite: (ModelScopeSite) -> Unit = {},
+  private val discoveredModelsRepository: DiscoveredModelsRepository =
+    DefaultDiscoveredModelsRepository { context.getExternalFilesDir(null) },
 ) : ViewModel() {
-  @Inject constructor(@ApplicationContext context: Context) : this(
+  @Inject constructor(
+    @ApplicationContext context: Context,
+    discoveredModelsRepository: DiscoveredModelsRepository,
+  ) : this(
     context, ModelScopeCatalog(), Dispatchers.IO,
     ModelScopeSite.entries.firstOrNull { it.name == ServerPrefs.getModelScopeSite(context) } ?: ModelScopeSite.INTERNATIONAL,
     { site -> ModelScopeCatalog(endpoint = site.baseUrl,
       token = ServerPrefs.getModelScopeToken(context, site == ModelScopeSite.INTERNATIONAL)) },
     { site -> ServerPrefs.setModelScopeSite(context, site.name) },
+    discoveredModelsRepository,
   )
 
   private val _state = MutableStateFlow(ModelScopeExploreState(site = initialSite, detailsSite = initialSite))
@@ -256,9 +263,9 @@ internal class ModelScopeExploreViewModel internal constructor(
     job = viewModelScope.launch {
       try {
         val inserted = withContext(io) {
-          val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
-          DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE)
-            .addConfiguredFile(model.id, file.path, file.revision, file.size, info, current.detailsSite)
+          discoveredModelsRepository.add(
+            DiscoveredProvider.MODELSCOPE, model.id, file.path, file.revision, file.size, info, current.detailsSite,
+          )
         }
         _state.update { it.copy(loading = false, saving = inserted != null, addedModelName = inserted, alreadyAdded = inserted == null) }
       } catch (e: CancellationException) { throw e }

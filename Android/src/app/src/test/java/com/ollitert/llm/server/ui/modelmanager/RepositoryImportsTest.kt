@@ -17,6 +17,11 @@
 package com.ollitert.llm.server.ui.modelmanager
 
 import com.ollitert.llm.server.data.allowlist.DiscoveredModel
+import com.ollitert.llm.server.data.allowlist.DiscoveredModelEntry
+import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.ModelDownloadStatus
+import com.ollitert.llm.server.data.model.ModelDownloadStatusType
+import com.ollitert.llm.server.data.repository.DiscoveredCatalogSnapshot
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.modelScopeFileUrl
@@ -24,6 +29,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RepositoryImportsTest {
+  @Test fun importedRowsUseTheCurrentModelAndWorkerStatus() {
+    val record = DiscoveredModel("a/b", "file.litertlm", "a".repeat(40), 1)
+    val allowed = record.toAllowedModel()
+    val model = Model(name = allowed.name)
+    val snapshot = DiscoveredCatalogSnapshot(listOf(DiscoveredModelEntry(record, allowed)))
+    val before = ModelManagerUiState(models = listOf(model))
+    val during = before.copy(
+      modelDownloadStatus = mapOf(model.name to ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS)),
+    )
+
+    assertEquals(RepositoryImport(record, model, null), repositoryImportsState(snapshot, before).items.single())
+    assertEquals(ModelDownloadStatusType.IN_PROGRESS, repositoryImportsState(snapshot, during).items.single().status)
+    assertTrue(repositoryImportsState(snapshot.copy(failure = IllegalStateException()), during).error)
+  }
+
   @Test fun groupsVariantsByRepositoryAndSearchesWithoutCase() {
     fun item(repo: String, path: String) = RepositoryImport(DiscoveredModel(repo, path, "a".repeat(40), 1), null, null)
     val entries = listOf(item("one/Alpha", "a.litertlm"), item("one/Alpha", "b.litertlm"), item("two/Beta", "a.litertlm"))

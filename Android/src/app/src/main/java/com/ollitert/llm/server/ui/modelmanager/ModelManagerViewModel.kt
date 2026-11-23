@@ -32,11 +32,11 @@ import com.ollitert.llm.server.common.humanReadableSize
 import com.ollitert.llm.server.data.allowlist.AllowedModel
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.isDiscoveredSource
-import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.storage.ModelDownloadLocks
 import com.ollitert.llm.server.data.storage.canInspectDiscoveredRemoval
 import com.ollitert.llm.server.data.prefs.DefaultModelGuard
-import com.ollitert.llm.server.data.storage.DiscoveredModelRemoval
 import com.ollitert.llm.server.data.storage.canRemoveDiscoveredModel
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
 import com.ollitert.llm.server.data.repository.UnregisteredImportFileException
@@ -82,8 +82,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -149,7 +155,7 @@ internal fun preserveActiveDownloadStatuses(
 @HiltViewModel
 open class ModelManagerViewModel
 @Inject
-constructor(
+internal constructor(
   private val downloadRepository: DownloadRepository,
   val protoDataStoreRepository: ProtoDataStoreRepository,
   private val lifecycleProvider: OlliteRTLifecycleProvider,
@@ -160,6 +166,8 @@ constructor(
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
+  private val discoveredModelsRepository: DiscoveredModelsRepository =
+    DefaultDiscoveredModelsRepository { context.getExternalFilesDir(null) },
 ) : ViewModel() {
   // Onboarding flag loads asynchronously — a runBlocking DataStore read here would
   // block ViewModel construction (main thread) on disk I/O. Null means "still
@@ -168,9 +176,28 @@ constructor(
   private val _onboardingCompleted = MutableStateFlow<Boolean?>(null)
   val onboardingCompleted: StateFlow<Boolean?> = _onboardingCompleted.asStateFlow()
 
-  private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
+
+  private val repositoryImportRetries = DiscoveredProvider.entries.associateWith { MutableStateFlow(0L) }
+  private val importedRepositoryState = DiscoveredProvider.entries.associateWith { provider ->
+    val revisions = discoveredModelsRepository.revisions.map { it[provider] }.distinctUntilChanged()
+    val snapshots = combine(revisions, repositoryImportRetries.getValue(provider)) { _, _ ->
+      discoveredModelsRepository.load(provider).also { snapshot ->
+        snapshot.failure?.let { Log.e(TAG, "Could not read ${provider.displayName} imports", it) }
+      }
+    }
+    combine(snapshots, uiState, ::repositoryImportsState)
+      .flowOn(ioDispatcher)
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), RepositoryImportsState())
+  }
+
+  internal fun repositoryImports(provider: DiscoveredProvider): StateFlow<RepositoryImportsState> =
+    importedRepositoryState.getValue(provider)
+
+  internal fun retryRepositoryImports(provider: DiscoveredProvider) {
+    repositoryImportRetries.getValue(provider).update { it + 1 }
+  }
 
   private val favoritesLock = Any()
   private val _renamingFavoriteIds = MutableStateFlow<Set<String>>(emptySet())
@@ -337,10 +364,9 @@ constructor(
     viewModelScope.launch(mainDispatcher) {
       val inspection = try {
         withContext(ioDispatcher) {
-          val directory = externalFilesDir ?: error("Model storage unavailable")
           ModelDownloadLocks.tryWithModel(model.name) {
             val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
-            val exists = DiscoveredModels(directory, provider).read().any { it.toAllowedModel().name == model.name }
+            val exists = discoveredModelsRepository.read(provider).any { it.allowed.name == model.name }
             val status = modelStorageRepository.getModelDownloadStatus(model).status
             if (!exists || !canRemoveDiscoveredModel(model.name, status, serverStateRepository.activeModelName.value,
                 serverStateRepository.status.value, ModelDownloadLocks.isCleanupPending(),
@@ -372,7 +398,6 @@ constructor(
     viewModelScope.launch(mainDispatcher) {
       try {
         val removed = withContext(ioDispatcher) {
-          val directory = externalFilesDir ?: error("Model storage unavailable")
           ModelDownloadLocks.tryWithModel(model.name) {
             val statusOnDisk = modelStorageRepository.getModelDownloadStatus(model).status
             if (!canRemoveDiscoveredModel(model.name, statusOnDisk, serverStateRepository.activeModelName.value,
@@ -381,10 +406,11 @@ constructor(
             else {
               DefaultModelGuard.beginRemoval(model.name)
               var removed = false
-              val store = DiscoveredModels(directory, DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId })
+              val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
               try {
-                removed = DiscoveredModelRemoval(directory, store)
-                  .remove(model.name, model.normalizedName) { preferencesRepository.clearDefaultModelIfMatches(model.name) }
+                removed = discoveredModelsRepository.remove(provider, model.name, model.normalizedName) {
+                  preferencesRepository.clearDefaultModelIfMatches(model.name)
+                }
                 if (removed) {
                   try { preferencesRepository.clearInferenceConfig(model.prefsKey) }
                   catch (e: Exception) { Log.w(TAG, "Could not clear removed model settings", e) }
@@ -392,7 +418,7 @@ constructor(
                 removed
               } finally {
                 val usable = !removed && runCatching {
-                  store.read().any { it.toAllowedModel().name == model.name } &&
+                  discoveredModelsRepository.read(provider).any { it.allowed.name == model.name } &&
                     modelStorageRepository.getModelDownloadStatus(model).status == ModelDownloadStatusType.SUCCEEDED
                 }.getOrDefault(false)
                 DefaultModelGuard.finishRemoval(model.name, usable)
@@ -878,6 +904,7 @@ constructor(
     modelStorageRepository = modelStorageRepository,
     importManager = importManager,
     preferencesRepository = preferencesRepository,
+    discoveredModelsRepository = discoveredModelsRepository,
   )
 
   fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {

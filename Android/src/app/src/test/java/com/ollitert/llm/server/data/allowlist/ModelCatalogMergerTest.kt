@@ -388,7 +388,7 @@ class ModelCatalogMergerTest {
   }
 
   @Test
-  fun onErrorCallbackFirsForMalformedAsset() {
+  fun reportsMalformedAssetAndUnavailableProviderRegistries() {
     val errors = mutableListOf<Pair<String, Exception>>()
     val loader = ModelCatalogMerger(
       externalFilesDir = null,
@@ -397,6 +397,6 @@ class ModelCatalogMergerTest {
     )
     val models = loader.load()
     assertTrue(models.isEmpty())
-    assertEquals(listOf("asset", "huggingface-models"), errors.map { it.first })
+    assertEquals(listOf("asset", "huggingface-models", "modelscope-models"), errors.map { it.first })
   }
 }

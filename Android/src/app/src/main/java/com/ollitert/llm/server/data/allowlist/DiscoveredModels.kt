@@ -31,9 +31,9 @@ import kotlinx.serialization.json.Json
 internal const val DISCOVERED_SOURCE_ID = "huggingface-discovered"
 internal const val MODELSCOPE_SOURCE_ID = "modelscope-discovered"
 
-internal enum class DiscoveredProvider(val sourceId: String, val catalogFile: String, val filePrefix: String) {
-  HUGGING_FACE(DISCOVERED_SOURCE_ID, "huggingface_models.json", "hf"),
-  MODELSCOPE(MODELSCOPE_SOURCE_ID, "modelscope_models.json", "ms"),
+internal enum class DiscoveredProvider(val sourceId: String, val catalogFile: String, val filePrefix: String, val displayName: String) {
+  HUGGING_FACE(DISCOVERED_SOURCE_ID, "huggingface_models.json", "hf", "Hugging Face"),
+  MODELSCOPE(MODELSCOPE_SOURCE_ID, "modelscope_models.json", "ms", "ModelScope"),
 }
 
 internal fun isDiscoveredSource(sourceId: String): Boolean =
@@ -101,6 +101,8 @@ internal data class DiscoveredModel(
   }
 }
 
+internal data class DiscoveredModelEntry(val record: DiscoveredModel, val allowed: AllowedModel)
+
 /** Owns downloaded-model metadata independently of user-managed model sources. */
 internal class DiscoveredModels(
   private val directory: File,
@@ -109,7 +111,9 @@ internal class DiscoveredModels(
   private val json = Json { ignoreUnknownKeys = true }
   private val file = File(directory, provider.catalogFile)
 
-  fun read(): List<DiscoveredModel> = synchronized(lock) { readLocked() }
+  fun readEntries(): List<DiscoveredModelEntry> = synchronized(lock) { readLocked() }
+
+  fun read(): List<DiscoveredModel> = readEntries().map { it.record }
 
   fun addConfiguredFile(
     repository: String,
@@ -146,7 +150,7 @@ internal class DiscoveredModels(
   fun add(model: DiscoveredModel): Boolean = synchronized(lock) {
     require(model.provider == provider)
     model.toAllowedModel()
-    val entries = readLocked()
+    val entries = readLocked().map { it.record }
     if (entries.any { it.repository == model.repository && it.path == model.path && it.modelScopeSite == model.modelScopeSite }) return false
     writeLocked(entries + model)
     true
@@ -154,9 +158,9 @@ internal class DiscoveredModels(
 
   fun remove(modelName: String): Boolean = synchronized(lock) {
     val entries = readLocked()
-    val remaining = entries.filterNot { it.toAllowedModel().name == modelName }
+    val remaining = entries.filterNot { it.allowed.name == modelName }
     if (remaining.size == entries.size) return false
-    writeLocked(remaining)
+    writeLocked(remaining.map { it.record })
     true
   }
 
@@ -172,11 +176,12 @@ internal class DiscoveredModels(
     }
   }
 
-  private fun readLocked(): List<DiscoveredModel> {
+  private fun readLocked(): List<DiscoveredModelEntry> {
     if (!file.exists()) return emptyList()
     require(file.length() <= MAX_ALLOWLIST_RESPONSE_BYTES) { "${provider.sourceId} catalog is too large" }
-    return json.decodeFromString<List<DiscoveredModel>>(file.readText()).also { entries ->
-      entries.forEach { require(it.provider == provider); it.toAllowedModel() }
+    return json.decodeFromString<List<DiscoveredModel>>(file.readText()).map { record ->
+      require(record.provider == provider)
+      DiscoveredModelEntry(record, record.toAllowedModel())
     }
   }
 

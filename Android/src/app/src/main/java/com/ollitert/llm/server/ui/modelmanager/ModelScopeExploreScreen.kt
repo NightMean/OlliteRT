@@ -60,8 +60,8 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTok
     if (state.rateLimited) R.string.modelscope_rate_limited else if (state.accessDenied) R.string.modelscope_access_denied else R.string.modelscope_files_error
   ) else null
   val errorSnackbar = rememberRepositoryErrorSnackbar(modelError, viewModel::retryError, viewModel::dismissModelError)
-  var importsRetry by remember { mutableStateOf(0) }
-  val importsState = rememberRepositoryImports(modelManagerViewModel, DiscoveredProvider.MODELSCOPE, importsRetry)
+  val importsState by modelManagerViewModel.repositoryImports(DiscoveredProvider.MODELSCOPE).collectAsStateWithLifecycle()
+  val retryImports = { modelManagerViewModel.retryRepositoryImports(DiscoveredProvider.MODELSCOPE) }
   val imports = importsState.items
   val importedGroups = matchingImportedRepositories(imports.filter { it.record.modelScopeSite == state.site }, state.query)
   var showLink by rememberSaveable { mutableStateOf(false) }
@@ -104,7 +104,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTok
         }
       }
       if (importsState.error) ModelListError(title = stringResource(R.string.models_failed_to_load),
-        message = stringResource(R.string.repository_imports_error), onRetry = { importsRetry++ }, verticalPadding = 16.dp)
+        message = stringResource(R.string.repository_imports_error), onRetry = retryImports, verticalPadding = 16.dp)
       RepositoryLoadingIndicator((!importsState.ready && !importsState.error) || state.loading)
       if (state.error && state.details == null && state.failedModel == null) {
         ModelListError(
@@ -172,7 +172,7 @@ internal fun ModelScopeExploreScreen(onBack: () -> Unit, onNavigateToProviderTok
       imports = imports.filter { it.record.repository == details.id && it.record.modelScopeSite == state.detailsSite },
       importsReady = importsState.ready,
       importsError = importsState.error,
-      onRetryImports = { importsRetry++ },
+      onRetryImports = retryImports,
       repositoryUrl = "${state.detailsSite.baseUrl}/models/${details.id}",
       fileUrl = { path -> importedFileUrl(imports, details.id, path, state.detailsSite)
         ?: state.files.firstOrNull { it.path == path }?.let { modelScopeFileUrl(details.id, it.revision, path, state.detailsSite) } },

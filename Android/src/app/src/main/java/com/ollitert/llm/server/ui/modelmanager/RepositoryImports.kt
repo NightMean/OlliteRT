@@ -16,23 +16,14 @@
 
 package com.ollitert.llm.server.ui.modelmanager
 
-import android.util.Log
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.data.allowlist.DiscoveredModel
-import com.ollitert.llm.server.data.allowlist.DiscoveredModels
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.huggingFaceFileUrl
 import com.ollitert.llm.server.data.allowlist.modelScopeFileUrl
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withContext
+import com.ollitert.llm.server.data.repository.DiscoveredCatalogSnapshot
 
 internal data class RepositoryImport(val record: DiscoveredModel, val model: Model?, val status: ModelDownloadStatusType?)
 internal data class RepositoryImportsState(val items: List<RepositoryImport> = emptyList(), val ready: Boolean = false, val error: Boolean = false)
@@ -56,28 +47,10 @@ internal fun selectRepositoryPath(current: String?, paths: List<String>, imports
   return paths.firstOrNull { it !in unavailable }
 }
 
-@Composable
-internal fun rememberRepositoryImports(manager: ModelManagerViewModel, provider: DiscoveredProvider, retry: Int = 0): RepositoryImportsState {
-  val context = LocalContext.current
-  val state by manager.uiState.collectAsStateWithLifecycle()
-  val records by produceState<Result<List<DiscoveredModel>>?>(null, context, provider, state.models, state.storageUpdateTrigger, retry) {
-    value = null
-    value = withContext(Dispatchers.IO) {
-      try {
-        Result.success(context.getExternalFilesDir(null)?.let { DiscoveredModels(it, provider).read() } ?: error("Model storage unavailable"))
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.e("OlliteRT.Repository", "Could not read imported repositories", e)
-        Result.failure(e)
-      }
-    }
-  }
+internal fun repositoryImportsState(snapshot: DiscoveredCatalogSnapshot, state: ModelManagerUiState): RepositoryImportsState {
+  if (snapshot.failure != null) return RepositoryImportsState(error = true)
   val models = state.models.associateBy { it.name }
-  val current = records ?: return RepositoryImportsState()
-  val items = current.getOrNull() ?: return RepositoryImportsState(error = true)
-  return RepositoryImportsState(ready = true, items = items.map { record ->
-    val name = record.toAllowedModel().name
-    RepositoryImport(record, models[name], state.modelDownloadStatus[name]?.status)
+  return RepositoryImportsState(ready = true, items = snapshot.entries.map { (record, allowed) ->
+    RepositoryImport(record, models[allowed.name], state.modelDownloadStatus[allowed.name]?.status)
   })
 }

@@ -26,6 +26,8 @@ import androidx.datastore.dataStoreFile
 import com.ollitert.llm.server.BuildConfig
 import com.ollitert.llm.server.data.prefs.BenchmarkResultsSerializer
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.repository.DefaultProtoDataStoreRepository
 import com.ollitert.llm.server.data.repository.DataStoreImportedRenameStorage
 import com.ollitert.llm.server.data.repository.DataStoreImportedCopyStorage
@@ -112,13 +114,20 @@ internal object AppModule {
 
   @Provides
   @Singleton
+  fun provideDiscoveredModelsRepository(@ApplicationContext context: Context): DiscoveredModelsRepository =
+    DefaultDiscoveredModelsRepository { context.getExternalFilesDir(null) }
+
+  @Provides
+  @Singleton
   fun provideModelCatalogRepository(
     @ApplicationContext context: Context,
     protoDataStoreRepository: ProtoDataStoreRepository,
+    discoveredModelsRepository: DiscoveredModelsRepository,
   ): ModelCatalogRepository {
     val merger = ModelCatalogMerger(
       externalFilesDir = context.getExternalFilesDir(null),
       appVersionName = BuildConfig.VERSION_NAME,
+      discoveredModelsRepository = discoveredModelsRepository,
       assetReader = {
         try {
           context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }

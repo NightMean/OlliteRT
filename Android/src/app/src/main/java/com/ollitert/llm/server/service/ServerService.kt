@@ -45,6 +45,7 @@ import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import com.ollitert.llm.server.data.repository.ImportedModelRecoveryException
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.data.model.isSpeculativeDecodingEnabled
@@ -87,6 +88,7 @@ class ServerService : Service() {
   @Volatile private var preserveStartupError = false
 
   @Inject lateinit var protoDataStoreRepository: ProtoDataStoreRepository
+  @Inject internal lateinit var discoveredModelsRepository: DiscoveredModelsRepository
   @Inject lateinit var preferencesRepository: PreferencesRepository
   @Inject lateinit var serverStateRepository: ServerStateRepository
 
@@ -133,6 +135,7 @@ class ServerService : Service() {
       val modelCatalogMerger = ModelCatalogMerger(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,
+        discoveredModelsRepository = discoveredModelsRepository,
         assetReader = {
           try { assets.open(MODEL_ALLOWLIST_FILENAME).use { it.reader().readText() } } catch (e: Exception) { Log.w(TAG, "Failed to read bundled $MODEL_ALLOWLIST_FILENAME", e); null }
         },

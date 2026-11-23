@@ -25,7 +25,7 @@ import java.io.File
 /** Called while holding the model lock before a queued download starts. */
 internal fun discoveredDownloadIsRegistered(directory: File, sourceId: String?, name: String): Boolean {
   val provider = DiscoveredProvider.entries.firstOrNull { it.sourceId == sourceId } ?: return true
-  return DiscoveredModels(directory, provider).read().any { it.toAllowedModel().name == name }
+  return DiscoveredModels(directory, provider).readEntries().any { it.allowed.name == name }
 }
 
 internal fun canInspectDiscoveredRemoval(status: ModelDownloadStatusType?): Boolean = when (status) {
@@ -56,7 +56,7 @@ internal class DiscoveredModelRemoval(
     val target = File(root, relativeDirectory).canonicalFile
     val targetPath = target.toPath()
     require(targetPath != rootPath && targetPath.startsWith(rootPath)) { "Invalid model directory" }
-    if (store.read().none { it.toAllowedModel().name == modelName }) return false
+    if (store.readEntries().none { it.allowed.name == modelName }) return false
     if (target.exists() && !deleteDirectory(target)) return false
     // Complete dependent durable state first; after a crash, an existing record can be retried.
     beforeRemoveRecord()

@@ -16,6 +16,9 @@
 
 package com.ollitert.llm.server.data.allowlist
 
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
+
 import com.ollitert.llm.server.common.SemVer
 import java.io.File
 
@@ -27,17 +30,16 @@ import java.io.File
  * Caches the last successful load so callers always get a valid list even
  * when the external files are temporarily unavailable.
  */
-class ModelCatalogMerger(
+class ModelCatalogMerger internal constructor(
   private val externalFilesDir: File?,
   private val appVersionName: String = "",
   private val assetReader: () -> String? = { null },
   private val enabledCacheFilenames: () -> Set<String>? = { null },
   private val onError: (source: String, exception: Exception) -> Unit = { _, _ -> },
+  private val discoveredModelsRepository: DiscoveredModelsRepository = DefaultDiscoveredModelsRepository { externalFilesDir },
 ) {
   private val appVersion: SemVer? = SemVer.parse(appVersionName)
   @Volatile private var cached: ModelAllowlist? = null
-  @Volatile private var cachedDiscovered: List<AllowedModel> = emptyList()
-  @Volatile private var cachedModelScope: List<AllowedModel> = emptyList()
   @Volatile var lastSource: String = "unknown"
   @Volatile var lastContentVersion: Int = 0
 
@@ -53,22 +55,12 @@ class ModelCatalogMerger(
       if (lastSource == "unknown") lastSource = "empty"
       cached?.models ?: emptyList()
     }
-    val local = try {
-      val dir = externalFilesDir ?: throw IllegalStateException("Model storage unavailable")
-      DiscoveredModels(dir).read().map { model -> model.toAllowedModel() }.also { cachedDiscovered = it }
-    } catch (e: Exception) {
-      onError("huggingface-models", e)
-      cachedDiscovered
+    val discovered = DiscoveredProvider.entries.flatMap { provider ->
+      val snapshot = discoveredModelsRepository.load(provider)
+      snapshot.failure?.let { onError(provider.catalogFile.removeSuffix(".json").replace('_', '-'), it) }
+      snapshot.entries.map { it.allowed }
     }
-    val modelScope = if (externalFilesDir == null) cachedModelScope else try {
-      val dir = externalFilesDir
-      DiscoveredModels(dir, DiscoveredProvider.MODELSCOPE).read().map { it.toAllowedModel() }
-        .also { cachedModelScope = it }
-    } catch (e: Exception) {
-      onError("modelscope-models", e)
-      cachedModelScope
-    }
-    return remote + local + modelScope
+    return remote + discovered
   }
 
   private fun readFromFiles(): ModelAllowlist? {

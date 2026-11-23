@@ -23,9 +23,9 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.SemVer
 import com.ollitert.llm.server.data.allowlist.AllowedModel
-import com.ollitert.llm.server.data.allowlist.DiscoveredModels
+import com.ollitert.llm.server.data.repository.DefaultDiscoveredModelsRepository
+import com.ollitert.llm.server.data.repository.DiscoveredModelsRepository
 import com.ollitert.llm.server.data.allowlist.DiscoveredProvider
-import com.ollitert.llm.server.data.allowlist.DISCOVERED_SOURCE_ID
 import com.ollitert.llm.server.data.repository.ProtoDataStoreRepository
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
@@ -71,43 +71,30 @@ internal data class SourceVisibilityResult(
  * Coordinator responsible for allowlist network retrieval, repository synchronization,
  * device/version compatibility filtering, and error diagnostic calculation.
  */
-class AllowlistLoadCoordinator(
+class AllowlistLoadCoordinator internal constructor(
   private val context: Context,
   private val protoDataStoreRepository: ProtoDataStoreRepository,
   private val repositoryManager: RepositoryManager,
   private val modelStorageRepository: ModelStorageRepository = DefaultModelStorageRepository(context),
   private val importManager: ModelListImportManager,
   private val preferencesRepository: PreferencesRepository = DefaultPreferencesRepository(context),
+  private val discoveredModelsRepository: DiscoveredModelsRepository =
+    DefaultDiscoveredModelsRepository { context.getExternalFilesDir(null) },
 ) {
-  @Volatile private var cachedDiscoveredModels: List<Model> = emptyList()
-  @Volatile private var cachedModelScopeModels: List<Model> = emptyList()
-
   private fun readDiscoveredModels(appVersion: SemVer?): Pair<List<Model>, String?> {
-    val (huggingFace, huggingFaceError) = readHuggingFaceModels(appVersion)
-    val (modelScope, modelScopeError) = try {
-      val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
-      val models = DiscoveredModels(directory, DiscoveredProvider.MODELSCOPE).read().map {
-        it.toAllowedModel().toModel(appVersion, repositoryName = "ModelScope", repositoryId = DiscoveredProvider.MODELSCOPE.sourceId)
+    var error: String? = null
+    val models = DiscoveredProvider.entries.flatMap { provider ->
+      val snapshot = discoveredModelsRepository.load(provider)
+      snapshot.failure?.let { failure ->
+        Log.e(TAG, "Failed to read ${provider.displayName} model catalog", failure)
+        if (error == null) error = context.getString(when (provider) {
+          DiscoveredProvider.HUGGING_FACE -> R.string.hf_explore_catalog_error
+          DiscoveredProvider.MODELSCOPE -> R.string.modelscope_catalog_error
+        })
       }
-      cachedModelScopeModels = models
-      models to null
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to read ModelScope model catalog", e)
-      cachedModelScopeModels to context.getString(R.string.modelscope_catalog_error)
+      snapshot.entries.map { it.allowed.toModel(appVersion, repositoryName = provider.displayName, repositoryId = provider.sourceId) }
     }
-    return (huggingFace + modelScope) to (huggingFaceError ?: modelScopeError)
-  }
-
-  private fun readHuggingFaceModels(appVersion: SemVer?): Pair<List<Model>, String?> = try {
-    val directory = context.getExternalFilesDir(null) ?: error("Model storage unavailable")
-    val models = DiscoveredModels(directory).read().map {
-      it.toAllowedModel().toModel(appVersion, repositoryName = "Hugging Face", repositoryId = DISCOVERED_SOURCE_ID)
-    }
-    cachedDiscoveredModels = models
-    models to null
-  } catch (e: Exception) {
-    Log.e(TAG, "Failed to read Hugging Face model catalog", e)
-    cachedDiscoveredModels to context.getString(R.string.hf_explore_catalog_error)
+    return models to error
   }
 
   fun isModelSupportedOnDevice(allowedModel: AllowedModel): Boolean {
