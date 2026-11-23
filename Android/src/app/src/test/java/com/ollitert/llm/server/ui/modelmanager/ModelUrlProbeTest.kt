@@ -28,6 +28,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ModelUrlProbeTest {
+  @Test fun aProbeFailureDoesNotExposeTheDownloadUrl() {
+    val signedUrl = "https://example.com/model?signature=example-signature"
+    val result = probeModelUrl(signedUrl, null) {
+      throw java.io.IOException("Could not connect to $signedUrl")
+    }
+    assertEquals(ModelUrlResult.Error("IOException"), result)
+  }
 
   @Test
   fun redirectProbeBoundsBothConnections() {

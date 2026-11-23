@@ -182,7 +182,8 @@ internal fun probeModelUrl(
       }
     }
   } catch (e: Exception) {
-    return ModelUrlResult.Error(e.message ?: "Unknown network error")
+    // Callers log this result. Exception messages can include signed URLs.
+    return ModelUrlResult.Error(e.javaClass.simpleName)
   }
 }
 

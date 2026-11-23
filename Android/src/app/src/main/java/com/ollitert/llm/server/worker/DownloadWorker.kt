@@ -98,7 +98,13 @@ private sealed interface DownloadOutcome {
   data class Failed(val output: Data = Data.EMPTY) : DownloadOutcome
 }
 
-data class UrlAndFileName(val url: String, val fileName: String, val expectedBytes: Long)
+private class DownloadFile(val url: String, val fileName: String, val expectedBytes: Long)
+
+private fun logDownloadFailure(operation: String, error: Exception) {
+  // Network exception messages and their causes can contain full signed URLs.
+  val appFrame = error.stackTrace.firstOrNull { it.className.startsWith("com.ollitert.llm.server.") }
+  Log.e(TAG, "$operation (${error.javaClass.simpleName})${appFrame?.let { " at $it" }.orEmpty()}")
+}
 
 private class InvalidArtifactException(val problem: ArtifactProblem) : IOException("Invalid downloaded artifact: $problem")
 
@@ -155,7 +161,7 @@ class DownloadWorker @AssistedInject internal constructor(
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
-      Log.e(TAG, "Model download did not complete", e)
+      logDownloadFailure("Model download did not complete", e)
       DownloadOutcome.Failed(workDataOf(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE to applicationContext.getString(R.string.error_unknown)))
     }
     currentCoroutineContext().ensureActive()
@@ -218,15 +224,15 @@ class DownloadWorker @AssistedInject internal constructor(
           setForeground(createForegroundInfo(progress = 0, modelName = modelName))
 
           // Collect data for all files.
-          val allFiles: MutableList<UrlAndFileName> = mutableListOf()
-          allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName, expectedBytes = fileBytes))
+          val allFiles: MutableList<DownloadFile> = mutableListOf()
+          allFiles.add(DownloadFile(url = fileUrl, fileName = fileName, expectedBytes = fileBytes))
           for (index in extraDataFileUrls.indices) {
             allFiles.add(
-              UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index],
+              DownloadFile(url = extraDataFileUrls[index], fileName = extraDataFileNames[index],
                 expectedBytes = extraFileBytes.getOrNull(index)?.toLongOrNull() ?: 0L)
             )
           }
-          Log.d(TAG, "About to download: $allFiles")
+          Log.d(TAG, "Starting download of ${allFiles.size} file(s)")
 
           // Sequential download -- parallel would speed up multi-file models but complicates progress tracking
           var downloadedBytes = 0L
@@ -281,13 +287,13 @@ class DownloadWorker @AssistedInject internal constructor(
                   val rangeParts = contentRange.substringAfter("bytes ").split("/")
                   val byteRange = rangeParts[0].split("-")
                   val startByte = byteRange.getOrNull(0)?.toLongOrNull()
-                    ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
+                    ?: throw IOException("Invalid start offset in Content-Range")
                   val endByte = byteRange.getOrNull(1)?.toLongOrNull()
-                    ?: throw IOException("Invalid Content-Range header: expected 'start-end', got '$contentRange'")
+                    ?: throw IOException("Invalid end offset in Content-Range")
 
                   Log.d(
                     TAG,
-                    "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte",
+                    "Content-Range offsets: $startByte to $endByte",
                   )
 
                   // Validate that the server resumed from where we left off
@@ -460,7 +466,7 @@ class DownloadWorker @AssistedInject internal constructor(
         } catch (e: CancellationException) {
           throw e
         } catch (e: SecurityException) {
-          Log.e(TAG, "Zip path traversal blocked: ${e.message}", e)
+          logDownloadFailure("Download blocked by a security check", e)
 
           for (tmpFile in createdTmpFiles) {
             if (tmpFile.exists()) {
@@ -476,7 +482,7 @@ class DownloadWorker @AssistedInject internal constructor(
             ).build()
           )
         } catch (e: IOException) {
-          Log.e(TAG, e.message, e)
+          logDownloadFailure("Download I/O failed", e)
 
           // Detect disk-full failures: if available space is critically low after
           // the error, the partial .tmp files are actively harmful — they consume
@@ -545,7 +551,7 @@ class DownloadWorker @AssistedInject internal constructor(
               .putString(KEY_MODELSCOPE_ACCESS_DENIED_SITE, deniedSite).build()
           )
         } catch (e: Exception) {
-          Log.e(TAG, "Unexpected error during download: ${e.message}", e)
+          logDownloadFailure("Unexpected error during download", e)
           DownloadOutcome.Failed(
             Data.Builder().putString(
               KEY_MODEL_DOWNLOAD_ERROR_MESSAGE,
