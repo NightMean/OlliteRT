@@ -406,12 +406,15 @@ internal constructor(
   private fun observeDownload(model: Model, workerId: UUID, generation: Long, enqueue: Operation? = null) {
     val name = model.name
     val observer = viewModelScope.launch(mainDispatcher, start = CoroutineStart.LAZY) {
+      var workerCanceled = false
       try {
         enqueue?.await()
         downloadRepository.observeWorkerProgress(workerId, model.totalBytes).collect { status ->
-          // WorkManager can show cancellation before the worker releases and the files are cleared.
-          val cancelCleanupPending = name in cancelingDownloadNames && status.status == ModelDownloadStatusType.NOT_DOWNLOADED
-          if (downloadCallbackGate.isCurrent(name, generation) && !cancelCleanupPending) setDownloadStatus(model, status)
+          if (downloadCallbackGate.isCurrent(name, generation)) {
+            // Cancellation describes work, not the state of its files.
+            if (status.status == ModelDownloadStatusType.NOT_DOWNLOADED) workerCanceled = true
+            else setDownloadStatus(model, status)
+          }
         }
       } catch (e: CancellationException) {
         throw e
@@ -425,7 +428,15 @@ internal constructor(
           _uiState.update { it.copy(loadingModelAllowlistError = message) }
         }
       } finally {
-        if (downloadObservers[name] === currentCoroutineContext()[Job]) downloadObservers.remove(name)
+        if (downloadObservers[name] === currentCoroutineContext()[Job]) {
+          downloadObservers.remove(name)
+          // Explicit cancellation owns cleanup. A delayed terminal event must still
+          // use disk reconciliation if that cleanup no longer owns this model.
+          if (workerCanceled && name !in cancelingDownloadNames) {
+            downloadStartGate.release(name)
+            loadModelAllowlist()
+          }
+        }
       }
     }
     downloadObservers.put(name, observer)?.cancel()
@@ -813,21 +824,17 @@ internal constructor(
     }
   }
 
-  fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
+  private fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
     if (curModel.name in removingModelNames) return
     if (isDiscoveredSource(curModel.sourceRepositoryId) && _uiState.value.models.none { it.name == curModel.name }) return
     markDownloadStatusChanged(curModel.name)
     if (
       status.status == ModelDownloadStatusType.SUCCEEDED ||
-        status.status == ModelDownloadStatusType.FAILED ||
-        status.status == ModelDownloadStatusType.NOT_DOWNLOADED
+        status.status == ModelDownloadStatusType.FAILED
     ) {
       downloadStartGate.release(curModel.name)
     }
-    if (
-      status.status == ModelDownloadStatusType.FAILED ||
-        status.status == ModelDownloadStatusType.NOT_DOWNLOADED
-    ) {
+    if (status.status == ModelDownloadStatusType.FAILED) {
       deleteFileFromExternalFilesDir(curModel.downloadFileName)
     }
 
@@ -841,8 +848,9 @@ internal constructor(
       }
       updated
     }
-    if (status.status == ModelDownloadStatusType.SUCCEEDED || status.status == ModelDownloadStatusType.FAILED ||
-      status.status == ModelDownloadStatusType.NOT_DOWNLOADED) processPendingDownloads()
+    if (status.status == ModelDownloadStatusType.SUCCEEDED || status.status == ModelDownloadStatusType.FAILED) {
+      processPendingDownloads()
+    }
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): ModelUrlResult {

@@ -46,10 +46,12 @@ import io.mockk.mockk
 import io.mockk.verify
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -194,6 +196,18 @@ class ModelManagerViewModelDisabledSourcesTest {
     advanceUntilIdle()
     assertEquals(ModelDownloadStatusType.FAILED, afterCancellation.uiState.value.modelDownloadStatus[model.name]?.status)
     assertEquals(partial.receivedBytes, afterCancellation.uiState.value.modelDownloadStatus[model.name]?.receivedBytes)
+
+    val workerId = UUID.randomUUID()
+    every { downloads.getModelDownloadWork() } returns ModelDownloadWork(activeWorkers = mapOf(model.name to workerId))
+    every { downloads.observeWorkerProgress(workerId, any()) } returns flow {
+      every { downloads.getModelDownloadWork() } returns ModelDownloadWork(canceledModels = setOf(model.name))
+      emit(ModelDownloadStatus(ModelDownloadStatusType.NOT_DOWNLOADED))
+    }
+    afterCancellation.loadModelAllowlist()
+    advanceUntilIdle()
+    assertEquals(ModelDownloadStatusType.FAILED, afterCancellation.uiState.value.modelDownloadStatus[model.name]?.status)
+    assertEquals(partial.receivedBytes, afterCancellation.uiState.value.modelDownloadStatus[model.name]?.receivedBytes)
+    verify(exactly = 0) { storage.deleteFileFromExternalFilesDir(any()) }
     verify(exactly = 0) { downloads.cancelDownloads(any(), any()) }
   }
 
