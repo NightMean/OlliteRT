@@ -19,18 +19,13 @@ package com.ollitert.llm.server.worker
 import com.ollitert.llm.server.data.allowlist.ModelScopeSite
 import com.ollitert.llm.server.data.allowlist.modelScopeSiteForUrl
 import com.ollitert.llm.server.data.allowlist.setModelScopeCredentials
-import com.ollitert.llm.server.data.allowlist.MODELSCOPE_RATE_LIMIT_CODE
 import com.ollitert.llm.server.data.allowlist.ModelScopeRateLimitException
-import com.ollitert.llm.server.data.allowlist.readTextLimited
+import com.ollitert.llm.server.data.allowlist.hasModelScopeLegacyRateLimit
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_CONNECT_TIMEOUT_MS
 import com.ollitert.llm.server.data.prefs.DOWNLOAD_READ_TIMEOUT_MS
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 
 internal class ModelScopeDownloadAccessException(val site: ModelScopeSite) : IOException("ModelScope denied access")
 
@@ -50,16 +45,16 @@ internal fun openModelScopeDownloadConnection(
       connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
       connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MS
       connection.instanceFollowRedirects = false
-      if (useCredentials && modelScopeSiteForUrl(current.toString()) == site) setModelScopeCredentials(connection, token)
+      val onOriginalSite = modelScopeSiteForUrl(current.toString()) == site
+      if (useCredentials && onOriginalSite) setModelScopeCredentials(connection, token)
       if (offset > 0) {
         connection.setRequestProperty("Range", "bytes=$offset-")
         connection.setRequestProperty("Accept-Encoding", "identity")
       }
       connection.connect()
-      if (modelScopeSiteForUrl(current.toString()) == site && connection.responseCode in listOf(401, 403, 429)) {
-        val body = connection.errorStream?.bufferedReader()?.use { it.readTextLimited(4096) }
-        val code = body?.let { runCatching { Json.parseToJsonElement(it).jsonObject["Code"]?.jsonPrimitive?.longOrNull }.getOrNull() }
-        if (connection.responseCode == 429 || code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException()
+      val status = connection.responseCode
+      if (onOriginalSite && status in listOf(401, 403, 429)) {
+        if (status == 429 || connection.hasModelScopeLegacyRateLimit()) throw ModelScopeRateLimitException()
         if (useCredentials) {
           // Match the official client's anonymous retry for public files after auth rejection.
           connection.disconnect()
@@ -69,8 +64,8 @@ internal fun openModelScopeDownloadConnection(
         }
         throw ModelScopeDownloadAccessException(site)
       }
-      if (rejectedCredentials && modelScopeSiteForUrl(current.toString()) == site && connection.responseCode in listOf(401, 403, 404)) throw ModelScopeDownloadAccessException(site)
-      if (connection.responseCode !in 300..399) return connection
+      if (rejectedCredentials && onOriginalSite && status == HttpURLConnection.HTTP_NOT_FOUND) throw ModelScopeDownloadAccessException(site)
+      if (status !in 300..399) return connection
       if (++redirects > 5) throw IOException("Too many ModelScope download redirects")
       val location = connection.getHeaderField("Location") ?: throw IOException("ModelScope download redirect has no location")
       val next = URL(current, location)

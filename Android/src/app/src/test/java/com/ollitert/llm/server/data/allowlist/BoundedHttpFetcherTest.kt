@@ -35,6 +35,15 @@ import org.junit.Before
 import org.junit.Test
 
 class BoundedHttpFetcherTest {
+  @Test fun boundedTextDistinguishesExactLengthOverflowAndPrefix() {
+    assertEquals("abc", "abc".reader().readBoundedText(3))
+    assertEquals("abc", "abc".reader().readBoundedText(4))
+    assertNull("abcd".reader().readBoundedText(3))
+    val reader = "abcd".reader()
+    assertEquals("abc", reader.readBoundedText(3, allowTruncation = true))
+    assertEquals('d'.code, reader.read())
+  }
+
 
   private lateinit var mockConnection: HttpURLConnection
   private lateinit var openConnection: (String) -> HttpURLConnection

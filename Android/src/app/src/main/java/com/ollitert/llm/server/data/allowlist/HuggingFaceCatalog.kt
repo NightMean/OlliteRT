@@ -133,17 +133,8 @@ internal class HuggingFaceCatalog(
       val status = connection.responseCode
       if (status != HttpURLConnection.HTTP_OK) throw IOException("Hugging Face returned HTTP $status")
       val next = nextPageUrl(connection.getHeaderField("Link"))
-      val body = connection.inputStream.bufferedReader().use { reader ->
-        val result = StringBuilder()
-        val buffer = CharArray(8192)
-        while (true) {
-          val count = reader.read(buffer)
-          if (count < 0) break
-          if (result.length + count > MAX_ALLOWLIST_RESPONSE_BYTES) throw IOException("Hugging Face response is too large")
-          result.append(buffer, 0, count)
-        }
-        result.toString()
-      }
+      val body = connection.inputStream.bufferedReader().use { it.readBoundedText(MAX_ALLOWLIST_RESPONSE_BYTES.toInt()) }
+        ?: throw IOException("Hugging Face response is too large")
       return Response(body, next)
     } finally {
       connection.disconnect()

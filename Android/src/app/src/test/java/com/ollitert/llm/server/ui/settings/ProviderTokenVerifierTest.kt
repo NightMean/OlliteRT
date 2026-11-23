@@ -72,4 +72,16 @@ class ProviderTokenVerifierTest {
     assertEquals(TokenCheck.UNAVAILABLE, check(200, "{}"))
     assertEquals(TokenCheck.UNAVAILABLE, check(200, "x".repeat(65537)))
   }
+
+  @Test fun aLegacyRateLimitRequiresTheModelScopeCodeField() {
+    val verifier = ProviderTokenVerifier()
+    fun verifyDenied(provider: ProviderToken, body: String): TokenCheck {
+      verifier.openConnection = { connection(403, body) }
+      return verifier.verify(provider, "example")
+    }
+    assertEquals(TokenCheck.DENIED, verifyDenied(ProviderToken.MODELSCOPE_CN, """{"message":"10013201001"}"""))
+    assertEquals(TokenCheck.DENIED, verifyDenied(ProviderToken.MODELSCOPE_AI, """{"Code":100132010012}"""))
+    assertEquals(TokenCheck.DENIED, verifyDenied(ProviderToken.HUGGING_FACE, """{"Code":10013201001}"""))
+    assertEquals(TokenCheck.RATE_LIMITED, verifyDenied(ProviderToken.MODELSCOPE_AI, """{"Code":10013201001}"""))
+  }
 }

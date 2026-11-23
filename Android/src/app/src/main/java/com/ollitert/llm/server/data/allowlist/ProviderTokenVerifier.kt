@@ -32,6 +32,8 @@ internal enum class ProviderToken { HUGGING_FACE, MODELSCOPE_AI, MODELSCOPE_CN }
 
 internal enum class TokenCheck { TESTING, ACCEPTED, REJECTED, DENIED, RATE_LIMITED, UNAVAILABLE }
 
+private const val MAX_IDENTITY_RESPONSE_CHARS = 64 * 1024
+
 internal class ProviderTokenVerifier @Inject constructor() {
   internal var openConnection: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection }
 
@@ -51,13 +53,15 @@ internal class ProviderTokenVerifier @Inject constructor() {
       when (connection.responseCode) {
         200 -> {
           // Identity responses are small; bound the read and do not trust HTTP 200 alone.
-          val body = connection.inputStream.bufferedReader().use { it.readTextLimited() }
+          val body = connection.inputStream.bufferedReader().use { it.readBoundedText(MAX_IDENTITY_RESPONSE_CHARS) }
           if (body != null && hasIdentity(provider, body)) TokenCheck.ACCEPTED else TokenCheck.UNAVAILABLE
         }
         401 -> TokenCheck.REJECTED
         403 -> {
-          val error = connection.errorStream?.bufferedReader()?.use { it.readTextLimited() }
-          if (error?.contains("10013201001") == true) TokenCheck.RATE_LIMITED else TokenCheck.DENIED
+          val modelScopeError = if (provider != ProviderToken.HUGGING_FACE) {
+            connection.errorStream?.bufferedReader()?.use { it.readBoundedText(MAX_IDENTITY_RESPONSE_CHARS) }
+          } else null
+          if (isModelScopeLegacyRateLimit(modelScopeError)) TokenCheck.RATE_LIMITED else TokenCheck.DENIED
         }
         429 -> TokenCheck.RATE_LIMITED
         else -> TokenCheck.UNAVAILABLE
@@ -69,17 +73,6 @@ internal class ProviderTokenVerifier @Inject constructor() {
     } finally {
       connection?.disconnect()
     }
-  }
-}
-
-private fun java.io.Reader.readTextLimited(): String? {
-  val buffer = CharArray(4097)
-  val result = StringBuilder()
-  while (true) {
-    val count = read(buffer)
-    if (count < 0) return result.toString()
-    result.append(buffer, 0, count)
-    if (result.length > 65536) return null
   }
 }
 

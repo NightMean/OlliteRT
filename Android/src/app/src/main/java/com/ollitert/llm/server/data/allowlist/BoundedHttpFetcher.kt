@@ -21,10 +21,24 @@ import com.ollitert.llm.server.data.prefs.HTTP_READ_TIMEOUT_MS
 
 import android.util.Log
 import java.io.IOException
+import java.io.Reader
 import java.net.HttpURLConnection
 import java.net.URL
 
 private const val TAG = "OlliteRT.HttpFetcher"
+
+/** Returns null when the response exceeds the limit, unless the caller only needs a prefix. */
+internal fun Reader.readBoundedText(maxChars: Int, allowTruncation: Boolean = false): String? {
+  require(maxChars >= 0)
+  val text = StringBuilder()
+  val buffer = CharArray(minOf(DEFAULT_BUFFER_SIZE, maxChars))
+  while (text.length < maxChars) {
+    val count = read(buffer, 0, minOf(buffer.size, maxChars - text.length))
+    if (count < 0) return text.toString()
+    text.append(buffer, 0, count)
+  }
+  return if (allowTruncation || read() < 0) text.toString() else null
+}
 
 sealed class FetchResult {
   data class Success(val body: String) : FetchResult()
@@ -91,20 +105,9 @@ fun fetchBoundedResult(
     if (contentLength != null && contentLength > MAX_ALLOWLIST_RESPONSE_BYTES) {
       return FetchResult.NetworkError("Response too large (>${MAX_ALLOWLIST_RESPONSE_BYTES / 1024 / 1024}MB)")
     }
-    return connection.inputStream.bufferedReader().use { reader ->
-      val sb = StringBuilder()
-      val buffer = CharArray(8192)
-      var totalRead = 0L
-      var read: Int
-      while (reader.read(buffer).also { read = it } != -1) {
-        totalRead += read
-        if (totalRead > MAX_ALLOWLIST_RESPONSE_BYTES) {
-          return FetchResult.NetworkError("Response too large")
-        }
-        sb.append(buffer, 0, read)
-      }
-      FetchResult.Success(sb.toString())
-    }
+    val body = connection.inputStream.bufferedReader().use { it.readBoundedText(MAX_ALLOWLIST_RESPONSE_BYTES.toInt()) }
+      ?: return FetchResult.NetworkError("Response too large")
+    return FetchResult.Success(body)
   } catch (e: IOException) {
     Log.w(TAG, "Network error fetching $url", e)
     return FetchResult.NetworkError(e.message ?: "Network error")

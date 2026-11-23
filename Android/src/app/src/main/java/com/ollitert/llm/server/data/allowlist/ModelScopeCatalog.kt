@@ -28,8 +28,8 @@ import java.time.format.DateTimeFormatter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 internal const val MODELSCOPE_BASE_URL = "https://modelscope.cn"
@@ -57,7 +57,23 @@ internal fun setModelScopeCredentials(connection: HttpURLConnection, token: Stri
 private const val TREE_LIMIT = 3000
 private const val PAGE_SIZE = 50
 private const val MAX_PAGE = 3000 / PAGE_SIZE
+private const val LEGACY_ERROR_PREFIX_CHARS = 4096
 internal const val MODELSCOPE_RATE_LIMIT_CODE = 10013201001L
+
+internal fun isModelScopeLegacyRateLimit(body: String?): Boolean {
+  if (body == null) return false
+  val response = try {
+    Json.parseToJsonElement(body) as? JsonObject
+  } catch (_: IllegalArgumentException) {
+    null
+  }
+  return (response?.get("Code") as? JsonPrimitive)?.longOrNull == MODELSCOPE_RATE_LIMIT_CODE
+}
+
+internal fun HttpURLConnection.hasModelScopeLegacyRateLimit(): Boolean =
+  isModelScopeLegacyRateLimit(
+    errorStream?.bufferedReader()?.use { it.readBoundedText(LEGACY_ERROR_PREFIX_CHARS, allowTruncation = true) },
+  )
 
 internal class ModelScopeRateLimitException(val retryAfterMillis: Long? = null) : IOException("ModelScope rate limit exceeded")
 internal class ModelScopeAccessException : IOException("ModelScope denied access")
@@ -204,9 +220,9 @@ internal class ModelScopeCatalog(
       if (status != HttpURLConnection.HTTP_OK) {
         if (status == 429) throw ModelScopeRateLimitException(parseRetryAfter(connection.getHeaderField("Retry-After")))
         // The legacy API reports rate limits as HTTP 403 with a provider-specific code.
-        val error = connection.errorStream?.bufferedReader()?.use { it.readTextLimited(4096) }
-        val code = error?.let { runCatching { json.parseToJsonElement(it).jsonObject["Code"]?.jsonPrimitive?.longOrNull }.getOrNull() }
-        if (code == MODELSCOPE_RATE_LIMIT_CODE) throw ModelScopeRateLimitException(parseRetryAfter(connection.getHeaderField("Retry-After")))
+        if (connection.hasModelScopeLegacyRateLimit()) {
+          throw ModelScopeRateLimitException(parseRetryAfter(connection.getHeaderField("Retry-After")))
+        }
         if (status == HttpURLConnection.HTTP_NOT_FOUND) throw ModelScopeNotFoundException()
         if (status == HttpURLConnection.HTTP_UNAUTHORIZED || status == HttpURLConnection.HTTP_FORBIDDEN) {
           // An invalid token must not hide repositories available anonymously.
@@ -218,17 +234,8 @@ internal class ModelScopeCatalog(
         }
         throw IOException("ModelScope returned HTTP $status")
       }
-      val body = connection.inputStream.bufferedReader().use { reader ->
-        val result = StringBuilder()
-        val buffer = CharArray(8192)
-        while (true) {
-          val count = reader.read(buffer)
-          if (count < 0) break
-          if (result.length + count > MAX_ALLOWLIST_RESPONSE_BYTES) throw IOException("ModelScope response is too large")
-          result.append(buffer, 0, count)
-        }
-        result.toString()
-      }
+      val body = connection.inputStream.bufferedReader().use { it.readBoundedText(MAX_ALLOWLIST_RESPONSE_BYTES.toInt()) }
+        ?: throw IOException("ModelScope response is too large")
       return Response(body, parseRetryAfter(connection.getHeaderField("Retry-After")))
     } finally {
       connection.disconnect()
@@ -248,15 +255,4 @@ internal fun parseRetryAfter(value: String?, now: Instant = Instant.now()): Long
     java.time.Duration.between(now, target).toMillis().coerceAtLeast(0)
   } catch (_: java.time.DateTimeException) { Long.MAX_VALUE }
     catch (_: ArithmeticException) { Long.MAX_VALUE }
-}
-
-internal fun java.io.Reader.readTextLimited(limit: Int): String {
-  val chars = CharArray(limit)
-  val result = StringBuilder()
-  while (result.length < limit) {
-    val count = read(chars, 0, limit - result.length)
-    if (count < 0) break
-    result.append(chars, 0, count)
-  }
-  return result.toString()
 }
