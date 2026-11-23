@@ -45,6 +45,20 @@ class DiscoveredModelRemovalTest {
     assertTrue(repository.isDownloadRegistered(null, name))
   }
 
+  @Test fun preferenceUpdatesRequireTheModelToStillBeRegistered() {
+    val root = temp.newFolder()
+    val repository = DefaultDiscoveredModelsRepository { root }
+    val model = DiscoveredModel("owner/model", "model.litertlm", "a".repeat(40), 123)
+    val provider = DiscoveredProvider.HUGGING_FACE
+    DiscoveredModels(root, provider).add(model)
+    val name = model.toAllowedModel().name
+    var updates = 0
+    assertTrue(repository.runIfRegistered(provider, name) { updates++ })
+    assertTrue(repository.remove(provider, name, "model-dir") {})
+    assertFalse(repository.runIfRegistered(provider, name) { updates++ })
+    assertEquals(1, updates)
+  }
+
   @Test fun removalRequiresKnownIdleStateAndNoNativeCleanup() {
     fun allowed(status: ModelDownloadStatusType?, active: String? = null, server: ServerStatus = ServerStatus.STOPPED,
       cleanup: Boolean = false, unfinished: Boolean = false, confirmed: ModelDownloadStatusType = status ?: ModelDownloadStatusType.NOT_DOWNLOADED) =

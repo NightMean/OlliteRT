@@ -171,7 +171,7 @@ interface PreferencesRepository {
   fun setModelScopeToken(international: Boolean, token: String)
   fun getDefaultModelName(): String?
   fun setDefaultModelName(name: String?): Boolean
-  fun clearDefaultModelIfMatches(name: String): Boolean
+  fun clearDiscoveredModelReferences(name: String)
   fun isAutoStartOnBoot(): Boolean
   fun setAutoStartOnBoot(enabled: Boolean)
   fun isKeepScreenOn(): Boolean
@@ -315,7 +315,7 @@ class DefaultPreferencesRepository @Inject constructor(
   override fun setModelScopeToken(international: Boolean, token: String) = ServerPrefs.setModelScopeToken(context, international, token)
   override fun getDefaultModelName(): String? = ServerPrefs.getDefaultModelName(context)
   override fun setDefaultModelName(name: String?) = ServerPrefs.setDefaultModelName(context, name)
-  override fun clearDefaultModelIfMatches(name: String): Boolean = ServerPrefs.clearDefaultModelIfMatches(context, name)
+  override fun clearDiscoveredModelReferences(name: String) = ServerPrefs.clearDiscoveredModelReferences(context, name)
   override fun isAutoStartOnBoot(): Boolean = ServerPrefs.isAutoStartOnBoot(context)
   override fun setAutoStartOnBoot(enabled: Boolean) = ServerPrefs.setAutoStartOnBoot(context, enabled)
   override fun isKeepScreenOn(): Boolean = ServerPrefs.isKeepScreenOn(context)

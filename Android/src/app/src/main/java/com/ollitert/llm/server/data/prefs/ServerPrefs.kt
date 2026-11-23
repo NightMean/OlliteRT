@@ -249,17 +249,25 @@ object ServerPrefs {
       }
     }
 
-  @Synchronized fun clearDefaultModelIfMatches(context: Context, modelName: String): Boolean {
+  /** Persist model references together before the catalog entry is removed. */
+  @Synchronized fun clearDiscoveredModelReferences(context: Context, modelName: String) {
     val preferences = prefs(context)
-    val previous = preferences.getString(KEY_DEFAULT_MODEL_NAME, null)
-    if (!previous.equals(modelName, ignoreCase = true)) return false
-    if (!preferences.edit().remove(KEY_DEFAULT_MODEL_NAME).commit()) {
-      // SharedPreferences changes memory even when its disk write fails. Restore
-      // the value so a retry cannot mistake that failed write for durable removal.
-      preferences.edit().putString(KEY_DEFAULT_MODEL_NAME, previous).commit()
-      throw java.io.IOException("Could not clear default model")
+    val previousDefault = preferences.getString(KEY_DEFAULT_MODEL_NAME, null)
+    val previousFavorites = preferences.getStringSet(KEY_FAVORITE_MODELS, emptySet()).orEmpty().toSet()
+    val clearDefault = previousDefault.equals(modelName, ignoreCase = true)
+    val clearFavorite = modelName in previousFavorites
+    val edit = preferences.edit()
+    if (clearDefault) edit.remove(KEY_DEFAULT_MODEL_NAME)
+    if (clearFavorite) edit.putStringSet(KEY_FAVORITE_MODELS, previousFavorites - modelName)
+    if (!edit.commit()) {
+      // A failed SharedPreferences commit updates memory. Restore it so a retry
+      // still sees which references must be cleared before removing the entry.
+      val restore = preferences.edit()
+      if (clearDefault) restore.putString(KEY_DEFAULT_MODEL_NAME, previousDefault)
+      if (clearFavorite) restore.putStringSet(KEY_FAVORITE_MODELS, previousFavorites)
+      restore.commit()
+      throw java.io.IOException("Could not clear discovered model preferences")
     }
-    return true
   }
 
   fun isWarmupEnabled(context: Context): Boolean = get(context, WARMUP_ENABLED)

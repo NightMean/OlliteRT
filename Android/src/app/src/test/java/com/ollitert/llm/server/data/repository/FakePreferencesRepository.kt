@@ -129,10 +129,9 @@ class FakePreferencesRepository : PreferencesRepository {
   override fun setUpdateCheckIntervalHours(hours: Int) { this._updateCheckIntervalHours = hours }
   override fun getHfToken(): String = _hfToken
   override fun setHfToken(token: String) { this._hfToken = token }
-  override fun clearDefaultModelIfMatches(name: String): Boolean {
-    if (!_defaultModelName.equals(name, ignoreCase = true)) return false
-    _defaultModelName = null
-    return true
+  override fun clearDiscoveredModelReferences(name: String) {
+    if (_defaultModelName.equals(name, ignoreCase = true)) _defaultModelName = null
+    favoriteModels = favoriteModels - name
   }
   override fun getModelScopeToken(international: Boolean): String = if (international) _modelScopeAiToken else _modelScopeCnToken
   private val acknowledgedModelScopeFailures = mutableListOf<String>()

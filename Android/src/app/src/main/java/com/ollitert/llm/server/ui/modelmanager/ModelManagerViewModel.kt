@@ -218,9 +218,32 @@ internal constructor(
   private val _favoriteModels = MutableStateFlow(preferencesRepository.getFavoriteModels().toSet())
   val favoriteModels: StateFlow<Set<String>> = _favoriteModels.asStateFlow()
 
-  fun toggleFavorite(name: String) = synchronized(favoritesLock) {
-    if (name in _renamingFavoriteIds.value) return@synchronized
-    _favoriteModels.value = preferencesRepository.setModelFavorite(name, name !in _favoriteModels.value)
+  fun toggleFavorite(model: Model) {
+    val name = model.name
+    if (name in _renamingFavoriteIds.value || name in removingModelNames) return
+    val provider = DiscoveredProvider.entries.firstOrNull { it.sourceId == model.sourceRepositoryId }
+    val toggle: () -> Unit = {
+      synchronized(favoritesLock) {
+        if (name !in _renamingFavoriteIds.value) {
+          val isFavorite = name in preferencesRepository.getFavoriteModels()
+          _favoriteModels.value = preferencesRepository.setModelFavorite(name, !isFavorite)
+        }
+      }
+    }
+    if (provider == null) {
+      toggle()
+    } else {
+      viewModelScope.launch(ioDispatcher) {
+        try {
+          discoveredModelsRepository.runIfRegistered(provider, name, toggle)
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.w(TAG, "Could not update favorite for a discovered model", e)
+          _toastErrorChannel.trySend(context.getString(R.string.repository_imports_error))
+        }
+      }
+    }
   }
 
   private fun removeFavorite(name: String) = synchronized(favoritesLock) {
@@ -460,7 +483,7 @@ internal constructor(
               val provider = DiscoveredProvider.entries.first { it.sourceId == model.sourceRepositoryId }
               try {
                 removed = discoveredModelsRepository.remove(provider, model.name, model.normalizedName) {
-                  preferencesRepository.clearDefaultModelIfMatches(model.name)
+                  preferencesRepository.clearDiscoveredModelReferences(model.name)
                 }
                 if (removed) {
                   try { preferencesRepository.clearInferenceConfig(model.prefsKey) }
@@ -478,7 +501,6 @@ internal constructor(
           }
         }
         if (removed == true) {
-          removeFavorite(model.name)
           notifyStorageChanged()
           allowlistLoadJob?.cancel()
           removalGeneration = allowlistLoadGenerationGate.beginLoad()
@@ -505,6 +527,8 @@ internal constructor(
         allowlistLoadGenerationGate.publishIfCurrent(removalGeneration) {
           _uiState.update { it.copy(loadingModelAllowlist = false) }
         }
+        // The preference transaction can complete before the catalog write reports a failure.
+        refreshFavoriteModels()
         removingModelNames.remove(model.name)
         downloadStartGate.release(model.name)
       }

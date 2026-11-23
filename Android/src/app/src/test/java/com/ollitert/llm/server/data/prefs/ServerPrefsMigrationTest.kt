@@ -46,6 +46,7 @@ class ServerPrefsMigrationTest {
     every { context.getSharedPreferences(any(), any()) } returns prefs
     every { prefs.edit() } returns editor
     every { editor.putString(any(), any()) } returns editor
+    every { editor.putStringSet(any(), any()) } returns editor
     every { editor.putBoolean(any(), any()) } returns editor
     every { editor.remove(any()) } returns editor
     every { editor.apply() } returns Unit
@@ -62,27 +63,43 @@ class ServerPrefsMigrationTest {
 
   @Test fun clearDefaultOnlyWhenItStillMatchesTheRemovedModel() {
     every { prefs.getString(any(), null) } returns "Model-A"
-    assertTrue(ServerPrefs.clearDefaultModelIfMatches(context, "model-a"))
+    ServerPrefs.clearDiscoveredModelReferences(context, "model-a")
     verify(exactly = 1) { editor.remove(any()) }
     every { prefs.getString(any(), null) } returns "Model-B"
-    org.junit.Assert.assertFalse(ServerPrefs.clearDefaultModelIfMatches(context, "model-a"))
+    ServerPrefs.clearDiscoveredModelReferences(context, "model-a")
     verify(exactly = 1) { editor.remove(any()) }
   }
 
-  @Test fun failedDefaultClearRestoresMemorySoRetryWritesAgain() {
+  @Test fun failedReferenceClearRestoresMemorySoRetryWritesAgain() {
     var current: String? = "model-a"
+    var favorites = setOf("model-a", "other")
     var commits = 0
     every { prefs.getString(any(), null) } answers { current }
+    every { prefs.getStringSet("favorite_models", emptySet()) } answers { favorites }
     every { editor.remove(any()) } answers { current = null; editor }
     every { editor.putString(any(), any()) } answers { current = secondArg(); editor }
+    every { editor.putStringSet("favorite_models", any()) } answers { favorites = secondArg(); editor }
     every { editor.commit() } answers { ++commits != 1 }
     org.junit.Assert.assertThrows(java.io.IOException::class.java) {
-      ServerPrefs.clearDefaultModelIfMatches(context, "model-a")
+      ServerPrefs.clearDiscoveredModelReferences(context, "model-a")
     }
     assertEquals("model-a", current)
-    assertTrue(ServerPrefs.clearDefaultModelIfMatches(context, "model-a"))
+    assertEquals(setOf("model-a", "other"), favorites)
+    ServerPrefs.clearDiscoveredModelReferences(context, "model-a")
     assertEquals(null, current)
+    assertEquals(setOf("other"), favorites)
     assertEquals(3, commits)
+  }
+
+  @Test fun removingAModelClearsOnlyItsFavoriteBeforeTheRegistryCanBeRemoved() {
+    every { prefs.getString("default_model_name", null) } returns "other"
+    every { prefs.getStringSet("favorite_models", emptySet()) } returns setOf("removed", "other")
+    every { editor.putStringSet("favorite_models", setOf("other")) } returns editor
+
+    ServerPrefs.clearDiscoveredModelReferences(context, "removed")
+
+    verify { editor.putStringSet("favorite_models", setOf("other")); editor.commit() }
+    verify(exactly = 0) { editor.remove("default_model_name") }
   }
 
   // ── migratePerModelKeys ───────────────────────────────────────────────────

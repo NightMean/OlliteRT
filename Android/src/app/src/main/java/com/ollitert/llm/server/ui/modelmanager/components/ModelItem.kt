@@ -225,7 +225,7 @@ fun ModelItem(
       TooltipIconButton(
         icon = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
         tooltip = stringResource(if (isFavorite) R.string.model_remove_favorite else R.string.model_add_favorite),
-        onClick = { modelManagerViewModel.toggleFavorite(model.name) },
+        onClick = { modelManagerViewModel.toggleFavorite(model) },
         enabled = canToggleFavorite,
         tint = (if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
           .copy(alpha = if (canToggleFavorite) 1f else 0.38f),

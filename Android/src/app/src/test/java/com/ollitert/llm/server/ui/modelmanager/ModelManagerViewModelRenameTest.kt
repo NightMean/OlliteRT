@@ -12,6 +12,7 @@ import android.util.Log
 import com.ollitert.llm.server.OlliteRTLifecycleProvider
 import com.ollitert.llm.server.data.allowlist.RepositoryManager
 import com.ollitert.llm.server.data.allowlist.ModelFactory
+import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.proto.LlmConfig
 import com.ollitert.llm.server.data.repository.DownloadRepository
@@ -76,7 +77,8 @@ class ModelManagerViewModelRenameTest {
       mainDispatcher = testDispatcher,
     )
 
-    viewModel.toggleFavorite(oldId)
+    val oldModel = Model(name = oldId, imported = true)
+    viewModel.toggleFavorite(oldModel)
     val outcomes = mutableListOf<Boolean>()
     viewModel.renameImportedModel("old.litertlm", "new.litertlm", "new") {
       outcomes += it
@@ -87,7 +89,7 @@ class ModelManagerViewModelRenameTest {
     assertEquals(listOf(false), outcomes)
     assertEquals(setOf(oldId), preferences.getFavoriteModels())
     assertEquals(setOf(oldId), viewModel.favoriteModels.value)
-    viewModel.toggleFavorite(oldId)
+    viewModel.toggleFavorite(oldModel)
     assertEquals(emptySet<String>(), preferences.getFavoriteModels())
   }
 
@@ -152,10 +154,11 @@ class ModelManagerViewModelRenameTest {
       ioDispatcher = testDispatcher,
       mainDispatcher = testDispatcher,
     )
-    vm.toggleFavorite(oldId)
+    val oldModel = ModelFactory.buildImportedModel(model)
+    vm.toggleFavorite(oldModel)
     val outcomes = mutableListOf<Boolean>()
     vm.renameImportedModel("old.litertlm", "new.litertlm", "new") { outcomes += it }
-    vm.toggleFavorite(oldId) // An old card cannot reverse a rename in progress.
+    vm.toggleFavorite(oldModel) // An old card cannot reverse a rename in progress.
     advanceUntilIdle()
     assertEquals(listOf(true), outcomes)
     assertEquals(setOf(newId), preferences.getFavoriteModels())

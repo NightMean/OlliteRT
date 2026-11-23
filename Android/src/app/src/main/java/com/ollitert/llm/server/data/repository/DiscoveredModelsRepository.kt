@@ -54,6 +54,9 @@ internal interface DiscoveredModelsRepository {
 
   /** The caller must hold the model lock before removing its files and import record. */
   fun remove(provider: DiscoveredProvider, modelName: String, modelDirectory: String, beforeRemoveRecord: () -> Unit): Boolean
+
+  /** Runs a short preference update while the record is protected against removal. */
+  fun runIfRegistered(provider: DiscoveredProvider, modelName: String, action: () -> Unit): Boolean
 }
 
 /** Called while holding the model lock before a queued download starts. */
@@ -99,6 +102,13 @@ internal class DefaultDiscoveredModelsRepository(
       .remove(modelName, modelDirectory, beforeRemoveRecord)
     if (removed) invalidate(provider)
     return removed
+  }
+
+  @Synchronized
+  override fun runIfRegistered(provider: DiscoveredProvider, modelName: String, action: () -> Unit): Boolean {
+    if (read(provider).none { it.allowed.name == modelName }) return false
+    action()
+    return true
   }
 
   private fun invalidate(provider: DiscoveredProvider) {
