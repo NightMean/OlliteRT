@@ -120,7 +120,7 @@ internal const val SYSTEM_RESERVED_STORAGE_IN_BYTES = 3 * (1L shl 30)
  *
  * For HuggingFace URLs that require authentication, uses the stored HF token from Settings.
  * If the token is missing, prompts the user to set one; if invalid, shows an error dialog.
- * For gated models (HTTP 403), displays an agreement acknowledgement sheet.
+ * For gated repositories, shows how to request access on Hugging Face.
  *
  * For non-HuggingFace URLs, the download starts directly. If the model is already downloaded,
  * the [onClicked] callback is executed instead.

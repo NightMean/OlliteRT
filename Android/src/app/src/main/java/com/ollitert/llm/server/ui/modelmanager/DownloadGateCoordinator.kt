@@ -44,7 +44,7 @@ internal sealed class DownloadGateOutcome {
   /** The provider did not establish whether the model or token can be accessed. */
   data object AccessError : DownloadGateOutcome()
 
-  /** Gated model whose license agreement has not been accepted yet. */
+  /** Hugging Face reports a gated repository that this account cannot access yet. */
   data object NeedsAgreement : DownloadGateOutcome()
 
   /** No usable HuggingFace token — either none configured or the stored one is rejected. */
@@ -130,10 +130,8 @@ internal class DownloadGateCoordinator(
           Log.d(TAG, "Model '${model.name}' returned 404 with token — model not found.")
           DownloadGateOutcome.ModelNotFound
         }
-        HttpURLConnection.HTTP_FORBIDDEN -> {
-          Log.d(TAG, "Model needs license agreement. Opening agreement page...")
-          DownloadGateOutcome.NeedsAgreement
-        }
+        HttpURLConnection.HTTP_FORBIDDEN -> if (hfResult.gatedRepository) DownloadGateOutcome.NeedsAgreement
+          else DownloadGateOutcome.AccessError
         HttpURLConnection.HTTP_UNAUTHORIZED -> when (val result = verifyHfToken(token)) {
           TokenCheck.REJECTED -> DownloadGateOutcome.NeedsHfToken(HfTokenDialogReason.INVALID)
           else -> {

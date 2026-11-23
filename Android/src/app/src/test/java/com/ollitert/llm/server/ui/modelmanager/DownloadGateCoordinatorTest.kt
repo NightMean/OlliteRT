@@ -110,12 +110,21 @@ class DownloadGateCoordinatorTest {
       probe = { _, token ->
         when (token) {
           null -> ModelUrlResult.Success(HttpURLConnection.HTTP_UNAUTHORIZED)
-          else -> ModelUrlResult.Success(HttpURLConnection.HTTP_FORBIDDEN)
+          else -> ModelUrlResult.Success(HttpURLConnection.HTTP_FORBIDDEN, gatedRepository = true)
         }
       },
       storedToken = "tok",
     )
     assertEquals(DownloadGateOutcome.NeedsAgreement, gate.resolveDownloadAccess(hfModel))
+  }
+
+  @Test
+  fun forbiddenWithTokenDoesNotByItselfMeanTheModelIsGated() = runTest {
+    val gate = coordinator(
+      probe = { _, _ -> ModelUrlResult.Success(HttpURLConnection.HTTP_FORBIDDEN) },
+      storedToken = "limited",
+    )
+    assertEquals(DownloadGateOutcome.AccessError, gate.resolveDownloadAccess(hfModel))
   }
 
   @Test

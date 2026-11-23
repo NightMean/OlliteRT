@@ -91,8 +91,25 @@ class ModelUrlProbeTest {
     every { initial.getHeaderField("Location") } returns "https://cdn.example/model"
     for (status in listOf(HttpURLConnection.HTTP_UNAUTHORIZED, HttpURLConnection.HTTP_FORBIDDEN)) {
       every { redirect.responseCode } returns status
+      every { redirect.getHeaderField("X-Error-Code") } returns "GatedRepo"
       assertEquals(ModelUrlResult.UnexpectedResponse,
-        probeModelUrl("https://example.com/model", null) { if (it.contains("cdn.example")) redirect else initial })
+        probeModelUrl("https://huggingface.co/org/repo/resolve/main/model", "example") {
+          if (it.contains("cdn.example")) redirect else initial
+        })
     }
+    verify(exactly = 0) { redirect.setRequestProperty("Authorization", any()) }
+  }
+
+  @Test fun onlyTheOriginalTrustedHttpsHostCanReportAGatedRepository() {
+    val connection = mockk<HttpURLConnection>(relaxed = true)
+    every { connection.responseCode } returns HttpURLConnection.HTTP_FORBIDDEN
+    every { connection.getHeaderField("X-Error-Code") } returns "GatedRepo"
+    assertEquals(ModelUrlResult.Success(HttpURLConnection.HTTP_FORBIDDEN, gatedRepository = true),
+      probeModelUrl("https://huggingface.co/org/repo/resolve/main/model", "example") { connection })
+    for (url in listOf("https://example.com/model", "http://huggingface.co/model", "https://huggingface.co.example/model")) {
+      assertEquals(ModelUrlResult.Success(HttpURLConnection.HTTP_FORBIDDEN),
+        probeModelUrl(url, "example") { connection })
+    }
+    verify(exactly = 1) { connection.setRequestProperty("Authorization", "Bearer example") }
   }
 }

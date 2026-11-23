@@ -119,7 +119,7 @@ fun fetchBoundedResult(
 // ── Model URL probing ────────────────────────────────────────────────────
 
 sealed class ModelUrlResult {
-  data class Success(val code: Int) : ModelUrlResult()
+  data class Success(val code: Int, val gatedRepository: Boolean = false) : ModelUrlResult()
   data class Error(val message: String) : ModelUrlResult()
   data object UnexpectedResponse : ModelUrlResult()
 }
@@ -138,7 +138,8 @@ internal fun probeModelUrl(
     connection.readTimeout = HTTP_READ_TIMEOUT_MS
     connection.instanceFollowRedirects = false
     // Scope the credential to huggingface.co — the probe URL can point anywhere.
-    if (accessToken != null && isHuggingFaceUrl(modelUrl)) {
+    val isHuggingFace = isHuggingFaceUrl(modelUrl)
+    if (accessToken != null && isHuggingFace) {
       connection.setRequestProperty("Authorization", "Bearer $accessToken")
     }
     connection.connect()
@@ -163,7 +164,10 @@ internal fun probeModelUrl(
       if (contentType.contains("text/html", ignoreCase = true)) return ModelUrlResult.UnexpectedResponse
       return ModelUrlResult.Success(redirectCode)
     }
-    return ModelUrlResult.Success(responseCode)
+    // Only the original Hugging Face response can report a repository access gate.
+    val gatedRepository = isHuggingFace && responseCode == HttpURLConnection.HTTP_FORBIDDEN &&
+      connection.getHeaderField("X-Error-Code") == "GatedRepo"
+    return ModelUrlResult.Success(responseCode, gatedRepository)
   } catch (e: Exception) {
     return ModelUrlResult.Error(e.message ?: "Unknown network error")
   } finally {
@@ -182,15 +186,16 @@ internal fun configuredHfTokenOrNull(rawToken: String): String? =
  * True when it is safe to attach the user's Hugging Face bearer token to requests
  * for [url]. Allowlist entries and user-added repos can declare arbitrary download
  * URLs — a hostile repo operator must never receive the credential, so the token
- * is scoped to huggingface.co (and subdomains) only.
+ * is scoped to HTTPS on huggingface.co and its subdomains.
  */
 internal fun isHuggingFaceUrl(url: String): Boolean {
-  val host = try {
-    URL(url).host.lowercase()
-  } catch (_: Exception) {
+  val endpoint = try {
+    URL(url)
+  } catch (_: java.net.MalformedURLException) {
     return false
   }
-  return host == "huggingface.co" || host.endsWith(".huggingface.co")
+  val host = endpoint.host.lowercase()
+  return endpoint.protocol == "https" && (host == "huggingface.co" || host.endsWith(".huggingface.co"))
 }
 
 private fun defaultOpenConnection(url: String): HttpURLConnection =
