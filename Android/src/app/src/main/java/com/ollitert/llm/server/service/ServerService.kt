@@ -52,13 +52,19 @@ import com.ollitert.llm.server.data.model.isThinkingEnabled
 import com.ollitert.llm.server.data.model.llmSupportAudio
 import com.ollitert.llm.server.data.model.llmSupportImage
 import com.ollitert.llm.server.data.model.llmSupportThinking
+import com.ollitert.llm.server.proto.ImportedModel
 import com.ollitert.llm.server.runtime.ServerLlmModelHelper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -115,7 +121,6 @@ class ServerService : Service() {
   // Wake lock and WiFi lock helper for continuous 24/7 background serving.
   private lateinit var wakeLockHelper: ServerWakeLockHelper
 
-  private lateinit var modelCatalogMerger: ModelCatalogMerger
 
   // Model loader helper — encapsulates background model loading, warmup, and failure recovery.
   private lateinit var modelLoader: ServerModelLoader
@@ -125,7 +130,7 @@ class ServerService : Service() {
     activeInstance = this
     try {
       val dataStoreRepo = if (::protoDataStoreRepository.isInitialized) protoDataStoreRepository else null
-      modelCatalogMerger = ModelCatalogMerger(
+      val modelCatalogMerger = ModelCatalogMerger(
         externalFilesDir = getExternalFilesDir(null),
         appVersionName = BuildConfig.VERSION_NAME,
         assetReader = {
@@ -145,11 +150,7 @@ class ServerService : Service() {
         context = this,
         modelCatalogMerger = modelCatalogMerger,
         readImportedModels = {
-          try {
-            kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { withTimeout(DATASTORE_READ_TIMEOUT_MS) { dataStoreRepo?.readImportedModels() } } ?: emptyList()
-          } catch (e: ImportedModelRecoveryException) { throw e }
-          catch (e: kotlinx.coroutines.TimeoutCancellationException) { throw ImportedModelRecoveryException(e) }
-          catch (e: Exception) { throw ImportedModelRecoveryException(e) }
+          runBlocking(Dispatchers.IO) { readRecoveredImports() }
         },
       )
       modelLoader = ServerModelLoader(
@@ -279,56 +280,34 @@ class ServerService : Service() {
     if (!startHttpServer(port, networkConfig.bindHost, networkConfig.accessPolicy, requestedModelName)) return START_NOT_STICKY
 
     // ── Model resolution + initialization (off main thread) ─────────────────
-    // pickModelByName triggers runBlocking DataStore reads inside
-    // AllowlistLoader.enabledCacheFilenames and ModelLifecycle.readImportedModels.
-    // Running on Dispatchers.IO avoids ANR risk on the main thread.
     val thisGeneration = loadGeneration.incrementAndGet()
     loadJob?.cancel()
     loadJob = serviceScope.launch {
-      // An official catalog model does not depend on the imported registry.
-      val usesImportedRegistry = modelCatalogMerger.load().none { it.name.equals(requestedModelName, ignoreCase = true) }
       try {
-        if (usesImportedRegistry) withTimeout(DATASTORE_READ_TIMEOUT_MS) { protoDataStoreRepository.readImportedModels() }
-      } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-        val message = getString(R.string.imported_model_recovery_error)
-        Log.e(TAG, "Timed out recovering imported models", e)
-        ServerMetrics.onServerError(message)
-        RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
-        stopAfterFailure()
-        return@launch
-      } catch (e: kotlinx.coroutines.CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        val message = getString(R.string.imported_model_recovery_error)
-        Log.e(TAG, "Failed to recover imported models", e)
-        ServerMetrics.onServerError(message)
-        RequestLogStore.addEvent(message, level = LogLevel.ERROR, category = EventCategory.MODEL)
-        stopAfterFailure()
-        return@launch
-      }
-      val resolvedModelName = if (isAutoStartSource(startSource)) {
-        preferencesRepository.getDefaultModelName() ?: requestedModelName
-      } else requestedModelName
-      try {
-        var model = pickModelByName(resolvedModelName)
-        if (model == null && isAutoStartSource(startSource)) {
-          // Recovery may have completed after the preflight while resolving the old name.
-          val latestDefault = preferencesRepository.getDefaultModelName()
-          if (latestDefault != null && latestDefault != resolvedModelName) model = pickModelByName(latestDefault)
+        val selection = selectStartupModel(
+          requestedName = requestedModelName,
+          autoStart = isAutoStartSource(startSource),
+          defaultName = preferencesRepository::getDefaultModelName,
+          readRecoveredImports = ::readRecoveredImports,
+          pickByName = modelLifecycle::pickModelByName,
+          pickFallback = modelLifecycle::pickFallbackModel,
+          modelExists = { File(it.getPath(this@ServerService)).exists() },
+        )
+        currentCoroutineContext().ensureActive()
+        if (loadGeneration.get() != thisGeneration) return@launch
+        val resolvedModelName = selection.requestedName
+        val model = selection.model
+        selection.recoveryFailure?.let { failure ->
+          val message = getString(R.string.imported_model_recovery_error)
+          Log.w(TAG, message, failure)
+          RequestLogStore.addEvent(message, level = LogLevel.WARNING, category = EventCategory.MODEL)
         }
-        if (model == null) {
-          // Auto-start sources resolve the model from prefs, which can go stale when
-          // the model was deleted or renamed. Self-heal by falling back to any other
-          // downloaded model instead of leaving the server down until manual action.
-          if (isAutoStartSource(startSource)) {
-            model = pickFallbackModel(excludeName = resolvedModelName)
-            if (model != null) {
-              val msg = "Default model '$resolvedModelName' not found — falling back to '${model.name}'"
-              Log.w(TAG, msg)
-              RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = model.name, category = EventCategory.MODEL)
-            }
-          }
+        if (selection.fallback && model != null) {
+          val message = "Default model '$resolvedModelName' is unavailable — falling back to '${model.name}'"
+          Log.w(TAG, message)
+          RequestLogStore.addEvent(message, level = LogLevel.WARNING, modelName = model.name, category = EventCategory.MODEL)
         }
+
         if (model == null) {
           val sourcePrefix = when (startSource) {
             SOURCE_BOOT -> getString(R.string.error_autostart_boot_prefix)
@@ -342,34 +321,6 @@ class ServerService : Service() {
           RequestLogStore.addEvent(msg, level = LogLevel.ERROR, modelName = resolvedModelName, category = EventCategory.MODEL)
           stopAfterFailure()
           return@launch
-        }
-        // Verify model files actually exist on disk. Same stale-pref self-heal as
-        // above: the registry entry resolved but its files are gone (e.g. cleared
-        // manually) — fall back for auto-start sources before failing.
-        if (!File(model.getPath(context = this@ServerService)).exists() && isAutoStartSource(startSource)) {
-          try {
-            withTimeout(DATASTORE_READ_TIMEOUT_MS) { protoDataStoreRepository.readImportedModels() }
-          } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            throw ImportedModelRecoveryException(e)
-          } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-          } catch (e: Exception) {
-            throw ImportedModelRecoveryException(e)
-          }
-          val latestDefault = preferencesRepository.getDefaultModelName()
-          if (latestDefault != null && latestDefault != model.name) {
-            val renamed = pickModelByName(latestDefault)
-            if (renamed != null && File(renamed.getPath(context = this@ServerService)).exists()) model = renamed
-          }
-        }
-        if (!File(model.getPath(context = this@ServerService)).exists() && isAutoStartSource(startSource)) {
-          val fallback = pickFallbackModel(excludeName = resolvedModelName)
-          if (fallback != null) {
-            val msg = "Model files missing for '$resolvedModelName' — falling back to '${fallback.name}'"
-            Log.w(TAG, msg)
-            RequestLogStore.addEvent(msg, level = LogLevel.WARNING, modelName = fallback.name, category = EventCategory.MODEL)
-            model = fallback
-          }
         }
         val modelPath = model.getPath(context = this@ServerService)
         val selectedModelName = model.name
@@ -408,6 +359,8 @@ class ServerService : Service() {
 
         loadModelOnThread(model, thisGeneration, notifState)
       } catch (e: ImportedModelRecoveryException) {
+        currentCoroutineContext().ensureActive()
+        if (loadGeneration.get() != thisGeneration) return@launch
         val message = getString(R.string.imported_model_recovery_error)
         Log.e(TAG, "Failed to recover imported models during model selection", e)
         ServerMetrics.onServerError(message)
@@ -619,9 +572,18 @@ class ServerService : Service() {
 
   override fun onBind(intent: Intent?): IBinder? = null
 
-  // Model lifecycle methods — delegated to ModelLifecycle.kt
-  private fun pickModelByName(name: String) = modelLifecycle.pickModelByName(name)
-  private fun pickFallbackModel(excludeName: String) = modelLifecycle.pickFallbackModel(excludeName)
+  private suspend fun readRecoveredImports(): List<ImportedModel> = try {
+    withTimeout(DATASTORE_READ_TIMEOUT_MS) { protoDataStoreRepository.readImportedModels() }
+  } catch (e: TimeoutCancellationException) {
+    currentCoroutineContext().ensureActive()
+    throw ImportedModelRecoveryException(e)
+  } catch (e: CancellationException) {
+    throw e
+  } catch (e: ImportedModelRecoveryException) {
+    throw e
+  } catch (e: Exception) {
+    throw ImportedModelRecoveryException(e)
+  }
 
   /** Boot and launch auto-start resolve the model from prefs, which can go stale. */
   private fun isAutoStartSource(source: String?) = source == SOURCE_BOOT || source == SOURCE_LAUNCH

@@ -448,7 +448,12 @@ class ModelLifecycle(
    * 1. Allowlist models (from model_allowlist.json)
    * 2. Imported models (from DataStore, stored via the Import dialog)
    */
-  fun pickModelByName(name: String): Model? {
+  fun pickModelByName(name: String): Model? = pickModelByName(name, readImportedModels)
+
+  internal fun pickModelByName(name: String, importedModels: List<ImportedModel>): Model? =
+    pickModelByName(name) { importedModels }
+
+  private fun pickModelByName(name: String, readImports: () -> List<ImportedModel>): Model? {
     val externalDir = context.getExternalFilesDir(null) ?: return null
     val importsDir = File(externalDir, IMPORTS_DIR)
 
@@ -462,7 +467,7 @@ class ModelLifecycle(
     } else {
       // 2. Fall back to imported models from DataStore
       val importedMatch = try {
-        readImportedModels().firstOrNull {
+        readImports().firstOrNull {
           it.fileName.equals(name, ignoreCase = true) ||
             ModelFactory.importedModelId(it.fileName).equals(name, ignoreCase = true)
         }
@@ -497,7 +502,7 @@ class ModelLifecycle(
    * leave the server down until a human intervenes — the exact failure mode of a
    * phone left in a drawer for weeks. Returns null when nothing usable exists.
    */
-  fun pickFallbackModel(excludeName: String?): Model? {
+  internal fun pickFallbackModel(excludeName: String, importedModels: List<ImportedModel>): Model? {
     val externalDir = context.getExternalFilesDir(null) ?: return null
     val importsDir = File(externalDir, IMPORTS_DIR)
 
@@ -522,14 +527,6 @@ class ModelLifecycle(
         ModelFactory.restoreInferenceConfig(context, candidate)
         return candidate
       }
-    }
-    val importedModels = try {
-      readImportedModels()
-    } catch (e: ImportedModelRecoveryException) {
-      throw e
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to read imported models during fallback scan", e)
-      emptyList()
     }
     for (info in importedModels) {
       if (
