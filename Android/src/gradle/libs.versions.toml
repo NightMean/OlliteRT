@@ -30,6 +30,7 @@ androidxTestCore = "1.7.0"
 androidxTestRunner = "1.7.0"
 coil = "3.4.0"
 ktor = "3.5.2"
+tasksAudio = "1.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -76,6 +77,7 @@ ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-conte
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-server-cors = { group = "io.ktor", name = "ktor-server-cors", version.ref = "ktor" }
 ktor-server-status-pages = { group = "io.ktor", name = "ktor-server-status-pages", version.ref = "ktor" }
+tasks-audio = { group = "com.google.mediapipe", name = "tasks-audio", version.ref = "tasksAudio" }
 hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltNavigation" }
 hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltNavigation" }
 

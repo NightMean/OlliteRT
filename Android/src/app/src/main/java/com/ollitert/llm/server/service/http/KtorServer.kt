@@ -27,6 +27,10 @@ import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.prefs.RequestPrefsSnapshot
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.service.routes.audioRoutes
+import com.ollitert.llm.server.service.routes.mediaPipeAudioAsrRoutes
+import com.ollitert.llm.server.service.routes.mediaPipeAudioTtsRoutes
+import com.ollitert.llm.server.service.audio.AudioServiceManager
+import com.ollitert.llm.server.service.audio.MediaPipeAudioHandler
 import com.ollitert.llm.server.service.routes.chatRoutes
 import com.ollitert.llm.server.service.routes.embeddingRoutes
 import com.ollitert.llm.server.service.routes.managementRoutes
@@ -64,11 +68,13 @@ class KtorServer(
   private val nextRequestId: () -> String,
   private val emitDebugStackTrace: (Throwable, String, String?) -> Unit,
   internal val audioTranscriptionHandler: AudioTranscriptionHandler,
+  internal val audioServiceManager: AudioServiceManager,
   internal val anthropicEndpointHandlers: AnthropicEndpointHandlers,
   private val inferenceLock: Any,
 ) {
 
   private val logIdCounter = AtomicLong(0)
+  internal val audioHandler: MediaPipeAudioHandler = MediaPipeAudioHandler(audioServiceManager, json)
   internal val requestBodyAdmission = RequestBodyAdmission()
   private val controlBodyAdmission = RequestBodyAdmission(MAX_IN_FLIGHT_CONTROL_REQUESTS)
   private val clientIpAccessPolicy = AtomicReference(initialClientIpAccessPolicy)
@@ -124,6 +130,8 @@ class KtorServer(
         embeddingRoutes(this@KtorServer)
         modelSlotRoutes(this@KtorServer)
         audioRoutes(this@KtorServer)
+        mediaPipeAudioAsrRoutes(this@KtorServer)
+        mediaPipeAudioTtsRoutes(this@KtorServer)
         serverControlRoutes(this@KtorServer)
       }
     }
@@ -133,6 +141,12 @@ class KtorServer(
   fun stop(gracePeriodMillis: Long = 3000, timeoutMillis: Long = 5000) {
     engine?.stop(gracePeriodMillis = gracePeriodMillis, timeoutMillis = timeoutMillis)
     engine = null
+    // Release the MediaPipe ASR/TTS engines so the native weights are freed with the restart.
+    try {
+      kotlinx.coroutines.runBlocking { audioServiceManager.release() }
+    } catch (e: Exception) {
+      Log.w(TAG, "Audio engine release failed", e)
+    }
   }
 
   /** Atomically applies a validated policy without restarting Ktor or unloading the model. */

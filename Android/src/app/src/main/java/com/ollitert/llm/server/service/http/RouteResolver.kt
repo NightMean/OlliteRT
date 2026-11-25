@@ -45,8 +45,11 @@ object RouteResolver {
    * cannot support, or null if the URI is not a recognized unsupported endpoint.
    */
   fun getUnsupportedEndpointMessage(uri: String): String? = when {
-    uri.startsWith("/v1/audio/speech") -> "Audio speech synthesis is not supported by this server"
-    uri.startsWith("/v1/audio") && !uri.startsWith("/v1/audio/transcriptions") ->
+    uri.startsWith("/v1/audio") &&
+      !uri.startsWith("/v1/audio/transcriptions") &&
+      !uri.startsWith("/v1/audio/asr") &&
+      !uri.startsWith("/v1/audio/speech") &&
+      !uri.startsWith("/v1/audio/voices") ->
       "Audio endpoint not supported by this server"
     uri.startsWith("/v1/images") -> "Image generation is not supported by this server"
     uri.startsWith("/v1/fine_tuning") || uri.startsWith("/v1/fine-tuning") -> "Fine-tuning is not supported by this server"

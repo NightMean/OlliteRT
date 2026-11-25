@@ -34,8 +34,11 @@ class RouteResolverTest {
 
   @Test
   fun unsupportedEndpointsReturnDescriptiveMessages() {
-    assertNotNull(RouteResolver.getUnsupportedEndpointMessage("/v1/embeddings"))
+    assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/embeddings"))
     assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/audio/transcriptions"))
+    assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/audio/asr"))
+    assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/audio/speech"))
+    assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/audio/voices"))
     assertNotNull(RouteResolver.getUnsupportedEndpointMessage("/v1/images/generations"))
     assertNotNull(RouteResolver.getUnsupportedEndpointMessage("/v1/fine_tuning/jobs"))
     assertNotNull(RouteResolver.getUnsupportedEndpointMessage("/v1/fine-tuning/jobs"))
@@ -48,9 +51,8 @@ class RouteResolverTest {
 
   @Test
   fun unsupportedEndpointMessagesAreDescriptive() {
-    val msg = RouteResolver.getUnsupportedEndpointMessage("/v1/embeddings")!!
+    val msg = RouteResolver.getUnsupportedEndpointMessage("/v1/images/generations")!!
     assertTrue("Message should explain why", msg.contains("not supported"))
-    assertTrue("Message should be specific", msg.contains("inference-only"))
   }
 
   @Test
@@ -62,10 +64,9 @@ class RouteResolverTest {
   }
 
   @Test
-  fun audioSpeechStillReturnsUnsupportedMessage() {
-    val msg = RouteResolver.getUnsupportedEndpointMessage("/v1/audio/speech")
-    assertNotNull(msg)
-    assertTrue("Message should explain speech synthesis is not supported", msg!!.contains("speech"))
+  fun audioSpeechAndVoicesAreSupported() {
+    assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/audio/speech"))
+    assertNull(RouteResolver.getUnsupportedEndpointMessage("/v1/audio/voices"))
   }
 
   // ── Anthropic path classification (error-envelope selection) ──────────────

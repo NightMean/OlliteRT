@@ -223,6 +223,8 @@ dependencies {
   implementation(libs.ktor.server.cors)
   implementation(libs.ktor.server.status.pages)
   implementation(libs.litertlm)
+  // MediaPipe Tasks Audio: on-device ASR (AudioTranscriber) + TTS (TextToSpeech)
+  implementation(libs.tasks.audio)
   implementation(libs.markdown.renderer.m3)
   implementation(libs.androidx.splashscreen)
   implementation(libs.protobuf.javalite)

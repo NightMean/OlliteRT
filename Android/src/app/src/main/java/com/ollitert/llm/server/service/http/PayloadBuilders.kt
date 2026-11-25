@@ -169,6 +169,9 @@ object PayloadBuilders {
         JsonPrimitive("/v1/completions"),
         JsonPrimitive("/v1/responses"),
         JsonPrimitive("/v1/audio/transcriptions"),
+        JsonPrimitive("/v1/audio/asr"),
+        JsonPrimitive("/v1/audio/speech"),
+        JsonPrimitive("/v1/audio/voices"),
         JsonPrimitive("/v1/models"),
         JsonPrimitive("/v1/models/{id}"),
         // Model-slot routes: stable per-model URLs (slot 1 = primary, slot 2 = second)
