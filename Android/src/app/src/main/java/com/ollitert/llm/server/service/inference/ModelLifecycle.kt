@@ -698,6 +698,23 @@ class ModelLifecycle(
   }
 
   /**
+   * Guard for the chat/transcription routes: resident embedding models are
+   * reachable by name from [selectModel], but cannot serve chat — return a
+   * descriptive 400 instead of letting the LLM pipeline fail with a 500
+   * ("LlmModelInstance is not initialized").
+   */
+  private fun modelForChat(model: Model): ModelSelection =
+    if (model.instance is EmbeddingEngine) {
+      ModelSelection.Error(
+        400,
+        "Model '${model.name}' is an embedding model and does not support chat. " +
+          "Use /v1/embeddings for it."
+      )
+    } else {
+      ModelSelection.Ok(model)
+    }
+
+  /**
    * Resolves the model to use for an inference request. Handles idle-reload when the model
    * was unloaded by keep_alive, validates the client's requested model name against the
    * active model, and returns a descriptive error if there's a mismatch.
@@ -722,7 +739,7 @@ class ModelLifecycle(
       if (requested.isEmpty() || requested.equals("local", ignoreCase = true) ||
         requested.equals("default", ignoreCase = true)
       ) {
-        return ModelSelection.Ok(active)
+        return modelForChat(active)
       }
       // Check if the requested model matches the currently loaded model. We normalize both
       // names to handle variations (e.g. "gemma-4-e2b" vs "Gemma_4_E2B_it").
@@ -734,7 +751,7 @@ class ModelLifecycle(
         null
       }
       if (requestedKey == activeKey || requestedKey == legacyStorageKey) {
-        return ModelSelection.Ok(active)
+        return modelForChat(active)
       }
       // The requested model doesn't match the active model — check the resident
       // second model. A pinned second model is reachable by name from any
@@ -748,7 +765,7 @@ class ModelLifecycle(
           null
         }
         if (requestedKey == secondaryKey || requestedKey == secondaryLegacy) {
-          return ModelSelection.Ok(secondary)
+          return modelForChat(secondary)
         }
       }
       // The requested model matches neither resident model.
