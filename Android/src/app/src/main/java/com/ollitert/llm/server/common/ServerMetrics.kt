@@ -109,6 +109,18 @@ object ServerMetrics {
   private val _secondaryModelLoadingName = MutableStateFlow<String?>(null)
   val secondaryModelLoadingName: StateFlow<String?> = _secondaryModelLoadingName.asStateFlow()
 
+  /** Name of the card loaded into the ASR engine slot, null when nothing is loaded. */
+  private val _asrModelName = MutableStateFlow<String?>(null)
+  val asrModelName: StateFlow<String?> = _asrModelName.asStateFlow()
+
+  /** Name of the card loaded into the TTS engine slot, null when nothing is loaded. */
+  private val _ttsModelName = MutableStateFlow<String?>(null)
+  val ttsModelName: StateFlow<String?> = _ttsModelName.asStateFlow()
+
+  /** ASR/TTS card whose engine init is in flight (same name for both — one load at a time). */
+  private val _audioModelLoadingName = MutableStateFlow<String?>(null)
+  val audioModelLoadingName: StateFlow<String?> = _audioModelLoadingName.asStateFlow()
+
   /** Instance count of the resident second model (1 — single engine by design). */
   private val _secondaryModelInstanceCount = MutableStateFlow(1)
   val secondaryModelInstanceCount: StateFlow<Int> = _secondaryModelInstanceCount.asStateFlow()
@@ -438,6 +450,21 @@ object ServerMetrics {
   /** Updates the resident second model name (null = none). Called from ModelLifecycle. */
   fun updateSecondaryModelName(name: String?) {
     _secondaryModelName.value = name
+  }
+
+  /** Updates the card loaded into the ASR engine slot (null = none). */
+  fun updateAsrModelName(name: String?) {
+    _asrModelName.value = name
+  }
+
+  /** Updates the card loaded into the TTS engine slot (null = none). */
+  fun updateTtsModelName(name: String?) {
+    _ttsModelName.value = name
+  }
+
+  /** Updates the ASR/TTS card whose engine init is in flight, null when not loading. */
+  fun updateAudioModelLoadingName(name: String?) {
+    _audioModelLoadingName.value = name
   }
 
   /** Updates the resident second model's loading name, null when not loading. */

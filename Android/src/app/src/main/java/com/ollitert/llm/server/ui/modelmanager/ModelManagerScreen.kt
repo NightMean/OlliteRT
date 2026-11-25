@@ -79,6 +79,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.data.allowlist.OFFICIAL_REPO_ID
 import com.ollitert.llm.server.data.model.RuntimeType
@@ -106,11 +107,16 @@ fun ModelManagerScreen(
   activeModelName: String? = null,
   secondaryModelName: String? = null,
   secondaryModelLoadingName: String? = null,
+  asrModelName: String? = null,
+  ttsModelName: String? = null,
+  audioModelLoadingName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
   onSwitchModel: (String) -> Unit = {},
   onLoadSecondary: (String) -> Unit = {},
   onStopSecondary: (String) -> Unit = {},
+  onLoadAudio: (AudioTask, String) -> Unit = { _, _ -> },
+  onStopAudio: (AudioTask, String) -> Unit = { _, _ -> },
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val showRecommendations by viewModel.showModelRecommendations.collectAsStateWithLifecycle()
@@ -235,6 +241,17 @@ fun ModelManagerScreen(
       ).show()
     } else {
       val isServerActive = serverStatus == ServerStatus.RUNNING
+      // Audio cards (ASR/TTS) are not chat models — tapping the card body does not start the
+      // server; their Load button on the card is the entry point.
+      if (model.audioTask != null) {
+        val loadedAsr = asrModelName != null && asrModelName.equals(model.name, ignoreCase = true)
+        val loadedTts = ttsModelName != null && ttsModelName.equals(model.name, ignoreCase = true)
+        if (loadedAsr || loadedTts) {
+          Toast.makeText(context, context.getString(R.string.audio_model_loaded_toast), Toast.LENGTH_SHORT).show()
+        } else if (audioModelLoadingName != null && audioModelLoadingName.equals(model.name, ignoreCase = true)) {
+          Toast.makeText(context, context.getString(R.string.toast_audio_model_loading), Toast.LENGTH_SHORT).show()
+        }
+      } else {
       // A model resident as the pinned second model (e.g. the embedding model alongside
       // the chat model) is NOT a switch target — tapping it must not offer a replace.
       val isSecondModelLoaded = isServerActive &&
@@ -264,6 +281,7 @@ fun ModelManagerScreen(
         } else {
           onModelSelected(model)
         }
+      }
       }
     }
   }
@@ -436,9 +454,14 @@ fun ModelManagerScreen(
           activeModelName = activeModelName,
           secondaryModelName = secondaryModelName,
           secondaryModelLoadingName = secondaryModelLoadingName,
+          asrModelName = asrModelName,
+          ttsModelName = ttsModelName,
+          audioModelLoadingName = audioModelLoadingName,
           lastError = lastError,
           onStopServer = onStopServer,
           onStopSecondary = { onStopSecondary(model.name) },
+          onLoadAudio = { task, name -> onLoadAudio(task, name) },
+          onStopAudio = { task, name -> onStopAudio(task, name) },
           onNavigateToSettings = onNavigateToSettings,
           searchQuery = searchQuery,
           showRecommendations = showRecommendations,
@@ -478,9 +501,14 @@ fun ModelManagerScreen(
             activeModelName = activeModelName,
             secondaryModelName = secondaryModelName,
             secondaryModelLoadingName = secondaryModelLoadingName,
+            asrModelName = asrModelName,
+            ttsModelName = ttsModelName,
+            audioModelLoadingName = audioModelLoadingName,
             lastError = lastError,
             onStopServer = onStopServer,
             onStopSecondary = { onStopSecondary(model.name) },
+            onLoadAudio = { task, name -> onLoadAudio(task, name) },
+            onStopAudio = { task, name -> onStopAudio(task, name) },
             onNavigateToSettings = onNavigateToSettings,
             searchQuery = searchQuery,
             showRecommendations = showRecommendations,

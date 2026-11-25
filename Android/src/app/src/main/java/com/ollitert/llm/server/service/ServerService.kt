@@ -39,6 +39,7 @@ import com.ollitert.llm.server.common.ErrorCategory
 import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.prefs.DATASTORE_READ_TIMEOUT_MS
 import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_LONG_CHARS
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.allowlist.MODEL_ALLOWLIST_FILENAME
@@ -261,6 +262,52 @@ class ServerService : Service() {
           )
         }
         // Refresh the running notification so the second model line disappears immediately.
+        notificationManager.refreshRunning()
+      }
+      return START_STICKY
+    }
+
+    // ASR/TTS card load/unload — same shape as the second model actions: blocking engine init
+    // on the service's IO scope, result published via ServerMetrics, failures logged.
+    if (intent?.action == ACTION_LOAD_AUDIO) {
+      val name = intent.getStringExtra(EXTRA_MODEL_NAME)
+      val task = intent.getStringExtra(EXTRA_AUDIO_TASK)
+      if (name == null || task == null) {
+        Log.w(TAG, "Audio load intent missing model name or task — ignoring")
+        return START_STICKY
+      }
+      serviceScope.launch {
+        val err = modelLifecycle.loadAudioModel(AudioTask.valueOf(task.uppercase()), name)
+        if (err.isNotEmpty()) {
+          Log.w(TAG, "Audio model load from UI failed for '$name': $err")
+          RequestLogStore.addEvent(
+            "Audio model load failed: $err",
+            level = LogLevel.WARNING,
+            modelName = name,
+            category = EventCategory.MODEL,
+          )
+        }
+        notificationManager.refreshRunning()
+      }
+      return START_STICKY
+    }
+    if (intent?.action == ACTION_UNLOAD_AUDIO) {
+      val name = intent.getStringExtra(EXTRA_MODEL_NAME)
+      val task = intent.getStringExtra(EXTRA_AUDIO_TASK)
+      if (task == null) {
+        Log.w(TAG, "Audio unload intent missing task — ignoring")
+        return START_STICKY
+      }
+      serviceScope.launch {
+        val err = modelLifecycle.unloadAudioModel(AudioTask.valueOf(task.uppercase()), name)
+        if (err.isNotEmpty()) {
+          Log.w(TAG, "Audio model unload from UI failed for '$name': $err")
+          RequestLogStore.addEvent(
+            "Audio model unload failed: $err",
+            level = LogLevel.WARNING,
+            category = EventCategory.MODEL,
+          )
+        }
         notificationManager.refreshRunning()
       }
       return START_STICKY
@@ -655,6 +702,7 @@ class ServerService : Service() {
     internal const val TAG = "OlliteRT.Service"
     const val EXTRA_PORT = "extra_port"
     const val EXTRA_MODEL_NAME = "extra_model_name"
+    const val EXTRA_AUDIO_TASK = "extra_audio_task"
     internal const val EXTRA_CONFIG_OVERRIDE_REQUEST_ID = "extra_config_override_request_id"
     /** Optional: identifies what triggered the start (e.g. "boot", "launch") for better error messages. */
     const val EXTRA_START_SOURCE = "extra_start_source"
@@ -665,6 +713,8 @@ class ServerService : Service() {
     const val ACTION_RELOAD = "com.ollitert.llm.server.RELOAD_SERVER"
     const val ACTION_LOAD_SECONDARY = "com.ollitert.llm.server.LOAD_SECONDARY"
     const val ACTION_UNLOAD_SECONDARY = "com.ollitert.llm.server.UNLOAD_SECONDARY"
+    const val ACTION_LOAD_AUDIO = "com.ollitert.llm.server.LOAD_AUDIO"
+    const val ACTION_UNLOAD_AUDIO = "com.ollitert.llm.server.UNLOAD_AUDIO"
     const val ACTION_RESET_KEEP_ALIVE = "com.ollitert.llm.server.RESET_KEEP_ALIVE"
     const val ACTION_RESET_FLOATING_MONITOR_POSITION = "com.ollitert.llm.server.RESET_FLOATING_MONITOR_POSITION"
     const val ACTION_REFRESH_RUNNING_NOTIFICATION = "com.ollitert.llm.server.REFRESH_RUNNING_NOTIFICATION"

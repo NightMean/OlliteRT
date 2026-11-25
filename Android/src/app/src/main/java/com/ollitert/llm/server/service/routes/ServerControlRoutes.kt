@@ -82,5 +82,24 @@ internal fun Routing.serverControlRoutes(server: KtorServer) {
         handleModelUnload(body)
       }
     }
+
+    // ── ASR/TTS engine slots ────────────────────────────────────────────────
+    // Loads/unloads an allowlist audio card into the MediaPipe ASR or TTS engine.
+    // Body: {"task": "asr"|"tts", "name": "<card name>"}
+    post("/v1/server/audio/load") {
+      if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
+      withRequestLogging(call) { body, _, _, _, _, _ ->
+        handleAudioLoad(body)
+      }
+    }
+
+    post("/v1/server/audio/unload") {
+      if (!requireServerControl(call)) return@post
+      if (!requireServerControlJson(call)) return@post
+      withRequestLogging(call) { body, _, _, _, _, _ ->
+        handleAudioUnload(body)
+      }
+    }
   }
 }

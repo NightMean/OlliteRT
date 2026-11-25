@@ -175,6 +175,14 @@
   <string name="cd_load_second_model">Load as a second model</string>
   <string name="cd_stop_second_model">Stop the second model</string>
   <string name="toast_second_model_loading">Loading second model…</string>
+  <!-- ASR/TTS audio cards -->
+  <string name="load_audio_model">Load %1$s</string>
+  <string name="audio_model_loaded">%1$s Loaded</string>
+  <string name="button_stop_audio_model">Stop %1$s</string>
+  <string name="toast_audio_model_loading">Loading %1$s…</string>
+  <string name="audio_model_loaded_toast">Audio model is loaded in its engine slot</string>
+  <string name="model_start_server_for_audio">Start the server first to load audio models</string>
+  <string name="cd_stop_audio_model">Stop the audio model</string>
   <string name="label_import_model">Import model</string>
   <string name="label_import_from_local_file">From local model file (.litertlm)</string>
   <string name="label_import_from_model_list">From model list file (.json)</string>

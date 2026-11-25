@@ -144,6 +144,15 @@ fun ModelNameAndStatus(
       )
     }
 
+    // Audio task chip (ASR / TTS) — non-LLM cards get their own label chip.
+    if (model.audioTask != null) {
+      ModelFeatureChip(
+        label = model.audioTask.name,
+        modifier = Modifier.padding(top = 2.dp),
+        searchQuery = searchQuery,
+      )
+    }
+
     // Status icon + size + download progress details.
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         // Status icon.

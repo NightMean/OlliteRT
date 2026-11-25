@@ -41,6 +41,15 @@ enum class ModelCapability {
   SPECULATIVE_DECODING,
 }
 
+/**
+ * Role of a non-LLM audio model in the server: it loads into the ASR or TTS engine slot
+ * instead of the chat/second-model slots (POST /v1/server/audio/load, UI "Load ASR"/"Load TTS").
+ */
+enum class AudioTask {
+  ASR,
+  TTS,
+}
+
 /** A previous version of a model file, used to detect updatable models on disk. */
 @Serializable
 @Immutable
@@ -167,6 +176,13 @@ data class Model(
 
   /** Whether the model is LLM or not. */
   val isLlm: Boolean = false,
+
+  /**
+   * Non-null for non-LLM audio models: the engine slot this model loads into (ASR or TTS).
+   * Such models are not loadable as chat/second models — the card offers "Load ASR"/"Load TTS"
+   * while the server is running.
+   */
+  val audioTask: AudioTask? = null,
 
   // End of model download related fields.
   //////////////////////////////////////////////////////////////////////////////////////////////////

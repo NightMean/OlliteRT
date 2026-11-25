@@ -188,6 +188,10 @@ object PayloadBuilders {
         JsonPrimitive("/v1/server/reload"),
         JsonPrimitive("/v1/server/thinking"),
         JsonPrimitive("/v1/server/config"),
+        JsonPrimitive("/v1/server/models/load"),
+        JsonPrimitive("/v1/server/models/unload"),
+        JsonPrimitive("/v1/server/audio/load"),
+        JsonPrimitive("/v1/server/audio/unload"),
       )))
     }
     return JsonObject(info).toString()

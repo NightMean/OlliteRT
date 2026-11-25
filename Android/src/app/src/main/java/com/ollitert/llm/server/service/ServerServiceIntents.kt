@@ -18,6 +18,7 @@ package com.ollitert.llm.server.service
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
 import com.ollitert.llm.server.data.prefs.ServerPrefs
 import com.ollitert.llm.server.common.ServerMetrics
@@ -107,6 +108,39 @@ fun ServerService.Companion.unloadSecondary(context: Context, modelName: String?
     )
   } catch (e: Exception) {
     Log.w(TAG, "Failed to send second model unload intent — service may not be running", e)
+  }
+}
+
+/**
+ * Loads [modelName] (an allowlist card) into the ASR or TTS engine slot. The service performs the
+ * blocking MediaPipe init on its own IO scope; state is surfaced via ServerMetrics. Fire-and-forget.
+ */
+fun ServerService.Companion.loadAudio(context: Context, task: AudioTask, modelName: String) {
+  try {
+    context.startService(
+      Intent(context, ServerService::class.java).apply {
+        action = ACTION_LOAD_AUDIO
+        putExtra(EXTRA_AUDIO_TASK, task.name)
+        putExtra(EXTRA_MODEL_NAME, modelName)
+      }
+    )
+  } catch (e: Exception) {
+    Log.w(TAG, "Failed to send audio model load intent — service may not be running", e)
+  }
+}
+
+/** Unloads the card from the ASR/TTS engine slot. [modelName] guards against a stale tap. */
+fun ServerService.Companion.unloadAudio(context: Context, task: AudioTask, modelName: String? = null) {
+  try {
+    context.startService(
+      Intent(context, ServerService::class.java).apply {
+        action = ACTION_UNLOAD_AUDIO
+        putExtra(EXTRA_AUDIO_TASK, task.name)
+        if (modelName != null) putExtra(EXTRA_MODEL_NAME, modelName)
+      }
+    )
+  } catch (e: Exception) {
+    Log.w(TAG, "Failed to send audio model unload intent — service may not be running", e)
   }
 }
 

@@ -254,6 +254,8 @@ class KtorServer(
   internal fun handleModelLoad(body: String): HttpResponse = serverControlHandler.handleModelLoad(body)
 
   internal fun handleModelUnload(body: String): HttpResponse = serverControlHandler.handleModelUnload(body)
+  internal fun handleAudioLoad(body: String): HttpResponse = serverControlHandler.handleAudioLoad(body)
+  internal fun handleAudioUnload(body: String): HttpResponse = serverControlHandler.handleAudioUnload(body)
 
   // ── Shared route handlers ─────────────────────────────────────────────────
 

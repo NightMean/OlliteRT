@@ -22,7 +22,6 @@ import com.ollitert.llm.server.data.prefs.ClientIpAccessPolicy
 import com.ollitert.llm.server.service.http.AnthropicEndpointHandlers
 import com.ollitert.llm.server.service.http.EndpointHandlers
 import com.ollitert.llm.server.service.http.KtorServer
-import com.ollitert.llm.server.service.audio.AudioServiceManager
 import com.ollitert.llm.server.service.inference.AudioTranscriptionHandler
 import com.ollitert.llm.server.service.inference.InferenceRunner
 import com.ollitert.llm.server.service.inference.ModelLifecycle
@@ -83,7 +82,7 @@ object ServerServicePipelineFactory {
       inferenceRunner = runner,
       modelLifecycle = modelLifecycle,
     )
-    val audioServiceManager = AudioServiceManager(context)
+    val audioServiceManager = modelLifecycle.audioModelManager
     val anthropicEndpointHandlers = AnthropicEndpointHandlers(
       json = json,
       endpointHandlers = handlers,

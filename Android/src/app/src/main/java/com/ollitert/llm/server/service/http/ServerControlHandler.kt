@@ -26,6 +26,7 @@ import android.content.Intent
 import android.util.Log
 import com.ollitert.llm.server.data.prefs.ConfigKeys
 import com.ollitert.llm.server.data.model.EventCategory
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.repository.RequestLogStore
 import com.ollitert.llm.server.data.prefs.ServerPrefs
@@ -166,6 +167,70 @@ class ServerControlHandler(
     } catch (e: Exception) {
       Log.e(TAG, "Second model unload failed", e)
       httpInternalError("Second model unload failed: ${e.message}")
+    }
+  }
+
+  /**
+   * Handles POST /v1/server/audio/load — loads an allowlist card into the ASR or TTS engine slot.
+   * Body: {"task": "asr"|"tts", "name": "<card name>"}. Blocking MediaPipe init runs on the CIO
+   * worker thread.
+   */
+  fun handleAudioLoad(body: String): HttpResponse {
+    val obj = try {
+      if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
+    val task = obj?.get("task")?.jsonPrimitive?.content?.trim()?.uppercase().orEmpty()
+    val name = obj?.get("name")?.jsonPrimitive?.content?.trim().orEmpty()
+    val audioTask = runCatching { AudioTask.valueOf(task) }.getOrNull()
+    if (audioTask == null) {
+      return httpBadRequest("Missing/invalid field: task (\"asr\" or \"tts\"), e.g. {\"task\": \"tts\", \"name\": \"Kokoro-82M TTS\"}")
+    }
+    if (name.isEmpty()) {
+      return httpBadRequest("Missing required field: name (the model card name)")
+    }
+    return try {
+      val err = kotlinx.coroutines.runBlocking { modelLifecycle.loadAudioModel(audioTask, name) }
+      if (err.isEmpty()) {
+        ServerService.refreshRunningNotification(serviceContext)
+        httpOkJson(buildJsonObject {
+          put("success", true)
+          put("message", "${audioTask} model loaded")
+          put("task", audioTask.name.lowercase())
+          put("model", name)
+        }.toString())
+      } else {
+        httpJsonError(400, err)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Audio model load failed", e)
+      httpInternalError("Audio model load failed: ${e.message}")
+    }
+  }
+
+  /** Handles POST /v1/server/audio/unload — releases the card from the ASR or TTS engine slot. */
+  fun handleAudioUnload(body: String): HttpResponse {
+    val obj = try {
+      if (body.isBlank()) null else Json.parseToJsonElement(body).jsonObject
+    } catch (e: Exception) {
+      return httpBadRequest("Invalid JSON body: ${e.message?.take(200) ?: "parse error"}")
+    }
+    val task = obj?.get("task")?.jsonPrimitive?.content?.trim()?.uppercase().orEmpty()
+    val name = obj?.get("name")?.jsonPrimitive?.content?.trim()?.ifEmpty { null }
+    val audioTask = runCatching { AudioTask.valueOf(task) }.getOrNull()
+      ?: return httpBadRequest("Missing/invalid field: task (\"asr\" or \"tts\")")
+    return try {
+      val err = kotlinx.coroutines.runBlocking { modelLifecycle.unloadAudioModel(audioTask, name) }
+      if (err.isEmpty()) {
+        ServerService.refreshRunningNotification(serviceContext)
+        httpOkJson("""{"success":true,"message":"Audio model unloaded","task":"${audioTask.name.lowercase()}"}""")
+      } else {
+        httpJsonError(400, err)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Audio model unload failed", e)
+      httpInternalError("Audio model unload failed: ${e.message}")
     }
   }
 

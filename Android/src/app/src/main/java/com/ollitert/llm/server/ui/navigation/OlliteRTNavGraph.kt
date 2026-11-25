@@ -231,6 +231,9 @@ fun OlliteRTNavHost(
       val activeModelName by serverViewModel.activeModelName.collectAsStateWithLifecycle()
       val secondaryModelName by serverViewModel.secondaryModelName.collectAsStateWithLifecycle()
       val secondaryModelLoadingName by serverViewModel.secondaryModelLoadingName.collectAsStateWithLifecycle()
+      val asrModelName by serverViewModel.asrModelName.collectAsStateWithLifecycle()
+      val ttsModelName by serverViewModel.ttsModelName.collectAsStateWithLifecycle()
+      val audioModelLoadingName by serverViewModel.audioModelLoadingName.collectAsStateWithLifecycle()
       val lastError by serverViewModel.lastError.collectAsStateWithLifecycle()
       ModelManagerScreen(
         viewModel = modelManagerViewModel,
@@ -247,6 +250,9 @@ fun OlliteRTNavHost(
         activeModelName = activeModelName,
         secondaryModelName = secondaryModelName,
         secondaryModelLoadingName = secondaryModelLoadingName,
+        asrModelName = asrModelName,
+        ttsModelName = ttsModelName,
+        audioModelLoadingName = audioModelLoadingName,
         lastError = lastError,
         onStopServer = { serverViewModel.stopServer() },
         onSwitchModel = { modelName ->
@@ -260,6 +266,12 @@ fun OlliteRTNavHost(
         },
         onStopSecondary = { modelName ->
           serverViewModel.unloadSecondaryModel(modelName)
+        },
+        onLoadAudio = { task, modelName ->
+          serverViewModel.loadAudioModel(task, modelName)
+        },
+        onStopAudio = { task, modelName ->
+          serverViewModel.unloadAudioModel(task, modelName)
         },
         onNavigateToSettings = { navController.navigate(OlliteRTRoute.Settings) { launchSingleTop = true } },
         onNavigateToRepositories = { navController.navigate(OlliteRTRoute.Repositories) { launchSingleTop = true } },

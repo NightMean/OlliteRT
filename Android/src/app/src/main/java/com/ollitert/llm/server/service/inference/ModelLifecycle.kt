@@ -19,6 +19,8 @@ package com.ollitert.llm.server.service.inference
 
 import com.ollitert.llm.server.common.ServerMetrics
 import com.ollitert.llm.server.service.*
+import com.ollitert.llm.server.service.audio.AudioModelSpecs
+import com.ollitert.llm.server.service.audio.AudioServiceManager
 import com.ollitert.llm.server.service.http.*
 import com.ollitert.llm.server.service.inference.*
 
@@ -37,6 +39,7 @@ import com.ollitert.llm.server.data.model.IMPORTS_DIR
 import com.ollitert.llm.server.data.prefs.LOG_ERROR_PREVIEW_SHORT_CHARS
 import com.ollitert.llm.server.data.model.LogLevel
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.allowlist.ModelCatalogMerger
 import com.ollitert.llm.server.data.allowlist.ModelFactory
 import com.ollitert.llm.server.data.repository.RequestLogStore
@@ -85,6 +88,13 @@ class ModelLifecycle(
 ) {
 
   private val payloadDecoder = MultimodalPayloadDecoder(context) { defaultModel?.name }
+
+  /**
+   * Owns the MediaPipe ASR/TTS engines. Created here (not per-pipeline) so the UI-driven
+   * load/unload intents and the HTTP server share ONE manager — the engine a "Load TTS" tap
+   * loads is the same one /v1/audio/speech synthesizes with.
+   */
+  val audioModelManager = AudioServiceManager(context)
 
   companion object {
     private const val TAG = "OlliteRT.Lifecycle"
@@ -244,6 +254,13 @@ class ModelLifecycle(
       secondaryLoadingName.set(null)
       ServerMetrics.updateSecondaryModelName(null)
       ServerMetrics.updateSecondaryModelLoadingName(null)
+      // Audio slots: engines are released by KtorServer.stop (audioModelManager.release());
+      // clear the published state so a fresh server start shows no stale ASR/TTS cards.
+      audioAsrModelName = null
+      audioTtsModelName = null
+      ServerMetrics.updateAsrModelName(null)
+      ServerMetrics.updateTtsModelName(null)
+      ServerMetrics.updateAudioModelLoadingName(null)
       // Service shutdown has already stopped request admission and interrupted
       // inference, so a deferred OOM cleanup must not remain blocked on old leases.
       emergencyUnloadState?.cleanupReady?.countDown()
@@ -950,6 +967,107 @@ class ModelLifecycle(
     RequestLogStore.addEvent(
       "Second model unloaded: ${model.name}",
       modelName = model.name,
+      category = EventCategory.MODEL,
+    )
+    return ""
+  }
+
+  // ── Audio (ASR/TTS) model slot ─────────────────────────────────────────────
+
+  /** Card name resident in the ASR engine slot, null when nothing is loaded. */
+  @Volatile var audioAsrModelName: String? = null
+    private set
+
+  /** Card name resident in the TTS engine slot, null when nothing is loaded. */
+  @Volatile var audioTtsModelName: String? = null
+    private set
+
+  /**
+   * Loads [name] (an allowlist card with `audioTask` = [task]) into the ASR or TTS engine slot.
+   * The card's file must already be downloaded (the normal model download pipeline owns that).
+   * Blocking: MediaPipe engine init runs a few seconds on the caller's thread — call it from a
+   * worker/IO scope, never the main looper. Returns an error message, or "" on success.
+   */
+  suspend fun loadAudioModel(task: AudioTask, name: String): String {
+    if (isDestroyed) return "Server is shutting down"
+    val taskLabel = if (task == AudioTask.ASR) "ASR" else "TTS"
+    val otherLabel = if (task == AudioTask.ASR) "TTS" else "ASR"
+    val current = if (task == AudioTask.ASR) audioAsrModelName else audioTtsModelName
+    if (current != null && current.equals(name, ignoreCase = true)) return ""
+    val model = pickModelByName(name)
+      ?: return "Model '$name' not found (not in the allowlist or imports registry)"
+    if (model.audioTask == null) {
+      return "'$name' is a chat/embedding model — audio cards are marked ASR or TTS in the model list"
+    }
+    if (model.audioTask != task) {
+      return "'$name' is a ${model.audioTask} model, not $taskLabel — use its own Load button"
+    }
+    val spec = AudioModelSpecs.byFileName(model.downloadFileName)
+      ?: return "No MediaPipe ${taskLabel} engine spec matches '${model.downloadFileName}' — this model is not supported yet"
+    val file = File(model.getPath(context))
+    if (!file.exists()) {
+      return "Model '$name' is not downloaded — download it from its card first"
+    }
+    ServerMetrics.updateAudioModelLoadingName(model.name)
+    try {
+      when (task) {
+        AudioTask.ASR -> audioModelManager.loadAsr(spec.modelId, file)
+        AudioTask.TTS -> audioModelManager.loadTts(spec.modelId, file)
+      }
+      when (task) {
+        AudioTask.ASR -> audioAsrModelName = model.name
+        AudioTask.TTS -> audioTtsModelName = model.name
+      }
+      ServerMetrics.updateAudioModelLoadingName(null)
+      if (task == AudioTask.ASR) ServerMetrics.updateAsrModelName(model.name)
+      else ServerMetrics.updateTtsModelName(model.name)
+      RequestLogStore.addEvent(
+        "${taskLabel} model loaded: ${model.name} (${file.name})",
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      return ""
+    } catch (e: Exception) {
+      ServerMetrics.updateAudioModelLoadingName(null)
+      Log.e(TAG, "${taskLabel} model load failed for '${model.name}'", e)
+      RequestLogStore.addEvent(
+        "${taskLabel} model load failed: ${e.message?.take(200)}",
+        level = LogLevel.ERROR,
+        modelName = model.name,
+        category = EventCategory.MODEL,
+      )
+      return "${taskLabel} model load failed: ${e.message}"
+    }
+  }
+
+  /**
+   * Unloads the card from the [task] engine slot. When [modelName] is given, unloads only if it
+   * matches the resident card (stale-tap guard). Returns an error message, or "" on success.
+   */
+  suspend fun unloadAudioModel(task: AudioTask, modelName: String? = null): String {
+    val taskLabel = if (task == AudioTask.ASR) "ASR" else "TTS"
+    val current = if (task == AudioTask.ASR) audioAsrModelName else audioTtsModelName
+    if (current == null) return "No ${taskLabel} model is loaded"
+    if (modelName != null && modelName.isNotBlank() &&
+      !modelName.equals(current, ignoreCase = true)
+    ) {
+      return "${taskLabel} model is '$current', not '$modelName'"
+    }
+    try {
+      if (task == AudioTask.ASR) audioModelManager.unloadAsr() else audioModelManager.unloadTts()
+    } catch (e: Exception) {
+      return "${taskLabel} model unload failed: ${e.message}"
+    }
+    if (task == AudioTask.ASR) {
+      audioAsrModelName = null
+      ServerMetrics.updateAsrModelName(null)
+    } else {
+      audioTtsModelName = null
+      ServerMetrics.updateTtsModelName(null)
+    }
+    RequestLogStore.addEvent(
+      "${taskLabel} model unloaded: $current",
+      modelName = current,
       category = EventCategory.MODEL,
     )
     return ""

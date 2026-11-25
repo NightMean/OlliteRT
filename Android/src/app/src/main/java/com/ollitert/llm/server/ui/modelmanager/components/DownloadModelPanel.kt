@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
@@ -63,8 +64,12 @@ fun DownloadModelPanel(
   activeModelName: String? = null,
   isSecondModelLoaded: Boolean = false,
   isSecondModelLoading: Boolean = false,
+  isAudioModelLoaded: Boolean = false,
+  isAudioModelLoading: Boolean = false,
   onStopServer: () -> Unit = {},
   onStopSecondary: () -> Unit = {},
+  onLoadAudio: (AudioTask, String) -> Unit = { _, _ -> },
+  onStopAudio: (AudioTask, String) -> Unit = { _, _ -> },
 ) {
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   Row(
@@ -72,7 +77,7 @@ fun DownloadModelPanel(
     horizontalArrangement = Arrangement.End,
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    if (showBenchmarkButton && downloadSucceeded) {
+    if (showBenchmarkButton && downloadSucceeded && model.audioTask == null) {
       // Benchmark button.
       val isServerActive = serverStatus == ServerStatus.RUNNING || serverStatus == ServerStatus.LOADING
       Box(modifier = Modifier.weight(1f)) {
@@ -178,8 +183,12 @@ fun DownloadModelPanel(
       activeModelName = activeModelName,
       isSecondModelLoaded = isSecondModelLoaded,
       isSecondModelLoading = isSecondModelLoading,
+      isAudioModelLoaded = isAudioModelLoaded,
+      isAudioModelLoading = isAudioModelLoading,
       onStopServer = onStopServer,
       onStopSecondary = onStopSecondary,
+      onLoadAudio = onLoadAudio,
+      onStopAudio = onStopAudio,
     )
   }
 }

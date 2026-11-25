@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": 1,
+  "sourceName": "OlliteRT Audio Models",
+  "sourceDescription": "ASR/TTS models for the OlliteRT server. These are not chat models - load them into their engine slot (Load ASR / Load TTS) while the server is running.",
+  "sourceIconUrl": "",
+  "models": [
+    {
+      "name": "Kokoro 82M TTS",
+      "modelId": "litert-community/Kokoro-82M",
+      "modelFile": "kokoro_int8_gpu_fp16.litertlm",
+      "description": "Kokoro-82M text-to-speech (MediaPipe LLM TTS engine). Not a chat model - while the server is running, use the Load TTS button on this card. 54 voices, GPU-capable. OpenAI-compatible: POST /v1/audio/speech, GET /v1/audio/voices.",
+      "sizeInBytes": 294750530,
+      "minDeviceMemoryInGb": 4,
+      "commitHash": "81e43a025bccabcbbd487f08bc3ebd65b5fc7295",
+      "defaultConfig": {
+        "accelerators": "gpu,cpu"
+      },
+      "runtimeType": "LITERT_LM",
+      "audioTask": "tts"
+    },
+    {
+      "name": "Parakeet TDT 0.6B ASR",
+      "modelId": "litert-community/parakeet-tdt-0.6b-v3",
+      "modelFile": "parakeet_tdt_0.6b_v3_5s_i8_stateful.litertlm",
+      "description": "Open-weight NVIDIA Parakeet TDT 0.6B v3 on-device speech recognition (MediaPipe LLM ASR engine). Not a chat model - while the server is running, use the Load ASR button on this card. 25 European languages. OpenAI-compatible: POST /v1/audio/transcriptions.",
+      "sizeInBytes": 614588752,
+      "minDeviceMemoryInGb": 4,
+      "commitHash": "3ce205aa928f443f423214195cfe83ebe4802826",
+      "defaultConfig": {
+        "accelerators": "gpu,cpu"
+      },
+      "runtimeType": "LITERT_LM",
+      "audioTask": "asr"
+    }
+  ]
+}

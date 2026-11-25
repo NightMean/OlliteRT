@@ -17,6 +17,7 @@
 
 package com.ollitert.llm.server.data.allowlist
 import com.ollitert.llm.server.data.model.Accelerator
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelBadge
 import com.ollitert.llm.server.data.model.ModelCapability
@@ -101,6 +102,8 @@ data class AllowedModel(
   val maxAppVersion: String? = null,
   val updatableModelFiles: List<ModelFile>? = null,
   val updateInfo: String? = null,
+  /** "asr" or "tts" — marks a non-LLM audio model that loads into the ASR/TTS engine slot. */
+  val audioTask: String? = null,
 ) {
   fun isCompatibleWith(appVersion: SemVer): Boolean {
     val min = minAppVersion?.let { SemVer.parse(it) }
@@ -255,7 +258,8 @@ data class AllowedModel(
       updateInfo = updateInfo ?: "",
       latestModelFile = ModelFile(fileName = downloadedFileName, commitHash = version),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
-      isLlm = true,
+      isLlm = audioTask == null,
+      audioTask = audioTask?.trim()?.uppercase()?.let { runCatching { AudioTask.valueOf(it) }.getOrNull() },
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
       sourceRepository = repositoryName,
       sourceRepositoryId = repositoryId,

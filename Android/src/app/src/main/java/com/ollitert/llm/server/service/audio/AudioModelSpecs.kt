@@ -103,6 +103,10 @@ object AudioModelSpecs {
   fun byId(modelId: String?): AudioModelSpec? =
     if (modelId.isNullOrEmpty()) null else ALL.firstOrNull { it.modelId == modelId }
 
+  /** Resolves a spec by the on-disk file name (allowlist card → engine spec mapping). */
+  fun byFileName(fileName: String?): AudioModelSpec? =
+    if (fileName.isNullOrEmpty()) null else ALL.firstOrNull { it.expectedFileName.equals(fileName, ignoreCase = true) }
+
   fun asList(): List<AudioModelSpec> = ALL
 
   /**

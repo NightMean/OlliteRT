@@ -42,6 +42,12 @@ interface ServerStateRepository {
   val secondaryModelLoadingName: StateFlow<String?>
   /** Engine instance count of the resident second model. */
   val secondaryModelInstanceCount: StateFlow<Int>
+  /** Card name resident in the ASR engine slot (null = nothing loaded). */
+  val asrModelName: StateFlow<String?>
+  /** Card name resident in the TTS engine slot (null = nothing loaded). */
+  val ttsModelName: StateFlow<String?>
+  /** Name of the audio model currently loading (null = no audio load in flight). */
+  val audioModelLoadingName: StateFlow<String?>
   val activeModelSize: StateFlow<Long>
   val port: StateFlow<Int>
   val bindAddress: StateFlow<String?>
@@ -106,6 +112,9 @@ class DefaultServerStateRepository @Inject constructor() : ServerStateRepository
   override val secondaryModelName: StateFlow<String?> get() = ServerMetrics.secondaryModelName
   override val secondaryModelLoadingName: StateFlow<String?> get() = ServerMetrics.secondaryModelLoadingName
   override val secondaryModelInstanceCount: StateFlow<Int> get() = ServerMetrics.secondaryModelInstanceCount
+  override val asrModelName: StateFlow<String?> get() = ServerMetrics.asrModelName
+  override val ttsModelName: StateFlow<String?> get() = ServerMetrics.ttsModelName
+  override val audioModelLoadingName: StateFlow<String?> get() = ServerMetrics.audioModelLoadingName
   override val activeModelSize: StateFlow<Long> get() = ServerMetrics.activeModelSize
   override val port: StateFlow<Int> get() = ServerMetrics.port
   override val bindAddress: StateFlow<String?> get() = ServerMetrics.bindAddress

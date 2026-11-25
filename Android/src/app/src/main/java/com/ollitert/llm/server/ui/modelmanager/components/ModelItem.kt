@@ -51,6 +51,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.ui.modelmanager.EditImportedModelDialog
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.data.model.Model
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.model.EventCategory
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
 import com.ollitert.llm.server.service.ServerService
@@ -86,9 +87,14 @@ fun ModelItem(
   activeModelName: String? = null,
   secondaryModelName: String? = null,
   secondaryModelLoadingName: String? = null,
+  asrModelName: String? = null,
+  ttsModelName: String? = null,
+  audioModelLoadingName: String? = null,
   lastError: String? = null,
   onStopServer: () -> Unit = {},
   onStopSecondary: () -> Unit = {},
+  onLoadAudio: (AudioTask, String) -> Unit = { _, _ -> },
+  onStopAudio: (AudioTask, String) -> Unit = { _, _ -> },
   onNavigateToSettings: () -> Unit = {},
   searchQuery: String = "",
   showRecommendations: Boolean = true,
@@ -106,6 +112,14 @@ fun ModelItem(
   // Second model whose native init is in flight — the card shows a loading state.
   val isSecondModelLoading = secondaryModelLoadingName != null &&
     secondaryModelLoadingName.equals(model.name, ignoreCase = true)
+  // Audio card resident in its engine slot (ASR or TTS) — independent of the chat model slot.
+  val isAudioModelLoaded = isServerRunning && (
+    (asrModelName != null && asrModelName.equals(model.name, ignoreCase = true)) ||
+      (ttsModelName != null && ttsModelName.equals(model.name, ignoreCase = true))
+    )
+  // Audio model whose MediaPipe init is in flight — the card shows a loading state.
+  val isAudioModelLoading = audioModelLoadingName != null &&
+    audioModelLoadingName.equals(model.name, ignoreCase = true)
   val isModelLoading = serverStatus == ServerStatus.LOADING && activeModelName == model.name
   val isModelError = serverStatus == ServerStatus.ERROR && activeModelName == model.name
   val isActiveModel = isServerRunning && activeModelName == model.name
@@ -166,8 +180,12 @@ fun ModelItem(
         activeModelName = activeModelName,
         isSecondModelLoaded = isSecondModelLoaded,
         isSecondModelLoading = isSecondModelLoading,
+        isAudioModelLoaded = isAudioModelLoaded,
+        isAudioModelLoading = isAudioModelLoading,
         onStopServer = onStopServer,
         onStopSecondary = onStopSecondary,
+        onLoadAudio = onLoadAudio,
+        onStopAudio = onStopAudio,
       )
 
       // Loading hint / error text

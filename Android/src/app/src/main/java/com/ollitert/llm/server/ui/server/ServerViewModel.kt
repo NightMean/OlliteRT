@@ -20,6 +20,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ollitert.llm.server.common.ServerStatus
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.prefs.ACTION_IN_FLIGHT_DEBOUNCE_MS
 import com.ollitert.llm.server.data.repository.DefaultPreferencesRepository
 import com.ollitert.llm.server.data.repository.DefaultServerStateRepository
@@ -43,6 +44,8 @@ import com.ollitert.llm.server.service.start
 import com.ollitert.llm.server.service.stop
 import com.ollitert.llm.server.service.loadSecondary
 import com.ollitert.llm.server.service.unloadSecondary
+import com.ollitert.llm.server.service.loadAudio
+import com.ollitert.llm.server.service.unloadAudio
 
 /**
  * ViewModel that exposes server state to the UI layer.
@@ -62,6 +65,9 @@ class ServerViewModel @Inject constructor(
   val secondaryModelName = serverStateRepository.secondaryModelName
   val secondaryModelLoadingName = serverStateRepository.secondaryModelLoadingName
   val secondaryModelInstanceCount = serverStateRepository.secondaryModelInstanceCount
+  val asrModelName = serverStateRepository.asrModelName
+  val ttsModelName = serverStateRepository.ttsModelName
+  val audioModelLoadingName = serverStateRepository.audioModelLoadingName
   val activeModelSize = serverStateRepository.activeModelSize
   val port = serverStateRepository.port
   val bindAddress = serverStateRepository.bindAddress
@@ -186,6 +192,16 @@ class ServerViewModel @Inject constructor(
   /** Unloads the pinned second model; the chat model keeps serving. */
   fun unloadSecondaryModel(modelName: String? = null) {
     ServerService.unloadSecondary(context, modelName)
+  }
+
+  /** Loads an allowlist audio card into the ASR or TTS engine slot (MediaPipe init in the service). */
+  fun loadAudioModel(task: AudioTask, modelName: String) {
+    ServerService.loadAudio(context, task, modelName)
+  }
+
+  /** Unloads the card from the ASR or TTS engine slot. */
+  fun unloadAudioModel(task: AudioTask, modelName: String? = null) {
+    ServerService.unloadAudio(context, task, modelName)
   }
 
   fun getBearerToken(): String = preferencesRepository.getBearerToken()

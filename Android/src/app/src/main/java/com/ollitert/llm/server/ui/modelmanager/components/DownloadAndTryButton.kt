@@ -79,6 +79,7 @@ import com.ollitert.llm.server.R
 import com.ollitert.llm.server.common.GitHubConfig
 import com.ollitert.llm.server.common.ServerStatus
 import com.ollitert.llm.server.common.isWifiConnected
+import com.ollitert.llm.server.data.model.AudioTask
 import com.ollitert.llm.server.data.model.Model
 import com.ollitert.llm.server.data.model.ModelDownloadStatus
 import com.ollitert.llm.server.data.model.ModelDownloadStatusType
@@ -141,6 +142,10 @@ fun DownloadAndTryButton(
   activeModelName: String? = null,
   isSecondModelLoaded: Boolean = false,
   isSecondModelLoading: Boolean = false,
+  isAudioModelLoaded: Boolean = false,
+  isAudioModelLoading: Boolean = false,
+  onLoadAudio: (AudioTask, String) -> Unit = { _, _ -> },
+  onStopAudio: (AudioTask, String) -> Unit = { _, _ -> },
   onStopServer: () -> Unit = {},
   onStopSecondary: () -> Unit = {},
 ) {
@@ -294,7 +299,166 @@ fun DownloadAndTryButton(
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
 
-    if (isSecondModelLoading) {
+    val audioTask = model.audioTask
+    if (audioTask != null) {
+      // ── Audio card (ASR/TTS) ───────────────────────────────────────────────
+      // Not a chat model: the button loads the MediaPipe engine into its slot
+      // while the server runs (or offers a download until then).
+      val taskLabel = if (audioTask == AudioTask.ASR) "ASR" else "TTS"
+      if (isAudioModelLoading) {
+        Button(
+          modifier = buttonModifier,
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+          ),
+          contentPadding = PaddingValues(horizontal = 12.dp),
+          enabled = false,
+          onClick = {},
+        ) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            CircularProgressIndicator(
+              modifier = Modifier.size(18.dp),
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              strokeWidth = 2.dp,
+            )
+            if (!compact) {
+              Text(
+                stringResource(R.string.toast_audio_model_loading, taskLabel),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              )
+            }
+          }
+        }
+      } else if (isAudioModelLoaded) {
+        // Resident in its engine slot: badge + explicit stop (mirrors the second-model row).
+        if (compact) {
+          Button(
+            modifier = buttonModifier,
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            onClick = { onStopAudio(audioTask, model.name) },
+          ) {
+            Icon(
+              Icons.Outlined.StopCircle,
+              contentDescription = stringResource(R.string.cd_stop_audio_model),
+              tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+          }
+        } else {
+          Row(
+            modifier = buttonModifier,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Button(
+              modifier = Modifier.weight(1f),
+              enabled = false,
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                disabledContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+              ),
+              contentPadding = PaddingValues(horizontal = 12.dp),
+              onClick = {},
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                Icon(
+                  Icons.Outlined.CheckCircle,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Text(
+                  stringResource(R.string.audio_model_loaded, taskLabel),
+                  color = MaterialTheme.colorScheme.onTertiaryContainer,
+                  style = MaterialTheme.typography.titleMedium,
+                  maxLines = 1,
+                  autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+                )
+              }
+            }
+            Button(
+              modifier = Modifier.weight(1f),
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+              ),
+              contentPadding = PaddingValues(horizontal = 12.dp),
+              onClick = { onStopAudio(audioTask, model.name) },
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                Icon(
+                  Icons.Outlined.StopCircle,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.error,
+                )
+                Text(
+                  stringResource(R.string.button_stop_audio_model, taskLabel),
+                  color = MaterialTheme.colorScheme.error,
+                  style = MaterialTheme.typography.titleMedium,
+                  maxLines = 1,
+                  autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+                )
+              }
+            }
+          }
+        }
+      } else {
+        // Not loaded: offer the load (disabled until the server is running — the engines
+        // live inside the server process).
+        val isServerRunning = serverStatus == ServerStatus.RUNNING
+        Box(modifier = buttonModifier) {
+          Button(
+            modifier = Modifier.defaultMinSize(minHeight = 42.dp).fillMaxWidth(),
+            enabled = isServerRunning,
+            colors = ButtonDefaults.buttonColors(
+              disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              containerColor = MaterialTheme.colorScheme.primary,
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            onClick = { onLoadAudio(audioTask, model.name) },
+          ) {
+            val textColor = if (!isServerRunning) {
+              MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            } else {
+              MaterialTheme.colorScheme.onPrimary
+            }
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                Icons.AutoMirrored.Rounded.ArrowForward,
+                contentDescription = null,
+                tint = textColor,
+              )
+              if (!compact) {
+                Text(
+                  stringResource(R.string.load_audio_model, taskLabel),
+                  color = textColor,
+                  style = MaterialTheme.typography.titleMedium,
+                  maxLines = 1,
+                  autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+                )
+              }
+            }
+          }
+          if (!isServerRunning) {
+            LoadingBlockingOverlay(stringResource(R.string.model_start_server_for_audio))
+          }
+        }
+      }
+    } else if (isSecondModelLoading) {
       // Second model's native init in flight (loaded alongside the running chat model):
       // explicit loading state until it becomes resident and shows the loaded badge.
       Button(
