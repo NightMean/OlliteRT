@@ -119,7 +119,7 @@ object RequestLogStore {
     maxEntries = max
     val cap = effectiveMaxEntries
     _entries.update { current ->
-      if (current.size > cap) current.take(cap) else current
+      if (current.size > cap) current.evictToCap(cap) else current
     }
   }
 
@@ -151,9 +151,7 @@ object RequestLogStore {
       buildList {
         add(entry) // newest first
         addAll(current)
-        val cap = effectiveMaxEntries
-        if (size > cap) removeAt(lastIndex)
-      }.enforceBodyBudget(bodyBudgetChars)
+      }.evictToCap(effectiveMaxEntries).enforceBodyBudget(bodyBudgetChars)
     }
     persistenceCallback?.onEntryAdded(entry)
   }
@@ -312,7 +310,7 @@ object RequestLogStore {
       val persistedOnly = clamped.filterNot { it.id in currentIds }
       (persistedOnly + current)
         .sortedByDescending { it.timestamp }
-        .take(effectiveMaxEntries)
+        .evictToCap(effectiveMaxEntries)
         .enforceBodyBudget(bodyBudgetChars)
     }
   }
@@ -384,6 +382,24 @@ object RequestLogStore {
   }
 }
 
+
+/**
+ * Trim [this] to at most [cap] entries (newest first). When trimming is needed the
+ * OLDEST non-EVENT (HTTP request) entries are evicted before any event — events
+ * (model/audio load, unload, errors) are rare and hard to reproduce, while request
+ * rows are numerous and cheap (HA polls /metrics continuously and would otherwise
+ * evict every event within minutes). Falls back to evicting the oldest event only
+ * when no request rows remain.
+ */
+private fun List<RequestLogEntry>.evictToCap(cap: Int): List<RequestLogEntry> {
+  if (size <= cap) return this
+  val list = toMutableList()
+  while (list.size > cap) {
+    val requestIdx = (list.lastIndex downTo 0).firstOrNull { list[it].method != "EVENT" }
+    list.removeAt(requestIdx ?: list.lastIndex)
+  }
+  return list
+}
 
 /** Memory cost proxy for one retained entry: its stored body payloads. */
 private fun RequestLogEntry.bodyChars(): Long =

@@ -139,15 +139,21 @@ object NotificationHelper {
     resetPositionIntent: PendingIntent?,
     cachedUpdateVersion: String?,
     secondaryModelName: String? = null,
+    asrModelName: String? = null,
+    ttsModelName: String? = null,
   ) {
     val count = ServerMetrics.requestCount.value
     val reqLabel = context.resources.getQuantityString(R.plurals.notif_server_body_requests, count.toInt(), count)
     val secondModelLine = secondaryModelName?.let { "\n${context.getString(R.string.notif_server_body_second_model, it, ServerMetrics.secondaryModelInstanceCount.value)}" } ?: ""
+    val audioLines = buildString {
+      ttsModelName?.let { append("\n").append(context.getString(R.string.notif_server_body_tts_model, it)) }
+      asrModelName?.let { append("\n").append(context.getString(R.string.notif_server_body_asr_model, it)) }
+    }
     val updateLine = if (cachedUpdateVersion != null) "\n${context.getString(R.string.notif_server_body_update, cachedUpdateVersion.removePrefix("v"))}" else ""
     update(
       context = context,
       title = context.getString(R.string.notif_server_running_title),
-      text = "$reqLabel\n${context.getString(R.string.notif_server_body_url, endpointUrl)}\n${context.getString(R.string.notif_server_body_model, modelName)}$secondModelLine$updateLine",
+      text = "$reqLabel\n${context.getString(R.string.notif_server_body_url, endpointUrl)}\n${context.getString(R.string.notif_server_body_model, modelName)}$secondModelLine$audioLines$updateLine",
       contentIntent = contentIntent,
       stopIntent = stopIntent,
       copyIntent = copyIntent,

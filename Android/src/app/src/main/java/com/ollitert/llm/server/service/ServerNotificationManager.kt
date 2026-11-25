@@ -208,6 +208,8 @@ class ServerNotificationManager(private val context: Context) {
       cachedUpdateVersion = ServerMetrics.availableUpdateVersion.value,
       // Read live: the second model can load/unload at any time after server start.
       secondaryModelName = ServerMetrics.secondaryModelName.value,
+      asrModelName = ServerMetrics.asrModelName.value,
+      ttsModelName = ServerMetrics.ttsModelName.value,
     )
   }
 

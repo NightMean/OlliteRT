@@ -78,6 +78,8 @@ fun StatusScreen(
   val globalLastLatencyMs by serverViewModel.lastLatencyMs.collectAsStateWithLifecycle()
   val globalPeakLatencyMs by serverViewModel.peakLatencyMs.collectAsStateWithLifecycle()
   val globalAvgLatencyMs by serverViewModel.avgLatencyMs.collectAsStateWithLifecycle()
+  val asrModelName by serverViewModel.asrModelName.collectAsStateWithLifecycle()
+  val ttsModelName by serverViewModel.ttsModelName.collectAsStateWithLifecycle()
   val globalTextRequests by serverViewModel.textRequests.collectAsStateWithLifecycle()
   val globalImageRequests by serverViewModel.imageRequests.collectAsStateWithLifecycle()
   val globalAudioRequests by serverViewModel.audioRequests.collectAsStateWithLifecycle()
@@ -233,6 +235,8 @@ fun StatusScreen(
         loadingElapsedSeconds = loadingElapsedSeconds,
         lastError = lastError,
         secondaryModelName = secondaryModelDisplayName,
+        asrModelName = if (status == ServerStatus.RUNNING) asrModelName else null,
+        ttsModelName = if (status == ServerStatus.RUNNING) ttsModelName else null,
         onReloadClick = { showReloadDialog = true },
       )
 

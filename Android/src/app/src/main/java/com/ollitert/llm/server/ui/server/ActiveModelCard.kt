@@ -70,6 +70,8 @@ internal fun ActiveModelCard(
   loadingElapsedSeconds: Long,
   lastError: String?,
   secondaryModelName: String? = null,
+  asrModelName: String? = null,
+  ttsModelName: String? = null,
   onReloadClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -186,6 +188,20 @@ internal fun ActiveModelCard(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.tertiary,
           )
+        }
+        if (!isStopped) {
+          val audioParts = buildList {
+            ttsModelName?.let { add(stringResource(R.string.status_audio_tts, it)) }
+            asrModelName?.let { add(stringResource(R.string.status_audio_asr, it)) }
+          }
+          if (audioParts.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+              text = audioParts.joinToString("  ·  "),
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.tertiary,
+            )
+          }
         }
       }
       if (!isStopped) {
