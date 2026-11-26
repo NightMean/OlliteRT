@@ -88,3 +88,7 @@ Android/src/app/dev/
 .tmp/
 # Worktrees
 .worktrees/
+
+# On-device model weights (downloaded at runtime; never commit — >100MB breaks GitHub push)
+models/*.litertlm
+models/*.tflite
