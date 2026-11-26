@@ -48,6 +48,12 @@
 # Keep the LiteRT LM SDK classes (native bridge)
 -keep class com.google.ai.edge.litertlm.** { *; }
 
+# --- MediaPipe Tasks Audio ---
+# Keep MediaPipe ASR/TTS classes. The native runtime (MediaPipeTtsJni) constructs
+# AudioChunk and reads result fields via JNI, so R8 must not strip their
+# constructors/members (otherwise TTS throws NoSuchMethodError at runtime).
+-keep class com.google.mediapipe.tasks.audio.** { *; }
+
 # --- Compose ---
 # Compose compiler handles most optimizations; keep runtime stability annotations
 -dontwarn androidx.compose.**

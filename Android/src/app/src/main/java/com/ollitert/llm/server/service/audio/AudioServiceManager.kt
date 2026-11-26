@@ -65,6 +65,18 @@ class AudioServiceManager(private val context: Context) {
 
   fun currentTtsModelId(): String? = ttsModelId
 
+  /**
+   * True when a usable ASR model file is present on disk for [modelId] (defaults to the Parakeet
+   * TDT bundle). A cheap file-existence probe that does NOT load the engine — used to decide
+   * whether the standard /v1/audio/transcriptions endpoint should prefer the dedicated MediaPipe
+   * ASR engine over the chat-model transcription path.
+   */
+  fun asrModelAvailable(modelId: String? = null): Boolean {
+    val id = modelId ?: AudioModelSpecs.PARAKEET_TDT_06B_V3_ID
+    val file = AudioModelSpecs.resolveFile(context, id) ?: return false
+    return file.exists()
+  }
+
   suspend fun loadAsr(modelId: String, modelFile: File? = null): MediaPipeAsrEngine = mutex.withLock {
     val spec = AudioModelSpecs.byId(modelId)
       ?: throw ModelNotFoundException("Unknown ASR model id: $modelId")

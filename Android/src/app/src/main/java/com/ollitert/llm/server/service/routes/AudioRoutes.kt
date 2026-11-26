@@ -117,6 +117,37 @@ internal fun Routing.audioRoutes(server: KtorServer) {
 
           val actualSize = upload.fileBytes?.size?.toLong() ?: contentLengthHeader ?: 0L
 
+          // ── /v1/audio/transcriptions routing ─────────────────────────────
+          // Prefer the dedicated on-device MediaPipe ASR engine (Parakeet) when
+          // its model file is present. asrModelAvailable() is a cheap
+          // file-existence probe (it does NOT load the engine), so the fast path
+          // (~0.6s warm) is selected dynamically, per request. The HA voice
+          // bridge and OpenAI clients hardcode this standard OpenAI path, so
+          // serving Parakeet here removes the need for an external path-rewrite
+          // shim that repoints /v1/audio/transcriptions → /v1/audio/asr.
+          //
+          // FALLBACK: when the Parakeet model is absent, the route falls through
+          // to the chat-model path below (selectModel + audioTranscriptionHandler),
+          // which transcribes via the active model's audio modality (slower, ~7s).
+          // That path requires a chat model with audio capability to be loaded
+          // (e.g. Gemma-4-E4B-it); without one, model selection fails and the
+          // request 4xx's.
+          if (audioServiceManager.asrModelAvailable()) {
+            RequestLogStore.update(logId) { it.copy(modelName = "mediapipe-asr") }
+            val response = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+              audioHandler.handle(upload.fileBytes, upload.fields, actualSize, logId = logId, prefs = prefs)
+            }
+            val mpResponseBody = when (response) {
+              is HttpResponse.Json -> response.body
+              is HttpResponse.PlainText -> response.body
+              else -> null
+            }
+            finalizeLogEntry(logId, startMs, response, "[multipart audio $actualSize bytes -> mediapipe-asr]", mpResponseBody)
+            call.response.headers.append("x-request-id", logId)
+            call.respondHttpResponse(response)
+            return@post
+          }
+
           val admission = modelLifecycle.tryAcquireRequestAdmission()
           if (admission == null) {
             val response = httpServiceUnavailable(MODEL_RECOVERY_IN_PROGRESS_MESSAGE)
