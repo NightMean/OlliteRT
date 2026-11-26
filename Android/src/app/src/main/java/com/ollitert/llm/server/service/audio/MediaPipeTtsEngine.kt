@@ -67,6 +67,15 @@ class MediaPipeTtsEngine(
   @Volatile
   private var tts: TextToSpeech? = null
 
+  /**
+   * The voice the current task instance has graphed (last task creation). Each Kokoro voice is
+   * an internal vocoder graph on the GPU; the task accumulates them and never releases them,
+   * so a third voice poisons Mali allocations ("Failed to invoke the compiled model",
+   * kokoro_vocoder_stage.cc) and sticks the engine. Switching voices recreates the task so at
+   * most one voice graph is resident at a time.
+   */
+  @Volatile
+  private var loadedVoiceId: String? = null
 
   fun voices(): List<String> = tts?.listVoices()?.map { it.voiceId }?.filter { it.isNotEmpty() } ?: spec.defaultVoiceIds
 
@@ -79,6 +88,24 @@ class MediaPipeTtsEngine(
     if (tts != null) return
     prepareMutex.withLock {
       if (tts != null) return@withLock
+    val instance = withContext(engineDispatcher) { createTask() }
+    tts = instance
+    // Warm up the loaded model on the engine thread. Warm-up is best-effort — the engine
+    // still works if it fails.
+    if (spec.warmUpText.isNotEmpty()) {
+      try {
+        withContext(engineDispatcher) {
+          synthesizeLocked(spec.warmUpText, null, null)
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "TTS warm-up failed (non-fatal)", e)
+      }
+    }
+    }
+  }
+
+  /** Builds the task options and creates a fresh task. Must run on the engine dispatcher. */
+  private fun createTask(): TextToSpeech {
     val resolvedDelegate =
       if (delegate != null && (spec.supportsGpu || delegate == Delegate.CPU)) delegate
       else if (spec.supportsGpu) Delegate.GPU else Delegate.CPU
@@ -93,19 +120,35 @@ class MediaPipeTtsEngine(
       speakingRate = speakingRate.coerceIn(0.25f, 4.0f),
       cacheDirectory = cacheDir.absolutePath,
     )
-    val instance = withContext(engineDispatcher) { TextToSpeech.create(options) }
-    tts = instance
-    // Warm up the loaded model on the engine thread. Warm-up is best-effort — the engine
-    // still works if it fails.
+    return TextToSpeech.create(options)
+  }
+
+  /**
+   * Closes the current task (releasing its resident voice graph from the GPU) and creates a
+   * fresh one, then best-effort warms it with [voiceId] so the internal graph is built now and
+   * any allocation failure surfaces here, where the caller's retry layer can catch it. Must run
+   * on the engine dispatcher while no synthesis is in flight (the inFlight guard in
+   * [synthesize] makes it so).
+   */
+  private suspend fun recreateTaskForVoice(voiceId: String?) {
+    val old = tts
+    tts = null
+    runCatching { old?.close() }.onFailure { Log.w(TAG, "TTS task close failed", it) }
+    val fresh = createTask()
+    tts = fresh
+    loadedVoiceId = voiceId
     if (spec.warmUpText.isNotEmpty()) {
-      try {
-        withContext(engineDispatcher) {
-          synthesizeLocked(spec.warmUpText, null, null)
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "TTS warm-up failed (non-fatal)", e)
-      }
-    }
+      runCatching {
+        fresh
+          .synthesizeStream(
+            spec.warmUpText,
+            SynthesisOptions(
+              voiceId = voiceId?.takeIf { it.isNotEmpty() },
+              locale = null,
+            ),
+          )
+          .collect { }
+      }.onFailure { Log.w(TAG, "TTS re-warm-up after recreate failed (non-fatal)", it) }
     }
   }
 
@@ -123,7 +166,24 @@ class MediaPipeTtsEngine(
     }
     try {
       return withContext(engineDispatcher) {
-        synthesizeLocked(text.trim(), voiceId, locale)
+        val wantVoice = voiceId?.takeIf { it.isNotEmpty() }
+        if (wantVoice != null && wantVoice != loadedVoiceId) {
+          // A voice switch would accumulate a second resident GPU graph in the task — recreate
+          // instead (see loadedVoiceId).
+          recreateTaskForVoice(wantVoice)
+        }
+        try {
+          synthesizeLocked(text.trim(), wantVoice, locale)
+        } catch (e: Exception) {
+          // Sticky GPU allocation failure ("Failed to invoke the compiled model"): the task's
+          // graph is poisoned for its life. Recreate it once and retry the same request. We are
+          // on our own coroutine frame here (the exception already propagated out of the native
+          // call), so closing the task is safe — the native-callback close deadlock of the chat
+          // engine does not apply. A second failure propagates to the caller (500).
+          Log.w(TAG, "TTS synthesis failed, recreating task and retrying once", e)
+          recreateTaskForVoice(wantVoice)
+          synthesizeLocked(text.trim(), wantVoice, locale)
+        }
       }
     } finally {
       inFlight.set(false)
